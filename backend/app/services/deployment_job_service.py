@@ -14,10 +14,12 @@ from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
 
-# Unified job kinds (see register_jobs()): asynchronous template installs and
-# builds/deploys of existing apps (e.g. repo-based services from Flow A).
+# Unified job kinds (see register_jobs()): asynchronous template installs,
+# builds/deploys of existing apps (e.g. repo-based services from Flow A), and
+# simulated demo deploys (plan 51.5 dev tool).
 JOB_KIND = 'deploy.install'
 APP_JOB_KIND = 'deploy.app'
+DEMO_JOB_KIND = 'deploy.demo'
 
 
 class DeploymentJobService:
@@ -165,6 +167,10 @@ class DeploymentJobService:
         if job.kind == 'app_deploy':
             return cls._run_app_deploy(job)
 
+        if job.kind == 'demo_deploy':
+            from app.services.demo_deploy_service import DemoDeployService
+            return DemoDeployService.run(job)
+
         if job.kind != 'template_install':
             return {'success': False, 'error': f'Unsupported deployment job kind: {job.kind}'}
 
@@ -238,7 +244,10 @@ class DeploymentJobService:
         db.session.add(clone)
         db.session.commit()
 
-        enqueue = cls._enqueue_app_deploy if clone.kind == 'app_deploy' else cls._enqueue_install
+        enqueue = {
+            'app_deploy': cls._enqueue_app_deploy,
+            'demo_deploy': cls._enqueue_demo,
+        }.get(clone.kind, cls._enqueue_install)
         try:
             enqueue(clone)
         except Exception as exc:
@@ -480,12 +489,40 @@ class DeploymentJobService:
         }
 
     @classmethod
+    def _enqueue_demo(cls, job: DeploymentJob):
+        """Hand a simulated demo deploy to the unified job system (same
+        pattern as ``_enqueue_install``)."""
+        from app.jobs.service import JobService
+        return JobService.enqueue(
+            DEMO_JOB_KIND,
+            payload={'deployment_job_id': job.id},
+            max_attempts=1,
+            owner_type='deployment_job',
+            owner_id=job.id,
+            correlation_id=job.correlation_id,
+        )
+
+    @staticmethod
+    def _run_demo_job(unified_job):
+        """Unified-job handler for ``deploy.demo`` (same shape as
+        ``_run_install_job``): a scripted failure raises so the unified job is
+        marked failed too."""
+        deployment_job_id = (unified_job.get_payload() or {}).get('deployment_job_id')
+        if not deployment_job_id:
+            raise ValueError('deploy.demo job missing deployment_job_id')
+        result = DeploymentJobService.run_job(deployment_job_id)
+        if not result.get('success'):
+            raise RuntimeError(result.get('error') or 'Demo deployment failed')
+        return {'deployment_job_id': deployment_job_id}
+
+    @classmethod
     def register_jobs(cls):
         """Register deployment handlers with the unified job registry. Called once
         at app startup (see app/__init__.py)."""
         from app.jobs import registry
         registry.register(JOB_KIND, cls._run_install_job, replace=True)
         registry.register(APP_JOB_KIND, cls._run_app_deploy_job, replace=True)
+        registry.register(DEMO_JOB_KIND, cls._run_demo_job, replace=True)
         cls._reconcile_interrupted_jobs()
 
     @classmethod
