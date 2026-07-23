@@ -9,9 +9,11 @@ import {
     Loader2,
     GitBranch,
     PlayCircle,
+    FlaskConical,
 } from 'lucide-react';
 import api from '../services/api';
 import { StatStrip, Stat } from '../components/StatCard';
+import Modal from '../components/Modal';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 
@@ -53,6 +55,13 @@ const Deployments = () => {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const refreshRef = useRef(null);
 
+    // Simulated deployments (dev-only): null until the backend confirms the
+    // gate is on — a 404 (production) simply keeps the trigger hidden.
+    const [simInfo, setSimInfo] = useState(null);
+    const [simOpen, setSimOpen] = useState(false);
+    const [simSpeed, setSimSpeed] = useState('fast');
+    const [simBusy, setSimBusy] = useState(null);
+
     const loadJobs = async () => {
         try {
             const params = {};
@@ -78,7 +87,21 @@ const Deployments = () => {
 
     useEffect(() => {
         loadServers();
+        api.getDeploySimulateInfo()
+            .then((data) => setSimInfo(data?.enabled ? data : null))
+            .catch(() => setSimInfo(null));
     }, []);
+
+    const runScenario = async (scenarioId) => {
+        setSimBusy(scenarioId);
+        try {
+            const res = await api.simulateDeployment(scenarioId, simSpeed);
+            if (res?.job_id) navigate(`/deployments/${res.job_id}`);
+        } catch (err) {
+            console.error('Failed to start test deployment', err);
+            setSimBusy(null);
+        }
+    };
 
     useEffect(() => {
         loadJobs();
@@ -101,6 +124,12 @@ const Deployments = () => {
 
     useTopbarActions(() =>
         <>
+            {simInfo?.enabled && (
+                <Button variant="outline" size="sm" onClick={() => setSimOpen(true)}>
+                    <FlaskConical size={16} />
+                    Test deployment
+                </Button>
+            )}
             <Button variant="outline" size="sm" asChild>
                 <Link to="/services/new">
                     <GitBranch size={16} />
@@ -120,7 +149,7 @@ const Deployments = () => {
                 <RefreshCw size={16} /> Refresh
             </Button>
         </>,
-        [autoRefresh]
+        [autoRefresh, simInfo?.enabled]
     );
 
     return (
@@ -224,6 +253,44 @@ const Deployments = () => {
                     )}
                 </div>
             </div>
+
+            <Modal
+                open={simOpen}
+                onClose={() => setSimOpen(false)}
+                title="Run a test deployment"
+                size="md"
+            >
+                <p className="deployments-page__sim-intro">
+                    Streams scripted output through the real deploy pipeline — no
+                    containers, files, or servers are touched. Development only.
+                </p>
+                <label className="deployments-page__sim-speed">
+                    Speed
+                    <select value={simSpeed} onChange={(e) => setSimSpeed(e.target.value)}>
+                        <option value="fast">Fast</option>
+                        <option value="realtime">Realtime</option>
+                    </select>
+                </label>
+                <div className="deployments-page__sim-list">
+                    {(simInfo?.scenarios || []).map((s) => (
+                        <button
+                            key={s.id}
+                            type="button"
+                            className="deployments-page__sim-scenario"
+                            onClick={() => runScenario(s.id)}
+                            disabled={simBusy !== null}
+                        >
+                            <span className="deployments-page__sim-scenario-text">
+                                <strong>{s.name}</strong>
+                                <span>{s.description}</span>
+                            </span>
+                            {simBusy === s.id && (
+                                <Loader2 size={15} className="deployments-page__spin" />
+                            )}
+                        </button>
+                    ))}
+                </div>
+            </Modal>
         </div>
     );
 };

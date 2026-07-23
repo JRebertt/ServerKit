@@ -350,6 +350,82 @@
     &__spin {
         animation: deployments-spin 1s linear infinite;
     }
+
+    // ---- test-deployment (simulated) scenario picker ----
+    &__sim-intro {
+        margin: 0 0 $space-3;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        line-height: 1.5;
+    }
+
+    &__sim-speed {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        margin-bottom: $space-3;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-semibold;
+
+        select {
+            min-height: 30px;
+            padding: $space-1 $space-2;
+            background: $bg-elevated;
+            border: 1px solid $border-subtle;
+            border-radius: $radius-md;
+            color: $text-primary;
+            font-size: $font-size-sm;
+            cursor: pointer;
+        }
+    }
+
+    &__sim-list {
+        display: grid;
+        gap: $space-2;
+    }
+
+    &__sim-scenario {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        width: 100%;
+        padding: $space-3;
+        background: $bg-elevated;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
+        cursor: pointer;
+        text-align: left;
+
+        &:hover:not(:disabled) {
+            background: $bg-hover;
+            border-color: $accent-primary;
+        }
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+    }
+
+    &__sim-scenario-text {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+
+        strong {
+            color: $text-primary;
+            font-size: $font-size-sm;
+            font-weight: $font-weight-semibold;
+        }
+
+        span {
+            color: $text-tertiary;
+            font-size: $font-size-xs;
+            line-height: 1.4;
+        }
+    }
 }
 
 @keyframes deployments-spin {

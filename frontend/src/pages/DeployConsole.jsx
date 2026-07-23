@@ -27,6 +27,10 @@ const fmtElapsed = (ms) => {
 
 function humanizeTitle(job) {
     if (!job) return 'Deployment';
+    if (job.kind === 'demo_deploy') {
+        const scenario = job.plan?.scenario || job.result?.scenario;
+        return `Test deployment${scenario ? ` — ${scenario}` : ''}`;
+    }
     if (job.kind === 'template_install') {
         const name = job.plan?.template_name || job.plan?.app_name || job.app_name || 'app';
         return `Installing ${name}`;
@@ -167,6 +171,11 @@ export default function DeployConsole() {
                 </Link>
                 <h1 className="deploy-console__title">{humanizeTitle(job)}</h1>
                 <div className="deploy-console__meta">
+                    {job?.kind === 'demo_deploy' && (
+                        <span className="deploy-console__pill deploy-console__pill--demo" title="Scripted test deployment — no real resources were touched">
+                            Simulated
+                        </span>
+                    )}
                     <span className={`deploy-console__pill deploy-console__pill--${meta.cls}`}>
                         <StatusIcon size={14} className={status === 'running' ? 'deploy-console__spin' : ''} />
                         {meta.label}

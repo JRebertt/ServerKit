@@ -76,6 +76,13 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         &--running { background: var(--accent-bg); color: var(--accent-bright); }
         &--succeeded { background: var(--green-bg); color: var(--green); }
         &--failed { background: var(--red-bg); color: var(--red); }
+
+        // Demo/simulated jobs (plan 51.5): visually distinct from status pills.
+        &--demo {
+            background: transparent;
+            color: $text-tertiary;
+            border: 1px dashed $border-subtle;
+        }
     }
 
     &__step-count,
