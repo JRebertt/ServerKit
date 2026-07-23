@@ -16,7 +16,10 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     display: flex;
     flex-direction: column;
     gap: $space-3;
-    min-height: 0;
+    // Fill the content area so the log pane reaches the bottom of the
+    // viewport instead of stopping at its 320px floor (topbar + main-content
+    // padding ≈ 200px, same per-page constant idiom as _terminal.scss).
+    min-height: calc(100vh - 200px);
 
     &__spin {
         animation: dc-spin 1s linear infinite;
@@ -120,9 +123,10 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     // ---- body: rail + main ----
     &__body {
         display: grid;
-        grid-template-columns: 220px minmax(0, 1fr);
+        grid-template-columns: 248px minmax(0, 1fr);
         gap: $space-3;
         align-items: stretch;
+        flex: 1;
         min-height: 0;
 
         @media (max-width: 720px) {
@@ -203,7 +207,7 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         align-items: center;
         justify-content: space-between;
         gap: $space-2;
-        padding: $space-2;
+        padding: $space-2 $space-3;
         background: $bg-card;
         border-bottom: 1px solid $border-subtle;
         flex-wrap: wrap;
@@ -252,6 +256,9 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         border-radius: $radius-md;
         border: 1px solid $border-subtle;
         color: $text-tertiary;
+        flex: 1 1 160px;
+        max-width: 280px;
+        min-height: 28px;
 
         input {
             border: none;
@@ -259,7 +266,8 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
             color: $text-primary;
             font-size: $font-size-sm;
             outline: none;
-            width: 140px;
+            width: 100%;
+            min-width: 0;
         }
     }
 

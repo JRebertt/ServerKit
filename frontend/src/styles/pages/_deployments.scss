@@ -1,45 +1,11 @@
 // ============================================
-// DEPLOYMENTS PAGE
+// DEPLOYMENTS PAGE  (/deployments)
+// Jobs index only — each row deep-links to the Deploy Console
+// (/deployments/:jobId, _deploy-console.scss). The old side detail pane was
+// removed in plan 51; plan 51.5 removed its leftover grid + styles.
 // ============================================
 
 .deployments-page {
-    --deployments-panel-min-height: 430px;
-
-    &__header {
-        align-items: flex-start;
-        gap: $space-4;
-        margin-bottom: $space-5;
-
-        .page-title {
-            display: flex;
-            align-items: center;
-            gap: $space-2;
-            margin: 0;
-
-            svg {
-                color: $text-secondary;
-            }
-        }
-    }
-
-    &__heading {
-        min-width: 0;
-    }
-
-    &__description {
-        margin: $space-1 0 0;
-        color: $text-tertiary;
-        font-size: $font-size-sm;
-        line-height: 1.45;
-    }
-
-    &__actions {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        flex-shrink: 0;
-    }
-
     &__toolbar {
         display: flex;
         align-items: center;
@@ -80,14 +46,7 @@
         }
     }
 
-    &__workspace {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(360px, 1.12fr);
-        gap: $space-4;
-    }
-
     &__panel {
-        min-height: var(--deployments-panel-min-height);
         background: $bg-card;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
@@ -117,8 +76,21 @@
         }
     }
 
+    &__loading {
+        display: grid;
+        gap: $space-4;
+        padding: $space-4;
+    }
+
+    &__loading-row {
+        display: grid;
+        grid-template-columns: 110px 1fr 1fr 1fr;
+        gap: $space-4;
+        align-items: center;
+    }
+
     &__empty {
-        min-height: calc(var(--deployments-panel-min-height) - 52px);
+        min-height: 320px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -173,13 +145,8 @@
             cursor: pointer;
             transition: background $transition-fast;
 
-            &:hover,
-            &.is-selected {
+            &:hover {
                 background: $bg-hover;
-            }
-
-            &.is-selected {
-                box-shadow: inset 3px 0 0 $accent-primary;
             }
 
             &:last-child td {
@@ -199,15 +166,21 @@
     &__progress {
         width: 100%;
         min-width: 88px;
+        max-width: 220px;
         height: 6px;
         background: $bg-elevated;
         border-radius: $radius-full;
         overflow: hidden;
+    }
 
-        > div {
-            height: 100%;
-            border-radius: inherit;
-            transition: width 200ms ease;
+    &__progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent-primary);
+        transition: width 200ms ease;
+
+        &--failed {
+            background: var(--red);
         }
     }
 
@@ -221,119 +194,6 @@
         margin-top: 3px;
     }
 
-    &__detail-panel {
-        display: flex;
-        flex-direction: column;
-    }
-
-    &__detail-content {
-        display: flex;
-        min-height: calc(var(--deployments-panel-min-height) - 52px);
-        flex-direction: column;
-        padding: $space-4;
-    }
-
-    &__detail-title {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: $space-3;
-
-        h3 {
-            margin: 0;
-            color: $text-primary;
-            font-size: $font-size-lg;
-        }
-
-        div div {
-            margin-top: 3px;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            word-break: break-all;
-        }
-    }
-
-    &__detail-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: $space-3;
-        margin-top: $space-4;
-    }
-
-    &__detail-metric {
-        padding: $space-3;
-        background: $bg-elevated;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-md;
-
-        span {
-            display: block;
-            margin-bottom: 3px;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            font-weight: $font-weight-semibold;
-            text-transform: uppercase;
-        }
-
-        div {
-            color: $text-primary;
-            font-size: $font-size-sm;
-            word-break: break-word;
-        }
-    }
-
-    &__notice {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        margin-top: $space-3;
-        padding: $space-3;
-        border-radius: $radius-md;
-        font-size: $font-size-sm;
-
-        &--running {
-            background: fade($accent-primary-raw, 10%);
-            color: #818cf8;
-        }
-
-        &--error {
-            background: fade($danger-raw, 10%);
-            border: 1px solid fade($danger-raw, 30%);
-            color: $danger;
-        }
-    }
-
-    &__logs-title {
-        margin: $space-5 0 $space-2;
-        color: $text-primary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-semibold;
-    }
-
-    &__logs {
-        flex: 1;
-        min-height: 260px;
-        max-height: 420px;
-        padding: $space-3;
-        overflow-y: auto;
-        background: #0b0f1a;
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        border-radius: $radius-md;
-        color: #cbd5e1;
-        font-family: $font-mono;
-        font-size: $font-size-xs;
-        line-height: 1.6;
-        white-space: pre-wrap;
-    }
-
-    &__log-time {
-        color: #64748b;
-    }
-
-    &__log-level {
-        color: #94a3b8;
-    }
-
     &__status-badge {
         display: inline-flex;
         align-items: center;
@@ -345,6 +205,11 @@
         line-height: 1;
         text-transform: capitalize;
         white-space: nowrap;
+
+        &--pending { background: var(--surface-3); color: var(--text-faint); }
+        &--running { background: var(--accent-bg); color: var(--accent-bright); }
+        &--succeeded { background: var(--green-bg); color: var(--green); }
+        &--failed { background: var(--red-bg); color: var(--red); }
     }
 
     &__spin {
@@ -438,34 +303,10 @@
     }
 }
 
-@media (max-width: $breakpoint-xl) {
-    .deployments-page {
-        &__detail-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-}
-
-@media (max-width: $breakpoint-lg) {
-    .deployments-page {
-        &__workspace {
-            grid-template-columns: 1fr;
-        }
-    }
-}
-
 @media (max-width: $breakpoint-md) {
     .deployments-page {
-        &__header {
-            flex-direction: column;
-        }
-
-        &__actions,
         &__toolbar {
             width: 100%;
-        }
-
-        &__toolbar {
             flex-direction: column;
             align-items: stretch;
         }
@@ -480,19 +321,6 @@
 
         &__jobs-table {
             min-width: 760px;
-        }
-    }
-}
-
-@media (max-width: $breakpoint-sm) {
-    .deployments-page {
-        &__detail-grid {
-            grid-template-columns: 1fr;
-        }
-
-        &__actions {
-            flex-direction: column;
-            align-items: stretch;
         }
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
     CheckCircle2,
     XCircle,
@@ -7,21 +7,27 @@ import {
     RefreshCw,
     Server,
     Loader2,
-    GitBranch,
     PlayCircle,
     FlaskConical,
 } from 'lucide-react';
 import api from '../services/api';
 import { StatStrip, Stat } from '../components/StatCard';
 import Modal from '../components/Modal';
+import Skeleton from '../components/Skeleton';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 
-const STATUS_COLORS = {
-    pending: { bg: 'var(--surface-3)', fg: 'var(--text-faint)', icon: Clock },
-    running: { bg: 'var(--accent-bg)', fg: 'var(--accent-bright)', icon: Loader2 },
-    succeeded: { bg: 'var(--green-bg)', fg: 'var(--green)', icon: CheckCircle2 },
-    failed: { bg: 'var(--red-bg)', fg: 'var(--red)', icon: XCircle },
+const STATUS_ICONS = {
+    pending: Clock,
+    running: Loader2,
+    succeeded: CheckCircle2,
+    failed: XCircle,
+};
+
+const KIND_LABELS = {
+    app_deploy: 'App deploy',
+    template_install: 'Template install',
+    demo_deploy: 'Test (simulated)',
 };
 
 const formatTime = (iso) => {
@@ -34,12 +40,11 @@ const formatTime = (iso) => {
 };
 
 const StatusBadge = ({ status }) => {
-    const cfg = STATUS_COLORS[status] || STATUS_COLORS.pending;
-    const Icon = cfg.icon;
-    const spin = status === 'running';
+    const cls = STATUS_ICONS[status] ? status : 'pending';
+    const Icon = STATUS_ICONS[cls];
     return (
-        <span className="deployments-page__status-badge" style={{ background: cfg.bg, color: cfg.fg }}>
-            <Icon size={14} className={spin ? 'deployments-page__spin' : ''} />
+        <span className={`deployments-page__status-badge deployments-page__status-badge--${cls}`}>
+            <Icon size={14} className={cls === 'running' ? 'deployments-page__spin' : ''} />
             {status}
         </span>
     );
@@ -130,12 +135,6 @@ const Deployments = () => {
                     Test deployment
                 </Button>
             )}
-            <Button variant="outline" size="sm" asChild>
-                <Link to="/services/new">
-                    <GitBranch size={16} />
-                    New Service
-                </Link>
-            </Button>
             <Button
                 variant={autoRefresh ? 'default' : 'outline'}
                 size="sm"
@@ -185,73 +184,77 @@ const Deployments = () => {
                 </div>
             </div>
 
-            <div className="deployments-page__workspace">
-                <div className="deployments-page__panel deployments-page__jobs-panel">
-                    <div className="deployments-page__panel-header">
-                        <div>
-                            <h2>Jobs</h2>
-                            <span>{jobs.length} visible</span>
-                        </div>
+            <div className="deployments-page__panel deployments-page__jobs-panel">
+                <div className="deployments-page__panel-header">
+                    <div>
+                        <h2>Jobs</h2>
+                        <span>{jobs.length} visible</span>
                     </div>
-                    {loading ? (
-                        <div className="deployments-page__empty">Loading...</div>
-                    ) : jobs.length === 0 ? (
-                        <div className="deployments-page__empty">
-                            <PlayCircle size={34} />
-                            <strong>No deployment jobs yet</strong>
-                            <span>
-                                Create a service from a repository or install a template to see activity here.
-                            </span>
-                        </div>
-                    ) : (
-                        <table className="deployments-page__jobs-table">
-                            <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Kind</th>
-                                    <th>Target</th>
-                                    <th>App</th>
-                                    <th>Progress</th>
-                                    <th>Started</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {jobs.map((job) => (
-                                    <tr
-                                        key={job.id}
-                                        onClick={() => navigate(`/deployments/${job.id}`)}
-                                        title="Open the Deploy Console"
-                                    >
-                                        <td><StatusBadge status={job.status} /></td>
-                                        <td>{job.kind}</td>
-                                        <td>
-                                            <span className="deployments-page__server-cell">
-                                                <Server size={12} />
-                                                {job.target_server_name || 'Local server'}
-                                            </span>
-                                        </td>
-                                        <td>{job.app_name || '—'}</td>
-                                        <td>
-                                            <div className="deployments-page__progress">
-                                                <div
-                                                    style={{
-                                                        width: `${job.progress_percent || 0}%`,
-                                                        background:
-                                                            job.status === 'failed' ? 'var(--red)' : 'var(--accent-primary)',
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="deployments-page__progress-meta">
-                                                {job.current_step || 0}/{job.total_steps || 0}
-                                            </div>
-                                        </td>
-                                        <td className="deployments-page__time-cell">{formatTime(job.started_at || job.created_at)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
                 </div>
+                {loading ? (
+                    <div className="deployments-page__loading" aria-busy="true">
+                        {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="deployments-page__loading-row">
+                                <Skeleton variant="line" width={96} />
+                                <Skeleton variant="line" width="34%" />
+                                <Skeleton variant="line" width="20%" />
+                                <Skeleton variant="line" width="26%" />
+                            </div>
+                        ))}
+                    </div>
+                ) : jobs.length === 0 ? (
+                    <div className="deployments-page__empty">
+                        <PlayCircle size={34} />
+                        <strong>No deployment jobs yet</strong>
+                        <span>
+                            Create a service from a repository or install a template to see activity here.
+                        </span>
+                    </div>
+                ) : (
+                    <table className="deployments-page__jobs-table">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Kind</th>
+                                <th>Target</th>
+                                <th>App</th>
+                                <th>Progress</th>
+                                <th>Started</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {jobs.map((job) => (
+                                <tr
+                                    key={job.id}
+                                    onClick={() => navigate(`/deployments/${job.id}`)}
+                                    title="Open the Deploy Console"
+                                >
+                                    <td><StatusBadge status={job.status} /></td>
+                                    <td>{KIND_LABELS[job.kind] || job.kind}</td>
+                                    <td>
+                                        <span className="deployments-page__server-cell">
+                                            <Server size={12} />
+                                            {job.target_server_name || 'Local server'}
+                                        </span>
+                                    </td>
+                                    <td>{job.app_name || '—'}</td>
+                                    <td>
+                                        <div className="deployments-page__progress">
+                                            <div
+                                                className={`deployments-page__progress-fill${job.status === 'failed' ? ' deployments-page__progress-fill--failed' : ''}`}
+                                                style={{ width: `${job.progress_percent || 0}%` }}
+                                            />
+                                        </div>
+                                        <div className="deployments-page__progress-meta">
+                                            {job.current_step || 0}/{job.total_steps || 0}
+                                        </div>
+                                    </td>
+                                    <td className="deployments-page__time-cell">{formatTime(job.started_at || job.created_at)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             <Modal
