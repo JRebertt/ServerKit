@@ -20,6 +20,18 @@ awaiting a stable release:
 
 ### Added
 
+- **Test deployments (dev tool).** In development mode, Deploy Activity gains a
+  "Test deployment" action that streams a scripted deploy — success, failing
+  build, very long output, ANSI noise, or slow — through the real Deploy
+  Console pipeline, so console changes can be exercised with no Docker or
+  server. Off in production by default (`SERVERKIT_DEMO_DEPLOYS` to override).
+
+- **Deployment Activity layout fixes.** The jobs table now uses the full page
+  width — it previously sat in a half-width column beside empty space reserved
+  for a removed detail pane, which also clipped the Started column. Job kinds
+  read as plain labels ("App deploy"), loading shows skeleton rows, and the
+  Deploy Console log pane now fills the viewport height.
+
 - **Themes — pick a color theme, or build and share your own.** Settings →
   Appearance now has a Theme Gallery: swap the whole panel's palette instantly
   with one click — 17 built-in themes, from Paper, Nord Deep, Gruvbox, Phosphor
