@@ -98,6 +98,10 @@ queue = QueueBusSdk()
 notify = NotifySdk()
 jobs = JobsSdk()
 
+# Imported lazily inside the accessor: deploys pulls in the deployment
+# services, which import models, and this module is imported very early.
+_deploys = None
+
 
 def panel_version():
     """The panel's version string (for compat checks inside a plugin)."""
@@ -134,9 +138,31 @@ __all__ = [
     'queue',
     'notify',
     'jobs',
+    'deploys',
     'permissions',
     'require_permission',
     'panel_version',
     'config',
     'sockets',
 ]
+
+
+def __getattr__(name):
+    """Lazily expose ``deploys``.
+
+    The deploy SDK imports the deployment services (and therefore models),
+    while this module is imported early in app setup — binding it eagerly would
+    make plugins_sdk import-order sensitive for everyone, including the plugins
+    that never touch deployments.
+
+    The implementation lives in deploys_sdk.py, not deploys.py: a submodule of
+    that name would be bound as a package attribute on import and shadow this
+    accessor, handing callers the module instead of the SDK instance.
+    """
+    if name == 'deploys':
+        global _deploys
+        if _deploys is None:
+            from app.plugins_sdk.deploys_sdk import deploys as _d
+            _deploys = _d
+        return _deploys
+    raise AttributeError(name)

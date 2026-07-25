@@ -1,5 +1,6 @@
 """Deployment job orchestration service."""
 
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -9,7 +10,7 @@ from app import db
 from app.models import Application, Server
 from app.models.deployment_job import DeploymentJob
 from app.services.deployment_runner import DeploymentPlanRunner
-from app.services.run_log_service import append_log
+from app.services.run_log_service import append_log, RunLogStream
 from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
@@ -20,6 +21,9 @@ from app.services.telemetry_service import generate_correlation_id
 JOB_KIND = 'deploy.install'
 APP_JOB_KIND = 'deploy.app'
 DEMO_JOB_KIND = 'deploy.demo'
+REGISTERED_JOB_KIND = 'deploy.registered'
+
+logger = logging.getLogger(__name__)
 
 
 class DeploymentJobService:
@@ -171,6 +175,15 @@ class DeploymentJobService:
             from app.services.demo_deploy_service import DemoDeployService
             return DemoDeployService.run(job)
 
+        # Kinds contributed by plugins (see deploy_kind_registry). Checked
+        # before the unsupported-kind bail so a plugin's deployment runs through
+        # the same console, retry and activity feed as a core one.
+        if job.kind not in ('app_deploy', 'template_install', 'demo_deploy'):
+            from app.services import deploy_kind_registry
+            handler = deploy_kind_registry.get(job.kind)
+            if handler:
+                return cls._run_registered_kind(job, handler)
+
         if job.kind != 'template_install':
             return {'success': False, 'error': f'Unsupported deployment job kind: {job.kind}'}
 
@@ -244,10 +257,16 @@ class DeploymentJobService:
         db.session.add(clone)
         db.session.commit()
 
+        from app.services import deploy_kind_registry
         enqueue = {
             'app_deploy': cls._enqueue_app_deploy,
             'demo_deploy': cls._enqueue_demo,
-        }.get(clone.kind, cls._enqueue_install)
+        }.get(clone.kind)
+        if enqueue is None:
+            # A registered (plugin) kind retries through its own runner; only a
+            # genuine template_install falls through to the install queue.
+            enqueue = (cls._enqueue_registered if deploy_kind_registry.get(clone.kind)
+                       else cls._enqueue_install)
         try:
             enqueue(clone)
         except Exception as exc:
@@ -502,6 +521,119 @@ class DeploymentJobService:
             correlation_id=job.correlation_id,
         )
 
+    @classmethod
+    def start_registered(cls, kind: str, *, steps=None, app_id=None, server_id=None,
+                         user_id=None, trigger='manual', plan=None, wait=False) -> Dict:
+        """Create and queue a DeploymentJob for a registered (plugin) kind.
+
+        The public entry point behind ``app.plugins_sdk.deploys.start`` — the
+        caller supplies the step names its handler will walk, and gets back a
+        job id that already addresses the Deploy Console.
+        """
+        from app.services import deploy_kind_registry
+        if not deploy_kind_registry.get(kind):
+            return {'success': False, 'error': f'No handler registered for deployment kind "{kind}"'}
+
+        job = DeploymentJob(
+            id=str(uuid.uuid4()),
+            kind=kind,
+            status='pending',
+            app_id=app_id,
+            target_server_id=cls._normalize_server_id(server_id),
+            requested_by=user_id,
+            trigger=trigger,
+            correlation_id=generate_correlation_id(),
+        )
+        job.set_plan({**(plan or {}), 'steps': [{'name': n} for n in (steps or [])]})
+        job.total_steps = len(steps or [])
+        db.session.add(job)
+        db.session.commit()
+
+        if wait:
+            # Ran inline, so report what actually happened rather than merely
+            # that the job was created — a caller passing wait=True is asking
+            # for the outcome.
+            run_result = cls.run_job(job.id)
+            return {**run_result, 'job_id': job.id, 'job': job.to_dict()}
+
+        try:
+            cls._enqueue_registered(job)
+        except Exception as exc:
+            # Same guard as every other producer: never leave a runner-less
+            # 'pending' row behind.
+            db.session.rollback()
+            job.status = 'failed'
+            job.error_message = f'Failed to queue deployment: {exc}'
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {'success': False, 'error': job.error_message, 'job_id': job.id}
+
+        return {'success': True, 'job_id': job.id, 'job': job.to_dict()}
+
+    @classmethod
+    def _enqueue_registered(cls, job: DeploymentJob):
+        """Hand a plugin-contributed deployment to the unified job system."""
+        from app.jobs.service import JobService
+        return JobService.enqueue(
+            REGISTERED_JOB_KIND,
+            payload={'deployment_job_id': job.id},
+            max_attempts=1,
+            owner_type='deployment_job',
+            owner_id=job.id,
+            correlation_id=job.correlation_id,
+        )
+
+    @staticmethod
+    def _run_registered_job(unified_job):
+        """Unified-job handler for ``deploy.registered``."""
+        deployment_job_id = (unified_job.get_payload() or {}).get('deployment_job_id')
+        if not deployment_job_id:
+            raise ValueError('deploy.registered job missing deployment_job_id')
+        result = DeploymentJobService.run_job(deployment_job_id)
+        if not result.get('success'):
+            raise RuntimeError(result.get('error') or 'Deployment failed')
+        return {'deployment_job_id': deployment_job_id}
+
+    @classmethod
+    def _run_registered_kind(cls, job: DeploymentJob, handler) -> Dict:
+        """Run a plugin-contributed kind, owning the failure path ourselves.
+
+        A plugin handler is third-party code: if it raises, the job must still
+        end up visibly failed rather than stuck at 'running' forever with no
+        explanation — the same guarantee _reconcile_interrupted_jobs gives for
+        a lost process, applied to a lost handler.
+        """
+        job.status = 'running'
+        job.started_at = job.started_at or datetime.utcnow()
+        db.session.commit()
+
+        stream = RunLogStream.for_job(job)
+        try:
+            result = handler(job) or {}
+        except Exception as exc:
+            logger.exception('Deployment kind %s raised', job.kind)
+            stream.log('error', f'{job.kind} failed: {exc}')
+            stream.flush()
+            db.session.rollback()
+            job.status = 'failed'
+            job.error_message = str(exc)
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {'success': False, 'error': str(exc), 'job_id': job.id}
+
+        stream.flush()
+        # A handler may finalise the job itself; only fill in what it left.
+        if job.status not in ('succeeded', 'failed'):
+            job.status = 'succeeded' if result.get('success', True) else 'failed'
+            if not result.get('success', True):
+                job.error_message = result.get('error') or f'{job.kind} failed'
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+        # Handler extras first: the job's own status is the authoritative
+        # outcome and must not be overwritten by a handler that finalised the
+        # job one way and then returned the other.
+        return {**result, 'success': job.status == 'succeeded', 'job_id': job.id}
+
     @staticmethod
     def _run_demo_job(unified_job):
         """Unified-job handler for ``deploy.demo`` (same shape as
@@ -523,6 +655,7 @@ class DeploymentJobService:
         registry.register(JOB_KIND, cls._run_install_job, replace=True)
         registry.register(APP_JOB_KIND, cls._run_app_deploy_job, replace=True)
         registry.register(DEMO_JOB_KIND, cls._run_demo_job, replace=True)
+        registry.register(REGISTERED_JOB_KIND, cls._run_registered_job, replace=True)
         cls._reconcile_interrupted_jobs()
 
     @classmethod
