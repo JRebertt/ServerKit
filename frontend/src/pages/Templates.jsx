@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -688,21 +689,39 @@ const Templates = () => {
 
             {/* Template Detail Modal */}
             {selectedTemplate && !showInstallModal && (
-                <div className="modal-overlay" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
-                    <div className="modal template-detail-drawer" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <div className="template-detail-header">
-                                <div className="template-icon-large">
-                                    {renderIcon(selectedTemplate, 40)}
-                                </div>
-                                <div>
-                                    <h2>{selectedTemplate.name}</h2>
-                                    <span className="template-version">Version {selectedTemplate.version}</span>
-                                </div>
-                            </div>
-                            <button type="button" className="modal-close" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>&times;</button>
-                        </div>
-                        <div className="modal-body">
+                <Modal
+                    open
+                    onClose={() => { setSelectedTemplate(null); setRepoManifest(null); }}
+                    size="lg"
+                    className="template-detail-drawer"
+                    title={(
+                        <span className="template-detail-header">
+                            <span className="template-icon-large">
+                                {renderIcon(selectedTemplate, 40)}
+                            </span>
+                            <span>
+                                {selectedTemplate.name}
+                                <span className="template-version">Version {selectedTemplate.version}</span>
+                            </span>
+                        </span>
+                    )}
+                    footer={(
+                        <>
+                            <Button variant="outline" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
+                                Close
+                            </Button>
+                            {selectedTemplate.kind === 'repo' ? (
+                                <Button onClick={() => deployRepoTemplate(selectedTemplate.id)}>
+                                    <Rocket size={14} /> Deploy
+                                </Button>
+                            ) : (
+                                <Button onClick={() => setShowInstallModal(true)}>
+                                    Install Template
+                                </Button>
+                            )}
+                        </>
+                    )}
+                >
                             <p className="template-full-description">{selectedTemplate.description}</p>
 
                             <div className="template-links">
@@ -829,23 +848,7 @@ const Templates = () => {
                                     )}
                                 </div>
                             )}
-                        </div>
-                        <div className="modal-footer">
-                            <Button variant="outline" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
-                                Close
-                            </Button>
-                            {selectedTemplate.kind === 'repo' ? (
-                                <Button onClick={() => deployRepoTemplate(selectedTemplate.id)}>
-                                    <Rocket size={14} /> Deploy
-                                </Button>
-                            ) : (
-                                <Button onClick={() => setShowInstallModal(true)}>
-                                    Install Template
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                </Modal>
             )}
 
             {/* Install Modal (compose templates only) */}

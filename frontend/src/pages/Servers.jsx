@@ -919,23 +919,22 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
 Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registrationData.registration_token}"` : '';
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal server-setup-modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <div>
-                        <h2>{step === 1 ? (mode === 'link' ? 'Link to Master Panel' : 'Add Server') : (mode === 'pair' ? 'Pair Agent' : 'Connect Agent')}</h2>
-                        <p>
-                            {step === 1 && mode === 'link'
-                                ? 'Make THIS server manageable by another ServerKit panel — no agent install needed.'
-                                : step === 2 && mode !== 'pair'
-                                ? 'Paste the connection string into the agent, or run the one-liner installer.'
-                                : step === 2
-                                ? 'Enter the 6-char code shown on the agent and your passphrase.'
-                                : 'Connect an existing agent or set up a brand-new machine.'}
-                        </p>
-                    </div>
-                    <button type="button" className="modal-close" onClick={onClose}>&times;</button>
-                </div>
+        <Modal
+            open
+            onClose={onClose}
+            size="lg"
+            className="server-setup-modal"
+            title={step === 1 ? (mode === 'link' ? 'Link to Master Panel' : 'Add Server') : (mode === 'pair' ? 'Pair Agent' : 'Connect Agent')}
+        >
+                <p className="sk-modal__subtitle">
+                    {step === 1 && mode === 'link'
+                        ? 'Make THIS server manageable by another ServerKit panel — no agent install needed.'
+                        : step === 2 && mode !== 'pair'
+                        ? 'Paste the connection string into the agent, or run the one-liner installer.'
+                        : step === 2
+                        ? 'Enter the 6-char code shown on the agent and your passphrase.'
+                        : 'Connect an existing agent or set up a brand-new machine.'}
+                </p>
 
                 {step === 1 && (
                     <div className="mode-switcher">
@@ -1073,8 +1072,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+        </Modal>
     );
 };
 
