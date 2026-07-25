@@ -34,7 +34,6 @@ import Templates from './pages/Templates';
 import Servers from './pages/Servers';
 import ServerDetail from './pages/ServerDetail';
 import AgentFleet from './pages/AgentFleet';
-import FleetMonitor from './pages/FleetMonitor';
 import TabGroupLayout from './layouts/TabGroupLayout';
 import { SERVER_TABS } from './components/servers/serverTabs';
 import { DOMAIN_TABS } from './components/domains/domainTabs';
@@ -103,7 +102,7 @@ const PAGE_TITLES = {
     '/servers': 'Servers',
     '/downloads': 'Downloads',
     '/files': 'File Manager',
-    '/observability': 'Observability',
+    '/observability': 'Monitoring',
     '/monitoring': 'Monitoring',
     '/backups': 'Backups',
     '/cron': 'Cron Jobs',
@@ -114,7 +113,6 @@ const PAGE_TITLES = {
     '/connections/github-app/callback': 'GitHub Setup',
     '/migrate': 'Database Migration',
     '/fleet': 'Agent Fleet',
-    '/fleet-monitor': 'Fleet Monitor',
     '/agent-plugins': 'Extensions',
     '/server-templates': 'Server Templates',
     '/workspaces': 'Workspaces',
@@ -369,7 +367,6 @@ function AppRoutes() {
                 <Route element={<TabGroupLayout tabs={SERVER_TABS} groupId="servers" />}>
                     <Route path="servers" element={<Servers />} />
                     <Route path="fleet" element={<AgentFleet />} />
-                    <Route path="fleet-monitor" element={<FleetMonitor />} />
                     <Route path="fleet-proxy" element={<FleetProxy />} />
                     <Route path="server-templates" element={<ServerTemplates />} />
                     {groupRoutes.servers}
@@ -427,6 +424,11 @@ function AppRoutes() {
                     {groupRoutes.monitoring}
                 </Route>
                 <Route path="observability" element={<Navigate to="/monitoring" replace />} />
+                {/* Fleet Monitor folded into /monitoring: it asked the same
+                    questions at fleet scope, so its heatmap is now the Host
+                    health grid on the overview (click a card to re-scope the
+                    page) and its analytics are the Capacity tab. */}
+                <Route path="fleet-monitor" element={<Navigate to="/monitoring" replace />} />
                 {/* /gpu is contributed by the standalone serverkit-gpu extension. */}
                 <Route element={<TabGroupLayout tabs={BACKUP_TABS} />}>
                     <Route path="backups" element={<Backups />} />

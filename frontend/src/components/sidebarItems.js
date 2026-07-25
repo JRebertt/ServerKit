@@ -49,15 +49,16 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Servers uses the top-bar layout (REDESIGN_MAP §6 decision 3).
-        // Its Agent Fleet / Fleet Monitor / Cloud Servers / Config Templates
+        // Its Agent Fleet / Fleet Proxy / Cloud Servers / Config Templates
         // sub-nav now lives in the page's top bar (PageTopbar SERVER_TABS), not
-        // as sidebar sub-items. Routes /fleet, /fleet-monitor, /cloud,
+        // as sidebar sub-items. Routes /fleet, /fleet-proxy, /cloud,
         // /server-templates are unchanged and reachable from those tabs.
+        // (Fleet Monitor left this group for /monitoring.)
         id: 'servers',
         label: 'Servers',
         route: '/servers',
         // Keep "Servers" lit across the whole tab group (Agent Fleet, Fleet
-        // Monitor, Cloud Servers, Config Templates) — see serverTabs.jsx.
+        // Proxy, Cloud Servers, Config Templates) — see serverTabs.jsx.
         matchPrefixes: groupPrefixes(SERVER_TABS),
         category: 'infrastructure',
         icon: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>'
@@ -125,11 +126,13 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Monitoring uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
-        // Observability group (§4): Monitoring / Events / Status Pages share the
-        // top bar (PageTopbar MONITOR_TABS). The sidebar entry lights for any of
-        // them via matchPrefixes. Events absorbed the old standalone Telemetry.
+        // Its sections (Overview / Alerts / Rules / Capacity / Doctor / Events)
+        // share the top bar (PageTopbar MONITOR_TABS); the sidebar entry lights
+        // for any of them via matchPrefixes. Events absorbed the old standalone
+        // Telemetry. Labelled "Monitoring" to match the route and the page —
+        // this used to say "Observability", which named the same thing twice.
         id: 'monitoring',
-        label: 'Observability',
+        label: 'Monitoring',
         route: '/monitoring',
         matchPrefixes: groupPrefixes(MONITOR_TABS),
         category: 'operations',

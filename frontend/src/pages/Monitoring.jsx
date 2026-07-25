@@ -2,38 +2,34 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
-import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import DoctorPanel from '../components/monitoring/DoctorPanel';
+import MonitoringOverview from '../components/monitoring/MonitoringOverview';
+import FleetCapacityPanel from '../components/monitoring/FleetCapacityPanel';
+import FleetAlertsPanel from '../components/monitoring/FleetAlertsPanel';
+import FleetThresholdsPanel from '../components/monitoring/FleetThresholdsPanel';
+import ServerScopePicker from '../components/monitoring/ServerScopePicker';
+import { useMonitorScope } from '../components/monitoring/useMonitorScope';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { MetricCard, Pill, Gauge } from '@/components/ds';
+import { Pill } from '@/components/ds';
+import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
-    Activity,
-    ArrowDown,
-    ArrowUp,
-    Bell,
-    Clock,
-    Cpu,
-    Gauge as GaugeIcon,
-    HardDrive,
-    Mail,
-    MemoryStick,
-    PlayCircle,
-    RefreshCw,
-    Settings,
-    Siren,
-    Timer,
-    Webhook,
-    Zap,
+    Activity, Bell, Cpu, Gauge as GaugeIcon, HardDrive, MemoryStick,
+    PlayCircle, RefreshCw, Settings, Siren,
 } from 'lucide-react';
 
-const VALID_TABS = ['overview', 'alerts', 'config', 'thresholds', 'doctor'];
+// One section per top-bar tab. There is deliberately no second tab strip inside
+// the page: the group's own bar (MONITOR_TABS) carries these, the way the
+// design mock does — a nav under a nav reads as two competing headers.
+const VALID_TABS = ['overview', 'alerts', 'rules', 'capacity', 'doctor'];
+
+// Old deep links from when Alert Rules and Delivery were separate inner tabs.
+const TAB_ALIASES = { thresholds: 'rules', config: 'rules', fleet: 'overview', 'fleet-alerts': 'alerts' };
 
 const DEFAULT_THRESHOLDS = {
     cpu_percent: 80,
@@ -42,21 +38,27 @@ const DEFAULT_THRESHOLDS = {
     load_average: 5.0,
 };
 
+// Brand glyphs, not three copies of the generic webhook icon: Discord, Slack
+// and a raw webhook were all rendering the same shape, which made the tiles
+// look broken. `brand` maps to the shared Connections icon set so a channel
+// wears the same face here as it does everywhere else in the panel.
 const CHANNEL_META = {
-    discord: { label: 'Discord', icon: Webhook },
-    slack: { label: 'Slack', icon: Webhook },
-    telegram: { label: 'Telegram', icon: Bell },
-    email: { label: 'Email', icon: Mail },
-    generic_webhook: { label: 'Webhook', icon: Webhook },
+    discord: { label: 'Discord', brand: 'chat_discord' },
+    slack: { label: 'Slack', brand: 'chat_slack' },
+    telegram: { label: 'Telegram', brand: 'chat_telegram' },
+    email: { label: 'Email', brand: 'smtp' },
+    generic_webhook: { label: 'Webhook', brand: 'chat_webhook' },
 };
 
-// Gauge tints follow the Servers list convention (CPU accent / RAM cyan / disk green).
-const METRIC_COLORS = {
-    cpu_percent: 'var(--accent-bright)',
-    memory_percent: 'var(--cyan)',
-    disk_percent: 'var(--green)',
-    load_average: 'var(--violet)',
+const RULE_ICONS = {
+    cpu_percent: Cpu,
+    memory_percent: MemoryStick,
+    disk_percent: HardDrive,
+    load_average: GaugeIcon,
 };
+
+const SPEEDTEST_POLL_INTERVAL_MS = 3000;
+const SPEEDTEST_POLL_TIMEOUT_MS = 90000;
 
 function formatTimestamp(timestamp) {
     if (!timestamp) return 'Never';
@@ -68,29 +70,12 @@ function formatNumber(value, digits = 1) {
     return value.toFixed(digits);
 }
 
-function formatMetric(value, unit = '%') {
-    if (typeof value !== 'number' || Number.isNaN(value)) return '-';
-    return `${value.toFixed(unit === '' ? 2 : 1)}${unit}`;
-}
-
-function formatSpeedValue(value, digits = 1) {
-    if (typeof value !== 'number' || Number.isNaN(value)) return '—';
-    return value.toFixed(digits);
-}
-
-const SPEEDTEST_POLL_INTERVAL_MS = 3000;
-const SPEEDTEST_POLL_TIMEOUT_MS = 90000;
-
 function getSeverityTone(severity) {
     switch (severity) {
-        case 'critical':
-            return 'red';
-        case 'warning':
-            return 'amber';
-        case 'info':
-            return 'cyan';
-        default:
-            return 'gray';
+        case 'critical': return 'red';
+        case 'warning': return 'amber';
+        case 'info': return 'cyan';
+        default: return 'gray';
     }
 }
 
@@ -104,16 +89,20 @@ const Monitoring = () => {
     const [savingThresholds, setSavingThresholds] = useState(false);
     const [checkingAlerts, setCheckingAlerts] = useState(false);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useTabParam('/monitoring', VALID_TABS);
+    const [rawTab] = useTabParam('/monitoring', VALID_TABS);
+    const activeTab = TAB_ALIASES[rawTab] || rawTab;
 
-    const [configForm, setConfigForm] = useState({
-        enabled: false,
-        check_interval: 60,
-    });
+    // Which host every section on this page is describing (URL-backed, so it
+    // survives tab changes and shared links).
+    const { scope, isHost, server, servers, setScope, label: scopeLabel } = useMonitorScope();
 
+    const [configForm, setConfigForm] = useState({ enabled: false, check_interval: 60 });
     const [thresholdForm, setThresholdForm] = useState(DEFAULT_THRESHOLDS);
     const [speedTest, setSpeedTest] = useState(null);
     const [speedTestRunning, setSpeedTestRunning] = useState(false);
+    // Bumped by the top-bar Refresh so the scope-driven panels reload with the
+    // host-scoped data instead of each growing a refresh button of its own.
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const loadSpeedTest = async () => {
         try {
@@ -121,7 +110,7 @@ const Monitoring = () => {
             setSpeedTest(res);
             return res;
         } catch {
-            // Speed test endpoint is optional — never block the page on it.
+            // Optional endpoint — never block the page on it.
             return null;
         }
     };
@@ -162,72 +151,37 @@ const Monitoring = () => {
         const metrics = status?.current_metrics || {};
         return [
             {
-                key: 'cpu_percent',
-                label: 'CPU usage',
-                description: 'cpu',
-                icon: Cpu,
-                unit: '%',
+                key: 'cpu_percent', label: 'CPU usage', unit: '%',
                 current: metrics.cpu?.percent,
                 threshold: thresholdForm.cpu_percent,
-                persistedThreshold: thresholds.cpu_percent,
-                gaugePct: metrics.cpu?.percent ?? 0,
-                mini: [{ k: 'cores', v: metrics.cpu?.cores ?? '-' }],
             },
             {
-                key: 'memory_percent',
-                label: 'Memory usage',
-                description: 'memory',
-                icon: MemoryStick,
-                unit: '%',
+                key: 'memory_percent', label: 'Memory usage', unit: '%',
                 current: metrics.memory?.percent,
                 threshold: thresholdForm.memory_percent,
-                persistedThreshold: thresholds.memory_percent,
-                gaugePct: metrics.memory?.percent ?? 0,
-                mini: [{ k: 'used', v: `${formatBytes(metrics.memory?.used)} / ${formatBytes(metrics.memory?.total)}` }],
             },
             {
-                key: 'disk_percent',
-                label: 'Disk usage',
-                description: 'disk',
-                icon: HardDrive,
-                unit: '%',
+                key: 'disk_percent', label: 'Disk usage', unit: '%',
                 current: metrics.disk?.percent,
                 threshold: thresholdForm.disk_percent,
-                persistedThreshold: thresholds.disk_percent,
-                gaugePct: metrics.disk?.percent ?? 0,
-                mini: [{ k: 'used', v: `${formatBytes(metrics.disk?.used)} / ${formatBytes(metrics.disk?.total)}` }],
             },
             {
-                key: 'load_average',
-                label: 'Load average',
-                description: 'load',
-                icon: GaugeIcon,
-                unit: '',
+                key: 'load_average', label: 'Load average', unit: '',
                 current: metrics.load_average?.['1min'],
                 threshold: thresholdForm.load_average,
-                persistedThreshold: thresholds.load_average,
-                gaugePct: thresholds.load_average > 0
-                    ? ((metrics.load_average?.['1min'] ?? 0) / thresholds.load_average) * 100
-                    : 0,
-                mini: [
-                    { k: '5m', v: formatNumber(metrics.load_average?.['5min'], 2) },
-                    { k: '15m', v: formatNumber(metrics.load_average?.['15min'], 2) },
-                ],
             },
         ];
-    }, [status, thresholdForm, thresholds]);
+    }, [status, thresholdForm]);
 
-    const notificationChannels = useMemo(() => {
-        return Object.entries(status?.notifications || {}).map(([key, channel]) => ({
+    const notificationChannels = useMemo(() => (
+        Object.entries(status?.notifications || {}).map(([key, channel]) => ({
             key,
             ...channel,
-            ...(CHANNEL_META[key] || { label: key, icon: Bell }),
-        }));
-    }, [status]);
+            ...(CHANNEL_META[key] || { label: key, brand: null }),
+        }))
+    ), [status]);
 
     const activeAlerts = status?.active_alerts || [];
-    const enabledChannelCount = notificationChannels.filter((channel) => channel.enabled && channel.configured).length;
-    const alertRuleCount = metricRules.length;
 
     const handleToggleMonitoring = async () => {
         try {
@@ -253,15 +207,10 @@ const Monitoring = () => {
                 enabled: configForm.enabled,
                 check_interval: Number(configForm.check_interval) || 60,
             });
-
             if (configForm.enabled !== wasEnabled) {
-                if (configForm.enabled) {
-                    await api.startMonitoring();
-                } else {
-                    await api.stopMonitoring();
-                }
+                if (configForm.enabled) await api.startMonitoring();
+                else await api.stopMonitoring();
             }
-
             toast.success('Monitoring delivery saved');
             await loadData();
         } catch (err) {
@@ -315,11 +264,8 @@ const Monitoring = () => {
                 const res = await loadSpeedTest();
                 const latest = res?.last_result;
                 if (latest?.tested_at && latest.tested_at !== previousTestedAt) {
-                    if (latest.success === false) {
-                        toast.error(latest.error || 'Speed test failed');
-                    } else {
-                        toast.success('Speed test complete');
-                    }
+                    if (latest.success === false) toast.error(latest.error || 'Speed test failed');
+                    else toast.success('Speed test complete');
                     return;
                 }
             }
@@ -332,16 +278,17 @@ const Monitoring = () => {
     };
 
     const updateThreshold = (key, value) => {
-        setThresholdForm((current) => ({
-            ...current,
-            [key]: value,
-        }));
+        setThresholdForm((current) => ({ ...current, [key]: value }));
     };
 
     useTopbarActions(() =>
         (
             <>
-                <Button size="sm" variant="outline" onClick={loadData}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { loadData(); setRefreshKey((k) => k + 1); }}
+                >
                     <RefreshCw size={16} />
                     Refresh
                 </Button>
@@ -350,21 +297,19 @@ const Monitoring = () => {
                     variant={status?.enabled ? 'destructive' : 'default'}
                     onClick={handleToggleMonitoring}
                 >
-                    {status?.enabled ? (
-                        <>
-                            <Activity size={16} />
-                            Stop Monitoring
-                        </>
-                    ) : (
-                        <>
-                            <PlayCircle size={16} />
-                            Start Monitoring
-                        </>
-                    )}
+                    {status?.enabled
+                        ? <><Activity size={16} />Stop Monitoring</>
+                        : <><PlayCircle size={16} />Start Monitoring</>}
                 </Button>
+                <ServerScopePicker
+                    scope={scope}
+                    servers={servers}
+                    onChange={setScope}
+                    label={scopeLabel}
+                />
             </>
         ),
-        [status?.enabled]
+        [status?.enabled, scope, servers.length, scopeLabel]
     );
 
     if (loading) {
@@ -384,197 +329,96 @@ const Monitoring = () => {
                 </div>
             )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="thresholds">Alert Rules</TabsTrigger>
-                    <TabsTrigger value="config">Delivery</TabsTrigger>
-                    <TabsTrigger value="alerts">History</TabsTrigger>
-                    <TabsTrigger value="doctor">Doctor</TabsTrigger>
-                </TabsList>
+            {activeTab === 'overview' && (
+                <MonitoringOverview
+                    scope={scope}
+                    isHost={isHost}
+                    scopeLabel={isHost ? 'This server' : (server?.name || scopeLabel)}
+                    status={status}
+                    activeAlerts={activeAlerts}
+                    speedTest={speedTest}
+                    speedTestRunning={speedTestRunning}
+                    onRunSpeedTest={handleRunSpeedTest}
+                    thresholds={thresholds}
+                    onScopeChange={setScope}
+                    refreshKey={refreshKey}
+                />
+            )}
 
-                <TabsContent value="overview">
-                    <div className="monitoring-overview">
-                        <section className={`monitoring-hero ${status?.enabled ? 'is-active' : ''}`}>
-                            <div className="monitoring-hero__main">
-                                <Pill kind={status?.enabled ? 'green' : 'gray'}>
-                                    {status?.enabled ? 'Monitoring active' : 'Monitoring paused'}
-                                </Pill>
-                                <h2>{activeAlerts.length > 0 ? `${activeAlerts.length} active alert${activeAlerts.length !== 1 ? 's' : ''}` : 'No active alerts'}</h2>
-                                <p>
-                                    Checks run every {status?.check_interval || configForm.check_interval || 60} seconds.
-                                </p>
+            {activeTab === 'alerts' && (
+                <div className="monitoring-stack">
+                    <section className="monitoring-panel">
+                        <div className="monitoring-panel__header">
+                            <div>
+                                <h3>This server</h3>
+                                <span className="mon-panel-sub">
+                                    {activeAlerts.length} firing · {alertHistory.length} in history
+                                </span>
                             </div>
-                            <div className="monitoring-hero__actions">
-                                <Button variant="outline" onClick={handleCheckAlerts} disabled={checkingAlerts}>
-                                    <Siren size={16} />
-                                    {checkingAlerts ? 'Checking...' : 'Check Now'}
-                                </Button>
-                            </div>
-                        </section>
-
-                        <div className="mon-kpis">
-                            <MetricCard
-                                tone={activeAlerts.length > 0 ? 'red' : 'green'}
-                                icon={<Siren size={16} />}
-                                value={activeAlerts.length}
-                                label="Active alerts"
-                            />
-                            <MetricCard
-                                tone="accent"
-                                icon={<GaugeIcon size={16} />}
-                                value={alertRuleCount}
-                                label="Alert rules"
-                            />
-                            <MetricCard
-                                tone="cyan"
-                                icon={<Bell size={16} />}
-                                value={enabledChannelCount}
-                                label="Delivery channels"
-                            >
-                                <div className="sk-kpi__sub"><span>{notificationChannels.length} total</span></div>
-                            </MetricCard>
-                            <MetricCard
-                                tone="violet"
-                                icon={<Clock size={16} />}
-                                value={alertHistory.length}
-                                label="History entries"
-                            />
+                            <Button variant="outline" size="sm" onClick={handleCheckAlerts} disabled={checkingAlerts}>
+                                <Siren size={14} />
+                                {checkingAlerts ? 'Checking…' : 'Check now'}
+                            </Button>
                         </div>
-
-                        <section>
-                            <div className="mon-section-head">
-                                <h3>Current Metrics</h3>
-                                <Button size="sm" variant="outline" onClick={() => setActiveTab('thresholds')}>
-                                    <Settings size={14} />
-                                    Rules
-                                </Button>
-                            </div>
-                            <div className="mon-host-grid">
-                                {metricRules.map((rule) => {
-                                    const Icon = rule.icon;
-                                    const isTriggered = typeof rule.current === 'number' && rule.current > rule.persistedThreshold;
-                                    return (
-                                        <article key={rule.key} className={`mon-host-card ${isTriggered ? 'is-alerting' : ''}`}>
-                                            <div className="mon-host-card__head">
-                                                <span className="mon-ico mon-ico--sm">
-                                                    <Icon size={14} />
-                                                </span>
-                                                <span className="mon-host-card__name">{rule.label}</span>
-                                                <Pill kind={isTriggered ? 'amber' : 'green'}>{isTriggered ? 'alerting' : 'ok'}</Pill>
-                                            </div>
-                                            <div className="mon-host-card__value">{formatMetric(rule.current, rule.unit)}</div>
-                                            <Gauge
-                                                value={rule.gaugePct}
-                                                color={isTriggered ? 'var(--amber)' : METRIC_COLORS[rule.key]}
-                                            />
-                                            <div className="mon-host-card__mini">
-                                                <span>limit <b>{formatMetric(rule.persistedThreshold, rule.unit)}</b></span>
-                                                {rule.mini.map((m) => (
-                                                    <span key={m.k}>{m.k} <b>{m.v}</b></span>
-                                                ))}
-                                            </div>
-                                        </article>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
-                        <section className="monitoring-panel mon-speedtest">
-                            <div className="monitoring-panel__header">
-                                <h3>Speed Test</h3>
-                                <Button size="sm" variant="outline" onClick={handleRunSpeedTest} disabled={speedTestRunning}>
-                                    <Zap size={14} />
-                                    {speedTestRunning ? 'Running...' : 'Run Test'}
-                                </Button>
-                            </div>
-                            {speedTest?.last_result ? (
-                                <>
-                                    <div className="mon-speedtest__grid">
-                                        <MetricCard
-                                            tone="accent"
-                                            icon={<ArrowDown size={16} />}
-                                            value={formatSpeedValue(speedTest.last_result.download_mbps)}
-                                            label="Download (Mbps)"
-                                        />
-                                        <MetricCard
-                                            tone="cyan"
-                                            icon={<ArrowUp size={16} />}
-                                            value={formatSpeedValue(speedTest.last_result.upload_mbps)}
-                                            label="Upload (Mbps)"
-                                        />
-                                        <MetricCard
-                                            tone="violet"
-                                            icon={<Timer size={16} />}
-                                            value={formatSpeedValue(speedTest.last_result.latency_ms, 0)}
-                                            label="Latency (ms)"
-                                        />
-                                    </div>
-                                    <div className="mon-speedtest__meta">
-                                        {speedTestRunning || speedTest.running ? (
-                                            <Pill kind="amber">running</Pill>
-                                        ) : (
-                                            <Pill kind={speedTest.last_result.success === false ? 'red' : 'green'}>
-                                                {speedTest.last_result.success === false ? 'failed' : 'ok'}
-                                            </Pill>
-                                        )}
-                                        <span>Tested {formatTimestamp(speedTest.last_result.tested_at)}</span>
-                                        {speedTest.last_result.success === false && speedTest.last_result.error && (
-                                            <span className="mon-speedtest__error">{speedTest.last_result.error}</span>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="mon-speedtest__empty">
-                                    <span>No speed test has been run yet. Run one to measure this server&apos;s connection.</span>
-                                </div>
-                            )}
-                        </section>
-
-                        {activeAlerts.length > 0 && (
-                            <section className="monitoring-panel monitoring-panel--warning">
-                                <div className="monitoring-panel__header">
-                                    <h3>Active Alerts</h3>
-                                    <span className="mon-firing-count">{activeAlerts.length} firing</span>
-                                </div>
-                                <div className="mon-alert-list">
-                                    {activeAlerts.map((alert, index) => (
-                                        <div key={`${alert.type}-${index}`} className="mon-alert-row">
+                        {alertHistory.length === 0 && activeAlerts.length === 0 ? (
+                            <p className="mon-panel-hint">
+                                Nothing has crossed a limit yet. Rules live one tab over.
+                            </p>
+                        ) : (
+                            <div className="mon-alert-list">
+                                {[...activeAlerts.map((a) => ({ ...a, firing: true })), ...alertHistory]
+                                    .map((alert, index) => (
+                                        <article key={`${alert.timestamp || 'now'}-${index}`} className="mon-alert-row">
                                             <span className={`mon-sev mon-sev--${alert.severity}`} />
                                             <div className="mon-alert-row__body">
                                                 <div className="mon-alert-row__title">{alert.message}</div>
-                                                <div className="mon-alert-row__sub">{alert.type} · {formatNumber(alert.value)} / {alert.threshold}</div>
+                                                <div className="mon-alert-row__sub">
+                                                    {alert.type} · {formatNumber(alert.value)} / {alert.threshold}
+                                                </div>
                                             </div>
-                                            <span className="mon-state mon-state--red">firing</span>
-                                        </div>
+                                            <div className="mon-alert-row__end">
+                                                <span className={`mon-state mon-state--${alert.firing ? 'red' : getSeverityTone(alert.severity)}`}>
+                                                    {alert.firing ? 'firing' : alert.severity}
+                                                </span>
+                                                <span className="mon-alert-row__time">
+                                                    {alert.firing ? 'now' : formatTimestamp(alert.timestamp)}
+                                                </span>
+                                            </div>
+                                        </article>
                                     ))}
-                                </div>
-                            </section>
+                            </div>
                         )}
-                    </div>
-                </TabsContent>
+                    </section>
 
-                <TabsContent value="thresholds">
+                    {servers.length > 0 && <FleetAlertsPanel scope={scope} refreshKey={refreshKey} />}
+                </div>
+            )}
+
+            {activeTab === 'rules' && (
+                <div className="monitoring-stack">
                     <form className="monitoring-panel" onSubmit={handleSaveThresholds}>
                         <div className="monitoring-panel__header">
-                            <h3>Alert Rules</h3>
-                            <Button type="submit" disabled={savingThresholds}>
-                                {savingThresholds ? 'Saving...' : 'Save Rules'}
+                            <div>
+                                <h3>This server</h3>
+                                <span className="mon-panel-sub">Limits for the machine running the panel</span>
+                            </div>
+                            <Button type="submit" size="sm" disabled={savingThresholds}>
+                                {savingThresholds ? 'Saving…' : 'Save rules'}
                             </Button>
                         </div>
                         <div className="metric-rule-grid">
                             {metricRules.map((rule) => {
-                                const Icon = rule.icon;
+                                const Icon = RULE_ICONS[rule.key] || GaugeIcon;
                                 const isTriggered = typeof rule.current === 'number' && rule.current > rule.threshold;
                                 return (
                                     <article key={rule.key} className={`metric-rule-editor ${isTriggered ? 'is-alerting' : ''}`}>
                                         <div className="metric-rule-editor__main">
-                                            <span className="mon-ico">
-                                                <Icon size={15} />
-                                            </span>
+                                            <span className="mon-ico"><Icon size={15} /></span>
                                             <div>
                                                 <h4>{rule.label}</h4>
-                                                <span>current {formatMetric(rule.current, rule.unit)}</span>
+                                                <span>
+                                                    current {formatNumber(rule.current, rule.unit === '' ? 2 : 1)}{rule.unit}
+                                                </span>
                                             </div>
                                         </div>
                                         <div className="metric-rule-editor__threshold">
@@ -583,7 +427,7 @@ const Monitoring = () => {
                                                 id={`threshold-${rule.key}`}
                                                 type="number"
                                                 min={rule.key === 'load_average' ? '0.1' : '1'}
-                                                max={rule.key === 'load_average' ? '100' : '100'}
+                                                max="100"
                                                 step={rule.key === 'load_average' ? '0.1' : '1'}
                                                 value={rule.threshold}
                                                 onChange={(e) => updateThreshold(rule.key, e.target.value)}
@@ -597,15 +441,20 @@ const Monitoring = () => {
                             })}
                         </div>
                     </form>
-                </TabsContent>
 
-                <TabsContent value="config">
+                    {servers.length > 0 && (
+                        <FleetThresholdsPanel servers={servers} refreshKey={refreshKey} />
+                    )}
+
                     <div className="monitoring-delivery-layout">
                         <form className="monitoring-panel" onSubmit={handleSaveConfig}>
                             <div className="monitoring-panel__header">
-                                <h3>Scheduler</h3>
-                                <Button type="submit" disabled={savingConfig}>
-                                    {savingConfig ? 'Saving...' : 'Save Delivery'}
+                                <div>
+                                    <h3>Scheduler</h3>
+                                    <span className="mon-panel-sub">How often the checks run</span>
+                                </div>
+                                <Button type="submit" size="sm" disabled={savingConfig}>
+                                    {savingConfig ? 'Saving…' : 'Save'}
                                 </Button>
                             </div>
                             <div className="monitoring-switch-row">
@@ -634,81 +483,56 @@ const Monitoring = () => {
 
                         <section className="monitoring-panel">
                             <div className="monitoring-panel__header">
-                                <h3>Notification Channels</h3>
+                                <div>
+                                    <h3>Delivery</h3>
+                                    <span className="mon-panel-sub">Where an alert goes when it fires</span>
+                                </div>
                                 <Button size="sm" asChild>
                                     <Link to="/settings/notifications">
-                                        <Settings size={14} />
-                                        Configure
+                                        <Settings size={14} /> Configure
                                     </Link>
                                 </Button>
                             </div>
                             <div className="notification-channel-grid">
                                 {notificationChannels.map((channel) => {
-                                    const Icon = channel.icon;
                                     const ready = channel.enabled && channel.configured;
                                     return (
-                                        <article key={channel.key} className={`notification-channel-tile ${ready ? 'is-ready' : ''}`}>
+                                        <article
+                                            key={channel.key}
+                                            className={`notification-channel-tile${ready ? ' is-ready' : ''}${channel.configured ? '' : ' is-unset'}`}
+                                        >
                                             <span className="mon-ico">
-                                                <Icon size={15} />
+                                                {channel.brand
+                                                    ? <ProviderBrandIcon provider={channel.brand} size={16} />
+                                                    : <Bell size={15} />}
                                             </span>
                                             <div>
                                                 <strong>{channel.label}</strong>
-                                                <span>{ready ? 'Enabled' : channel.configured ? 'Configured' : 'Not configured'}</span>
+                                                <span>
+                                                    {ready
+                                                        ? 'Sending alerts'
+                                                        : channel.configured
+                                                            ? 'Configured but off'
+                                                            : 'Not configured'}
+                                                </span>
                                             </div>
-                                            <Pill kind={ready ? 'green' : 'gray'}>{ready ? 'ready' : 'off'}</Pill>
+                                            <Pill kind={ready ? 'green' : channel.configured ? 'amber' : 'gray'}>
+                                                {ready ? 'on' : 'off'}
+                                            </Pill>
                                         </article>
                                     );
                                 })}
                             </div>
                         </section>
                     </div>
-                </TabsContent>
+                </div>
+            )}
 
-                <TabsContent value="alerts">
-                    <section className="monitoring-panel">
-                        <div className="monitoring-panel__header">
-                            <h3>Alert History</h3>
-                            <div>
-                                <Button variant="outline" size="sm" onClick={handleCheckAlerts} disabled={checkingAlerts}>
-                                    <Siren size={14} />
-                                    Check Now
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={loadData}>
-                                    <RefreshCw size={14} />
-                                    Refresh
-                                </Button>
-                            </div>
-                        </div>
-                        {alertHistory.length === 0 ? (
-                            <EmptyState
-                                icon={Bell}
-                                title="No alerts yet"
-                                description="Alerts will appear here once a threshold is crossed."
-                            />
-                        ) : (
-                            <div className="mon-alert-list">
-                                {alertHistory.map((alert, index) => (
-                                    <article key={`${alert.timestamp}-${index}`} className="mon-alert-row">
-                                        <span className={`mon-sev mon-sev--${alert.severity}`} />
-                                        <div className="mon-alert-row__body">
-                                            <div className="mon-alert-row__title">{alert.message}</div>
-                                            <div className="mon-alert-row__sub">{alert.type} · {formatNumber(alert.value)} / {alert.threshold}</div>
-                                        </div>
-                                        <div className="mon-alert-row__end">
-                                            <span className={`mon-state mon-state--${getSeverityTone(alert.severity)}`}>{alert.severity}</span>
-                                            <span className="mon-alert-row__time">{formatTimestamp(alert.timestamp)}</span>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                </TabsContent>
+            {activeTab === 'capacity' && (
+                <FleetCapacityPanel scope={scope} refreshKey={refreshKey} />
+            )}
 
-                <TabsContent value="doctor">
-                    <DoctorPanel />
-                </TabsContent>
-            </Tabs>
+            {activeTab === 'doctor' && <DoctorPanel />}
         </div>
     );
 };

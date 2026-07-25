@@ -1,6 +1,10 @@
 // ============================================
-// FLEET PAGES (Agent Fleet + Fleet Monitor)
+// FLEET PAGES (Agent Fleet + the fleet panels on /monitoring)
 // ============================================
+//
+// The statbox / predbox / warnrow rules below outlived the standalone Fleet
+// Monitor page: the Capacity section on /monitoring still renders them under
+// the same class names.
 
 // KPI band (Total agents / Online / Offline / Success rate). The rule was lost
 // in the recovery rebuild, so the tiles stacked full-width.
@@ -77,100 +81,9 @@
     box-shadow: var(--shadow-lg);
 }
 
-.fleet-heatmap {
-    width: 100%;
-
-    &__header {
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
-        gap: $space-2;
-        padding: $space-2 $space-3;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: $text-secondary;
-        border-bottom: 1px solid $border-subtle;
-    }
-
-    &__row {
-        display: grid;
-        grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
-        gap: $space-2;
-        padding: $space-2 $space-3;
-        align-items: center;
-        border-bottom: 1px solid $border-subtle;
-        transition: background 0.15s;
-
-        &:hover {
-            background: $bg-hover;
-        }
-
-        &:last-child {
-            border-bottom: none;
-        }
-    }
-
-    &__server {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        font-weight: 500;
-        font-size: 0.875rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    &__cell {
-        text-align: center;
-        padding: $space-1 $space-2;
-        border-radius: $radius-sm;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
-        transition: background-color 0.3s;
-        background: var(--bg-card);
-
-        &.is-empty { background: var(--bg-card); color: inherit; }
-        &.is-low { background: var(--green); color: inherit; }
-        &.is-medium { background: var(--amber); color: inherit; }
-        &.is-high { background: #f97316; color: #fff; }
-        &.is-critical { background: var(--red); color: #fff; }
-    }
-
-    &__label {
-        text-align: center;
-    }
-
-    &__legend-dot {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: $radius-sm;
-
-        &.is-low { background: var(--green); }
-        &.is-medium { background: var(--amber); }
-        &.is-high { background: #f97316; }
-        &.is-critical { background: var(--red); }
-    }
-}
-
-@media (max-width: $breakpoint-md) {
-    .fleet-heatmap {
-        &__header,
-        &__row {
-            grid-template-columns: 1.5fr 1fr 1fr 1fr;
-        }
-
-        // Hide containers and status columns on small screens
-        &__header > :nth-child(5),
-        &__header > :nth-child(6),
-        &__row > :nth-child(5),
-        &__row > :nth-child(6) {
-            display: none;
-        }
-    }
-}
+// The heatmap grid that used to live here is gone: colour-coded cells were a
+// read-only view of the same numbers the Host health cards on /monitoring now
+// show, and those cards are clickable — they re-scope the page to that server.
 
 // Fleet doctor rollup card (plan 26) — checks-by-status per server on the
 // Agent Fleet dashboard, consuming the same rows as the Doctor panel.

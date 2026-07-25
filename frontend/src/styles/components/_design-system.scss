@@ -184,6 +184,20 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         &--down { color: var(--red); }
         &--flat { color: var(--text-faint); }
     }
+    // Trend chart along the bottom edge. The negative margins cancel the tile's
+    // padding so the series bleeds to the corners instead of floating in a box
+    // — the design mock's `.kpi-spark`.
+    &__spark {
+        margin: 10px -17px -16px;
+        line-height: 0;
+        opacity: 0.9;
+
+        svg { display: block; width: 100%; }
+    }
+
+    // A tile whose metric is over its configured limit. Amber, not red: it is
+    // an "act soon", and the value itself already carries the number.
+    &.is-alerting { border-color: rgba(245, 185, 69, 0.35); }
 }
 
 // ------------------------------------------------------------
