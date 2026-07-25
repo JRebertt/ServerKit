@@ -3,11 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, WifiOff } from 'lucide-react';
 import useDeployJobStream from '../hooks/useDeployJobStream';
 import api from '../services/api';
-import StepRail from '../components/deploy-console/StepRail';
+import PipelineStrip from '../components/deploy-console/PipelineStrip';
 import ConsoleToolbar from '../components/deploy-console/ConsoleToolbar';
 import LogPane from '../components/deploy-console/LogPane';
 import ErrorCard from '../components/deploy-console/ErrorCard';
 import SuccessBanner from '../components/deploy-console/SuccessBanner';
+import { sourceRef } from '../utils/deployActivity';
 
 const STATUS_META = {
     pending: { label: 'Queued', icon: Clock, cls: 'pending' },
@@ -15,6 +16,15 @@ const STATUS_META = {
     succeeded: { label: 'Succeeded', icon: CheckCircle2, cls: 'succeeded' },
     failed: { label: 'Failed', icon: XCircle, cls: 'failed' },
     cancelled: { label: 'Cancelled', icon: XCircle, cls: 'failed' },
+};
+
+const fmtStarted = (iso) => {
+    if (!iso) return 'not started';
+    try {
+        return new Date(iso).toLocaleString();
+    } catch {
+        return iso;
+    }
 };
 
 const fmtElapsed = (ms) => {
@@ -54,6 +64,7 @@ export default function DeployConsole() {
     const [level, setLevel] = useState('all');
     const [search, setSearch] = useState('');
     const [scrollToStep, setScrollToStep] = useState(null);
+    const [selectedStep, setSelectedStep] = useState(null);
     const [retrying, setRetrying] = useState(false);
     const [now, setNow] = useState(Date.now());
 
@@ -118,6 +129,7 @@ export default function DeployConsole() {
 
     const onStepClick = useCallback((index) => {
         setFollow(false);
+        setSelectedStep(index);
         setScrollToStep(index);
         // reset so a repeat click on the same step re-triggers the effect
         setTimeout(() => setScrollToStep(null), 100);
@@ -140,6 +152,7 @@ export default function DeployConsole() {
         : null;
     const appUrl = job?.result?.auto_domain?.url || null;
     const degraded = (status === 'running' || status === 'pending') && transport === 'poll';
+    const sourceLabel = job ? sourceRef(job) : null;
 
     if (loading && !job) {
         return (
@@ -216,10 +229,17 @@ export default function DeployConsole() {
                 <SuccessBanner job={job} appUrl={appUrl} />
             )}
 
+            <PipelineStrip steps={steps} selected={selectedStep} onStepClick={onStepClick} />
+
+            <div className="deploy-console__runmeta">
+                <span><b>{jobId}</b></span>
+                <span>trigger <b>{job?.trigger || 'manual'}</b></span>
+                {sourceLabel && <span>source <b>{sourceLabel}</b></span>}
+                <span>target <b>{job?.target_server_name || 'Local server'}</b></span>
+                <span>started <b>{fmtStarted(job?.started_at || job?.created_at)}</b></span>
+            </div>
+
             <div className="deploy-console__body">
-                {steps.length > 0 && (
-                    <StepRail steps={steps} onStepClick={onStepClick} />
-                )}
                 <div className="deploy-console__main">
                     <ConsoleToolbar
                         follow={follow} onToggleFollow={() => setFollow((v) => !v)}

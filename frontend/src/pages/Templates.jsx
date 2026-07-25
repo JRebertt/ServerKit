@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
     Settings, Layers, LayoutTemplate, Copy, Check, Tag, Cpu,
-    Newspaper, TrendingUp, Rocket
+    Newspaper, TrendingUp, Rocket, Box, Download, ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-    SearchField, FilterDrawer, FilterButton, countActiveFilters,
+    SearchField, FilterDrawer, FilterButton, countActiveFilters, Drawer,
 } from '@/components/ds';
+import ServerPicker from '@/components/templates/ServerPicker';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import EmptyState from '../components/EmptyState';
 
@@ -464,27 +464,44 @@ const Templates = () => {
         : templates;
     const sortedTemplates = sortTemplates(kindFiltered);
 
-    // One row of the largest categories as quick chips (no spillover button).
-    const quickCategories = categories.slice(0, 8);
-
     // The active-filter badge counts real filters only (category + kind); sort is
     // an ordering, not a filter, so it never inflates the count.
     const activeFilterCount = countActiveFilters({ category: selectedCategory, kind: selectedKind });
     const hasActiveFilters = Boolean(selectedCategory || selectedKind || searchQuery
         || (sortBy && sortBy !== 'featured'));
 
+    // How many templates each option would match, counted over the whole
+    // catalog rather than the current result set — a count that shrank to 0 as
+    // you filtered would say nothing about whether the option is worth a click.
+    const optionCounts = useMemo(() => {
+        const byKind = {};
+        const byCategory = {};
+        templates.forEach((t) => {
+            const kind = t.kind || 'compose';
+            byKind[kind] = (byKind[kind] || 0) + 1;
+            (t.categories || []).forEach((c) => {
+                byCategory[c] = (byCategory[c] || 0) + 1;
+            });
+        });
+        return { byKind, byCategory };
+    }, [templates]);
+
     const filterGroups = [
         {
             key: 'kind',
             label: 'Type',
             type: 'single',
-            options: KIND_OPTIONS,
+            options: KIND_OPTIONS.map(o => ({ ...o, count: optionCounts.byKind[o.value] || 0 })),
         },
         {
             key: 'category',
             label: 'Category',
             type: 'single',
-            options: categories.map(cat => ({ value: cat, label: cat })),
+            options: categories.map(cat => ({
+                value: cat,
+                label: cat,
+                count: optionCounts.byCategory[cat] || 0,
+            })),
         },
         {
             key: 'sort',
@@ -526,68 +543,79 @@ const Templates = () => {
 
     return (
         <div className="sk-tabgroup__inner templates-page">
-            {/* Quick category chips + result count. The full category list, kind,
-                and sort live in the shared FilterDrawer (opened from the topbar). */}
+            {/* The catalog is not the only way in: a repo or an archive skips
+                templates entirely, so both routes lead the page rather than
+                hiding behind the New Service tab. */}
+            <div className="tpl-quickstart">
+                <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=github')}>
+                    <span className="tpl-quickstart__ico"><GitBranch size={18} /></span>
+                    <span className="tpl-quickstart__body">
+                        <span className="tpl-quickstart__title">Import from GitHub</span>
+                        <span className="tpl-quickstart__sub">Connect a repo and auto-deploy on every push</span>
+                    </span>
+                    <ChevronRight size={16} className="tpl-quickstart__arrow" />
+                </button>
+                <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=archive')}>
+                    <span className="tpl-quickstart__ico"><Download size={18} /></span>
+                    <span className="tpl-quickstart__body">
+                        <span className="tpl-quickstart__title">Import a ZIP</span>
+                        <span className="tpl-quickstart__sub">Drop in a project archive to build &amp; run</span>
+                    </span>
+                    <ChevronRight size={16} className="tpl-quickstart__arrow" />
+                </button>
+            </div>
+
+            {/* One header row: result count, whatever filtering is currently in
+                force (as removable chips), and sort. Categories are not listed
+                here — every filter lives in the FilterDrawer, so there is one
+                place to look rather than two competing ones. */}
             <div className="templates-results-header">
                 <span className="results-count">
                     {sortedTemplates.length} template{sortedTemplates.length !== 1 ? 's' : ''}
                 </span>
-                <div className="category-filters" aria-label="Template categories">
-                    <button type="button"
-                        className={`category-btn ${!selectedCategory ? 'active' : ''}`}
-                        onClick={() => setSelectedCategoryFilter(null)}
-                    >
-                        All
-                    </button>
-                    {quickCategories.map(category => (
-                        <button type="button"
-                            key={category}
-                            className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
-                            onClick={() => setSelectedCategoryFilter(
-                                selectedCategory === category ? null : category
-                            )}
+                <div className="active-filters">
+                    {selectedKind && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => updateFilters({ kind: null })}>
+                            {KIND_OPTIONS.find(k => k.value === selectedKind)?.label || selectedKind}
+                            <X size={12} />
+                        </button>
+                    )}
+                    {selectedCategory && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => setSelectedCategoryFilter(null)}>
+                            {selectedCategory}
+                            <X size={12} />
+                        </button>
+                    )}
+                    {searchQuery && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => setSearchQueryFilter('')}>
+                            &ldquo;{searchQuery}&rdquo;
+                            <X size={12} />
+                        </button>
+                    )}
+                    {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
+                            Clear all
+                        </Button>
+                    )}
+                </div>
+                {/* The two orders people actually reach for; the full sort list
+                    (incl. Z–A) stays in the filter drawer. */}
+                <div className="tpl-sort" role="group" aria-label="Sort templates">
+                    {[['featured', 'Featured'], ['name-asc', 'A–Z']].map(([value, label]) => (
+                        <button
+                            type="button"
+                            key={value}
+                            className={sortBy === value ? 'is-active' : ''}
+                            onClick={() => updateFilters({ sort: value === 'featured' ? null : value })}
                         >
-                            {getCategoryIcon(category)} {category}
+                            {label}
                         </button>
                     ))}
                 </div>
             </div>
-
-            {/* Active Filters */}
-            {hasActiveFilters && (
-                <div className="active-filters">
-                    {selectedKind && (
-                        <span className="filter-chip">
-                            <GitBranch size={14} />
-                            {KIND_OPTIONS.find(k => k.value === selectedKind)?.label || selectedKind}
-                            <button type="button" onClick={() => updateFilters({ kind: null })}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    {selectedCategory && (
-                        <span className="filter-chip">
-                            <Tag size={14} />
-                            {selectedCategory}
-                            <button type="button" onClick={() => setSelectedCategoryFilter(null)}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    {searchQuery && (
-                        <span className="filter-chip">
-                            <Search size={14} />
-                            &ldquo;{searchQuery}&rdquo;
-                            <button type="button" onClick={() => setSearchQueryFilter('')}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
-                        Clear All
-                    </Button>
-                </div>
-            )}
 
             {/* Templates Grid */}
             <div className="templates-grid">
@@ -824,6 +852,7 @@ const Templates = () => {
             {showInstallModal && selectedTemplate && (
                 <InstallModal
                     template={selectedTemplate}
+                    renderIcon={renderIcon}
                     onClose={() => {
                         setShowInstallModal(false);
                         setSelectedTemplate(null);
@@ -844,6 +873,9 @@ const Templates = () => {
                 value={filterValue}
                 onChange={handleFilterChange}
                 title="Filter templates"
+                activeCount={activeFilterCount}
+                resultCount={sortedTemplates.length}
+                resultNoun="template"
             />
         </div>
     );
@@ -932,7 +964,7 @@ const RepoTemplateDetailBody = ({ template, manifest, loading, getCategoryIcon }
     );
 };
 
-const InstallModal = ({ template, onClose, onSuccess }) => {
+const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const toast = useToast();
     const navigate = useNavigate();
     const [appName, setAppName] = useState(template.id.toLowerCase().replace(/[^a-z0-9-]/g, '-'));
@@ -941,6 +973,10 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
     const [selectedServerId, setSelectedServerId] = useState('local');
     const [installing, setInstalling] = useState(false);
     const [errors, setErrors] = useState([]);
+    // Managed-sites base domain, so the drawer can offer the subdomain this
+    // service would get instead of leaving the user to wire DNS afterwards.
+    const [baseDomain, setBaseDomain] = useState(null);
+    const [httpsBase, setHttpsBase] = useState(false);
 
     useEffect(() => {
         // Initialize variables with defaults
@@ -955,6 +991,14 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
 
     useEffect(() => {
         loadServers();
+        api.getSiteBaseDomains()
+            .then((data) => {
+                const bases = data?.base_domains || [];
+                const chosen = bases.find((b) => b.domain === data?.default) || bases[0];
+                setBaseDomain(chosen?.domain || null);
+                setHttpsBase(!!chosen?.https_enabled);
+            })
+            .catch(() => setBaseDomain(null));
     }, []);
 
     async function loadServers() {
@@ -970,6 +1014,8 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
             setSelectedServerId('local');
         }
     }
+
+    const domainPreview = baseDomain && appName ? `${appName}.${baseDomain}` : null;
 
     async function handleInstall(e) {
         e.preventDefault();
@@ -1006,21 +1052,36 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
         }
     }
 
-    return (
-        <Modal open onClose={onClose} title={`Install ${template.name}`} size="lg">
-            <form onSubmit={handleInstall}>
-                <div className="modal-body">
-                        {errors.length > 0 && (
-                            <div className="alert alert-danger">
-                                <ul>
-                                    {errors.map((error, i) => <li key={i}>{error}</li>)}
-                                </ul>
-                            </div>
-                        )}
+    const visibleVars = (template.variables || []).filter(v => !v.hidden);
 
-                        <div className="form-group">
-                            <label>Application Name *</label>
-                            <Input
+    return (
+        <Drawer
+            open
+            onOpenChange={(next) => { if (!next) onClose?.(); }}
+            title={`Deploy ${template.name}`}
+            subtitle={[`v${template.version}`, ...(template.categories || []).slice(0, 3)].join(' · ')}
+            icon={renderIcon(template, 20)}
+            width={560}
+            className="tpl-deploy-drawer"
+        >
+            <form onSubmit={handleInstall} className="tpl-deploy-drawer__form">
+                <div className="tpl-deploy-drawer__body">
+                    {errors.length > 0 && (
+                        <div className="alert alert-danger">
+                            <ul>
+                                {errors.map((error, i) => <li key={i}>{error}</li>)}
+                            </ul>
+                        </div>
+                    )}
+
+                    <p className="tpl-deploy-drawer__desc">{template.description}</p>
+
+                    <div className="tpl-deploy-drawer__field">
+                        <label htmlFor="tpl-deploy-name">Service name</label>
+                        <div className="tpl-deploy-drawer__input">
+                            <Box size={15} />
+                            <input
+                                id="tpl-deploy-name"
                                 type="text"
                                 value={appName}
                                 onChange={(e) => setAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
@@ -1028,80 +1089,96 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                                 minLength={2}
                                 required
                             />
-                            <span className="form-help">Lowercase letters, numbers, and hyphens only (min 2 chars)</span>
                         </div>
+                        <span className="tpl-deploy-drawer__hint">
+                            Lowercase letters, numbers, and hyphens only (min 2 chars)
+                        </span>
+                    </div>
 
-                        <div className="form-group">
-                            <label>Target Server</label>
-                            <select
-                                value={selectedServerId}
-                                onChange={(e) => setSelectedServerId(e.target.value)}
-                                disabled={installing}
-                            >
-                                {servers.map(server => (
-                                    <option key={server.id} value={server.id}>
-                                        {server.name}{server.is_local ? ' (local)' : ''}
-                                    </option>
-                                ))}
-                            </select>
+                    {/* Only shown once a managed-sites base domain exists — with
+                        no base there is no subdomain to promise, and a dead
+                        field would be worse than none. */}
+                    {domainPreview && (
+                        <div className="tpl-deploy-drawer__field">
+                            <span className="tpl-deploy-drawer__label">Domain</span>
+                            <div className="tpl-deploy-drawer__input tpl-deploy-drawer__input--readonly">
+                                <Globe size={15} />
+                                <span className="tpl-deploy-drawer__domain">{domainPreview}</span>
+                            </div>
+                            <span className="tpl-deploy-drawer__hint">
+                                {httpsBase
+                                    ? 'Published automatically with HTTPS once the deploy finishes'
+                                    : 'Published automatically once the deploy finishes'}
+                            </span>
                         </div>
+                    )}
 
-                        {(template.variables || []).filter(v => !v.hidden).length > 0 && (
-                            <>
-                                <h4>Configuration</h4>
-                                {template.variables.filter(v => !v.hidden).map(variable => (
-                                    <div key={variable.name} className="form-group">
-                                        <label>
-                                            {variable.name}
-                                            {variable.required && ' *'}
-                                        </label>
-                                        {variable.options ? (
-                                            <select
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                required={variable.required}
-                                            >
-                                                <option value="">Select...</option>
-                                                {variable.options.map(opt => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
-                                        ) : variable.type === 'password' ? (
-                                            <Input
-                                                type="password"
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                placeholder={variable.default ? '(auto-generated)' : ''}
-                                                required={variable.required && !variable.default}
-                                            />
-                                        ) : (
-                                            <Input
-                                                type={variable.type === 'port' ? 'number' : 'text'}
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                placeholder={variable.default || ''}
-                                                required={variable.required}
-                                            />
-                                        )}
-                                        {variable.description && (
-                                            <span className="form-help">{variable.description}</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </>
-                        )}
+                    <div className="tpl-deploy-drawer__field">
+                        <span className="tpl-deploy-drawer__label">Deploy to server</span>
+                        <ServerPicker
+                            servers={servers}
+                            value={selectedServerId}
+                            onChange={setSelectedServerId}
+                        />
+                    </div>
 
-                    </div>
-                    <div className="modal-footer">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={installing}>
-                            {installing ? 'Installing...' : 'Install'}
-                        </Button>
-                    </div>
-                </form>
-        </Modal>
+                    {visibleVars.length > 0 && (
+                        <div className="tpl-deploy-drawer__field">
+                            <span className="tpl-deploy-drawer__label">Configuration</span>
+                            {visibleVars.map(variable => (
+                                <div key={variable.name} className="form-group">
+                                    <label>
+                                        {variable.name}
+                                        {variable.required && ' *'}
+                                    </label>
+                                    {variable.options ? (
+                                        <select
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            required={variable.required}
+                                        >
+                                            <option value="">Select...</option>
+                                            {variable.options.map(opt => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    ) : variable.type === 'password' ? (
+                                        <Input
+                                            type="password"
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            placeholder={variable.default ? '(auto-generated)' : ''}
+                                            required={variable.required && !variable.default}
+                                        />
+                                    ) : (
+                                        <Input
+                                            type={variable.type === 'port' ? 'number' : 'text'}
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            placeholder={variable.default || ''}
+                                            required={variable.required}
+                                        />
+                                    )}
+                                    {variable.description && (
+                                        <span className="form-help">{variable.description}</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="tpl-deploy-drawer__foot">
+                    <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={installing}>
+                        <Rocket size={15} />
+                        {installing ? 'Deploying…' : `Deploy ${template.name}`}
+                    </Button>
+                </div>
+            </form>
+        </Drawer>
     );
 };
 

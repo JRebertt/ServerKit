@@ -120,22 +120,16 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         color: var(--accent-bright);
     }
 
-    // ---- body: rail + main ----
+    // ---- body: log pane (full width; steps live in the strip above) ----
     &__body {
-        display: grid;
-        grid-template-columns: 248px minmax(0, 1fr);
-        gap: $space-3;
-        align-items: stretch;
+        display: flex;
         flex: 1;
         min-height: 0;
-
-        @media (max-width: 720px) {
-            grid-template-columns: 1fr;
-        }
     }
 
     &__main {
         display: flex;
+        flex: 1;
         flex-direction: column;
         min-width: 0;
         border: 1px solid $border-subtle;
@@ -143,62 +137,108 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         overflow: hidden;
     }
 
-    // ---- step rail ----
-    &__rail {
-        list-style: none;
-        margin: 0;
-        padding: $space-2;
+    // ---- pipeline strip (one segment per plan step) ----
+    &__pipeline {
+        display: flex;
+        background: $bg-card;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
-        background: $bg-card;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        align-self: start;
+        overflow: hidden;
+
+        // Narrow viewports: segments would shrink past legibility, so the strip
+        // scrolls sideways with a readable floor per segment instead.
+        @media (max-width: 720px) {
+            overflow-x: auto;
+        }
     }
 
-    &__rail-btn {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        width: 100%;
-        padding: $space-2;
-        border: none;
-        background: transparent;
-        border-radius: $radius-md;
-        cursor: pointer;
-        text-align: left;
-        color: $text-secondary;
-
-        &:hover { background: $bg-hover; }
-    }
-
-    &__rail-icon {
-        display: inline-flex;
-        flex-shrink: 0;
-    }
-
-    &__rail-name {
+    &__seg {
         flex: 1;
         min-width: 0;
-        font-size: $font-size-sm;
-        white-space: nowrap;
+        padding: 12px 14px 13px;
+        background: none;
+        border: none;
+        // A 2px top edge carries the step's state colour — the strip reads as a
+        // progress bar from across the room, before any label is legible.
+        border-top: 2px solid var(--surface-3);
+        border-left: 1px solid $border-subtle;
+        cursor: pointer;
+        text-align: left;
+        transition: background $transition-fast;
+
+        &:first-child { border-left: none; }
+        &:hover,
+        &.is-selected { background: $bg-hover; }
+
+        @media (max-width: 720px) { min-width: 150px; }
+
+        &--done { border-top-color: $success; }
+        &--failed { border-top-color: $danger; }
+        &--running { border-top-color: var(--amber); }
+    }
+
+    &__seg-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-ghost);
+        font-size: 12.5px;
+        font-weight: 500;
+
+        svg { flex-shrink: 0; }
+    }
+
+    &__seg--done &__seg-head,
+    &__seg--failed &__seg-head,
+    &__seg--running &__seg-head { color: $text-primary; }
+
+    &__seg--done &__seg-head svg { color: $success; }
+    &__seg--failed &__seg-head svg { color: $danger; }
+    &__seg--running &__seg-head svg { color: var(--amber); }
+
+    &__seg-name {
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    &__rail-time {
-        font-size: $font-size-xs;
+    &__seg-bar {
+        display: block;
+        height: 3px;
+        margin-top: 11px;
+        border-radius: 2px;
+        background: var(--surface-3);
+        overflow: hidden;
+
+        i { display: block; height: 100%; border-radius: 2px; background: currentcolor; }
+    }
+
+    &__seg--done &__seg-bar i { background: $success; }
+    &__seg--failed &__seg-bar i { background: $danger; }
+    &__seg--running &__seg-bar i { background: var(--amber); }
+
+    &__seg-dur {
+        display: block;
+        margin-top: 6px;
         color: $text-tertiary;
-        font-variant-numeric: tabular-nums;
+        font-family: $font-mono;
+        font-size: 10.5px;
     }
 
-    &__rail-item {
-        &--done .deploy-console__rail-icon { color: $success; }
-        &--running .deploy-console__rail-icon { color: var(--accent-bright); }
-        &--failed .deploy-console__rail-icon { color: $danger; }
-        &--pending .deploy-console__rail-icon { color: $text-tertiary; }
-        &--running .deploy-console__rail-name { color: $text-primary; font-weight: 600; }
+    &__seg--running &__seg-dur { color: var(--amber); }
+
+    // ---- run identity line ----
+    &__runmeta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 20px;
+        padding: 0 3px;
+        color: var(--text-ghost);
+        font-family: $font-mono;
+        font-size: 11.5px;
+
+        b { color: $text-secondary; font-weight: 500; }
     }
 
     // ---- toolbar ----

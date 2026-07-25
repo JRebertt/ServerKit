@@ -96,3 +96,73 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
 }
+
+// ---- card view (ResourceListPage renderCard) --------------------------------
+// Same rows as the table, reflowed for scanning by service rather than by
+// column. Toggled from the toolbar; the choice persists per browser.
+.services-card {
+    &__top {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+        margin-bottom: $space-3;
+    }
+
+    &__id { flex: 1; min-width: 0; }
+
+    &__name {
+        overflow: hidden;
+        color: $text-primary;
+        font-size: 14.5px;
+        font-weight: $font-weight-semibold;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__domain {
+        overflow: hidden;
+        margin-bottom: 14px;
+        color: $text-secondary;
+        font-family: var(--mono);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        padding-top: 13px;
+        border-top: 1px solid $border-subtle;
+
+        .l {
+            display: block;
+            color: $text-tertiary;
+            font-size: 10px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .v {
+            display: block;
+            overflow: hidden;
+            margin-top: 3px;
+            color: $text-primary;
+            font-size: 13px;
+            font-weight: $font-weight-semibold;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 2px;
+        margin-top: 14px;
+        padding-top: 13px;
+        border-top: 1px solid $border-subtle;
+    }
+}

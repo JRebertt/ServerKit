@@ -202,6 +202,54 @@
     // Count subtitle accent ("M running") in the PageTopbar meta slot.
     &__meta-running { color: var(--green); }
 
+    // Table/cards switch — only rendered by pages that pass a card renderer to
+    // ResourceListPage. Sits after the search, which already claims margin-left.
+    &__viewswitch {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+        padding: 3px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+
+        button {
+            display: grid;
+            place-items: center;
+            padding: 6px 9px;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-faint);
+            cursor: pointer;
+            transition: background 0.14s, color 0.14s;
+
+            &:hover { color: var(--text); }
+            &.is-active { background: var(--surface-3); color: var(--text); }
+        }
+    }
+
+    // Card layout for the same rows the table shows.
+    &__cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+    }
+
+    &__cardtile {
+        display: flex;
+        flex-direction: column;
+        padding: $space-4;
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: border-color 0.14s, transform 0.14s;
+
+        &:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+        &.is-selected { border-color: var(--accent-dim); background: var(--accent-bg-soft); }
+    }
+
     // bulk-select bar (demo's bulkbar) — appears once any row is checked
     &__bulkbar {
         display: flex;

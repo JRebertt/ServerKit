@@ -1,78 +1,42 @@
 // ============================================
 // DEPLOYMENTS PAGE  (/deployments)
-// Jobs index only — each row deep-links to the Deploy Console
-// (/deployments/:jobId, _deploy-console.scss). The old side detail pane was
-// removed in plan 51; plan 51.5 removed its leftover grid + styles.
+// Deploy Activity — a chronological feed of runs grouped into Queued / Today /
+// Earlier. Each row deep-links to the Deploy Console (/deployments/:jobId,
+// _deploy-console.scss). Replaced the plain jobs table in the plan 51.5 UI pass.
 // ============================================
 
+// Column track shared by the feed header and its rows so the two stay locked
+// together; `minmax(0, 1fr)` lets the long ref/error subline ellipsize instead
+// of stretching the grid.
+$deploy-feed-cols: 20px minmax(0, 1fr) 132px 116px 56px 76px 14px;
+
 .deployments-page {
+    // A fixed reading column rather than full bleed: the feed's rightmost
+    // columns (took / started) are narrow and fixed, so on a wide monitor a
+    // full-bleed row strands the name miles from its own timing.
+    max-width: 1180px;
+    margin: 0 auto;
+
     &__toolbar {
         display: flex;
         align-items: center;
         gap: $space-3;
-        margin-bottom: $space-3;
-        padding: $space-3;
-        background: $bg-card;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
+        margin-bottom: $space-4;
     }
 
-    &__filter {
-        display: grid;
-        gap: 3px;
-        min-width: 180px;
+    &__server-select {
+        min-height: 34px;
+        padding: $space-1 $space-2;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: $radius-md;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        cursor: pointer;
 
-        label {
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            font-weight: $font-weight-semibold;
-        }
-
-        select {
-            min-height: 34px;
-            padding: $space-1 $space-8 $space-1 $space-2;
-            background: $bg-elevated;
-            border: 1px solid $border-subtle;
-            border-radius: $radius-md;
-            color: $text-primary;
-            font-size: $font-size-sm;
-            cursor: pointer;
-
-            &:focus {
-                outline: none;
-                border-color: $accent-primary;
-                box-shadow: 0 0 0 3px $accent-glow;
-            }
-        }
-    }
-
-    &__panel {
-        background: $bg-card;
-        border: 1px solid $border-subtle;
-        border-radius: $radius-lg;
-        overflow: hidden;
-    }
-
-    &__panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 52px;
-        padding: $space-3 $space-4;
-        border-bottom: 1px solid $border-subtle;
-
-        h2 {
-            margin: 0;
-            color: $text-primary;
-            font-size: $font-size-base;
-            font-weight: $font-weight-semibold;
-        }
-
-        span {
-            display: block;
-            margin-top: 2px;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
+        &:focus {
+            outline: none;
+            border-color: $accent-primary;
         }
     }
 
@@ -100,120 +64,185 @@
         color: $text-tertiary;
         text-align: center;
 
-        svg {
-            color: $text-tertiary;
-            opacity: 0.72;
-        }
-
-        strong {
-            color: $text-secondary;
-            font-size: $font-size-sm;
-            font-weight: $font-weight-semibold;
-        }
-
-        span {
-            max-width: 280px;
-            font-size: $font-size-sm;
-            line-height: 1.45;
-        }
+        svg { color: $text-tertiary; opacity: 0.72; }
+        strong { color: $text-secondary; font-size: $font-size-sm; font-weight: $font-weight-semibold; }
+        span { max-width: 280px; font-size: $font-size-sm; line-height: 1.45; }
     }
 
-    &__jobs-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: $font-size-sm;
-
-        th {
-            padding: $space-3 $space-4;
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            font-weight: $font-weight-semibold;
-            text-align: left;
-            text-transform: uppercase;
-            border-bottom: 1px solid $border-subtle;
-            white-space: nowrap;
-        }
-
-        td {
-            padding: $space-3 $space-4;
-            color: $text-primary;
-            border-bottom: 1px solid $border-subtle;
-            vertical-align: middle;
-        }
-
-        tbody tr {
-            cursor: pointer;
-            transition: background $transition-fast;
-
-            &:hover {
-                background: $bg-hover;
-            }
-
-            &:last-child td {
-                border-bottom: none;
-            }
-        }
-    }
-
-    &__server-cell {
-        display: inline-flex;
+    // ---- feed ----
+    &__feed-head {
+        display: grid;
+        grid-template-columns: $deploy-feed-cols;
         align-items: center;
-        gap: $space-1;
-        color: $text-secondary;
-        white-space: nowrap;
+        gap: 18px;
+        padding: 0 16px 8px;
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+
+        .is-right { text-align: right; }
     }
 
-    &__progress {
-        width: 100%;
-        min-width: 88px;
-        max-width: 220px;
-        height: 6px;
-        background: $bg-elevated;
-        border-radius: $radius-full;
-        overflow: hidden;
-    }
+    &__group + &__group { margin-top: 22px; }
 
-    &__progress-fill {
-        height: 100%;
-        border-radius: inherit;
-        background: var(--accent-primary);
-        transition: width 200ms ease;
-
-        &--failed {
-            background: var(--red);
-        }
-    }
-
-    &__progress-meta,
-    &__time-cell {
+    &__group-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px 7px;
         color: $text-tertiary;
-        font-size: $font-size-xs;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+
+        i { flex: 1; height: 1px; background: $border-subtle; }
     }
 
-    &__progress-meta {
-        margin-top: 3px;
-    }
-
-    &__status-badge {
-        display: inline-flex;
+    &__row {
+        display: grid;
+        grid-template-columns: $deploy-feed-cols;
         align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: $radius-full;
-        font-size: $font-size-xs;
-        font-weight: $font-weight-semibold;
-        line-height: 1;
-        text-transform: capitalize;
-        white-space: nowrap;
+        gap: 18px;
+        width: 100%;
+        padding: 12px 16px;
+        background: $bg-card;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-lg;
+        text-align: left;
+        cursor: pointer;
+        transition: background $transition-fast, border-color $transition-fast;
 
-        &--pending { background: var(--surface-3); color: var(--text-faint); }
-        &--running { background: var(--accent-bg); color: var(--accent-bright); }
-        &--succeeded { background: var(--green-bg); color: var(--green); }
-        &--failed { background: var(--red-bg); color: var(--red); }
+        + .deployments-page__row { margin-top: 5px; }
+
+        &:hover {
+            background: $bg-hover;
+            border-color: var(--border);
+        }
+
+        &--pending .deployments-page__row-name { color: $text-secondary; }
     }
 
-    &__spin {
-        animation: deployments-spin 1s linear infinite;
+    &__row-ico {
+        display: flex;
+        justify-content: center;
+
+        &.is-succeeded { color: var(--green); }
+        &.is-failed { color: var(--red); }
+        &.is-running { color: var(--amber); }
+        &.is-pending { color: var(--text-ghost); }
+    }
+
+    &__row-main { min-width: 0; }
+
+    &__row-name {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: $text-primary;
+        font-size: 13.5px;
+        font-weight: 550;
+        letter-spacing: -0.01em;
+    }
+
+    &__row-kind {
+        padding: 1px 5px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    &__row-sub {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        margin-top: 4px;
+        color: $text-tertiary;
+        font-size: 11.5px;
+        white-space: nowrap;
+    }
+
+    &__row-ref {
+        flex-shrink: 0;
+        color: $text-secondary;
+        font-family: var(--mono);
+    }
+
+    &__row-sep { color: var(--text-ghost); }
+
+    &__row-error {
+        overflow: hidden;
+        color: var(--red);
+        text-overflow: ellipsis;
+    }
+
+    &__pipe {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+    }
+
+    &__ticks {
+        display: flex;
+        gap: 3px;
+
+        i {
+            display: block;
+            width: 7px;
+            height: 15px;
+            border-radius: 2px;
+            background: var(--surface-3);
+
+            &.is-done { background: var(--green); }
+            &.is-failed { background: var(--red); }
+            &.is-running {
+                background: var(--amber);
+                animation: deploy-tick-pulse 1.2s ease-in-out infinite;
+            }
+        }
+    }
+
+    &__pipe-count {
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 10.5px;
+    }
+
+    &__row-target {
+        min-width: 0;
+        overflow: hidden;
+        color: $text-secondary;
+        font-family: var(--mono);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__row-took,
+    &__row-when {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        text-align: right;
+    }
+
+    &__row-took { color: $text-secondary; }
+    &__row-when { color: $text-tertiary; }
+
+    &__row-chev {
+        color: var(--text-ghost);
+        transition: transform $transition-fast, color $transition-fast;
+    }
+
+    &__row:hover &__row-chev {
+        color: var(--accent-bright);
+        transform: translateX(2px);
     }
 
     // ---- test-deployment (simulated) scenario picker ----
@@ -279,28 +308,14 @@
         gap: 2px;
         min-width: 0;
 
-        strong {
-            color: $text-primary;
-            font-size: $font-size-sm;
-            font-weight: $font-weight-semibold;
-        }
-
-        span {
-            color: $text-tertiary;
-            font-size: $font-size-xs;
-            line-height: 1.4;
-        }
+        strong { color: $text-primary; font-size: $font-size-sm; font-weight: $font-weight-semibold; }
+        span { color: $text-tertiary; font-size: $font-size-xs; line-height: 1.4; }
     }
 }
 
-@keyframes deployments-spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
+@keyframes deploy-tick-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
 }
 
 @media (max-width: $breakpoint-md) {
@@ -311,16 +326,12 @@
             align-items: stretch;
         }
 
-        &__filter {
-            min-width: 0;
-        }
+        .sk-seg { overflow-x: auto; }
 
-        &__jobs-panel {
-            overflow-x: auto;
-        }
-
-        &__jobs-table {
-            min-width: 760px;
-        }
+        // Below the grid's natural width the feed scrolls sideways rather than
+        // collapsing the pipeline/target columns into unreadable slivers.
+        &__feed { overflow-x: auto; }
+        &__feed-head,
+        &__row { min-width: 720px; }
     }
 }
