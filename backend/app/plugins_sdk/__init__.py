@@ -22,6 +22,12 @@ Typical plugin module:
         # ... do work, use db.session, etc ...
         return jsonify({'ok': True})
 
+Beyond the plumbing re-exported here, the SDK has surfaces a plugin
+*contributes to* — ``store`` (state without a migration), ``deploys``,
+``backups``, ``doctor``, ``search`` and ``agents``. In each case the plugin
+brings the behaviour and the panel brings the UI, the persistence and the error
+handling; see each ``*_sdk.py`` module's docstring, and docs/EXTENSIONS.md.
+
 The lifecycle hook contract (called by plugin_service when installing /
 uninstalling): a single positional arg — the InstalledPlugin row.
 
@@ -165,8 +171,8 @@ def __getattr__(name):
 
     These SDKs import services (and therefore models), while this module is
     imported early in app setup — binding them eagerly would make plugins_sdk
-    import-order sensitive for everyone, including the plugins that never touch
-    deployments or search.
+    import-order sensitive for everyone, including the plugins that never
+    contribute to any of these surfaces.
 
     Each implementation lives in ``<name>_sdk.py``, not ``<name>.py``: a
     submodule of the bare name would be bound as a package attribute on import
