@@ -994,3 +994,64 @@
         font-size: 12.5px;
     }
 }
+
+// Capacity note in the deploy drawer — does this template fit the server the
+// operator just picked. Toned by verdict, but deliberately quiet: it sits under
+// the server picker as a sentence, not an alert box, because it never blocks
+// the deploy.
+.tpl-capacity {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--surface-3);
+    border-radius: $radius-md;
+    background: var(--surface-2);
+    transition: opacity 0.15s ease;
+
+    // Dimmed while re-asking after a server switch, so the old answer never
+    // looks like the new one.
+    &[data-loading='true'] { opacity: 0.55; }
+
+    &__icon { flex-shrink: 0; margin-top: 1px; }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    &__headline {
+        color: $text-primary;
+        font-size: 12.5px;
+        font-weight: 600;
+    }
+
+    &__detail {
+        color: $text-tertiary;
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
+
+    &--ok {
+        .tpl-capacity__icon { color: $success; }
+    }
+
+    // -raw variants because $warning/$danger resolve to CSS var()s, which
+    // rgba() cannot take at build time.
+    &--tight {
+        border-color: rgba($warning-raw, 0.35);
+        .tpl-capacity__icon { color: $warning; }
+    }
+
+    &--insufficient {
+        border-color: rgba($danger-raw, 0.35);
+        .tpl-capacity__icon { color: $danger; }
+    }
+
+    &--unknown {
+        .tpl-capacity__icon { color: $text-tertiary; }
+    }
+}

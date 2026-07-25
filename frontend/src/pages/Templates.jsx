@@ -5,7 +5,8 @@ import {
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
     Settings, Layers, LayoutTemplate, Check, Tag, Cpu,
-    Newspaper, TrendingUp, Rocket, Box, Download, ChevronRight
+    Newspaper, TrendingUp, Rocket, Box, Download, ChevronRight,
+    CheckCircle2, AlertTriangle, XCircle, HelpCircle
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -706,6 +707,41 @@ const Templates = () => {
 };
 
 // The one deploy surface for every template, compose or repo.
+// Whether the chosen server has room for this template: what it typically
+// needs, against what that server has free right now.
+//
+// Advisory by design — it never disables the Deploy button. An estimate is an
+// estimate, and the operator knows things the panel doesn't (a box about to be
+// resized, an app that idles far below its documented minimum). The job here is
+// to make sure nobody is *surprised*, not to hold the door shut.
+const CAPACITY_TONES = {
+    ok: { icon: CheckCircle2, label: 'Fits' },
+    tight: { icon: AlertTriangle, label: 'Tight' },
+    insufficient: { icon: XCircle, label: "Won't fit" },
+    unknown: { icon: HelpCircle, label: 'Unknown' },
+};
+
+const CapacityNote = ({ capacity, loading }) => {
+    // Nothing on first paint rather than a flash of "unknown" that immediately
+    // becomes an answer.
+    if (!capacity && loading) return null;
+    if (!capacity) return null;
+
+    const tone = CAPACITY_TONES[capacity.verdict] || CAPACITY_TONES.unknown;
+    const Icon = tone.icon;
+
+    return (
+        <div className={`tpl-capacity tpl-capacity--${capacity.verdict}`}
+             aria-live="polite" data-loading={loading ? 'true' : undefined}>
+            <Icon size={16} className="tpl-capacity__icon" />
+            <div className="tpl-capacity__text">
+                <strong className="tpl-capacity__headline">{capacity.headline}</strong>
+                <span className="tpl-capacity__detail">{capacity.detail}</span>
+            </div>
+        </div>
+    );
+};
+
 const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const toast = useToast();
     const navigate = useNavigate();
@@ -717,6 +753,8 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const [variables, setVariables] = useState({});
     const [servers, setServers] = useState([{ id: 'local', name: 'Local server', is_local: true }]);
     const [selectedServerId, setSelectedServerId] = useState('local');
+    const [capacity, setCapacity] = useState(null);
+    const [capacityLoading, setCapacityLoading] = useState(false);
     const [installing, setInstalling] = useState(false);
     const [errors, setErrors] = useState([]);
     // Managed-sites base domain, so the drawer can offer the subdomain this
@@ -761,6 +799,18 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
         }
     }
 
+    // Ask whether this template fits the chosen server, and re-ask whenever
+    // they switch — the whole point is to answer before the deploy, not after.
+    useEffect(() => {
+        let cancelled = false;
+        setCapacityLoading(true);
+        api.getTemplateCapacity(template.id, selectedServerId)
+            .then(result => { if (!cancelled) setCapacity(result); })
+            .catch(() => { if (!cancelled) setCapacity(null); })
+            .finally(() => { if (!cancelled) setCapacityLoading(false); });
+        return () => { cancelled = true; };
+    }, [template.id, selectedServerId]);
+
     const domainPreview = baseDomain && appName ? `${appName}.${baseDomain}` : null;
 
     async function handleInstall(e) {
@@ -801,7 +851,8 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
 
         try {
             // Validate first
-            const validation = await api.validateTemplateInstall(template.id, appName, variables);
+            const validation = await api.validateTemplateInstall(
+                template.id, appName, variables, selectedServerId);
             if (!validation.valid) {
                 setErrors(validation.errors || ['Validation failed']);
                 setInstalling(false);
@@ -918,6 +969,9 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                             value={selectedServerId}
                             onChange={setSelectedServerId}
                         />
+                        {/* Sits under the picker because the answer depends on
+                            which server is chosen — switching re-asks. */}
+                        <CapacityNote capacity={capacity} loading={capacityLoading} />
                     </div>
 
                     {visibleVars.length > 0 && (
