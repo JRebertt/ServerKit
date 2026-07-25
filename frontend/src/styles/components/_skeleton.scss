@@ -132,6 +132,22 @@
     // the 880px column the generic panel uses.
     &:has(.sk-page-wrap) {
         max-width: none;
+        // Several pages early-return their loading state, bypassing the padded
+        // container the loaded page renders into. Without this the skeleton
+        // spans edge to edge and then everything jumps inward on arrival —
+        // exactly the flash a skeleton exists to prevent. Page padding is
+        // reasserted here and dropped again below when a real container is
+        // already supplying it, so neither case doubles up.
+        padding: $space-6;
+        min-height: 0;
+    }
+}
+
+.sk-tabgroup__inner,
+.page-container,
+.wp-list {
+    > .empty-state--loading:has(.sk-page-wrap) {
+        padding: 0;
     }
 }
 

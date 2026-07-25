@@ -89,15 +89,22 @@ export default function ResourceListPage({
     };
 
     if (loading) {
-        // A resource list is always a table (or a card grid, when the page opted
-        // into one), so the skeleton can predict the real shape rather than
-        // falling back to the generic panel.
+        // Same wrapper as the loaded state below. A skeleton that renders
+        // outside the page's padded container occupies a different box than the
+        // content it predicts — it spans edge to edge, then everything jumps
+        // inward on arrival, which is precisely the flash a skeleton exists to
+        // prevent.
+        //
+        // The variant tracks the real shape: a resource list is a table, or a
+        // card grid when the page opted into one.
         return (
-            <EmptyState
-                loading
-                loadingVariant={renderCard && view === 'cards' ? 'cards' : 'table'}
-                title={loadingTitle}
-            />
+            <div className={cn('sk-tabgroup__inner', className)}>
+                <EmptyState
+                    loading
+                    loadingVariant={renderCard && view === 'cards' ? 'cards' : 'table'}
+                    title={loadingTitle}
+                />
+            </div>
         );
     }
 
