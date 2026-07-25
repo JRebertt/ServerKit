@@ -203,11 +203,15 @@
     &__meta-running { color: var(--green); }
 
     // Table/cards switch — only rendered by pages that pass a card renderer to
-    // ResourceListPage. Sits after the search, which already claims margin-left.
+    // ResourceListPage. It claims the free space so it stays right-aligned on
+    // pages whose search lives in the top bar instead (Services); where a
+    // toolbar search IS present that element already claims it, so the switch
+    // gives the margin back and simply trails it.
     &__viewswitch {
         display: flex;
         gap: 2px;
         flex-shrink: 0;
+        margin-left: auto;
         padding: 3px;
         background: var(--surface-2);
         border: 1px solid var(--border);
@@ -228,6 +232,8 @@
             &.is-active { background: var(--surface-3); color: var(--text); }
         }
     }
+
+    &__search + &__viewswitch { margin-left: 0; }
 
     // Card layout for the same rows the table shows.
     &__cards {

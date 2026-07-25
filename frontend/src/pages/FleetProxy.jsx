@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Boxes, Network, RefreshCw, Router, Server as ServerIcon, Waypoints } from 'lucide-react';
+import { AlertTriangle, Network, RefreshCw, Server as ServerIcon } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
-import { DataTable, KpiBand, MetricCard, Pill } from '@/components/ds';
+import { DataTable, Pill } from '@/components/ds';
 import EmptyState from '../components/EmptyState';
 
 // Fleet-wide reverse-proxy dashboard (Phase 4 of C6). Aggregates every
@@ -93,36 +93,8 @@ const FleetProxy = () => {
         </Button>
     ), [loading]);
 
-    // Summary counts by proxy type for the header, plus fleet-wide app and
-    // ingress-mismatch totals (each server row carries app_count / mismatch_count).
-    const summary = useMemo(() => {
-        const counts = { total: rows.length, nginx: 0, traefik: 0, caddy: 0, apps: 0, mismatches: 0 };
-        rows.forEach((row) => {
-            const type = row.proxy_type || 'nginx';
-            if (counts[type] != null) counts[type] += 1;
-            counts.apps += row.app_count || 0;
-            counts.mismatches += row.mismatch_count || 0;
-        });
-        return counts;
-    }, [rows]);
-
-    // Summary KPIs. Tone mirrors each proxy type's semantic color (Traefik→cyan,
-    // Caddy→violet from PROXY_TYPE_META); the neutral fleet counts read accent,
-    // and the mismatch tile turns amber only when there is something to act on.
-    const summaryTiles = [
-        { key: 'total', label: 'Servers', value: summary.total, icon: <ServerIcon size={16} />, tone: 'accent' },
-        { key: 'apps', label: 'Apps', value: summary.apps, icon: <Boxes size={16} />, tone: 'accent' },
-        { key: 'traefik', label: 'Traefik', value: summary.traefik, icon: <Router size={16} />, tone: 'cyan' },
-        { key: 'caddy', label: 'Caddy', value: summary.caddy, icon: <Waypoints size={16} />, tone: 'violet' },
-        {
-            key: 'mismatches',
-            label: 'Ingress mismatches',
-            value: summary.mismatches,
-            icon: <AlertTriangle size={16} />,
-            tone: summary.mismatches > 0 ? 'amber' : 'green',
-        },
-    ];
-
+    // No KPI band and no page title: every tile it held was a re-count of a
+    // column already on the table below, and the tab strip names the page.
     const columns = [
         { key: 'server', header: 'Server' },
         { key: 'type', header: 'Proxy type' },
@@ -136,32 +108,6 @@ const FleetProxy = () => {
 
     return (
         <div className="sk-tabgroup__inner fleet-proxy">
-            <header className="fleet-proxy__intro">
-                <div className="fleet-proxy__intro-icon">
-                    <Network size={18} />
-                </div>
-                <div className="fleet-proxy__intro-text">
-                    <h1>Fleet Proxy</h1>
-                    <p>
-                        Reverse-proxy posture across every server. Host Nginx is the default;
-                        servers can opt into a managed Traefik or Caddy stack. Open a server&apos;s
-                        Proxy tab to configure it.
-                    </p>
-                </div>
-            </header>
-
-            <KpiBand max={5}>
-                {summaryTiles.map((tile) => (
-                    <MetricCard
-                        key={tile.key}
-                        icon={tile.icon}
-                        tone={tile.tone}
-                        value={tile.value}
-                        label={tile.label}
-                    />
-                ))}
-            </KpiBand>
-
             {error ? (
                 <div className="fleet-proxy__error">
                     <p>{error}</p>
@@ -179,7 +125,7 @@ const FleetProxy = () => {
                             <EmptyState
                                 icon={Network}
                                 title="No servers in the fleet"
-                                description="Add a server to see its reverse-proxy posture here."
+                                description="This is where each server's reverse-proxy posture lands: which proxy it runs, whether it's healthy, and when its config was last regenerated. Host Nginx is the default; a server can opt into a managed Traefik or Caddy stack from its Proxy tab. Add a server to start."
                             />
                         )}
                         renderRow={(row, { key }) => {

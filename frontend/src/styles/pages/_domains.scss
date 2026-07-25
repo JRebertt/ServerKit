@@ -14,31 +14,13 @@
     padding-top: $space-5;
 }
 
-// KPI strip
-.dom-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: $space-4;
-    margin-bottom: $space-5;
-
-    @media (max-width: $breakpoint-lg) { grid-template-columns: repeat(2, 1fr); }
-    @media (max-width: $breakpoint-sm) { grid-template-columns: 1fr; }
-}
-
-// List header + segmented filter
+// Segmented filter above the table. The counts it carries replaced the KPI
+// strip that used to sit here — same numbers, on the control you'd click.
 .dom-listhead {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: $space-4;
     margin-bottom: $space-3;
-
-    &__title {
-        margin: 0;
-        font-size: 15px;
-        font-weight: $font-weight-semibold;
-        color: $text-primary;
-    }
 }
 
 // Table card

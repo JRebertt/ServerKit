@@ -7,7 +7,7 @@ import { getServiceType, getStatusConfig, formatRelativeTime } from '../utils/se
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import BandwidthSparkline from '../components/BandwidthSparkline';
 import { formatBytes } from '../utils/formatBytes';
-import { Pill, ServiceTile, EnvTag } from '@/components/ds';
+import { Pill, ServiceTile, EnvTag, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -132,8 +132,13 @@ const Services = () => {
                     New Service
                 </Link>
             </Button>
+            <SearchField
+                value={searchTerm}
+                onSearch={setSearchTerm}
+                placeholder="Search services…"
+            />
         </>,
-        []
+        [searchTerm]
     );
 
     const allSelected = filteredApps.length > 0 && filteredApps.every(a => selectedIds.has(a.id));
@@ -324,9 +329,6 @@ const Services = () => {
             ]}
             activeFilter={statusFilter}
             onFilterChange={setStatusFilter}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            searchPlaceholder="Search services…"
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             bulkActions={

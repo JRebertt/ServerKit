@@ -12,40 +12,9 @@
     flex-direction: column;
     gap: $space-4;
 
-    // Intro: icon chip + title + one-line explanation.
-    &__intro {
-        display: flex;
-        align-items: flex-start;
-        gap: $space-3;
-    }
-
-    &__intro-icon {
-        display: inline-flex;
-        flex: none;
-        padding: $space-2;
-        border-radius: $radius-md;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
-    }
-
-    &__intro-text {
-        h1 {
-            margin: 0 0 $space-1;
-            font-size: $font-size-lg;
-            font-weight: 600;
-            color: $text-primary;
-        }
-
-        p {
-            margin: 0;
-            max-width: 62ch;
-            font-size: $font-size-sm;
-            color: $text-secondary;
-        }
-    }
-
-    // Summary KPIs now render via the shared KpiBand / MetricCard primitives;
-    // no bespoke tile styling lives here.
+    // No intro header and no KPI band: the tab strip names the page, and every
+    // tile was a re-count of a column on the table. What the page is for is
+    // explained where it's actually needed — the empty state.
 
     // "Apps" cell: count plus an optional amber mismatch pill.
     &__apps {
