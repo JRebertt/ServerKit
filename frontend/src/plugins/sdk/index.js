@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.0.0';
+export const SDK_VERSION = '1.1.0';
 
 export { api, default as defaultApi } from '../../services/api';
 

@@ -61,6 +61,12 @@ def _write_builtin(builtin_dir, slug='serverkit-demo', version='1.0.0',
             # TabGroupLayout group, paired with the group route above.
             'tabs': [{'group': 'files', 'to': '/demo-tab', 'label': 'Demo Tab',
                       'icon': '<circle cx="12" cy="12" r="8"/>'}],
+            # Placeable dashboard widget type (plan 62): shows up in the
+            # dashboard widget library, not at a fixed host slot.
+            'dashboard_widgets': [{'id': 'demo-widget', 'name': 'Demo Widget',
+                                   'component': 'DemoWidget', 'category': 'Utility',
+                                   'w': 3, 'h': 2, 'min': [2, 2],
+                                   'default_cfg': {'limit': 5}}],
         },
     }
     (folder / 'plugin.json').write_text(json.dumps(manifest), encoding='utf-8')
@@ -188,7 +194,7 @@ def test_contributions_endpoint_envelope(app, client, auth_headers, plugin_dirs)
 
     # The envelope always carries every key.
     for key in ('nav', 'routes', 'page_titles', 'command_palette', 'widgets',
-                'layouts', 'tabs', 'ai'):
+                'dashboard_widgets', 'layouts', 'tabs', 'ai'):
         assert key in data
 
     # Contributions are tagged with the source plugin slug.
@@ -204,6 +210,13 @@ def test_contributions_endpoint_envelope(app, client, auth_headers, plugin_dirs)
                and t.get('to') == '/demo-tab' for t in data['tabs'])
     assert any(r.get('plugin') == 'serverkit-demo' and r.get('group') == 'files'
                and r.get('component') == 'DemoTabPage' for r in data['routes'])
+
+    # Placeable dashboard widget types travel on their own key, tagged with the
+    # slug, and never leak into the fixed-slot `widgets` surface.
+    assert any(w.get('plugin') == 'serverkit-demo' and w.get('id') == 'demo-widget'
+               and w.get('component') == 'DemoWidget'
+               for w in data['dashboard_widgets'])
+    assert not any(w.get('id') == 'demo-widget' for w in data['widgets'])
 
 
 def test_disabled_plugin_drops_from_contributions(app, client, auth_headers, plugin_dirs):

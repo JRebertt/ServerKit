@@ -343,6 +343,7 @@ _REQUIRED_CONTRIB_KEYS = {
     'tabs': ('group', 'to', 'label'),
     'command_palette': ('label', 'path'),
     'widgets': ('slot', 'component'),
+    'dashboard_widgets': ('id', 'name', 'component'),
     'layouts': ('id', 'component'),
 }
 
