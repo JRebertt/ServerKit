@@ -37,6 +37,24 @@ English | [Español](docs/README.es.md) | [中文版](docs/README.zh-CN.md) | [P
 
 ---
 
+## 📊 By the Numbers
+
+Everything below is measured from this repository, not estimated.
+
+| | |
+|---|---|
+| **1,519** REST endpoints | across 107 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
+| **106** one-click app templates | bundled in the repo, no registry account needed |
+| **2,633** backend tests | the whole suite runs on every change |
+| **1.75 MB** gzipped web UI | 65 screens, assets served from your own box — no CDN |
+| **~180 MB** resident | the entire panel, single process — sits comfortably beside your apps on a 1 GB VPS |
+| **501 MB** container image | or install straight onto the host; Docker is optional for the panel itself |
+| **$0** | MIT-licensed. No tiers, no seat limits, no upsell — and nothing phones home. |
+
+Self-hosted and Docker-native, on hardware you already pay for.
+
+---
+
 ## 🚀 Quick Start
 
 > ⏱️ Up and running in under 2 minutes

@@ -37,6 +37,24 @@ ni el coste de las plataformas gestionadas.
 
 ---
 
+## 📊 En Números
+
+Todo lo siguiente está medido sobre este repositorio, no estimado.
+
+| | |
+|---|---|
+| **1.519** endpoints REST | repartidos en 107 blueprints — `/api/v1/*`, con OpenAPI y Swagger UI en `/api/v1/docs` |
+| **106** plantillas de apps | incluidas en el repositorio, sin necesidad de cuenta en ningún registro |
+| **2.633** pruebas de backend | la suite completa se ejecuta ante cada cambio |
+| **1,75 MB** de interfaz web (gzip) | 65 pantallas, servidas desde tu propio servidor — sin CDN |
+| **~180 MB** en memoria | el panel entero, un solo proceso — convive sin apreturas con tus apps en un VPS de 1 GB |
+| **501 MB** de imagen de contenedor | o instálalo directamente en el host; Docker es opcional para el panel |
+| **$0** | Licencia MIT. Sin planes, sin límite de usuarios, sin ventas adicionales — y nada se comunica hacia afuera. |
+
+Autoalojado y nativo en Docker, sobre hardware que ya estás pagando.
+
+---
+
 ## 🚀 Inicio Rápido
 
 > ⏱️ En funcionamiento en menos de 2 minutos
