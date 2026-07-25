@@ -1,14 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Plus, GitBranch, Layers } from 'lucide-react';
+import { GitBranch, Layers } from 'lucide-react';
 import wordpressApi from '../services/wordpress';
 import { useToast } from '../contexts/ToastContext';
-import EmptyState from '../components/EmptyState';
-import { Badge } from '@/components/ui/badge';
+import ResourceListPage from '../components/layouts/ResourceListPage';
+import { Pill, ServiceTile, EnvTag } from '@/components/ds';
 
+// Environment badges, in promotion order — production is always present, the
+// rest only when the project actually has them.
+const ENV_TAGS = [
+    ['staging', 'STG'],
+    ['development', 'DEV'],
+    ['multidev', 'MD'],
+];
+
+// A WordPress project = one site plus its environment chain. This lists which
+// projects HAVE a pipeline; the run history of what was promoted and when lives
+// in Deploy Activity, which answers a different question.
 const WordPressProjects = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -29,99 +42,139 @@ const WordPressProjects = () => {
         }
     }
 
-    if (loading) {
-        return <EmptyState loading loadingVariant="cards" size="lg" title="Loading WordPress pipelines" />;
-    }
+    const runningCount = projects.filter(p => p.status === 'running').length;
 
-    return (
-        <div className="sk-tabgroup__inner wp-projects-page">
-            {projects.length === 0 ? (
-                <EmptyState
-                    size="lg"
-                    icon={Layers}
-                    title="No WordPress Pipelines"
-                    description="WordPress sites with environment pipelines appear here. Create a WordPress site with environments enabled to get started."
-                />
-            ) : (
-                <div className="wp-projects-grid">
-                    {projects.map(project => (
-                        <ProjectCard
-                            key={project.id}
-                            project={project}
-                            onClick={() => navigate(`/wordpress/pipelines/${project.id}`)}
-                        />
+    const shown = projects.filter(p => {
+        if (statusFilter === 'running' && p.status !== 'running') return false;
+        if (statusFilter === 'stopped' && p.status === 'running') return false;
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return [p.name, p.url, p.application?.domains?.[0]]
+            .some(v => v && String(v).toLowerCase().includes(q));
+    });
+
+    const domainOf = (p) => p.application?.domains?.[0] || p.url || '';
+    const envCount = (p) => (p.environment_count || 0) + 1;
+
+    const columns = [
+        {
+            key: 'name',
+            header: 'Project',
+            render: (p) => (
+                <div className="sk-cell-name">
+                    <ServiceTile name={p.name} size={30} aria-hidden="true" />
+                    <span>
+                        <div>{p.name}</div>
+                        {domainOf(p) && <div className="sk-cell-sub">{domainOf(p)}</div>}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'environments',
+            header: 'Environments',
+            render: (p) => (
+                <span className="wp-projects-page__envs">
+                    <span className="wp-projects-page__envcount">
+                        <Layers size={13} aria-hidden="true" />
+                        {envCount(p)}
+                    </span>
+                    <EnvTag env="production">PROD</EnvTag>
+                    {ENV_TAGS.map(([type, label]) => (
+                        (p.environment_types || []).includes(type)
+                            ? <EnvTag key={type} env={type}>{label}</EnvTag>
+                            : null
                     ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const ProjectCard = ({ project, onClick }) => {
-    const isRunning = project.status === 'running';
-    const envCount = project.environment_count || 0;
-    const envTypes = project.environment_types || [];
-    const domain = project.application?.domains?.[0] || project.url || '';
+                </span>
+            ),
+        },
+        {
+            key: 'version',
+            header: 'Version',
+            cellClassName: 'sk-cell-mono',
+            render: (p) => (p.wp_version ? `WP ${p.wp_version}` : '—'),
+        },
+        {
+            key: 'source',
+            header: 'Source',
+            render: (p) => (
+                p.git_repo_url
+                    ? <span className="wp-projects-page__git"><GitBranch size={12} /> Git connected</span>
+                    : <span className="wp-list__dash">—</span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            render: (p) => (
+                <Pill kind={p.status === 'running' ? 'green' : 'gray'}>
+                    {p.status === 'running' ? 'Running' : 'Stopped'}
+                </Pill>
+            ),
+        },
+    ];
 
     return (
-        <div className="wp-project-card" onClick={onClick}>
-            <div className="wp-project-card-header">
-                <div className="wp-site-icon">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                        <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 19.542c-5.261 0-9.542-4.281-9.542-9.542S6.739 2.458 12 2.458 21.542 6.739 21.542 12 17.261 21.542 12 21.542z" />
-                    </svg>
-                </div>
-                <div className="wp-project-info">
-                    <h3 className="wp-project-name">{project.name}</h3>
-                    {domain && (
-                        <span className="wp-project-domain">{domain}</span>
-                    )}
-                </div>
-                <span className={`wp-env-status ${isRunning ? 'running' : 'stopped'}`}>
-                    <span className="status-dot" />
-                    {isRunning ? 'Running' : 'Stopped'}
-                </span>
-            </div>
-
-            <div className="wp-project-card-body">
-                <div className="wp-project-meta">
-                    <div className="wp-project-meta-item">
-                        <Layers size={14} />
-                        <span>{envCount + 1} environment{envCount !== 0 ? 's' : ''}</span>
+        <ResourceListPage
+            className="wp-projects-page"
+            loading={loading}
+            loadingTitle="Loading WordPress pipelines"
+            totalCount={projects.length}
+            items={shown}
+            columns={columns}
+            keyField="id"
+            onRowClick={(p) => navigate(`/wordpress/pipelines/${p.id}`)}
+            filters={[
+                { value: 'all', label: 'All', count: projects.length },
+                { value: 'running', label: 'Running', count: runningCount },
+                { value: 'stopped', label: 'Stopped', count: projects.length - runningCount },
+            ]}
+            activeFilter={statusFilter}
+            onFilterChange={setStatusFilter}
+            searchTerm={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search pipelines…"
+            emptyIcon={Layers}
+            emptyTitle="No WordPress pipelines"
+            emptyDescription="Sites with environment pipelines appear here. Create a WordPress site with environments enabled to get started."
+            filteredEmptyIcon={Layers}
+            filteredEmptyTitle="No pipelines found"
+            filteredEmptyDescription="Try adjusting your search or filter."
+            viewStorageKey="serverkit.wpPipelines.view"
+            renderCard={(p) => (
+                <>
+                    <div className="services-card__top">
+                        <ServiceTile name={p.name} size={40} aria-hidden="true" />
+                        <div className="services-card__id">
+                            <div className="services-card__name">{p.name}</div>
+                            <div className="sk-cell-sub">{p.wp_version ? `WordPress ${p.wp_version}` : 'WordPress'}</div>
+                        </div>
+                        <Pill kind={p.status === 'running' ? 'green' : 'gray'}>
+                            {p.status === 'running' ? 'Running' : 'Stopped'}
+                        </Pill>
                     </div>
-                    {envTypes.length > 0 && (
-                        <div className="wp-project-env-badges">
-                            <Badge variant="default">PROD</Badge>
-                            {envTypes.includes('staging') && (
-                                <Badge variant="secondary">STG</Badge>
-                            )}
-                            {envTypes.includes('development') && (
-                                <Badge variant="outline">DEV</Badge>
-                            )}
-                            {envTypes.includes('multidev') && (
-                                <Badge variant="secondary">MD</Badge>
-                            )}
-                        </div>
-                    )}
-                    {project.wp_version && (
-                        <div className="wp-project-meta-item">
-                            <span>WordPress {project.wp_version}</span>
-                        </div>
-                    )}
-                    {project.git_repo_url && (
-                        <div className="wp-project-meta-item">
-                            <GitBranch size={14} />
-                            <span>Git connected</span>
-                        </div>
-                    )}
-                </div>
-            </div>
 
-            <div className="wp-project-card-footer">
-                <span className="wp-project-card-cta">View Pipeline</span>
-                <ExternalLink size={14} />
-            </div>
-        </div>
+                    <div className="services-card__domain">
+                        {domainOf(p) || <span className="wp-list__dash">No domain</span>}
+                    </div>
+
+                    <div className="services-card__stats">
+                        <div>
+                            <span className="l">Environments</span>
+                            <span className="v">{envCount(p)}</span>
+                        </div>
+                        <div>
+                            <span className="l">Source</span>
+                            <span className="v">{p.git_repo_url ? 'Git' : 'Local'}</span>
+                        </div>
+                        <div>
+                            <span className="l">Status</span>
+                            <span className="v">{p.status === 'running' ? 'Running' : 'Stopped'}</span>
+                        </div>
+                    </div>
+                </>
+            )}
+        />
     );
 };
 

@@ -3568,3 +3568,33 @@
         word-break: break-all;
     }
 }
+
+// Pipelines list — the few cells the shared list does not already style.
+.wp-projects-page {
+    &__envs {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    &__envcount {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: $space-1;
+        color: $text-secondary;
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+
+    &__git {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+
+        svg { color: $text-tertiary; }
+    }
+}
