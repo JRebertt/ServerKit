@@ -104,10 +104,10 @@
         flex-direction: column;
         overflow-y: auto;
 
-        // Full-bleed pages (Servers ops, File Manager) fill the region edge-to-
-        // edge and manage their own internal scroll. Centered pages instead
-        // wrap their content in .sk-tabgroup__inner (below).
-        > .servers-page--ops,
+        // Full-bleed pages (File Manager) fill the region edge-to-edge and
+        // manage their own internal scroll. Centered pages instead wrap their
+        // content in .sk-tabgroup__inner (below). The Servers ops workspace
+        // used to opt in here; it is a plain centered list now.
         > .sk-tabgroup__fill { flex: 1; min-height: 0; }
     }
 
