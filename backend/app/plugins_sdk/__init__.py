@@ -98,9 +98,13 @@ queue = QueueBusSdk()
 notify = NotifySdk()
 jobs = JobsSdk()
 
-# Imported lazily inside the accessor: deploys pulls in the deployment
-# services, which import models, and this module is imported very early.
-_deploys = None
+# Surfaces imported lazily inside __getattr__ — see its docstring. Each entry
+# is name -> (module path, attribute).
+_LAZY_SURFACES = {
+    'deploys': ('app.plugins_sdk.deploys_sdk', 'deploys'),
+    'search': ('app.plugins_sdk.search_sdk', 'search'),
+}
+_lazy_cache = {}
 
 
 def panel_version():
@@ -139,6 +143,7 @@ __all__ = [
     'notify',
     'jobs',
     'deploys',
+    'search',
     'permissions',
     'require_permission',
     'panel_version',
@@ -148,21 +153,23 @@ __all__ = [
 
 
 def __getattr__(name):
-    """Lazily expose ``deploys``.
+    """Lazily expose the surfaces that reach into host services.
 
-    The deploy SDK imports the deployment services (and therefore models),
-    while this module is imported early in app setup — binding it eagerly would
-    make plugins_sdk import-order sensitive for everyone, including the plugins
-    that never touch deployments.
+    These SDKs import services (and therefore models), while this module is
+    imported early in app setup — binding them eagerly would make plugins_sdk
+    import-order sensitive for everyone, including the plugins that never touch
+    deployments or search.
 
-    The implementation lives in deploys_sdk.py, not deploys.py: a submodule of
-    that name would be bound as a package attribute on import and shadow this
-    accessor, handing callers the module instead of the SDK instance.
+    Each implementation lives in ``<name>_sdk.py``, not ``<name>.py``: a
+    submodule of the bare name would be bound as a package attribute on import
+    and shadow this accessor, handing callers the module instead of the SDK
+    instance.
     """
-    if name == 'deploys':
-        global _deploys
-        if _deploys is None:
-            from app.plugins_sdk.deploys_sdk import deploys as _d
-            _deploys = _d
-        return _deploys
-    raise AttributeError(name)
+    target = _LAZY_SURFACES.get(name)
+    if target is None:
+        raise AttributeError(name)
+    if name not in _lazy_cache:
+        import importlib
+        module, attr = target
+        _lazy_cache[name] = getattr(importlib.import_module(module), attr)
+    return _lazy_cache[name]

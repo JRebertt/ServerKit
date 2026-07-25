@@ -231,4 +231,23 @@ class SearchService:
         except Exception:
             logger.exception('search: vault fan-out failed')
 
+        # --- entities contributed by extensions (see search_provider_registry) ---
+        # Same isolation and cap as a core block: one broken provider degrades
+        # to "no rows of that type", and the cap is re-applied on this side
+        # rather than trusted from the provider.
+        try:
+            from app.services import search_provider_registry
+            contributed = search_provider_registry.providers()
+        except Exception:
+            logger.exception('search: provider registry unavailable')
+            contributed = []
+        for entity_type, provider in contributed:
+            try:
+                query = search_provider_registry.SearchQuery(
+                    term=term, user=user, workspace_id=ws_id, limit=PER_TYPE_CAP)
+                rows.extend(search_provider_registry.clean_rows(
+                    entity_type, provider(query), PER_TYPE_CAP))
+            except Exception:
+                logger.exception('search: %s fan-out failed', entity_type)
+
         return rows
