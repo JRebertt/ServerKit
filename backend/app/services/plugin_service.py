@@ -866,17 +866,24 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
                         f"File saved to {req_out} for manual review."
                     )
 
-        # Also write the manifest into the backend plugin dir for runtime access
+        # Also write the manifest into the backend plugin dir for runtime access.
+        # The trailing newline matters: these manifests are tracked files that
+        # scripts/new-extension.mjs and scripts/sync-builtin-frontends.mjs also
+        # write, and both append one. json.dump does not, so without it every
+        # install rewrote the file with the newline stripped and left a dirty
+        # working tree whose diff contained no actual change.
         if has_backend:
             manifest_out = os.path.join(backend_dest, 'plugin.json')
             with open(manifest_out, 'w') as f:
                 json.dump(manifest, f, indent=2)
+                f.write('\n')
 
         # Also write manifest to frontend dir
         if has_frontend:
             manifest_out = os.path.join(frontend_dest, 'plugin.json')
             with open(manifest_out, 'w') as f:
                 json.dump(manifest, f, indent=2)
+                f.write('\n')
 
         # Determine blueprint info from manifest
         entry_point = manifest.get('entry_point', '')
@@ -1129,8 +1136,11 @@ def _regenerate_frontend_manifest():
             entry['styles'] = [f'plugins/{p.slug}/styles/{s}' for s in styles]
         entries.append(entry)
 
+    # Trailing newline for the same reason as the per-plugin manifests above:
+    # scripts/sync-builtin-frontends.mjs writes this same tracked file with one.
     with open(manifest_path, 'w') as f:
         json.dump({'plugins': entries}, f, indent=2)
+        f.write('\n')
 
     logger.info(f'Frontend plugin manifest regenerated with {len(entries)} plugin(s)')
 
