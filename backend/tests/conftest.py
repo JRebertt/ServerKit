@@ -23,14 +23,50 @@ os.environ.setdefault('SERVERKIT_REGISTRY_URL', '')
 # ObjectDeletedError / PendingRollbackError. A temp file gives each thread its
 # own connection with SQLite's own file locking — safe and deterministic. Each
 # test still create_all/drop_all's a clean schema (see the `app` fixture).
+# The file is per-PROCESS, not a fixed shared name. A shared name breaks two
+# ways, both of which surface as errors at fixture setup in a different test
+# every run — never in the test that caused them:
+#
+#   * a previous run whose app threads outlived it still holds the file, so
+#     Windows refuses the delete and this run inherits that database's rows;
+#     create_all then collides with the already-seeded settings row.
+#   * two suites running at once share one database and truncate each other's
+#     tables mid-test.
+#
+# A private file per process costs nothing and removes both.
+_OWN_DB = None
+
 if 'TEST_DATABASE_URL' not in os.environ:
+    import glob
     import tempfile
-    _test_db = os.path.join(tempfile.gettempdir(), 'serverkit_test.db').replace('\\', '/')
+
+    _tmp = tempfile.gettempdir()
+    # Sweep the legacy shared file and any database left behind by a crashed
+    # run. Best effort: one still held open just stays until the next sweep.
+    for _stale in [os.path.join(_tmp, 'serverkit_test.db')] + \
+            glob.glob(os.path.join(_tmp, 'serverkit_test_*.db')):
+        try:
+            os.remove(_stale)
+        except OSError:
+            pass
+
+    _OWN_DB = os.path.join(_tmp, f'serverkit_test_{os.getpid()}.db').replace('\\', '/')
+    os.environ['TEST_DATABASE_URL'] = 'sqlite:///' + _OWN_DB
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Drop this process's database so temp files can't accumulate."""
+    if not _OWN_DB:
+        return
     try:
-        os.remove(_test_db)
-    except OSError:
+        from app import db
+        db.engine.dispose()
+    except Exception:
         pass
-    os.environ['TEST_DATABASE_URL'] = 'sqlite:///' + _test_db
+    try:
+        os.remove(_OWN_DB)
+    except OSError:
+        pass  # Still held by a lingering thread; the next run sweeps it.
 
 
 # A file-backed SQLite fsyncs on every commit, which makes the suite ~3x
