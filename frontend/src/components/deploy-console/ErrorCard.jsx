@@ -1,17 +1,25 @@
-import { useContext } from 'react';
-import { AlertTriangle, RefreshCw, Copy, Sparkles } from 'lucide-react';
+import { useContext, useState } from 'react';
+import { AlertTriangle, RefreshCw, Copy, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 import { AIContext } from '../../contexts/AIContext';
 
-// Pinned failure card (plan 51 §1.1): failed step name, the persisted failure
-// tail (the real reason, not a summary), the one-line error, a plain-language
-// hint when a heuristic matched, and actions: Retry / Copy error / Ask AI.
+// Pinned failure card (plan 51 §1.1): failed step name, the one-line error, a
+// plain-language hint when a heuristic matched, actions (Retry / Copy / Ask AI)
+// and the persisted failure tail behind a disclosure.
+//
+// The tail is collapsed by default. It used to be open, which cost ~250px above
+// the fold and pushed the live log into a strip — while showing the same output
+// that is already in the log below. Now that a failed deploy scrolls itself to
+// the offending line and the severity map marks it, the duplicate is worth
+// having on demand rather than always.
 export default function ErrorCard({ failedStepName, failureTail, hint, errorMessage, onRetry, retrying }) {
+    const [showTail, setShowTail] = useState(false);
     // Read the AI drawer context directly (null when no AIProvider is mounted),
     // so the hook is called unconditionally and the "Ask AI" button degrades
     // gracefully.
     const ai = useContext(AIContext);
 
     const tailText = Array.isArray(failureTail) ? failureTail.join('\n') : (failureTail || '');
+    const tailLines = tailText ? tailText.split('\n') : [];
 
     const copyError = () => {
         const blob = [
@@ -50,7 +58,7 @@ export default function ErrorCard({ failedStepName, failureTail, hint, errorMess
                 </p>
             )}
 
-            {tailText && (
+            {showTail && tailText && (
                 <pre className="deploy-console__error-tail">{tailText}</pre>
             )}
 
@@ -65,6 +73,19 @@ export default function ErrorCard({ failedStepName, failureTail, hint, errorMess
                 {ai?.open && (
                     <button type="button" className="deploy-console__btn" onClick={askAI}>
                         <Sparkles size={14} /> Ask AI
+                    </button>
+                )}
+                {tailLines.length > 0 && (
+                    <button
+                        type="button"
+                        className="deploy-console__error-toggle"
+                        onClick={() => setShowTail((v) => !v)}
+                        aria-expanded={showTail}
+                    >
+                        {showTail ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                        {showTail
+                            ? 'Hide output'
+                            : `Show output (${tailLines.length} line${tailLines.length === 1 ? '' : 's'})`}
                     </button>
                 )}
             </div>

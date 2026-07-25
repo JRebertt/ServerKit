@@ -709,3 +709,31 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         contain-intrinsic-size: auto 19px;
     }
 }
+
+// ---- failure card: tail behind a disclosure ----
+.deploy-console {
+    // Sits at the end of the actions row, pushed right — a quiet text control,
+    // since it is a disclosure rather than an action.
+    &__error-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+        padding: 4px 8px;
+        border: none;
+        background: transparent;
+        color: $text-secondary;
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: $radius-md;
+
+        &:hover { color: $text-primary; background: rgba(255, 255, 255, 0.06); }
+    }
+
+    &__error-actions { flex-wrap: wrap; }
+
+    // With the tail collapsed the card is ~100px instead of ~350px, so the log
+    // below gets the height back. Keep the expanded tail shorter than it was
+    // too — it is a preview of the log, not a second copy of it.
+    &__error-tail { max-height: 180px; }
+}
