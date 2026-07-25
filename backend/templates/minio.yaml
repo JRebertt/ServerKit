@@ -43,6 +43,10 @@ volumes:
     path: /data
     description: Object storage data
 
+requirements:
+  memory: 1GB
+  storage: 20GB
+
 compose:
   services:
     minio:

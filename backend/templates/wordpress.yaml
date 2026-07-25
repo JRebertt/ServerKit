@@ -45,6 +45,10 @@ volumes:
     path: /var/lib/mysql
     description: MySQL data
 
+requirements:
+  memory: 1GB
+  storage: 5GB
+
 compose:
   services:
     wordpress:

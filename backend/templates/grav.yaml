@@ -27,6 +27,10 @@ volumes:
     path: /var/www/html/user
     description: Grav user content
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     grav:

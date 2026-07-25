@@ -43,6 +43,10 @@ volumes:
     path: /auth
     description: Authentication files
 
+requirements:
+  memory: 512MB
+  storage: 20GB
+
 compose:
   services:
     registry:

@@ -42,6 +42,10 @@ volumes:
     path: /config
     description: Authelia configuration
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     authelia:

@@ -31,6 +31,10 @@ ports:
     protocol: tcp
     description: Web interface
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     phpmyadmin:

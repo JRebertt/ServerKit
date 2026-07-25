@@ -33,6 +33,10 @@ volumes:
     path: /var/lib/crowdsec/data
     description: CrowdSec data
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     crowdsec:

@@ -31,6 +31,10 @@ volumes:
     path: /wiki/data
     description: Wiki.js data
 
+requirements:
+  memory: 1GB
+  storage: 2GB
+
 compose:
   services:
     wikijs:

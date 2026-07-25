@@ -35,6 +35,10 @@ volumes:
     path: /app/data
     description: Zigbee2MQTT data
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     zigbee2mqtt:

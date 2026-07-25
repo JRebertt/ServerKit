@@ -31,6 +31,10 @@ volumes:
     path: /database
     description: File Browser database
 
+requirements:
+  memory: 256MB
+  storage: 2GB
+
 compose:
   services:
     filebrowser:

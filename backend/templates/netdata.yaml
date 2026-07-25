@@ -33,6 +33,10 @@ volumes:
     path: /var/cache/netdata
     description: Netdata cache
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     netdata:

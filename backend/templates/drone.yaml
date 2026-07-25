@@ -44,6 +44,10 @@ volumes:
     path: /data
     description: Drone data
 
+requirements:
+  memory: 1GB
+  storage: 10GB
+
 compose:
   services:
     drone:

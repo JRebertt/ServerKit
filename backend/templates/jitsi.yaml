@@ -56,6 +56,10 @@ volumes:
     path: /usr/share/jitsi-meet/transcripts
     description: Transcripts
 
+requirements:
+  memory: 2GB
+  storage: 4GB
+
 compose:
   services:
     web:

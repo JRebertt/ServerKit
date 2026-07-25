@@ -38,6 +38,10 @@ volumes:
     path: /var/lib/plausible
     description: Plausible data
 
+requirements:
+  memory: 2GB
+  storage: 5GB
+
 compose:
   services:
     plausible:

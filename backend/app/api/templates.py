@@ -10,7 +10,7 @@ Provides REST endpoints for:
 - Template repository management
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.middleware.rbac import admin_required
 from app.models import User, Application
@@ -258,6 +258,24 @@ def install_template(template_id):
         return jsonify({'error': str(e), 'trace': error_trace}), 500
 
 
+@templates_bp.route('/<template_id>/capacity', methods=['GET'])
+@jwt_required()
+def template_capacity(template_id):
+    """Will this template fit on a given server?
+
+    Read-only counterpart to the capacity block on /validate-install, so the
+    deploy drawer can show the answer while the operator is still choosing a
+    target — and update it when they switch servers — without POSTing a
+    half-filled form. `server_id` omitted (or 'local') means this host.
+    """
+    result = TemplateService.get_template(template_id)
+    if not result.get('success'):
+        return jsonify({'error': 'Template not found'}), 404
+
+    from app.services.capacity_service import check_fit
+    return jsonify(check_fit(result['template'], request.args.get('server_id'))), 200
+
+
 @templates_bp.route('/validate-install', methods=['POST'])
 @jwt_required()
 def validate_installation():
@@ -271,8 +289,10 @@ def validate_installation():
         template_id = data.get('template_id')
         app_name = data.get('app_name')
         user_variables = data.get('variables', {})
+        server_id = data.get('server_id') or data.get('target_server_id')
 
         errors = []
+        capacity = None
 
         # Validate app name
         if not app_name:
@@ -308,13 +328,24 @@ def validate_installation():
                     for var_name, var_config in raw_vars.items():
                         if var_config.get('required', False) and var_name not in user_variables:
                             errors.append(f'Required variable "{var_name}" is not provided')
+
+                # Does the target have room? Advisory: it rides alongside
+                # `errors` rather than in it, so a tight server informs the
+                # operator without refusing the install. Never fatal — a
+                # capacity probe that throws must not block a deploy.
+                try:
+                    from app.services.capacity_service import check_fit
+                    capacity = check_fit(template, server_id)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.warning('capacity check failed', exc_info=True)
         else:
             errors.append('Template ID is required')
 
         if errors:
-            return jsonify({'valid': False, 'errors': errors}), 400
+            return jsonify({'valid': False, 'errors': errors,
+                            'capacity': capacity}), 400
 
-        return jsonify({'valid': True}), 200
+        return jsonify({'valid': True, 'capacity': capacity}), 200
 
     except Exception as e:
         import traceback

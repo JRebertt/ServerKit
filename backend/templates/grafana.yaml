@@ -36,6 +36,10 @@ volumes:
     path: /var/lib/grafana
     description: Grafana data and dashboards
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     grafana:

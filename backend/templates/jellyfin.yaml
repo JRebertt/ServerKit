@@ -45,6 +45,10 @@ volumes:
     path: /cache
     description: Jellyfin cache
 
+requirements:
+  memory: 2GB
+  storage: 20GB
+
 compose:
   services:
     jellyfin:

@@ -35,6 +35,10 @@ volumes:
     path: /config
     description: BookStack configuration
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     bookstack:

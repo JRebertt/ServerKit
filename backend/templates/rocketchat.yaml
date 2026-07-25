@@ -31,6 +31,10 @@ volumes:
     path: /app/uploads
     description: Uploaded files
 
+requirements:
+  memory: 2GB
+  storage: 5GB
+
 compose:
   services:
     rocketchat:

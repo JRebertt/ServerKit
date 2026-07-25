@@ -39,6 +39,10 @@ volumes:
     path: /photoprism/storage
     description: PhotoPrism storage
 
+requirements:
+  memory: 2GB
+  storage: 20GB
+
 compose:
   services:
     photoprism:

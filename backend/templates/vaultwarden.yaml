@@ -37,6 +37,10 @@ volumes:
     path: /data
     description: Vaultwarden data
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     vaultwarden:

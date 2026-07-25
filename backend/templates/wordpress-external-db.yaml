@@ -59,6 +59,10 @@ volumes:
     path: /var/www/html
     description: WordPress files
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     wordpress:

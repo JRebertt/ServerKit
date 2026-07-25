@@ -46,6 +46,10 @@ volumes:
     path: /transcode
     description: Transcode directory
 
+requirements:
+  memory: 2GB
+  storage: 20GB
+
 compose:
   services:
     plex:
