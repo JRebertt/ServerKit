@@ -4,12 +4,11 @@ import {
     Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
-    Settings, Layers, LayoutTemplate, Copy, Check, Tag, Cpu,
+    Settings, Layers, LayoutTemplate, Check, Tag, Cpu,
     Newspaper, TrendingUp, Rocket, Box, Download, ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -180,11 +179,7 @@ const Templates = () => {
     const [failedIcons, setFailedIcons] = useState(new Set());
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [showInstallModal, setShowInstallModal] = useState(false);
-    const [copiedCompose, setCopiedCompose] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
-    // Repo-template manifest inspection (populated when a repo detail opens).
-    const [repoManifest, setRepoManifest] = useState(null);
-    const [repoManifestLoading, setRepoManifestLoading] = useState(false);
 
     // Initialize from URL params
     const selectedCategory = searchParams.get('category') || '';
@@ -378,6 +373,8 @@ const Templates = () => {
         return <Icon size={14} />;
     }
 
+    // Load the full template record. Used by the ?install=<id> deep link, which
+    // needs variables/description before the deploy drawer can open.
     async function handleViewTemplate(template) {
         // WordPress has its own dedicated page
         if (template.id === 'wordpress') {
@@ -388,32 +385,19 @@ const Templates = () => {
             const result = await api.getTemplate(template.id);
             if (result.template) {
                 setSelectedTemplate(result.template);
-                if (result.template.kind === 'repo') {
-                    loadRepoManifest(result.template);
-                }
             }
         } catch (err) {
             toast.error('Failed to load template details');
         }
     }
 
-    // Fetch the repo template's detected manifests / env from the Phase 1
-    // endpoint so the detail body shows real data (or labeled hints).
-    function loadRepoManifest(template) {
-        setRepoManifest(null);
-        setRepoManifestLoading(true);
-        api.inspectTemplateManifest(template.id, template.repo?.branch)
-            .then(data => setRepoManifest(data))
-            .catch(() => setRepoManifest(null))
-            .finally(() => setRepoManifestLoading(false));
-    }
-
     function deployRepoTemplate(templateId) {
         navigate(`/services/new?template=${encodeURIComponent(templateId)}`);
     }
 
-    // Hover-reveal primary action. Repo templates route to the wizard; compose
-    // templates skip the detail modal and go straight to install.
+    // What both a card click and its Deploy button do — one predictable
+    // outcome per template. Repo templates route to the wizard; compose
+    // templates open the deploy drawer.
     async function handleDeploy(template) {
         if (template.kind === 'repo') {
             deployRepoTemplate(template.id);
@@ -635,7 +619,7 @@ const Templates = () => {
                     sortedTemplates.map(template => {
                         const isRepo = (template.kind || 'compose') === 'repo';
                         return (
-                            <div key={template.id} className="tpl-card" onClick={() => handleViewTemplate(template)}>
+                            <div key={template.id} className="tpl-card" onClick={() => handleDeploy(template)}>
                                 {isFeatured(template.id) && (
                                     <span className="tpl-ft" title="Featured">
                                         <Star size={14} />
@@ -687,169 +671,6 @@ const Templates = () => {
                 )}
             </div>
 
-            {/* Template Detail Modal */}
-            {selectedTemplate && !showInstallModal && (
-                <Modal
-                    open
-                    onClose={() => { setSelectedTemplate(null); setRepoManifest(null); }}
-                    size="lg"
-                    className="template-detail-drawer"
-                    title={(
-                        <span className="template-detail-header">
-                            <span className="template-icon-large">
-                                {renderIcon(selectedTemplate, 40)}
-                            </span>
-                            <span>
-                                {selectedTemplate.name}
-                                <span className="template-version">Version {selectedTemplate.version}</span>
-                            </span>
-                        </span>
-                    )}
-                    footer={(
-                        <>
-                            <Button variant="outline" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
-                                Close
-                            </Button>
-                            {selectedTemplate.kind === 'repo' ? (
-                                <Button onClick={() => deployRepoTemplate(selectedTemplate.id)}>
-                                    <Rocket size={14} /> Deploy
-                                </Button>
-                            ) : (
-                                <Button onClick={() => setShowInstallModal(true)}>
-                                    Install Template
-                                </Button>
-                            )}
-                        </>
-                    )}
-                >
-                            <p className="template-full-description">{selectedTemplate.description}</p>
-
-                            <div className="template-links">
-                                {selectedTemplate.website && (
-                                    <a href={selectedTemplate.website} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="outline" size="sm">
-                                            <ExternalLink size={14} /> Website
-                                        </Button>
-                                    </a>
-                                )}
-                                {selectedTemplate.documentation && (
-                                    <a href={selectedTemplate.documentation} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="outline" size="sm">
-                                            <BookOpen size={14} /> Documentation
-                                        </Button>
-                                    </a>
-                                )}
-                            </div>
-
-                            {selectedTemplate.kind === 'repo' ? (
-                                <RepoTemplateDetailBody
-                                    template={selectedTemplate}
-                                    manifest={repoManifest}
-                                    loading={repoManifestLoading}
-                                    getCategoryIcon={getCategoryIcon}
-                                />
-                            ) : (
-                                <div className="template-details-grid">
-                                    <div className="detail-section">
-                                        <h4><Tag size={16} /> Categories</h4>
-                                        <div className="template-categories">
-                                            {(selectedTemplate.categories || []).map(cat => (
-                                                <span key={cat} className="category-badge">
-                                                    {getCategoryIcon(cat)} {cat}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {selectedTemplate.requirements && (
-                                        <div className="detail-section">
-                                            <h4><Cpu size={16} /> Requirements</h4>
-                                            <div className="requirements-list">
-                                                {selectedTemplate.requirements.memory && (
-                                                    <div className="requirement-item">
-                                                        <span className="requirement-label">Memory:</span>
-                                                        <span className="requirement-value">{selectedTemplate.requirements.memory}</span>
-                                                    </div>
-                                                )}
-                                                {selectedTemplate.requirements.storage && (
-                                                    <div className="requirement-item">
-                                                        <span className="requirement-label">Storage:</span>
-                                                        <span className="requirement-value">{selectedTemplate.requirements.storage}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.variables && selectedTemplate.variables.length > 0 && (
-                                        <div className="detail-section">
-                                            <h4><Settings size={16} /> Configuration Variables</h4>
-                                            <div className="variables-list">
-                                                {selectedTemplate.variables
-                                                    .filter(v => !v.hidden)
-                                                    .sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0))
-                                                    .map(variable => (
-                                                    <div key={variable.name} className={`variable-item ${variable.required ? 'required' : ''}`}>
-                                                        <div className="variable-header">
-                                                            <span className="variable-name">{variable.name}</span>
-                                                            {variable.required && <span className="required-badge">Required</span>}
-                                                            {variable.auto_generated && <span className="auto-badge">Auto</span>}
-                                                        </div>
-                                                        {variable.description && (
-                                                            <span className="variable-description">{variable.description}</span>
-                                                        )}
-                                                        {variable.default && !variable.auto_generated && (
-                                                            <span className="variable-default">Default: {variable.default}</span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.ports && selectedTemplate.ports.length > 0 && (
-                                        <div className="detail-section">
-                                            <h4><Server size={16} /> Exposed Ports</h4>
-                                            <div className="ports-list">
-                                                {selectedTemplate.ports.map((port, index) => (
-                                                    <div key={index} className="port-item">
-                                                        <span className="port-number">{port.port}</span>
-                                                        <span className="port-protocol">{port.protocol}</span>
-                                                        {port.description && (
-                                                            <span className="port-description">{port.description}</span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.has_compose && (
-                                        <div className="detail-section">
-                                            <h4>
-                                                <Container size={16} /> Docker Compose
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="copy-btn"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText('docker-compose.yml available after install');
-                                                        setCopiedCompose(true);
-                                                        setTimeout(() => setCopiedCompose(false), 2000);
-                                                    }}
-                                                >
-                                                    {copiedCompose ? <Check size={14} /> : <Copy size={14} />}
-                                                </Button>
-                                            </h4>
-                                            <div className="compose-preview">
-                                                <code>Docker Compose configuration will be generated during installation</code>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                </Modal>
-            )}
 
             {/* Install Modal (compose templates only) */}
             {showInstallModal && selectedTemplate && (
@@ -886,87 +707,6 @@ const Templates = () => {
 
 // Repo-template detail body: repo URL, detected manifests, and env preview from
 // the /templates/<id>/manifest endpoint (real inspection or labeled hints).
-const RepoTemplateDetailBody = ({ template, manifest, loading, getCategoryIcon }) => {
-    const repo = template.repo || {};
-    const data = manifest?.manifest || null;
-    const sourceLabel = manifest?.source === 'repo'
-        ? 'Detected from repository'
-        : manifest?.source === 'template-hints'
-            ? 'From template hints'
-            : null;
-
-    return (
-        <div className="template-details-grid">
-            <div className="detail-section">
-                <h4><GitBranch size={16} /> Repository</h4>
-                <div className="repo-detail">
-                    <a href={repo.url} target="_blank" rel="noopener noreferrer" className="repo-detail__url">
-                        {repo.url}
-                    </a>
-                    <div className="repo-detail__meta">
-                        {repo.branch && <span>branch: <code>{repo.branch}</code></span>}
-                        {repo.app_type && <span>type: <code>{repo.app_type}</code></span>}
-                        {repo.build_method && <span>build: <code>{repo.build_method}</code></span>}
-                        {repo.port && <span>port: <code>{repo.port}</code></span>}
-                    </div>
-                </div>
-            </div>
-
-            {(template.categories || []).length > 0 && (
-                <div className="detail-section">
-                    <h4><Tag size={16} /> Categories</h4>
-                    <div className="template-categories">
-                        {(template.categories || []).map(cat => (
-                            <span key={cat} className="category-badge">
-                                {getCategoryIcon(cat)} {cat}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="detail-section">
-                <h4>
-                    <Layers size={16} /> Detected manifests
-                    {sourceLabel && <span className="detail-source-tag">{sourceLabel}</span>}
-                </h4>
-                {loading ? (
-                    <p className="text-muted">Inspecting repository…</p>
-                ) : (data?.manifests || []).length > 0 ? (
-                    <div className="manifest-file-list">
-                        {data.manifests.map(m => (
-                            <span key={m.file} className="manifest-file">
-                                <Check size={13} /> {m.file}
-                            </span>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-muted">No deploy manifests detected.</p>
-                )}
-            </div>
-
-            {!loading && (data?.env || []).length > 0 && (
-                <div className="detail-section">
-                    <h4><Lock size={16} /> Environment</h4>
-                    <div className="env-preview-list">
-                        {data.env.map(env => (
-                            <span
-                                key={env.key}
-                                className={`env-preview-chip ${env.secret ? 'env-preview-chip--secret' : ''}`}
-                            >
-                                {env.key}{env.required ? ' *' : ''}
-                            </span>
-                        ))}
-                    </div>
-                    <p className="env-preview-note text-muted">
-                        Secret values stay empty until you add them to the service environment.
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-};
-
 const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const toast = useToast();
     const navigate = useNavigate();
