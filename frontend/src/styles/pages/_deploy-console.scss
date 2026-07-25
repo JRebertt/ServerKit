@@ -616,3 +616,96 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         bottom: calc(#{$space-4} + 56px); // clear the mobile bottom bar
     }
 }
+
+// ---- log sections, chips and match navigation (plan 51.6 console parity) ----
+.deploy-console {
+    // Error / warning counts in the toolbar. They read as a summary first and
+    // filter second, so they stay visible even when a filter is off.
+    &__chip {
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: var(--surface-3);
+        color: $text-secondary;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &--error { color: $dc-error; background: rgba($dc-error, 0.12); }
+        &--warn  { color: $dc-warn;  background: rgba($dc-warn, 0.12); }
+
+        &.is-active { border-color: currentcolor; }
+        &:hover { filter: brightness(1.15); }
+    }
+
+    &__nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    &__nav-count {
+        color: $text-tertiary;
+        font-family: $font-mono;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    // Step sections inside the log. The header sticks to the top of the pane
+    // while its own lines scroll past, so you always know which step you are
+    // reading — the pin from the mock, done with `sticky` rather than by
+    // measuring offsets.
+    &__sec-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 5px $space-2;
+        border: none;
+        border-top: 1px solid $dc-surface-line;
+        background: #131a24;
+        color: $text-secondary;
+        font-family: $font-mono;
+        font-size: 11.5px;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { background: #17202c; }
+        svg { flex-shrink: 0; color: var(--text-ghost); }
+    }
+
+    &__sec-name {
+        font-weight: 600;
+        color: $text-primary;
+        white-space: nowrap;
+    }
+
+    &__sec-meta {
+        color: var(--text-ghost);
+        font-size: 10.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__sec-err { color: $dc-error; font-weight: 600; }
+
+    // The line prev/next landed on, so the eye finds it after the scroll.
+    &__line.is-current {
+        background: rgba(255, 255, 255, 0.07);
+        box-shadow: inset 2px 0 0 var(--accent-bright);
+    }
+
+    // Skip layout and paint for lines that are off-screen. This is what keeps a
+    // multi-thousand-line log responsive, and unlike JS windowing it survives
+    // wrapped lines (whose heights vary) and leaves find-in-page working.
+    &__line {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 19px;
+    }
+}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 
 // How many slices the severity map is divided into. Enough to resolve a single
 // error in a long log without rendering a node per line.
@@ -20,11 +20,52 @@ const MAP_MIN_LINES = 40;
 // failure findable in a few thousand lines: each slice is painted by the worst
 // level it contains, the current viewport is outlined on it, and clicking or
 // dragging jumps straight there.
-export default function LogPane({ lines, wrap, timestamps, follow, onFollowChange, scrollToStep }) {
+export default function LogPane({
+    lines, wrap, timestamps, follow, onFollowChange, scrollToStep,
+    scrollTarget, stepNames = [],
+}) {
     const paneRef = useRef(null);
     const endRef = useRef(null);
     const [showJump, setShowJump] = useState(false);
     const [view, setView] = useState({ top: 0, height: 100 });
+    const [collapsed, setCollapsed] = useState(() => new Set());
+    const [activeLine, setActiveLine] = useState(null);
+
+    // Consecutive runs of the same step become one collapsible section. Runs,
+    // not a group-by: if output ever interleaves, the transcript still reads in
+    // the order it happened rather than being silently reordered.
+    const sections = useMemo(() => {
+        const out = [];
+        lines.forEach((ln, i) => {
+            const step = ln.step_index ?? null;
+            const last = out[out.length - 1];
+            if (!last || last.step !== step) {
+                out.push({ step, key: `${step ?? 'x'}-${i}`, rows: [], errors: 0, warns: 0 });
+            }
+            const section = out[out.length - 1];
+            section.rows.push({ ln, i });
+            const level = ln.level || 'info';
+            if (level === 'error') section.errors += 1;
+            else if (level === 'warn' || level === 'warning') section.warns += 1;
+        });
+        return out;
+    }, [lines]);
+
+    // One section is just the log — headers would be pure chrome.
+    const showSections = sections.length > 1;
+
+    const stepName = useCallback((step) => {
+        if (step == null) return 'Output';
+        const match = stepNames.find((s) => s.index === step);
+        return match?.name || `Step ${step}`;
+    }, [stepNames]);
+
+    const toggleSection = (key) => setCollapsed((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+    });
 
     const buckets = useMemo(() => {
         const out = new Array(MAP_BUCKETS).fill(null);
@@ -56,6 +97,17 @@ export default function LogPane({ lines, wrap, timestamps, follow, onFollowChang
         const el = paneRef.current.querySelector(`[data-step="${scrollToStep}"]`);
         if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }, [scrollToStep]);
+
+    // Jump to a specific line — prev/next navigation, and the first error when
+    // a deploy has failed. Centred rather than top-aligned so the lines that
+    // led up to it are visible too, which is usually where the cause is.
+    useEffect(() => {
+        if (!scrollTarget || !paneRef.current) return;
+        const el = paneRef.current.querySelector(`[data-line="${scrollTarget.index}"]`);
+        if (!el) return;
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        setActiveLine(scrollTarget.index);
+    }, [scrollTarget]);
 
     const onScroll = () => {
         const pane = paneRef.current;
@@ -109,8 +161,6 @@ export default function LogPane({ lines, wrap, timestamps, follow, onFollowChang
         setShowJump(false);
     };
 
-    let lastStep = null;
-
     return (
         <div className={`deploy-console__logwrap${showMap ? ' deploy-console__logwrap--mapped' : ''}`}>
             <div
@@ -123,20 +173,44 @@ export default function LogPane({ lines, wrap, timestamps, follow, onFollowChang
                 {lines.length === 0 ? (
                     <div className="deploy-console__log-empty">Waiting for output…</div>
                 ) : (
-                    lines.map((ln, i) => {
-                        const isNewStep = ln.step_index != null && ln.step_index !== lastStep;
-                        if (ln.step_index != null) lastStep = ln.step_index;
-                        const ts = timestamps && ln.ts
-                            ? new Date(ln.ts).toLocaleTimeString()
-                            : (timestamps && ln.created_at ? new Date(ln.created_at).toLocaleTimeString() : '');
+                    sections.map((section) => {
+                        const isShut = collapsed.has(section.key);
                         return (
-                            <div
-                                key={ln.id ?? `i${i}`}
-                                className={`deploy-console__line deploy-console__line--${ln.level || 'info'}`}
-                                data-step={isNewStep ? ln.step_index : undefined}
-                            >
-                                {timestamps && <span className="deploy-console__line-ts">{ts}</span>}
-                                <span className="deploy-console__line-msg">{ln.message}</span>
+                            <div className="deploy-console__sec" key={section.key}>
+                                {showSections && (
+                                    <button
+                                        type="button"
+                                        className={`deploy-console__sec-head ${isShut ? 'is-shut' : ''}`}
+                                        data-step={section.step ?? undefined}
+                                        onClick={() => toggleSection(section.key)}
+                                        aria-expanded={!isShut}
+                                    >
+                                        {isShut ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                        <span className="deploy-console__sec-name">{stepName(section.step)}</span>
+                                        <span className="deploy-console__sec-meta">
+                                            {section.rows.length} line{section.rows.length === 1 ? '' : 's'}
+                                            {section.errors > 0 && (
+                                                <b className="deploy-console__sec-err"> · {section.errors} error{section.errors === 1 ? '' : 's'}</b>
+                                            )}
+                                            {section.warns > 0 && ` · ${section.warns} warning${section.warns === 1 ? '' : 's'}`}
+                                        </span>
+                                    </button>
+                                )}
+                                {!isShut && section.rows.map(({ ln, i }) => {
+                                    const ts = timestamps && ln.ts
+                                        ? new Date(ln.ts).toLocaleTimeString()
+                                        : (timestamps && ln.created_at ? new Date(ln.created_at).toLocaleTimeString() : '');
+                                    return (
+                                        <div
+                                            key={ln.id ?? `i${i}`}
+                                            data-line={i}
+                                            className={`deploy-console__line deploy-console__line--${ln.level || 'info'}${activeLine === i ? ' is-current' : ''}`}
+                                        >
+                                            {timestamps && <span className="deploy-console__line-ts">{ts}</span>}
+                                            <span className="deploy-console__line-msg">{ln.message}</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         );
                     })

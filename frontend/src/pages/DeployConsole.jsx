@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, WifiOff } from 'lucide-react';
 import useDeployJobStream from '../hooks/useDeployJobStream';
@@ -70,6 +70,12 @@ export default function DeployConsole() {
     const [selectedStep, setSelectedStep] = useState(null);
     const [retrying, setRetrying] = useState(false);
     const [now, setNow] = useState(Date.now());
+    const [navPos, setNavPos] = useState(0);
+    // {index, nonce} — the nonce re-fires the scroll when the same line is
+    // targeted twice (one error, pressing next repeatedly).
+    const [scrollTarget, setScrollTarget] = useState(null);
+    const nonceRef = useRef(0);
+    const autoJumpedRef = useRef(null);
 
     const status = job?.status || 'pending';
 
@@ -104,6 +110,56 @@ export default function DeployConsole() {
             && (!q || (l.message || '').toLowerCase().includes(q))
         );
     }, [lines, level, search]);
+
+    // Counts come from the unfiltered log: the point of "3 errors" is to be
+    // true no matter which filter happens to be on.
+    const { errorCount, warnCount } = useMemo(() => {
+        let errors = 0;
+        let warns = 0;
+        lines.forEach((l) => {
+            const lv = l.level || 'info';
+            if (lv === 'error') errors += 1;
+            else if (lv === 'warn' || lv === 'warning') warns += 1;
+        });
+        return { errorCount: errors, warnCount: warns };
+    }, [lines]);
+
+    // What prev/next steps through: search results when searching, otherwise
+    // the errors. Searching already filters the pane, so every visible line is
+    // a hit — the buttons walk them in order.
+    const navTargets = useMemo(() => {
+        const out = [];
+        visibleLines.forEach((l, i) => {
+            if (search.trim() || (l.level || 'info') === 'error') out.push(i);
+        });
+        return out;
+    }, [visibleLines, search]);
+
+    const navLabel = search.trim() ? 'matches' : (navTargets.length ? 'errors' : '');
+
+    const goToNav = useCallback((delta) => {
+        if (!navTargets.length) return;
+        setNavPos((prev) => {
+            const next = (prev + delta + navTargets.length) % navTargets.length;
+            setScrollTarget({ index: navTargets[next], nonce: nonceRef.current++ });
+            return next;
+        });
+        setFollow(false);
+    }, [navTargets]);
+
+    // A failed deploy opens on its first error rather than on the tail, which
+    // is where the answer is and where a person would scroll to anyway. Once
+    // per job, and never while the user is following a live run.
+    useEffect(() => {
+        if (status !== 'failed' || !visibleLines.length) return;
+        if (autoJumpedRef.current === jobId) return;
+        const firstError = visibleLines.findIndex((l) => (l.level || 'info') === 'error');
+        if (firstError < 0) return;
+        autoJumpedRef.current = jobId;
+        setFollow(false);
+        setNavPos(0);
+        setScrollTarget({ index: firstError, nonce: nonceRef.current++ });
+    }, [status, visibleLines, jobId]);
 
     const elapsedMs = useMemo(() => {
         if (!job?.started_at) return job?.created_at ? now - new Date(job.created_at).getTime() : 0;
@@ -255,6 +311,9 @@ export default function DeployConsole() {
                         level={level} onLevelChange={setLevel}
                         search={search} onSearchChange={setSearch}
                         onCopy={copyLogs} onDownload={downloadLogs}
+                        errorCount={errorCount} warnCount={warnCount}
+                        navCount={navTargets.length} navPos={navPos} navLabel={navLabel}
+                        onNavPrev={() => goToNav(-1)} onNavNext={() => goToNav(1)}
                     />
                     <LogPane
                         lines={visibleLines}
@@ -263,6 +322,8 @@ export default function DeployConsole() {
                         follow={follow && isLive}
                         onFollowChange={setFollow}
                         scrollToStep={scrollToStep}
+                        scrollTarget={scrollTarget}
+                        stepNames={steps}
                     />
                 </div>
             </div>
