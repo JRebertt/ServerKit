@@ -3,11 +3,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Drawer } from './Drawer';
 
-// Schema-driven advanced-filter slide-over, shared across tables/lists (the
-// marketplace today; domains/services/etc. next). A page passes a `groups`
-// schema plus a controlled `value`/`onChange`, and the drawer renders each
-// group as a set of toggle chips. Changes apply live so results update behind
-// the open drawer.
+// Schema-driven advanced-filter slide-over, shared across tables/lists. A page
+// passes a `groups` schema plus a controlled `value`/`onChange`, and the drawer
+// renders each group as a set of toggle chips. Changes apply live so results
+// update behind the open drawer.
+//
+// WHICH FILTER CONTROL TO USE — pages had drifted into three unrelated
+// interactions for the same job, so pick by shape, not by taste:
+//
+//   <= 4 mutually-exclusive options, one dimension  ->  <SegControl/>, inline
+//   more options, or more than one dimension        ->  this drawer
+//   an unbounded list (servers, groups, versions)   ->  a plain <select>
+//
+// A raw <select> is never right for a fixed set of states, and a segmented
+// control is never right for two dimensions at once.
 //
 //   groups = [
 //     { key: 'ownership', label: 'Publisher', type: 'single',
