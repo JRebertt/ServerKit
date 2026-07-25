@@ -523,6 +523,17 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 // Drawer — right-side slide-over header chrome (panel comes from ui/sheet).
 // ------------------------------------------------------------
 .sk-drawer {
+    // Cancel the sheet's own padding/gap/scroll. This element owns three
+    // full-height regions — head, body, foot — that each manage their own
+    // padding, so the panel's must be zero or every one of them is inset:
+    // the header's divider stops short of both edges, and the footer floats
+    // above a band of dead space instead of sitting on the bottom edge.
+    // Scrolling belongs to __body alone, or the panel scrolls as a whole and
+    // the footer cannot stay put.
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+
     &__head {
         display: flex; align-items: center; gap: 12px;
         padding: 15px 18px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0;
