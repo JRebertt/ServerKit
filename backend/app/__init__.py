@@ -467,6 +467,10 @@ def create_app(config_name=None):
     from app.api.themes import themes_bp
     app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
 
+    # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
+    from app.api.dashboards import dashboards_bp
+    app.register_blueprint(dashboards_bp, url_prefix='/api/v1/dashboards')
+
     # Register blueprints - Plugins
     from app.api.plugins import plugins_bp
     app.register_blueprint(plugins_bp, url_prefix='/api/v1/plugins')
