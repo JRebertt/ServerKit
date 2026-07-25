@@ -212,7 +212,9 @@ const Templates = () => {
                 return;
             }
             const template = templates.find(t => t.id === installTemplateId);
-            if (template && template.kind !== 'repo') {
+            // Repo templates are no longer excluded — they deploy from this same
+            // drawer, so ?install=<id> works for the whole catalog.
+            if (template) {
                 handleViewTemplate(template).then(() => {
                     setShowInstallModal(true);
                 });
@@ -396,13 +398,11 @@ const Templates = () => {
     }
 
     // What both a card click and its Deploy button do — one predictable
-    // outcome per template. Repo templates route to the wizard; compose
-    // templates open the deploy drawer.
+    // outcome for every template, compose or repo. A curated repo template
+    // already declares its repo, branch, build method and port, so the
+    // detection wizard had nothing left to ask; it deploys from the same
+    // drawer as everything else.
     async function handleDeploy(template) {
-        if (template.kind === 'repo') {
-            deployRepoTemplate(template.id);
-            return;
-        }
         if (template.id === 'wordpress') {
             navigate('/wordpress');
             return;
@@ -705,12 +705,15 @@ const Templates = () => {
     );
 };
 
-// Repo-template detail body: repo URL, detected manifests, and env preview from
-// the /templates/<id>/manifest endpoint (real inspection or labeled hints).
+// The one deploy surface for every template, compose or repo.
 const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const toast = useToast();
     const navigate = useNavigate();
-    const [appName, setAppName] = useState(template.id.toLowerCase().replace(/[^a-z0-9-]/g, '-'));
+    const isRepo = (template.kind || 'compose') === 'repo';
+    const [appName, setAppName] = useState(
+        (template.repo?.service_name || template.id).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+    );
+    const [branch, setBranch] = useState(template.repo?.branch || 'main');
     const [variables, setVariables] = useState({});
     const [servers, setServers] = useState([{ id: 'local', name: 'Local server', is_local: true }]);
     const [selectedServerId, setSelectedServerId] = useState('local');
@@ -764,6 +767,37 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
         e.preventDefault();
         setInstalling(true);
         setErrors([]);
+
+        // A repo template builds from source rather than composing images, so
+        // it goes through createAppFromRepository. Everything that endpoint
+        // needs is already declared by the template, which is why this no
+        // longer detours through the New Service wizard's detection steps.
+        if (isRepo) {
+            try {
+                const repo = template.repo || {};
+                const result = await api.createAppFromRepository({
+                    name: appName,
+                    template_id: template.id,
+                    repo_url: repo.url,
+                    branch: branch.trim() || repo.branch || 'main',
+                    app_type: repo.app_type || 'auto',
+                    build_method: repo.build_method || 'auto',
+                    port: repo.port ? Number(repo.port) : null,
+                    auto_deploy: true,
+                    ingress_plane: 'nginx',
+                });
+                onClose?.();
+                if (result.deploy_job_id) {
+                    navigate(`/deployments/${result.deploy_job_id}`);
+                } else {
+                    navigate(`/services/${result.app.id}`);
+                }
+            } catch (err) {
+                setErrors([err?.data?.error || err.message || 'Deploy failed']);
+                setInstalling(false);
+            }
+            return;
+        }
 
         try {
             // Validate first
@@ -837,6 +871,27 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                             Lowercase letters, numbers, and hyphens only (min 2 chars)
                         </span>
                     </div>
+
+                    {/* Repo templates build from source, so the branch is the one
+                        thing the template cannot decide for you. */}
+                    {isRepo && (
+                        <div className="tpl-deploy-drawer__field">
+                            <label htmlFor="tpl-deploy-branch">Branch</label>
+                            <div className="tpl-deploy-drawer__input">
+                                <GitBranch size={15} />
+                                <input
+                                    id="tpl-deploy-branch"
+                                    type="text"
+                                    value={branch}
+                                    onChange={(e) => setBranch(e.target.value)}
+                                    placeholder="main"
+                                />
+                            </div>
+                            <span className="tpl-deploy-drawer__hint">
+                                {template.repo?.url || 'Builds from the template repository'}
+                            </span>
+                        </div>
+                    )}
 
                     {/* Only shown once a managed-sites base domain exists — with
                         no base there is no subdomain to promise, and a dead
