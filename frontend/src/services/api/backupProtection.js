@@ -57,3 +57,19 @@ export async function runBackupDrill(targetType, targetId) {
 export async function deleteBackupRun(targetType, targetId, runId) {
     return this.request(`${runsBase(targetType, targetId)}/${runId}`, { method: 'DELETE' });
 }
+
+// ---- fleet-wide policy + run views (§8 unification) -----------------------
+// The per-target methods above answer "how is THIS site protected?"; these two
+// answer "how is everything protected?" and back the Backups overview — the
+// protected-resource count, the activity heatmap, and the success rate all come
+// from these two lists rather than from the filesystem archive listing.
+
+export async function listBackupPolicies(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/backups/policies${qs ? `?${qs}` : ''}`);
+}
+
+export async function listBackupRuns(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return this.request(`/backups/runs${qs ? `?${qs}` : ''}`);
+}
