@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { servicePortUrl } from '@/utils/serviceUrl';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -22,7 +23,7 @@ import OverviewTab from '../components/service-detail/OverviewTab';
 import PreviewList from '../components/previews/PreviewList';
 import EmptyState from '../components/EmptyState';
 import PluginSlot from '../components/PluginSlot';
-import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings, Eye } from 'lucide-react';
+import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings, Eye, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Pill, ServiceTile, PageTopbar } from '@/components/ds';
 
@@ -259,6 +260,9 @@ const ServiceDetail = () => {
     const isManual = service.source === 'manual';
     const domains = service.domains || [];
     const primaryDomain = (domains.find(d => d.is_primary) || domains[0])?.name || '';
+    // Only when there is no domain in front of it — otherwise the domain
+    // link above is the one to follow.
+    const openUrl = primaryDomain ? null : servicePortUrl(service);
 
     return (
         <div className="app-detail-page app-detail-page--wide svc-detail">
@@ -397,6 +401,20 @@ const ServiceDetail = () => {
                 <div className="app-detail-title-block">
                     <h1>
                         {service.name}
+                        {/* Before the status pill: the first thing you want
+                            after seeing a service is live is to go look at it. */}
+                        {openUrl && (
+                            <a
+                                href={openUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="svc-detail__open"
+                                title={`Open ${openUrl}`}
+                                aria-label={`Open ${service.name} in a new tab`}
+                            >
+                                <ExternalLink size={15} />
+                            </a>
+                        )}
                         <Pill kind={STATUS_PILL[service.statusInfo.dotClass] || 'gray'}>
                             {service.statusInfo.label}
                         </Pill>
@@ -408,7 +426,22 @@ const ServiceDetail = () => {
                         </span>
                     </h1>
                     <div className="app-detail-subtitle">
-                        {service.port && <span>Port {service.port}</span>}
+                        {service.port && (
+                            openUrl ? (
+                                <a
+                                    href={openUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="svc-detail__portlink"
+                                    title={`Open ${openUrl}`}
+                                >
+                                    Port {service.port}
+                                    <ExternalLink size={12} />
+                                </a>
+                            ) : (
+                                <span>Port {service.port}</span>
+                            )
+                        )}
                         {service.port && <span className="separator">&middot;</span>}
                         <span>Created {new Date(service.created_at).toLocaleDateString()}</span>
                         {primaryDomain && (

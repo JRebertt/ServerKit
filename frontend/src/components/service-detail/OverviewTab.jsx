@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, Rocket, CheckCircle2, XCircle, Globe, Database, ShieldCheck } from 'lucide-react';
+import { Activity, Rocket, CheckCircle2, XCircle, Globe, Database, ShieldCheck, ExternalLink } from 'lucide-react';
+import { servicePortUrl } from '@/utils/serviceUrl';
 import api from '../../services/api';
 import { useDeployments } from '../../hooks/useDeployments';
 import { getDeployStatus, formatRelativeTime, formatDuration } from '../../utils/serviceTypes';
@@ -63,12 +64,21 @@ const OverviewTab = ({ app, deployConfig }) => {
         try {
             if (isDocker) {
                 const data = await api.getContainers(true);
-                const appContainers = (data.containers || []).filter(c =>
-                    c.Names?.some(n => n.includes(app.name)) ||
-                    c.Labels?.['com.docker.compose.project'] === app.name
-                );
+                // The API normalises `docker ps` into lowercase keys and does
+                // not expose Labels at all, so matching on `Names[]` and the
+                // compose-project label found nothing — Resource Usage came up
+                // empty for every Docker service. The project can still be
+                // matched through the container name it produces
+                // (project-service-N).
+                const needle = (app.name || '').toLowerCase();
+                const appContainers = (data.containers || []).filter((c) => {
+                    const raw = c.name ?? c.Names ?? '';
+                    const text = Array.isArray(raw) ? raw.join(',') : String(raw);
+                    return needle && text.toLowerCase().includes(needle);
+                });
                 if (appContainers.length > 0) {
-                    const containerStats = await api.getContainerStats(appContainers[0].Id);
+                    const containerStats = await api.getContainerStats(
+                        appContainers[0].id ?? appContainers[0].Id);
                     setMetrics({
                         cpu: parseFloat(containerStats.cpu_percent || containerStats.CPUPerc || 0),
                         memory: parseFloat(containerStats.memory_percent || containerStats.MemPerc || 0),
@@ -93,6 +103,9 @@ const OverviewTab = ({ app, deployConfig }) => {
             setMetricsLoading(false);
         }
     }
+
+    // No link when a domain fronts it — the Domain row above is the one to follow.
+    const portUrl = app.domain ? null : servicePortUrl(app);
 
     const successfulDeploys = deployments.filter(d => d.status === 'success');
     const failedDeploys = deployments.filter(d => d.status === 'failed');
@@ -166,7 +179,23 @@ const OverviewTab = ({ app, deployConfig }) => {
                         {app.port && (
                             <div className="sk-info-row">
                                 <span className="k">Port</span>
-                                <span className="v">{app.port}</span>
+                                <span className="v">
+                                    {/* A port with no domain in front of it is
+                                        still reachable — the number alone made
+                                        you assemble the URL yourself. */}
+                                    {portUrl ? (
+                                        <a
+                                            href={portUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="overview-tab__info-link"
+                                            title={`Open ${portUrl}`}
+                                        >
+                                            {app.port}
+                                            <ExternalLink size={10} />
+                                        </a>
+                                    ) : app.port}
+                                </span>
                             </div>
                         )}
                         <div className="sk-info-row">

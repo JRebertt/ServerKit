@@ -1538,3 +1538,17 @@ h3.svc-eyebrow {
         padding: 0 1px;
     }
 }
+
+// Open-in-new-tab affordance next to the service name, before the status pill.
+.svc-detail__open,
+.svc-detail__portlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: $text-tertiary;
+    transition: color $transition-fast;
+
+    &:hover { color: var(--accent-bright); }
+}
+
+.svc-detail__open { margin-left: 2px; }
