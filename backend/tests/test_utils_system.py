@@ -37,6 +37,7 @@ sys.modules['app.utils'].system = _module  # type: ignore[attr-defined]
 _spec.loader.exec_module(_module)
 
 run_privileged = _module.run_privileged
+privileged_cmd = _module.privileged_cmd
 is_command_available = _module.is_command_available
 PackageManager = _module.PackageManager
 ServiceControl = _module.ServiceControl
@@ -56,7 +57,7 @@ class TestRunPrivileged:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         run_privileged(['systemctl', 'restart', 'nginx'])
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'restart', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'restart', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -74,6 +75,8 @@ class TestRunPrivileged:
     @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
     def test_no_double_sudo(self, _euid, mock_run):
         mock_run.return_value = subprocess.CompletedProcess([], 0)
+        # An explicitly-sudo command is passed through untouched (no `sudo sudo`,
+        # and no second-guessing a caller that built its own invocation).
         run_privileged(['sudo', 'systemctl', 'restart', 'nginx'])
         mock_run.assert_called_once_with(
             ['sudo', 'systemctl', 'restart', 'nginx'],
@@ -114,7 +117,27 @@ class TestRunPrivileged:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         run_privileged('systemctl restart nginx')
         args, _ = mock_run.call_args
-        assert args[0] == 'sudo systemctl restart nginx'
+        assert args[0] == 'sudo -n systemctl restart nginx'
+
+    # Regression: bare `sudo` blocks forever on a password prompt when the panel
+    # runs non-root with output captured — nothing can type the password and
+    # nothing can see it. This hung backend startup (metadata guard iptables
+    # probe). Every generated sudo invocation must be non-interactive.
+    @patch('app.utils.system.os.name', 'posix')
+    @patch('app.utils.system.shutil.which', return_value='/usr/bin/sudo')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_sudo_is_always_non_interactive(self, _euid, _which):
+        as_list = privileged_cmd(['iptables', '-C', 'DOCKER-USER'])
+        assert as_list[:2] == ['sudo', '-n']
+
+        as_user = privileged_cmd(['whoami'], user='deploy')
+        assert as_user[:4] == ['sudo', '-n', '-u', 'deploy']
+
+        as_string = privileged_cmd('iptables -C DOCKER-USER')
+        assert as_string.startswith('sudo -n ')
+
+        as_user_string = privileged_cmd('whoami', user='deploy')
+        assert as_user_string.startswith('sudo -n -u deploy ')
 
     @patch('app.utils.system.subprocess.run')
     @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
@@ -239,7 +262,7 @@ class TestPackageManager:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         result = PackageManager.install(['nginx', 'curl'])
         mock_run.assert_called_once_with(
-            ['sudo', 'apt', 'install', '-y', 'nginx', 'curl'],
+            ['sudo', '-n', 'apt', 'install', '-y', 'nginx', 'curl'],
             capture_output=True, text=True, timeout=300,
         )
 
@@ -251,7 +274,7 @@ class TestPackageManager:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         PackageManager.install('nginx')
         args = mock_run.call_args[0][0]
-        assert args == ['sudo', 'dnf', 'install', '-y', 'nginx']
+        assert args == ['sudo', '-n', 'dnf', 'install', '-y', 'nginx']
 
     @patch('app.utils.system.shutil.which', return_value=None)
     def test_install_no_manager_raises(self, _which):
@@ -273,7 +296,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.start('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'start', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'start', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -285,7 +308,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.stop('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'stop', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'stop', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -297,7 +320,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.restart('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'restart', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'restart', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -309,7 +332,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.reload('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'reload', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'reload', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -321,7 +344,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.enable('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'enable', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'enable', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -333,7 +356,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.disable('nginx')
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'disable', 'nginx'],
+            ['sudo', '-n', 'systemctl', 'disable', 'nginx'],
             capture_output=True, text=True,
         )
 
@@ -345,7 +368,7 @@ class TestServiceControl:
         mock_run.return_value = subprocess.CompletedProcess([], 0)
         ServiceControl.daemon_reload()
         mock_run.assert_called_once_with(
-            ['sudo', 'systemctl', 'daemon-reload'],
+            ['sudo', '-n', 'systemctl', 'daemon-reload'],
             capture_output=True, text=True,
         )
 

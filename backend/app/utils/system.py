@@ -34,19 +34,26 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
     callers.  For simple ``subprocess.run`` calls prefer :func:`run_privileged`.
 
     Pass *user* to run the command as a specific user (``sudo -u <user>``).
+
+    ``sudo -n`` (non-interactive) is always used: nothing here runs attached to a
+    human terminal, and callers capture output, so a password prompt would be
+    invisible AND unanswerable — sudo would simply block forever, hanging the
+    caller (this hung backend startup on a non-root host, via the metadata
+    guard's iptables probe). Failing immediately with a non-zero exit is the
+    only useful outcome, and every caller already handles that.
     """
     if isinstance(cmd, str):
         if _needs_sudo() and not cmd.lstrip().startswith('sudo '):
             if user:
-                return f'sudo -u {user} {cmd}'
-            return f'sudo {cmd}'
+                return f'sudo -n -u {user} {cmd}'
+            return f'sudo -n {cmd}'
         return cmd
 
     cmd = list(cmd)
     if _needs_sudo() and cmd[0] != 'sudo':
         if user:
-            return ['sudo', '-u', user] + cmd
-        return ['sudo'] + cmd
+            return ['sudo', '-n', '-u', user] + cmd
+        return ['sudo', '-n'] + cmd
     return cmd
 
 
