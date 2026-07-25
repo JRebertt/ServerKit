@@ -839,10 +839,10 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
             subtitle={[`v${template.version}`, ...(template.categories || []).slice(0, 3)].join(' · ')}
             icon={renderIcon(template, 20)}
             width={560}
-            className="tpl-deploy-drawer"
+            className="sk-formdrawer"
         >
-            <form onSubmit={handleInstall} className="tpl-deploy-drawer__form">
-                <div className="tpl-deploy-drawer__body">
+            <form onSubmit={handleInstall} className="sk-formdrawer__form">
+                <div className="sk-formdrawer__body">
                     {errors.length > 0 && (
                         <div className="alert alert-danger">
                             <ul>
@@ -851,11 +851,11 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         </div>
                     )}
 
-                    <p className="tpl-deploy-drawer__desc">{template.description}</p>
+                    <p className="sk-formdrawer__desc">{template.description}</p>
 
-                    <div className="tpl-deploy-drawer__field">
+                    <div className="sk-formdrawer__field">
                         <label htmlFor="tpl-deploy-name">Service name</label>
-                        <div className="tpl-deploy-drawer__input">
+                        <div className="sk-formdrawer__input">
                             <Box size={15} />
                             <input
                                 id="tpl-deploy-name"
@@ -867,7 +867,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                                 required
                             />
                         </div>
-                        <span className="tpl-deploy-drawer__hint">
+                        <span className="sk-formdrawer__hint">
                             Lowercase letters, numbers, and hyphens only (min 2 chars)
                         </span>
                     </div>
@@ -875,9 +875,9 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     {/* Repo templates build from source, so the branch is the one
                         thing the template cannot decide for you. */}
                     {isRepo && (
-                        <div className="tpl-deploy-drawer__field">
+                        <div className="sk-formdrawer__field">
                             <label htmlFor="tpl-deploy-branch">Branch</label>
-                            <div className="tpl-deploy-drawer__input">
+                            <div className="sk-formdrawer__input">
                                 <GitBranch size={15} />
                                 <input
                                     id="tpl-deploy-branch"
@@ -887,7 +887,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                                     placeholder="main"
                                 />
                             </div>
-                            <span className="tpl-deploy-drawer__hint">
+                            <span className="sk-formdrawer__hint">
                                 {template.repo?.url || 'Builds from the template repository'}
                             </span>
                         </div>
@@ -897,13 +897,13 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         no base there is no subdomain to promise, and a dead
                         field would be worse than none. */}
                     {domainPreview && (
-                        <div className="tpl-deploy-drawer__field">
-                            <span className="tpl-deploy-drawer__label">Domain</span>
-                            <div className="tpl-deploy-drawer__input tpl-deploy-drawer__input--readonly">
+                        <div className="sk-formdrawer__field">
+                            <span className="sk-formdrawer__label">Domain</span>
+                            <div className="sk-formdrawer__input sk-formdrawer__input--readonly">
                                 <Globe size={15} />
-                                <span className="tpl-deploy-drawer__domain">{domainPreview}</span>
+                                <span className="sk-formdrawer__domain">{domainPreview}</span>
                             </div>
-                            <span className="tpl-deploy-drawer__hint">
+                            <span className="sk-formdrawer__hint">
                                 {httpsBase
                                     ? 'Published automatically with HTTPS once the deploy finishes'
                                     : 'Published automatically once the deploy finishes'}
@@ -911,8 +911,8 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         </div>
                     )}
 
-                    <div className="tpl-deploy-drawer__field">
-                        <span className="tpl-deploy-drawer__label">Deploy to server</span>
+                    <div className="sk-formdrawer__field">
+                        <span className="sk-formdrawer__label">Deploy to server</span>
                         <ServerPicker
                             servers={servers}
                             value={selectedServerId}
@@ -921,8 +921,8 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     </div>
 
                     {visibleVars.length > 0 && (
-                        <div className="tpl-deploy-drawer__field">
-                            <span className="tpl-deploy-drawer__label">Configuration</span>
+                        <div className="sk-formdrawer__field">
+                            <span className="sk-formdrawer__label">Configuration</span>
                             {visibleVars.map(variable => (
                                 <div key={variable.name} className="form-group">
                                     <label>
@@ -966,7 +966,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     )}
                 </div>
 
-                <div className="tpl-deploy-drawer__foot">
+                <div className="sk-formdrawer__foot">
                     <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
                         Cancel
                     </Button>
