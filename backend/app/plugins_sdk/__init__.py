@@ -106,6 +106,7 @@ _LAZY_SURFACES = {
     'store': ('app.plugins_sdk.store_sdk', 'store'),
     'doctor': ('app.plugins_sdk.doctor_sdk', 'doctor'),
     'backups': ('app.plugins_sdk.backups_sdk', 'backups'),
+    'agents': ('app.plugins_sdk.agents_sdk', 'agents'),
 }
 _lazy_cache = {}
 
@@ -150,6 +151,7 @@ __all__ = [
     'store',
     'doctor',
     'backups',
+    'agents',
     'permissions',
     'require_permission',
     'panel_version',
