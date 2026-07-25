@@ -318,6 +318,65 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         min-height: 320px;
     }
 
+    // Make room for the severity map only when one is rendered, so a short log
+    // doesn't carry an empty gutter.
+    &__logwrap--mapped {
+        .deploy-console__log { right: 16px; }
+    }
+
+    // ---- severity map ----
+    // The coloured strip beside the log: each slice painted by the worst level
+    // it contains, so a single error in three thousand lines is still visible
+    // and one click away. Sits where a scrollbar would, and drives scrolling
+    // itself.
+    &__map {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 16px;
+        display: flex;
+        flex-direction: column;
+        padding: 2px 3px;
+        gap: 1px;
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 1px solid $dc-surface-line;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    &__map-tick {
+        flex: 1 1 0;
+        min-height: 1px;
+        border-radius: 1px;
+        // Unclassified slices stay empty rather than drawing a bar for
+        // "nothing happened here".
+        background: transparent;
+
+        &--info  { background: rgba($dc-info, 0.45); }
+        &--debug { background: rgba($dc-debug, 0.35); }
+        &--warn,
+        &--warning { background: $dc-warn; }
+        // Errors get full weight and a touch of bleed so one line in thousands
+        // still catches the eye.
+        &--error {
+            background: $dc-error;
+            box-shadow: 0 0 3px rgba($dc-error, 0.9);
+            min-height: 2px;
+        }
+    }
+
+    &__map-view {
+        position: absolute;
+        left: 0;
+        right: 0;
+        min-height: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        pointer-events: none;
+    }
+
     &__log {
         position: absolute;
         inset: 0;
