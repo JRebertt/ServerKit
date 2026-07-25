@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import useDashboardLayout from '../../hooks/useDashboardLayout';
-import { ChevronDown, ChevronUp, RotateCcw, Upload, Store, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RotateCcw, Upload, Store, Sparkles, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import useSettingFocus from '../../hooks/useSettingFocus';
@@ -30,7 +30,6 @@ const AppearanceTab = () => {
     } = useTheme();
     const { user } = useAuth();
     const toast = useToast();
-    const { widgets, toggleWidget, moveWidget, resetLayout } = useDashboardLayout();
     const register = useSettingFocus();
     const fileInputRef = useRef(null);
     const [browseOpen, setBrowseOpen] = useState(false);
@@ -182,41 +181,15 @@ const AppearanceTab = () => {
 
             <div {...register('appearance-widgets', 'settings-card')}>
                 <h3>Dashboard Widgets</h3>
-                <p>Toggle visibility and reorder widgets on the dashboard</p>
-                <div className="widget-list">
-                    {widgets.map((widget, idx) => (
-                        <div key={widget.id} className={`widget-item${!widget.visible ? ' widget-item--hidden' : ''}`}>
-                            <div className="widget-item__info">
-                                <Switch
-                                    checked={widget.visible}
-                                    onCheckedChange={() => toggleWidget(widget.id)}
-                                />
-                                <span className="widget-item__label">{widget.label}</span>
-                            </div>
-                            <div className="widget-item__controls">
-                                <button type="button"
-                                    className="widget-move-btn"
-                                    onClick={() => moveWidget(widget.id, 'up')}
-                                    disabled={idx === 0}
-                                    title="Move up"
-                                >
-                                    <ChevronUp size={14} />
-                                </button>
-                                <button type="button"
-                                    className="widget-move-btn"
-                                    onClick={() => moveWidget(widget.id, 'down')}
-                                    disabled={idx === widgets.length - 1}
-                                    title="Move down"
-                                >
-                                    <ChevronDown size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <Button variant="outline" size="sm" onClick={resetLayout} style={{ marginTop: '12px' }}>
-                    <RotateCcw size={14} />
-                    Reset to defaults
+                <p>
+                    Widgets are arranged on the dashboard itself now — add, move, resize and
+                    configure them in place, across as many boards as you need.
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                    <Link to="/">
+                        <LayoutGrid size={14} />
+                        Edit dashboards
+                    </Link>
                 </Button>
             </div>
 

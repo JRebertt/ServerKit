@@ -1,0 +1,1727 @@
+// ============================================================
+// DASHBOARD WIDGET GRID  (plan 62)
+// ============================================================
+// Everything the configurable dashboard needs: the board bar, the placement
+// grid, one widget's chrome, the 13 core widget bodies, the "add a widget"
+// drawer, the right-hand inspector, fullscreen + TV mode, and the empty-board
+// template picker.
+//
+// Namespaced `skw-` (ServerKit Widget) so NOTHING here can reach a page that
+// did not opt in. That matters more than usual for this file: widget bodies
+// render arbitrary app content (tables, logs, lists) whose generic names
+// (.table/.list/.alert/.status) already exist elsewhere in the app.
+//
+// Ported from the design mock (`w-*` / `dash-*` / `wl-*` / `ins-*`), not
+// copied: the mock is dark-only and hardcodes surface hexes, so every colour
+// here comes from a var() token in _theme-variables.scss and reads correctly
+// in both themes. Substitutions made while porting are called out inline.
+//
+// State classes are published in BOTH forms — the BEM modifier
+// (`.skw-frame--selected`) and the repo's `is-` convention
+// (`.skw-frame.is-selected`) — because the frame is driven by JSX written
+// against the mock's vocabulary. Pick one at the call site; both resolve here.
+// ============================================================
+
+// Row height / gap mirror grid/layout.js (GRID_ROW 88, GRID_GAP 12). They are
+// duplicated rather than imported because the JS owns the placement maths and
+// SCSS only needs them for the responsive stack-down below.
+$skw-grid-gap: 12px;
+$skw-stack-row-h: 260px;
+
+// Inspector panel width + the gutter the page reserves for it while open.
+$skw-ins-w: 340px;
+$skw-ins-gutter: 352px;
+
+// The overlay layers sit deliberately ABOVE the app's $z-* scale (which tops
+// out at $z-tooltip: 60): a fullscreen widget must cover the page chrome, and
+// TV mode must cover everything including toasts.
+$skw-z-inspector: 90;
+$skw-z-fullscreen: 101;
+$skw-z-tv: 200;
+
+// ------------------------------------------------------------
+// Dashboard bar — board tabs on the left, board-wide controls on the right.
+// ------------------------------------------------------------
+.skw-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+
+    // Range / refresh / variable pickers + edit toggle. `margin-left:auto`
+    // rather than a spacer element so the tabs keep their natural width.
+    &__ctl {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        flex-wrap: wrap;
+    }
+}
+
+.skw-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.skw-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: none;
+    color: var(--text-faint);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.13s;
+
+    &:hover {
+        color: var(--text);
+        background: var(--surface-2);
+    }
+
+    // Active board. Set apart by fill + border, never by weight, so switching
+    // boards cannot re-flow the row (same rule as .sk-topbar__tab).
+    &--on,
+    &.is-on,
+    &.is-active {
+        color: var(--text);
+        background: var(--surface-2);
+        border-color: var(--border-strong);
+
+        svg { color: var(--accent-bright); }
+    }
+
+    // Widget count on the tab.
+    &__count {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--surface-3);
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 10px;
+    }
+
+    // "+" new-board affordance — icon only, so it drops the label padding.
+    &--add {
+        padding: 8px;
+        color: var(--text-faint);
+    }
+}
+
+// Inline board rename. Accent border rather than a focus ring: the input
+// replaces the tab in place and has to read as "editing" without growing.
+.skw-rename {
+    width: 130px;
+    padding: 2px 6px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--surface-3);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+}
+
+// Variable picker ($server / $env) — a labelled value, not a select.
+.skw-varpick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: 0.13s;
+
+    &:hover,
+    &--open,
+    &.is-open {
+        border-color: var(--accent-dim);
+        background: var(--surface-3);
+    }
+
+    &__k {
+        color: var(--text-ghost);
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    &__v {
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+}
+
+// Refresh-interval select. Sizing only — the select chrome comes from the
+// shared form styles.
+.skw-refresh {
+    select {
+        height: 32px;
+        padding: 0 26px 0 10px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+    }
+}
+
+// Square icon button used across the bar and the widget head.
+.skw-iconbtn {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text-faint);
+    cursor: pointer;
+    transition: 0.13s;
+
+    &:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+        background: var(--surface-3);
+    }
+
+    // Head actions are smaller and borderless — they live inside a 30px row.
+    &--bare {
+        width: 24px;
+        height: 24px;
+        border-color: transparent;
+        background: none;
+
+        &:hover { background: var(--surface-2); }
+    }
+}
+
+// Edit-mode banner ("drag to move, drag the corner to resize").
+.skw-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    background: var(--accent-bg);
+    color: var(--accent-bright);
+    font-size: 11.5px;
+}
+
+// ------------------------------------------------------------
+// Grid host + ghost overlay
+// ------------------------------------------------------------
+.skw-grid {
+    position: relative;
+    width: 100%;
+
+    // Placed widgets are absolutely positioned by DashGrid from the cell
+    // maths (inline left/top/width/height). Both shapes are supported — a
+    // frame dropped straight into the host, or wrapped in an __item
+    // positioner — so the grid does not dictate the JSX's element count.
+    > .skw-frame,
+    &__item {
+        position: absolute;
+        // Animate settling into a new cell, but only when the pointer is up;
+        // during a drag the inline coords must track the cursor exactly.
+        transition: left 0.16s ease, top 0.16s ease, width 0.16s ease, height 0.16s ease;
+    }
+
+    &--dragging,
+    &.is-dragging {
+        cursor: grabbing;
+
+        > .skw-frame,
+        .skw-grid__item { transition: none; }
+    }
+
+    // Column/row guides, shown only while editing. Drawn as two 1px gradients
+    // rather than a repeating element so the overlay costs no DOM and no
+    // hit-testing. `--accent-bg` replaces the mock's rgba(109,124,255,.09):
+    // it is the same periwinkle wash, follows a runtime accent override, and
+    // it exists in the light theme.
+    &__ghost {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: 8px;
+        background-image:
+            linear-gradient(to right, var(--accent-bg) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--accent-bg) 1px, transparent 1px);
+    }
+
+    // Drop placeholder / "this board has no widgets yet" panel that fills the
+    // host itself (distinct from .skw-empty, which lives inside one widget).
+    &__empty {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius);
+        color: var(--text-faint);
+        font-size: 13px;
+    }
+}
+
+// Page/host modifier: reserve the gutter the open inspector occupies so the
+// panel never covers the widget being configured.
+.skw-ins-open {
+    padding-right: $skw-ins-gutter;
+    transition: padding-right 0.18s ease;
+}
+
+// ------------------------------------------------------------
+// Widget frame — the chrome every widget type shares.
+// ------------------------------------------------------------
+.skw-frame {
+    // `relative` so __resize anchors to the frame even outside the grid
+    // (fullscreen, TV mode). Inside .skw-grid this is overridden to absolute.
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+
+    // Edit mode: the frame reads as movable, and the head becomes the handle.
+    &--edit,
+    &.is-edit,
+    &.is-editing {
+        border-color: var(--border-strong);
+
+        .skw-frame__head { cursor: grab; }
+    }
+
+    // The widget the inspector is currently bound to.
+    &--selected,
+    &.is-selected,
+    &.is-sel {
+        border-color: var(--accent-bright);
+        box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        padding: 9px 11px 8px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    // Drag grip. Rotated because lucide's GripVertical reads as horizontal
+    // rails at this size; the quarter turn makes it a grab target.
+    &__grip {
+        display: grid;
+        place-items: center;
+        color: var(--text-ghost);
+        transform: rotate(90deg);
+    }
+
+    &__title {
+        flex: 1;
+        min-width: 0;
+        font-size: 12.5px;
+        font-weight: 550;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // "Tailing" indicator on the logs widget head. Sits between the title and
+    // the actions, and unlike them it stays visible at rest: whether a stream
+    // is still live is state, not an affordance, so hover must not gate it.
+    // Shares skw-tick-pulse with the deploy step ribbon, run slower.
+    &__live {
+        width: 6px;
+        height: 6px;
+        flex-shrink: 0;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+        animation: skw-tick-pulse 1.6s ease-in-out infinite;
+
+        // A paused / disconnected stream keeps the dot but drops the pulse,
+        // so "stopped" is never mistaken for "quiet".
+        &--off {
+            background: var(--text-ghost);
+            box-shadow: none;
+            animation: none;
+        }
+    }
+
+    // Head actions stay hidden until the widget is hovered or selected — a
+    // board of 12 widgets otherwise shows 36 buttons at rest.
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 1px;
+        flex-shrink: 0;
+        opacity: 0;
+        transition: opacity 0.13s;
+    }
+
+    &:hover &__actions,
+    &--selected &__actions,
+    &.is-selected &__actions { opacity: 1; }
+
+    // Anchor for the overflow menu. The frame itself clips (overflow:hidden,
+    // for the rounded corners), so the menu cannot anchor to it — it anchors
+    // to this wrapper around the trigger button instead.
+    &__menu-wrap {
+        position: relative;
+        display: inline-flex;
+        flex-shrink: 0;
+    }
+
+    // Every renderer fills this box; it never scrolls itself, the body's own
+    // scroll region does.
+    &__body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    // A menu anchored inside the head would be sliced off by the frame's own
+    // corner clip, so the clip is lifted for exactly as long as a menu is
+    // mounted. Safe to do: __body clips itself, and neither head nor body
+    // paints a background that could spill past the radius.
+    &:has(.skw-menu),
+    &--menu-open,
+    &.is-menu-open { overflow: visible; }
+
+    // Corner resize grip — two diagonal rules drawn with a gradient so the
+    // handle needs no extra markup and no icon payload.
+    &__resize {
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        background: linear-gradient(
+            135deg,
+            transparent 46%,
+            var(--border-strong) 46%,
+            var(--border-strong) 56%,
+            transparent 56%,
+            transparent 70%,
+            var(--border-strong) 70%,
+            var(--border-strong) 80%,
+            transparent 80%
+        );
+    }
+}
+
+// Widget overflow menu (configure / duplicate / fullscreen / remove).
+// A plain absolutely-positioned popover rather than a Radix dropdown: it is
+// anchored by .skw-frame__menu-wrap around its own trigger, so it needs no
+// portal and stays inside the frame it belongs to. Surface treatment matches
+// .ui-dropdown-content so the app has one menu look.
+.skw-menu {
+    position: absolute;
+    top: calc(100% + 5px);
+    // Right-anchored — the trigger is the last control in the head, and a
+    // 196px menu opening leftward would hang off a 3-column widget.
+    right: 0;
+    z-index: $z-tooltip;
+    width: 196px;
+    padding: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--text-dim);
+        font-family: inherit;
+        font-size: 12.5px;
+        text-align: left;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover {
+            background: var(--surface-3);
+            color: var(--text);
+        }
+
+        &[disabled] { opacity: 0.45; pointer-events: none; }
+
+        &--danger {
+            color: var(--red);
+            &:hover { background: var(--red-bg); color: var(--red); }
+        }
+    }
+
+    // Leading icon slot. Fixed box so the labels line up whether or not a
+    // given row has an icon.
+    &__ic {
+        display: grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: var(--text-faint);
+    }
+
+    &__item:hover &__ic { color: var(--text-dim); }
+    &__item--danger:hover &__ic { color: var(--red); }
+
+    // Negative margins pull the rule to the panel edges, past the 4px pad.
+    &__sep {
+        height: 1px;
+        margin: 4px -4px;
+        background: var(--border-soft);
+    }
+}
+
+// Unknown widget type / no data. Deliberately plain: an unrecognised type is
+// a config problem, not an error, and the frame around it already names it.
+.skw-empty {
+    padding: 16px;
+    color: var(--text-faint);
+    font-size: 12.5px;
+}
+
+// ============================================================
+// WIDGET INTERNALS — one block per core type.
+// ============================================================
+
+// ---- stat: big number + delta + bottom-bled sparkline -------
+.skw-stat {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px 13px;
+
+    &__value {
+        color: var(--text);
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+        // Even digit columns, and an ellipsis instead of a burst tile when a
+        // metric returns something unexpectedly long.
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__meta {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 5px;
+        color: var(--text-faint);
+        font-size: 11px;
+    }
+
+    &__delta {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+
+        &--up,
+        .up { color: var(--green); }
+        &--down,
+        .dn { color: var(--red); }
+    }
+
+    // Negative side margins cancel the padding so the series bleeds to the
+    // frame edge rather than floating in a box (same trick as .sk-kpi__spark).
+    &__spark {
+        margin-top: auto;
+        margin-left: -2px;
+        margin-right: -2px;
+        line-height: 0;
+    }
+}
+
+// ---- timeseries: area chart + legend ------------------------
+.skw-ts {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px 6px;
+
+    &__chart {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+
+        // The chart component ships a fixed height attribute; the widget's
+        // cell span decides the real one, so the flex box wins.
+        svg {
+            flex: 1;
+            height: 100% !important;
+        }
+    }
+}
+
+.skw-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 8px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 10.5px;
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        b { color: var(--text); font-weight: 600; }
+    }
+
+    // Series swatch — colour comes inline from the metric catalog.
+    &__swatch,
+    .sw {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+}
+
+// ---- gauge: half-circle radial ------------------------------
+.skw-gauge {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+
+    &__sub {
+        color: var(--text-faint);
+        font-size: 10.5px;
+    }
+}
+
+// ---- topn: ranked bars --------------------------------------
+.skw-topn {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 12px 13px;
+    overflow: auto;
+    @include custom-scrollbar;
+
+    // label | track | value. The 1fr/2fr split keeps the bar the dominant
+    // element while long names still truncate instead of squeezing it.
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 2fr auto;
+        align-items: center;
+        gap: 9px;
+    }
+
+    &__label {
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__track {
+        height: 7px;
+        border-radius: 4px;
+        background: var(--surface-3);
+        overflow: hidden;
+    }
+
+    // Fill width + colour are the only inline values here.
+    &__fill,
+    &__track i {
+        display: block;
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.4s ease;
+    }
+
+    &__value {
+        color: var(--text-dim);
+        font-size: 11px;
+    }
+}
+
+// ---- table: apps / servers / containers / deploys -----------
+.skw-table-wrap {
+    flex: 1;
+    overflow: auto;
+    @include custom-scrollbar;
+}
+
+.skw-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+
+    // Sticky head so a widget only 3 rows tall still shows its columns.
+    th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--surface-2);
+        color: var(--text-ghost);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    td {
+        max-width: 180px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        &.nm { color: var(--text); font-weight: 500; }
+        &.mono { font-family: var(--mono); font-size: 11px; }
+    }
+
+    tbody tr {
+        cursor: pointer;
+        transition: background 0.1s;
+
+        &:hover { background: var(--surface-2); }
+    }
+}
+
+// Mono status chip used by the table and list widgets. Kept local rather than
+// @extend-ing %sk-state: this one is lowercase and sized for a 12px row.
+.skw-pill {
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--surface-3);
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 10px;
+
+    &--ok,
+    &.ok { color: var(--green); background: var(--green-bg); }
+    &--bad,
+    &.bad { color: var(--red); background: var(--red-bg); }
+    &--warn,
+    &.warn { color: var(--amber); background: var(--amber-bg); }
+}
+
+// ---- logs: tailing lines ------------------------------------
+.skw-logs {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    &__bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+        padding: 6px 11px;
+        border-bottom: 1px solid var(--border-soft);
+        color: var(--text-faint);
+        font-size: 10.5px;
+
+        .lv-err { color: var(--red); }
+        .lv-warn { color: var(--amber); }
+    }
+
+    // `--bg-code` replaces the mock's hardcoded #0a0c11. It is the app's
+    // terminal/code surface token and is defined in both themes, so the log
+    // pane stays an inset "console" without being a black slab on light.
+    &__body {
+        flex: 1;
+        overflow: auto;
+        padding: 6px 0;
+        background: var(--bg-code);
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.65;
+        @include custom-scrollbar;
+    }
+
+    &__line {
+        display: flex;
+        gap: 9px;
+        padding: 0 11px;
+        color: var(--text-dim);
+        white-space: pre-wrap;
+        word-break: break-all;
+
+        // Timestamp gutter.
+        .t {
+            flex-shrink: 0;
+            color: var(--text-ghost);
+        }
+
+        &.lv-dim { color: var(--text-faint); }
+        &.lv-warn { color: var(--amber); }
+        &.lv-err {
+            color: var(--red);
+            // Compile-time rgba of the raw hex: the semantic reds are
+            // theme-independent, and --red-bg (0.12) is too loud behind a
+            // whole line of text.
+            background: rgba($danger-raw, 0.06);
+        }
+    }
+}
+
+// ---- shared scroll list (deploys / alerts / feed) -----------
+.skw-list {
+    flex: 1;
+    overflow: auto;
+    padding: 6px 0;
+    @include custom-scrollbar;
+}
+
+// ---- deploys: recent deployment jobs ------------------------
+.skw-dep {
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: var(--surface-2); }
+
+    &__top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    &__name { font-size: 12.5px; font-weight: 550; }
+    &__state { font-size: 10.5px; }
+
+    // Step ribbon: one segment per pipeline stage, so progress reads at a
+    // glance without a percentage.
+    &__steps {
+        display: flex;
+        gap: 3px;
+        margin: 7px 0 5px;
+
+        .st {
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--surface-3);
+
+            &.done { background: var(--green); }
+            &.failed { background: var(--red); }
+            &.running {
+                background: var(--amber);
+                animation: skw-tick-pulse 1.2s ease-in-out infinite;
+            }
+        }
+    }
+
+    &__meta {
+        color: var(--text-ghost);
+        font-size: 10.5px;
+    }
+}
+
+// ---- alerts: open monitoring alerts -------------------------
+.skw-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: var(--surface-2); }
+
+    // Severity dot — colour set inline from the alert's severity.
+    &__sev {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    &__title {
+        font-size: 12.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__meta {
+        margin-top: 2px;
+        color: var(--text-faint);
+        font-size: 10.5px;
+    }
+}
+
+// ---- status: monitor up/down matrix -------------------------
+.skw-status {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    align-content: start;
+    gap: 8px;
+    padding: 12px 13px;
+    overflow: auto;
+    @include custom-scrollbar;
+
+    &__cell {
+        padding: 9px 10px;
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        background: var(--surface-2);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { border-color: var(--border-strong); }
+    }
+
+    &__dot {
+        display: block;
+        width: 7px;
+        height: 7px;
+        margin-bottom: 6px;
+        border-radius: 50%;
+    }
+
+    &__name {
+        font-size: 11.5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__meta {
+        margin-top: 2px;
+        color: var(--text-faint);
+        font-size: 10px;
+    }
+}
+
+// ---- actions: shortcut buttons ------------------------------
+.skw-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px 13px;
+    overflow: auto;
+    @include custom-scrollbar;
+}
+
+// ---- specs: key/value host details --------------------------
+.skw-kv {
+    padding: 4px 13px 8px;
+    overflow: auto;
+    @include custom-scrollbar;
+
+    // Own rows…
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 0;
+        padding: 6px 0;
+        border-top: 1px solid var(--border-soft);
+
+        &:first-child { border-top: none; }
+    }
+    &__k { color: var(--text-faint); font-family: var(--mono); font-size: 11.5px; }
+    &__v { color: var(--text); font-family: var(--mono); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+
+    // …and a density override when the renderer reuses the shared
+    // .sk-info-row primitive instead, which is spaced for a drawer.
+    .sk-info-row {
+        padding: 6px 0;
+        min-height: 0;
+
+        .k { font-size: 11.5px; }
+    }
+}
+
+// ---- note: markdown-ish text --------------------------------
+.skw-note {
+    padding: 13px;
+    overflow: auto;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height: 1.6;
+    @include custom-scrollbar;
+
+    code {
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--surface-3);
+        font-family: var(--mono);
+        font-size: 11.5px;
+    }
+}
+
+// ============================================================
+// WIDGET LIBRARY — "add a widget" drawer, thumbnail-first.
+// ============================================================
+// A name and a description do not tell you what a widget looks like, so each
+// card leads with a miniature SVG of the real thing.
+.skw-lib {
+    // The library owns its own padding rather than leaning on the drawer's:
+    // .sk-drawer__body deliberately has none (it is the scroll region), and
+    // the sticky filter bar below cancels this padding with negative margins
+    // to span the panel edge to edge. Both numbers therefore live here.
+    padding: 14px 16px 18px;
+
+    // Search + category chips. The library renders inside the shared
+    // ds/Drawer, whose .sk-drawer__body owns the scroll — so this bar has to
+    // stick to the top of THAT scroller or the search box leaves the screen
+    // as soon as you scroll to the widget you were searching for. Sticky
+    // demands an opaque background (it scrolls over the cards) and the
+    // negative top/side margins let it span the drawer's padding edge to edge.
+    &__filters {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: -14px -16px 14px;
+        padding: 14px 16px 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    &__search {
+        // The shared .sk-searchfield caps itself at 420px and sits inline;
+        // in a 380px drawer it should simply fill the row.
+        display: flex;
+
+        .sk-searchfield {
+            flex: 1 1 auto;
+            max-width: none;
+            min-width: 0;
+        }
+    }
+
+    &__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__chip {
+        padding: 4px 11px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text-dim);
+        font-family: inherit;
+        font-size: 11.5px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: 0.13s;
+
+        &:hover {
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+
+        &--on,
+        &.is-on {
+            color: var(--accent-bright);
+            background: var(--accent-bg);
+            border-color: var(--accent-dim);
+            font-weight: 550;
+        }
+    }
+
+    // "No widget matches that search."
+    &__empty {
+        padding: 40px 16px;
+        color: var(--text-faint);
+        font-size: 12.5px;
+        text-align: center;
+    }
+
+    &__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+        gap: 12px;
+    }
+
+    &__card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        cursor: pointer;
+        overflow: hidden;
+        transition: 0.14s;
+
+        &:hover {
+            border-color: var(--accent-dim);
+            background: var(--surface-3);
+            transform: translateY(-1px);
+        }
+    }
+
+    // `--bg-sidebar` replaces the mock's #0d0f14: it is within a hair of that
+    // value in dark, and in light it is one step darker than the card, so the
+    // preview still reads as an inset well instead of a black rectangle.
+    &__thumb {
+        position: relative;
+        height: 88px;
+        display: flex;
+        align-items: stretch;
+        padding: 6px;
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--bg-sidebar);
+    }
+
+    &__thumb-svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    // Hover scrim over the thumbnail. Built from --surface at full opacity and
+    // faded in as a whole, rather than the mock's rgba(13,15,20,.74) + #fff
+    // text — that pairing is a black slab with white text on a light board.
+    &__add {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: var(--surface);
+        color: var(--accent-bright);
+        font-size: 12px;
+        font-weight: 550;
+        opacity: 0;
+        transition: opacity 0.14s;
+    }
+
+    &__card:hover &__add { opacity: 0.94; }
+
+    &__meta { padding: 10px 11px 12px; }
+
+    &__icon {
+        display: inline-grid;
+        place-items: center;
+        flex-shrink: 0;
+        color: var(--accent-bright);
+    }
+
+    &__name {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12.5px;
+        font-weight: 550;
+    }
+
+    // Default cell span ("3×2"), pushed to the right edge of the name row.
+    &__size {
+        margin-left: auto;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--surface-3);
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 9.5px;
+    }
+
+    &__desc {
+        margin-top: 5px;
+        color: var(--text-faint);
+        font-size: 11px;
+        line-height: 1.45;
+    }
+}
+
+// ============================================================
+// INSPECTOR — right-hand config panel for the selected widget.
+// ============================================================
+// Fixed rather than a modal: you change a setting and watch the live widget
+// react beside it, which is why the host reserves .skw-ins-open's gutter.
+.skw-ins {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: $skw-z-inspector;
+    width: $skw-ins-w;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-lg);
+    animation: skw-ins-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+        padding: 14px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    // Widget-type glyph in the panel header — same 32px tinted box as
+    // .sk-kpi__icon / .sk-drawer__ico, so the inspector reads as a drawer.
+    &__ic {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        border-radius: 9px;
+        background: var(--accent-bg);
+        color: var(--accent-bright);
+    }
+
+    &__title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; }
+
+    // Type name / instance id under the title. Mono, because it is an
+    // identifier rather than prose.
+    &__sub {
+        margin-top: 1px;
+        color: var(--text-faint);
+        font-family: var(--mono);
+        font-size: 11px;
+    }
+
+    &__body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 16px 16px 26px;
+        @include custom-scrollbar;
+    }
+
+    &__row {
+        margin-bottom: 15px;
+
+        > label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--text-ghost);
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        // Segmented controls fill the panel width instead of hugging content;
+        // a 340px column has no room for a control that floats left.
+        .sk-seg {
+            display: flex;
+            width: 100%;
+
+            &__btn { flex: 1; justify-content: center; }
+        }
+    }
+
+    &__select {
+        width: 100%;
+        padding: 7px 24px 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 12.5px;
+        cursor: pointer;
+
+        &:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+    }
+
+    // Single-line text input (widget title, unit, link target). Matched to
+    // __select's metrics so a row of mixed controls sits on one baseline —
+    // the app's global .form-input is sized for a full-width page form and
+    // reads oversized in a 340px column.
+    &__field {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 12.5px;
+        transition: border-color 0.14s, box-shadow 0.14s;
+
+        &::placeholder { color: var(--text-ghost); }
+
+        &:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        // Numeric fields (thresholds, top-N) read as values, not prose.
+        &--mono {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+    }
+
+    // Free text: note body, custom query. Resizable vertically only — a
+    // horizontal drag would push it out of a fixed-width panel.
+    &__textarea {
+        @extend .skw-ins__field;
+
+        min-height: 96px;
+        line-height: 1.55;
+        resize: vertical;
+    }
+
+    // Leading unit/sigil glued to a field ("$", "%", "≥"). Rendered as a
+    // sibling inside __pair rather than inside the input, so it never eats a
+    // click meant for the text cursor.
+    &__prefix {
+        flex-shrink: 0;
+        padding: 0 2px;
+        color: var(--text-faint);
+        font-family: var(--mono);
+        font-size: 11.5px;
+    }
+
+    // Two controls sharing one row (amber + red thresholds, min + max).
+    &__pair {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+
+        > .skw-ins__field,
+        > .skw-ins__select { flex: 1; min-width: 0; }
+    }
+
+    // Explanatory line under a control. Deliberately quieter than the label
+    // above it, so a row still reads label → control → aside.
+    &__hint {
+        display: block;
+        margin-top: 6px;
+        color: var(--text-faint);
+        font-size: 11px;
+        line-height: 1.45;
+
+        code {
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: var(--surface-3);
+            font-family: var(--mono);
+            font-size: 10.5px;
+        }
+    }
+
+    // "Add series" / "Add threshold" — a full-width dashed slot rather than a
+    // button, so it reads as the next empty row of the list above it.
+    &__add {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        margin-top: 7px;
+        padding: 6px 10px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 7px;
+        background: none;
+        color: var(--text-faint);
+        font-family: inherit;
+        font-size: 11.5px;
+        cursor: pointer;
+        transition: 0.13s;
+
+        &:hover {
+            border-color: var(--accent-dim);
+            color: var(--accent-bright);
+            background: var(--accent-bg);
+        }
+    }
+
+    // Row delete — the 24px third column of __ser. Stays neutral until
+    // hovered; a column of red X's would shout over the settings themselves.
+    &__remove {
+        width: 24px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--text-ghost);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: var(--red); background: var(--red-bg); }
+    }
+
+    // Series editor: metric | aggregation | remove.
+    &__series {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    &__ser {
+        display: grid;
+        grid-template-columns: 1fr 1fr 24px;
+        align-items: center;
+        gap: 5px;
+
+        select,
+        .skw-ins__select {
+            padding: 6px 22px 6px 8px;
+            font-size: 11.5px;
+        }
+    }
+
+    // Column / resource pickers. Capped and scrollable so a long list cannot
+    // push the rest of the form out of reach.
+    &__checks {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        max-height: 190px;
+        overflow: auto;
+        @include custom-scrollbar;
+    }
+
+    &__check {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 3px 2px;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        cursor: pointer;
+
+        &:hover { color: var(--text); }
+
+        input[type='checkbox'] {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        padding: 12px 14px;
+        border-top: 1px solid var(--border-soft);
+    }
+}
+
+// Numeric stepper (widget span, top-N count, refresh seconds).
+.skw-stepper {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+
+    button {
+        width: 26px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--text-faint);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: #fff; background: var(--accent); }
+        &:disabled { opacity: 0.4; cursor: default; background: none; color: var(--text-ghost); }
+    }
+
+    span {
+        min-width: 58px;
+        padding: 0 8px;
+        color: var(--text-dim);
+        font-size: 11.5px;
+        text-align: center;
+    }
+}
+
+// ============================================================
+// FULLSCREEN WIDGET + TV MODE
+// ============================================================
+// One widget, blown up, still driven by the same renderer — so "expand" costs
+// no second implementation.
+.skw-full {
+    position: fixed;
+    top: 5vh;
+    left: 50%;
+    z-index: $skw-z-fullscreen;
+    width: min(1280px, 92vw);
+    height: min(760px, 86vh);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: skw-modal-in 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+
+    // Backdrop behind the expanded widget. Same treatment as .modal-overlay /
+    // .ui-dialog-overlay so a fullscreened widget dims the page exactly like
+    // every other modal surface — a neutral scrim, not a themed one, because
+    // it must read as "the board is still there, just behind this".
+    // Sits one layer under .skw-full and above everything the board draws.
+    &__scrim {
+        position: fixed;
+        inset: 0;
+        z-index: $skw-z-fullscreen - 1;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        animation: skw-scrim-in 0.18s ease;
+    }
+
+    // The frame inside gets a roomier head and always-visible actions: there
+    // is no hover-to-reveal affordance when the widget IS the page.
+    .skw-frame {
+        position: static;
+        flex: 1;
+        min-height: 0;
+        border: none;
+        border-radius: 0;
+        background: none;
+    }
+    .skw-frame__head { padding: 13px 16px; }
+    .skw-frame__actions { opacity: 1; }
+    .skw-frame__resize { display: none; }
+}
+
+// TV mode: the board on a wall display. `--bg-body` replaces the mock's
+// var(--bg,#0a0c11) — same intent (the app's page background), real token.
+.skw-tv {
+    position: fixed;
+    inset: 0;
+    z-index: $skw-z-tv;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-body);
+
+    &__bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-shrink: 0;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    &__body {
+        flex: 1;
+        overflow: auto;
+        padding: 18px 20px;
+        @include custom-scrollbar;
+    }
+}
+
+// ============================================================
+// EMPTY BOARD — template picker
+// ============================================================
+// A blank 12-column grid is not a starting point, so a new board offers
+// ready-made layouts before it offers an "add widget" button.
+.skw-empty-board {
+    padding: 70px 20px;
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    text-align: center;
+
+    &__title { margin: 0 0 6px; color: var(--text); font-size: 15px; font-weight: 600; }
+    &__desc { margin: 0 auto 24px; max-width: 460px; color: var(--text-dim); font-size: 13px; }
+}
+
+.skw-tpl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: left;
+
+    &__card {
+        padding: 15px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-2);
+        cursor: pointer;
+        transition: 0.14s;
+
+        &:hover {
+            border-color: var(--accent-dim);
+            background: var(--surface-3);
+            transform: translateY(-1px);
+        }
+    }
+
+    &__icon {
+        width: 34px;
+        height: 34px;
+        margin-bottom: 11px;
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        background: var(--surface-3);
+        color: var(--accent-bright);
+    }
+
+    &__name { font-size: 13.5px; font-weight: 600; }
+    &__desc { margin-top: 4px; color: var(--text-faint); font-size: 11.5px; line-height: 1.5; }
+}
+
+// ============================================================
+// ANIMATIONS  (prefixed — the mock's insIn/modalIn/tickPulse are global)
+// ============================================================
+@keyframes skw-ins-in {
+    from { transform: translateX(18px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+}
+
+@keyframes skw-modal-in {
+    from { transform: translateX(-50%) translateY(10px); opacity: 0; }
+    to { transform: translateX(-50%); opacity: 1; }
+}
+
+@keyframes skw-tick-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes skw-scrim-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+// ============================================================
+// RESPONSIVE
+// ============================================================
+// The inspector's reserved gutter is 352px. Below $breakpoint-xl the content
+// column is already narrow enough that giving a third of it to the panel
+// leaves the board unreadable, so the panel starts overlaying instead.
+@include respond-to($breakpoint-xl) {
+    .skw-ins-open { padding-right: 0; }
+}
+
+@include respond-to($breakpoint-lg) {
+    // Board controls wrap under the tabs rather than fighting them for width.
+    .skw-bar__ctl {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .skw-lib__grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+}
+
+@include respond-to($breakpoint-md) {
+    // Below tablet the 12-column cell maths produces columns too narrow to
+    // read anything in, so absolute placement is dropped and widgets stack in
+    // document order at a fixed height. DashGrid writes left/top/width/height
+    // as inline styles, so these overrides need !important — the collapse
+    // point lives here, in CSS, rather than being duplicated in JS.
+    .skw-grid {
+        height: auto !important;
+        min-height: 0 !important;
+        display: flex;
+        flex-direction: column;
+        gap: $skw-grid-gap;
+
+        &__ghost { display: none; }
+
+        > .skw-frame,
+        &__item {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            width: 100% !important;
+            height: $skw-stack-row-h !important;
+            transition: none;
+        }
+    }
+
+    // Dragging and resizing are pointer-precision gestures; neither survives
+    // a stacked column, and both are meaningless once placement is implicit.
+    .skw-frame__resize,
+    .skw-frame__grip { display: none; }
+
+    .skw-frame--edit .skw-frame__head,
+    .skw-frame.is-edit .skw-frame__head { cursor: default; }
+
+    // Inspector becomes a full-width sheet.
+    .skw-ins {
+        width: 100vw;
+        border-left: none;
+    }
+
+    .skw-full {
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        border: none;
+        border-radius: 0;
+    }
+
+    .skw-empty-board { padding: 40px 16px; }
+    .skw-tpl { grid-template-columns: 1fr; }
+}
