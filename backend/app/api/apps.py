@@ -1950,6 +1950,65 @@ def restart_app(app_id):
     }), 200
 
 
+@apps_bp.route('/<int:app_id>/related', methods=['GET'])
+@jwt_required()
+def get_app_related(app_id):
+    """Domains, databases, backup status and deploy count for one app.
+
+    The Overview tab has always called this; it was never implemented, so the
+    request 404'd, the client swallowed it, and the card sat on "Loading…"
+    forever. Each section is gathered independently — a missing table or a
+    disabled feature degrades that section to empty rather than failing the
+    whole card.
+    """
+    user = User.query.get(get_jwt_identity())
+    app = Application.query.get(app_id)
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
+    if not _can_access_app(user, app):
+        return jsonify({'error': 'Access denied'}), 403
+
+    related = {'domains': [], 'databases': [], 'backup': None, 'deployments': {'count': 0}}
+
+    try:
+        from app.models.domain import Domain
+        related['domains'] = [
+            {'id': d.id, 'name': d.name, 'ssl_enabled': bool(getattr(d, 'ssl_enabled', False))}
+            for d in Domain.query.filter_by(application_id=app.id).all()
+        ]
+    except Exception:
+        current_app.logger.warning('related: domains failed', exc_info=True)
+
+    try:
+        from app.models.managed_database import ManagedDatabase
+        related['databases'] = [
+            {'id': m.id, 'name': m.name, 'engine': getattr(m, 'engine', '')}
+            for m in ManagedDatabase.query.filter_by(owner_application_id=app.id).all()
+        ]
+    except Exception:
+        current_app.logger.warning('related: databases failed', exc_info=True)
+
+    try:
+        from app.models.backup_policy import BackupPolicy
+        policy = BackupPolicy.query.filter_by(target_type='application', target_id=app.id).first()
+        if policy:
+            related['backup'] = {
+                'enabled': bool(policy.enabled),
+                'frequency': policy.schedule_cron,
+                'last_status': policy.last_status,
+            }
+    except Exception:
+        current_app.logger.warning('related: backup failed', exc_info=True)
+
+    try:
+        from app.models.deployment import Deployment
+        related['deployments'] = {'count': Deployment.query.filter_by(app_id=app.id).count()}
+    except Exception:
+        current_app.logger.warning('related: deployments failed', exc_info=True)
+
+    return jsonify(related), 200
+
+
 @apps_bp.route('/<int:app_id>/logs', methods=['GET'])
 @jwt_required()
 def get_app_logs(app_id):

@@ -56,7 +56,10 @@ const OverviewTab = ({ app, deployConfig }) => {
         let cancelled = false;
         api.getAppRelatedResources(app.id)
             .then((data) => { if (!cancelled) setRelated(data); })
-            .catch(() => {});
+            // Settle to an empty result rather than staying null: null is
+            // the card's "still loading" state, so swallowing the error
+            // left it spinning forever.
+            .catch(() => { if (!cancelled) setRelated({}); });
         return () => { cancelled = true; };
     }, [app.id]);
 
@@ -77,8 +80,13 @@ const OverviewTab = ({ app, deployConfig }) => {
                     return needle && text.toLowerCase().includes(needle);
                 });
                 if (appContainers.length > 0) {
-                    const containerStats = await api.getContainerStats(
+                    const statsRes = await api.getContainerStats(
                         appContainers[0].id ?? appContainers[0].Id);
+                    // The route answers {stats: {...}} with docker's own
+                    // CLI keys (CPUPerc, MemUsage, ...). Reading the top
+                    // level found nothing, so CPU and memory always showed
+                    // 0.0% and the rest N/A on a perfectly healthy container.
+                    const containerStats = statsRes?.stats ?? statsRes ?? {};
                     setMetrics({
                         cpu: parseFloat(containerStats.cpu_percent || containerStats.CPUPerc || 0),
                         memory: parseFloat(containerStats.memory_percent || containerStats.MemPerc || 0),
