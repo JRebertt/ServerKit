@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { KpiBand, MetricCard } from '@/components/ds';
 
 const ServerTemplates = () => {
     const toast = useToast();
@@ -27,6 +28,8 @@ const ServerTemplates = () => {
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [servers, setServers] = useState([]);
+    // null until the first load decides; see loadData.
+    const [activeTab, setActiveTab] = useState(null);
 
     const [form, setForm] = useState({
         name: '', description: '', category: 'general',
@@ -41,9 +44,14 @@ const ServerTemplates = () => {
                 api.getServerTemplateLibrary(),
                 api.getTemplateCompliance(),
             ]);
-            setTemplates(tData.templates || []);
+            const mine = tData.templates || [];
+            setTemplates(mine);
             setLibrary(lData.templates || {});
             setCompliance(cData);
+            // Pick the opening tab from the data, once. `?? ` so a reload
+            // (after creating or deleting one) never yanks the tab out from
+            // under whoever is reading it.
+            setActiveTab(current => current ?? (mine.length > 0 ? 'templates' : 'library'));
         } catch (err) {
             toast.error('Failed to load templates');
         } finally {
@@ -135,36 +143,46 @@ const ServerTemplates = () => {
         [user?.is_admin]
     );
 
+    // How many servers the compliance figures actually cover.
+    const measuredServers = compliance
+        ? (compliance.compliant || 0) + (compliance.drifted || 0) + (compliance.unknown || 0)
+        : 0;
+
     if (loading) return <PageLoader />;
 
     return (
         <div className="sk-tabgroup__inner server-templates-page">
             {compliance && (
                 <div className="compliance-bar">
-                    <div className="compliance-bar__stats">
-                        <div className="stat-item stat-item--success">
-                            <span className="stat-item__value">{compliance.compliant}</span>
-                            <span className="stat-item__label">Compliant</span>
+                    <KpiBand dense>
+                        <MetricCard label="Compliant" value={compliance.compliant} tone="green" compact />
+                        <MetricCard label="Drifted" value={compliance.drifted} tone="red" compact />
+                        <MetricCard label="Unknown" value={compliance.unknown} tone="amber" compact />
+                    </KpiBand>
+                    {measuredServers > 0 ? (
+                        <div className="compliance-bar__progress" title={`${Math.round(compliance.compliance_pct || 0)}% compliant`}>
+                            <div className="progress-fill" style={{ width: `${compliance.compliance_pct || 0}%` }} />
                         </div>
-                        <div className="stat-item stat-item--danger">
-                            <span className="stat-item__value">{compliance.drifted}</span>
-                            <span className="stat-item__label">Drifted</span>
-                        </div>
-                        <div className="stat-item stat-item--muted">
-                            <span className="stat-item__value">{compliance.unknown}</span>
-                            <span className="stat-item__label">Unknown</span>
-                        </div>
-                    </div>
-                    <div className="compliance-bar__progress">
-                        <div className="progress-fill" style={{ width: `${compliance.compliance_pct}%` }} />
-                    </div>
+                    ) : (
+                        // A full green bar above three zeroes read as "100%
+                        // compliant" when in fact nothing had been measured.
+                        <p className="compliance-bar__empty">
+                            No servers are assigned to a template yet, so there is nothing to compare against.
+                        </p>
+                    )}
                 </div>
             )}
 
-            <Tabs defaultValue="templates">
+            {/* Library leads, because on a fresh panel Templates has nothing in
+                it — landing there showed an empty page as the first impression.
+                The default follows the data rather than being fixed: once you
+                have templates of your own, those are what you came for. */}
+            <Tabs value={activeTab || 'library'} onValueChange={setActiveTab}>
                 <TabsList>
-                    <TabsTrigger value="templates">Templates</TabsTrigger>
                     <TabsTrigger value="library">Library</TabsTrigger>
+                    <TabsTrigger value="templates">
+                        Templates{templates.length > 0 ? ` (${templates.length})` : ''}
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="templates">
@@ -200,7 +218,12 @@ const ServerTemplates = () => {
                             <EmptyState
                                 icon={LayoutTemplate}
                                 title="No templates yet"
-                                description="Create one or use a library template to get started."
+                                description="Start from a ready-made library template, or create one from scratch."
+                                action={(
+                                    <Button size="sm" onClick={() => setActiveTab('library')}>
+                                        Browse the library
+                                    </Button>
+                                )}
                             />
                         )}
                     </div>
