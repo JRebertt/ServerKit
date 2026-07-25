@@ -281,10 +281,54 @@ def list_things():
 | `notify` | Notifications SDK (`notify.send(event, to, data)`). |
 | `jobs` | Jobs SDK (schedule/enqueue background work). |
 | `sockets` | Register a status-guarded Socket.IO namespace (`/ext/<slug>`). |
+| `store` | Per-plugin key/value storage — state without a model and a migration. |
+| `deploys` | Register a deployment kind; get the Deploy Console, live logs and retry. |
+| `backups` | Register a backup kind; get policies, retention, restore and the Protection panel. |
+| `doctor` | Register a health check; it appears on the doctor page, repair button and all. |
+| `search` | Register searchable entities; they appear in the command palette. |
+| `agents` | Run a command on a managed server (gated by `agent.command:<action>`). |
 | `require_permission(slug, cap)` | Capability gate — raises `PermissionDenied` if `cap` isn't declared in `permissions`. |
 | `panel_version()` | The panel's version string (for in-plugin compat checks). |
 
 Errors follow the core convention: `return jsonify({'error': 'message'}), status`.
+
+### Contributing to panel surfaces
+
+Six of those surfaces work the same way: you register behaviour, the panel owns
+the UI, the persistence and the error handling. Nothing on the frontend needs to
+change for your contribution to appear.
+
+```python
+from app.plugins_sdk import store, deploys, backups, doctor, search, agents
+
+# State, without adding a model + migration to core.
+mine = store.for_plugin('serverkit-minecraft')
+mine.set('world:1:seed', 8675309)
+
+# Long-running work that someone will want to watch → the Deploy Console.
+deploys.register('minecraft.restart', restart_handler)
+deploys.start('minecraft.restart', steps=['Warn players', 'Save', 'Restart'],
+              plan={'title': 'Restarting Overworld'})
+
+# Something worth backing up → policies, schedules, retention, restore.
+backups.register('minecraft.world', resolve=resolve, execute=execute, restore=restore)
+
+# "Is my thing healthy?" → the doctor page, with a working Repair button.
+doctor.register('minecraft', check_worlds, repair=back_up_stale)
+
+# Your objects → the command palette. Scope rows to query.user yourself.
+search.register('minecraft.world', find_worlds)
+
+# The fleet. Declare agent.command:<action> in your manifest first.
+agents.for_plugin('serverkit-minecraft').run(server_id, 'systemd:restart',
+                                             {'unit': 'minecraft'})
+```
+
+Namespace whatever you register after your plugin (`minecraft.world`) — bare
+names belong to core and are refused. Each registry's module docstring is the
+detailed contract; the shapes they hand back are normalised and capped by the
+panel, so a malformed contribution degrades rather than breaking the surface it
+appears on.
 
 ### Blueprint registration & the disable guard
 

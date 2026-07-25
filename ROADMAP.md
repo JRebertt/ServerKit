@@ -608,6 +608,7 @@ happen live, and debug failures entirely from the UI.
 ## Extension Platform
 
 - [x] Runtime frontend loading — installed extensions render without rebuilding the panel
+- [x] Extensions plug into the panel's own surfaces — their work shows up in the deploy console, their data in backups and restore, their health on the doctor page, their objects in search, and they can run commands across the fleet
 - [ ] Signed extension releases, with explicit install consent for unsigned or third-party code
 - [ ] Remaining built-ins extracted to standalone repos (including the WordPress flagship)
 - [ ] Security suite (Fail2ban, ClamAV, Lynis, auto-updates, image scanning) as installable extensions for a leaner default panel
