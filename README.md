@@ -327,6 +327,8 @@ Full history: [ROADMAP.md](ROADMAP.md)
 | [Extensions Registry](https://github.com/jhd3197/serverkit-extensions) | The curated extension marketplace `index.json` — separate repo |
 | [Theming](docs/THEMING.md) | Build & share panel themes — token reference, Theme Studio, and the submit flow |
 | [Themes Registry](https://github.com/jhd3197/serverkit-themes) | The curated community themes registry — separate repo |
+| [Templates Registry](https://github.com/jhd3197/serverkit-templates) | The curated app template catalog `index.json` — separate repo |
+| [Registries](docs/REGISTRIES.md) | Which catalogs are published as registries, and the test for whether a new one should be |
 | [Agent Pairing](docs/pairing.md) | Secure short-code agent enrollment |
 | [API Reference](docs/API.md) | REST API endpoints |
 | [New Features](docs/NEW_FEATURES.md) | Endpoint & page reference for the latest `dev` features |
