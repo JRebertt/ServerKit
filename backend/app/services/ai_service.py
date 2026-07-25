@@ -23,10 +23,25 @@ import dataclasses
 import logging
 import secrets
 import threading
-from typing import Any, Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
-from prompture import Conversation, PIIRedactor, PromptInjectionDetector, ProviderEnvironment
-from prompture.agents.tools_schema import ToolDefinition, ToolRegistry
+# Prompture is imported lazily, inside the functions that build a Conversation,
+# a ToolRegistry or a ProviderEnvironment — never at module scope.
+#
+# `import prompture` costs ~69 MB of RSS: it pulls ~300 prompture modules plus
+# pydantic, rich, httpx, pygments and jsonschema. This module is reachable from
+# app/api/ai.py, which create_app() registers like every other blueprint, so an
+# eager import made every panel process pay for the assistant at boot whether or
+# not anyone ever opened it — about a third of the panel's idle footprint.
+#
+# `from __future__ import annotations` (above) makes every annotation a string,
+# so the names below are needed only for type checkers and readers, never at
+# runtime. Keep it that way: a new module-level `from prompture import ...`
+# silently puts the 69 MB back. Guarded by
+# backend/tests/test_ai_lazy_import.py.
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from prompture import Conversation, ProviderEnvironment
+    from prompture.agents.tools_schema import ToolRegistry
 
 from app import db
 from app.services.ai_tool_registry import ai_tool_registry
@@ -97,9 +112,33 @@ SYSTEM_BASE = (
     "result confirms it."
 )
 
-# Guardrail detectors (cheap, regex-based) — instantiate once.
-_injection_detector = PromptInjectionDetector(min_confidence=0.7)
-_pii_redactor = PIIRedactor()
+# Guardrail detectors (cheap, regex-based) — built once, on first use. They are
+# the only Prompture objects the module would otherwise need at import time;
+# constructing them lazily is what keeps `import ai_service` free. Same
+# double-checked pattern as ensure_initialized() below.
+_injection_detector = None
+_pii_redactor = None
+_guardrails_lock = threading.Lock()
+
+
+def _get_injection_detector():
+    global _injection_detector
+    if _injection_detector is None:
+        with _guardrails_lock:
+            if _injection_detector is None:
+                from prompture import PromptInjectionDetector
+                _injection_detector = PromptInjectionDetector(min_confidence=0.7)
+    return _injection_detector
+
+
+def _get_pii_redactor():
+    global _pii_redactor
+    if _pii_redactor is None:
+        with _guardrails_lock:
+            if _pii_redactor is None:
+                from prompture import PIIRedactor
+                _pii_redactor = PIIRedactor()
+    return _pii_redactor
 
 # In-memory registry of live confirmation gates, keyed by conversation id.
 # Lives in the single gevent worker (like agent_registry).
@@ -175,6 +214,8 @@ def _decrypted_key() -> Optional[str]:
 def build_provider_env(*, provider: Optional[str] = None, api_key: Optional[str] = None,
                        endpoint: Optional[str] = None) -> ProviderEnvironment:
     """Build a per-instance ProviderEnvironment from stored (or supplied) config."""
+    from prompture import ProviderEnvironment
+
     provider = (provider or _setting("ai_provider", "") or "").strip()
     if api_key is None:
         api_key = _decrypted_key()
@@ -242,7 +283,7 @@ def injection_flagged(text: str) -> bool:
     if not _setting("ai_injection_detection", True):
         return False
     try:
-        return bool(_injection_detector.is_injection(text))
+        return bool(_get_injection_detector().is_injection(text))
     except Exception:
         return False
 
@@ -255,7 +296,7 @@ def redact_input(text: str) -> str:
     if not _pii_enabled():
         return text
     try:
-        return _pii_redactor.redact(text).text
+        return _get_pii_redactor().redact(text).text
     except Exception:
         return text
 
@@ -264,7 +305,7 @@ def _maybe_redact_result(result: Any) -> Any:
     if not _pii_enabled() or not isinstance(result, str):
         return result
     try:
-        return _pii_redactor.redact(result).text
+        return _get_pii_redactor().redact(result).text
     except Exception:
         return result
 
@@ -308,6 +349,8 @@ def build_tool_registry(user, mode: str, gate: Optional["ConfirmationGate"]) -> 
     descriptors = ai_tool_registry.list_for(user, mode)
     if not descriptors:
         return None
+    from prompture.agents.tools_schema import ToolDefinition, ToolRegistry
+
     reg = ToolRegistry()
     for d in descriptors:
         fn = _make_write_wrapper(d, user, gate) if d.is_write else _make_read_wrapper(d, user)
@@ -375,6 +418,8 @@ def summarize_action(descriptor, params: dict) -> str:
 def build_conversation(row, user, mode: str, page_context: Optional[dict],
                        gate: Optional["ConfirmationGate"]) -> Conversation:
     """Create a fresh Conversation or resume from the stored export (re-supplying tools)."""
+    from prompture import Conversation
+
     registry = build_tool_registry(user, mode, gate)
     system = build_system_prompt(user, mode, page_context)
     export = row.export
@@ -431,6 +476,8 @@ def derive_title(message: str) -> str:
 # In-process invocation (used by plugins via app.plugins_sdk.ai)
 # ===========================================================================
 def _oneshot_conversation(user, mode: str, page_context: Optional[dict]) -> Conversation:
+    from prompture import Conversation
+
     ensure_initialized()
     registry = build_tool_registry(user, mode, gate=None)
     system = build_system_prompt(user, mode, page_context)
