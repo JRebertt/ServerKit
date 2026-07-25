@@ -254,22 +254,45 @@ export const SIDEBAR_PRESETS = {
     },
     minimal: {
         label: 'Minimal',
-        description: 'Just the essentials — dashboard, servers, terminal',
+        description: 'Core only — no databases, containers, or scheduling',
         hiddenItems: ['wordpress', 'workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
     }
 };
 
 // Map the Setup wizard's "use case" selections to an initial sidebar preset, so
-// a fresh install opens tailored instead of showing every item. Only a single,
-// focused intent picks a specialized profile; mixed or general installs get the
-// lean "Recommended" baseline (which still surfaces the common pages).
+// a fresh install opens tailored instead of showing every item. This is only the
+// *suggestion* the Summary step pre-selects — the user can override it there (or
+// later in Settings), so this deliberately stays coarse rather than trying to
+// reach all six profiles from four intent checkboxes.
+//
+// The rule is "does one family of work dominate?": a purely WordPress install
+// gets the web-hosting view, an install that is only container/CI work gets the
+// DevOps view, and anything mixed falls back to the lean "Recommended" baseline
+// (which still surfaces the common pages).
 export function presetForUseCases(useCases = []) {
     const set = new Set((useCases || []).filter(Boolean));
-    if (set.size === 1) {
-        if (set.has('wordpress')) return 'web';
-        if (set.has('devops')) return 'devops';
-    }
+    if (set.size === 0) return 'recommended';
+
+    // Only WordPress → web hosting (Docker/Git/email hidden).
+    if (set.size === 1 && set.has('wordpress')) return 'web';
+
+    // Container/CI work with no WordPress in the mix → DevOps.
+    const devopsIntents = ['web-apps', 'devops'];
+    const everyIntentIsDevops = [...set].every((id) => devopsIntents.includes(id));
+    if (everyIntentIsDevops) return 'devops';
+
     return 'recommended';
+}
+
+// Number of core sidebar items a preset leaves visible. Used by the Setup
+// wizard to describe a profile ("14 of 18 items") before the user commits.
+// Counts core items only — extension-contributed nav (WordPress, Git, Email)
+// isn't resolvable until those extensions are installed.
+export function visibleCountForPreset(presetKey) {
+    const hidden = new Set(SIDEBAR_PRESETS[presetKey]?.hiddenItems || []);
+    return SIDEBAR_ITEMS.filter(
+        (item) => item.alwaysVisible || !hidden.has(item.id)
+    ).length;
 }
 
 export function getHiddenItemIds(sidebarConfig) {

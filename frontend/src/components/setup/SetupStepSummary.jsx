@@ -3,6 +3,12 @@ import { useResourceTier } from '../../contexts/ResourceTierContext';
 import { Sparkles, Check, Loader, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import api from '../../services/api';
+import {
+    SIDEBAR_ITEMS,
+    SIDEBAR_PRESETS,
+    presetForUseCases,
+    visibleCountForPreset,
+} from '../sidebarItems';
 
 const USE_CASE_LABELS = {
     wordpress: 'WordPress Sites',
@@ -13,6 +19,14 @@ const USE_CASE_LABELS = {
 
 const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
     const { tier, specs, loading } = useResourceTier();
+
+    // Sidebar profile. Pre-selected from the use cases already picked, so the
+    // default path is zero extra clicks — "Change" reveals the full set for
+    // anyone who wants to tune it before landing on the dashboard. Seeded once:
+    // this step unmounts when the user steps back, so returning here re-derives
+    // the suggestion from any edited use cases without clobbering a live choice.
+    const [sidebarPreset, setSidebarPreset] = useState(() => presetForUseCases(useCases));
+    const [presetOpen, setPresetOpen] = useState(false);
 
     // Recommended extensions (real slugs from the backend), the checked set, and
     // per-slug install status shown while finishing.
@@ -82,7 +96,7 @@ const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
             }
         }
 
-        await onFinish(installedSlugs);
+        await onFinish(installedSlugs, sidebarPreset);
     }
 
     function formatSpecs() {
@@ -165,6 +179,57 @@ const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
                         <span className="summary-label">Specs</span>
                         <span className="summary-value">{formatSpecs()}</span>
                     </div>
+                </div>
+
+                <div className="summary-section">
+                    <div className="summary-section-title">Sidebar</div>
+                    <div className="summary-row">
+                        <span className="summary-label">View</span>
+                        <span className="summary-value summary-value--action">
+                            {SIDEBAR_PRESETS[sidebarPreset]?.label || 'Recommended'}
+                            <span className="summary-value-note">
+                                {visibleCountForPreset(sidebarPreset)} of {SIDEBAR_ITEMS.length} items
+                            </span>
+                            <button
+                                type="button"
+                                className="summary-change-btn"
+                                onClick={() => setPresetOpen((open) => !open)}
+                                aria-expanded={presetOpen}
+                            >
+                                {presetOpen ? 'Done' : 'Change'}
+                            </button>
+                        </span>
+                    </div>
+
+                    {presetOpen && (
+                        <div className="summary-preset-picker">
+                            <p className="recommendation-hint">
+                                Hidden pages stay reachable by URL and from search — this
+                                only trims the sidebar. Change it any time in Settings.
+                            </p>
+                            <div className="summary-preset-list">
+                                {Object.entries(SIDEBAR_PRESETS).map(([key, profile]) => (
+                                    <button
+                                        type="button"
+                                        key={key}
+                                        className={`summary-preset-card${sidebarPreset === key ? ' active' : ''}`}
+                                        onClick={() => setSidebarPreset(key)}
+                                        aria-pressed={sidebarPreset === key}
+                                    >
+                                        <span className="summary-preset-card__head">
+                                            <span className="summary-preset-card__label">
+                                                {profile.label}
+                                            </span>
+                                            {sidebarPreset === key && <Check size={14} />}
+                                        </span>
+                                        <span className="summary-preset-card__desc">
+                                            {profile.description}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {(recsLoading || recommendations.length > 0) && (

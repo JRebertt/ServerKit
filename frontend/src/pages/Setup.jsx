@@ -47,8 +47,8 @@ const Setup = () => {
         setCurrentStep(4);
     }
 
-    async function handleFinish(installedExtensions = []) {
-        await completeOnboarding(useCases, installedExtensions);
+    async function handleFinish(installedExtensions = [], sidebarPreset = null) {
+        await completeOnboarding(useCases, installedExtensions, sidebarPreset);
         navigate('/');
     }
 

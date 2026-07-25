@@ -116,13 +116,16 @@ export function AuthProvider({ children }) {
         return data;
     }
 
-    async function completeOnboarding(useCases, installedExtensions = []) {
+    async function completeOnboarding(useCases, installedExtensions = [], sidebarPreset = null) {
         await api.completeOnboarding(useCases, installedExtensions);
-        // Tailor the initial sidebar to the use cases picked during setup, so a
-        // fresh install opens focused instead of showing every item. Best-effort:
-        // if it fails, the sidebar just falls back to the "Recommended" default.
+        // Tailor the initial sidebar so a fresh install opens focused instead of
+        // showing every item. The Summary step passes an explicit profile (which
+        // it pre-selects from the use cases and the user may override); fall back
+        // to deriving it here for any caller that doesn't. Best-effort: if it
+        // fails, the sidebar just falls back to the "Recommended" default.
         try {
-            const sidebar_config = { preset: presetForUseCases(useCases), hiddenItems: [] };
+            const preset = sidebarPreset || presetForUseCases(useCases);
+            const sidebar_config = { preset, hiddenItems: [] };
             const res = await api.updateCurrentUser({ sidebar_config });
             if (res?.user) setUser(res.user);
         } catch {
