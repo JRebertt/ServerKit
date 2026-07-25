@@ -20,6 +20,11 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     // viewport instead of stopping at its 320px floor (topbar + main-content
     // padding ≈ 200px, same per-page constant idiom as _terminal.scss).
     min-height: calc(100vh - 200px);
+    // ...and actually grow into it. The tab-group content region is a column
+    // flex container, where a child defaults to its content height — so the
+    // min-height above set the floor but the log still stopped at its own
+    // content, leaving dead space beneath a short log.
+    flex: 1;
 
     &__spin {
         animation: dc-spin 1s linear infinite;
@@ -736,4 +741,21 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     // below gets the height back. Keep the expanded tail shorter than it was
     // too — it is a preview of the log, not a second copy of it.
     &__error-tail { max-height: 180px; }
+}
+
+// ---- log focus: the transcript takes the page ----
+// Not browser fullscreen — the sidebar and tabs stay, because reading a log is
+// usually a step on the way to doing something else. What goes is everything
+// between the title and the log: the failure card, the pipeline strip and the
+// run identity line.
+.deploy-console--focus {
+    // Wider than the reading measure the rest of the page uses: long build
+    // output is what this mode is for.
+    max-width: none;
+    padding-bottom: $space-4;
+
+    .deploy-console__header { margin-bottom: 0; }
+
+    // The log claims the height the hidden blocks were using.
+    .deploy-console__logwrap { min-height: 60vh; }
 }

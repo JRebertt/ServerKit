@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Copy, Download, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Download, Maximize2, Minimize2, Search } from 'lucide-react';
 
 const LEVELS = ['all', 'info', 'warn', 'error', 'debug'];
 
@@ -14,6 +14,7 @@ export default function ConsoleToolbar({
     onCopy, onDownload,
     errorCount = 0, warnCount = 0,
     navCount = 0, navPos = 0, navLabel = '', onNavPrev, onNavNext,
+    focused = false, onToggleFocus,
 }) {
     // Clicking a count filters to it, and clicking again clears — the count is
     // worth seeing on its own, so it earns the space either way.
@@ -116,6 +117,16 @@ export default function ConsoleToolbar({
                 </button>
                 <button type="button" className="deploy-console__toggle" onClick={onDownload} title="Download logs as .txt">
                     <Download size={14} /> Download
+                </button>
+                <button
+                    type="button"
+                    className={`deploy-console__toggle ${focused ? 'is-active' : ''}`}
+                    onClick={onToggleFocus}
+                    aria-pressed={focused}
+                    title={focused ? 'Show the deployment details again' : 'Give the log the whole page'}
+                >
+                    {focused ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                    {focused ? 'Exit' : 'Expand'}
                 </button>
             </div>
         </div>

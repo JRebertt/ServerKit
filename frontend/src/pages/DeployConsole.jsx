@@ -76,6 +76,11 @@ export default function DeployConsole() {
     const [scrollTarget, setScrollTarget] = useState(null);
     const nonceRef = useRef(0);
     const autoJumpedRef = useRef(null);
+    // Log-focus: the failure card, pipeline strip and run identity step aside
+    // so the transcript gets the whole page. Not a browser fullscreen — the
+    // nav stays put, because you are usually reading a log on the way to doing
+    // something else.
+    const [logFocus, setLogFocus] = useState(false);
 
     const status = job?.status || 'pending';
 
@@ -240,7 +245,7 @@ export default function DeployConsole() {
         // whose content region is full-bleed by design — the wrapper is what
         // supplies the max-width and padding every sibling tab already has.
         // Without it the console ran edge-to-edge with no gutters at all.
-        <div className="sk-tabgroup__inner deploy-console">
+        <div className={`sk-tabgroup__inner deploy-console${logFocus ? ' deploy-console--focus' : ''}`}>
             <header className="deploy-console__header">
                 <Link to="/deployments" className="deploy-console__back" title="Back to deployments">
                     <ArrowLeft size={18} />
@@ -277,7 +282,7 @@ export default function DeployConsole() {
                 </div>
             )}
 
-            {status === 'failed' && (
+            {status === 'failed' && !logFocus && (
                 <ErrorCard
                     failedStepName={failedStepName}
                     failureTail={job?.result?.failure_tail}
@@ -288,19 +293,23 @@ export default function DeployConsole() {
                 />
             )}
 
-            {status === 'succeeded' && (
+            {status === 'succeeded' && !logFocus && (
                 <SuccessBanner job={job} appUrl={appUrl} />
             )}
 
-            <PipelineStrip steps={steps} selected={selectedStep} onStepClick={onStepClick} />
+            {!logFocus && (
+                <PipelineStrip steps={steps} selected={selectedStep} onStepClick={onStepClick} />
+            )}
 
-            <div className="deploy-console__runmeta">
-                <span><b>{jobId}</b></span>
-                <span>trigger <b>{job?.trigger || 'manual'}</b></span>
-                {sourceLabel && <span>source <b>{sourceLabel}</b></span>}
-                <span>target <b>{job?.target_server_name || 'Local server'}</b></span>
-                <span>started <b>{fmtStarted(job?.started_at || job?.created_at)}</b></span>
-            </div>
+            {!logFocus && (
+                <div className="deploy-console__runmeta">
+                    <span><b>{jobId}</b></span>
+                    <span>trigger <b>{job?.trigger || 'manual'}</b></span>
+                    {sourceLabel && <span>source <b>{sourceLabel}</b></span>}
+                    <span>target <b>{job?.target_server_name || 'Local server'}</b></span>
+                    <span>started <b>{fmtStarted(job?.started_at || job?.created_at)}</b></span>
+                </div>
+            )}
 
             <div className="deploy-console__body">
                 <div className="deploy-console__main">
@@ -314,6 +323,7 @@ export default function DeployConsole() {
                         errorCount={errorCount} warnCount={warnCount}
                         navCount={navTargets.length} navPos={navPos} navLabel={navLabel}
                         onNavPrev={() => goToNav(-1)} onNavNext={() => goToNav(1)}
+                        focused={logFocus} onToggleFocus={() => setLogFocus((v) => !v)}
                     />
                     <LogPane
                         lines={visibleLines}
