@@ -398,7 +398,7 @@ const WordPressProject = () => {
     }, [id, toast]);
 
     if (loading) {
-        return <EmptyState loading size="lg" title="Loading project pipeline" />;
+        return <EmptyState loading loadingVariant="detail" size="lg" title="Loading project pipeline" />;
     }
 
     if (!pipeline) {

@@ -278,7 +278,7 @@ const Dashboard = () => {
     const isConnected = isRemote ? !remoteLoading && !!remoteMetrics : !!localMetrics;
 
     if (loading && metricsLoading) {
-        return <EmptyState loading title="Loading dashboard..." />;
+        return <EmptyState loading loadingVariant="chart" title="Loading dashboard..." />;
     }
 
     return (

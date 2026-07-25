@@ -180,7 +180,7 @@ const WorkspaceDetail = () => {
         } catch (err) { toast.error(err.message); }
     };
 
-    if (loading) return <div className="page-container workspaces-page ws-detail"><EmptyState loading title="Loading workspace" /></div>;
+    if (loading) return <div className="page-container workspaces-page ws-detail"><EmptyState loading loadingVariant="detail" title="Loading workspace" /></div>;
 
     if (!ws) {
         return (

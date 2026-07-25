@@ -54,7 +54,7 @@ const PackagesTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading packages..." />;
+        return <EmptyState loading loadingVariant="table" title="Loading packages..." />;
     }
 
     return (

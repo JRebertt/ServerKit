@@ -51,7 +51,7 @@ const Projects = () => {
         <div className="sk-tabgroup__inner projects-page">
             <div className="projects-page__body">
                 {loading ? (
-                    <EmptyState loading title="Loading projects" />
+                    <EmptyState loading loadingVariant="cards" title="Loading projects" />
                 ) : projects.length === 0 ? (
                     <EmptyState
                         icon={FolderKanban}

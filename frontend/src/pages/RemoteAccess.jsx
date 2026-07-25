@@ -222,7 +222,7 @@ const RemoteAccess = ({ serverId }) => {
             </div>
 
             {loading ? (
-                <EmptyState loading title="Loading tunnels" />
+                <EmptyState loading loadingVariant="table" title="Loading tunnels" />
             ) : visibleTunnels.length === 0 ? (
                 <EmptyState
                     icon={Network}

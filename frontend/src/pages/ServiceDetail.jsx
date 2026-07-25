@@ -239,7 +239,7 @@ const ServiceDetail = () => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading service" />;
+        return <EmptyState loading loadingVariant="detail" title="Loading service" />;
     }
 
     if (error || !service) {

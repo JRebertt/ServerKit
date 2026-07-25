@@ -134,7 +134,7 @@ export default function Vaults() {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner secrets-page">
-                <EmptyState loading title="Loading vaults..." />
+                <EmptyState loading loadingVariant="table" title="Loading vaults..." />
             </div>
         );
     }

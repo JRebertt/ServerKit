@@ -344,7 +344,7 @@ const TestSandbox = () => {
     if (loading) {
         return (
             <div className="page-container test-sandbox-page">
-                <EmptyState loading size="lg" title="Loading test sandbox..." />
+                <EmptyState loading loadingVariant="table" size="lg" title="Loading test sandbox..." />
             </div>
         );
     }
@@ -505,7 +505,7 @@ const TestSandbox = () => {
             <section className="ts-history">
                 <h2 className="ts-section-title">Run history</h2>
                 {runsLoading ? (
-                    <EmptyState loading title="Loading run history..." />
+                    <EmptyState loading loadingVariant="table" title="Loading run history..." />
                 ) : runs.length === 0 ? (
                     <EmptyState
                         icon={FlaskConical}

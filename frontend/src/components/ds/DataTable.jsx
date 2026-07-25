@@ -81,7 +81,7 @@ export function DataTable({
     };
 
     if (loading) {
-        return <EmptyState loading title="Loading" />;
+        return <EmptyState loading loadingVariant="table" title="Loading" />;
     }
 
     if (!loading && data.length === 0) {

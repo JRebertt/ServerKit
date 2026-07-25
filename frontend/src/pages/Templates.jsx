@@ -536,7 +536,7 @@ const Templates = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner">
-                <EmptyState loading title="Loading templates" />
+                <EmptyState loading loadingVariant="cards" title="Loading templates" />
             </div>
         );
     }

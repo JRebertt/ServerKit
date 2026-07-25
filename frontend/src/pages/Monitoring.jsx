@@ -370,7 +370,7 @@ const Monitoring = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner monitoring-page">
-                <EmptyState loading size="lg" title="Loading monitoring data" />
+                <EmptyState loading loadingVariant="chart" size="lg" title="Loading monitoring data" />
             </div>
         );
     }

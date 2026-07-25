@@ -60,7 +60,7 @@ export default function BackupsTab() {
 
             <div className="dbx-backups-body">
                 {loading ? (
-                    <EmptyState loading title="Loading backups…" />
+                    <EmptyState loading loadingVariant="table" title="Loading backups…" />
                 ) : backups.length === 0 ? (
                     <EmptyState icon={Archive} title="No backups yet" description="Back up a database from its tree menu and it will appear here." />
                 ) : (

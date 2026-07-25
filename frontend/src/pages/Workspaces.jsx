@@ -69,7 +69,7 @@ const Workspaces = () => {
         }
     };
 
-    if (loading) return <div className="sk-tabgroup__inner workspaces-page"><EmptyState loading title="Loading workspaces" /></div>;
+    if (loading) return <div className="sk-tabgroup__inner workspaces-page"><EmptyState loading loadingVariant="cards" title="Loading workspaces" /></div>;
 
     const q = search.trim().toLowerCase();
     const shownWorkspaces = workspaces.filter(ws => {

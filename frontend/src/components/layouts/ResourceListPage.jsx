@@ -89,7 +89,16 @@ export default function ResourceListPage({
     };
 
     if (loading) {
-        return <EmptyState loading title={loadingTitle} />;
+        // A resource list is always a table (or a card grid, when the page opted
+        // into one), so the skeleton can predict the real shape rather than
+        // falling back to the generic panel.
+        return (
+            <EmptyState
+                loading
+                loadingVariant={renderCard && view === 'cards' ? 'cards' : 'table'}
+                title={loadingTitle}
+            />
+        );
     }
 
     return (

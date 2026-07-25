@@ -307,7 +307,7 @@ const Domains = () => {
             )}
 
             {loading ? (
-                <EmptyState loading title="Loading domains..." />
+                <EmptyState loading loadingVariant="table" title="Loading domains..." />
             ) : mergedRows.length === 0 ? (
                 <EmptyState
                     icon={Globe}

@@ -125,7 +125,7 @@ const PreviewList = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading previews..." />;
+        return <EmptyState loading loadingVariant="cards" title="Loading previews..." />;
     }
 
     const enabled = !!settings?.enabled;

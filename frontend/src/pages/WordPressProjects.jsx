@@ -30,7 +30,7 @@ const WordPressProjects = () => {
     }
 
     if (loading) {
-        return <EmptyState loading size="lg" title="Loading WordPress pipelines" />;
+        return <EmptyState loading loadingVariant="cards" size="lg" title="Loading WordPress pipelines" />;
     }
 
     return (

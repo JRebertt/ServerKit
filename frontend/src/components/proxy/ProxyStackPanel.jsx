@@ -172,7 +172,7 @@ const ProxyStackPanel = ({ serverId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading proxy configuration" />;
+        return <EmptyState loading loadingVariant="form" title="Loading proxy configuration" />;
     }
 
     if (error) {

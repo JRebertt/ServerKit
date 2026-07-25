@@ -408,7 +408,7 @@ const Backups = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner backups-page">
-                <EmptyState loading size="lg" title="Loading backup data..." />
+                <EmptyState loading loadingVariant="table" size="lg" title="Loading backup data..." />
             </div>
         );
     }

@@ -61,7 +61,7 @@ function PublicStatusPage() {
     if (loading) {
         return (
             <main className="public-status-page">
-                <EmptyState loading title="Loading status" />
+                <EmptyState loading loadingVariant="detail" title="Loading status" />
             </main>
         );
     }

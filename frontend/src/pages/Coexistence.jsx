@@ -144,7 +144,7 @@ export default function Coexistence() {
                 </div>
                 <div className="app-panel-body">
                     {loading ? (
-                        <EmptyState loading title="Loading servers" />
+                        <EmptyState loading loadingVariant="table" title="Loading servers" />
                     ) : observed.length === 0 ? (
                         <EmptyState
                             icon={Eye}

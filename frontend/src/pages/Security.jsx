@@ -65,7 +65,7 @@ const Security = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner security-page">
-                <EmptyState loading title="Loading security status..." />
+                <EmptyState loading loadingVariant="detail" title="Loading security status..." />
             </div>
         );
     }

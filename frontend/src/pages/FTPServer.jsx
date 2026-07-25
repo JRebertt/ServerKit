@@ -281,7 +281,7 @@ function FTPServer() {
     );
 
     if (loading) {
-        return <EmptyState loading size="lg" title="Loading FTP server" />;
+        return <EmptyState loading loadingVariant="table" size="lg" title="Loading FTP server" />;
     }
 
     const activeServer = status?.active_server;

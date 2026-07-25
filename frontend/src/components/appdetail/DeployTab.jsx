@@ -152,7 +152,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading deployment configuration..." />;
+        return <EmptyState loading loadingVariant="form" title="Loading deployment configuration..." />;
     }
 
     return (
