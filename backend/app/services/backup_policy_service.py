@@ -51,12 +51,21 @@ class BackupPolicyService:
 
     @staticmethod
     def validate_target_type(target_type):
-        """Reject unknown target types (maps to HTTP 400)."""
+        """Reject unknown target types (maps to HTTP 400).
+
+        Every policy route funnels through here, so accepting a registered
+        plugin kind is what opens the whole blueprint — and the Protection
+        panel, which is already generic over target_type — to it.
+        """
         from app.models.backup_policy import VALID_TARGET_TYPES
-        if target_type not in VALID_TARGET_TYPES:
-            raise BackupPolicyError(
-                f"target_type must be one of {VALID_TARGET_TYPES}, got {target_type!r}"
-            )
+        if target_type in VALID_TARGET_TYPES:
+            return
+        from app.services import backup_kind_registry
+        if backup_kind_registry.get(target_type):
+            return
+        raise BackupPolicyError(
+            f"target_type must be one of {VALID_TARGET_TYPES}, got {target_type!r}"
+        )
 
     @classmethod
     def get_or_create_policy(cls, target_type, target_id, target_subtype=None, target_meta=None):
@@ -205,6 +214,12 @@ class BackupPolicyService:
         keys: name, root_path, target_type, site (wp only), app, plus
         db_config (database) / file_paths (files) for the non-resource targets.
         """
+        # Checked first, and before the application fallthrough at the bottom:
+        # an unrecognised type there is treated as an application.
+        from app.services import backup_kind_registry
+        if backup_kind_registry.get(policy.target_type):
+            return backup_kind_registry.resolve(policy)
+
         if policy.target_type == 'wordpress_site':
             from app.models.wordpress_site import WordPressSite
             site = WordPressSite.query.get(policy.target_id)
@@ -361,6 +376,10 @@ class BackupPolicyService:
         """Produce a backup for the target. Returns (storage_path, size, metadata).
         The actual kind used is metadata['kind'] (a tar fallback can downgrade an
         incremental to a full). Raises on failure."""
+        from app.services import backup_kind_registry
+        if backup_kind_registry.get(target['target_type']):
+            return backup_kind_registry.execute(policy, target, kind)
+
         meta = {'engine': target['target_type']}
         if target['target_type'] == 'wordpress_site':
             from app.services.wordpress_bridge import wordpress_service
@@ -660,6 +679,14 @@ class BackupPolicyService:
             raise BackupPolicyError('Only a successful backup can be restored')
         if cls.is_running(policy):
             raise BackupPolicyError('A backup or restore is already in progress.')
+        from app.services import backup_kind_registry
+        if (backup_kind_registry.get(policy.target_type)
+                and not backup_kind_registry.supports_restore(policy.target_type)):
+            # Answer here rather than by queueing a job that will fail: the
+            # kind's own author decided not to implement restore.
+            raise BackupPolicyError(
+                f'Backups of type "{policy.target_type}" cannot be restored '
+                'from the panel.')
         payload = {
             'policy_id': policy.id,
             'run_id': run_id,
@@ -697,7 +724,12 @@ class BackupPolicyService:
                 except Exception as exc:  # safety backup is best-effort
                     logger.warning('Safety backup before restore failed: %s', exc)
 
-            if target['target_type'] == 'wordpress_site':
+            from app.services import backup_kind_registry
+            if backup_kind_registry.get(target['target_type']):
+                # Ahead of the else-branch below, which would otherwise unpack
+                # a plugin's archive over an application directory.
+                backup_kind_registry.restore(policy, target, run, payload)
+            elif target['target_type'] == 'wordpress_site':
                 cls._restore_wordpress(target, run, scope, payload)
             elif target['target_type'] == 'database':
                 cls._restore_database(target, run)
