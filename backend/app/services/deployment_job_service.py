@@ -66,7 +66,17 @@ class DeploymentJobService:
 
         app_path = plan_result['app_path']
         if not normalized_server_id and os.path.exists(app_path):
-            return {'success': False, 'error': f"App directory already exists: {app_path}"}
+            if not cls._is_abandoned_install_dir(app_path):
+                return {
+                    'success': False,
+                    'error': (f'App directory already exists: {app_path}. '
+                              'Remove it, or install under a different name.'),
+                }
+            # An install that failed part-way leaves its directory behind, and
+            # refusing it made the obvious next move — try again — impossible
+            # without going to a shell. The plan rewrites every file it owns,
+            # so reusing the directory is safe.
+            logger.info('Reusing abandoned install directory %s', app_path)
 
         job = DeploymentJob(
             id=str(uuid.uuid4()),
@@ -689,6 +699,28 @@ class DeploymentJobService:
                 db.session.commit()
         except Exception:
             db.session.rollback()
+
+    @staticmethod
+    def _is_abandoned_install_dir(app_path: str) -> bool:
+        """True if *app_path* is the wreckage of an install that never finished.
+
+        A finished install owns an Application row pointing at the directory,
+        and that row is only written once the plan has run — so a directory
+        with no owner was left by a failure. Reusing one is safe; overwriting
+        somebody's actual files is not, which is why an unowned directory still
+        has to look like ours (empty, or carrying the marker the template
+        writer drops in) before it can be reused.
+        """
+        try:
+            if Application.query.filter_by(root_path=app_path).first():
+                return False
+            entries = os.listdir(app_path)
+            if not entries:
+                return True
+            return '.serverkit-template.json' in entries
+        except OSError:
+            # Unreadable — treat it as occupied and let the caller refuse.
+            return False
 
     @staticmethod
     def _normalize_server_id(server_id: Optional[str]) -> Optional[str]:
