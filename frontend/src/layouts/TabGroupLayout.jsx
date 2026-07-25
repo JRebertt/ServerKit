@@ -81,8 +81,10 @@ export default function TabGroupLayout({ tabs, groupId }) {
         return merged;
     }, [tabs, groupId, contributedTabs]);
 
-    // Title + icon mirror the active tab so the header always matches the lit
-    // sub-nav item.
+    // The group renders no page title: the tab strip IS the heading, so it runs
+    // flush-left in the bar (the active tab already names the section, as does
+    // the lit sidebar item). The active tab is still resolved to label the nav
+    // for assistive tech.
     const active = useMemo(
         () => mergedTabs.find((t) => matchTab(t, location.pathname)) || mergedTabs[0],
         [mergedTabs, location.pathname]
@@ -91,8 +93,7 @@ export default function TabGroupLayout({ tabs, groupId }) {
     return (
         <div className="page-container page-container--full-bleed sk-tabgroup">
             <PageTopbar
-                icon={active.icon}
-                title={active.label}
+                navLabel={active.label}
                 tabs={mergedTabs}
                 actions={actions}
             />

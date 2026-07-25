@@ -39,11 +39,7 @@ const Terminal = () => {
 
     return (
         <div className="page-container page-container--full-bleed terminal-page">
-            <PageTopbar
-                icon={<TerminalIcon size={18} />}
-                title="Logs"
-                tabs={TERMINAL_TABS}
-            />
+            <PageTopbar navLabel="Logs" tabs={TERMINAL_TABS} />
 
             <div className="tab-content">
                 {activeTab === 'shell' && <TerminalShellTab />}

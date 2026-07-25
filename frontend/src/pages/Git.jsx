@@ -1030,7 +1030,7 @@ function Git({ basePath = '/git' }) {
 
     return (
         <div className="page-container--full-bleed sk-tabgroup git-page domains-page">
-            <PageTopbar icon={activeGit.icon} title={activeGit.label} tabs={GIT_TABS} actions={topbarActions()} />
+            <PageTopbar navLabel={activeGit.label} tabs={GIT_TABS} actions={topbarActions()} />
 
             <div className="sk-tabgroup__content">
                 <div className="sk-tabgroup__inner">

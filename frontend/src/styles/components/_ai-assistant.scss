@@ -49,6 +49,19 @@ $sk-ai-z: 1100;
     &:focus-visible { outline: 2px solid var(--sk-ai-accent); outline-offset: 3px; }
     &.is-raised { bottom: 92px; }            // lift above the serverkit-gui launcher on /servers/:id
     &.is-busy { animation: sk-ai-pulse 1.6s ease-in-out infinite; }
+}
+
+// While any modal surface is open, the bubble steps aside. It is fixed at
+// bottom-right with a z-index far above Radix's dialog layer, so it floated over
+// every drawer and dialog in the app — and drawer footers put their primary
+// action in exactly that corner, so it was covering the "Deploy <template>"
+// button. Radix locks body scroll for the duration of a modal, which is the
+// app-wide signal; the :has() rule is a fallback in case that implementation
+// detail changes. Hiding (not nudging) is right: the modal's overlay owns the
+// interaction, so a floating assistant on top of it is only ever in the way.
+body[data-scroll-locked] .sk-ai-bubble,
+body:has([role='dialog'][data-state='open']) .sk-ai-bubble {
+    display: none;
 
     @media (max-width: 768px) {
         bottom: 88px;

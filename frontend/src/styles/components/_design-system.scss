@@ -378,6 +378,13 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     min-height: 60px;
     padding: 10px 4px;
     margin-bottom: 4px;
+    // Its own surface, so the bar reads as chrome rather than as the first row
+    // of the content — and the same surface as the sidebar, so the two frame
+    // the page together. Solid rather than the design mock's translucent fill:
+    // the content scrolls in its own box below this bar, never under it, so
+    // alpha + backdrop-blur would cost a compositing layer to composite against
+    // a backdrop that never moves.
+    background: var(--bg-sidebar);
     border-bottom: 1px solid var(--border-soft);
 
     &__ico { color: var(--accent-bright); display: inline-flex; flex-shrink: 0; }
@@ -385,7 +392,19 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     &__title { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
     &__meta { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); }
     &__spacer { flex: 1; }
-    &__actions { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    &__actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+
+        // House rule: the search box is ALWAYS the right-most control in the
+        // top bar, whatever order a page happens to publish its actions in.
+        // Enforced here rather than by convention at each call site, so it
+        // cannot drift and new pages get it for free. (Flex order defaults to
+        // 0, so lifting only the search field is enough.)
+        > .sk-searchfield { order: 1; }
+    }
 
     // Routed sub-nav (the ex-sidebar sub-items). The nav is the flex-fill
     // measurement region for PageTopbar's overflow logic; it is right-aligned so
@@ -413,6 +432,31 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 10px;
+    }
+
+    // Title-less group header: the tabs lead the bar from the left edge and
+    // carry no enclosing segmented box — they read as the page's own heading
+    // row rather than a control parked beside a heading.
+    &--titleless {
+        .sk-topbar__tabs {
+            justify-content: flex-start;
+            margin-left: 0;
+        }
+        .sk-topbar__tabs-inner {
+            gap: 4px;
+            padding: 0;
+            background: none;
+            border: none;
+            border-radius: 0;
+        }
+        .sk-topbar__tab {
+            padding: 7px 13px;
+            border-radius: 9px;
+            color: var(--text-faint);
+            &:hover { background: var(--surface-2); color: var(--text); }
+            &.is-active { background: var(--accent-bg); color: var(--text); font-weight: 550; }
+            &.is-active svg { color: var(--accent-bright); }
+        }
     }
     &__tab {
         display: inline-flex;
@@ -575,6 +619,9 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     &__chips { display: flex; flex-wrap: wrap; gap: 7px; }
 
     &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         padding: 6px 13px;
         border-radius: 999px;
         border: 1px solid var(--border);
@@ -593,6 +640,15 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
             font-weight: 550;
         }
     }
+
+    // Optional per-option match count; quieter than the label it trails.
+    &__chip-count {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-ghost);
+    }
+
+    &__chip.is-on &__chip-count { color: inherit; opacity: 0.7; }
 
     &__footer {
         display: flex;

@@ -61,6 +61,16 @@ export function FilterDrawer({
     onChange,
     title = 'Filters',
     width = 380,
+    // Optional: how many rows the current selection yields. Given one, the
+    // confirm button reports it ("Show 45 templates") instead of a bare "Done",
+    // so the effect of a selection is visible before closing the drawer.
+    resultCount,
+    resultNoun = 'result',
+    // Optional: the host's own active-filter count. Pass the same number the
+    // FilterButton badge shows, so the two can never disagree — a host may
+    // legitimately not count a group whose value is just its default (a sort
+    // order sitting on "featured" is not a filter the user applied).
+    activeCount,
 }) {
     const isOn = (group, optValue) => (
         group.type === 'multi'
@@ -81,7 +91,7 @@ export function FilterDrawer({
         }
     };
 
-    const active = countActiveFilters(value);
+    const active = activeCount ?? countActiveFilters(value);
     const clearAll = () => onChange(emptyFilterValue(groups));
 
     return (
@@ -107,6 +117,12 @@ export function FilterDrawer({
                                     aria-pressed={isOn(group, option.value)}
                                 >
                                     {option.label}
+                                    {/* An option may carry how many rows it would
+                                        match, so a dead-end filter is visible
+                                        before you spend a click on it. */}
+                                    {option.count != null && (
+                                        <span className="sk-filter__chip-count">{option.count}</span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -116,7 +132,11 @@ export function FilterDrawer({
                     <Button variant="ghost" size="sm" onClick={clearAll} disabled={!active}>
                         Clear all
                     </Button>
-                    <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+                    <Button size="sm" onClick={() => onOpenChange(false)}>
+                        {resultCount == null
+                            ? 'Done'
+                            : `Show ${resultCount} ${resultNoun}${resultCount === 1 ? '' : 's'}`}
+                    </Button>
                 </div>
             </div>
         </Drawer>
