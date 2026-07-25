@@ -1,3 +1,10 @@
+/* eslint-disable no-restricted-syntax --
+ * The style guide demonstrates the raw elements and legacy classes that the
+ * design-system rules exist to discourage — showing a bare <button> next to the
+ * shared <Button> is the entire point of the page. Left un-suppressed it
+ * contributed 165 of ~950 no-restricted-syntax warnings, i.e. one file hiding
+ * the real drift in every other file behind it.
+ */
 import { useState } from 'react';
 import useTabParam from '../hooks/useTabParam';
 import { useLogsDrawer } from '../contexts/LogsDrawerContext';
@@ -970,7 +977,7 @@ export default function StyleGuide() {
                         <p className="text-sm text-tertiary mb-2">
                             A skeleton should predict the layout that is about to arrive. Pick the
                             archetype matching the page shape via
-                            {' '}<code>&lt;EmptyState loading loadingVariant="table" /&gt;</code>, or render
+                            {' '}<code>&lt;EmptyState loading loadingVariant=&quot;table&quot; /&gt;</code>, or render
                             {' '}<code>&lt;PageSkeleton /&gt;</code> directly. For a pixel-exact skeleton of one
                             region, capture bones instead (<code>npm run capture:skeletons</code>).
                         </p>
