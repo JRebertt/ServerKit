@@ -1306,12 +1306,19 @@ def uninstall_plugin(plugin_id, purge=False):
     # purge data. Best effort — never block teardown.
     _run_lifecycle_hook(plugin, manifest, 'uninstall', purge=purge)
 
-    # Tear down declarative schedules, and (only on purge) the data tables.
+    # Tear down declarative schedules, and (only on purge) the data tables and
+    # the plugin's key/value store. Store rows follow the same rule as the
+    # ext_* tables: an ordinary uninstall leaves them, so a reinstall finds its
+    # state where it left it, and "uninstall and delete data" removes them.
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.remove_jobs(plugin, manifest)
         if purge:
             extension_lifecycle.purge_models(plugin)
+            from app.plugins_sdk.store_sdk import purge as purge_store
+            removed = purge_store(slug)
+            if removed:
+                logger.info(f'Purged {removed} store row(s) for {slug}')
     except Exception as e:
         logger.warning(f'Extension lifecycle teardown for {slug}: {e}')
 

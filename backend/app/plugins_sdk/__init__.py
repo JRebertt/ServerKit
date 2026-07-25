@@ -103,6 +103,7 @@ jobs = JobsSdk()
 _LAZY_SURFACES = {
     'deploys': ('app.plugins_sdk.deploys_sdk', 'deploys'),
     'search': ('app.plugins_sdk.search_sdk', 'search'),
+    'store': ('app.plugins_sdk.store_sdk', 'store'),
 }
 _lazy_cache = {}
 
@@ -144,6 +145,7 @@ __all__ = [
     'jobs',
     'deploys',
     'search',
+    'store',
     'permissions',
     'require_permission',
     'panel_version',
