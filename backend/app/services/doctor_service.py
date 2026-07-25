@@ -466,6 +466,19 @@ class DoctorService:
             logger.warning('setup-health doctor section failed: %s', e)
             return []
 
+    @classmethod
+    def _extension_checks(cls):
+        """Checks contributed by extensions (see doctor_check_registry).
+
+        The registry owns the per-provider isolation and time budget, so a
+        third-party check can't take the sweep down with it."""
+        try:
+            from app.services import doctor_check_registry
+            return list(doctor_check_registry.collect())
+        except Exception as e:  # noqa: BLE001
+            logger.warning('extension doctor section failed: %s', e)
+            return []
+
     # ------------------------------------------------------------------ #
     # Sweep
     # ------------------------------------------------------------------ #
@@ -485,6 +498,7 @@ class DoctorService:
         checks.append(cls._disk_check())
         checks.append(cls._db_check())
         checks += cls._setup_checks()
+        checks += cls._extension_checks()
         report = {
             'checks': checks,
             'ran_at': datetime.utcnow().isoformat() + 'Z',
@@ -534,6 +548,13 @@ class DoctorService:
                 results.append({'item': item, **cls._restart_service(item.get('name'))})
             elif kind == 'dns':
                 results.append({'item': item, **cls._repair_dns(item.get('host'))})
+            elif kind == 'extension':
+                # Routed back to the plugin that contributed the check. The
+                # registry is the allowlist: an unregistered namespace can't be
+                # repaired, so a crafted ref reaches nothing.
+                from app.services import doctor_check_registry
+                results.append({'item': item, **doctor_check_registry.repair(
+                    item.get('namespace'), item.get('ref'))})
             else:
                 results.append({'item': item, 'success': False,
                                 'error': f'Unknown repair kind: {kind}'})
