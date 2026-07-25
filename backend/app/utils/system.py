@@ -57,6 +57,17 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
     return cmd
 
 
+# Ceiling for a privileged command that does not name its own. Generous enough
+# for the slow-but-legitimate work that runs through here (package installs,
+# image pulls), while guaranteeing no single call can wedge a worker forever.
+# Anything genuinely longer must say so explicitly with `timeout=`.
+DEFAULT_PRIVILEGED_TIMEOUT = 300
+
+# Read-only status probes (is this package installed, is this unit active).
+# They answer immediately or not at all, so they get a much tighter ceiling.
+PROBE_TIMEOUT = 30
+
+
 def run_privileged(cmd: Union[List[str], str], *, user: Optional[str] = None, **kwargs) -> subprocess.CompletedProcess:
     """Run a command with sudo if the current process is not root.
 
@@ -64,12 +75,19 @@ def run_privileged(cmd: Union[List[str], str], *, user: Optional[str] = None, **
     Pass *user* to run the command as a specific user (``sudo -u <user>``).
     Defaults to ``capture_output=True, text=True`` but callers can override.
 
+    A default ``timeout`` is applied when the caller does not give one: with
+    output captured and no terminal, a command that never returns takes its
+    caller with it silently and forever. ``TimeoutExpired`` is a far better
+    outcome than a wedged request or a boot that never finishes — pass
+    ``timeout=None`` to opt out deliberately.
+
     Returns the raw ``CompletedProcess`` so services keep their existing
     error-handling patterns.
     """
     cmd = privileged_cmd(cmd, user=user)
     kwargs.setdefault('capture_output', True)
     kwargs.setdefault('text', True)
+    kwargs.setdefault('timeout', DEFAULT_PRIVILEGED_TIMEOUT)
     return subprocess.run(cmd, **kwargs)
 
 
@@ -163,7 +181,7 @@ class PackageManager:
             try:
                 result = subprocess.run(
                     ['dpkg', '-s', package],
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, timeout=PROBE_TIMEOUT,
                 )
                 return (
                     result.returncode == 0
@@ -176,7 +194,7 @@ class PackageManager:
             try:
                 result = subprocess.run(
                     ['rpm', '-q', package],
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, timeout=PROBE_TIMEOUT,
                 )
                 return result.returncode == 0
             except FileNotFoundError:
@@ -244,7 +262,7 @@ class ServiceControl:
         try:
             result = subprocess.run(
                 ['systemctl', 'is-active', service],
-                capture_output=True, text=True,
+                capture_output=True, text=True, timeout=PROBE_TIMEOUT,
             )
             return result.stdout.strip() == 'active'
         except FileNotFoundError:
@@ -256,7 +274,7 @@ class ServiceControl:
         try:
             result = subprocess.run(
                 ['systemctl', 'is-enabled', service],
-                capture_output=True, text=True,
+                capture_output=True, text=True, timeout=PROBE_TIMEOUT,
             )
             return result.stdout.strip() == 'enabled'
         except FileNotFoundError:

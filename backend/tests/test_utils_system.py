@@ -58,7 +58,7 @@ class TestRunPrivileged:
         run_privileged(['systemctl', 'restart', 'nginx'])
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'restart', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.subprocess.run')
@@ -68,7 +68,7 @@ class TestRunPrivileged:
         run_privileged(['systemctl', 'restart', 'nginx'])
         mock_run.assert_called_once_with(
             ['systemctl', 'restart', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.subprocess.run')
@@ -80,7 +80,7 @@ class TestRunPrivileged:
         run_privileged(['sudo', 'systemctl', 'restart', 'nginx'])
         mock_run.assert_called_once_with(
             ['sudo', 'systemctl', 'restart', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.subprocess.run')
@@ -100,6 +100,25 @@ class TestRunPrivileged:
         _, kwargs = mock_run.call_args
         assert kwargs['timeout'] == 120
         assert kwargs['check'] is True
+
+    # Output is captured and no terminal is attached, so a command that never
+    # returns would hang its caller silently and forever. Every call gets a
+    # ceiling unless one is named explicitly.
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_default_timeout_applied(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0)
+        run_privileged(['systemctl', 'restart', 'nginx'])
+        _, kwargs = mock_run.call_args
+        assert kwargs['timeout'] == _module.DEFAULT_PRIVILEGED_TIMEOUT
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_timeout_can_be_disabled_explicitly(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0)
+        run_privileged(['tail', '-f', '/var/log/syslog'], timeout=None)
+        _, kwargs = mock_run.call_args
+        assert kwargs['timeout'] is None
 
     @patch('app.utils.system.subprocess.run')
     @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
@@ -223,7 +242,7 @@ class TestPackageManager:
         )
         assert PackageManager.is_installed('nginx') is True
         mock_run.assert_called_once_with(
-            ['dpkg', '-s', 'nginx'], capture_output=True, text=True,
+            ['dpkg', '-s', 'nginx'], capture_output=True, text=True, timeout=_module.PROBE_TIMEOUT,
         )
 
     @patch('app.utils.system.subprocess.run')
@@ -297,7 +316,7 @@ class TestServiceControl:
         ServiceControl.start('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'start', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -309,7 +328,7 @@ class TestServiceControl:
         ServiceControl.stop('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'stop', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -321,7 +340,7 @@ class TestServiceControl:
         ServiceControl.restart('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'restart', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -333,7 +352,7 @@ class TestServiceControl:
         ServiceControl.reload('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'reload', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -345,7 +364,7 @@ class TestServiceControl:
         ServiceControl.enable('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'enable', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -357,7 +376,7 @@ class TestServiceControl:
         ServiceControl.disable('nginx')
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'disable', 'nginx'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.os.name', 'posix')
@@ -369,7 +388,7 @@ class TestServiceControl:
         ServiceControl.daemon_reload()
         mock_run.assert_called_once_with(
             ['sudo', '-n', 'systemctl', 'daemon-reload'],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=_module.DEFAULT_PRIVILEGED_TIMEOUT,
         )
 
     @patch('app.utils.system.subprocess.run')
