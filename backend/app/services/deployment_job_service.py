@@ -10,7 +10,7 @@ from app import db
 from app.models import Application, Server
 from app.models.deployment_job import DeploymentJob
 from app.services.deployment_runner import DeploymentPlanRunner
-from app.services.run_log_service import append_log, RunLogStream
+from app.services.run_log_service import append_log, stream_for
 from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
@@ -607,18 +607,21 @@ class DeploymentJobService:
         job.started_at = job.started_at or datetime.utcnow()
         db.session.commit()
 
-        stream = RunLogStream.for_job(job)
+        # The same stream the handler logs through (see run_log_service.
+        # stream_for), so closing it here persists the step timings the handler
+        # recorded rather than an empty second buffer's.
+        stream = stream_for(job)
         try:
             result = handler(job) or {}
         except Exception as exc:
             logger.exception('Deployment kind %s raised', job.kind)
             stream.log('error', f'{job.kind} failed: {exc}')
-            stream.flush()
             db.session.rollback()
             job.status = 'failed'
             job.error_message = str(exc)
             job.completed_at = datetime.utcnow()
             db.session.commit()
+            stream.close('failed', error_message=str(exc))
             return {'success': False, 'error': str(exc), 'job_id': job.id}
 
         stream.flush()
@@ -629,6 +632,13 @@ class DeploymentJobService:
                 job.error_message = result.get('error') or f'{job.kind} failed'
             job.completed_at = datetime.utcnow()
             db.session.commit()
+        if job.status == 'failed' and job.error_message:
+            # A handler that reported failure by return value logged nothing;
+            # without this the console shows a failed run with no reason in it.
+            stream.log('error', job.error_message)
+        # close() persists step timings (and, on failure, the tail + hint) into
+        # the job's result and emits the terminal status the console listens for.
+        stream.close(job.status, error_message=job.error_message)
         # Handler extras first: the job's own status is the authoritative
         # outcome and must not be overwritten by a handler that finalised the
         # job one way and then returned the other.

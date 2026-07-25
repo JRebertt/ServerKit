@@ -603,6 +603,7 @@ happen live, and debug failures entirely from the UI.
 - [x] Streaming build output with a step timeline, per-step durations, and live elapsed time
 - [x] Failure cards showing the real error tail with plain-language hints and one-click retry
 - [x] Unified batched run-log layer (database persistence + WebSocket push, polling fallback)
+- [x] Extensions can put their own long-running work on the same console — WordPress environment promotions are the first, with live steps, logs and retry
 
 ## Extension Platform
 

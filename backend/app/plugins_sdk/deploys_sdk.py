@@ -26,10 +26,9 @@ retryable background work that nobody watches.
 
 from contextlib import contextmanager
 
-from app import db
 from app.services import deploy_kind_registry
 from app.services.deployment_job_service import DeploymentJobService
-from app.services.run_log_service import RunLogStream
+from app.services.run_log_service import stream_for
 
 
 class DeploysSdk:
@@ -49,7 +48,9 @@ class DeploysSdk:
 
         ``steps`` are the names the console shows, in order; the returned
         ``job_id`` addresses ``/deployments/<id>`` immediately, so a caller can
-        redirect there before the work begins.
+        redirect there before the work begins. Everything else the handler will
+        need goes in ``plan`` — including ``title``, which is what the console
+        heads the run with instead of falling back to the bare kind.
         """
         return DeploymentJobService.start_registered(
             kind, steps=steps, app_id=app_id, server_id=server_id,
@@ -64,9 +65,23 @@ class DeploysSdk:
 
     def log(self, job, message, level='info', step_index=None):
         """Append one line to a job's console."""
-        stream = RunLogStream.for_job(job)
+        stream = stream_for(job)
         stream.log(level, message, step_index=step_index)
         stream.flush()
+
+    def progress(self, job, index, name=None):
+        """Move *job* onto step *index*, logging *name* as the console line.
+
+        For work whose progress arrives through a callback the handler doesn't
+        control — an existing service that already reports ``(step, message)``.
+        When the handler owns the sequence itself, ``steps()`` reads better and
+        records the failing step for you.
+        """
+        stream = stream_for(job)
+        stream.set_step(index, name)
+        if name:
+            stream.log('info', name, step_index=index)
+            stream.flush()
 
     @contextmanager
     def steps(self, job):
@@ -79,16 +94,16 @@ class DeploysSdk:
         without that, a failure shows only a stack trace and no indication of
         how far the deployment got.
         """
-        stream = RunLogStream.for_job(job)
+        stream = stream_for(job)
         state = {'index': 0}
 
         @contextmanager
         def step(name):
             state['index'] += 1
             index = state['index']
-            job.current_step = index
-            job.current_step_name = name
-            db.session.commit()
+            # set_step (rather than a hand-rolled row update) is what records
+            # the per-step seconds the console shows and pushes the live status.
+            stream.set_step(index, name)
             stream.log('info', f'→ {name}', step_index=index)
             stream.flush()
             try:

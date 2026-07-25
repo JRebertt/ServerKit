@@ -37,6 +37,9 @@ const fmtElapsed = (ms) => {
 
 function humanizeTitle(job) {
     if (!job) return 'Deployment';
+    // Kinds contributed by plugins name their own run in the plan, so the
+    // console reads properly without a branch per kind here.
+    if (job.plan?.title) return job.plan.title;
     if (job.kind === 'demo_deploy') {
         const scenario = job.plan?.scenario || job.result?.scenario;
         return `Test deployment${scenario ? ` — ${scenario}` : ''}`;

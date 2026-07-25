@@ -17,6 +17,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db, limiter
+from app.plugins_sdk import deploys
 from app.models.application import Application
 from app.models.wordpress_site import WordPressSite
 from app.models.environment_activity import EnvironmentActivity
@@ -312,12 +313,139 @@ def restart_environment(prod_id, env_id):
 # =============================================================================
 # Promotion
 # =============================================================================
+#
+# A promotion is deployment-shaped work: it takes minutes, changes what is
+# running, can fail halfway, and someone wants to watch it. So it runs as a
+# registered deployment kind (plugins_sdk.deploys) rather than in the request
+# thread — which gets it the Deploy Console, live logs, retry and a row in
+# Deploy Activity, and returns a job id the UI can open immediately.
+#
+# The PromotionJob rows the pipeline service writes are NOT replaced by this:
+# they carry pre_promotion_snapshot_id, the rollback pointer, which is WordPress
+# domain that a generic DeploymentJob has no business holding. The deployment
+# records which promotions it produced instead (see _promotions_since).
+
+PROMOTION_KIND = 'wordpress.promote'
+
+# Mirrors what EnvironmentPipelineService emits through progress_callback, so
+# the console's pipeline strip and its log lines agree step for step.
+_CODE_STEPS = ['Locking environments', 'Creating pre-promotion snapshot',
+               'Syncing code files', 'Flushing caches', 'Complete']
+_DATABASE_STEPS = ['Locking environments', 'Creating pre-promotion snapshot',
+                   'Cloning database with transformations', 'Flushing caches', 'Complete']
+PROMOTION_STEPS = {
+    'code': _CODE_STEPS,
+    'database': _DATABASE_STEPS,
+    # promote_full runs both halves back to back.
+    'full': [f'Code · {name}' for name in _CODE_STEPS]
+            + [f'Database · {name}' for name in _DATABASE_STEPS],
+}
+
+
+def _promotion_progress(job, prod_id):
+    """Bridge the pipeline service's progress into the console and the pipeline page.
+
+    The service reports ``(step, total, message)``. A full promotion runs two
+    five-step halves and restarts its numbering at 1 for the second, so copying
+    the raw step number would send the console's strip backwards; carrying an
+    offset across the reset keeps it moving forward. The original payload still
+    goes out over the WebSocket, so the pipeline page's own progress bar behaves
+    exactly as it did when this ran in the request thread.
+    """
+    state = {'last': 0, 'offset': 0}
+
+    def emit(data):
+        step = int(data.get('step') or 0)
+        if step <= state['last']:
+            state['offset'] += state['last']
+        state['last'] = step
+        deploys.progress(job, state['offset'] + step, data.get('message'))
+        _emit_pipeline_event(prod_id, 'operation_progress', data)
+
+    return emit
+
+
+def _promotions_since(watermark, source_id, target_id):
+    """PromotionJob ids this run created, newest work last.
+
+    Read by id watermark rather than from the service's return value because
+    promote_* only reports the job on success — and a failed promotion is
+    exactly when someone needs the row, since it holds the snapshot to roll
+    back to.
+    """
+    rows = PromotionJob.query.filter(
+        PromotionJob.id > watermark,
+        PromotionJob.source_site_id == source_id,
+        PromotionJob.target_site_id == target_id,
+    ).order_by(PromotionJob.id).all()
+    return [row.id for row in rows]
+
+
+def run_promotion(job):
+    """Deployment handler for ``wordpress.promote``."""
+    plan = job.get_plan() or {}
+    prod_id = plan.get('prod_id')
+    source_id = plan.get('source_env_id')
+    target_id = plan.get('target_env_id')
+    promotion_type = plan.get('promotion_type') or 'code'
+
+    promote_fn = {
+        'code': EnvironmentPipelineService.promote_code,
+        'database': EnvironmentPipelineService.promote_database,
+        'full': EnvironmentPipelineService.promote_full,
+    }.get(promotion_type)
+    if promote_fn is None:
+        # The endpoint validates the type, but a retry replays a stored plan.
+        return {'success': False, 'error': f'Unknown promotion type: {promotion_type}'}
+
+    watermark = db.session.query(db.func.max(PromotionJob.id)).scalar() or 0
+    result = promote_fn(
+        source_id, target_id,
+        config=plan.get('config') or {},
+        user_id=plan.get('user_id'),
+        progress_callback=_promotion_progress(job, prod_id),
+    ) or {}
+
+    promotion_ids = _promotions_since(watermark, source_id, target_id)
+    if promotion_ids:
+        job.set_result({**(job.get_result() or {}), 'promotion_job_ids': promotion_ids})
+        db.session.commit()
+
+    succeeded = bool(result.get('success'))
+    _emit_pipeline_event(prod_id, 'promotion_completed' if succeeded else 'promotion_failed', {
+        'source_env_id': source_id,
+        'target_env_id': target_id,
+        'type': promotion_type,
+        'success': succeeded,
+        'message': result.get('message') or result.get('error'),
+        'job_id': job.id,
+    })
+
+    if not succeeded:
+        return {'success': False, 'error': result.get('error') or 'Promotion failed'}
+
+    deploys.log(job, result.get('message') or 'Promotion complete')
+    return {'success': True, 'message': result.get('message'),
+            'promotion_job_ids': promotion_ids}
+
+
+def register_deploy_kinds():
+    """Contribute the promotion kind. Idempotent — safe to call per app setup."""
+    deploys.register(PROMOTION_KIND, run_promotion, replace=True)
+
+
+register_deploy_kinds()
+
 
 @environment_pipeline_bp.route('/<int:prod_id>/promote', methods=['POST'])
 @jwt_required()
 @limiter.limit("5 per minute")
 def promote(prod_id):
-    """Promote code/DB between environments.
+    """Queue a code/DB promotion between environments.
+
+    Returns 202 with the deployment ``job_id`` — the work runs as a
+    ``wordpress.promote`` deployment (see run_promotion above), so the caller
+    can open /deployments/<job_id> for logs, steps and retry.
 
     Body: {
         source_env_id: int,
@@ -367,50 +495,62 @@ def promote(prod_id):
         if env_site.id != prod_id and env_site.production_site_id != prod_id:
             return jsonify({'error': f'{label} environment does not belong to this project'}), 400
 
+    # The pipeline service checks the locks again when it runs (they can be
+    # taken in between), but a lock we can already see should be answered here
+    # rather than by sending the user to a console that fails a second later.
+    for env_site, label in [(source_site, 'Source'), (target_site, 'Target')]:
+        if env_site.is_locked:
+            return jsonify({'error': f'{label} environment is locked: {env_site.locked_reason}'}), 400
+
     config = data.get('config', {})
+
+    source_label = source_site.environment_type or 'source'
+    target_label = target_site.environment_type or 'target'
 
     # Emit WebSocket event for operation start
     _emit_pipeline_event(prod_id, 'promotion_started', {
         'source_env_id': source_env_id,
         'target_env_id': target_env_id,
         'type': promotion_type,
-        'message': f'Promoting {promotion_type} from {source_site.environment_type} to {target_site.environment_type}...'
+        'message': f'Promoting {promotion_type} from {source_label} to {target_label}...'
     })
 
-    # Progress callback emits WebSocket events
-    def progress_callback(progress_data):
-        _emit_pipeline_event(prod_id, 'operation_progress', progress_data)
+    result = deploys.start(
+        PROMOTION_KIND,
+        steps=PROMOTION_STEPS[promotion_type],
+        app_id=target_site.application_id,
+        user_id=user_id,
+        plan={
+            'title': f'Promoting {promotion_type} from {source_label} to {target_label}',
+            'prod_id': prod_id,
+            'source_env_id': source_env_id,
+            'target_env_id': target_env_id,
+            'promotion_type': promotion_type,
+            'config': config,
+            'user_id': user_id,
+        },
+    )
 
-    # Run promotion (long-running operations run in the request thread)
-    if promotion_type == 'code':
-        result = EnvironmentPipelineService.promote_code(
-            source_env_id, target_env_id, config=config, user_id=user_id,
-            progress_callback=progress_callback
-        )
-    elif promotion_type == 'database':
-        result = EnvironmentPipelineService.promote_database(
-            source_env_id, target_env_id, config=config, user_id=user_id,
-            progress_callback=progress_callback
-        )
-    else:
-        result = EnvironmentPipelineService.promote_full(
-            source_env_id, target_env_id, config=config, user_id=user_id,
-            progress_callback=progress_callback
-        )
-
-    # Emit completion event
-    _emit_pipeline_event(prod_id, 'promotion_completed' if result.get('success') else 'promotion_failed', {
-        'source_env_id': source_env_id,
-        'target_env_id': target_env_id,
-        'type': promotion_type,
-        'success': result.get('success', False),
-        'message': result.get('message') or result.get('error'),
-    })
-
-    if result.get('success'):
-        return jsonify(result)
-    else:
+    if not result.get('success'):
+        # Queueing failed, so nothing will run — say so on the same channel a
+        # failed promotion uses, or the page waits on an operation forever.
+        _emit_pipeline_event(prod_id, 'promotion_failed', {
+            'source_env_id': source_env_id,
+            'target_env_id': target_env_id,
+            'type': promotion_type,
+            'success': False,
+            'message': result.get('error'),
+        })
         return jsonify(result), 500
+
+    # 202: the promotion is queued, not done. Progress arrives on the pipeline
+    # socket as before, and job_id opens the full console at /deployments/<id>.
+    return jsonify({
+        'success': True,
+        'queued': True,
+        'job_id': result['job_id'],
+        'message': f'Promotion queued: {promotion_type} from {source_label} to {target_label}',
+    }), 202
 
 
 # =============================================================================
