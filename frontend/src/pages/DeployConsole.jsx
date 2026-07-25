@@ -159,7 +159,7 @@ export default function DeployConsole() {
 
     if (loading && !job) {
         return (
-            <div className="deploy-console deploy-console--loading">
+            <div className="sk-tabgroup__inner deploy-console deploy-console--loading">
                 <Loader2 size={22} className="deploy-console__spin" />
                 <span>Loading deployment…</span>
             </div>
@@ -168,7 +168,7 @@ export default function DeployConsole() {
 
     if (error && !job) {
         return (
-            <div className="deploy-console deploy-console--error-page">
+            <div className="sk-tabgroup__inner deploy-console deploy-console--error-page">
                 <XCircle size={22} />
                 <strong>Deployment not found</strong>
                 <p>{error}</p>
@@ -180,7 +180,11 @@ export default function DeployConsole() {
     }
 
     return (
-        <div className="deploy-console">
+        // sk-tabgroup__inner: this page lives inside the Services tab group,
+        // whose content region is full-bleed by design — the wrapper is what
+        // supplies the max-width and padding every sibling tab already has.
+        // Without it the console ran edge-to-edge with no gutters at all.
+        <div className="sk-tabgroup__inner deploy-console">
             <header className="deploy-console__header">
                 <Link to="/deployments" className="deploy-console__back" title="Back to deployments">
                     <ArrowLeft size={18} />
