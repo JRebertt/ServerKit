@@ -96,11 +96,14 @@ docker compose up -d       # 访问 http://localhost
 
 | | 最低配置 | 推荐配置 |
 |---|---------|-------------|
-| **操作系统** | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+| **操作系统** | Ubuntu 22.04+ · Debian 12+ · Fedora · RHEL/Rocky/AlmaLinux 9+ | Ubuntu 24.04 LTS |
+| **架构** | x86_64 · ARM64 | x86_64 · ARM64 |
 | **CPU** | 1 vCPU | 2+ vCPU |
 | **内存** | 1 GB | 2+ GB |
 | **磁盘** | 10 GB | 20+ GB |
-| **Docker** | 24.0+ | 最新版 |
+| **Docker** | 24.0+（面板本身可选） | 最新版 |
+
+> 面板本身仅占用约 180 MB 内存和 500 MB 磁盘——其余都是为你的应用预留的空间。在 1 GB VPS、闲置笔记本或树莓派（ARM64）上都能流畅运行：既适合家庭实验室，也适合生产环境。
 
 ---
 

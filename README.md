@@ -96,11 +96,14 @@ See the [Installation Guide](docs/INSTALLATION.md) for step-by-step instructions
 
 | | Minimum | Recommended |
 |---|---------|-------------|
-| **OS** | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+| **OS** | Ubuntu 22.04+ · Debian 12+ · Fedora · RHEL/Rocky/AlmaLinux 9+ | Ubuntu 24.04 LTS |
+| **Arch** | x86_64 · ARM64 | x86_64 · ARM64 |
 | **CPU** | 1 vCPU | 2+ vCPU |
 | **RAM** | 1 GB | 2+ GB |
 | **Disk** | 10 GB | 20+ GB |
-| **Docker** | 24.0+ | Latest |
+| **Docker** | 24.0+ (optional for the panel itself) | Latest |
+
+> The panel itself only needs ~180 MB of RAM and ~500 MB of disk — the rest is headroom for your apps. It runs happily on a 1 GB VPS, a spare laptop, or a Raspberry Pi (ARM64), so it's as much at home in a homelab as it is on production hardware.
 
 ---
 
