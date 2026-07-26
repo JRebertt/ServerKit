@@ -271,13 +271,13 @@ $skwe-pane-w: 340px;
 
     &__ser {
         display: grid;
-        grid-template-columns: 1fr 1fr 26px;
+        grid-template-columns: 18px 1fr 1fr 26px;
         align-items: center;
         gap: 6px;
 
         // Single-machine install: the resource picker is gone, so the metric
-        // select takes the whole row.
-        &--solo { grid-template-columns: 1fr 26px; }
+        // select takes the rest of the row.
+        &--solo { grid-template-columns: 18px 1fr 26px; }
 
         .skwe-edit__select {
             padding: 6px 22px 6px 8px;
@@ -384,18 +384,10 @@ $skwe-pane-w: 340px;
     // Pushes the close affordance to the far edge, away from Remove.
     &__spacer { flex: 1; }
 
-    // Per-series colour. Swatches rather than a select: the choice IS the
-    // colour, so showing the name instead of the thing would be a worse
-    // control. Values are theme tokens, so these repaint with the skin.
-    &__swatches {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        padding-top: 2px;
-    }
-
-    &__swatch {
+    // Per-series colour: one dot showing the current choice. The palette is a
+    // popover, not an inline row — seven swatches repeated on every series made
+    // a four-series chart into twenty-eight competing squares.
+    &__color {
         width: 16px;
         height: 16px;
         padding: 0;
@@ -404,13 +396,11 @@ $skwe-pane-w: 340px;
         cursor: pointer;
         transition: 0.12s;
 
-        &:hover { transform: scale(1.12); }
+        &:hover { border-color: var(--text-faint); }
 
-        // Ring rather than a border swap, so the swatch's own colour stays
-        // exactly the size it was and the row cannot shift on selection.
-        &.is-on {
-            border-color: var(--text);
-            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-faint);
+        &:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent);
         }
     }
 }
@@ -486,3 +476,33 @@ $skwe-pane-w: 340px;
         }
     }
 }
+
+// Colour palette popover. Portalled to the body by Radix, so it is a top-level
+// block rather than nested inside .skwe-edit.
+.skwe-palette {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    padding: 8px;
+
+    &__dot {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { transform: scale(1.12); }
+
+        // Ring rather than a border swap: the swatch keeps its exact size, so
+        // selecting one cannot shift the row.
+        &.is-on {
+            border-color: var(--text);
+            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-faint);
+        }
+    }
+}
+

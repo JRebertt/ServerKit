@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Copy, LayoutGrid, Minus, Plus, Trash2,
 } from 'lucide-react';
 import { Drawer, SegControl } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
     AGGREGATIONS, LINE_STYLES, SERIES_COLORS, getMetric,
     metricsForResource, metricsForSource,
@@ -167,6 +168,44 @@ function Stepper({ label, value, onStep, suffix }) {
  * any `[role=dialog][data-state=open]` is mounted. The old inspector was a bare
  * <aside>, which is exactly why the bubble sat on top of its footer.
  */
+/**
+ * One dot showing a series' current colour; the palette lives behind it.
+ *
+ * The first pass rendered all seven swatches inline on every series row, which
+ * for a four-series chart meant twenty-eight coloured squares competing with
+ * the controls that actually matter. A colour picker only needs to show the
+ * colour — the alternatives are a click away.
+ */
+function SeriesColor({ value, fallback, index, onChange }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="skwe-edit__color"
+                    aria-label={`Series ${index + 1} colour`}
+                    title="Series colour"
+                    style={{ background: value || fallback }}
+                />
+            </PopoverTrigger>
+            <PopoverContent align="start" sideOffset={6} className="skwe-palette">
+                {SERIES_COLORS.map(([option, name]) => (
+                    <button
+                        key={option || 'default'}
+                        type="button"
+                        aria-label={name}
+                        title={name}
+                        className={`skwe-palette__dot${(value || '') === option ? ' is-on' : ''}`}
+                        style={{ background: option || fallback }}
+                        onClick={() => { onChange(option); setOpen(false); }}
+                    />
+                ))}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 export function WidgetEditor({
     widget,
     type,
@@ -373,6 +412,12 @@ export function WidgetEditor({
                                                         key={index}
                                                         className={`skwe-edit__ser${multiResource ? '' : ' skwe-edit__ser--solo'}`}
                                                     >
+                                                        <SeriesColor
+                                                            value={series.color}
+                                                            fallback={getMetric(series.metric)?.color}
+                                                            index={index}
+                                                            onChange={(value) => setSeries(index, 'color', value)}
+                                                        />
                                                         {multiResource && (
                                                             <Select
                                                                 label={`Series ${index + 1} resource`}
@@ -387,29 +432,6 @@ export function WidgetEditor({
                                                             onChange={(value) => setSeries(index, 'metric', value)}
                                                             options={metricOptionsFor(series.resource, series.metric)}
                                                         />
-                                                        <div
-                                                            className="skwe-edit__swatches"
-                                                            role="radiogroup"
-                                                            aria-label={`Series ${index + 1} colour`}
-                                                        >
-                                                            {SERIES_COLORS.map(([value, name]) => {
-                                                                const active = (series.color || '') === value;
-                                                                const metric = getMetric(series.metric);
-                                                                return (
-                                                                    <button
-                                                                        key={value || 'default'}
-                                                                        type="button"
-                                                                        role="radio"
-                                                                        aria-checked={active}
-                                                                        aria-label={name}
-                                                                        title={name}
-                                                                        className={`skwe-edit__swatch${active ? ' is-on' : ''}`}
-                                                                        style={{ background: value || metric?.color }}
-                                                                        onClick={() => setSeries(index, 'color', value)}
-                                                                    />
-                                                                );
-                                                            })}
-                                                        </div>
                                                         <button
                                                             type="button"
                                                             className="skwe-edit__del"
