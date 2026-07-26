@@ -2,7 +2,7 @@
   "name": "serverkit-official",
   "schema_version": "1.0",
   "generated_at": "2026-07-25T20:06:08.123735",
-  "count": 117,
+  "count": 118,
   "templates": [
     {
       "id": "actualbudget",
@@ -167,6 +167,7 @@
         "unit": "tables",
         "client": "clickhouse-client",
         "data_path": "/var/lib/clickhouse",
+        "supports_extensions": false,
         "versions": [
           "24.3",
           "23.8"
@@ -196,6 +197,7 @@
         "unit": "tables",
         "client": "cockroach sql",
         "data_path": "/cockroach/cockroach-data",
+        "supports_extensions": false,
         "versions": [
           "24.1",
           "23.2"
@@ -236,6 +238,7 @@
         "unit": "documents",
         "client": "curl",
         "data_path": "/opt/couchdb/data",
+        "supports_extensions": false,
         "versions": [
           "3.3",
           "3.2"
@@ -493,6 +496,7 @@
         "unit": "buckets",
         "client": "influx",
         "data_path": "/var/lib/influxdb2",
+        "supports_extensions": false,
         "versions": [
           "2.7",
           "2.6"
@@ -663,6 +667,7 @@
         "unit": "tables",
         "client": "mariadb",
         "data_path": "/var/lib/mysql",
+        "supports_extensions": false,
         "versions": [
           "11.4",
           "10.11"
@@ -715,6 +720,7 @@
         "unit": "indexes",
         "client": "curl",
         "data_path": "/meili_data",
+        "supports_extensions": false,
         "versions": [
           "1.12"
         ]
@@ -800,6 +806,7 @@
         "unit": "collections",
         "client": "mongosh",
         "data_path": "/data/db",
+        "supports_extensions": false,
         "versions": [
           "7.0",
           "6.0"
@@ -840,6 +847,7 @@
         "unit": "tables",
         "client": "mysql",
         "data_path": "/var/lib/mysql",
+        "supports_extensions": false,
         "versions": [
           "8.4",
           "8.0"
@@ -892,6 +900,7 @@
         "unit": "nodes",
         "client": "cypher-shell",
         "data_path": "/data",
+        "supports_extensions": false,
         "versions": [
           "5.20",
           "4.4"
@@ -1157,6 +1166,38 @@
         "unit": "tables",
         "client": "psql",
         "data_path": "/var/lib/postgresql/data",
+        "supports_extensions": true,
+        "versions": [
+          "16",
+          "15",
+          "14"
+        ]
+      }
+    },
+    {
+      "id": "postgresql-pgvector",
+      "name": "PostgreSQL + pgvector",
+      "version": "16",
+      "description": "PostgreSQL on an image that ships the pgvector shared library, so vector search can be enabled without rebuilding the container",
+      "icon": "https://serverkit.ai/imgs/template-icons/postgresql.svg",
+      "categories": [
+        "database",
+        "sql",
+        "ai"
+      ],
+      "engine": {
+        "family": "Relational",
+        "protocol": "postgresql",
+        "default_port": 5434,
+        "admin_user": "postgres",
+        "admin_password_var": "DB_PASSWORD",
+        "database_var": "DB_NAME",
+        "port_var": "PORT",
+        "bind_var": "BIND_ADDRESS",
+        "unit": "tables",
+        "client": "psql",
+        "data_path": "/var/lib/postgresql/data",
+        "supports_extensions": true,
         "versions": [
           "16",
           "15",
@@ -1291,6 +1332,7 @@
         "unit": "keys",
         "client": "redis-cli",
         "data_path": "/data",
+        "supports_extensions": false,
         "versions": [
           "7.2",
           "7.0"
@@ -1483,6 +1525,7 @@
         "unit": "keys",
         "client": "valkey-cli",
         "data_path": "/data",
+        "supports_extensions": false,
         "versions": [
           "8",
           "7.2"

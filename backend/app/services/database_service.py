@@ -1252,6 +1252,40 @@ class DatabaseService:
             return {'success': False, 'error': str(e)}
 
     @staticmethod
+    def docker_pg_execute(container_name, query, database='postgres', user='postgres',
+                          password=None, timeout=30):
+        """Execute a PostgreSQL statement inside a Docker container.
+
+        The psql twin of :meth:`docker_mysql_execute`, so anything that has to
+        talk to a containerised engine has one place to do it.
+
+        ``ON_ERROR_STOP=1`` is not optional: without it psql happily reports
+        success for a statement the server rejected, which turns a real failure
+        (``could not open extension control file``) into a silent no-op.
+
+        Output is ``-t -A``: no header, no padding, ``|``-separated columns.
+        """
+        try:
+            cmd = ['docker', 'exec']
+            # PGPASSWORD via the exec environment, never on the command line.
+            if password:
+                cmd.extend(['-e', f'PGPASSWORD={password}'])
+            cmd.extend([container_name, 'psql', '-U', user,
+                        '-d', database or 'postgres',
+                        '-v', 'ON_ERROR_STOP=1',
+                        '-c', query, '-t', '-A'])
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            return {
+                'success': result.returncode == 0,
+                'output': result.stdout,
+                'error': result.stderr if result.returncode != 0 else None,
+            }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Query timed out'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @staticmethod
     def docker_mysql_list_databases(container_name, user='root', password=None):
         """List databases in a Docker MySQL container."""
         result = DatabaseService.docker_mysql_execute(

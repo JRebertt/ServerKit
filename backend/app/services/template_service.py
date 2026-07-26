@@ -196,6 +196,8 @@ class TemplateService:
                     raise ValueError
             except (TypeError, ValueError):
                 errors.append('engine.default_port must be a port number (1-65535)')
+        if 'extensions' in engine and not isinstance(engine['extensions'], bool):
+            errors.append('engine.extensions must be true or false')
         return errors
 
     @classmethod
@@ -230,8 +232,196 @@ class TemplateService:
             'unit': engine.get('unit'),
             'client': engine.get('client'),
             'data_path': engine.get('data_path'),
+            # Opt-in, because speaking a protocol is not the same as supporting
+            # its extensions: CockroachDB answers on the PostgreSQL wire and has
+            # no `CREATE EXTENSION` to speak of. An engine that can load them
+            # says so, so nothing has to special-case the ones that cannot.
+            'supports_extensions': engine.get('extensions') is True,
             'versions': [str(v) for v in versions],
         }
+
+    # ==================================================================
+    # The `extension:` block — an add-on that installs INTO a running engine
+    # ------------------------------------------------------------------
+    # An engine is a template because an engine gets a container. An
+    # extension does NOT: installing pgvector means executing one statement
+    # against a PostgreSQL that is already running. It therefore has no
+    # compose, no port, no volume and no app row -- so it is not an app
+    # template and is deliberately kept out of the app catalog. It lives in
+    # its own namespace, ``<templates>/extensions/*.yaml``:
+    #
+    #   id: pgvector                       # == the filename stem
+    #   name: pgvector
+    #   version: "0.8.0"
+    #   description: ...
+    #   extension:
+    #     protocol: postgresql             # which engines can host it
+    #     statement: CREATE EXTENSION IF NOT EXISTS vector;
+    #     available_query: SELECT 1 FROM pg_available_extensions WHERE ...
+    #     installed_query: SELECT extversion FROM pg_extension WHERE ...
+    #     images: [pgvector/pgvector]      # images that SHIP it (see below)
+    #     image_hint: "pgvector/pgvector:pg{version}"
+    #     templates: [postgresql]          # optional: narrow beyond protocol
+    #
+    # ``images:`` is the load-bearing field. `CREATE EXTENSION vector`
+    # against stock ``postgres:16`` fails with "could not open extension
+    # control file" -- the statement is right, the image simply does not
+    # carry the shared library. Declaring which images provide the extension
+    # lets the catalog say so BEFORE the operator clicks, and lets the
+    # installer refuse with a remedy instead of a cryptic engine error.
+    # ==================================================================
+    EXTENSIONS_SUBDIR = 'extensions'
+    # Extensions are one family by definition, so it is not a YAML field --
+    # nothing can declare it wrong.
+    EXTENSION_FAMILY = 'Extension'
+
+    @classmethod
+    def extension_dirs(cls) -> List[str]:
+        """Where extension YAMLs are looked for, highest precedence first.
+
+        The synced/operator directory shadows the bundled one, exactly like
+        :meth:`list_local_templates` does for app templates.
+        """
+        return [os.path.join(cls.TEMPLATES_DIR, cls.EXTENSIONS_SUBDIR),
+                os.path.join(cls.LOCAL_TEMPLATES_DIR, cls.EXTENSIONS_SUBDIR)]
+
+    @classmethod
+    def validate_extension(cls, document: Dict) -> Dict:
+        """Validate an extension document (the whole file, not just the block)."""
+        errors = []
+        if not isinstance(document, dict):
+            return {'valid': False, 'errors': ['extension file must be a mapping']}
+        for field in ('name', 'version', 'description'):
+            if not document.get(field):
+                errors.append(f'Missing required field: {field}')
+        if 'extension' not in document:
+            errors.append("Missing required 'extension' block")
+        else:
+            errors.extend(cls._extension_block_errors(document['extension']))
+        if 'compose' in document or 'dockerfile' in document:
+            errors.append('An extension installs into a running engine and must '
+                          'not declare a compose/dockerfile of its own')
+        if errors:
+            return {'valid': False, 'errors': errors}
+        return {'valid': True, 'errors': []}
+
+    @classmethod
+    def _extension_block_errors(cls, extension: Any) -> List[str]:
+        """Hard errors in an ``extension:`` block (shape only, never opinions)."""
+        if not isinstance(extension, dict):
+            return ["'extension' must be a mapping"]
+        errors = []
+        protocol = extension.get('protocol')
+        if not protocol:
+            errors.append('extension.protocol is required (which engines can host it)')
+        elif protocol not in cls.ENGINE_PROTOCOLS:
+            errors.append(
+                f"extension.protocol '{protocol}' is not one of: "
+                f"{', '.join(cls.ENGINE_PROTOCOLS)}")
+        elif protocol == 'none':
+            errors.append("extension.protocol 'none' cannot host an extension: "
+                          'there is no client to execute the statement with')
+        statement = extension.get('statement')
+        if not statement or not isinstance(statement, str) or not statement.strip():
+            errors.append('extension.statement is required and must be a non-empty string')
+        for key in ('available_query', 'installed_query', 'image_hint', 'size', 'unit'):
+            value = extension.get(key)
+            if value is not None and not isinstance(value, str):
+                errors.append(f'extension.{key} must be a string')
+        for key in ('images', 'templates', 'versions'):
+            value = extension.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                errors.append(f'extension.{key} must be a list of strings')
+        return errors
+
+    @classmethod
+    def extension_metadata(cls, document: Dict, extension_id: str = None) -> Optional[Dict]:
+        """Normalized extension record, or ``None`` when the document is not one.
+
+        Everything a consumer needs is read off the YAML; nothing about any
+        particular extension is hardcoded here.
+        """
+        if not isinstance(document, dict) or not isinstance(document.get('extension'), dict):
+            return None
+        block = document['extension']
+        versions = block.get('versions')
+        if not isinstance(versions, list) or not versions:
+            versions = [document.get('version')] if document.get('version') else []
+        images = [i for i in (block.get('images') or []) if isinstance(i, str)]
+        return {
+            'id': extension_id or document.get('id'),
+            'name': document.get('name'),
+            'version': document.get('version'),
+            'description': document.get('description'),
+            'icon': document.get('icon'),
+            'website': document.get('website'),
+            'documentation': document.get('documentation'),
+            'family': cls.EXTENSION_FAMILY,
+            'protocol': block.get('protocol'),
+            'statement': block.get('statement'),
+            'available_query': block.get('available_query'),
+            'installed_query': block.get('installed_query'),
+            # [] means "any engine template speaking `protocol`".
+            'templates': [t for t in (block.get('templates') or []) if isinstance(t, str)],
+            'images': images,
+            'image_hint': block.get('image_hint'),
+            # An extension with no declared images makes no image claim, so it
+            # is never blocked on one.
+            'requires_image': bool(images),
+            'size': block.get('size'),
+            'unit': block.get('unit'),
+            'versions': [str(v) for v in versions],
+        }
+
+    @classmethod
+    def list_extension_templates(cls) -> List[Dict]:
+        """Every extension declared under a ``templates/extensions/`` directory.
+
+        Derived from the files, like the engine catalog: dropping a YAML in
+        makes the extension appear, with no code change anywhere.
+        """
+        found: List[Dict] = []
+        seen = set()
+        for directory in cls.extension_dirs():
+            if not os.path.isdir(directory):
+                continue
+            for filename in sorted(os.listdir(directory)):
+                if not filename.endswith(('.yaml', '.yml')):
+                    continue
+                extension_id = filename.rsplit('.', 1)[0]
+                if extension_id in seen:
+                    continue
+                record = cls._load_extension_file(os.path.join(directory, filename),
+                                                  extension_id)
+                if record:
+                    seen.add(extension_id)
+                    found.append(record)
+        return found
+
+    @classmethod
+    def _load_extension_file(cls, path: str, extension_id: str) -> Optional[Dict]:
+        """Parse + validate one extension file, or ``None`` (logged) if broken."""
+        try:
+            with open(path, 'r', encoding='utf-8') as fh:
+                document = yaml.safe_load(fh)
+        except Exception:
+            return None
+        validation = cls.validate_extension(document if isinstance(document, dict) else {})
+        if not validation['valid']:
+            return None
+        return cls.extension_metadata(document, extension_id=extension_id)
+
+    @classmethod
+    def get_extension_template(cls, extension_id: str) -> Optional[Dict]:
+        """One normalized extension by id, or ``None``."""
+        if not extension_id:
+            return None
+        for record in cls.list_extension_templates():
+            if record['id'] == extension_id:
+                return record
+        return None
 
     @classmethod
     def parse_template(cls, template_path: str) -> Dict:

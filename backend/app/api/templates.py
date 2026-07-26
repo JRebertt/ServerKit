@@ -245,8 +245,52 @@ def catalog_schema():
                  'description': 'CLI client hint shown in the UI.'},
                 {'field': 'data_path', 'required': False,
                  'description': 'Container-side data directory the named volume mounts onto.'},
+                {'field': 'extensions', 'required': False, 'default': False,
+                 'description': 'true when the engine can load database extensions (see '
+                                'extension_block). Opt-in, because speaking a protocol is '
+                                'not the same as supporting its extensions.'},
                 {'field': 'versions', 'required': False,
                  'description': 'Selectable image versions. Defaults to the template version.'},
+            ],
+        },
+        # An extension is NOT an app template: it has no container, so it is not
+        # in this directory at all. Documented here because this endpoint is
+        # where an author looks for "what can I drop into the catalog".
+        'extension_block': {
+            'optional': True,
+            'location': f'<templates>/{TemplateService.EXTENSIONS_SUBDIR}/<id>.yaml',
+            'family': TemplateService.EXTENSION_FAMILY,
+            'description': 'An extension installs INTO a running engine by executing one '
+                           'statement against it. It declares no compose/dockerfile and '
+                           'creates no application; it lives in its own directory so it '
+                           'never appears in the app catalog.',
+            'protocols': [p for p in TemplateService.ENGINE_PROTOCOLS if p != 'none'],
+            'fields': [
+                {'field': 'protocol', 'required': True,
+                 'description': "Engines that can host it, matched against each engine "
+                                "template's own engine.protocol. Never names an engine."},
+                {'field': 'statement', 'required': True,
+                 'description': 'The statement executed on install, e.g. '
+                                'CREATE EXTENSION IF NOT EXISTS vector;'},
+                {'field': 'available_query', 'required': False,
+                 'description': 'Asked before installing and authoritative: an empty result '
+                                'means the running image cannot load the extension, and the '
+                                'install is refused with a remedy instead of failing with '
+                                '"could not open extension control file".'},
+                {'field': 'installed_query', 'required': False,
+                 'description': 'Returns the installed version, or nothing when absent.'},
+                {'field': 'images', 'required': False,
+                 'description': 'Image repositories that SHIP the extension. Stock postgres '
+                                'does not ship pgvector, so this is what lets the catalog '
+                                'mark an instance incompatible before it is clicked.'},
+                {'field': 'image_hint', 'required': False,
+                 'description': 'Image reference to suggest; {version} is replaced with the '
+                                "installed engine's version."},
+                {'field': 'templates', 'required': False,
+                 'description': 'Optional narrowing to specific engine template ids. Omit to '
+                                'offer it on every engine speaking `protocol`.'},
+                {'field': 'versions', 'required': False,
+                 'description': 'Selectable extension versions. Defaults to the file version.'},
             ],
         },
         'notes': [
@@ -255,6 +299,9 @@ def catalog_schema():
             '<NAME> groups related tokens: the same <NAME> resolves to a consistent value.',
             'Unknown top-level keys are tolerated by the validator; `engine` is now a '
             'known block and is carried through the catalog listing and repo index.',
+            f'Database extensions are separate files under '
+            f'{TemplateService.EXTENSIONS_SUBDIR}/ and are listed by '
+            'GET /api/v1/databases/engines/extensions.',
         ],
     }
     return jsonify(schema), 200

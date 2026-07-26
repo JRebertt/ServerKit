@@ -8,6 +8,11 @@ install uses -- so the UI can navigate straight to the deploy console.
 Lifecycle (start / stop / uninstall) is app lifecycle. Use
 ``POST /api/v1/apps/<id>/start``, ``/stop`` and ``DELETE /api/v1/apps/<id>``
 (which preserves an engine's data volumes unless ``?remove_data=true``).
+
+Extensions live under the same prefix but are a different shape: they get no
+container, so installing one executes a statement against an engine that is
+already running rather than creating a deployment job. See
+``app/services/database_engine_extension_service.py``.
 """
 import logging
 
@@ -15,8 +20,10 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.middleware.rbac import admin_required
+from app.services import database_engine_extension_service as extensions
 from app.services import database_engine_service as engines
 from app.services.deployment_job_service import DeploymentJobService
+from app.services.template_service import TemplateService
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +42,15 @@ def list_database_engines():
     """
     live = request.args.get('live', 'true').lower() != 'false'
     catalog = engines.engine_catalog()
+    extension_catalog = extensions.extension_catalog()
     return jsonify({
         'catalog': catalog,
         'installed': engines.installed_engines(live_status=live),
+        # The drawer renders engines and extensions together; one round trip.
+        # Every entry carries family 'Extension' -- deliberately NOT merged into
+        # `families`, which stays the engine-family filter it has always been.
+        'extensions': extension_catalog,
+        'extension_family': TemplateService.EXTENSION_FAMILY if extension_catalog else None,
         # Derived from the catalog so the UI never carries its own family list.
         'families': engines.catalog_families(catalog),
     }), 200
@@ -86,3 +99,64 @@ def install_database_engine():
 
     status = (result.get('job') or {}).get('status')
     return jsonify(result), 201 if status == 'succeeded' else 202
+
+
+# ── extensions ───────────────────────────────────────────────────────────────
+# An extension has no container: it is a statement run against an engine that
+# is already up. These routes sit under the engines prefix because that is where
+# the catalog is entered from, but nothing here creates a deployment job.
+
+@database_engines_bp.route('/extensions', methods=['GET'])
+@jwt_required()
+def list_engine_extensions():
+    """Every declared extension, with who can host it.
+
+    Composed from ``<templates>/extensions/*.yaml``: dropping one in is enough
+    to make it appear, exactly as for an engine. Each entry carries ``hosts``
+    (engine templates that speak its protocol), ``provided_by`` (those whose
+    image actually ships it) and the installed instance ids split into
+    ``compatible_instances`` / ``incompatible_instances``.
+    """
+    return jsonify({'extensions': extensions.extension_catalog(),
+                    'family': TemplateService.EXTENSION_FAMILY}), 200
+
+
+@database_engines_bp.route('/<int:app_id>/extensions', methods=['GET'])
+@jwt_required()
+def list_instance_extensions(app_id):
+    """Every extension judged against ONE installed engine.
+
+    ``?probe=true`` asks the engine itself what it can load instead of
+    inferring it from the image name -- slower (a docker exec per extension),
+    authoritative, and the only way to see what is already installed.
+    """
+    probe = request.args.get('probe', 'false').lower() == 'true'
+    result = extensions.instance_extensions(app_id, probe=probe)
+    if 'error' in result:
+        # Popped BEFORE serializing: the transport code is not part of the body.
+        status = result.pop('status_code', 400)
+        return jsonify(result), status
+    return jsonify(result), 200
+
+
+@database_engines_bp.route('/<int:app_id>/extensions', methods=['POST'])
+@jwt_required()
+@admin_required
+def install_engine_extension(app_id):
+    """Install an extension into a database on this engine.
+
+    Answers 409 with a ``remedy`` when the engine's image cannot ship the
+    extension -- the statement is never attempted in that case, so the operator
+    gets "your image does not carry this, install X instead" rather than a raw
+    ``could not open extension control file``.
+    """
+    data = request.get_json(silent=True) or {}
+    result = extensions.install_extension(
+        app_id,
+        extension_id=data.get('extension_id') or data.get('id'),
+        database=data.get('database'),
+    )
+    if 'error' in result:
+        status = result.pop('status_code', 400)
+        return jsonify(result), status
+    return jsonify(result), 201
