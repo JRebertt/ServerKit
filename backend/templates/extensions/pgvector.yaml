@@ -1,0 +1,32 @@
+id: pgvector
+name: pgvector
+version: "0.8.0"
+description: Vector similarity search inside PostgreSQL — embeddings, ANN indexes and cosine distance next to your relational data
+icon: https://serverkit.ai/imgs/template-icons/postgresql.svg
+website: https://github.com/pgvector/pgvector
+documentation: https://github.com/pgvector/pgvector#readme
+
+# An extension gets no container of its own: installing it runs `statement`
+# against a database on an engine that is ALREADY running.
+extension:
+  protocol: postgresql
+  statement: CREATE EXTENSION IF NOT EXISTS vector;
+
+  # Asked first, every time, and authoritative. `pg_available_extensions` lists
+  # what the running image can actually load -- an empty answer is the whole
+  # reason this file declares `images` below, and is what stops the install
+  # from hitting "ERROR: could not open extension control file".
+  available_query: SELECT 1 FROM pg_available_extensions WHERE name = 'vector';
+  installed_query: SELECT extversion FROM pg_extension WHERE extname = 'vector';
+
+  # Stock `postgres:16` does NOT ship the vector shared library, so no
+  # statement can conjure it. These are the image repositories that do.
+  images:
+    - pgvector/pgvector
+  image_hint: pgvector/pgvector:pg{version}
+
+  size: 2.4 MB
+  unit: indexes
+  versions:
+    - "0.8.0"
+    - "0.7.4"

@@ -10,6 +10,14 @@
 # Build: docker build -t serverkit .
 # Run:   docker run -d -p 5000:5000 --env-file .env serverkit
 #        Override the internal backend port with SERVERKIT_BACKEND_PORT if needed.
+#
+# Build args:
+#   INSTALL_CLAMAV=true   bundle the ClamAV scanner (~250 MB). Off by default:
+#                         malware scanning falls back to the builtin YARA/pure-
+#                         Python matcher and reports clamav_available=false, so
+#                         the feature degrades instead of breaking. Operators who
+#                         want ClamAV can build with it or apt-install it beside
+#                         the panel.
 # ============================================
 
 # Stage 1: Build Frontend
@@ -33,18 +41,18 @@ COPY frontend/ ./
 RUN npm run build
 
 # ============================================
-# Stage 2: Production Image
-FROM python:3.11-slim-bookworm
+# Stage 2: Python dependency builder
+#
+# The compiler toolchain (gcc, *-dev headers) is needed to build wheels for
+# gevent / cryptography / lxml on platforms without a prebuilt wheel, but it is
+# ~280 MB and has no business in a running panel. Building into a self-contained
+# venv here lets the runtime stage take the result and leave the toolchain behind.
+FROM python:3.11-slim-bookworm AS python-builder
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    FLASK_ENV=production \
-    SERVERKIT_BACKEND_PORT=5000
+    PYTHONUNBUFFERED=1
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Required for psutil and some Python packages
     gcc \
     python3-dev \
     # Required for gevent
@@ -52,45 +60,95 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Required for cryptography
     libffi-dev \
     libssl-dev \
-    # ClamAV for malware scanning (optional, can be installed separately)
-    clamav \
-    clamav-daemon \
-    clamav-freshclam \
-    # Useful utilities
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Trim the venv (~50 MB). Both prunes happen here in the builder, so a mistake
+# surfaces as a failed image build, never as a half-installed panel on a host.
+#
+# 1. Bundled test suites. Third-party packages ship their own pytest trees
+#    (gevent and passlib are the big ones) that no running panel imports.
+# 2. botocore API models. botocore carries JSON models for 400+ AWS services
+#    (~15 MB); ServerKit constructs exactly three clients — s3
+#    (storage_provider_service), route53 (dns_provider_service) and ses
+#    (notifications/providers) — plus sts, which botocore resolves while signing.
+#    The glob below matches directories only, so botocore's top-level
+#    endpoints.json and partitions.json are never touched.
+#
+#    >>> Adding a new boto3.client('<svc>') call? Add <svc> to BOTOCORE_KEEP or
+#    >>> it raises UnknownServiceError at runtime — in the image only, never in
+#    >>> dev. backend/tests/test_botocore_prune_contract.py parses this ARG and
+#    >>> every call site and fails the suite when the two drift apart.
+ARG BOTOCORE_KEEP="s3 route53 ses sts"
+RUN set -eux; \
+    SP=/opt/venv/lib/python3.11/site-packages; \
+    find "$SP" -type d \( -name tests -o -name test \) -prune -exec rm -rf {} +; \
+    for d in "$SP"/botocore/data/*/; do \
+      name="$(basename "$d")"; \
+      case " $BOTOCORE_KEEP " in *" $name "*) ;; *) rm -rf "$d";; esac; \
+    done
+
+# ============================================
+# Stage 3: Production Image
+FROM python:3.11-slim-bookworm
+
+ARG INSTALL_CLAMAV=false
+
+# Set environment variables
+# PATH puts the venv first so `python`, `pip` and `gunicorn` all resolve to it —
+# including the runtime `sys.executable -m pip install` that PluginService uses
+# to install an extension's Python requirements.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_ENV=production \
+    SERVERKIT_BACKEND_PORT=5000 \
+    PATH="/opt/venv/bin:$PATH"
+
+# Runtime system dependencies only — no compiler, no -dev headers. psutil and
+# cryptography link against libssl3/libffi8, which the slim base already ships.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Health check
     curl \
+    # Useful utilities (ps/top for operators exec'ing into the container)
     procps \
+    && if [ "$INSTALL_CLAMAV" = "true" ]; then \
+         apt-get install -y --no-install-recommends \
+           clamav clamav-daemon clamav-freshclam; \
+       fi \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user for security
+# Create non-root user for security. Declared BEFORE the COPYs below so they can
+# use --chown: a trailing `chown -R` would otherwise rewrite every file's metadata
+# and duplicate the whole tree (~200 MB of venv + app) into an extra layer.
 RUN groupadd -r serverkit && useradd -r -g serverkit serverkit
 
+# Bring in the fully-built virtualenv from the builder stage. Owned by serverkit
+# so runtime extension installs (PluginService's `pip install -r`) can write to it.
+COPY --from=python-builder --chown=serverkit:serverkit /opt/venv /opt/venv
+
 # Create necessary directories
-RUN mkdir -p /etc/serverkit /var/serverkit/apps /var/log/serverkit /var/quarantine /var/backups/serverkit \
-    && chown -R serverkit:serverkit /etc/serverkit /var/serverkit /var/log/serverkit /var/quarantine /var/backups/serverkit
+RUN mkdir -p /etc/serverkit /var/serverkit/apps /var/log/serverkit /var/quarantine /var/backups/serverkit /app/data \
+    && chown -R serverkit:serverkit /etc/serverkit /var/serverkit /var/log/serverkit /var/quarantine /var/backups/serverkit /app
 
 # Set working directory
 WORKDIR /app
 
-# Copy backend requirements and install Python dependencies
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
-
 # Copy backend source
-COPY backend/ ./backend/
+COPY --chown=serverkit:serverkit backend/ ./backend/
 
 # Ship the VERSION file next to the backend tree (/app/VERSION) so the panel
 # reports its real version in containers instead of the unknown-version fallback
-COPY VERSION ./VERSION
+COPY --chown=serverkit:serverkit VERSION ./VERSION
 
 # Copy built frontend from Stage 1
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-
-# Create data directory for SQLite database
-RUN mkdir -p /app/data && chown -R serverkit:serverkit /app/data
-
-# Set ownership
-RUN chown -R serverkit:serverkit /app
+COPY --from=frontend-builder --chown=serverkit:serverkit /app/frontend/dist ./frontend/dist
 
 # Switch to non-root user
 USER serverkit

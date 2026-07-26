@@ -1,0 +1,88 @@
+id: couchdb
+name: CouchDB
+version: "3.3"
+description: Document database with an HTTP API and multi-master replication for offline-first apps
+icon: https://serverkit.ai/imgs/template-icons/couchdb.svg
+categories:
+  - database
+  - nosql
+website: https://couchdb.apache.org
+documentation: https://docs.couchdb.org/
+
+engine:
+  family: Document
+  protocol: none
+  default_port: 5984
+  admin_user: admin
+  admin_password_var: DB_PASSWORD
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: documents
+  client: curl
+  data_path: /opt/couchdb/data
+  version_var: IMAGE_TAG
+  versions:
+    - "3.3"
+    - "3.2"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "3.3"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "5984"
+    hidden: false
+    description: Host port to publish CouchDB on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the CouchDB admin user
+
+compose:
+  services:
+    app:
+      image: couchdb:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:5984"
+      environment:
+        # Without BOTH of these the node comes up in "admin party" mode, where
+        # any client can create and delete databases.
+        COUCHDB_USER: admin
+        COUCHDB_PASSWORD: "${DB_PASSWORD}"
+      volumes:
+        - couchdb-data:/opt/couchdb/data
+
+  volumes:
+    couchdb-data:
+
+files:
+  # A CouchDB node with no `single_node` flag never creates its own system
+  # databases: `_all_dbs` comes back empty, `_users` is missing, and the node
+  # logs `database_does_not_exist` for `_users` on a loop -- so no non-admin
+  # account can ever be created. The image has no environment variable for
+  # this (its entrypoint only reads COUCHDB_USER / COUCHDB_PASSWORD /
+  # COUCHDB_SECRET / COUCHDB_ERLANG_COOKIE), so the flag goes in a config
+  # snippet dropped into local.d, which CouchDB merges at startup.
+  - path: /opt/couchdb/etc/local.d/single-node.ini
+    content: |
+      [couchdb]
+      single_node = true
+
+ports:
+  - port: "${PORT}"
+    protocol: http
+    description: CouchDB HTTP API
+
+requirements:
+  memory: 512MB
+  storage: 5GB

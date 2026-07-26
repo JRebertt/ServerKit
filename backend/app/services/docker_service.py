@@ -37,6 +37,17 @@ class DockerService:
         cls._compose_cmd = ['docker-compose']
         return cls._compose_cmd
 
+    @classmethod
+    def _is_compose_v2(cls):
+        """True when compose is the v2 plugin (``docker compose``).
+
+        v1 and v2 do not share a global flag set, and v1 answers an unknown
+        flag by printing its whole usage text and exiting 1 — which reads like
+        a broken deployment rather than a bad argument. Anything v2-only has to
+        be gated on this.
+        """
+        return cls._get_compose_cmd() == ['docker', 'compose']
+
     @staticmethod
     def is_docker_installed():
         """Check if Docker is installed and running."""
@@ -1069,7 +1080,16 @@ class DockerService:
             # Global compose flags before the subcommand: no ANSI colors, plain
             # (non-TTY) progress so the transcript greps/reads cleanly. The
             # stream also strips residual ANSI/\r as a backstop.
-            cmd = cmd + ['--ansi', 'never', '--progress', 'plain', 'up']
+            #
+            # `--progress` is v2-only. Passing it to compose v1 made it print
+            # its usage and exit 1, so every template install on a v1 host
+            # failed at "Start Docker Compose stack" with a wall of help text
+            # and no hint that the argument was the problem. `--ansi` is
+            # understood by both.
+            cmd = cmd + ['--ansi', 'never']
+            if cls._is_compose_v2():
+                cmd += ['--progress', 'plain']
+            cmd.append('up')
             if detach:
                 cmd.append('-d')
             if build:

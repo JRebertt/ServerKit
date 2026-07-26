@@ -27,6 +27,10 @@ volumes:
     path: /loki
     description: Loki data storage
 
+requirements:
+  memory: 1GB
+  storage: 20GB
+
 compose:
   services:
     loki:

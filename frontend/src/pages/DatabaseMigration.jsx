@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 
 const TOTAL_STEPS = 4;
 const STEP_TITLES = ['Overview', 'Backup', 'Apply', 'Done'];
+// How many pending migrations to show before collapsing the rest behind a toggle.
+const MIGRATION_PREVIEW_COUNT = 4;
 
 const DatabaseMigration = () => {
     const { isAuthenticated, isAdmin, needsMigration, migrationInfo, refreshSetupStatus, login } = useAuth();
@@ -23,6 +25,7 @@ const DatabaseMigration = () => {
     const [applyLoading, setApplyLoading] = useState(false);
     const [applyError, setApplyError] = useState(null);
     const [migrationStatus, setMigrationStatus] = useState(null);
+    const [showAllMigrations, setShowAllMigrations] = useState(false);
 
     // Login form state (for unauthenticated users)
     const [loginEmail, setLoginEmail] = useState('');
@@ -121,6 +124,14 @@ const DatabaseMigration = () => {
     const status = migrationStatus || migrationInfo || {};
     const pendingCount = status.pending_count || 0;
     const pendingMigrations = status.pending_migrations || [];
+    // A long-idle install can be dozens of migrations behind. Listing all of them
+    // buried the Continue button under a page of scrolling, so show the newest
+    // few — the ones that say what you're actually getting — and let the rest be
+    // opened deliberately.
+    const hiddenCount = Math.max(0, pendingMigrations.length - MIGRATION_PREVIEW_COUNT);
+    const shownMigrations = showAllMigrations
+        ? pendingMigrations
+        : pendingMigrations.slice(-MIGRATION_PREVIEW_COUNT);
 
     return (
         <div className="setup-wizard migration-wizard">
@@ -161,16 +172,55 @@ const DatabaseMigration = () => {
                             </div>
                         </div>
 
+                        {status.orphaned_revision && (
+                            <div className="wizard-info-banner wizard-info-banner--warn">
+                                <AlertTriangle size={20} className="wizard-info-icon" />
+                                <p>
+                                    This database is stamped at <code>{status.current_revision}</code>,
+                                    which does not exist in this build — usually a branch that added a
+                                    migration and was then reverted. The schema cannot be upgraded
+                                    until it is stamped back to a known revision:
+                                    {' '}<code>flask db stamp {status.head_revision || 'head'}</code>
+                                </p>
+                            </div>
+                        )}
+
                         {pendingMigrations.length > 0 && (
                             <div className="migration-list">
-                                <div className="migration-list-title">Changes to apply:</div>
-                                {pendingMigrations.map((m, i) => (
-                                    <div key={i} className="migration-list-item">
-                                        <Database size={14} />
-                                        <code>{m.revision.substring(0, 12)}</code>
-                                        <span>{m.description || 'Schema update'}</span>
+                                <div className="migration-list-head">
+                                    <span className="migration-list-title">
+                                        {shownMigrations.length === pendingMigrations.length
+                                            ? 'Changes to apply'
+                                            : `Latest ${shownMigrations.length} of ${pendingMigrations.length} changes`}
+                                    </span>
+                                    {pendingMigrations.length > MIGRATION_PREVIEW_COUNT && (
+                                        <button
+                                            type="button"
+                                            className="migration-list-toggle"
+                                            onClick={() => setShowAllMigrations(v => !v)}
+                                        >
+                                            {showAllMigrations
+                                                ? 'Show less'
+                                                : `Show all ${pendingMigrations.length}`}
+                                        </button>
+                                    )}
+                                </div>
+                                {/* Scrolls within itself so Continue stays reachable no matter
+                                    how far behind the database is. */}
+                                <div className={`migration-list-items${showAllMigrations ? ' is-expanded' : ''}`}>
+                                    {shownMigrations.map((m, i) => (
+                                        <div key={m.revision || i} className="migration-list-item">
+                                            <Database size={14} />
+                                            <code>{m.revision.substring(0, 12)}</code>
+                                            <span>{m.description || 'Schema update'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {!showAllMigrations && hiddenCount > 0 && (
+                                    <div className="migration-list-more">
+                                        + {hiddenCount} earlier {hiddenCount === 1 ? 'update' : 'updates'}, applied first
                                     </div>
-                                ))}
+                                )}
                             </div>
                         )}
 
@@ -217,7 +267,9 @@ const DatabaseMigration = () => {
                             <Button
                                 className="btn-wizard-next"
                                 onClick={() => setCurrentStep(2)}
-                                disabled={!isAuthenticated || !isAdmin}
+                                // An orphaned revision cannot be upgraded past — offering
+                                // Continue would just fail at "Can't locate revision".
+                                disabled={!isAuthenticated || !isAdmin || status.orphaned_revision}
                             >
                                 Continue <ArrowRight size={16} />
                             </Button>

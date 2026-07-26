@@ -13,15 +13,15 @@
     background: $bg-elevated;
     border: 1px solid $border-default;
     border-radius: $radius-xl;
-    padding: $space-5;
-    margin-bottom: $space-6;
+    padding: $space-4;
+    margin-bottom: $space-4;
 }
 
 .migration-status-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: $space-2 0;
+    padding: $space-1 0;
 
     &:not(:last-child) {
         border-bottom: 1px solid $border-subtle;
@@ -45,25 +45,79 @@
     }
 }
 
+// Orphaned-revision warning: the database is stamped at a revision this build
+// doesn't contain, so there is nothing to upgrade *to* and Continue is disabled.
+.wizard-info-banner--warn {
+    background: $warning-bg;
+    border: 1px solid $warning-border;
+
+    .wizard-info-icon { color: $warning; }
+
+    code {
+        font-family: $font-family-mono;
+        font-size: $font-size-xs;
+        background: $bg-secondary;
+        padding: 1px 6px;
+        border-radius: $radius-sm;
+        white-space: nowrap;
+    }
+}
+
 // --------------------------------------------
 // Migration list (pending changes)
 // --------------------------------------------
 .migration-list {
-    margin-bottom: $space-6;
+    margin-bottom: $space-4;
+}
+
+// Title on the left, the show-all toggle on the right.
+.migration-list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: $space-3;
+    margin-bottom: $space-2;
 }
 
 .migration-list-title {
     font-size: $font-size-sm;
     font-weight: $font-weight-semibold;
     color: $text-secondary;
-    margin-bottom: $space-3;
+}
+
+.migration-list-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    color: $accent-primary;
+
+    &:hover { text-decoration: underline; }
+}
+
+// Expanded, the list scrolls inside itself: an install 80 migrations behind
+// must never push the Continue button off the page.
+.migration-list-items {
+    &.is-expanded {
+        max-height: 260px;
+        overflow-y: auto;
+        padding-right: $space-2;
+    }
+}
+
+.migration-list-more {
+    margin-top: $space-2;
+    font-size: $font-size-xs;
+    color: $text-tertiary;
 }
 
 .migration-list-item {
     display: flex;
     align-items: center;
     gap: $space-3;
-    padding: $space-3 $space-4;
+    padding: $space-2 $space-3;
     background: $bg-elevated;
     border: 1px solid $border-subtle;
     border-radius: $radius-lg;

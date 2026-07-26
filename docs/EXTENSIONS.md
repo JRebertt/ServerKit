@@ -106,6 +106,11 @@ tagged at runtime with its source `plugin` slug so the frontend can resolve
     { "label": "Git", "path": "/git", "category": "Pages", "keywords": "repos deploy" }
   ],
   "widgets": [ { "slot": "dashboard.top", "component": "GitStatusWidget" } ],
+  "dashboard_widgets": [
+    { "id": "git-activity", "name": "Git activity", "component": "GitActivityWidget",
+      "category": "Operations", "description": "Recent pushes across repositories",
+      "w": 4, "h": 3, "min": [3, 2], "default_cfg": { "limit": 6 } }
+  ],
   "layouts": [ { "id": "my-fullscreen", "component": "MyLayout" } ],
   "tabs": [
     { "group": "files", "to": "/ftp", "label": "FTP Server", "icon": "<rect …/>" }
@@ -123,7 +128,8 @@ tagged at runtime with its source `plugin` slug so the frontend can resolve
 | `routes` | `{path,component,layout?,group?}` | `component` = a named export of the plugin's `index.{js,jsx}`. `layout`: `padded` (default) / `full` / `bare` / a custom layout id. `group` nests the route inside a core tab group instead — see [Tab-group contributions](#tab-group-contributions). |
 | `page_titles` | `{ "/path": "Title" }` | Sets `document.title`. |
 | `command_palette` | `{label,path,category,keywords}` | `category` defaults to `Extensions`. |
-| `widgets` | `{slot,component}` | Slots: `global` (renders inside DashboardLayout), plus the enrich-core slots (`dashboard.top`, `service.detail.tab`, `domain.drawer.panel`). |
+| `widgets` | `{slot,component}` | Slots: `global` (renders inside DashboardLayout), plus the enrich-core slots (`dashboard.top`, `service.detail.tab`, `domain.drawer.panel`). Fixed position — the host decides where it renders. |
+| `dashboard_widgets` | `{id,name,component,icon?,category?,description?,w?,h?,min?,default_cfg?}` | Registers a **placeable** widget type in the dashboard widget library. The user adds, moves, resizes and configures instances on their own boards. `category`: Metrics/Inventory/Operations/Utility (defaults to `Extensions`). `w`/`h` = default span in a 12-column grid; `min` = `[minW,minH]`. The component receives `{ widget, ctx }` — see [Dashboard widgets](#dashboard-widgets). |
 | `layouts` | `{id,component}` | Custom wrappers; the component must render `<Outlet/>`. Built-in ids `padded`/`full`/`bare` are reserved. |
 | `tabs` | `{group,to,label,icon?,end?,order?}` | Adds a tab to a core-owned tab group. `group` = the group id (`files` / `servers` / `monitoring`). See [Tab-group contributions](#tab-group-contributions). |
 | `ai` | `{suggested_prompts,tool_renderers}` | See [AI](#extending-the-ai-assistant). |
@@ -135,6 +141,55 @@ tagged at runtime with its source `plugin` slug so the frontend can resolve
 - `bare` — **outside** `DashboardLayout` (no sidebar), under the auth guard —
   fullscreen authenticated pages.
 - `<custom-id>` — wrapped in a `layouts`-contributed component.
+
+### Dashboard widgets
+
+The dashboard is a 12-column grid of user-placed widgets. `dashboard_widgets`
+registers a widget **type** so it appears in the widget library and users can
+drop instances onto their own boards.
+
+Don't confuse the two widget surfaces:
+
+| | `widgets` | `dashboard_widgets` |
+|---|---|---|
+| Where it renders | a fixed host slot you name | anywhere the user drags it |
+| Who decides position | the host | the user |
+| Instances | one per slot | many, each independently configured |
+| Use it to | enrich an existing page | offer a new building block |
+
+```jsonc
+"dashboard_widgets": [
+  { "id": "git-activity",
+    "name": "Git activity",
+    "component": "GitActivityWidget",   // named export of your index module
+    "category": "Operations",           // Metrics|Inventory|Operations|Utility
+    "description": "Recent pushes across repositories",
+    "w": 4, "h": 3, "min": [3, 2],      // default span / minimum span
+    "default_cfg": { "limit": 6 } }
+]
+```
+
+Ids are namespaced by the panel as `<plugin-slug>:<id>`, so two extensions can
+both ship a `activity` widget without colliding.
+
+Your component receives two props:
+
+```jsx
+export function GitActivityWidget({ widget, ctx }) {
+  // widget.cfg — this instance's config, seeded from default_cfg
+  // widget.w / widget.h — its current span, if you want to adapt density
+  // ctx.range   — '1h' | '6h' | '24h' | '7d' | '30d' (the board's time range)
+  // ctx.tick    — increments on each refresh; put it in your effect deps
+  // ctx.serverVar — the board's selected server ('local' or a server id)
+  // ctx.isAdmin, ctx.navigate
+  return <div className="skw-list">…</div>;
+}
+```
+
+Render into the space you're given: the frame's header, menu and resize handle
+are the host's. A widget that throws is caught and replaced with an error tile
+rather than taking the board down, but handle your own loading and empty states
+— every core widget does.
 
 ### Tab-group contributions
 
@@ -281,10 +336,54 @@ def list_things():
 | `notify` | Notifications SDK (`notify.send(event, to, data)`). |
 | `jobs` | Jobs SDK (schedule/enqueue background work). |
 | `sockets` | Register a status-guarded Socket.IO namespace (`/ext/<slug>`). |
+| `store` | Per-plugin key/value storage — state without a model and a migration. |
+| `deploys` | Register a deployment kind; get the Deploy Console, live logs and retry. |
+| `backups` | Register a backup kind; get policies, retention, restore and the Protection panel. |
+| `doctor` | Register a health check; it appears on the doctor page, repair button and all. |
+| `search` | Register searchable entities; they appear in the command palette. |
+| `agents` | Run a command on a managed server (gated by `agent.command:<action>`). |
 | `require_permission(slug, cap)` | Capability gate — raises `PermissionDenied` if `cap` isn't declared in `permissions`. |
 | `panel_version()` | The panel's version string (for in-plugin compat checks). |
 
 Errors follow the core convention: `return jsonify({'error': 'message'}), status`.
+
+### Contributing to panel surfaces
+
+Six of those surfaces work the same way: you register behaviour, the panel owns
+the UI, the persistence and the error handling. Nothing on the frontend needs to
+change for your contribution to appear.
+
+```python
+from app.plugins_sdk import store, deploys, backups, doctor, search, agents
+
+# State, without adding a model + migration to core.
+mine = store.for_plugin('serverkit-minecraft')
+mine.set('world:1:seed', 8675309)
+
+# Long-running work that someone will want to watch → the Deploy Console.
+deploys.register('minecraft.restart', restart_handler)
+deploys.start('minecraft.restart', steps=['Warn players', 'Save', 'Restart'],
+              plan={'title': 'Restarting Overworld'})
+
+# Something worth backing up → policies, schedules, retention, restore.
+backups.register('minecraft.world', resolve=resolve, execute=execute, restore=restore)
+
+# "Is my thing healthy?" → the doctor page, with a working Repair button.
+doctor.register('minecraft', check_worlds, repair=back_up_stale)
+
+# Your objects → the command palette. Scope rows to query.user yourself.
+search.register('minecraft.world', find_worlds)
+
+# The fleet. Declare agent.command:<action> in your manifest first.
+agents.for_plugin('serverkit-minecraft').run(server_id, 'systemd:restart',
+                                             {'unit': 'minecraft'})
+```
+
+Namespace whatever you register after your plugin (`minecraft.world`) — bare
+names belong to core and are refused. Each registry's module docstring is the
+detailed contract; the shapes they hand back are normalised and capped by the
+panel, so a malformed contribution degrades rather than breaking the surface it
+appears on.
 
 ### Blueprint registration & the disable guard
 

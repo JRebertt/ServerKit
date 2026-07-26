@@ -9,7 +9,7 @@
 // outbound relay (smarthost), SpamAssassin, webmail, and the mail queue.
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    Mail, RefreshCw, Plus, Trash2, ShieldCheck, Server, Globe, Users,
+    RefreshCw, Plus, Trash2, ShieldCheck, Server, Globe, Users,
     Send, Filter, Inbox, ExternalLink, CheckCircle2, XCircle, HelpCircle, Search,
 } from 'lucide-react';
 import api from '../services/api';
@@ -111,9 +111,7 @@ export default function Email() {
     return (
         <>
             <PageTopbar
-                icon={<Mail size={18} />}
-                title="Email Server"
-                meta="Postfix / Dovecot, domains, accounts, DKIM/SPF/DMARC"
+                navLabel="Email Server"
                 tabs={tabs}
                 actions={(
                     <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>

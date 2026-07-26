@@ -15,6 +15,10 @@ import { formatCompact, formatFull } from '../../utils/formatNumber';
 // `compact` opts a numeric tile into space-tight formatting: a value ≥ 1000 is
 // rendered compact (107814 → "107.8K") with the exact grouped number as the
 // hover title. Non-numeric values (or values under 1000) render verbatim.
+// `spark` takes a chart node (Sparkline / AreaChart) and bleeds it to the
+// tile's edges along the bottom — the design mock's `.kpi-spark`. Passing it is
+// what turns a bare stat into a trend tile; tiles without a series simply omit
+// it and keep the same geometry, so a row can mix both.
 export function MetricCard({
     icon,
     tone,
@@ -24,6 +28,7 @@ export function MetricCard({
     label,
     trend,
     trendDir = 'flat',
+    spark,
     onClick,
     compact = false,
     className,
@@ -60,6 +65,7 @@ export function MetricCard({
             </div>
             {label && <div className="sk-kpi__label">{label}</div>}
             {children}
+            {spark && <div className="sk-kpi__spark">{spark}</div>}
         </>
     );
 

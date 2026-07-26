@@ -1,0 +1,82 @@
+id: mysql
+name: MySQL
+version: "8.4"
+description: The most widely deployed open-source relational database, with InnoDB storage and mature replication
+icon: https://serverkit.ai/imgs/template-icons/mysql.svg
+categories:
+  - database
+  - sql
+website: https://www.mysql.com
+documentation: https://dev.mysql.com/doc/
+
+engine:
+  family: Relational
+  protocol: mysql
+  default_port: 3308
+  admin_user: root
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: tables
+  client: mysql
+  data_path: /var/lib/mysql
+  version_var: IMAGE_TAG
+  versions:
+    - "8.4"
+    - "8.0"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "8.4"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    # 3306 is the host MySQL, 3307 the MariaDB template -- start above both.
+    default: "3308"
+    hidden: false
+    description: Host port to publish MySQL on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the MySQL root user
+  - name: DB_NAME
+    type: string
+    default: app
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      image: mysql:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:3306"
+      environment:
+        # MYSQL_ROOT_PASSWORD is required; the alternatives
+        # (MYSQL_ALLOW_EMPTY_PASSWORD / MYSQL_RANDOM_ROOT_PASSWORD) are exactly
+        # what we do NOT want for a managed engine.
+        MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+        MYSQL_DATABASE: "${DB_NAME}"
+      volumes:
+        - mysql-data:/var/lib/mysql
+
+  volumes:
+    mysql-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: mysql
+    description: MySQL wire protocol
+
+requirements:
+  memory: 512MB
+  storage: 5GB

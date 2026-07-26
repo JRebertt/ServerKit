@@ -20,6 +20,49 @@ awaiting a stable release:
 
 ### Added
 
+- **Deploy Activity is now a live feed, not a table.** Runs group into Queued /
+  Today / Earlier, each row showing the service, what was deployed (commit,
+  image, or template) and why (push, webhook, manual), a per-step pipeline bar,
+  target server, duration, and — on failures — the error inline. Status filters
+  carry live counts, and a search box in the top bar narrows by service, source,
+  or server.
+
+- **Deploy Console pipeline strip.** The vertical step checklist became a
+  horizontal strip above the log, with each step's bar sized to its share of the
+  run — so where the time went is visible at a glance, and the log pane gets the
+  full page width. A run-identity line (job id, trigger, source, target, start
+  time) sits between them.
+
+- **Templates: import shortcuts and a deploy drawer.** The catalog leads with
+  the two routes no template covers — import from GitHub, or drop in a ZIP — and
+  gained a Featured / A–Z sort. Deploying a template now opens a drawer that
+  shows the subdomain the service will be published at (when a base domain is
+  configured), and a server picker listing each target's CPU and memory, so
+  placing a service on a second box is a visible choice.
+
+- **Services: card view.** The services list can switch between the dense table
+  and a card layout; the choice is remembered per browser.
+
+### Changed
+
+- **Section top bars lead with their tabs.** Pages in a tab group (Services,
+  Domains, Files, Monitoring, Security, …) no longer repeat the section name as
+  a heading — the tab strip runs flush left and the active tab names the page,
+  as the lit sidebar item already did. Entity pages (a single service, site, or
+  zone) keep their title, since there the title says *which* entity you are on.
+
+- **Test deployments (dev tool).** In development mode, Deploy Activity gains a
+  "Test deployment" action that streams a scripted deploy — success, failing
+  build, very long output, ANSI noise, or slow — through the real Deploy
+  Console pipeline, so console changes can be exercised with no Docker or
+  server. Off in production by default (`SERVERKIT_DEMO_DEPLOYS` to override).
+
+- **Deployment Activity layout fixes.** The jobs table now uses the full page
+  width — it previously sat in a half-width column beside empty space reserved
+  for a removed detail pane, which also clipped the Started column. Job kinds
+  read as plain labels ("App deploy"), loading shows skeleton rows, and the
+  Deploy Console log pane now fills the viewport height.
+
 - **Themes — pick a color theme, or build and share your own.** Settings →
   Appearance now has a Theme Gallery: swap the whole panel's palette instantly
   with one click — 17 built-in themes, from Paper, Nord Deep, Gruvbox, Phosphor

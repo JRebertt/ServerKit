@@ -40,6 +40,10 @@ volumes:
     path: /vault/logs
     description: Vault logs
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     vault:

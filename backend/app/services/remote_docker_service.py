@@ -481,12 +481,14 @@ class RemoteDockerService:
 
         Returns servers that are online and have Docker permissions.
         """
-        # Always include local server
+        # Always include local server. Its capacity is read live rather than
+        # from the Server table — there is no Server row for the panel host.
         servers = [{
             'id': 'local',
             'name': 'Local (this server)',
             'status': 'online',
-            'is_local': True
+            'is_local': True,
+            **RemoteDockerService._local_capacity(),
         }]
 
         # Get remote servers
@@ -518,9 +520,30 @@ class RemoteDockerService:
                 # reports it connects) — preferred over installer conventions.
                 'agent_install_dir': server.agent_install_dir,
                 'agent_config_dir': server.agent_config_dir,
+                # Capacity, so placement UIs (the template deploy drawer) can
+                # show what a target actually has before you pick it. Null until
+                # an agent reports system info.
+                'cpu_cores': server.cpu_cores,
+                'total_memory': server.total_memory,
+                'total_disk': server.total_disk,
             })
 
         return servers
+
+    @staticmethod
+    def _local_capacity() -> Dict[str, Any]:
+        """Best-effort CPU/RAM/disk for the panel host. Absent psutil (or on a
+        platform where a probe raises) the keys come back null and capacity is
+        simply not shown — never a hard failure of the server list."""
+        capacity = {'cpu_cores': None, 'total_memory': None, 'total_disk': None}
+        try:
+            import psutil
+            capacity['cpu_cores'] = psutil.cpu_count(logical=True)
+            capacity['total_memory'] = psutil.virtual_memory().total
+            capacity['total_disk'] = psutil.disk_usage('/').total
+        except Exception:
+            pass
+        return capacity
 
     # ==================== Docker Compose ====================
 

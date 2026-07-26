@@ -1,3 +1,10 @@
+/* eslint-disable no-restricted-syntax --
+ * The style guide demonstrates the raw elements and legacy classes that the
+ * design-system rules exist to discourage — showing a bare <button> next to the
+ * shared <Button> is the entire point of the page. Left un-suppressed it
+ * contributed 165 of ~950 no-restricted-syntax warnings, i.e. one file hiding
+ * the real drift in every other file behind it.
+ */
 import { useState } from 'react';
 import useTabParam from '../hooks/useTabParam';
 import { useLogsDrawer } from '../contexts/LogsDrawerContext';
@@ -14,6 +21,7 @@ import Modal from '../components/Modal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import { PageSkeleton, PAGE_SKELETON_VARIANTS } from '../components/PageSkeleton';
 import { Spinner } from '../components/Spinner';
 import { StatCard, StatsGrid } from '../components/StatCard';
 import { DangerZone } from '../components/DangerZone';
@@ -964,6 +972,21 @@ export default function StyleGuide() {
 
                         <SectionTitle title="Spinner Sizes (standalone)" />
                         <p className="text-sm text-tertiary mb-2">Use Spinner directly only inside buttons or inline indicators.</p>
+
+                        <SectionTitle title="Loading skeleton archetypes" />
+                        <p className="text-sm text-tertiary mb-2">
+                            A skeleton should predict the layout that is about to arrive. Pick the
+                            archetype matching the page shape via
+                            {' '}<code>&lt;EmptyState loading loadingVariant=&quot;table&quot; /&gt;</code>, or render
+                            {' '}<code>&lt;PageSkeleton /&gt;</code> directly. For a pixel-exact skeleton of one
+                            region, capture bones instead (<code>npm run capture:skeletons</code>).
+                        </p>
+                        {PAGE_SKELETON_VARIANTS.map(variant => (
+                            <div key={variant} className="sk-gallery">
+                                <div className="sk-gallery__name">{variant}</div>
+                                <PageSkeleton variant={variant} />
+                            </div>
+                        ))}
                     </div>
                 )}
 

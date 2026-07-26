@@ -121,7 +121,7 @@ export default function Webhooks() {
         return (
             <div className="page-container secrets-page">
                 <PageTopbar icon={<Webhook size={18} />} title="Webhooks" />
-                <EmptyState loading title="Loading webhooks..." />
+                <EmptyState loading loadingVariant="table" title="Loading webhooks..." />
             </div>
         );
     }

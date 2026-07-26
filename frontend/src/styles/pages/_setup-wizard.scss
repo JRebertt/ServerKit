@@ -348,6 +348,82 @@
         font-weight: $font-weight-medium;
         font-size: $font-size-sm;
     }
+
+    // Sidebar-profile row: label, item count, and the "Change" toggle that
+    // expands the preset picker inline.
+    .summary-value--action {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+    }
+
+    .summary-value-note {
+        color: $text-tertiary;
+        font-weight: $font-weight-normal;
+    }
+}
+
+.summary-change-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: $primary-color;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.summary-preset-picker {
+    margin-top: $space-3;
+}
+
+.summary-preset-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: $space-2;
+    margin-top: $space-3;
+}
+
+.summary-preset-card {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+    text-align: left;
+    padding: $space-3;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    background: $bg-card;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+        border-color: $primary-color;
+    }
+
+    &.active {
+        border-color: $primary-color;
+        background: fade($accent-primary-raw, 8%);
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+        color: $text-primary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+    }
+
+    &__desc {
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: 1.4;
+    }
 }
 
 .summary-tags {

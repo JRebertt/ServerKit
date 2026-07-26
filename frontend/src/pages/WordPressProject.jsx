@@ -158,14 +158,17 @@ const WordPressProject = () => {
     }, []);
 
     const handleDoPromote = useCallback(async (config) => {
-        toast.info('Starting promotion...', { duration: 3000 });
         try {
-            await wordpressApi.promoteEnvironment(id, config);
+            const res = await wordpressApi.promoteEnvironment(id, config);
             setPromoteModal(null);
+            // A promotion is a deployment now: open its console, where the
+            // steps, live log and retry live.
+            if (res?.job_id) navigate(`/deployments/${res.job_id}`);
+            else toast.info('Promotion queued');
         } catch (err) {
             toast.error(err.message || 'Promotion failed');
         }
-    }, [id, toast]);
+    }, [id, navigate, toast]);
 
     const handleSync = useCallback((env) => {
         setSyncModal({ environment: env });
@@ -398,7 +401,7 @@ const WordPressProject = () => {
     }, [id, toast]);
 
     if (loading) {
-        return <EmptyState loading size="lg" title="Loading project pipeline" />;
+        return <EmptyState loading loadingVariant="detail" size="lg" title="Loading project pipeline" />;
     }
 
     if (!pipeline) {

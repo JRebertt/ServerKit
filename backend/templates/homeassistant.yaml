@@ -30,6 +30,10 @@ volumes:
     path: /config
     description: Home Assistant configuration
 
+requirements:
+  memory: 1GB
+  storage: 5GB
+
 compose:
   services:
     homeassistant:

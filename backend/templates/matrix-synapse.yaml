@@ -37,6 +37,10 @@ volumes:
     path: /data
     description: Synapse data
 
+requirements:
+  memory: 2GB
+  storage: 10GB
+
 compose:
   services:
     synapse:

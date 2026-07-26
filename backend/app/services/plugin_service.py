@@ -343,6 +343,7 @@ _REQUIRED_CONTRIB_KEYS = {
     'tabs': ('group', 'to', 'label'),
     'command_palette': ('label', 'path'),
     'widgets': ('slot', 'component'),
+    'dashboard_widgets': ('id', 'name', 'component'),
     'layouts': ('id', 'component'),
 }
 
@@ -866,17 +867,24 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
                         f"File saved to {req_out} for manual review."
                     )
 
-        # Also write the manifest into the backend plugin dir for runtime access
+        # Also write the manifest into the backend plugin dir for runtime access.
+        # The trailing newline matters: these manifests are tracked files that
+        # scripts/new-extension.mjs and scripts/sync-builtin-frontends.mjs also
+        # write, and both append one. json.dump does not, so without it every
+        # install rewrote the file with the newline stripped and left a dirty
+        # working tree whose diff contained no actual change.
         if has_backend:
             manifest_out = os.path.join(backend_dest, 'plugin.json')
             with open(manifest_out, 'w') as f:
                 json.dump(manifest, f, indent=2)
+                f.write('\n')
 
         # Also write manifest to frontend dir
         if has_frontend:
             manifest_out = os.path.join(frontend_dest, 'plugin.json')
             with open(manifest_out, 'w') as f:
                 json.dump(manifest, f, indent=2)
+                f.write('\n')
 
         # Determine blueprint info from manifest
         entry_point = manifest.get('entry_point', '')
@@ -1129,8 +1137,11 @@ def _regenerate_frontend_manifest():
             entry['styles'] = [f'plugins/{p.slug}/styles/{s}' for s in styles]
         entries.append(entry)
 
+    # Trailing newline for the same reason as the per-plugin manifests above:
+    # scripts/sync-builtin-frontends.mjs writes this same tracked file with one.
     with open(manifest_path, 'w') as f:
         json.dump({'plugins': entries}, f, indent=2)
+        f.write('\n')
 
     logger.info(f'Frontend plugin manifest regenerated with {len(entries)} plugin(s)')
 
@@ -1296,12 +1307,19 @@ def uninstall_plugin(plugin_id, purge=False):
     # purge data. Best effort — never block teardown.
     _run_lifecycle_hook(plugin, manifest, 'uninstall', purge=purge)
 
-    # Tear down declarative schedules, and (only on purge) the data tables.
+    # Tear down declarative schedules, and (only on purge) the data tables and
+    # the plugin's key/value store. Store rows follow the same rule as the
+    # ext_* tables: an ordinary uninstall leaves them, so a reinstall finds its
+    # state where it left it, and "uninstall and delete data" removes them.
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.remove_jobs(plugin, manifest)
         if purge:
             extension_lifecycle.purge_models(plugin)
+            from app.plugins_sdk.store_sdk import purge as purge_store
+            removed = purge_store(slug)
+            if removed:
+                logger.info(f'Purged {removed} store row(s) for {slug}')
     except Exception as e:
         logger.warning(f'Extension lifecycle teardown for {slug}: {e}')
 

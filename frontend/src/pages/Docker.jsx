@@ -164,7 +164,7 @@ const Docker = () => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Checking Docker status..." />;
+        return <EmptyState loading loadingVariant="table" title="Checking Docker status..." />;
     }
 
     if (!dockerStatus?.installed) {

@@ -34,6 +34,10 @@ volumes:
     path: /backups
     description: Local backup destination
 
+requirements:
+  memory: 512MB
+  storage: 5GB
+
 compose:
   services:
     duplicati:

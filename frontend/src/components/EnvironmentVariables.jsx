@@ -260,7 +260,7 @@ const EnvironmentVariables = ({ appId }) => {
         : envVars;
 
     if (loading) {
-        return <EmptyState loading title="Loading environment variables..." />;
+        return <EmptyState loading loadingVariant="form" title="Loading environment variables..." />;
     }
 
     return (

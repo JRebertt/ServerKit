@@ -202,6 +202,60 @@
     // Count subtitle accent ("M running") in the PageTopbar meta slot.
     &__meta-running { color: var(--green); }
 
+    // Table/cards switch — only rendered by pages that pass a card renderer to
+    // ResourceListPage. It claims the free space so it stays right-aligned on
+    // pages whose search lives in the top bar instead (Services); where a
+    // toolbar search IS present that element already claims it, so the switch
+    // gives the margin back and simply trails it.
+    &__viewswitch {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+        margin-left: auto;
+        padding: 3px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+
+        button {
+            display: grid;
+            place-items: center;
+            padding: 6px 9px;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-faint);
+            cursor: pointer;
+            transition: background 0.14s, color 0.14s;
+
+            &:hover { color: var(--text); }
+            &.is-active { background: var(--surface-3); color: var(--text); }
+        }
+    }
+
+    &__search + &__viewswitch { margin-left: 0; }
+
+    // Card layout for the same rows the table shows.
+    &__cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+    }
+
+    &__cardtile {
+        display: flex;
+        flex-direction: column;
+        padding: $space-4;
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: border-color 0.14s, transform 0.14s;
+
+        &:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+        &.is-selected { border-color: var(--accent-dim); background: var(--accent-bg-soft); }
+    }
+
     // bulk-select bar (demo's bulkbar) — appears once any row is checked
     &__bulkbar {
         display: flex;
@@ -3518,5 +3572,35 @@
         border: 1px solid var(--border-soft);
         color: var(--text);
         word-break: break-all;
+    }
+}
+
+// Pipelines list — the few cells the shared list does not already style.
+.wp-projects-page {
+    &__envs {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    &__envcount {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: $space-1;
+        color: $text-secondary;
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+
+    &__git {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+
+        svg { color: $text-tertiary; }
     }
 }

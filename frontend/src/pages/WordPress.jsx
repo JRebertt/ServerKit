@@ -7,7 +7,7 @@ import ResourceGate from '../components/ResourceGate';
 import Spinner from '../components/Spinner';
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import { Globe, ChevronRight } from 'lucide-react';
-import { Pill, ServiceTile } from '@/components/ds';
+import { Pill, ServiceTile, Drawer } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
@@ -529,15 +529,21 @@ function WordPress() {
                         </div>
             </Modal>
 
-            {/* Create Site Modal */}
-            <Modal
+            {/* Create Site — the same drawer shape the templates catalog uses, so
+                creating a WordPress site and deploying a template feel like one
+                product rather than two. */}
+            <Drawer
                 open={showCreateModal}
-                onClose={() => !createLoading && setShowCreateModal(false)}
+                onOpenChange={(next) => { if (!next && !createLoading) setShowCreateModal(false); }}
                 title="Create WordPress Site"
-                size="lg"
+                subtitle="WordPress + MySQL on an isolated Docker network"
+                icon={<Globe size={20} />}
+                width={560}
+                className="sk-formdrawer"
             >
-                <div className="modal-body">
-                            <div className="install-warning">
+                <div className="sk-formdrawer__form">
+                    <div className="sk-formdrawer__body">
+                            <div className="sk-formdrawer__callout">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                                 <div>
                                     <strong>This will create:</strong>
@@ -549,7 +555,7 @@ function WordPress() {
                                 </div>
                             </div>
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <Label>
                                     Site Name <span className="required">*</span>
                                 </Label>
@@ -560,11 +566,11 @@ function WordPress() {
                                     placeholder="my-wordpress-site"
                                     disabled={createLoading}
                                 />
-                                <span className="form-hint">Used as the Docker project name. Letters, numbers, and hyphens only.</span>
+                                <span className="sk-formdrawer__hint">Used as the Docker project name. Letters, numbers, and hyphens only.</span>
                             </div>
 
                             {baseDomains.length > 0 ? (
-                                <div className="form-group">
+                                <div className="sk-formdrawer__field">
                                     <Label>Publish under</Label>
                                     <select
                                         value={createForm.baseDomain}
@@ -577,20 +583,20 @@ function WordPress() {
                                             </option>
                                         ))}
                                     </select>
-                                    <span className="form-hint">
+                                    <span className="sk-formdrawer__hint">
                                         {createForm.name
                                             ? <>The site will be live at <code>{slugifyPreview(createForm.name)}.{createForm.baseDomain}</code>.</>
                                             : <>Which base domain to publish this site under.</>}
                                     </span>
                                 </div>
                             ) : (
-                                <div className="form-group">
+                                <div className="sk-formdrawer__field">
                                     <Label>Publish under</Label>
-                                    <span className="form-hint">No base domain configured — the site will be reachable at <code>localhost:&lt;port&gt;</code>. Add a managed-sites base domain in Settings to publish it at a real subdomain.</span>
+                                    <span className="sk-formdrawer__hint">No base domain configured — the site will be reachable at <code>localhost:&lt;port&gt;</code>. Add a managed-sites base domain in Settings to publish it at a real subdomain.</span>
                                 </div>
                             )}
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <Label>Custom Domain</Label>
                                 <Input
                                     type="text"
@@ -599,10 +605,10 @@ function WordPress() {
                                     placeholder="example.com"
                                     disabled={createLoading}
                                 />
-                                <span className="form-hint">Optional. Overrides the base domain above — the site is created and migrated to this domain.</span>
+                                <span className="sk-formdrawer__hint">Optional. Overrides the base domain above — the site is created and migrated to this domain.</span>
                             </div>
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <Label>Admin Email</Label>
                                 <Input
                                     type="email"
@@ -613,7 +619,7 @@ function WordPress() {
                                 />
                             </div>
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <Label>PHP Version</Label>
                                 <select
                                     value={createForm.phpVersion}
@@ -625,10 +631,10 @@ function WordPress() {
                                     <option value="8.2">PHP 8.2</option>
                                     <option value="8.3">PHP 8.3</option>
                                 </select>
-                                <span className="form-hint">Baked into the container image at creation. Changeable later from the PHP tab.</span>
+                                <span className="sk-formdrawer__hint">Baked into the container image at creation. Changeable later from the PHP tab.</span>
                             </div>
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
@@ -638,10 +644,10 @@ function WordPress() {
                                     />
                                     Enable full-page cache
                                 </label>
-                                <span className="form-hint">Disk page cache with WordPress-aware skip rules (admin, login, cart, checkout).</span>
+                                <span className="sk-formdrawer__hint">Disk page cache with WordPress-aware skip rules (admin, login, cart, checkout).</span>
                             </div>
 
-                            <div className="form-group">
+                            <div className="sk-formdrawer__field">
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
@@ -651,25 +657,26 @@ function WordPress() {
                                     />
                                     Enable Redis object cache
                                 </label>
-                                <span className="form-hint">Uses the bundled Redis container with the redis-cache drop-in.</span>
+                                <span className="sk-formdrawer__hint">Uses the bundled Redis container with the redis-cache drop-in.</span>
                             </div>
-                        </div>
-                        <div className="modal-footer">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowCreateModal(false)}
-                                disabled={createLoading}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleCreate}
-                                disabled={createLoading || !createForm.name}
-                            >
-                                {createLoading ? <><Spinner size="sm" /> Creating...</> : 'Create Site'}
-                            </Button>
-                        </div>
-            </Modal>
+                    </div>
+                    <div className="sk-formdrawer__foot">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowCreateModal(false)}
+                            disabled={createLoading}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleCreate}
+                            disabled={createLoading || !createForm.name}
+                        >
+                            {createLoading ? <><Spinner size="sm" /> Creating...</> : 'Create Site'}
+                        </Button>
+                    </div>
+                </div>
+            </Drawer>
         </ResourceListPage>
     );
 }

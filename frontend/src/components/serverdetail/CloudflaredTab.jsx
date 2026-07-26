@@ -212,7 +212,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading tunnels" />;
+        return <EmptyState loading loadingVariant="table" title="Loading tunnels" />;
     }
 
     // Status banner — three distinct states the UI cares about:

@@ -1,0 +1,74 @@
+id: redis
+name: Redis
+version: "7.2"
+description: In-memory key-value store used for cache, queues and ephemeral state
+icon: https://serverkit.ai/imgs/template-icons/redis.svg
+categories:
+  - database
+  - cache
+website: https://redis.io
+documentation: https://redis.io/docs/
+
+engine:
+  family: Key-value
+  protocol: redis
+  default_port: 6379
+  admin_user: default
+  admin_password_var: DB_PASSWORD
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: keys
+  client: redis-cli
+  data_path: /data
+  version_var: IMAGE_TAG
+  versions:
+    - "7.2"
+    - "7.0"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "7.2"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "6379"
+    hidden: false
+    description: Host port to publish Redis on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password required by AUTH (requirepass)
+
+compose:
+  services:
+    app:
+      image: redis:${IMAGE_TAG}-alpine
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:6379"
+      # The official Redis image has NO password environment variable
+      # (REDIS_PASSWORD is a Bitnami convention and is ignored here) --
+      # authentication is configured on the server command line.
+      command: redis-server --requirepass "${DB_PASSWORD}" --appendonly yes
+      volumes:
+        - redis-data:/data
+
+  volumes:
+    redis-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: redis
+    description: RESP protocol
+
+requirements:
+  memory: 256MB
+  storage: 1GB

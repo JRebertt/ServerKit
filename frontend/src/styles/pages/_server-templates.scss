@@ -3,13 +3,19 @@
 .server-templates-page {
     .compliance-bar {
         margin: $space-6 0;
-        padding: $space-6;
+        padding: $space-4 $space-6;
         background: $bg-card;
         border-radius: $radius-lg;
         border: 1px solid $border-default;
 
         .sk-kpiband-wrap {
             margin-bottom: $space-4;
+        }
+
+        &__empty {
+            margin: 0;
+            font-size: 0.85rem;
+            color: $text-tertiary;
         }
 
         &__progress {

@@ -52,10 +52,27 @@ const ONLY = (process.env.SK_ONLY || '').split(',').map((s) => s.trim()).filter(
 
 // Regions to snapshot. `selector` is the element whose subtree becomes bones;
 // `waitFor` gates the capture until the real (non-skeleton) content has rendered.
+// A capture is only as good as the data behind it: `waitFor` must gate on real
+// content, never on `.empty-state`. Bones measured from an empty page bake in
+// an empty layout and would predict "nothing is coming" — worse than the
+// generic placeholder. So a page belongs here only once the dev database
+// reliably has rows for it; everything else is served by the PageSkeleton
+// archetypes (components/PageSkeleton.jsx), which need no data at all.
 const TARGETS = [
     { key: 'ssl', path: '/ssl', selector: '.ssl-page', waitFor: '.ssl-status-bar' },
-    { key: 'wordpress-list', path: '/wordpress', selector: '.wordpress-page', waitFor: '.sk-table, .wp-sites-grid, .empty-state' },
+    { key: 'wordpress-list', path: '/wordpress', selector: '.wordpress-page', waitFor: '.sk-table, .wp-sites-grid' },
+    { key: 'services', path: '/services', selector: '.services-page', waitFor: '.sk-dtable tbody tr' },
+    { key: 'domains', path: '/domains', selector: '.domains-page', waitFor: '.sk-dtable tbody tr' },
+    // NOT captured: /templates. Its catalog grid measures ~975 bones over
+    // 5700px — a skeleton nobody scrolls, at a node count that costs more to
+    // animate than the page costs to load. Unbounded lists belong to the
+    // `cards` PageSkeleton archetype, which draws a screenful in eight nodes.
 ];
+
+// A skeleton is a hint, not a rendering of the whole page. Past this many
+// leaves the capture is measuring an unbounded list and should be an archetype
+// instead, so fail rather than bake it in.
+const MAX_BONES = 220;
 
 const log = (...a) => console.log('[bones]', ...a);
 
@@ -77,15 +94,42 @@ async function login(page) {
     await page.goto(`${BASE}/login`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     // Already authenticated? A redirect away from /login means we're in.
     if (!/\/login/.test(page.url())) return;
-    const user = page.locator('input[name="username"], input[type="text"]').first();
-    const pass = page.locator('input[type="password"]').first();
-    if (await user.count()) {
-        await user.fill(USER);
-        await pass.fill(PASS);
-        await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
-            page.locator('button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")').first().click(),
-        ]);
+
+    // Target the credential fields by id. A generic `input[type="text"]` also
+    // matches the 2FA digit boxes rendered above this form, and filling one of
+    // those silently leaves the real form empty — every target then times out
+    // waiting for page content that never loads because we are still on /login.
+    const user = page.locator('#email');
+    const pass = page.locator('#password');
+    await user.waitFor({ state: 'visible', timeout: 15000 });
+    await user.fill(USER);
+    await pass.fill(PASS);
+    await Promise.all([
+        page.waitForURL((u) => !/\/login/.test(String(u)), { timeout: 30000 }).catch(() => {}),
+        page.locator('button[type="submit"]').first().click(),
+    ]);
+
+    if (/\/login/.test(page.url())) {
+        throw new Error(
+            `login as "${USER}" failed — still on /login. Check SK_USER/SK_PASS `
+            + '(the dev default admin/admin only exists on a freshly seeded database).',
+        );
+    }
+
+    // Pin the session for the rest of the run. The API client clears both
+    // tokens from localStorage whenever any request 401s (a single admin-only
+    // endpoint returning 401 is enough), which bounced every target after the
+    // first couple to /login. Re-seeding the captured tokens before app code
+    // runs on each navigation makes the run independent of that.
+    const tokens = await page.evaluate(() => ({
+        access: localStorage.getItem('access_token'),
+        refresh: localStorage.getItem('refresh_token'),
+    }));
+    if (tokens.access) {
+        await page.context().addInitScript(({ access, refresh }) => {
+            localStorage.setItem('access_token', access);
+            if (refresh) localStorage.setItem('refresh_token', refresh);
+        }, tokens);
     }
 }
 
@@ -105,8 +149,20 @@ async function main() {
         for (const t of targets) {
             process.stdout.write(`[bones] ${t.key.padEnd(16)} `);
             try {
-                await page.goto(`${BASE}${t.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                await page.waitForSelector(t.waitFor, { timeout: 15000, state: 'visible' });
+                // Each target is a full page load, and a mid-run 401 can still
+                // bounce one to /login despite the pinned tokens. Re-auth and
+                // retry once, so a single flake doesn't cost a whole region.
+                for (let attempt = 0; ; attempt += 1) {
+                    await page.goto(`${BASE}${t.path}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    if (/\/login/.test(page.url())) await login(page);
+                    try {
+                        await page.waitForSelector(t.waitFor, { timeout: 15000, state: 'visible' });
+                        break;
+                    } catch (waitErr) {
+                        if (attempt >= 1) throw waitErr;
+                        await login(page);
+                    }
+                }
                 await page.waitForTimeout(600); // let layout settle
                 const snapshot = await page.evaluate(
                     ({ selector, key, fnSrc }) => {
@@ -118,11 +174,28 @@ async function main() {
                     { selector: t.selector, key: t.key, fnSrc: snapshotBones.toString() },
                 );
                 if (!snapshot || !snapshot.bones.length) throw new Error(`no bones captured for ${t.selector}`);
+                if (snapshot.bones.length > MAX_BONES) {
+                    throw new Error(
+                        `${snapshot.bones.length} bones over ${snapshot.height}px exceeds the ${MAX_BONES} cap — `
+                        + 'this region is an unbounded list; use a PageSkeleton archetype instead',
+                    );
+                }
                 await writeFile(path.join(OUT_DIR, `${t.key}.json`), JSON.stringify(snapshot, null, 2) + '\n');
                 console.log(`OK  (${snapshot.bones.length} bones, ${snapshot.height}px)`);
             } catch (e) {
                 failed += 1;
-                console.log(`FAIL  ${e.message}`);
+                // A bare "waitForSelector timeout" hides the usual causes —
+                // bounced to /login, route not found, or the page rendered its
+                // empty state because the dev database has no rows for it. Say
+                // which, so the fix is obvious.
+                const url = page.url();
+                let why = '';
+                try {
+                    if (/\/login/.test(url)) why = ' (bounced to /login — session lost)';
+                    else if (await page.locator('.empty-state').count()) why = ' (page rendered its empty state — no seeded data for this target)';
+                    else if (!(await page.locator(t.selector).count())) why = ` (root ${t.selector} not on the page — wrong route or class)`;
+                } catch { /* page may be gone */ }
+                console.log(`FAIL  ${e.message.split('\n')[0]}${why} [at ${url}]`);
             }
         }
     } finally {

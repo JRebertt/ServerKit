@@ -22,6 +22,12 @@ Typical plugin module:
         # ... do work, use db.session, etc ...
         return jsonify({'ok': True})
 
+Beyond the plumbing re-exported here, the SDK has surfaces a plugin
+*contributes to* — ``store`` (state without a migration), ``deploys``,
+``backups``, ``doctor``, ``search`` and ``agents``. In each case the plugin
+brings the behaviour and the panel brings the UI, the persistence and the error
+handling; see each ``*_sdk.py`` module's docstring, and docs/EXTENSIONS.md.
+
 The lifecycle hook contract (called by plugin_service when installing /
 uninstalling): a single positional arg — the InstalledPlugin row.
 
@@ -98,6 +104,18 @@ queue = QueueBusSdk()
 notify = NotifySdk()
 jobs = JobsSdk()
 
+# Surfaces imported lazily inside __getattr__ — see its docstring. Each entry
+# is name -> (module path, attribute).
+_LAZY_SURFACES = {
+    'deploys': ('app.plugins_sdk.deploys_sdk', 'deploys'),
+    'search': ('app.plugins_sdk.search_sdk', 'search'),
+    'store': ('app.plugins_sdk.store_sdk', 'store'),
+    'doctor': ('app.plugins_sdk.doctor_sdk', 'doctor'),
+    'backups': ('app.plugins_sdk.backups_sdk', 'backups'),
+    'agents': ('app.plugins_sdk.agents_sdk', 'agents'),
+}
+_lazy_cache = {}
+
 
 def panel_version():
     """The panel's version string (for compat checks inside a plugin)."""
@@ -134,9 +152,38 @@ __all__ = [
     'queue',
     'notify',
     'jobs',
+    'deploys',
+    'search',
+    'store',
+    'doctor',
+    'backups',
+    'agents',
     'permissions',
     'require_permission',
     'panel_version',
     'config',
     'sockets',
 ]
+
+
+def __getattr__(name):
+    """Lazily expose the surfaces that reach into host services.
+
+    These SDKs import services (and therefore models), while this module is
+    imported early in app setup — binding them eagerly would make plugins_sdk
+    import-order sensitive for everyone, including the plugins that never
+    contribute to any of these surfaces.
+
+    Each implementation lives in ``<name>_sdk.py``, not ``<name>.py``: a
+    submodule of the bare name would be bound as a package attribute on import
+    and shadow this accessor, handing callers the module instead of the SDK
+    instance.
+    """
+    target = _LAZY_SURFACES.get(name)
+    if target is None:
+        raise AttributeError(name)
+    if name not in _lazy_cache:
+        import importlib
+        module, attr = target
+        _lazy_cache[name] = getattr(importlib.import_module(module), attr)
+    return _lazy_cache[name]

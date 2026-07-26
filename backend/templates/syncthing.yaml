@@ -42,6 +42,10 @@ volumes:
     path: /config
     description: Syncthing configuration
 
+requirements:
+  memory: 512MB
+  storage: 10GB
+
 compose:
   services:
     syncthing:

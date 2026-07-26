@@ -152,6 +152,12 @@ class Config:
     AUTH_IP_WINDOW_MINUTES = _env_int('AUTH_IP_WINDOW_MINUTES', 15)
     AUTH_IP_BLOCK_MINUTES = _env_int('AUTH_IP_BLOCK_MINUTES', 15)
 
+    # ── Simulated deployments (plan 51.5) ───────────────────────────────
+    # Dev tool: scripted "demo" DeploymentJobs that exercise the Deploy
+    # Console through the real log/socket pipeline without Docker or a
+    # server. Off in production by default; SERVERKIT_DEMO_DEPLOYS overrides.
+    DEMO_DEPLOYS_ENABLED = _env_bool('SERVERKIT_DEMO_DEPLOYS', False)
+
     # ── Build packs ─────────────────────────────────────────────────────
     # Path to the optional nixpacks binary (used by build_service's opaque
     # nixpacks path). The transparent build-pack layer (buildpack_service)
@@ -169,6 +175,7 @@ class DevelopmentConfig(Config):
     # lvh.me resolves *.lvh.me -> 127.0.0.1, so subdomain routing works locally
     # with zero DNS setup.
     SITES_BASE_DOMAIN = os.environ.get('SITES_BASE_DOMAIN', 'lvh.me')
+    DEMO_DEPLOYS_ENABLED = _env_bool('SERVERKIT_DEMO_DEPLOYS', True)
 
     @classmethod
     def init_app(cls, app):
@@ -188,6 +195,7 @@ class TestingConfig(Config):
     # Deterministic base domain so subdomain-provisioning tests don't depend on
     # the developer's shell environment.
     SITES_BASE_DOMAIN = 'lvh.me'
+    DEMO_DEPLOYS_ENABLED = True
 
 
 class ProductionConfig(Config):

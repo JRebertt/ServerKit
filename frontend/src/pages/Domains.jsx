@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Globe, Plus, ShieldCheck, RefreshCw, Trash2, ExternalLink,
-    AlertTriangle, Clock, Lock, Search, ChevronRight,
+    AlertTriangle, Lock, Search, ChevronRight,
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { MetricCard, SegControl, Pill, Drawer, DataTable } from '@/components/ds';
+import { SegControl, SearchField, Pill, Drawer, DataTable } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
@@ -34,6 +34,7 @@ const Domains = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
     const [drawerDomain, setDrawerDomain] = useState(null);
     const [regInfo, setRegInfo] = useState(null);            // lazy registration lookup for the open drawer
     const [searchParams, setSearchParams] = useSearchParams();
@@ -259,14 +260,32 @@ const Domains = () => {
             })),
     ].sort((a, b) => a.name.localeCompare(b.name));
 
-    const sslActiveCount = domains.filter(d => d.ssl_enabled).length;
-    const expiringCount = domains.filter(d => sslState(d) === 'expiring').length;
-    const attentionCount = domains.filter(d => !d.ssl_enabled).length;
+    // Search narrows the set the filter counts are taken from, so each number
+    // always describes what a click on that segment would actually show.
+    const query = search.trim().toLowerCase();
+    const searched = query
+        ? mergedRows.filter(d => (
+            norm(d.name).includes(query)
+            || (d.registrar || '').toLowerCase().includes(query)
+            || (d.config_name || d.provider || '').toLowerCase().includes(query)
+            || (d.application_id ? getAppName(d.application_id) : '').toLowerCase().includes(query)
+        ))
+        : mergedRows;
 
-    const shown = mergedRows.filter(d => (
-        filter === 'all' ? true
-            : filter === 'ssl' ? sslState(d) === 'expiring'
-                : filter === 'issues' ? (d.source !== 'provider' && !d.ssl_enabled) : true
+    // The segmented control carries the numbers the KPI strip used to: an
+    // "Expiring SSL (2)" segment says the same thing as a tile, and is the
+    // control you'd click next anyway.
+    const isExpiring = (d) => sslState(d) === 'expiring';
+    const needsAttention = (d) => d.source !== 'provider' && !d.ssl_enabled;
+    const filterOptions = [
+        { value: 'all', label: 'All', count: searched.length },
+        { value: 'ssl', label: 'Expiring SSL', count: searched.filter(isExpiring).length },
+        { value: 'issues', label: 'Attention', count: searched.filter(needsAttention).length },
+    ];
+
+    const shown = searched.filter(d => (
+        filter === 'ssl' ? isExpiring(d)
+            : filter === 'issues' ? needsAttention(d) : true
     ));
 
     // Deep-link: /domains?open=<domain> opens that domain's drawer once data has
@@ -291,8 +310,13 @@ const Domains = () => {
             <Button size="sm" onClick={() => setShowAddModal(true)}>
                 <Plus size={15} /> Add domain
             </Button>
+            <SearchField
+                value={search}
+                onSearch={setSearch}
+                placeholder="Search domains…"
+            />
         </>,
-        [],
+        [search],
     );
 
     return (
@@ -307,7 +331,7 @@ const Domains = () => {
             )}
 
             {loading ? (
-                <EmptyState loading title="Loading domains..." />
+                <EmptyState loading loadingVariant="table" title="Loading domains..." />
             ) : mergedRows.length === 0 ? (
                 <EmptyState
                     icon={Globe}
@@ -317,23 +341,13 @@ const Domains = () => {
                 />
             ) : (
                 <div className="domains-body">
-                    <div className="dom-kpis">
-                        <MetricCard tone="accent" icon={<Globe size={16} />} value={mergedRows.length} label="Domains" />
-                        <MetricCard tone="green" icon={<Lock size={16} />} value={sslActiveCount} label="SSL active" />
-                        <MetricCard tone="amber" icon={<Clock size={16} />} value={expiringCount} label="Expiring ≤30d" />
-                        <MetricCard tone="red" icon={<AlertTriangle size={16} />} value={attentionCount} label="Needs attention" />
-                    </div>
-
+                    {/* No KPI strip: every number it carried is already on the
+                        segment you would click to act on it. */}
                     <div className="dom-listhead">
-                        <h2 className="dom-listhead__title">All domains</h2>
                         <SegControl
                             value={filter}
                             onChange={setFilter}
-                            options={[
-                                { value: 'all', label: 'All' },
-                                { value: 'ssl', label: 'Expiring SSL' },
-                                { value: 'issues', label: 'Attention' },
-                            ]}
+                            options={filterOptions}
                         />
                     </div>
 
@@ -350,7 +364,9 @@ const Domains = () => {
                     )}
 
                     {shown.length === 0 ? (
-                        <div className="dom-empty">No domains match this filter.</div>
+                        <div className="dom-empty">
+                            {query ? `No domains match “${search.trim()}”.` : 'No domains match this filter.'}
+                        </div>
                     ) : (
                         <div className="dom-card">
                             <DataTable

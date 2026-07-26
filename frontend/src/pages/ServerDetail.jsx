@@ -171,7 +171,7 @@ const ServerDetail = () => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading server details" />;
+        return <EmptyState loading loadingVariant="detail" title="Loading server details" />;
     }
 
     if (error) {

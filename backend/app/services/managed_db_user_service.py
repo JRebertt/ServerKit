@@ -13,7 +13,6 @@ the single choke-point ``_exec_sql`` so tests can stub it.
 import logging
 import re
 import secrets
-import subprocess
 from datetime import datetime
 
 from app import db
@@ -60,24 +59,14 @@ class ManagedDbUserService:
 
     @staticmethod
     def _docker_pg_execute(container_name, sql, user='postgres', password=None):
-        """psql inside a Docker container (database_service has no pg twin of
-        docker_mysql_execute, so this fills that gap here)."""
-        try:
-            cmd = ['docker', 'exec']
-            if password:
-                cmd.extend(['-e', f'PGPASSWORD={password}'])
-            cmd.extend([container_name, 'psql', '-U', user, '-d', 'postgres',
-                        '-c', sql, '-t', '-A'])
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None,
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Query timed out'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        """psql inside a Docker container.
+
+        ``database_service`` grew the pg twin of ``docker_mysql_execute``; this
+        stays as the named seam these callers use, with one implementation
+        underneath.
+        """
+        return DatabaseService.docker_pg_execute(
+            container_name, sql, database='postgres', user=user, password=password)
 
     # ── validation / quoting helpers ──
     @staticmethod

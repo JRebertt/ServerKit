@@ -44,7 +44,9 @@ def list_policies():
     query = BackupPolicy.query
     target_type = request.args.get('target_type')
     if target_type:
-        if target_type not in VALID_TARGET_TYPES:
+        from app.services import backup_kind_registry
+        if (target_type not in VALID_TARGET_TYPES
+                and not backup_kind_registry.get(target_type)):
             return jsonify({'error': f'invalid target_type {target_type!r}'}), 400
         query = query.filter_by(target_type=target_type)
     enabled = request.args.get('enabled')

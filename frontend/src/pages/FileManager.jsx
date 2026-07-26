@@ -1215,7 +1215,7 @@ function FileManager() {
                         )}
 
                         {loading ? (
-                            <EmptyState loading title="Loading files" />
+                            <EmptyState loading loadingVariant="tree" title="Loading files" />
                         ) : sortedFiltered.length === 0 ? (
                             <EmptyState
                                 icon={FolderOpen}

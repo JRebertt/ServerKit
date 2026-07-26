@@ -23,7 +23,11 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from typing import Any, Callable, Optional
 
-from prompture.agents.tools_schema import tool_from_function
+# `tool_from_function` is imported inside register() rather than here: this
+# module is reachable at import time from app/api/ai.py and app/plugins_sdk/ai.py,
+# and pulling prompture costs ~69 MB of RSS in every panel process. Registration
+# only happens once someone actually uses the assistant. See ai_service.py's
+# import note and backend/tests/test_ai_lazy_import.py.
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +112,8 @@ class AiToolRegistry:
             logger.warning("AI tool name too long, truncating: %s", qualified)
             qualified = qualified[:MAX_TOOL_NAME_LEN]
         # Derive the JSON-Schema parameters + description once, from the real signature.
+        from prompture.agents.tools_schema import tool_from_function
+
         td = tool_from_function(func, name=qualified, description=description)
         descriptor = ToolDescriptor(
             name=name,

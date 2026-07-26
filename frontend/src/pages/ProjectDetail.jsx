@@ -105,7 +105,7 @@ const ProjectDetail = () => {
     if (loading) {
         return (
             <div className="project-detail-page">
-                <EmptyState loading title="Loading project" />
+                <EmptyState loading loadingVariant="detail" title="Loading project" />
             </div>
         );
     }

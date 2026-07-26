@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { logsToText } from '@/utils/logText';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useLogsDrawer } from '../../contexts/LogsDrawerContext';
@@ -75,7 +76,7 @@ const LogsTab = ({ app }) => {
             } else {
                 data = { logs: 'Logs not available for this app type.' };
             }
-            setRawLogs(data.logs || 'No logs available');
+            setRawLogs(logsToText(data) || 'No logs available');
         } catch (err) {
             console.error('Failed to load logs:', err);
             setRawLogs('Failed to load logs');

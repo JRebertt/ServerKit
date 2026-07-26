@@ -37,6 +37,24 @@ ou o custo de plataformas gerenciadas.
 
 ---
 
+## 📊 Em Números
+
+Tudo abaixo é medido a partir deste repositório, não estimado.
+
+| | |
+|---|---|
+| **1.519** endpoints REST | distribuídos em 107 blueprints — `/api/v1/*`, com OpenAPI e Swagger UI em `/api/v1/docs` |
+| **106** templates de aplicações | incluídos no repositório, sem precisar de conta em nenhum registro |
+| **2.633** testes de backend | a suíte completa roda a cada alteração |
+| **1,75 MB** de interface web (gzip) | 65 telas, servidas do seu próprio servidor — sem CDN |
+| **~180 MB** residentes | o painel inteiro, um único processo — convive folgadamente com suas apps num VPS de 1 GB |
+| **501 MB** de imagem de contêiner | ou instale direto no host; Docker é opcional para o painel |
+| **$0** | Licença MIT. Sem planos, sem limite de usuários, sem upsell — e nada é enviado para fora. |
+
+Auto-hospedado e nativo em Docker, em hardware que você já paga.
+
+---
+
 ## 🚀 Início Rápido
 
 > ⏱️ Pronto para usar em menos de 2 minutos
@@ -78,11 +96,14 @@ Consulte o [Guia de Instalação](INSTALLATION.md) para instruções passo a pas
 
 | | Mínimo | Recomendado |
 |---|---------|-------------|
-| **SO** | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+| **SO** | Ubuntu 22.04+ · Debian 12+ · Fedora · RHEL/Rocky/AlmaLinux 9+ | Ubuntu 24.04 LTS |
+| **Arquitetura** | x86_64 · ARM64 | x86_64 · ARM64 |
 | **CPU** | 1 vCPU | 2+ vCPU |
 | **RAM** | 1 GB | 2+ GB |
 | **Disco** | 10 GB | 20+ GB |
-| **Docker** | 24.0+ | Mais recente |
+| **Docker** | 24.0+ (opcional para o painel) | Mais recente |
+
+> O painel em si usa apenas ~180 MB de RAM e ~500 MB de disco — o resto é margem para os seus apps. Funciona bem num VPS de 1 GB, num notebook antigo ou num Raspberry Pi (ARM64): feito tanto para homelabs quanto para produção.
 
 ---
 

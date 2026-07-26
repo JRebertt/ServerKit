@@ -432,6 +432,34 @@ browser_backend_host() {
     printf 'localhost'
 }
 
+# Interface Vite binds to. Under WSL the browser is on Windows, a different
+# host: binding WSL's own loopback leaves the app reachable only if WSL2's
+# localhost forwarding happens to be up, and when it silently stops the app is
+# unreachable from Windows while the backend (already bound to 0.0.0.0) keeps
+# answering — the confusing half-broken state this guards against. Bind all
+# interfaces so the WSL IP always works. WSL networking is NAT'd behind the
+# Windows host, so this does not put the dev server on the LAN.
+frontend_bind_host() {
+    if [ -n "${SERVERKIT_FRONTEND_BIND:-}" ]; then
+        printf '%s' "$SERVERKIT_FRONTEND_BIND"
+        return
+    fi
+    if is_wsl; then
+        printf '0.0.0.0'
+        return
+    fi
+    printf '127.0.0.1'
+}
+
+# Host to actually type into the browser for the frontend.
+browser_frontend_host() {
+    if is_wsl; then
+        hostname -I 2>/dev/null | awk '{print $1}'
+        return
+    fi
+    printf 'localhost'
+}
+
 new_dev_settings() {
     local backend_may_already_be_running="${1:-0}"
     local include_ngrok_origins="${2:-0}"
@@ -453,8 +481,12 @@ new_dev_settings() {
     backend_host="$(browser_backend_host)"
     [ -n "$backend_host" ] || backend_host="localhost"
 
+    local frontend_host
+    frontend_host="$(browser_frontend_host)"
+    [ -n "$frontend_host" ] || frontend_host="localhost"
+
     BACKEND_URL="http://$backend_host:$BACKEND_ACTUAL_PORT"
-    FRONTEND_URL="http://localhost:$FRONTEND_ACTUAL_PORT"
+    FRONTEND_URL="http://$frontend_host:$FRONTEND_ACTUAL_PORT"
     API_URL="$BACKEND_URL/api/v1"
 
     local origins=()
@@ -464,6 +496,9 @@ new_dev_settings() {
 
     origins+=(
         "$FRONTEND_URL"
+        # Both loopback spellings stay allowed: localhost still works whenever
+        # WSL2's forwarding is up, and is the only host off WSL.
+        "http://localhost:$FRONTEND_ACTUAL_PORT"
         "http://127.0.0.1:$FRONTEND_ACTUAL_PORT"
         "$BACKEND_URL"
         "http://localhost:$BACKEND_ACTUAL_PORT"
@@ -596,7 +631,7 @@ start_frontend_process() {
     export_dev_env
     write_frontend_env
     cd "$FRONTEND_DIR"
-    npm run dev -- --host 127.0.0.1 --port "$FRONTEND_ACTUAL_PORT" --strictPort
+    npm run dev -- --host "$(frontend_bind_host)" --port "$FRONTEND_ACTUAL_PORT" --strictPort
 }
 
 start_backend() {

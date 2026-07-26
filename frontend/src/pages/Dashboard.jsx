@@ -1,51 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-    HardDrive, Activity,
-    RefreshCw, Zap,
-    Database, Container, Globe, Code, Layers, Server, Terminal,
-    ChevronDown, Check, ChevronRight,
-    Plus, Trash2, Pencil, LogIn, Power, Shield, AlertTriangle, History
+    Check, ChevronDown, Grid2x2, History, Maximize2, Plus,
+    RefreshCw, SlidersHorizontal, X,
 } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { useMetrics } from '../hooks/useMetrics';
-import MetricsGraph from '../components/MetricsGraph';
-import useDashboardLayout from '../hooks/useDashboardLayout';
-import { Button } from '@/components/ui/button';
+import useDashboardBoards from '../hooks/useDashboardBoards';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { MetricCard, Pill, Feed, FeedItem } from '@/components/ds';
-import { formatRelativeTime } from '@/utils/time';
+import { SegControl } from '@/components/ds';
 import EmptyState from '../components/EmptyState';
 import PluginSlot from '../components/PluginSlot';
+import { DashGrid } from '../components/dashboard/grid/DashGrid';
+import { WidgetLibrary } from '../components/dashboard/grid/WidgetLibrary';
+import { WidgetEditor } from '../components/dashboard/grid/WidgetEditor';
+import { WidgetFullscreen } from '../components/dashboard/grid/WidgetFullscreen';
+import {
+    compact, findFreeSpot, nextWidgetId, pushDown,
+} from '../components/dashboard/grid/layout';
+import { useWidgetTypes, getWidgetType } from '../components/dashboard/widgets/registry';
+import { RANGES } from '../components/dashboard/widgets/metrics';
 
-// Map an audit action verb to a tinted icon + semantic tone token.
-// Falls back to a neutral history icon for unrecognised actions.
-function getActivityVisual(action = '') {
-    const a = action.toLowerCase();
-    if (a.includes('login_failed')) return { tone: 'red', icon: <AlertTriangle size={15} /> };
-    if (a.includes('login') || a.includes('logout') || a.includes('auth')) return { tone: 'cyan', icon: <LogIn size={15} /> };
-    if (a.includes('delete') || a.includes('remove') || a.includes('disable')) return { tone: 'red', icon: <Trash2 size={15} /> };
-    if (a.includes('create') || a.includes('add') || a.includes('enable')) return { tone: 'green', icon: <Plus size={15} /> };
-    if (a.includes('update') || a.includes('edit') || a.includes('permission')) return { tone: 'amber', icon: <Pencil size={15} /> };
-    if (a.includes('start') || a.includes('restart') || a.includes('stop')) return { tone: 'violet', icon: <Power size={15} /> };
-    if (a.includes('security') || a.includes('firewall') || a.includes('ssl') || a.includes('cert')) return { tone: 'accent', icon: <Shield size={15} /> };
-    return { tone: 'accent', icon: <History size={15} /> };
-}
-
-// Build a readable "actor verb target" sentence from an audit-log item.
-// action is dotted (e.g. "user.create"); we humanise the verb and append the
-// target_type/id when present.
-function describeActivity(item) {
-    const actor = item.username || (item.user_id ? `user #${item.user_id}` : 'System');
-    const verb = (item.action || '').split('.').slice(1).join(' ').replace(/_/g, ' ') || (item.action || 'activity');
-    const target = item.target_type
-        ? `${item.target_type}${item.target_id ? ` #${item.target_id}` : ''}`
-        : '';
-    return { actor, verb, target };
-}
-
-// Refresh interval options in seconds
+// Auto-refresh choices, in seconds. 0 means "don't".
 const REFRESH_OPTIONS = [
     { label: 'Off', value: 0 },
     { label: '5s', value: 5 },
@@ -57,526 +35,543 @@ const REFRESH_OPTIONS = [
 const Dashboard = () => {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
-    const { metrics: localMetrics, loading: metricsLoading, connected, refresh: refreshMetrics } = useMetrics(true);
-    const { widgets } = useDashboardLayout();
-    const [apps, setApps] = useState([]);
-    const [systemInfo, setSystemInfo] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const toast = useToast();
+    const widgetTypes = useWidgetTypes();
 
-    // Recent activity feed (admin-only — endpoint is /admin/activity/feed)
-    const [activity, setActivity] = useState([]);
-    const [activityLoading, setActivityLoading] = useState(true);
+    const {
+        boards, activeBoard, activeBoardId, setActiveBoardId,
+        loading: boardsLoading, error: boardsError,
+        setWidgets, saveActive, createBoard, renameBoard, removeBoard, resetActiveBoard,
+        takeSnapshot, restoreSnapshot,
+    } = useDashboardBoards();
+
+    // ---- board editing UI state -------------------------------------------
+    const [edit, setEdit] = useState(false);
+    const [selectedId, setSelectedId] = useState(null);
+    const [libraryOpen, setLibraryOpen] = useState(false);
+    const [fullscreen, setFullscreen] = useState(null);
+    const [renamingId, setRenamingId] = useState(null);
+    const [tvMode, setTvMode] = useState(false);
+
+    // ---- board-wide variables ---------------------------------------------
+    const [range, setRange] = useState('1h');
+    const [tick, setTick] = useState(0);
     const [refreshInterval, setRefreshInterval] = useState(() => {
         const saved = localStorage.getItem('dashboard_refresh_interval');
         return saved ? parseInt(saved, 10) : 10;
     });
-    const [localUptime, setLocalUptime] = useState(null);
-    const [localTime, setLocalTime] = useState(null);
-    const lastServerUptime = React.useRef(null);
-    const lastServerTime = React.useRef(null);
 
-    // Server selector state
+    // ---- host identity strip ----------------------------------------------
+    const { metrics: localMetrics, loading: metricsLoading, connected, refresh: refreshMetrics } = useMetrics(true);
+    const [systemInfo, setSystemInfo] = useState(null);
     const [servers, setServers] = useState([]);
     const [selectedServer, setSelectedServer] = useState({ id: 'local', name: 'Local (this server)' });
     const [serverMenuOpen, setServerMenuOpen] = useState(false);
-    const isRemote = selectedServer.id !== 'local';
-
-    // Remote metrics (when a non-local server is selected)
     const [remoteMetrics, setRemoteMetrics] = useState(null);
     const [remoteSystemInfo, setRemoteSystemInfo] = useState(null);
-    const [remoteLoading, setRemoteLoading] = useState(false);
-
-    // Active metrics: remote when a remote server is selected, local otherwise
+    const isRemote = selectedServer.id !== 'local';
     const metrics = isRemote ? remoteMetrics : localMetrics;
+
+    // Uptime and clock tick locally between server samples so they don't freeze
+    // between polls; the refs stop a repeated sample from resetting the drift.
+    const [localUptime, setLocalUptime] = useState(null);
+    const [localTime, setLocalTime] = useState(null);
+    const lastServerUptime = useRef(null);
+    const lastServerTime = useRef(null);
+
+    const widgets = useMemo(() => activeBoard?.widgets || [], [activeBoard]);
+    const selectedWidget = widgets.find((w) => w.i === selectedId) || null;
+    const selectedType = getWidgetType(widgetTypes, selectedWidget?.type);
+
+    const resources = useMemo(() => ([
+        { id: 'local', label: 'Local (this server)', kind: 'panel host' },
+        ...servers
+            .filter((s) => s && s.id && s.id !== 'local')
+            .map((s) => ({ id: s.id, label: s.name || s.id, kind: 'server' })),
+    ]), [servers]);
+
+    const ctx = useMemo(() => ({
+        range,
+        tick,
+        serverVar: selectedServer.id,
+        isAdmin,
+        navigate,
+        types: widgetTypes,
+    }), [range, tick, selectedServer.id, isAdmin, navigate, widgetTypes]);
+
+    // ---- data loading ------------------------------------------------------
+    useEffect(() => {
+        api.getAvailableServers()
+            .then((data) => setServers(Array.isArray(data) ? data : []))
+            .catch(() => setServers([]));
+        api.getSystemInfo()
+            .then(setSystemInfo)
+            .catch(() => setSystemInfo(null));
+    }, []);
 
     const fetchRemote = useCallback(async () => {
         if (!isRemote) return;
-        setRemoteLoading(true);
         try {
-            const [metricsData, sysInfo] = await Promise.all([
+            const [m, info] = await Promise.all([
                 api.getRemoteSystemMetrics(selectedServer.id),
-                api.getRemoteSystemInfo(selectedServer.id).catch(() => null)
+                api.getRemoteSystemInfo(selectedServer.id).catch(() => null),
             ]);
-            setRemoteMetrics(metricsData);
-            setRemoteSystemInfo(sysInfo);
-        } catch (err) {
-            console.error('Failed to load remote metrics:', err);
-        } finally {
-            setRemoteLoading(false);
+            setRemoteMetrics(m);
+            setRemoteSystemInfo(info);
+        } catch {
+            // The identity strip degrades to placeholders; widgets report their
+            // own failures individually.
         }
-    }, [selectedServer.id, isRemote]);
+    }, [isRemote, selectedServer.id]);
 
-    // Load servers list on mount
-    useEffect(() => {
-        api.getAvailableServers()
-            .then(data => setServers(Array.isArray(data) ? data : []))
-            .catch(() => setServers([{ id: 'local', name: 'Local (this server)', status: 'online' }]));
-    }, []);
-
-    // Fetch remote metrics when a remote server is selected
     useEffect(() => {
         if (!isRemote) {
             setRemoteMetrics(null);
             setRemoteSystemInfo(null);
-            return;
+            return undefined;
         }
-
         fetchRemote();
-        const interval = refreshInterval > 0
-            ? setInterval(fetchRemote, refreshInterval * 1000)
-            : null;
+        const id = refreshInterval > 0 ? setInterval(fetchRemote, refreshInterval * 1000) : null;
+        return () => { if (id) clearInterval(id); };
+    }, [fetchRemote, isRemote, refreshInterval]);
 
-        return () => { if (interval) clearInterval(interval); };
-    }, [fetchRemote, refreshInterval, isRemote]);
-
-    // Sync local counters when server data arrives
+    // Board-wide refresh pulse: every widget watches ctx.tick.
     useEffect(() => {
-        const serverUptime = metrics?.system?.uptime_seconds;
-        const serverTimeStr = metrics?.time?.current_time_formatted;
+        if (!refreshInterval) return undefined;
+        const id = setInterval(() => setTick((k) => k + 1), refreshInterval * 1000);
+        return () => clearInterval(id);
+    }, [refreshInterval]);
 
-        if (serverUptime && serverUptime !== lastServerUptime.current) {
-            lastServerUptime.current = serverUptime;
-            setLocalUptime(serverUptime);
+    // HTTP polling fallback for live metrics when the socket is down.
+    useEffect(() => {
+        if (!refreshInterval || connected || isRemote) return undefined;
+        const id = setInterval(() => refreshMetrics(), refreshInterval * 1000);
+        return () => clearInterval(id);
+    }, [refreshInterval, connected, refreshMetrics, isRemote]);
+
+    useEffect(() => {
+        const uptime = metrics?.system?.uptime_seconds;
+        const stamp = metrics?.time?.current_time_formatted;
+        if (uptime && uptime !== lastServerUptime.current) {
+            lastServerUptime.current = uptime;
+            setLocalUptime(uptime);
         }
-
-        if (serverTimeStr && serverTimeStr !== lastServerTime.current) {
-            lastServerTime.current = serverTimeStr;
-            try {
-                const parsed = new Date(serverTimeStr);
-                if (!isNaN(parsed)) {
-                    setLocalTime(parsed);
-                }
-            } catch {
-                // If parsing fails, skip
-            }
+        if (stamp && stamp !== lastServerTime.current) {
+            lastServerTime.current = stamp;
+            const parsed = new Date(stamp);
+            if (!Number.isNaN(parsed.getTime())) setLocalTime(parsed);
         }
     }, [metrics?.system?.uptime_seconds, metrics?.time?.current_time_formatted]);
 
-    // Tick every second - increment uptime and time locally
+    const hasUptime = localUptime !== null;
+    const hasClock = localTime !== null;
     useEffect(() => {
-        const tick = setInterval(() => {
-            if (localUptime !== null) {
-                setLocalUptime(prev => prev + 1);
-            }
-            if (localTime !== null) {
-                setLocalTime(prev => new Date(prev.getTime() + 1000));
-            }
+        if (!hasUptime && !hasClock) return undefined;
+        const id = setInterval(() => {
+            if (hasUptime) setLocalUptime((prev) => prev + 1);
+            if (hasClock) setLocalTime((prev) => new Date(prev.getTime() + 1000));
         }, 1000);
+        return () => clearInterval(id);
+    }, [hasUptime, hasClock]);
 
-        return () => clearInterval(tick);
-    }, [localUptime !== null, localTime !== null]);
+    // ---- widget operations -------------------------------------------------
+    const addWidget = useCallback((type) => {
+        const spot = findFreeSpot(widgets, type.w, type.h);
+        const widget = {
+            i: nextWidgetId(widgets),
+            type: type.id,
+            ...spot,
+            w: type.w,
+            h: type.h,
+            cfg: JSON.parse(JSON.stringify(type.defaultCfg || {})),
+        };
+        setWidgets((list) => compact([...list, widget]));
+        setSelectedId(widget.i);
+        setLibraryOpen(false);
+        if (!edit) setEdit(true);
+    }, [widgets, setWidgets, edit]);
 
-    // Load initial data
+    const duplicateWidget = useCallback((widget) => {
+        const spot = findFreeSpot(widgets, widget.w, widget.h);
+        const copy = { ...JSON.parse(JSON.stringify(widget)), i: nextWidgetId(widgets), ...spot };
+        setWidgets((list) => compact([...list, copy]));
+        setSelectedId(copy.i);
+    }, [widgets, setWidgets]);
+
+    const removeWidget = useCallback((id) => {
+        setWidgets((list) => compact(list.filter((w) => w.i !== id)));
+        setSelectedId(null);
+    }, [setWidgets]);
+
+    // The inspector can change w/h, which may overlap neighbours — re-settle.
+    const updateWidget = useCallback((next) => {
+        setWidgets((list) => pushDown(list.map((w) => (w.i === next.i ? next : w)), next));
+    }, [setWidgets]);
+
+    const onWidgetMenu = useCallback((action, widget) => {
+        if (action === 'config') { setEdit(true); setSelectedId(widget.i); }
+        else if (action === 'dup') duplicateWidget(widget);
+        else if (action === 'del') removeWidget(widget.i);
+        else if (action === 'full') setFullscreen(widget);
+    }, [duplicateWidget, removeWidget]);
+
+    // Escape backs out of TV mode, then out of a selection. Delete removes the
+    // selected widget, but only while editing and never while typing into the
+    // inspector — otherwise backspacing a title would delete the widget.
     useEffect(() => {
-        loadData();
-    }, []);
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                if (tvMode) setTvMode(false);
+                else if (selectedId) setSelectedId(null);
+                return;
+            }
+            if (!edit || !selectedId) return;
+            if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+            if (/input|textarea|select/i.test(document.activeElement?.tagName || '')) return;
+            event.preventDefault();
+            removeWidget(selectedId);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [edit, selectedId, tvMode, removeWidget]);
 
-    // Load the recent-activity feed — admins only (avoids a 403 for others)
-    useEffect(() => {
-        if (!isAdmin) {
-            setActivityLoading(false);
-            return;
-        }
-        let cancelled = false;
-        setActivityLoading(true);
-        api.getActivityFeed({ per_page: 8 })
-            .then(data => {
-                if (!cancelled) setActivity(data?.logs || []);
-            })
-            .catch(err => {
-                if (!cancelled) console.error('Failed to load activity feed:', err);
-            })
-            .finally(() => {
-                if (!cancelled) setActivityLoading(false);
+    // ---- edit session ------------------------------------------------------
+    const startEdit = () => { takeSnapshot(); setEdit(true); };
+
+    const discardEdit = () => {
+        restoreSnapshot();
+        setEdit(false);
+        setSelectedId(null);
+    };
+
+    const finishEdit = async () => {
+        try {
+            await saveActive();
+            setEdit(false);
+            setSelectedId(null);
+            toast.success('Dashboard saved', {
+                description: `${widgets.length} widget${widgets.length === 1 ? '' : 's'} · ${activeBoard?.name}`,
             });
-        return () => { cancelled = true; };
-    }, [isAdmin]);
-
-    // Polling fallback when WebSocket is not connected (local only)
-    useEffect(() => {
-        if (refreshInterval > 0 && !connected && !isRemote) {
-            const interval = setInterval(() => {
-                refreshMetrics();
-            }, refreshInterval * 1000);
-            return () => clearInterval(interval);
+        } catch {
+            // useDashboardBoards keeps the edited layout on screen and surfaces
+            // the reason; staying in edit mode means the work isn't lost.
+            toast.error('Could not save', { description: 'Your layout is still here — try again.' });
         }
-    }, [refreshInterval, connected, refreshMetrics, isRemote]);
+    };
 
-    // Save refresh interval preference
-    const handleRefreshIntervalChange = useCallback((value) => {
-        setRefreshInterval(value);
-        localStorage.setItem('dashboard_refresh_interval', value.toString());
-    }, []);
+    const handleReset = async () => {
+        try {
+            await resetActiveBoard();
+            toast.info('Reset to the shipped layout', { description: activeBoard?.name });
+        } catch {
+            toast.error('Could not reset', { description: 'This board has no shipped default.' });
+        }
+    };
 
-    function handleServerChange(serverId) {
-        const server = servers.find(s => s.id === serverId) || { id: 'local', name: 'Local (this server)' };
+    const handleServerChange = (serverId) => {
+        const server = servers.find((s) => s.id === serverId) || { id: 'local', name: 'Local (this server)' };
         setSelectedServer(server);
-        // Reset ticking counters when switching servers
         lastServerUptime.current = null;
         lastServerTime.current = null;
         setLocalUptime(null);
         setLocalTime(null);
-    }
+    };
 
-    async function loadData() {
-        try {
-            const [appsData, sysInfoData] = await Promise.all([
-                api.getApps(),
-                api.getSystemInfo().catch(() => null)
-            ]);
-            setApps(appsData.apps || []);
-            setSystemInfo(sysInfoData);
-        } catch (err) {
-            console.error('Failed to load data:', err);
-        } finally {
-            setLoading(false);
-        }
-    }
+    const handleRefreshIntervalChange = (value) => {
+        setRefreshInterval(value);
+        localStorage.setItem('dashboard_refresh_interval', String(value));
+    };
 
-    function handleRefreshAll() {
-        if (isRemote) {
-            fetchRemote();
-        } else {
-            refreshMetrics();
-        }
-        loadData();
-    }
-
-    function formatUptime(seconds) {
-        if (!seconds) return { days: 0, hours: 0, minutes: 0 };
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return { days, hours, minutes };
-    }
-
-    function getStackIcon(type) {
-        switch (type) {
-            case 'docker': return <Container size={16} />;
-            case 'wordpress':
-            case 'php': return <Code size={16} />;
-            case 'flask':
-            case 'django': return <Layers size={16} />;
-            default: return <Globe size={16} />;
-        }
-    }
-
-    // Get uptime from local ticking counter (synced with server)
-    const uptimeFormatted = formatUptime(localUptime ?? metrics?.system?.uptime_seconds);
+    // ---- derived display ---------------------------------------------------
+    // IP, kernel and uptime used to live in a header strip above the board.
+    // That strip is gone — the controls are one row now — and those facts are
+    // the Host details widget, which can be placed, sized and pointed at
+    // whichever server you like. The clock is its own widget for the same
+    // reason. Only what the bar itself still needs is derived here.
     const activeSysInfo = isRemote ? remoteSystemInfo : systemInfo;
     const hostname = metrics?.system?.hostname || activeSysInfo?.hostname || 'server';
-    const kernelVersion = metrics?.system?.kernel || activeSysInfo?.kernel || '-';
-    const ipAddress = metrics?.system?.ip_address || activeSysInfo?.ip_address || '-';
-    const serverTime = metrics?.time;
-
-    // Format the local ticking clock
+    const isConnected = isRemote ? !!remoteMetrics : !!localMetrics;
     const displayTime = localTime
-        ? localTime.toLocaleTimeString('en-US', { hour12: false })
-        : serverTime?.current_time_formatted?.split(' ')[1] || '--:--:--';
+        ? localTime.toLocaleTimeString('en-GB', { hour12: false })
+        : metrics?.time?.current_time_formatted?.split(' ')[1] || '--:--:--';
 
-    // Show green if we have metrics data (regardless of transport — WS or HTTP poll)
-    const isConnected = isRemote ? !remoteLoading && !!remoteMetrics : !!localMetrics;
-
-    if (loading && metricsLoading) {
-        return <EmptyState loading title="Loading dashboard..." />;
+    if (boardsLoading && metricsLoading) {
+        return <EmptyState loading loadingVariant="chart" title="Loading dashboard..." />;
     }
 
+    const grid = (
+        <DashGrid
+            widgets={widgets}
+            edit={edit}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onChange={(next) => setWidgets(next)}
+            ctx={ctx}
+            onWidgetMenu={onWidgetMenu}
+        />
+    );
+
+    // TV mode: the board, a clock and nothing else — for a wall display.
+    if (tvMode) {
+        return (
+            <div className="skw-tv">
+                <div className="skw-tv__bar">
+                    <span className="skw-tv__name">{activeBoard?.name}</span>
+                    <span className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`} role="status">
+                        <span className="conn-status__dot" aria-hidden="true"></span>
+                        {isConnected ? 'Live' : 'Reconnecting'}
+                    </span>
+                    <span className="skw-tv__meta mono">
+                        {selectedServer.name} · {range} · refresh {refreshInterval ? `${refreshInterval}s` : 'off'}
+                    </span>
+                    <span className="skw-tv__clock mono">{displayTime}</span>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setTvMode(false)}>
+                        <X size={14} /> Exit
+                    </button>
+                </div>
+                <div className="skw-tv__body">{grid}</div>
+            </div>
+        );
+    }
+
+    // The widget editor is a drawer over the board now, not a docked panel, so
+    // the page no longer reserves a right-hand gutter for it.
     return (
         <div className="page-container dashboard-page">
-            {/* Top Bar */}
-            <div className="top-bar">
-                <div className="server-identity">
-                    <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
-                        <PopoverTrigger asChild>
-                            <button
-                                type="button"
-                                className={`srv-switch${serverMenuOpen ? ' srv-switch--open' : ''}`}
-                                aria-label="Switch server"
-                            >
-                                <span className="srv-switch__name">{hostname}</span>
-                                <ChevronDown size={18} className="srv-switch__chev" aria-hidden="true" />
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                            align="start"
-                            sideOffset={7}
-                            className="env-menu"
-                        >
-                            <div className="env-menu__head">Connected servers · {servers.length}</div>
-                            {servers.map(server => {
-                                const online = server.status === 'online';
-                                const active = server.id === selectedServer.id;
-                                return (
-                                    <button
-                                        type="button"
-                                        key={server.id}
-                                        className="env-opt"
-                                        onClick={() => { handleServerChange(server.id); setServerMenuOpen(false); }}
-                                    >
-                                        <span
-                                            className={`env-opt__dot env-opt__dot--${online ? 'online' : 'offline'}`}
-                                            aria-hidden="true"
-                                        ></span>
-                                        <span className="env-opt__body">
-                                            <span className="env-opt__name">{server.name}</span>
-                                            <span className="env-opt__meta">
-                                                {server.group_name || (server.is_local ? 'local' : server.id)}
-                                                {' · '}
-                                                {online ? 'online' : 'offline'}
-                                            </span>
-                                        </span>
-                                        {active && (
-                                            <span className="env-opt__check" aria-hidden="true">
-                                                <Check size={15} />
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </PopoverContent>
-                    </Popover>
-                    <div className="server-details">
-                        <span
-                            className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`}
-                            role="status"
-                        >
-                            <span className="conn-status__dot" aria-hidden="true"></span>
-                            {isConnected ? 'Live' : 'Reconnecting'}
-                        </span>
-                        <span className="detail-separator">·</span>
-                        <span>IP: {ipAddress}</span>
-                        <span className="detail-separator">·</span>
-                        <span>KERNEL: {kernelVersion}</span>
-                        <span className="detail-separator">·</span>
-                        <span>UPTIME: {uptimeFormatted.days}d {String(uptimeFormatted.hours).padStart(2, '0')}h {String(uptimeFormatted.minutes).padStart(2, '0')}m</span>
-                    </div>
-                </div>
-                <div className="top-bar-right">
-                    <div className="clock-widget">
-                        <span className="clock-time">{displayTime}</span>
-                        <span className="clock-zone">{serverTime?.timezone_id || 'UTC'}</span>
-                    </div>
-                    <div className="refresh-control">
-                        <button type="button"
-                            className="btn-refresh"
-                            onClick={handleRefreshAll}
-                            title="Refresh now"
-                        >
-                            <RefreshCw size={14} />
-                        </button>
-                        <select
-                            value={refreshInterval}
-                            onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
-                            className="refresh-select"
-                            title="Auto-refresh interval"
-                        >
-                            {REFRESH_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            </div>
-
             {/* Extension slot: widgets contributed to the top of the dashboard */}
             <PluginSlot name="dashboard.top" />
 
-            {/* Grid Container */}
-            <div className="grid-container">
-                {widgets.filter(w => w.visible).map(w => {
-                    const WIDGET_RENDERERS = {
-                        cpu: () => (
-                            <MetricCard
-                                key="cpu"
-                                className="dash-kpi"
-                                tone="accent"
-                                icon={<Zap size={16} />}
-                                value={(metrics?.cpu?.percent || 0).toFixed(1)}
-                                unit="%"
-                                label="CPU"
-                            >
-                                <div className="sk-kpi__sub">
-                                    <span>Cores {metrics?.cpu?.count_logical || 0}</span>
-                                </div>
-                            </MetricCard>
-                        ),
-                        ram: () => (
-                            <MetricCard
-                                key="ram"
-                                className="dash-kpi"
-                                tone="green"
-                                icon={<Database size={16} />}
-                                value={metrics?.memory?.ram?.used_human || '0 GB'}
-                                label="RAM"
-                            >
-                                <div className="sk-kpi__sub">
-                                    <span>Total {metrics?.memory?.ram?.total_human || '0 GB'}</span>
-                                    <span>Cached {metrics?.memory?.ram?.cached_human || '0 GB'}</span>
-                                </div>
-                            </MetricCard>
-                        ),
-                        network: () => (
-                            <MetricCard
-                                key="network"
-                                className="dash-kpi"
-                                tone="cyan"
-                                icon={<Activity size={16} />}
-                                value={metrics?.network?.io?.bytes_sent_human || '0 B'}
-                                unit="sent"
-                                label="Network"
-                            >
-                                <div className="sk-kpi__sub">
-                                    <span>In {metrics?.network?.io?.bytes_recv_human || '0 B'}</span>
-                                    <span>Out {metrics?.network?.io?.bytes_sent_human || '0 B'}</span>
-                                </div>
-                            </MetricCard>
-                        ),
-                        disk: () => (
-                            <MetricCard
-                                key="disk"
-                                className="dash-kpi"
-                                tone="amber"
-                                icon={<HardDrive size={16} />}
-                                value={(metrics?.disk?.partitions?.[0]?.percent || 0).toFixed(1)}
-                                unit="%"
-                                label="Disk"
-                            >
-                                <div className="sk-kpi__sub">
-                                    <span>Used {metrics?.disk?.partitions?.[0]?.used_human || '0 GB'}</span>
-                                    <span>Free {metrics?.disk?.partitions?.[0]?.free_human || '0 GB'}</span>
-                                </div>
-                            </MetricCard>
-                        ),
-                        chart: () => (
-                            <div key="chart" className="chart-panel">
-                                <MetricsGraph timezone={serverTime?.timezone_id} />
-                            </div>
-                        ),
-                        specs: () => (
-                            <div key="specs" className="spec-panel">
-                                <h3 className="spec-panel-title">Quick Actions</h3>
-                                <button type="button" className="btn-action" onClick={() => navigate('/servers')}>
-                                    <span>Manage Servers</span>
-                                    <span><Server size={14} /></span>
+            {/* Board tabs + board-wide controls */}
+            <div className="skw-bar">
+                <div className="skw-tabs">
+                    {boards.map((board) => (
+                        <div
+                            key={board.id}
+                            className={`skw-tab${board.id === activeBoardId ? ' is-on' : ''}`}
+                            onClick={() => { setActiveBoardId(board.id); setSelectedId(null); }}
+                            onDoubleClick={() => edit && setRenamingId(board.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveBoardId(board.id); setSelectedId(null); } }}
+                        >
+                            <Grid2x2 size={14} aria-hidden="true" />
+                            {renamingId === board.id ? (
+                                <input
+                                    className="skw-rename"
+                                    autoFocus
+                                    defaultValue={board.name}
+                                    onBlur={(e) => {
+                                        renameBoard(board.id, e.target.value.trim() || board.name);
+                                        setRenamingId(null);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') e.target.blur();
+                                        if (e.key === 'Escape') setRenamingId(null);
+                                    }}
+                                />
+                            ) : (
+                                <span>{board.name}</span>
+                            )}
+                            <span className="skw-tab__count mono">{(board.widgets || []).length}</span>
+                            {edit && boards.length > 1 && board.id === activeBoardId && (
+                                <button
+                                    type="button"
+                                    className="skw-iconbtn skw-iconbtn--bare"
+                                    aria-label={`Delete ${board.name}`}
+                                    onClick={(e) => { e.stopPropagation(); removeBoard(board.id); }}
+                                >
+                                    <X size={12} />
                                 </button>
-                                <button type="button" className="btn-action" onClick={() => navigate('/docker')}>
-                                    <span>Docker Containers</span>
-                                    <span><Container size={14} /></span>
-                                </button>
-                                <button type="button" className="btn-action" onClick={() => navigate('/terminal')}>
-                                    <span>Open Terminal</span>
-                                    <span><Terminal size={14} /></span>
-                                </button>
-
-                                <h3 className="spec-panel-title mt-6">Hardware Specs</h3>
-                                <div className="spec-row">
-                                    <span className="spec-label">Processor</span>
-                                    <span className="spec-data">{activeSysInfo?.cpu?.model || 'N/A'}</span>
-                                </div>
-                                <div className="spec-row">
-                                    <span className="spec-label">Architecture</span>
-                                    <span className="spec-data">{activeSysInfo?.cpu?.architecture || 'N/A'}</span>
-                                </div>
-                                <div className="spec-row">
-                                    <span className="spec-label">Swap Memory</span>
-                                    <span className="spec-data">{metrics?.memory?.swap?.total_human || 'N/A'}</span>
-                                </div>
-                            </div>
-                        ),
-                        processes: () => (
-                            <div key="processes" className="table-panel">
-                                <div className="table-header">
-                                    <span>Applications</span>
-                                    <Button variant="outline" size="sm" onClick={loadData}>
-                                        <RefreshCw size={14} />
-                                    </Button>
-                                </div>
-                                <table className="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Name</th>
-                                            <th>Type</th>
-                                            <th>Status</th>
-                                            <th>Domain</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {apps.length === 0 ? (
-                                            <tr>
-                                                <td colSpan="5" className="text-center text-gray-400">
-                                                    No applications found
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            apps.slice(0, 6).map(app => (
-                                                <tr key={app.id} onClick={() => navigate(`/apps/${app.id}`)} className="cursor-pointer">
-                                                    <td>{app.id}</td>
-                                                    <td>
-                                                        <div className="app-name-cell">
-                                                            <span className="app-icon-mini" aria-hidden="true">{getStackIcon(app.app_type)}</span>
-                                                            <Link
-                                                                to={`/apps/${app.id}`}
-                                                                className="app-name-link"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                {app.name}
-                                                            </Link>
-                                                        </div>
-                                                    </td>
-                                                    <td>{app.app_type}</td>
-                                                    <td>
-                                                        <Pill kind={app.status === 'running' ? 'green' : 'amber'}>
-                                                            {app.status?.toUpperCase()}
-                                                        </Pill>
-                                                    </td>
-                                                    <td>{app.domains?.[0]?.name || '-'}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ),
-                    };
-                    return WIDGET_RENDERERS[w.id]?.();
-                })}
-
-                {/* Recent activity — admin-only audit feed, paired with Applications */}
-                {isAdmin && (
-                    <div className="activity-panel">
-                        <div className="activity-panel__head">
-                            <h3 className="activity-panel__title">Recent Activity</h3>
-                            <Link to="/security/audit" className="activity-panel__link">
-                                Audit log <ChevronRight size={14} aria-hidden="true" />
-                            </Link>
+                            )}
                         </div>
-                        {activityLoading ? (
-                            <div className="activity-panel__empty">Loading activity…</div>
-                        ) : activity.length === 0 ? (
-                            <div className="activity-panel__empty">No recent activity</div>
-                        ) : (
-                            <Feed>
-                                {activity.map(item => {
-                                    const { tone, icon } = getActivityVisual(item.action);
-                                    const { actor, verb, target } = describeActivity(item);
+                    ))}
+                    <button
+                        type="button"
+                        className="skw-tab skw-tab--add"
+                        onClick={() => createBoard().then((b) => setRenamingId(b.id))}
+                        aria-label="New dashboard"
+                        title="New dashboard"
+                    >
+                        <Plus size={14} />
+                    </button>
+                </div>
+
+                <div className="skw-bar__ctl">
+                    {/* Which machine the board's $server variable points at.
+                        A chevron opening a menu of one is noise, so with a
+                        single host this is a plain readout. */}
+                    {servers.length < 2 ? (
+                        <span className="skw-varpick skw-varpick--static">
+                            <span className="skw-varpick__k mono">server</span>
+                            <span className="skw-varpick__v">{hostname}</span>
+                        </span>
+                    ) : (
+                        <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={`skw-varpick${serverMenuOpen ? ' is-open' : ''}`}
+                                    aria-label="Switch server"
+                                >
+                                    <span className="skw-varpick__k mono">server</span>
+                                    <span className="skw-varpick__v">{selectedServer.name || hostname}</span>
+                                    <ChevronDown size={13} aria-hidden="true" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" sideOffset={7} className="env-menu">
+                                <div className="env-menu__head">Dashboard variable · $server</div>
+                                {servers.map((server) => {
+                                    const online = server.status === 'online';
                                     return (
-                                        <FeedItem
-                                            key={item.id}
-                                            icon={icon}
-                                            tone={tone}
-                                            time={formatRelativeTime(item.created_at)}
+                                        <button
+                                            type="button"
+                                            key={server.id}
+                                            className="env-opt"
+                                            onClick={() => { handleServerChange(server.id); setServerMenuOpen(false); }}
                                         >
-                                            <b>{actor}</b> {verb}
-                                            {target && <> · {target}</>}
-                                        </FeedItem>
+                                            <span
+                                                className={`env-opt__dot env-opt__dot--${online ? 'online' : 'offline'}`}
+                                                aria-hidden="true"
+                                            ></span>
+                                            <span className="env-opt__body">
+                                                <span className="env-opt__name">{server.name}</span>
+                                                <span className="env-opt__meta">
+                                                    {server.group_name || (server.is_local ? 'local' : server.id)}
+                                                    {' · '}
+                                                    {online ? 'online' : 'offline'}
+                                                </span>
+                                            </span>
+                                            {server.id === selectedServer.id && (
+                                                <span className="env-opt__check" aria-hidden="true"><Check size={15} /></span>
+                                            )}
+                                        </button>
                                     );
                                 })}
-                            </Feed>
+                            </PopoverContent>
+                        </Popover>
+                    )}
+                    <SegControl
+                        options={RANGES.map(([value, label]) => ({ value, label }))}
+                        value={range}
+                        onChange={setRange}
+                        aria-label="Time range"
+                    />
+                    <div className="skw-refresh">
+                        <select
+                            value={refreshInterval}
+                            onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
+                            title="Auto-refresh interval"
+                            aria-label="Auto-refresh interval"
+                        >
+                            {REFRESH_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>↻ {opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        className="skw-iconbtn"
+                        title="Refresh now"
+                        aria-label="Refresh now"
+                        onClick={() => { setTick((k) => k + 1); if (isRemote) fetchRemote(); else refreshMetrics(); }}
+                    >
+                        <RefreshCw size={15} />
+                    </button>
+                    <button
+                        type="button"
+                        className="skw-iconbtn"
+                        title="TV mode"
+                        aria-label="TV mode"
+                        onClick={() => setTvMode(true)}
+                    >
+                        <Maximize2 size={15} />
+                    </button>
+                    {edit ? (
+                        <>
+                            <button type="button" className="skw-barbtn" onClick={() => setLibraryOpen(true)}>
+                                <Plus size={14} /> Add widget
+                            </button>
+                            <button
+                                type="button"
+                                className="skw-iconbtn"
+                                onClick={handleReset}
+                                title="Restore the shipped layout"
+                                aria-label="Restore the shipped layout"
+                            >
+                                <History size={14} />
+                            </button>
+                            <button type="button" className="skw-barbtn" onClick={discardEdit}>Discard</button>
+                            <button type="button" className="skw-barbtn skw-barbtn--primary" onClick={finishEdit}>
+                                <Check size={14} /> Done
+                            </button>
+                        </>
+                    ) : (
+                        <button type="button" className="skw-barbtn" onClick={startEdit}>
+                            <SlidersHorizontal size={14} /> Edit
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {boardsError && <div className="skw-hint skw-hint--error">{boardsError}</div>}
+
+            {edit && (
+                <div className="skw-hint mono">
+                    <Grid2x2 size={13} aria-hidden="true" /> Drag headers to move · drag the corner to resize ·
+                    click a widget to configure it{selectedId ? ' · Delete removes it' : ''}
+                </div>
+            )}
+
+            {widgets.length === 0 ? (
+                <div className="skw-empty-board">
+                    <div className="skw-empty-board__title">Build “{activeBoard?.name || 'this dashboard'}”</div>
+                    <div className="skw-empty-board__desc">
+                        This board has no widgets yet. Add one to get started, or restore the layout it shipped with.
+                    </div>
+                    <div className="skw-empty-board__acts">
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => { setEdit(true); setLibraryOpen(true); }}
+                        >
+                            <Plus size={14} /> Add a widget
+                        </button>
+                        {activeBoard?.slug && (
+                            <button type="button" className="btn btn-outline btn-sm" onClick={handleReset}>
+                                <History size={14} /> Restore default layout
+                            </button>
                         )}
                     </div>
-                )}
-            </div>
+                </div>
+            ) : grid}
+
+            {libraryOpen && (
+                <WidgetLibrary
+                    types={widgetTypes}
+                    onAdd={addWidget}
+                    onClose={() => setLibraryOpen(false)}
+                />
+            )}
+            {edit && selectedWidget && (
+                <WidgetEditor
+                    widget={selectedWidget}
+                    type={selectedType}
+                    resources={resources}
+                    ctx={ctx}
+                    onChange={updateWidget}
+                    onClose={() => setSelectedId(null)}
+                    onDuplicate={() => duplicateWidget(selectedWidget)}
+                    onRemove={() => removeWidget(selectedWidget.i)}
+                />
+            )}
+            {fullscreen && (
+                <WidgetFullscreen
+                    widget={fullscreen}
+                    type={getWidgetType(widgetTypes, fullscreen.type)}
+                    ctx={ctx}
+                    onClose={() => setFullscreen(null)}
+                />
+            )}
         </div>
     );
 };

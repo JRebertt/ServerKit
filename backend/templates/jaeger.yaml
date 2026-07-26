@@ -38,6 +38,10 @@ volumes:
     path: /badger
     description: Badger storage for traces
 
+requirements:
+  memory: 1GB
+  storage: 5GB
+
 compose:
   services:
     jaeger:

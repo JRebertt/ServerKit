@@ -38,6 +38,10 @@ volumes:
     path: /home/node/.n8n
     description: n8n data
 
+requirements:
+  memory: 1GB
+  storage: 2GB
+
 compose:
   services:
     n8n:

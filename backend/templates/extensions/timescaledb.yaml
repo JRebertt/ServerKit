@@ -1,0 +1,29 @@
+id: timescaledb
+name: TimescaleDB
+version: "2.17.2"
+description: Turns PostgreSQL into a time-series database with hypertables, compression and continuous aggregates
+icon: https://serverkit.ai/imgs/template-icons/postgresql.svg
+website: https://www.timescale.com
+documentation: https://docs.timescale.com
+
+extension:
+  protocol: postgresql
+  statement: CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+  available_query: SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb';
+  installed_query: SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';
+
+  # TimescaleDB needs its library preloaded (shared_preload_libraries), which no
+  # stock PostgreSQL image does -- the timescale images are built for it. No
+  # bundled engine template ships one, so out of the box this extension reports
+  # honestly that nothing installed can host it, and names what would.
+  images:
+    - timescale/timescaledb
+    - timescale/timescaledb-ha
+  image_hint: timescale/timescaledb:latest-pg{version}
+
+  size: 18 MB
+  unit: hypertables
+  versions:
+    - "2.17.2"
+    - "2.16.1"

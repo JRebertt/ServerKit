@@ -29,7 +29,6 @@ export const SOURCE_NEEDS = {
     manual: 'The repository URL, plus a deploy key or credentials if it is private.',
     local: 'The path on the server, and its compose file or systemd unit if any.',
     upload: 'A .zip of the project (with a Dockerfile/compose or a detectable runtime).',
-    template: 'A curated repo template — its manifests prefill the deploy for you.',
 };
 
 export function slugify(value) {
@@ -59,24 +58,6 @@ export function formatBuildMethod(value) {
     return BUILD_METHOD_LABELS[value] || value || 'Auto build';
 }
 
-// Map an API template detail object (kind: repo) to the flat fields the wizard
-// prefills. Keeps the create-payload contract identical to before.
-function templateFields(template) {
-    const repo = template.repo || {};
-    return {
-        id: template.id,
-        name: template.name,
-        serviceName: repo.service_name || template.id,
-        description: template.description,
-        repoUrl: repo.url,
-        branch: repo.branch || 'main',
-        appType: repo.app_type || 'auto',
-        buildMethod: repo.build_method || 'auto',
-        port: repo.port || null,
-        categories: template.categories || [],
-    };
-}
-
 /**
  * All state, derived values, and handlers for the New Service wizard. Kept in a
  * hook so the page component is just step orchestration + submit, and the step
@@ -96,13 +77,6 @@ export function useNewServiceForm() {
     const [reposLoading, setReposLoading] = useState(false);
     const [repoSearch, setRepoSearch] = useState('');
     const [selectedRepo, setSelectedRepo] = useState(null);
-
-    // Repo-kind deploy templates, fetched from the backend catalog.
-    const [templates, setTemplates] = useState([]);
-    const [templatesLoading, setTemplatesLoading] = useState(false);
-    const [selectedTemplate, setSelectedTemplate] = useState(null);
-    const [templateManifest, setTemplateManifest] = useState(null);
-    const [templateManifestLoading, setTemplateManifestLoading] = useState(false);
 
     const [branches, setBranches] = useState([]);
     const [branchesLoading, setBranchesLoading] = useState(false);
@@ -142,40 +116,33 @@ export function useNewServiceForm() {
     const githubConfigured = githubStatus?.configured;
     const normalizedManualRepo = useMemo(() => normalizeManualRepo(manualRepoUrl), [manualRepoUrl]);
 
-    const activeManifest = sourceMode === 'template' ? templateManifest : repoManifest;
-    const activeManifestLoading = sourceMode === 'template' ? templateManifestLoading : repoManifestLoading;
+    const activeManifest = repoManifest;
+    const activeManifestLoading = repoManifestLoading;
     const recommended = activeManifest?.recommended || {};
 
     const detectedServiceName = useMemo(() => {
-        if (sourceMode === 'template' && selectedTemplate) {
-            return slugify(selectedTemplate.serviceName || selectedTemplate.name || '');
-        }
         if (sourceMode === 'github' && selectedRepo) return slugify(selectedRepo.name || '');
         return repoNameFromUrl(normalizedManualRepo);
-    }, [normalizedManualRepo, selectedRepo, selectedTemplate, sourceMode]);
+    }, [normalizedManualRepo, selectedRepo, sourceMode]);
 
     const serviceName = nameTouched ? name : detectedServiceName;
 
     const canSubmit = sourceMode === 'github'
         ? Boolean(githubConnection && selectedRepo && serviceName?.length >= 2)
-        : sourceMode === 'template'
-            ? Boolean(selectedTemplate && serviceName?.length >= 2)
-            : sourceMode === 'local'
-                ? Boolean(serviceName?.length >= 2 && localPath?.length >= 1)
-                : sourceMode === 'upload'
-                    ? Boolean(serviceName?.length >= 2 && uploadFile)
-                    : Boolean(normalizedManualRepo && serviceName?.length >= 2);
+        : sourceMode === 'local'
+            ? Boolean(serviceName?.length >= 2 && localPath?.length >= 1)
+            : sourceMode === 'upload'
+                ? Boolean(serviceName?.length >= 2 && uploadFile)
+                : Boolean(normalizedManualRepo && serviceName?.length >= 2);
 
     // Whether step 2 (Connect) has enough input to move on to Review.
     const canProceedFromConnect = sourceMode === 'github'
         ? Boolean(githubConnection && selectedRepo)
-        : sourceMode === 'template'
-            ? Boolean(selectedTemplate)
-            : sourceMode === 'local'
-                ? Boolean(localPath?.length >= 1)
-                : sourceMode === 'upload'
-                    ? Boolean(uploadFile)
-                    : Boolean(normalizedManualRepo);
+        : sourceMode === 'local'
+            ? Boolean(localPath?.length >= 1)
+            : sourceMode === 'upload'
+                ? Boolean(uploadFile)
+                : Boolean(normalizedManualRepo);
 
     const buildSummary = buildMethod === 'auto' && recommended.build_method
         ? `Auto → ${formatBuildMethod(recommended.build_method)}`
@@ -186,7 +153,7 @@ export function useNewServiceForm() {
         || (sourceMode === 'local' && managedBy === 'docker_compose');
 
     const buildpackEligible = (buildMethod === 'auto' || buildMethod === 'nixpacks')
-        && (sourceMode === 'github' || sourceMode === 'manual' || sourceMode === 'template');
+        && (sourceMode === 'github' || sourceMode === 'manual');
 
     const loadGithubStatus = useCallback(async () => {
         try {
@@ -222,22 +189,7 @@ export function useNewServiceForm() {
         }
     }, [toast]);
 
-    // The template gallery shows the FULL catalog (repo + one-click compose), so
-    // the picker feels like a real app gallery rather than a single row.
-    const loadTemplates = useCallback(async () => {
-        setTemplatesLoading(true);
-        try {
-            const data = await api.listTemplates();
-            setTemplates(data.templates || []);
-        } catch (err) {
-            setTemplates([]);
-        } finally {
-            setTemplatesLoading(false);
-        }
-    }, []);
-
     useEffect(() => { loadGithubStatus(); }, [loadGithubStatus]);
-    useEffect(() => { loadTemplates(); }, [loadTemplates]);
 
     useEffect(() => {
         if (!ingressProxyEligible && ingressPlane !== 'nginx') {
@@ -295,7 +247,7 @@ export function useNewServiceForm() {
 
     useEffect(() => {
         if (sourceMode !== 'github' || !selectedRepo) {
-            if (sourceMode !== 'template') setRepoManifest(null);
+            setRepoManifest(null);
             setRepoManifestLoading(false);
             return undefined;
         }
@@ -337,8 +289,6 @@ export function useNewServiceForm() {
             body.source_connection_id = githubConnection.id;
             body.repository_full_name = selectedRepo.full_name;
             body.repo_url = `https://github.com/${selectedRepo.full_name}.git`;
-        } else if (sourceMode === 'template' && selectedTemplate) {
-            body.repo_url = selectedTemplate.repoUrl;
         } else if (sourceMode === 'manual' && normalizedManualRepo) {
             body.repo_url = normalizedManualRepo;
         } else {
@@ -354,7 +304,7 @@ export function useNewServiceForm() {
             .finally(() => { if (!cancelled) setBuildpackLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [buildpackEligible, sourceMode, selectedRepo, selectedTemplate, normalizedManualRepo, branch, githubConnection]);
+    }, [buildpackEligible, sourceMode, selectedRepo, normalizedManualRepo, branch, githubConnection]);
 
     async function handleConnectGithub() {
         try {
@@ -373,55 +323,7 @@ export function useNewServiceForm() {
         if (mode === 'upload') setAppType('auto');
     }
 
-    // Apply a repo-kind template (API detail object) to the flat wizard fields
-    // and fetch its live/hinted manifest for the review step.
-    const selectTemplate = useCallback((templateDetail) => {
-        const fields = templateFields(templateDetail);
-        setSelectedTemplate(fields);
-        setSelectedRepo(null);
-        setManualRepoUrl(fields.repoUrl || '');
-        setName(slugify(fields.serviceName || fields.name || ''));
-        setNameTouched(false);
-        setBranch(fields.branch || 'main');
-        setAppType(fields.appType || 'auto');
-        setBuildMethod(fields.buildMethod || 'auto');
-        setPort(fields.port ? String(fields.port) : '');
-        setAutoDeploy(true);
-
-        setTemplateManifest(null);
-        setTemplateManifestLoading(true);
-        api.inspectTemplateManifest(fields.id, fields.branch)
-            .then((data) => setTemplateManifest(data?.manifest || null))
-            .catch(() => setTemplateManifest(null))
-            .finally(() => setTemplateManifestLoading(false));
-    }, []);
-
     // Pick a template by id (deep link or list click): fetch its detail, then apply.
-    const selectTemplateById = useCallback(async (templateId) => {
-        try {
-            const result = await api.getTemplate(templateId);
-            if (result?.template) {
-                setSourceMode('template');
-                selectTemplate(result.template);
-                return true;
-            }
-        } catch (err) {
-            toast.error(err.message || 'Failed to load template');
-        }
-        return false;
-    }, [selectTemplate, toast]);
-
-    // Pick a template from the gallery. Repo templates continue in the wizard
-    // (they deploy from their Git repo); one-click compose templates route to
-    // their install flow on the Templates page, which is their real deploy path.
-    const pickTemplate = useCallback((template) => {
-        if ((template.kind || 'compose') === 'repo') {
-            selectTemplateById(template.id);
-        } else {
-            navigate(`/templates?install=${encodeURIComponent(template.id)}`);
-        }
-    }, [selectTemplateById, navigate]);
-
     function handleManualRepoChange(value) {
         setManualRepoUrl(value);
         if (!nameTouched) setName(repoNameFromUrl(normalizeManualRepo(value)));
@@ -438,16 +340,20 @@ export function useNewServiceForm() {
         if (!nameTouched) setName(slugify(file.name.replace(/\.zip$/i, '')));
     }
 
-    // Deep links: /services/new?template=<id> or ?source=<mode> land preloaded on
-    // the Connect step. Runs once on mount.
+    // Deep links: ?source=<mode> lands preloaded on the Connect step. Runs once
+    // on mount.
+    //
+    // ?template=<id> is kept working but forwarded: templates now deploy from
+    // the drawer on /templates, so an old link lands on the same surface the
+    // catalog's own cards open rather than a second, different one.
     useEffect(() => {
         const templateId = searchParams.get('template');
         const source = searchParams.get('source');
         if (templateId) {
-            selectTemplateById(templateId).then((ok) => { if (ok) setStep(2); });
+            navigate(`/templates?install=${encodeURIComponent(templateId)}`, { replace: true });
             return;
         }
-        if (source && ['github', 'manual', 'local', 'upload', 'template'].includes(source)) {
+        if (source && ['github', 'manual', 'local', 'upload'].includes(source)) {
             selectSource(source);
             setStep(2);
         }
@@ -528,9 +434,6 @@ export function useNewServiceForm() {
                     payload.source_connection_id = githubConnection.id;
                     payload.repository_full_name = selectedRepo.full_name;
                     payload.repo_url = `https://github.com/${selectedRepo.full_name}.git`;
-                } else if (sourceMode === 'template') {
-                    payload.template_id = selectedTemplate.id;
-                    payload.repo_url = selectedTemplate.repoUrl;
                 } else {
                     payload.repo_url = normalizedManualRepo;
                 }
@@ -563,8 +466,6 @@ export function useNewServiceForm() {
         githubStatus, githubConnection, githubConfigured,
         repos, reposLoading, repoSearch, setRepoSearch, selectedRepo, setSelectedRepo,
         loadGithubRepos, handleConnectGithub, branches, branchesLoading,
-        // templates
-        templates, templatesLoading, selectedTemplate, selectTemplate, selectTemplateById, pickTemplate,
         // manual / local / upload
         manualRepoUrl, handleManualRepoChange, normalizedManualRepo,
         localPath, setLocalPath, composeFile, setComposeFile,

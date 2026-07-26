@@ -12,21 +12,36 @@ import { useOverflowItems } from '@/hooks/useOverflowItems';
 //   <PageTopbar icon={<Globe/>} title="Domains"
 //       tabs={[{ to:'/domains', label:'Domains', end:true }, { to:'/dns', label:'DNS Zones' }]}
 //       actions={<Button>Add domain</Button>} />
-export function PageTopbar({ icon, title, meta, tabs, actions, className }) {
+//
+// Omitting `title` (what TabGroupLayout does) drops the title block entirely and
+// runs the tabs flush-left as the bar's primary navigation — the section is
+// already named by the lit sidebar item and the active tab, so repeating it as a
+// heading only pushed the tabs off the left edge. Entity pages that DO pass a
+// title (ServiceDetail, WordPressDetail, …) keep it: there the title names
+// *which* entity you are on, which nothing else in the bar says. Pass
+// `navLabel` to name the nav for assistive tech when there is no title.
+export function PageTopbar({ icon, title, meta, tabs, actions, className, navLabel }) {
     const hasTabs = tabs && tabs.length > 0;
+    const hasTitle = !!title;
     return (
-        <header className={cn('sk-topbar', className)}>
-            {icon && <span className="sk-topbar__ico">{icon}</span>}
-            <div className="sk-topbar__titles">
-                <h1 className="sk-topbar__title">{title}</h1>
-                {meta && <span className="sk-topbar__meta">{meta}</span>}
-            </div>
+        <header className={cn('sk-topbar', !hasTitle && 'sk-topbar--titleless', className)}>
+            {hasTitle && (
+                <>
+                    {icon && <span className="sk-topbar__ico">{icon}</span>}
+                    <div className="sk-topbar__titles">
+                        <h1 className="sk-topbar__title">{title}</h1>
+                        {meta && <span className="sk-topbar__meta">{meta}</span>}
+                    </div>
+                </>
+            )}
 
             {/* The tab nav grows to fill the bar; when there are more tabs than
                 fit, the overflow collapses into a "More" menu (so groups with
                 many sections — e.g. Security — stay on one row). Pages without
                 tabs keep the plain spacer that pushes actions to the right. */}
-            {hasTabs ? <TopbarTabs tabs={tabs} label={title} /> : <div className="sk-topbar__spacer" />}
+            {hasTabs
+                ? <TopbarTabs tabs={tabs} label={navLabel || title || 'Page'} />
+                : <div className="sk-topbar__spacer" />}
 
             {actions && <div className="sk-topbar__actions">{actions}</div>}
         </header>

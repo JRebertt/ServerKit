@@ -41,6 +41,10 @@ volumes:
     path: /mosquitto/log
     description: Mosquitto logs
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     mosquitto:

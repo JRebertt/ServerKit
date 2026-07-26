@@ -37,6 +37,10 @@ volumes:
     path: /opt/sonarqube/logs
     description: SonarQube logs
 
+requirements:
+  memory: 4GB
+  storage: 10GB
+
 compose:
   services:
     sonarqube:

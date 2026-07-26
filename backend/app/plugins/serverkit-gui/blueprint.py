@@ -1,16 +1,22 @@
 """ServerKit Agent GUI plugin — panel-side blueprint.
 
 Acts as a thin proxy between the frontend and the agent's gui:* actions.
-No frame data is stored; everything is forwarded through agent_registry.send_command.
+No frame data is stored; everything is forwarded through plugins_sdk.agents,
+which checks this plugin declared ``agent.command:<action>`` before dispatching
+and turns a failed command into an exception carrying the reason.
 """
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app.services.agent_registry import agent_registry
+from app.plugins_sdk import agents, logger
+from app.plugins_sdk.permissions import PermissionDenied
 from app.models.server import Server
 from app.models.user import User
 
 gui_bp = Blueprint("server_gui", __name__)
+log = logger(__name__)
+
+PLUGIN_SLUG = "serverkit-gui"
 
 DEFAULT_FRAME_TIMEOUT = 8.0
 MAX_FRAME_TIMEOUT = 15.0
@@ -18,6 +24,10 @@ MAX_FRAME_TIMEOUT = 15.0
 
 def _current_user():
     return User.query.get(get_jwt_identity())
+
+
+def _fleet():
+    return agents.for_plugin(PLUGIN_SLUG)
 
 
 def _server_or_404(server_id: str):
@@ -43,23 +53,23 @@ def capabilities(server_id):
             "synthetic_fallback": True,
         })
 
-    result = agent_registry.send_command(
-        server_id=server_id,
-        action="gui:capabilities",
-        params={},
-        timeout=5.0,
-        user_id=user.id if user else None,
-    )
-
-    if not result.get("success"):
-        # Agent doesn't implement gui:capabilities — that's fine, fall back.
+    try:
+        data = _fleet().run(
+            server_id, "gui:capabilities",
+            timeout=5.0,
+            user_id=user.id if user else None,
+        )
+    except (agents.CommandError, PermissionDenied) as exc:
+        # Not an error state: an agent that doesn't implement gui:capabilities
+        # is exactly what the synthetic fallback exists for.
         return jsonify({
             "capability": "none",
-            "reason": result.get("error", "unsupported"),
+            "reason": str(exc),
             "synthetic_fallback": True,
         })
 
-    data = result.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
     data.setdefault("synthetic_fallback", data.get("capability") in (None, "none"))
     return jsonify(data)
 
@@ -94,25 +104,23 @@ def frame(server_id):
     if fmt not in ("jpeg", "png"):
         fmt = "jpeg"
 
-    result = agent_registry.send_command(
-        server_id=server_id,
-        action="gui:screenshot",
-        params={"scale": scale, "quality": quality, "format": fmt},
-        timeout=DEFAULT_FRAME_TIMEOUT,
-        user_id=user.id if user else None,
-    )
+    try:
+        data = _fleet().run(
+            server_id, "gui:screenshot",
+            {"scale": scale, "quality": quality, "format": fmt},
+            timeout=DEFAULT_FRAME_TIMEOUT,
+            user_id=user.id if user else None,
+        )
+    except PermissionDenied as exc:
+        # Only reachable if this plugin's manifest lost the permission.
+        return jsonify({"error": str(exc), "code": "PERMISSION_DENIED"}), 403
+    except agents.CommandError as exc:
+        return jsonify({"error": str(exc), "code": exc.code or "CAPTURE_FAILED"}), 502
 
-    if not result.get("success"):
-        return jsonify({
-            "error": result.get("error", "capture failed"),
-            "code": result.get("code", "CAPTURE_FAILED"),
-        }), 502
-
-    data = result.get("data") or {}
     # Expected agent shape:
     #   { "image_base64": "...", "format": "jpeg", "width": 1920, "height": 1080,
     #     "captured_at": "2026-05-01T12:34:56Z" }
-    if "image_base64" not in data:
+    if not isinstance(data, dict) or "image_base64" not in data:
         return jsonify({"error": "agent returned no frame"}), 502
 
     return jsonify(data)
@@ -139,23 +147,33 @@ def synthetic(server_id):
             "offline": True,
         })
 
-    sysinfo = agent_registry.send_command(
-        server_id=server_id,
-        action="system:info",
-        params={},
-        timeout=5.0,
-        user_id=user.id if user else None,
-    )
-    procs = agent_registry.send_command(
-        server_id=server_id,
-        action="system:processes",
-        params={"limit": 12},
-        timeout=5.0,
-        user_id=user.id if user else None,
-    )
+    user_id = user.id if user else None
 
-    info = (sysinfo.get("data") or {}) if sysinfo.get("success") else {}
-    plist = (procs.get("data") or []) if procs.get("success") else []
+    def _best_effort(action, params, default):
+        """Ask the agent, but never fail the page over the answer.
+
+        This endpoint renders *something* for a host with no display, so an
+        agent that won't answer degrades to an empty panel rather than an
+        error. A permission this plugin hasn't been granted lands in the same
+        place deliberately: an install whose stored manifest predates these
+        actions keeps working instead of 500-ing, and the log line says why.
+        """
+        try:
+            return _fleet().run(server_id, action, params, timeout=5.0,
+                                user_id=user_id)
+        except PermissionDenied as exc:
+            log.warning('%s: %s — update the extension to restore full '
+                        'synthetic detail', PLUGIN_SLUG, exc)
+            return default
+        except agents.CommandError:
+            return default
+
+    info = _best_effort("system:info", {}, {})
+    plist = _best_effort("system:processes", {"limit": 12}, [])
+    if not isinstance(info, dict):
+        info = {}
+    if not isinstance(plist, list):
+        plist = []
 
     windows = [
         {

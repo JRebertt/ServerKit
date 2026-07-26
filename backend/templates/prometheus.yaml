@@ -33,6 +33,10 @@ volumes:
     path: /etc/prometheus
     description: Configuration files
 
+requirements:
+  memory: 2GB
+  storage: 20GB
+
 compose:
   services:
     prometheus:

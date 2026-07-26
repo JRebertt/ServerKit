@@ -41,6 +41,10 @@ volumes:
     path: /srv
     description: Website files
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     caddy:

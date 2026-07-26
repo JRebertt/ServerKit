@@ -31,6 +31,10 @@ volumes:
     path: /data
     description: Navidrome data
 
+requirements:
+  memory: 512MB
+  storage: 10GB
+
 compose:
   services:
     navidrome:

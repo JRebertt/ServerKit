@@ -47,6 +47,10 @@ volumes:
     path: /directus/extensions
     description: Directus extensions
 
+requirements:
+  memory: 1GB
+  storage: 4GB
+
 compose:
   services:
     directus:

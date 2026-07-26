@@ -1,0 +1,97 @@
+id: clickhouse
+name: ClickHouse
+version: "24.3"
+description: Columnar OLAP database for event data and analytical queries over billions of rows
+icon: https://serverkit.ai/imgs/template-icons/clickhouse.svg
+categories:
+  - database
+  - analytics
+website: https://clickhouse.com
+documentation: https://clickhouse.com/docs
+
+engine:
+  family: Analytics
+  protocol: none
+  default_port: 8123
+  admin_user: default
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: tables
+  client: clickhouse-client
+  data_path: /var/lib/clickhouse
+  version_var: IMAGE_TAG
+  versions:
+    - "24.3"
+    - "23.8"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "24.3"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "8123"
+    hidden: false
+    description: Host port for the HTTP interface
+  - name: NATIVE_PORT
+    type: port
+    default: "9000"
+    hidden: false
+    description: Host port for the native TCP protocol
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the ports bind to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the default ClickHouse user
+  - name: DB_NAME
+    type: string
+    default: default
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      image: clickhouse/clickhouse-server:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:8123"
+        - "${BIND_ADDRESS}:${NATIVE_PORT}:9000"
+      environment:
+        # The entrypoint writes a users.d override from these. Without
+        # CLICKHOUSE_PASSWORD the `default` user has an EMPTY password.
+        CLICKHOUSE_USER: default
+        CLICKHOUSE_PASSWORD: "${DB_PASSWORD}"
+        CLICKHOUSE_DB: "${DB_NAME}"
+        CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+      # ClickHouse needs a high file-descriptor limit or it logs warnings and
+      # degrades under load.
+      ulimits:
+        nofile:
+          soft: 262144
+          hard: 262144
+      volumes:
+        - clickhouse-data:/var/lib/clickhouse
+
+  volumes:
+    clickhouse-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: http
+    description: HTTP interface
+  - port: "${NATIVE_PORT}"
+    protocol: tcp
+    description: Native protocol
+
+requirements:
+  memory: 2GB
+  storage: 20GB

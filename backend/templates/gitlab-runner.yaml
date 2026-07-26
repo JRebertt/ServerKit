@@ -31,6 +31,10 @@ volumes:
     path: /var/run/docker.sock
     description: Docker socket
 
+requirements:
+  memory: 1GB
+  storage: 10GB
+
 compose:
   services:
     gitlab-runner:

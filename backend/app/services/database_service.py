@@ -1195,6 +1195,34 @@ class DatabaseService:
         except Exception:
             return []
 
+    # Which CLI a DB container actually ships. MariaDB 11 dropped the `mysql`
+    # symlink in favour of `mariadb`, so a hardcoded 'mysql' fails outright with
+    # "executable file not found in $PATH" against any modern MariaDB image —
+    # including the mariadb:11.4 our own engine template installs. Resolved once
+    # per container and remembered; the answer cannot change while it runs.
+    _docker_client_cache = {}
+
+    @staticmethod
+    def _docker_db_client(container_name):
+        """Name of the mysql-compatible client available inside a container."""
+        cached = DatabaseService._docker_client_cache.get(container_name)
+        if cached:
+            return cached
+        for client in ('mariadb', 'mysql'):
+            try:
+                probe = subprocess.run(
+                    ['docker', 'exec', container_name, client, '--version'],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if probe.returncode == 0:
+                    DatabaseService._docker_client_cache[container_name] = client
+                    return client
+            except Exception:
+                continue
+        # Nothing answered — keep the historic default so the caller's error
+        # message stays the familiar one.
+        return 'mysql'
+
     @staticmethod
     def docker_mysql_execute(container_name, query, database=None, user='root', password=None):
         """Execute a MySQL query inside a Docker container."""
@@ -1205,7 +1233,7 @@ class DatabaseService:
             if password:
                 cmd.extend(['-e', f'MYSQL_PWD={password}'])
 
-            cmd.extend([container_name, 'mysql', '-u', user])
+            cmd.extend([container_name, DatabaseService._docker_db_client(container_name), '-u', user])
 
             if database:
                 cmd.extend(['-D', database])
@@ -1217,6 +1245,40 @@ class DatabaseService:
                 'success': result.returncode == 0,
                 'output': result.stdout,
                 'error': result.stderr if result.returncode != 0 else None
+            }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Query timed out'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @staticmethod
+    def docker_pg_execute(container_name, query, database='postgres', user='postgres',
+                          password=None, timeout=30):
+        """Execute a PostgreSQL statement inside a Docker container.
+
+        The psql twin of :meth:`docker_mysql_execute`, so anything that has to
+        talk to a containerised engine has one place to do it.
+
+        ``ON_ERROR_STOP=1`` is not optional: without it psql happily reports
+        success for a statement the server rejected, which turns a real failure
+        (``could not open extension control file``) into a silent no-op.
+
+        Output is ``-t -A``: no header, no padding, ``|``-separated columns.
+        """
+        try:
+            cmd = ['docker', 'exec']
+            # PGPASSWORD via the exec environment, never on the command line.
+            if password:
+                cmd.extend(['-e', f'PGPASSWORD={password}'])
+            cmd.extend([container_name, 'psql', '-U', user,
+                        '-d', database or 'postgres',
+                        '-v', 'ON_ERROR_STOP=1',
+                        '-c', query, '-t', '-A'])
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            return {
+                'success': result.returncode == 0,
+                'output': result.stdout,
+                'error': result.stderr if result.returncode != 0 else None,
             }
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Query timed out'}
@@ -1315,7 +1377,7 @@ class DatabaseService:
             # Use MYSQL_PWD env var to avoid passing password on CLI
             if password:
                 cmd.extend(['-e', f'MYSQL_PWD={password}'])
-            cmd.extend([container_name, 'mysql', '-u', user])
+            cmd.extend([container_name, DatabaseService._docker_db_client(container_name), '-u', user])
             cmd.extend([
                 '-D', database,
                 '-e', query,

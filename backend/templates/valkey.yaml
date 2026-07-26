@@ -1,0 +1,73 @@
+id: valkey
+name: Valkey
+version: "8"
+description: Redis-compatible fork stewarded by the Linux Foundation -- a drop-in for cache workloads
+icon: https://serverkit.ai/imgs/template-icons/valkey.svg
+categories:
+  - database
+  - cache
+website: https://valkey.io
+documentation: https://valkey.io/docs/
+
+engine:
+  family: Key-value
+  protocol: redis
+  default_port: 6380
+  admin_user: default
+  admin_password_var: DB_PASSWORD
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: keys
+  client: valkey-cli
+  data_path: /data
+  version_var: IMAGE_TAG
+  versions:
+    - "8"
+    - "7.2"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "8"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    # Sits beside a Redis on 6379.
+    default: "6380"
+    hidden: false
+    description: Host port to publish Valkey on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password required by AUTH (requirepass)
+
+compose:
+  services:
+    app:
+      image: valkey/valkey:${IMAGE_TAG}-alpine
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:6379"
+      # Same as Redis: no password env var, auth goes on the command line.
+      command: valkey-server --requirepass "${DB_PASSWORD}" --appendonly yes
+      volumes:
+        - valkey-data:/data
+
+  volumes:
+    valkey-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: redis
+    description: RESP protocol
+
+requirements:
+  memory: 256MB
+  storage: 1GB

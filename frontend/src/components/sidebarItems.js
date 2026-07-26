@@ -49,15 +49,16 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Servers uses the top-bar layout (REDESIGN_MAP §6 decision 3).
-        // Its Agent Fleet / Fleet Monitor / Cloud Servers / Config Templates
+        // Its Agent Fleet / Fleet Proxy / Cloud Servers / Config Templates
         // sub-nav now lives in the page's top bar (PageTopbar SERVER_TABS), not
-        // as sidebar sub-items. Routes /fleet, /fleet-monitor, /cloud,
+        // as sidebar sub-items. Routes /fleet, /fleet-proxy, /cloud,
         // /server-templates are unchanged and reachable from those tabs.
+        // (Fleet Monitor left this group for /monitoring.)
         id: 'servers',
         label: 'Servers',
         route: '/servers',
         // Keep "Servers" lit across the whole tab group (Agent Fleet, Fleet
-        // Monitor, Cloud Servers, Config Templates) — see serverTabs.jsx.
+        // Proxy, Cloud Servers, Config Templates) — see serverTabs.jsx.
         matchPrefixes: groupPrefixes(SERVER_TABS),
         category: 'infrastructure',
         icon: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>'
@@ -125,11 +126,13 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Monitoring uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
-        // Observability group (§4): Monitoring / Events / Status Pages share the
-        // top bar (PageTopbar MONITOR_TABS). The sidebar entry lights for any of
-        // them via matchPrefixes. Events absorbed the old standalone Telemetry.
+        // Its sections (Overview / Alerts / Rules / Capacity / Doctor / Events)
+        // share the top bar (PageTopbar MONITOR_TABS); the sidebar entry lights
+        // for any of them via matchPrefixes. Events absorbed the old standalone
+        // Telemetry. Labelled "Monitoring" to match the route and the page —
+        // this used to say "Observability", which named the same thing twice.
         id: 'monitoring',
-        label: 'Observability',
+        label: 'Monitoring',
         route: '/monitoring',
         matchPrefixes: groupPrefixes(MONITOR_TABS),
         category: 'operations',
@@ -254,22 +257,45 @@ export const SIDEBAR_PRESETS = {
     },
     minimal: {
         label: 'Minimal',
-        description: 'Just the essentials — dashboard, servers, terminal',
+        description: 'Core only — no databases, containers, or scheduling',
         hiddenItems: ['wordpress', 'workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
     }
 };
 
 // Map the Setup wizard's "use case" selections to an initial sidebar preset, so
-// a fresh install opens tailored instead of showing every item. Only a single,
-// focused intent picks a specialized profile; mixed or general installs get the
-// lean "Recommended" baseline (which still surfaces the common pages).
+// a fresh install opens tailored instead of showing every item. This is only the
+// *suggestion* the Summary step pre-selects — the user can override it there (or
+// later in Settings), so this deliberately stays coarse rather than trying to
+// reach all six profiles from four intent checkboxes.
+//
+// The rule is "does one family of work dominate?": a purely WordPress install
+// gets the web-hosting view, an install that is only container/CI work gets the
+// DevOps view, and anything mixed falls back to the lean "Recommended" baseline
+// (which still surfaces the common pages).
 export function presetForUseCases(useCases = []) {
     const set = new Set((useCases || []).filter(Boolean));
-    if (set.size === 1) {
-        if (set.has('wordpress')) return 'web';
-        if (set.has('devops')) return 'devops';
-    }
+    if (set.size === 0) return 'recommended';
+
+    // Only WordPress → web hosting (Docker/Git/email hidden).
+    if (set.size === 1 && set.has('wordpress')) return 'web';
+
+    // Container/CI work with no WordPress in the mix → DevOps.
+    const devopsIntents = ['web-apps', 'devops'];
+    const everyIntentIsDevops = [...set].every((id) => devopsIntents.includes(id));
+    if (everyIntentIsDevops) return 'devops';
+
     return 'recommended';
+}
+
+// Number of core sidebar items a preset leaves visible. Used by the Setup
+// wizard to describe a profile ("14 of 18 items") before the user commits.
+// Counts core items only — extension-contributed nav (WordPress, Git, Email)
+// isn't resolvable until those extensions are installed.
+export function visibleCountForPreset(presetKey) {
+    const hidden = new Set(SIDEBAR_PRESETS[presetKey]?.hiddenItems || []);
+    return SIDEBAR_ITEMS.filter(
+        (item) => item.alwaysVisible || !hidden.has(item.id)
+    ).length;
 }
 
 export function getHiddenItemIds(sidebarConfig) {

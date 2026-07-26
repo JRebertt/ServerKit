@@ -1,21 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
-    Settings, Layers, LayoutTemplate, Copy, Check, Tag, Cpu,
-    Newspaper, TrendingUp, Rocket
+    Settings, Layers, LayoutTemplate, Check, Tag, Cpu,
+    Newspaper, TrendingUp, Rocket, Box, Download, ChevronRight,
+    CheckCircle2, AlertTriangle, XCircle, HelpCircle
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-    SearchField, FilterDrawer, FilterButton, countActiveFilters,
+    SearchField, FilterDrawer, FilterButton, countActiveFilters, Drawer,
 } from '@/components/ds';
+import ServerPicker from '@/components/templates/ServerPicker';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import EmptyState from '../components/EmptyState';
 
@@ -179,11 +180,7 @@ const Templates = () => {
     const [failedIcons, setFailedIcons] = useState(new Set());
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [showInstallModal, setShowInstallModal] = useState(false);
-    const [copiedCompose, setCopiedCompose] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
-    // Repo-template manifest inspection (populated when a repo detail opens).
-    const [repoManifest, setRepoManifest] = useState(null);
-    const [repoManifestLoading, setRepoManifestLoading] = useState(false);
 
     // Initialize from URL params
     const selectedCategory = searchParams.get('category') || '';
@@ -216,7 +213,9 @@ const Templates = () => {
                 return;
             }
             const template = templates.find(t => t.id === installTemplateId);
-            if (template && template.kind !== 'repo') {
+            // Repo templates are no longer excluded — they deploy from this same
+            // drawer, so ?install=<id> works for the whole catalog.
+            if (template) {
                 handleViewTemplate(template).then(() => {
                     setShowInstallModal(true);
                 });
@@ -377,6 +376,8 @@ const Templates = () => {
         return <Icon size={14} />;
     }
 
+    // Load the full template record. Used by the ?install=<id> deep link, which
+    // needs variables/description before the deploy drawer can open.
     async function handleViewTemplate(template) {
         // WordPress has its own dedicated page
         if (template.id === 'wordpress') {
@@ -387,37 +388,22 @@ const Templates = () => {
             const result = await api.getTemplate(template.id);
             if (result.template) {
                 setSelectedTemplate(result.template);
-                if (result.template.kind === 'repo') {
-                    loadRepoManifest(result.template);
-                }
             }
         } catch (err) {
             toast.error('Failed to load template details');
         }
     }
 
-    // Fetch the repo template's detected manifests / env from the Phase 1
-    // endpoint so the detail body shows real data (or labeled hints).
-    function loadRepoManifest(template) {
-        setRepoManifest(null);
-        setRepoManifestLoading(true);
-        api.inspectTemplateManifest(template.id, template.repo?.branch)
-            .then(data => setRepoManifest(data))
-            .catch(() => setRepoManifest(null))
-            .finally(() => setRepoManifestLoading(false));
-    }
-
     function deployRepoTemplate(templateId) {
         navigate(`/services/new?template=${encodeURIComponent(templateId)}`);
     }
 
-    // Hover-reveal primary action. Repo templates route to the wizard; compose
-    // templates skip the detail modal and go straight to install.
+    // What both a card click and its Deploy button do — one predictable
+    // outcome for every template, compose or repo. A curated repo template
+    // already declares its repo, branch, build method and port, so the
+    // detection wizard had nothing left to ask; it deploys from the same
+    // drawer as everything else.
     async function handleDeploy(template) {
-        if (template.kind === 'repo') {
-            deployRepoTemplate(template.id);
-            return;
-        }
         if (template.id === 'wordpress') {
             navigate('/wordpress');
             return;
@@ -464,27 +450,44 @@ const Templates = () => {
         : templates;
     const sortedTemplates = sortTemplates(kindFiltered);
 
-    // One row of the largest categories as quick chips (no spillover button).
-    const quickCategories = categories.slice(0, 8);
-
     // The active-filter badge counts real filters only (category + kind); sort is
     // an ordering, not a filter, so it never inflates the count.
     const activeFilterCount = countActiveFilters({ category: selectedCategory, kind: selectedKind });
     const hasActiveFilters = Boolean(selectedCategory || selectedKind || searchQuery
         || (sortBy && sortBy !== 'featured'));
 
+    // How many templates each option would match, counted over the whole
+    // catalog rather than the current result set — a count that shrank to 0 as
+    // you filtered would say nothing about whether the option is worth a click.
+    const optionCounts = useMemo(() => {
+        const byKind = {};
+        const byCategory = {};
+        templates.forEach((t) => {
+            const kind = t.kind || 'compose';
+            byKind[kind] = (byKind[kind] || 0) + 1;
+            (t.categories || []).forEach((c) => {
+                byCategory[c] = (byCategory[c] || 0) + 1;
+            });
+        });
+        return { byKind, byCategory };
+    }, [templates]);
+
     const filterGroups = [
         {
             key: 'kind',
             label: 'Type',
             type: 'single',
-            options: KIND_OPTIONS,
+            options: KIND_OPTIONS.map(o => ({ ...o, count: optionCounts.byKind[o.value] || 0 })),
         },
         {
             key: 'category',
             label: 'Category',
             type: 'single',
-            options: categories.map(cat => ({ value: cat, label: cat })),
+            options: categories.map(cat => ({
+                value: cat,
+                label: cat,
+                count: optionCounts.byCategory[cat] || 0,
+            })),
         },
         {
             key: 'sort',
@@ -519,75 +522,86 @@ const Templates = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner">
-                <EmptyState loading title="Loading templates" />
+                <EmptyState loading loadingVariant="cards" title="Loading templates" />
             </div>
         );
     }
 
     return (
         <div className="sk-tabgroup__inner templates-page">
-            {/* Quick category chips + result count. The full category list, kind,
-                and sort live in the shared FilterDrawer (opened from the topbar). */}
+            {/* The catalog is not the only way in: a repo or an archive skips
+                templates entirely, so both routes lead the page rather than
+                hiding behind the New Service tab. */}
+            <div className="tpl-quickstart">
+                <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=github')}>
+                    <span className="tpl-quickstart__ico"><GitBranch size={18} /></span>
+                    <span className="tpl-quickstart__body">
+                        <span className="tpl-quickstart__title">Import from GitHub</span>
+                        <span className="tpl-quickstart__sub">Connect a repo and auto-deploy on every push</span>
+                    </span>
+                    <ChevronRight size={16} className="tpl-quickstart__arrow" />
+                </button>
+                <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=archive')}>
+                    <span className="tpl-quickstart__ico"><Download size={18} /></span>
+                    <span className="tpl-quickstart__body">
+                        <span className="tpl-quickstart__title">Import a ZIP</span>
+                        <span className="tpl-quickstart__sub">Drop in a project archive to build &amp; run</span>
+                    </span>
+                    <ChevronRight size={16} className="tpl-quickstart__arrow" />
+                </button>
+            </div>
+
+            {/* One header row: result count, whatever filtering is currently in
+                force (as removable chips), and sort. Categories are not listed
+                here — every filter lives in the FilterDrawer, so there is one
+                place to look rather than two competing ones. */}
             <div className="templates-results-header">
                 <span className="results-count">
                     {sortedTemplates.length} template{sortedTemplates.length !== 1 ? 's' : ''}
                 </span>
-                <div className="category-filters" aria-label="Template categories">
-                    <button type="button"
-                        className={`category-btn ${!selectedCategory ? 'active' : ''}`}
-                        onClick={() => setSelectedCategoryFilter(null)}
-                    >
-                        All
-                    </button>
-                    {quickCategories.map(category => (
-                        <button type="button"
-                            key={category}
-                            className={`category-btn ${selectedCategory === category ? 'active' : ''}`}
-                            onClick={() => setSelectedCategoryFilter(
-                                selectedCategory === category ? null : category
-                            )}
+                <div className="active-filters">
+                    {selectedKind && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => updateFilters({ kind: null })}>
+                            {KIND_OPTIONS.find(k => k.value === selectedKind)?.label || selectedKind}
+                            <X size={12} />
+                        </button>
+                    )}
+                    {selectedCategory && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => setSelectedCategoryFilter(null)}>
+                            {selectedCategory}
+                            <X size={12} />
+                        </button>
+                    )}
+                    {searchQuery && (
+                        <button type="button" className="filter-chip"
+                            onClick={() => setSearchQueryFilter('')}>
+                            &ldquo;{searchQuery}&rdquo;
+                            <X size={12} />
+                        </button>
+                    )}
+                    {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
+                            Clear all
+                        </Button>
+                    )}
+                </div>
+                {/* The two orders people actually reach for; the full sort list
+                    (incl. Z–A) stays in the filter drawer. */}
+                <div className="tpl-sort" role="group" aria-label="Sort templates">
+                    {[['featured', 'Featured'], ['name-asc', 'A–Z']].map(([value, label]) => (
+                        <button
+                            type="button"
+                            key={value}
+                            className={sortBy === value ? 'is-active' : ''}
+                            onClick={() => updateFilters({ sort: value === 'featured' ? null : value })}
                         >
-                            {getCategoryIcon(category)} {category}
+                            {label}
                         </button>
                     ))}
                 </div>
             </div>
-
-            {/* Active Filters */}
-            {hasActiveFilters && (
-                <div className="active-filters">
-                    {selectedKind && (
-                        <span className="filter-chip">
-                            <GitBranch size={14} />
-                            {KIND_OPTIONS.find(k => k.value === selectedKind)?.label || selectedKind}
-                            <button type="button" onClick={() => updateFilters({ kind: null })}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    {selectedCategory && (
-                        <span className="filter-chip">
-                            <Tag size={14} />
-                            {selectedCategory}
-                            <button type="button" onClick={() => setSelectedCategoryFilter(null)}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    {searchQuery && (
-                        <span className="filter-chip">
-                            <Search size={14} />
-                            &ldquo;{searchQuery}&rdquo;
-                            <button type="button" onClick={() => setSearchQueryFilter('')}>
-                                <X size={14} />
-                            </button>
-                        </span>
-                    )}
-                    <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
-                        Clear All
-                    </Button>
-                </div>
-            )}
 
             {/* Templates Grid */}
             <div className="templates-grid">
@@ -606,7 +620,7 @@ const Templates = () => {
                     sortedTemplates.map(template => {
                         const isRepo = (template.kind || 'compose') === 'repo';
                         return (
-                            <div key={template.id} className="tpl-card" onClick={() => handleViewTemplate(template)}>
+                            <div key={template.id} className="tpl-card" onClick={() => handleDeploy(template)}>
                                 {isFeatured(template.id) && (
                                     <span className="tpl-ft" title="Featured">
                                         <Star size={14} />
@@ -658,172 +672,12 @@ const Templates = () => {
                 )}
             </div>
 
-            {/* Template Detail Modal */}
-            {selectedTemplate && !showInstallModal && (
-                <div className="modal-overlay" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
-                    <div className="modal template-detail-drawer" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <div className="template-detail-header">
-                                <div className="template-icon-large">
-                                    {renderIcon(selectedTemplate, 40)}
-                                </div>
-                                <div>
-                                    <h2>{selectedTemplate.name}</h2>
-                                    <span className="template-version">Version {selectedTemplate.version}</span>
-                                </div>
-                            </div>
-                            <button type="button" className="modal-close" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>&times;</button>
-                        </div>
-                        <div className="modal-body">
-                            <p className="template-full-description">{selectedTemplate.description}</p>
-
-                            <div className="template-links">
-                                {selectedTemplate.website && (
-                                    <a href={selectedTemplate.website} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="outline" size="sm">
-                                            <ExternalLink size={14} /> Website
-                                        </Button>
-                                    </a>
-                                )}
-                                {selectedTemplate.documentation && (
-                                    <a href={selectedTemplate.documentation} target="_blank" rel="noopener noreferrer">
-                                        <Button variant="outline" size="sm">
-                                            <BookOpen size={14} /> Documentation
-                                        </Button>
-                                    </a>
-                                )}
-                            </div>
-
-                            {selectedTemplate.kind === 'repo' ? (
-                                <RepoTemplateDetailBody
-                                    template={selectedTemplate}
-                                    manifest={repoManifest}
-                                    loading={repoManifestLoading}
-                                    getCategoryIcon={getCategoryIcon}
-                                />
-                            ) : (
-                                <div className="template-details-grid">
-                                    <div className="detail-section">
-                                        <h4><Tag size={16} /> Categories</h4>
-                                        <div className="template-categories">
-                                            {(selectedTemplate.categories || []).map(cat => (
-                                                <span key={cat} className="category-badge">
-                                                    {getCategoryIcon(cat)} {cat}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {selectedTemplate.requirements && (
-                                        <div className="detail-section">
-                                            <h4><Cpu size={16} /> Requirements</h4>
-                                            <div className="requirements-list">
-                                                {selectedTemplate.requirements.memory && (
-                                                    <div className="requirement-item">
-                                                        <span className="requirement-label">Memory:</span>
-                                                        <span className="requirement-value">{selectedTemplate.requirements.memory}</span>
-                                                    </div>
-                                                )}
-                                                {selectedTemplate.requirements.storage && (
-                                                    <div className="requirement-item">
-                                                        <span className="requirement-label">Storage:</span>
-                                                        <span className="requirement-value">{selectedTemplate.requirements.storage}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.variables && selectedTemplate.variables.length > 0 && (
-                                        <div className="detail-section">
-                                            <h4><Settings size={16} /> Configuration Variables</h4>
-                                            <div className="variables-list">
-                                                {selectedTemplate.variables
-                                                    .filter(v => !v.hidden)
-                                                    .sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0))
-                                                    .map(variable => (
-                                                    <div key={variable.name} className={`variable-item ${variable.required ? 'required' : ''}`}>
-                                                        <div className="variable-header">
-                                                            <span className="variable-name">{variable.name}</span>
-                                                            {variable.required && <span className="required-badge">Required</span>}
-                                                            {variable.auto_generated && <span className="auto-badge">Auto</span>}
-                                                        </div>
-                                                        {variable.description && (
-                                                            <span className="variable-description">{variable.description}</span>
-                                                        )}
-                                                        {variable.default && !variable.auto_generated && (
-                                                            <span className="variable-default">Default: {variable.default}</span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.ports && selectedTemplate.ports.length > 0 && (
-                                        <div className="detail-section">
-                                            <h4><Server size={16} /> Exposed Ports</h4>
-                                            <div className="ports-list">
-                                                {selectedTemplate.ports.map((port, index) => (
-                                                    <div key={index} className="port-item">
-                                                        <span className="port-number">{port.port}</span>
-                                                        <span className="port-protocol">{port.protocol}</span>
-                                                        {port.description && (
-                                                            <span className="port-description">{port.description}</span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate.has_compose && (
-                                        <div className="detail-section">
-                                            <h4>
-                                                <Container size={16} /> Docker Compose
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="copy-btn"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText('docker-compose.yml available after install');
-                                                        setCopiedCompose(true);
-                                                        setTimeout(() => setCopiedCompose(false), 2000);
-                                                    }}
-                                                >
-                                                    {copiedCompose ? <Check size={14} /> : <Copy size={14} />}
-                                                </Button>
-                                            </h4>
-                                            <div className="compose-preview">
-                                                <code>Docker Compose configuration will be generated during installation</code>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <Button variant="outline" onClick={() => { setSelectedTemplate(null); setRepoManifest(null); }}>
-                                Close
-                            </Button>
-                            {selectedTemplate.kind === 'repo' ? (
-                                <Button onClick={() => deployRepoTemplate(selectedTemplate.id)}>
-                                    <Rocket size={14} /> Deploy
-                                </Button>
-                            ) : (
-                                <Button onClick={() => setShowInstallModal(true)}>
-                                    Install Template
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Install Modal (compose templates only) */}
             {showInstallModal && selectedTemplate && (
                 <InstallModal
                     template={selectedTemplate}
+                    renderIcon={renderIcon}
                     onClose={() => {
                         setShowInstallModal(false);
                         setSelectedTemplate(null);
@@ -844,103 +698,69 @@ const Templates = () => {
                 value={filterValue}
                 onChange={handleFilterChange}
                 title="Filter templates"
+                activeCount={activeFilterCount}
+                resultCount={sortedTemplates.length}
+                resultNoun="template"
             />
         </div>
     );
 };
 
-// Repo-template detail body: repo URL, detected manifests, and env preview from
-// the /templates/<id>/manifest endpoint (real inspection or labeled hints).
-const RepoTemplateDetailBody = ({ template, manifest, loading, getCategoryIcon }) => {
-    const repo = template.repo || {};
-    const data = manifest?.manifest || null;
-    const sourceLabel = manifest?.source === 'repo'
-        ? 'Detected from repository'
-        : manifest?.source === 'template-hints'
-            ? 'From template hints'
-            : null;
+// The one deploy surface for every template, compose or repo.
+// Whether the chosen server has room for this template: what it typically
+// needs, against what that server has free right now.
+//
+// Advisory by design — it never disables the Deploy button. An estimate is an
+// estimate, and the operator knows things the panel doesn't (a box about to be
+// resized, an app that idles far below its documented minimum). The job here is
+// to make sure nobody is *surprised*, not to hold the door shut.
+const CAPACITY_TONES = {
+    ok: { icon: CheckCircle2, label: 'Fits' },
+    tight: { icon: AlertTriangle, label: 'Tight' },
+    insufficient: { icon: XCircle, label: "Won't fit" },
+    unknown: { icon: HelpCircle, label: 'Unknown' },
+};
+
+const CapacityNote = ({ capacity, loading }) => {
+    // Nothing on first paint rather than a flash of "unknown" that immediately
+    // becomes an answer.
+    if (!capacity && loading) return null;
+    if (!capacity) return null;
+
+    const tone = CAPACITY_TONES[capacity.verdict] || CAPACITY_TONES.unknown;
+    const Icon = tone.icon;
 
     return (
-        <div className="template-details-grid">
-            <div className="detail-section">
-                <h4><GitBranch size={16} /> Repository</h4>
-                <div className="repo-detail">
-                    <a href={repo.url} target="_blank" rel="noopener noreferrer" className="repo-detail__url">
-                        {repo.url}
-                    </a>
-                    <div className="repo-detail__meta">
-                        {repo.branch && <span>branch: <code>{repo.branch}</code></span>}
-                        {repo.app_type && <span>type: <code>{repo.app_type}</code></span>}
-                        {repo.build_method && <span>build: <code>{repo.build_method}</code></span>}
-                        {repo.port && <span>port: <code>{repo.port}</code></span>}
-                    </div>
-                </div>
+        <div className={`tpl-capacity tpl-capacity--${capacity.verdict}`}
+             aria-live="polite" data-loading={loading ? 'true' : undefined}>
+            <Icon size={16} className="tpl-capacity__icon" />
+            <div className="tpl-capacity__text">
+                <strong className="tpl-capacity__headline">{capacity.headline}</strong>
+                <span className="tpl-capacity__detail">{capacity.detail}</span>
             </div>
-
-            {(template.categories || []).length > 0 && (
-                <div className="detail-section">
-                    <h4><Tag size={16} /> Categories</h4>
-                    <div className="template-categories">
-                        {(template.categories || []).map(cat => (
-                            <span key={cat} className="category-badge">
-                                {getCategoryIcon(cat)} {cat}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <div className="detail-section">
-                <h4>
-                    <Layers size={16} /> Detected manifests
-                    {sourceLabel && <span className="detail-source-tag">{sourceLabel}</span>}
-                </h4>
-                {loading ? (
-                    <p className="text-muted">Inspecting repository…</p>
-                ) : (data?.manifests || []).length > 0 ? (
-                    <div className="manifest-file-list">
-                        {data.manifests.map(m => (
-                            <span key={m.file} className="manifest-file">
-                                <Check size={13} /> {m.file}
-                            </span>
-                        ))}
-                    </div>
-                ) : (
-                    <p className="text-muted">No deploy manifests detected.</p>
-                )}
-            </div>
-
-            {!loading && (data?.env || []).length > 0 && (
-                <div className="detail-section">
-                    <h4><Lock size={16} /> Environment</h4>
-                    <div className="env-preview-list">
-                        {data.env.map(env => (
-                            <span
-                                key={env.key}
-                                className={`env-preview-chip ${env.secret ? 'env-preview-chip--secret' : ''}`}
-                            >
-                                {env.key}{env.required ? ' *' : ''}
-                            </span>
-                        ))}
-                    </div>
-                    <p className="env-preview-note text-muted">
-                        Secret values stay empty until you add them to the service environment.
-                    </p>
-                </div>
-            )}
         </div>
     );
 };
 
-const InstallModal = ({ template, onClose, onSuccess }) => {
+const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
     const toast = useToast();
     const navigate = useNavigate();
-    const [appName, setAppName] = useState(template.id.toLowerCase().replace(/[^a-z0-9-]/g, '-'));
+    const isRepo = (template.kind || 'compose') === 'repo';
+    const [appName, setAppName] = useState(
+        (template.repo?.service_name || template.id).toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+    );
+    const [branch, setBranch] = useState(template.repo?.branch || 'main');
     const [variables, setVariables] = useState({});
     const [servers, setServers] = useState([{ id: 'local', name: 'Local server', is_local: true }]);
     const [selectedServerId, setSelectedServerId] = useState('local');
+    const [capacity, setCapacity] = useState(null);
+    const [capacityLoading, setCapacityLoading] = useState(false);
     const [installing, setInstalling] = useState(false);
     const [errors, setErrors] = useState([]);
+    // Managed-sites base domain, so the drawer can offer the subdomain this
+    // service would get instead of leaving the user to wire DNS afterwards.
+    const [baseDomain, setBaseDomain] = useState(null);
+    const [httpsBase, setHttpsBase] = useState(false);
 
     useEffect(() => {
         // Initialize variables with defaults
@@ -955,6 +775,14 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
 
     useEffect(() => {
         loadServers();
+        api.getSiteBaseDomains()
+            .then((data) => {
+                const bases = data?.base_domains || [];
+                const chosen = bases.find((b) => b.domain === data?.default) || bases[0];
+                setBaseDomain(chosen?.domain || null);
+                setHttpsBase(!!chosen?.https_enabled);
+            })
+            .catch(() => setBaseDomain(null));
     }, []);
 
     async function loadServers() {
@@ -971,14 +799,60 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
         }
     }
 
+    // Ask whether this template fits the chosen server, and re-ask whenever
+    // they switch — the whole point is to answer before the deploy, not after.
+    useEffect(() => {
+        let cancelled = false;
+        setCapacityLoading(true);
+        api.getTemplateCapacity(template.id, selectedServerId)
+            .then(result => { if (!cancelled) setCapacity(result); })
+            .catch(() => { if (!cancelled) setCapacity(null); })
+            .finally(() => { if (!cancelled) setCapacityLoading(false); });
+        return () => { cancelled = true; };
+    }, [template.id, selectedServerId]);
+
+    const domainPreview = baseDomain && appName ? `${appName}.${baseDomain}` : null;
+
     async function handleInstall(e) {
         e.preventDefault();
         setInstalling(true);
         setErrors([]);
 
+        // A repo template builds from source rather than composing images, so
+        // it goes through createAppFromRepository. Everything that endpoint
+        // needs is already declared by the template, which is why this no
+        // longer detours through the New Service wizard's detection steps.
+        if (isRepo) {
+            try {
+                const repo = template.repo || {};
+                const result = await api.createAppFromRepository({
+                    name: appName,
+                    template_id: template.id,
+                    repo_url: repo.url,
+                    branch: branch.trim() || repo.branch || 'main',
+                    app_type: repo.app_type || 'auto',
+                    build_method: repo.build_method || 'auto',
+                    port: repo.port ? Number(repo.port) : null,
+                    auto_deploy: true,
+                    ingress_plane: 'nginx',
+                });
+                onClose?.();
+                if (result.deploy_job_id) {
+                    navigate(`/deployments/${result.deploy_job_id}`);
+                } else {
+                    navigate(`/services/${result.app.id}`);
+                }
+            } catch (err) {
+                setErrors([err?.data?.error || err.message || 'Deploy failed']);
+                setInstalling(false);
+            }
+            return;
+        }
+
         try {
             // Validate first
-            const validation = await api.validateTemplateInstall(template.id, appName, variables);
+            const validation = await api.validateTemplateInstall(
+                template.id, appName, variables, selectedServerId);
             if (!validation.valid) {
                 setErrors(validation.errors || ['Validation failed']);
                 setInstalling(false);
@@ -1006,21 +880,36 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
         }
     }
 
-    return (
-        <Modal open onClose={onClose} title={`Install ${template.name}`} size="lg">
-            <form onSubmit={handleInstall}>
-                <div className="modal-body">
-                        {errors.length > 0 && (
-                            <div className="alert alert-danger">
-                                <ul>
-                                    {errors.map((error, i) => <li key={i}>{error}</li>)}
-                                </ul>
-                            </div>
-                        )}
+    const visibleVars = (template.variables || []).filter(v => !v.hidden);
 
-                        <div className="form-group">
-                            <label>Application Name *</label>
-                            <Input
+    return (
+        <Drawer
+            open
+            onOpenChange={(next) => { if (!next) onClose?.(); }}
+            title={`Deploy ${template.name}`}
+            subtitle={[`v${template.version}`, ...(template.categories || []).slice(0, 3)].join(' · ')}
+            icon={renderIcon(template, 20)}
+            width={560}
+            className="sk-formdrawer"
+        >
+            <form onSubmit={handleInstall} className="sk-formdrawer__form">
+                <div className="sk-formdrawer__body">
+                    {errors.length > 0 && (
+                        <div className="alert alert-danger">
+                            <ul>
+                                {errors.map((error, i) => <li key={i}>{error}</li>)}
+                            </ul>
+                        </div>
+                    )}
+
+                    <p className="sk-formdrawer__desc">{template.description}</p>
+
+                    <div className="sk-formdrawer__field">
+                        <label htmlFor="tpl-deploy-name">Service name</label>
+                        <div className="sk-formdrawer__input">
+                            <Box size={15} />
+                            <input
+                                id="tpl-deploy-name"
                                 type="text"
                                 value={appName}
                                 onChange={(e) => setAppName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
@@ -1028,80 +917,120 @@ const InstallModal = ({ template, onClose, onSuccess }) => {
                                 minLength={2}
                                 required
                             />
-                            <span className="form-help">Lowercase letters, numbers, and hyphens only (min 2 chars)</span>
                         </div>
+                        <span className="sk-formdrawer__hint">
+                            Lowercase letters, numbers, and hyphens only (min 2 chars)
+                        </span>
+                    </div>
 
-                        <div className="form-group">
-                            <label>Target Server</label>
-                            <select
-                                value={selectedServerId}
-                                onChange={(e) => setSelectedServerId(e.target.value)}
-                                disabled={installing}
-                            >
-                                {servers.map(server => (
-                                    <option key={server.id} value={server.id}>
-                                        {server.name}{server.is_local ? ' (local)' : ''}
-                                    </option>
-                                ))}
-                            </select>
+                    {/* Repo templates build from source, so the branch is the one
+                        thing the template cannot decide for you. */}
+                    {isRepo && (
+                        <div className="sk-formdrawer__field">
+                            <label htmlFor="tpl-deploy-branch">Branch</label>
+                            <div className="sk-formdrawer__input">
+                                <GitBranch size={15} />
+                                <input
+                                    id="tpl-deploy-branch"
+                                    type="text"
+                                    value={branch}
+                                    onChange={(e) => setBranch(e.target.value)}
+                                    placeholder="main"
+                                />
+                            </div>
+                            <span className="sk-formdrawer__hint">
+                                {template.repo?.url || 'Builds from the template repository'}
+                            </span>
                         </div>
+                    )}
 
-                        {(template.variables || []).filter(v => !v.hidden).length > 0 && (
-                            <>
-                                <h4>Configuration</h4>
-                                {template.variables.filter(v => !v.hidden).map(variable => (
-                                    <div key={variable.name} className="form-group">
-                                        <label>
-                                            {variable.name}
-                                            {variable.required && ' *'}
-                                        </label>
-                                        {variable.options ? (
-                                            <select
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                required={variable.required}
-                                            >
-                                                <option value="">Select...</option>
-                                                {variable.options.map(opt => (
-                                                    <option key={opt} value={opt}>{opt}</option>
-                                                ))}
-                                            </select>
-                                        ) : variable.type === 'password' ? (
-                                            <Input
-                                                type="password"
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                placeholder={variable.default ? '(auto-generated)' : ''}
-                                                required={variable.required && !variable.default}
-                                            />
-                                        ) : (
-                                            <Input
-                                                type={variable.type === 'port' ? 'number' : 'text'}
-                                                value={variables[variable.name] || ''}
-                                                onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
-                                                placeholder={variable.default || ''}
-                                                required={variable.required}
-                                            />
-                                        )}
-                                        {variable.description && (
-                                            <span className="form-help">{variable.description}</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </>
-                        )}
+                    {/* Only shown once a managed-sites base domain exists — with
+                        no base there is no subdomain to promise, and a dead
+                        field would be worse than none. */}
+                    {domainPreview && (
+                        <div className="sk-formdrawer__field">
+                            <span className="sk-formdrawer__label">Domain</span>
+                            <div className="sk-formdrawer__input sk-formdrawer__input--readonly">
+                                <Globe size={15} />
+                                <span className="sk-formdrawer__domain">{domainPreview}</span>
+                            </div>
+                            <span className="sk-formdrawer__hint">
+                                {httpsBase
+                                    ? 'Published automatically with HTTPS once the deploy finishes'
+                                    : 'Published automatically once the deploy finishes'}
+                            </span>
+                        </div>
+                    )}
 
+                    <div className="sk-formdrawer__field">
+                        <span className="sk-formdrawer__label">Deploy to server</span>
+                        <ServerPicker
+                            servers={servers}
+                            value={selectedServerId}
+                            onChange={setSelectedServerId}
+                        />
+                        {/* Sits under the picker because the answer depends on
+                            which server is chosen — switching re-asks. */}
+                        <CapacityNote capacity={capacity} loading={capacityLoading} />
                     </div>
-                    <div className="modal-footer">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={installing}>
-                            {installing ? 'Installing...' : 'Install'}
-                        </Button>
-                    </div>
-                </form>
-        </Modal>
+
+                    {visibleVars.length > 0 && (
+                        <div className="sk-formdrawer__field">
+                            <span className="sk-formdrawer__label">Configuration</span>
+                            {visibleVars.map(variable => (
+                                <div key={variable.name} className="form-group">
+                                    <label>
+                                        {variable.name}
+                                        {variable.required && ' *'}
+                                    </label>
+                                    {variable.options ? (
+                                        <select
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            required={variable.required}
+                                        >
+                                            <option value="">Select...</option>
+                                            {variable.options.map(opt => (
+                                                <option key={opt} value={opt}>{opt}</option>
+                                            ))}
+                                        </select>
+                                    ) : variable.type === 'password' ? (
+                                        <Input
+                                            type="password"
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            placeholder={variable.default ? '(auto-generated)' : ''}
+                                            required={variable.required && !variable.default}
+                                        />
+                                    ) : (
+                                        <Input
+                                            type={variable.type === 'port' ? 'number' : 'text'}
+                                            value={variables[variable.name] || ''}
+                                            onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
+                                            placeholder={variable.default || ''}
+                                            required={variable.required}
+                                        />
+                                    )}
+                                    {variable.description && (
+                                        <span className="form-help">{variable.description}</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="sk-formdrawer__foot">
+                    <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={installing}>
+                        <Rocket size={15} />
+                        {installing ? 'Deploying…' : `Deploy ${template.name}`}
+                    </Button>
+                </div>
+            </form>
+        </Drawer>
     );
 };
 

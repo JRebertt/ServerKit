@@ -21,6 +21,11 @@ class MigrationService:
     _current_revision = None
     _head_revision = None
     _pending_migrations = []
+    # True when the database is stamped at a revision this codebase no longer
+    # contains (a reverted branch, a downgraded install). Upgrading is impossible
+    # until it's stamped back to a known revision, so the UI must say that rather
+    # than offer a Continue button that cannot work.
+    _orphaned_revision = False
 
     @classmethod
     def _get_alembic_config(cls, app):
@@ -139,8 +144,29 @@ class MigrationService:
                 cls._current_revision = current_heads[0] if current_heads else None
 
             if cls._current_revision != head:
-                # Calculate pending migrations
+                # Is the stamped revision one this codebase still knows about?
+                # A branch that added a migration and was then reverted leaves the
+                # database stamped at a revision whose file is gone. The walk below
+                # breaks on `current_revision`, so an unknown one never matches and
+                # every revision in history gets reported as "pending" — which is
+                # both wrong and alarming (and `upgrade` would fail anyway with
+                # "Can't locate revision"). Detect it and say so instead.
+                known_revisions = {rev.revision for rev in script.walk_revisions()}
+                cls._orphaned_revision = bool(
+                    cls._current_revision and cls._current_revision not in known_revisions
+                )
+
                 cls._pending_migrations = []
+                if cls._orphaned_revision:
+                    logger.warning(
+                        f'Database is stamped at unknown revision '
+                        f'{cls._current_revision!r} (head={head}). It is not in this '
+                        f'codebase — the schema cannot be upgraded until it is '
+                        f'stamped back to a known revision.'
+                    )
+                    cls._needs_migration = True
+                    return
+
                 for rev in script.walk_revisions():
                     if cls._current_revision and rev.revision == cls._current_revision:
                         break
@@ -184,11 +210,14 @@ class MigrationService:
             and cls._current_revision != cls._head_revision
         )
         return {
-            'needs_migration': needs,
+            'needs_migration': needs or cls._orphaned_revision,
             'current_revision': cls._current_revision,
             'head_revision': cls._head_revision,
             'pending_count': len(cls._pending_migrations),
             'pending_migrations': cls._pending_migrations,
+            # When true, `pending_migrations` is empty because it is unknowable,
+            # not because the database is up to date.
+            'orphaned_revision': cls._orphaned_revision,
         }
 
     @classmethod

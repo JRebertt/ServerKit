@@ -1,17 +1,24 @@
 import { Inbox } from 'lucide-react';
-import { Skeleton } from './Skeleton';
+import { PageSkeleton } from './PageSkeleton';
 
+/**
+ * `loadingVariant` names the shape of the page that is loading — see
+ * PageSkeleton for the archetypes (table, feed, cards, detail, console, form,
+ * chart, tree, split). It defaults to the generic `panel`, which is a safe
+ * fallback but predicts nothing: prefer naming the real shape, so the skeleton
+ * resolves into the content instead of being replaced by it.
+ */
 export default function EmptyState({
     icon: Icon = Inbox,
     title = 'No items found',
     description = '',
     action = null,
     size = 'default',
-    loading = false
+    loading = false,
+    loadingVariant = 'panel',
+    loadingRows,
 }) {
     if (loading) {
-        // Skeleton placeholder (not a spinner): a generic panel shape that reads
-        // as "content is loading" across the ~40 page/section loaders that use it.
         return (
             <div
                 className={`empty-state empty-state--${size} empty-state--loading`}
@@ -19,25 +26,7 @@ export default function EmptyState({
                 aria-busy="true"
                 aria-label={title || 'Loading'}
             >
-                <div className="skeleton-panel">
-                    <div className="skeleton-panel__head">
-                        <Skeleton variant="avatar" />
-                        <div className="skeleton-panel__head-text">
-                            <Skeleton variant="title" width="42%" />
-                            <Skeleton variant="line" width="26%" />
-                        </div>
-                    </div>
-                    <div className="skeleton-panel__cards">
-                        <Skeleton variant="card" />
-                        <Skeleton variant="card" />
-                        <Skeleton variant="card" />
-                    </div>
-                    <div className="skeleton-panel__rows">
-                        <Skeleton variant="line" width="100%" />
-                        <Skeleton variant="line" width="92%" />
-                        <Skeleton variant="line" width="76%" />
-                    </div>
-                </div>
+                <PageSkeleton variant={loadingVariant} rows={loadingRows} />
             </div>
         );
     }

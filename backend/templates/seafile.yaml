@@ -42,6 +42,10 @@ volumes:
     path: /shared/seafile
     description: Seafile data
 
+requirements:
+  memory: 1GB
+  storage: 10GB
+
 compose:
   services:
     seafile:

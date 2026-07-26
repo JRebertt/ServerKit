@@ -367,6 +367,29 @@ def _trim_data(data: Any) -> Any:
     return data
 
 
+_STREAM_ATTR = '_run_log_stream'
+
+
+def stream_for(job: DeploymentJob) -> RunLogStream:
+    """Return the one stream for *job*, creating it on first use.
+
+    Used where the logging and the terminal ``close()`` sit in different places:
+    a plugin handler logs through ``plugins_sdk.deploys`` while the runner
+    around it owns the close. Two independent streams would mean two buffers,
+    and the step timings recorded by the handler's would be dropped by the
+    runner's close. The instance is cached on the job object, so the sharing
+    scope is exactly the session that is running it.
+    """
+    stream = getattr(job, _STREAM_ATTR, None)
+    if stream is None:
+        stream = RunLogStream.for_job(job)
+        try:
+            setattr(job, _STREAM_ATTR, stream)
+        except Exception:
+            pass
+    return stream
+
+
 def append_log(job: DeploymentJob, level: str, message: str, data: Any = None,
                step_index: Optional[int] = None) -> None:
     """Immediate, persisted single log line for fire-and-forget annotations

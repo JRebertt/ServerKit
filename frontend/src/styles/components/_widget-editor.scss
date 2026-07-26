@@ -1,0 +1,508 @@
+// ============================================================
+// WIDGET EDITOR — the wide "configure this widget" drawer.
+// ============================================================
+// Replaces the 340px right-hand inspector (`.skw-ins`, deleted). Grafana's
+// shape: a live render of the real widget on the left, its settings on the
+// right, in a drawer as wide as the "Add a widget" one.
+//
+// Namespaced `skwe-` (ServerKit Widget Editor). Everything this file styles is
+// emitted by WidgetEditor.jsx and nothing else — the ONLY names it reaches for
+// outside the namespace are `.sk-drawer__body` (the shared drawer's scroll
+// region, which this panel has to hand its scrolling back to) and `.skw-frame`
+// (the board's own widget chrome, reused so the preview cannot drift from what
+// the board draws). Both are scoped under a `skwe-` ancestor.
+//
+// Colours all come from var() tokens in _theme-variables.scss, so the panel
+// reads correctly in both themes.
+// ============================================================
+
+// Settings column. Fixed, because a form column that grows with the viewport
+// just spreads three controls across a page width.
+$skwe-pane-w: 340px;
+
+// ------------------------------------------------------------
+// Drawer shell. ds/Drawer's body is a plain scroller; this panel owns three
+// regions (preview, settings, footer) that scroll independently, so the
+// scrolling has to move down a level.
+// ------------------------------------------------------------
+.skwe-drawer {
+    .sk-drawer__body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+}
+
+.skwe-edit {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    &__cols {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: stretch;
+    }
+
+    // ---------------- preview (left, flexible) ----------------
+    &__preview {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding: 16px 18px;
+        border-right: 1px solid var(--border-soft);
+    }
+
+    // Stands in for the board behind the widget: same page background, plus a
+    // dot grid so the frame reads as "placed on a board" rather than floating
+    // in the drawer. Scrolls, because a 10-row widget is taller than any
+    // drawer.
+    &__stage {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 18px;
+        overflow: auto;
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-lg);
+        background-color: var(--bg-body);
+        background-image: radial-gradient(circle at 1px 1px, var(--border-strong) 1px, transparent 0);
+        background-size: 24px 24px;
+        @include custom-scrollbar;
+    }
+
+    // Sits alongside `.skw-frame`; JSX sets the pixel width/height inline from
+    // the widget's own w/h, so stepping the size steppers moves this box by
+    // exactly what the board would move it.
+    &__frame {
+        flex: none;
+        max-width: 100%;
+        box-shadow: var(--shadow-lg);
+    }
+
+    &__caption {
+        flex-shrink: 0;
+        color: var(--text-faint);
+        font-size: 11px;
+        text-align: center;
+    }
+
+    // ---------------- settings (right, fixed) -----------------
+    &__pane {
+        flex: 0 0 $skwe-pane-w;
+        width: $skwe-pane-w;
+        min-height: 0;
+        overflow: auto;
+        padding: 16px 18px 26px;
+        background: var(--surface);
+        @include custom-scrollbar;
+    }
+
+    &__group {
+        margin-bottom: 22px;
+
+        &:last-child { margin-bottom: 0; }
+    }
+
+    &__grouphead {
+        margin-bottom: 13px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--border-soft);
+        color: var(--text-dim);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    &__row {
+        margin-bottom: 15px;
+
+        &:last-child { margin-bottom: 0; }
+
+        // A bare switch reads better beside its caption than under it.
+        &--inline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+
+            .skwe-edit__label { margin-bottom: 0; }
+            .skwe-edit__control { flex: none; }
+        }
+
+        // Segmented controls fill the column instead of hugging content; a
+        // 340px column has no room for a control that floats left.
+        .sk-seg {
+            display: flex;
+            width: 100%;
+
+            &__btn { flex: 1; justify-content: center; }
+        }
+    }
+
+    &__label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--text-ghost);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    &__control { min-width: 0; }
+
+    // ---------------- inputs ----------------------------------
+    // Every rule below targets the FORM ELEMENT itself, never a wrapper around
+    // it. The old inspector styled a <div> that wrapped a bare <input>, so the
+    // input kept its user-agent default and rendered as a white box on the dark
+    // panel. Adding a wrapper here is fine; leaving the control unnamed is not.
+    &__field,
+    &__select,
+    &__textarea {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 12.5px;
+        transition: border-color 0.14s, box-shadow 0.14s;
+
+        &::placeholder { color: var(--text-ghost); }
+
+        &:focus,
+        &:focus-visible {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+    }
+
+    &__select {
+        padding-right: 24px;
+        cursor: pointer;
+
+        // Most engines inherit the control's colours into the popup list, but
+        // not all of them — name it so the options are never white-on-white.
+        option {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+    }
+
+    // Numeric fields (thresholds) read as values, not prose.
+    &__field--mono {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__textarea {
+        min-height: 110px;
+        line-height: 1.55;
+        resize: vertical;
+    }
+
+    // Read-only stand-in shown where a picker would only ever offer one answer
+    // (a single connected machine). Dashed, so it does not pretend to be a
+    // control you can open.
+    &__static {
+        padding: 7px 9px;
+        border: 1px dashed var(--border);
+        border-radius: 7px;
+        background: var(--surface-2);
+        color: var(--text-dim);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // Explanatory line under a control — quieter than the caption above it, so
+    // a row still reads caption → control → aside.
+    &__hint {
+        margin: 6px 0 0;
+        color: var(--text-faint);
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    // Two controls sharing one row (amber + red thresholds, width + height).
+    &__pair {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        > .skwe-edit__pairitem,
+        > .skwe-stepper { flex: 1; min-width: 0; }
+    }
+
+    &__pairitem {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    // Leading sigil glued to a field ("amber ≥"). A sibling rather than
+    // something inside the input, so it never eats a click meant for the
+    // text cursor.
+    &__unit {
+        flex: none;
+        color: var(--text-faint);
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    // ---------------- series editor ---------------------------
+    &__series {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    &__ser {
+        display: grid;
+        grid-template-columns: 18px 1fr 1fr 26px;
+        align-items: center;
+        gap: 6px;
+
+        // Single-machine install: the resource picker is gone, so the metric
+        // select takes the rest of the row.
+        &--solo { grid-template-columns: 18px 1fr 26px; }
+
+        .skwe-edit__select {
+            padding: 6px 22px 6px 8px;
+            font-size: 11.5px;
+        }
+    }
+
+    // Row delete. Stays neutral until hovered; a column of red bins would
+    // shout over the settings themselves.
+    &__del {
+        width: 26px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--text-ghost);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: var(--red); background: var(--red-bg); }
+        &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    }
+
+    // "Add series" — a full-width dashed slot rather than a button, so it
+    // reads as the next empty row of the list above it.
+    &__add {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        width: 100%;
+        margin-top: 2px;
+        padding: 6px 10px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 7px;
+        background: none;
+        color: var(--text-faint);
+        font-family: inherit;
+        font-size: 11.5px;
+        cursor: pointer;
+        transition: 0.13s;
+
+        &:hover {
+            border-color: var(--accent-dim);
+            color: var(--accent-bright);
+            background: var(--accent-bg);
+        }
+
+        &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    }
+
+    &__empty {
+        padding: 2px 0 4px;
+        color: var(--text-faint);
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
+
+    // ---------------- checkbox list ---------------------------
+    // Capped and scrollable so a long shortcut list cannot push the rest of
+    // the form out of reach.
+    &__checks {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        max-height: 210px;
+        overflow: auto;
+        @include custom-scrollbar;
+    }
+
+    &__check {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 3px 2px;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        cursor: pointer;
+
+        &:hover { color: var(--text); }
+
+        input[type='checkbox'] {
+            width: 15px;
+            height: 15px;
+            flex-shrink: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+    }
+
+    // ---------------- footer ----------------------------------
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border-soft);
+        background: var(--surface);
+    }
+
+    // Pushes the close affordance to the far edge, away from Remove.
+    &__spacer { flex: 1; }
+
+    // Per-series colour: one dot showing the current choice. The palette is a
+    // popover, not an inline row — seven swatches repeated on every series made
+    // a four-series chart into twenty-eight competing squares.
+    &__color {
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { border-color: var(--text-faint); }
+
+        &:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--accent);
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// Numeric stepper (widget span, row/line count).
+// ------------------------------------------------------------
+.skwe-stepper {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+
+    &__btn {
+        width: 26px;
+        height: 26px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--text-faint);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: #fff; background: var(--accent); }
+        &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    }
+
+    &__val {
+        flex: 1;
+        min-width: 0;
+        padding: 0 6px;
+        color: var(--text-dim);
+        font-size: 11.5px;
+        text-align: center;
+        white-space: nowrap;
+    }
+}
+
+// ------------------------------------------------------------
+// Below the lg breakpoint the drawer is too narrow for two columns, so they
+// stack: preview on top, settings under it, and the whole thing scrolls as one
+// column instead of two independent ones.
+// ------------------------------------------------------------
+@media (max-width: $breakpoint-lg) {
+    .skwe-edit {
+        &__cols {
+            flex-direction: column;
+            overflow: auto;
+            @include custom-scrollbar;
+        }
+
+        &__preview {
+            flex: none;
+            border-right: none;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        &__stage {
+            min-height: 220px;
+            max-height: 44vh;
+        }
+
+        &__pane {
+            flex: none;
+            width: auto;
+            overflow: visible;
+        }
+    }
+}
+
+// Colour palette popover. Portalled to the body by Radix, so it is a top-level
+// block rather than nested inside .skwe-edit.
+.skwe-palette {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    padding: 8px;
+
+    &__dot {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { transform: scale(1.12); }
+
+        // Ring rather than a border swap: the swatch keeps its exact size, so
+        // selecting one cannot shift the row.
+        &.is-on {
+            border-color: var(--text);
+            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-faint);
+        }
+    }
+}
+

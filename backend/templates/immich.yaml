@@ -35,6 +35,10 @@ volumes:
     path: /usr/src/app/upload
     description: Photo uploads
 
+requirements:
+  memory: 4GB
+  storage: 20GB
+
 compose:
   services:
     immich-server:

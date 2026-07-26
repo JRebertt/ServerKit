@@ -26,3 +26,16 @@ export async function getDeploymentJobLogs(jobId, afterId = null) {
 export async function retryDeploymentJob(jobId) {
     return this.request(`/deployment-jobs/${jobId}/retry`, { method: 'POST' });
 }
+
+// Simulated deployments (plan 51.5 dev tool). The GET 404s when the backend
+// gate (DEMO_DEPLOYS_ENABLED) is off — callers treat that as "hidden".
+export async function getDeploySimulateInfo() {
+    return this.request('/deployment-jobs/simulate');
+}
+
+export async function simulateDeployment(scenario, speed = 'fast') {
+    return this.request('/deployment-jobs/simulate', {
+        method: 'POST',
+        body: { scenario, speed },
+    });
+}

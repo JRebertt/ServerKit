@@ -30,6 +30,10 @@ ports:
     protocol: tcp
     description: Web interface
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     umami:

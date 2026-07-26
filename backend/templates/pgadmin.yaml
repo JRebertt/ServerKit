@@ -35,6 +35,10 @@ volumes:
     path: /var/lib/pgadmin
     description: pgAdmin data
 
+requirements:
+  memory: 512MB
+  storage: 1GB
+
 compose:
   services:
     pgadmin:

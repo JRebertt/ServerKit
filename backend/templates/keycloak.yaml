@@ -39,6 +39,10 @@ volumes:
     path: /opt/keycloak/data
     description: Keycloak data
 
+requirements:
+  memory: 1GB
+  storage: 2GB
+
 compose:
   services:
     keycloak:

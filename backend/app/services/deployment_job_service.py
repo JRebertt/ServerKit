@@ -1,5 +1,6 @@
 """Deployment job orchestration service."""
 
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -9,15 +10,20 @@ from app import db
 from app.models import Application, Server
 from app.models.deployment_job import DeploymentJob
 from app.services.deployment_runner import DeploymentPlanRunner
-from app.services.run_log_service import append_log
+from app.services.run_log_service import append_log, stream_for
 from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
 
-# Unified job kinds (see register_jobs()): asynchronous template installs and
-# builds/deploys of existing apps (e.g. repo-based services from Flow A).
+# Unified job kinds (see register_jobs()): asynchronous template installs,
+# builds/deploys of existing apps (e.g. repo-based services from Flow A), and
+# simulated demo deploys (plan 51.5 dev tool).
 JOB_KIND = 'deploy.install'
 APP_JOB_KIND = 'deploy.app'
+DEMO_JOB_KIND = 'deploy.demo'
+REGISTERED_JOB_KIND = 'deploy.registered'
+
+logger = logging.getLogger(__name__)
 
 
 class DeploymentJobService:
@@ -60,7 +66,17 @@ class DeploymentJobService:
 
         app_path = plan_result['app_path']
         if not normalized_server_id and os.path.exists(app_path):
-            return {'success': False, 'error': f"App directory already exists: {app_path}"}
+            if not cls._is_abandoned_install_dir(app_path):
+                return {
+                    'success': False,
+                    'error': (f'App directory already exists: {app_path}. '
+                              'Remove it, or install under a different name.'),
+                }
+            # An install that failed part-way leaves its directory behind, and
+            # refusing it made the obvious next move — try again — impossible
+            # without going to a shell. The plan rewrites every file it owns,
+            # so reusing the directory is safe.
+            logger.info('Reusing abandoned install directory %s', app_path)
 
         job = DeploymentJob(
             id=str(uuid.uuid4()),
@@ -165,6 +181,19 @@ class DeploymentJobService:
         if job.kind == 'app_deploy':
             return cls._run_app_deploy(job)
 
+        if job.kind == 'demo_deploy':
+            from app.services.demo_deploy_service import DemoDeployService
+            return DemoDeployService.run(job)
+
+        # Kinds contributed by plugins (see deploy_kind_registry). Checked
+        # before the unsupported-kind bail so a plugin's deployment runs through
+        # the same console, retry and activity feed as a core one.
+        if job.kind not in ('app_deploy', 'template_install', 'demo_deploy'):
+            from app.services import deploy_kind_registry
+            handler = deploy_kind_registry.get(job.kind)
+            if handler:
+                return cls._run_registered_kind(job, handler)
+
         if job.kind != 'template_install':
             return {'success': False, 'error': f'Unsupported deployment job kind: {job.kind}'}
 
@@ -238,7 +267,16 @@ class DeploymentJobService:
         db.session.add(clone)
         db.session.commit()
 
-        enqueue = cls._enqueue_app_deploy if clone.kind == 'app_deploy' else cls._enqueue_install
+        from app.services import deploy_kind_registry
+        enqueue = {
+            'app_deploy': cls._enqueue_app_deploy,
+            'demo_deploy': cls._enqueue_demo,
+        }.get(clone.kind)
+        if enqueue is None:
+            # A registered (plugin) kind retries through its own runner; only a
+            # genuine template_install falls through to the install queue.
+            enqueue = (cls._enqueue_registered if deploy_kind_registry.get(clone.kind)
+                       else cls._enqueue_install)
         try:
             enqueue(clone)
         except Exception as exc:
@@ -480,12 +518,164 @@ class DeploymentJobService:
         }
 
     @classmethod
+    def _enqueue_demo(cls, job: DeploymentJob):
+        """Hand a simulated demo deploy to the unified job system (same
+        pattern as ``_enqueue_install``)."""
+        from app.jobs.service import JobService
+        return JobService.enqueue(
+            DEMO_JOB_KIND,
+            payload={'deployment_job_id': job.id},
+            max_attempts=1,
+            owner_type='deployment_job',
+            owner_id=job.id,
+            correlation_id=job.correlation_id,
+        )
+
+    @classmethod
+    def start_registered(cls, kind: str, *, steps=None, app_id=None, server_id=None,
+                         user_id=None, trigger='manual', plan=None, wait=False) -> Dict:
+        """Create and queue a DeploymentJob for a registered (plugin) kind.
+
+        The public entry point behind ``app.plugins_sdk.deploys.start`` — the
+        caller supplies the step names its handler will walk, and gets back a
+        job id that already addresses the Deploy Console.
+        """
+        from app.services import deploy_kind_registry
+        if not deploy_kind_registry.get(kind):
+            return {'success': False, 'error': f'No handler registered for deployment kind "{kind}"'}
+
+        job = DeploymentJob(
+            id=str(uuid.uuid4()),
+            kind=kind,
+            status='pending',
+            app_id=app_id,
+            target_server_id=cls._normalize_server_id(server_id),
+            requested_by=user_id,
+            trigger=trigger,
+            correlation_id=generate_correlation_id(),
+        )
+        job.set_plan({**(plan or {}), 'steps': [{'name': n} for n in (steps or [])]})
+        job.total_steps = len(steps or [])
+        db.session.add(job)
+        db.session.commit()
+
+        if wait:
+            # Ran inline, so report what actually happened rather than merely
+            # that the job was created — a caller passing wait=True is asking
+            # for the outcome.
+            run_result = cls.run_job(job.id)
+            return {**run_result, 'job_id': job.id, 'job': job.to_dict()}
+
+        try:
+            cls._enqueue_registered(job)
+        except Exception as exc:
+            # Same guard as every other producer: never leave a runner-less
+            # 'pending' row behind.
+            db.session.rollback()
+            job.status = 'failed'
+            job.error_message = f'Failed to queue deployment: {exc}'
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {'success': False, 'error': job.error_message, 'job_id': job.id}
+
+        return {'success': True, 'job_id': job.id, 'job': job.to_dict()}
+
+    @classmethod
+    def _enqueue_registered(cls, job: DeploymentJob):
+        """Hand a plugin-contributed deployment to the unified job system."""
+        from app.jobs.service import JobService
+        return JobService.enqueue(
+            REGISTERED_JOB_KIND,
+            payload={'deployment_job_id': job.id},
+            max_attempts=1,
+            owner_type='deployment_job',
+            owner_id=job.id,
+            correlation_id=job.correlation_id,
+        )
+
+    @staticmethod
+    def _run_registered_job(unified_job):
+        """Unified-job handler for ``deploy.registered``."""
+        deployment_job_id = (unified_job.get_payload() or {}).get('deployment_job_id')
+        if not deployment_job_id:
+            raise ValueError('deploy.registered job missing deployment_job_id')
+        result = DeploymentJobService.run_job(deployment_job_id)
+        if not result.get('success'):
+            raise RuntimeError(result.get('error') or 'Deployment failed')
+        return {'deployment_job_id': deployment_job_id}
+
+    @classmethod
+    def _run_registered_kind(cls, job: DeploymentJob, handler) -> Dict:
+        """Run a plugin-contributed kind, owning the failure path ourselves.
+
+        A plugin handler is third-party code: if it raises, the job must still
+        end up visibly failed rather than stuck at 'running' forever with no
+        explanation — the same guarantee _reconcile_interrupted_jobs gives for
+        a lost process, applied to a lost handler.
+        """
+        job.status = 'running'
+        job.started_at = job.started_at or datetime.utcnow()
+        db.session.commit()
+
+        # The same stream the handler logs through (see run_log_service.
+        # stream_for), so closing it here persists the step timings the handler
+        # recorded rather than an empty second buffer's.
+        stream = stream_for(job)
+        try:
+            result = handler(job) or {}
+        except Exception as exc:
+            logger.exception('Deployment kind %s raised', job.kind)
+            stream.log('error', f'{job.kind} failed: {exc}')
+            db.session.rollback()
+            job.status = 'failed'
+            job.error_message = str(exc)
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+            stream.close('failed', error_message=str(exc))
+            return {'success': False, 'error': str(exc), 'job_id': job.id}
+
+        stream.flush()
+        # A handler may finalise the job itself; only fill in what it left.
+        if job.status not in ('succeeded', 'failed'):
+            job.status = 'succeeded' if result.get('success', True) else 'failed'
+            if not result.get('success', True):
+                job.error_message = result.get('error') or f'{job.kind} failed'
+            job.completed_at = datetime.utcnow()
+            db.session.commit()
+        if job.status == 'failed' and job.error_message:
+            # A handler that reported failure by return value logged nothing;
+            # without this the console shows a failed run with no reason in it.
+            stream.log('error', job.error_message)
+        # close() persists step timings (and, on failure, the tail + hint) into
+        # the job's result and emits the terminal status the console listens for.
+        stream.close(job.status, error_message=job.error_message)
+        # Handler extras first: the job's own status is the authoritative
+        # outcome and must not be overwritten by a handler that finalised the
+        # job one way and then returned the other.
+        return {**result, 'success': job.status == 'succeeded', 'job_id': job.id}
+
+    @staticmethod
+    def _run_demo_job(unified_job):
+        """Unified-job handler for ``deploy.demo`` (same shape as
+        ``_run_install_job``): a scripted failure raises so the unified job is
+        marked failed too."""
+        deployment_job_id = (unified_job.get_payload() or {}).get('deployment_job_id')
+        if not deployment_job_id:
+            raise ValueError('deploy.demo job missing deployment_job_id')
+        result = DeploymentJobService.run_job(deployment_job_id)
+        if not result.get('success'):
+            raise RuntimeError(result.get('error') or 'Demo deployment failed')
+        return {'deployment_job_id': deployment_job_id}
+
+    @classmethod
     def register_jobs(cls):
         """Register deployment handlers with the unified job registry. Called once
         at app startup (see app/__init__.py)."""
         from app.jobs import registry
         registry.register(JOB_KIND, cls._run_install_job, replace=True)
         registry.register(APP_JOB_KIND, cls._run_app_deploy_job, replace=True)
+        registry.register(DEMO_JOB_KIND, cls._run_demo_job, replace=True)
+        registry.register(REGISTERED_JOB_KIND, cls._run_registered_job, replace=True)
         cls._reconcile_interrupted_jobs()
 
     @classmethod
@@ -509,6 +699,28 @@ class DeploymentJobService:
                 db.session.commit()
         except Exception:
             db.session.rollback()
+
+    @staticmethod
+    def _is_abandoned_install_dir(app_path: str) -> bool:
+        """True if *app_path* is the wreckage of an install that never finished.
+
+        A finished install owns an Application row pointing at the directory,
+        and that row is only written once the plan has run — so a directory
+        with no owner was left by a failure. Reusing one is safe; overwriting
+        somebody's actual files is not, which is why an unowned directory still
+        has to look like ours (empty, or carrying the marker the template
+        writer drops in) before it can be reused.
+        """
+        try:
+            if Application.query.filter_by(root_path=app_path).first():
+                return False
+            entries = os.listdir(app_path)
+            if not entries:
+                return True
+            return '.serverkit-template.json' in entries
+        except OSError:
+            # Unreadable — treat it as occupied and let the caller refuse.
+            return False
 
     @staticmethod
     def _normalize_server_id(server_id: Optional[str]) -> Optional[str]:

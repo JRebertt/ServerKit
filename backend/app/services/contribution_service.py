@@ -9,9 +9,20 @@ A plugin manifest may declare a `contributions` block with any subset of:
       "page_titles":    { "/some-path": "Title" },
       "command_palette":[{ label, path, category, keywords }],
       "widgets":        [{ slot, component }],
+      "dashboard_widgets": [{ id, name, component, icon?, category?,
+                              description?, w?, h?, min?, default_cfg? }],
       "layouts":        [{ id, component }],
       "tabs":           [{ group, to, label, icon?, end?, order? }]
     }
+
+`widgets` and `dashboard_widgets` are different surfaces and are easy to
+confuse. A `widgets` entry mounts a component at a FIXED host slot
+(`<PluginSlot name="dashboard.top" />`) — the host decides where it goes and
+the user cannot move it. A `dashboard_widgets` entry registers a placeable
+widget TYPE: it appears in the dashboard's widget library, and the user adds,
+positions, resizes and configures instances of it on a dashboard board. Use
+`widgets` to enrich an existing page, `dashboard_widgets` to offer a new
+building block.
 
 A `tabs` entry adds a tab to a core-owned TabGroupLayout group; `group` is the
 core group id (== the sidebar item id: files | servers | monitoring). Pair it
@@ -99,6 +110,7 @@ def get_active_contributions():
     page_titles = {}
     command_palette = []
     widgets = []
+    dashboard_widgets = []
     layouts = []
     tabs = []
     # AI assistant contributions: per-route suggested prompts + custom
@@ -114,6 +126,7 @@ def get_active_contributions():
         routes.extend(_tag(contrib.get('routes'), p.slug))
         command_palette.extend(_tag(contrib.get('command_palette'), p.slug))
         widgets.extend(_tag(contrib.get('widgets'), p.slug))
+        dashboard_widgets.extend(_tag(contrib.get('dashboard_widgets'), p.slug))
         layouts.extend(_tag(contrib.get('layouts'), p.slug))
         tabs.extend(_tag(contrib.get('tabs'), p.slug))
 
@@ -134,6 +147,7 @@ def get_active_contributions():
         'page_titles': page_titles,
         'command_palette': command_palette,
         'widgets': widgets,
+        'dashboard_widgets': dashboard_widgets,
         'layouts': layouts,
         'tabs': tabs,
         'ai': ai,

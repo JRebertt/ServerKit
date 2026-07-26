@@ -328,11 +328,18 @@ export async function installTemplate(templateId, appName, variables = {}, optio
     });
 }
 
-export async function validateTemplateInstall(templateId, appName, variables = {}) {
+export async function validateTemplateInstall(templateId, appName, variables = {}, serverId = null) {
     return this.request('/templates/validate-install', {
         method: 'POST',
-        body: { template_id: templateId, app_name: appName, variables }
+        body: { template_id: templateId, app_name: appName, variables, server_id: serverId }
     });
+}
+
+// Whether a template fits on a server: what it typically needs, against what
+// that server has free. Advisory — a poor verdict never blocks an install.
+export async function getTemplateCapacity(templateId, serverId = null) {
+    const query = serverId && serverId !== 'local' ? `?server_id=${encodeURIComponent(serverId)}` : '';
+    return this.request(`/templates/${templateId}/capacity${query}`);
 }
 
 export async function testDatabaseConnection(config) {

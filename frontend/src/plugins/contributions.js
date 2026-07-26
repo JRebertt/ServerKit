@@ -78,6 +78,13 @@ const EMPTY = {
     page_titles: {},
     command_palette: [],
     widgets: [],
+    // Placeable dashboard widget TYPES: { id, name, component, icon?,
+    // category?, description?, w?, h?, min?, default_cfg? }. Distinct from
+    // `widgets` above, which mounts a component at a fixed host slot. These
+    // show up in the dashboard widget library and the user positions, sizes
+    // and configures instances of them. Consumed by
+    // components/dashboard/widgets/registry.js via useWidgetTypes().
+    dashboard_widgets: [],
     layouts: [],
     // Tabs contributed into core-owned TabGroupLayout groups (#43):
     // { group, to, label, icon?, end?, order? }. `group` is the core group id
@@ -118,6 +125,7 @@ function getBuildTimeContributions() {
     const page_titles = {};
     const command_palette = [];
     const widgets = [];
+    const dashboard_widgets = [];
     const layouts = [];
     const tabs = [];
     const ai = { suggested_prompts: [], tool_renderers: [] };
@@ -134,6 +142,7 @@ function getBuildTimeContributions() {
         routes.push(...tagItems(contrib.routes, slug));
         command_palette.push(...tagItems(contrib.command_palette, slug));
         widgets.push(...tagItems(contrib.widgets, slug));
+        dashboard_widgets.push(...tagItems(contrib.dashboard_widgets, slug));
         layouts.push(...tagItems(contrib.layouts, slug));
         tabs.push(...tagItems(contrib.tabs, slug));
 
@@ -153,6 +162,7 @@ function getBuildTimeContributions() {
         page_titles,
         command_palette,
         widgets,
+        dashboard_widgets,
         layouts,
         tabs,
         ai,

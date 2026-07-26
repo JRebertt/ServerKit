@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, WifiOff } from 'lucide-react';
 import useDeployJobStream from '../hooks/useDeployJobStream';
+import useEngineInstallTarget from '../hooks/useEngineInstallTarget';
 import api from '../services/api';
-import StepRail from '../components/deploy-console/StepRail';
+import PipelineStrip from '../components/deploy-console/PipelineStrip';
 import ConsoleToolbar from '../components/deploy-console/ConsoleToolbar';
 import LogPane from '../components/deploy-console/LogPane';
 import ErrorCard from '../components/deploy-console/ErrorCard';
 import SuccessBanner from '../components/deploy-console/SuccessBanner';
+import { sourceRef } from '../utils/deployActivity';
 
 const STATUS_META = {
     pending: { label: 'Queued', icon: Clock, cls: 'pending' },
@@ -15,6 +17,15 @@ const STATUS_META = {
     succeeded: { label: 'Succeeded', icon: CheckCircle2, cls: 'succeeded' },
     failed: { label: 'Failed', icon: XCircle, cls: 'failed' },
     cancelled: { label: 'Cancelled', icon: XCircle, cls: 'failed' },
+};
+
+const fmtStarted = (iso) => {
+    if (!iso) return 'not started';
+    try {
+        return new Date(iso).toLocaleString();
+    } catch {
+        return iso;
+    }
 };
 
 const fmtElapsed = (ms) => {
@@ -27,6 +38,13 @@ const fmtElapsed = (ms) => {
 
 function humanizeTitle(job) {
     if (!job) return 'Deployment';
+    // Kinds contributed by plugins name their own run in the plan, so the
+    // console reads properly without a branch per kind here.
+    if (job.plan?.title) return job.plan.title;
+    if (job.kind === 'demo_deploy') {
+        const scenario = job.plan?.scenario || job.result?.scenario;
+        return `Test deployment${scenario ? ` — ${scenario}` : ''}`;
+    }
     if (job.kind === 'template_install') {
         const name = job.plan?.template_name || job.plan?.app_name || job.app_name || 'app';
         return `Installing ${name}`;
@@ -50,10 +68,36 @@ export default function DeployConsole() {
     const [level, setLevel] = useState('all');
     const [search, setSearch] = useState('');
     const [scrollToStep, setScrollToStep] = useState(null);
+    const [selectedStep, setSelectedStep] = useState(null);
     const [retrying, setRetrying] = useState(false);
     const [now, setNow] = useState(Date.now());
+    const [navPos, setNavPos] = useState(0);
+    // {index, nonce} — the nonce re-fires the scroll when the same line is
+    // targeted twice (one error, pressing next repeatedly).
+    const [scrollTarget, setScrollTarget] = useState(null);
+    const nonceRef = useRef(0);
+    const autoJumpedRef = useRef(null);
+    // Log-focus: the failure card, pipeline strip and run identity step aside
+    // so the transcript gets the whole page. Not a browser fullscreen — the
+    // nav stays put, because you are usually reading a log on the way to doing
+    // something else.
+    const [logFocus, setLogFocus] = useState(false);
 
     const status = job?.status || 'pending';
+
+    // Where to go back to when this run created something with a home of its
+    // own — today, a database engine. Null for every other kind of deploy.
+    const engineTarget = useEngineInstallTarget(job);
+
+    // Did this page watch the run finish, or did we arrive at one that was
+    // already over? Opening a week-old install from Deploy Activity is reading
+    // history, and history must never navigate away under the reader — so the
+    // timed return only arms for a run we actually saw in flight.
+    const [watchedRun, setWatchedRun] = useState(false);
+    useEffect(() => { setWatchedRun(false); }, [jobId]);
+    useEffect(() => {
+        if (job?.status === 'running' || job?.status === 'pending') setWatchedRun(true);
+    }, [job?.status]);
 
     // Live elapsed timer while running.
     useEffect(() => {
@@ -87,6 +131,56 @@ export default function DeployConsole() {
         );
     }, [lines, level, search]);
 
+    // Counts come from the unfiltered log: the point of "3 errors" is to be
+    // true no matter which filter happens to be on.
+    const { errorCount, warnCount } = useMemo(() => {
+        let errors = 0;
+        let warns = 0;
+        lines.forEach((l) => {
+            const lv = l.level || 'info';
+            if (lv === 'error') errors += 1;
+            else if (lv === 'warn' || lv === 'warning') warns += 1;
+        });
+        return { errorCount: errors, warnCount: warns };
+    }, [lines]);
+
+    // What prev/next steps through: search results when searching, otherwise
+    // the errors. Searching already filters the pane, so every visible line is
+    // a hit — the buttons walk them in order.
+    const navTargets = useMemo(() => {
+        const out = [];
+        visibleLines.forEach((l, i) => {
+            if (search.trim() || (l.level || 'info') === 'error') out.push(i);
+        });
+        return out;
+    }, [visibleLines, search]);
+
+    const navLabel = search.trim() ? 'matches' : (navTargets.length ? 'errors' : '');
+
+    const goToNav = useCallback((delta) => {
+        if (!navTargets.length) return;
+        setNavPos((prev) => {
+            const next = (prev + delta + navTargets.length) % navTargets.length;
+            setScrollTarget({ index: navTargets[next], nonce: nonceRef.current++ });
+            return next;
+        });
+        setFollow(false);
+    }, [navTargets]);
+
+    // A failed deploy opens on its first error rather than on the tail, which
+    // is where the answer is and where a person would scroll to anyway. Once
+    // per job, and never while the user is following a live run.
+    useEffect(() => {
+        if (status !== 'failed' || !visibleLines.length) return;
+        if (autoJumpedRef.current === jobId) return;
+        const firstError = visibleLines.findIndex((l) => (l.level || 'info') === 'error');
+        if (firstError < 0) return;
+        autoJumpedRef.current = jobId;
+        setFollow(false);
+        setNavPos(0);
+        setScrollTarget({ index: firstError, nonce: nonceRef.current++ });
+    }, [status, visibleLines, jobId]);
+
     const elapsedMs = useMemo(() => {
         if (!job?.started_at) return job?.created_at ? now - new Date(job.created_at).getTime() : 0;
         const end = job.completed_at ? new Date(job.completed_at).getTime() : now;
@@ -114,6 +208,7 @@ export default function DeployConsole() {
 
     const onStepClick = useCallback((index) => {
         setFollow(false);
+        setSelectedStep(index);
         setScrollToStep(index);
         // reset so a repeat click on the same step re-triggers the effect
         setTimeout(() => setScrollToStep(null), 100);
@@ -136,10 +231,11 @@ export default function DeployConsole() {
         : null;
     const appUrl = job?.result?.auto_domain?.url || null;
     const degraded = (status === 'running' || status === 'pending') && transport === 'poll';
+    const sourceLabel = job ? sourceRef(job) : null;
 
     if (loading && !job) {
         return (
-            <div className="deploy-console deploy-console--loading">
+            <div className="sk-tabgroup__inner deploy-console deploy-console--loading">
                 <Loader2 size={22} className="deploy-console__spin" />
                 <span>Loading deployment…</span>
             </div>
@@ -148,7 +244,7 @@ export default function DeployConsole() {
 
     if (error && !job) {
         return (
-            <div className="deploy-console deploy-console--error-page">
+            <div className="sk-tabgroup__inner deploy-console deploy-console--error-page">
                 <XCircle size={22} />
                 <strong>Deployment not found</strong>
                 <p>{error}</p>
@@ -160,13 +256,22 @@ export default function DeployConsole() {
     }
 
     return (
-        <div className="deploy-console">
+        // sk-tabgroup__inner: this page lives inside the Services tab group,
+        // whose content region is full-bleed by design — the wrapper is what
+        // supplies the max-width and padding every sibling tab already has.
+        // Without it the console ran edge-to-edge with no gutters at all.
+        <div className={`sk-tabgroup__inner deploy-console${logFocus ? ' deploy-console--focus' : ''}`}>
             <header className="deploy-console__header">
                 <Link to="/deployments" className="deploy-console__back" title="Back to deployments">
                     <ArrowLeft size={18} />
                 </Link>
                 <h1 className="deploy-console__title">{humanizeTitle(job)}</h1>
                 <div className="deploy-console__meta">
+                    {job?.kind === 'demo_deploy' && (
+                        <span className="deploy-console__pill deploy-console__pill--demo" title="Scripted test deployment — no real resources were touched">
+                            Simulated
+                        </span>
+                    )}
                     <span className={`deploy-console__pill deploy-console__pill--${meta.cls}`}>
                         <StatusIcon size={14} className={status === 'running' ? 'deploy-console__spin' : ''} />
                         {meta.label}
@@ -192,7 +297,7 @@ export default function DeployConsole() {
                 </div>
             )}
 
-            {status === 'failed' && (
+            {status === 'failed' && !logFocus && (
                 <ErrorCard
                     failedStepName={failedStepName}
                     failureTail={job?.result?.failure_tail}
@@ -203,14 +308,30 @@ export default function DeployConsole() {
                 />
             )}
 
-            {status === 'succeeded' && (
-                <SuccessBanner job={job} appUrl={appUrl} />
+            {status === 'succeeded' && !logFocus && (
+                <SuccessBanner
+                    job={job}
+                    appUrl={appUrl}
+                    engineTarget={engineTarget}
+                    armAutoReturn={watchedRun}
+                />
+            )}
+
+            {!logFocus && (
+                <PipelineStrip steps={steps} selected={selectedStep} onStepClick={onStepClick} />
+            )}
+
+            {!logFocus && (
+                <div className="deploy-console__runmeta">
+                    <span><b>{jobId}</b></span>
+                    <span>trigger <b>{job?.trigger || 'manual'}</b></span>
+                    {sourceLabel && <span>source <b>{sourceLabel}</b></span>}
+                    <span>target <b>{job?.target_server_name || 'Local server'}</b></span>
+                    <span>started <b>{fmtStarted(job?.started_at || job?.created_at)}</b></span>
+                </div>
             )}
 
             <div className="deploy-console__body">
-                {steps.length > 0 && (
-                    <StepRail steps={steps} onStepClick={onStepClick} />
-                )}
                 <div className="deploy-console__main">
                     <ConsoleToolbar
                         follow={follow} onToggleFollow={() => setFollow((v) => !v)}
@@ -219,6 +340,10 @@ export default function DeployConsole() {
                         level={level} onLevelChange={setLevel}
                         search={search} onSearchChange={setSearch}
                         onCopy={copyLogs} onDownload={downloadLogs}
+                        errorCount={errorCount} warnCount={warnCount}
+                        navCount={navTargets.length} navPos={navPos} navLabel={navLabel}
+                        onNavPrev={() => goToNav(-1)} onNavNext={() => goToNav(1)}
+                        focused={logFocus} onToggleFocus={() => setLogFocus((v) => !v)}
                     />
                     <LogPane
                         lines={visibleLines}
@@ -227,6 +352,8 @@ export default function DeployConsole() {
                         follow={follow && isLive}
                         onFollowChange={setFollow}
                         scrollToStep={scrollToStep}
+                        scrollTarget={scrollTarget}
+                        stepNames={steps}
                     />
                 </div>
             </div>

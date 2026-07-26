@@ -37,6 +37,24 @@ English | [Español](docs/README.es.md) | [中文版](docs/README.zh-CN.md) | [P
 
 ---
 
+## 📊 By the Numbers
+
+Everything below is measured from this repository, not estimated.
+
+| | |
+|---|---|
+| **1,519** REST endpoints | across 107 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
+| **106** one-click app templates | bundled in the repo, no registry account needed |
+| **2,633** backend tests | the whole suite runs on every change |
+| **1.75 MB** gzipped web UI | 65 screens, assets served from your own box — no CDN |
+| **~180 MB** resident | the entire panel, single process — sits comfortably beside your apps on a 1 GB VPS |
+| **501 MB** container image | or install straight onto the host; Docker is optional for the panel itself |
+| **$0** | MIT-licensed. No tiers, no seat limits, no upsell — and nothing phones home. |
+
+Self-hosted and Docker-native, on hardware you already pay for.
+
+---
+
 ## 🚀 Quick Start
 
 > ⏱️ Up and running in under 2 minutes
@@ -78,11 +96,14 @@ See the [Installation Guide](docs/INSTALLATION.md) for step-by-step instructions
 
 | | Minimum | Recommended |
 |---|---------|-------------|
-| **OS** | Ubuntu 22.04 LTS | Ubuntu 24.04 LTS |
+| **OS** | Ubuntu 22.04+ · Debian 12+ · Fedora · RHEL/Rocky/AlmaLinux 9+ | Ubuntu 24.04 LTS |
+| **Arch** | x86_64 · ARM64 | x86_64 · ARM64 |
 | **CPU** | 1 vCPU | 2+ vCPU |
 | **RAM** | 1 GB | 2+ GB |
 | **Disk** | 10 GB | 20+ GB |
-| **Docker** | 24.0+ | Latest |
+| **Docker** | 24.0+ (optional for the panel itself) | Latest |
+
+> The panel itself only needs ~180 MB of RAM and ~500 MB of disk — the rest is headroom for your apps. It runs happily on a 1 GB VPS, a spare laptop, or a Raspberry Pi (ARM64), so it's as much at home in a homelab as it is on production hardware.
 
 ---
 
@@ -309,6 +330,8 @@ Full history: [ROADMAP.md](ROADMAP.md)
 | [Extensions Registry](https://github.com/jhd3197/serverkit-extensions) | The curated extension marketplace `index.json` — separate repo |
 | [Theming](docs/THEMING.md) | Build & share panel themes — token reference, Theme Studio, and the submit flow |
 | [Themes Registry](https://github.com/jhd3197/serverkit-themes) | The curated community themes registry — separate repo |
+| [Templates Registry](https://github.com/jhd3197/serverkit-templates) | The curated app template catalog `index.json` — separate repo |
+| [Registries](docs/REGISTRIES.md) | Which catalogs are published as registries, and the test for whether a new one should be |
 | [Agent Pairing](docs/pairing.md) | Secure short-code agent enrollment |
 | [API Reference](docs/API.md) | REST API endpoints |
 | [New Features](docs/NEW_FEATURES.md) | Endpoint & page reference for the latest `dev` features |

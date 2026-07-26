@@ -3,11 +3,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Drawer } from './Drawer';
 
-// Schema-driven advanced-filter slide-over, shared across tables/lists (the
-// marketplace today; domains/services/etc. next). A page passes a `groups`
-// schema plus a controlled `value`/`onChange`, and the drawer renders each
-// group as a set of toggle chips. Changes apply live so results update behind
-// the open drawer.
+// Schema-driven advanced-filter slide-over, shared across tables/lists. A page
+// passes a `groups` schema plus a controlled `value`/`onChange`, and the drawer
+// renders each group as a set of toggle chips. Changes apply live so results
+// update behind the open drawer.
+//
+// WHICH FILTER CONTROL TO USE — pages had drifted into three unrelated
+// interactions for the same job, so pick by shape, not by taste:
+//
+//   <= 4 mutually-exclusive options, one dimension  ->  <SegControl/>, inline
+//   more options, or more than one dimension        ->  this drawer
+//   an unbounded list (servers, groups, versions)   ->  a plain <select>
+//
+// A raw <select> is never right for a fixed set of states, and a segmented
+// control is never right for two dimensions at once.
 //
 //   groups = [
 //     { key: 'ownership', label: 'Publisher', type: 'single',
@@ -61,6 +70,16 @@ export function FilterDrawer({
     onChange,
     title = 'Filters',
     width = 380,
+    // Optional: how many rows the current selection yields. Given one, the
+    // confirm button reports it ("Show 45 templates") instead of a bare "Done",
+    // so the effect of a selection is visible before closing the drawer.
+    resultCount,
+    resultNoun = 'result',
+    // Optional: the host's own active-filter count. Pass the same number the
+    // FilterButton badge shows, so the two can never disagree — a host may
+    // legitimately not count a group whose value is just its default (a sort
+    // order sitting on "featured" is not a filter the user applied).
+    activeCount,
 }) {
     const isOn = (group, optValue) => (
         group.type === 'multi'
@@ -81,7 +100,7 @@ export function FilterDrawer({
         }
     };
 
-    const active = countActiveFilters(value);
+    const active = activeCount ?? countActiveFilters(value);
     const clearAll = () => onChange(emptyFilterValue(groups));
 
     return (
@@ -107,6 +126,12 @@ export function FilterDrawer({
                                     aria-pressed={isOn(group, option.value)}
                                 >
                                     {option.label}
+                                    {/* An option may carry how many rows it would
+                                        match, so a dead-end filter is visible
+                                        before you spend a click on it. */}
+                                    {option.count != null && (
+                                        <span className="sk-filter__chip-count">{option.count}</span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -116,7 +141,11 @@ export function FilterDrawer({
                     <Button variant="ghost" size="sm" onClick={clearAll} disabled={!active}>
                         Clear all
                     </Button>
-                    <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+                    <Button size="sm" onClick={() => onOpenChange(false)}>
+                        {resultCount == null
+                            ? 'Done'
+                            : `Show ${resultCount} ${resultNoun}${resultCount === 1 ? '' : 's'}`}
+                    </Button>
                 </div>
             </div>
         </Drawer>

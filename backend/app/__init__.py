@@ -182,6 +182,10 @@ def create_app(config_name=None):
     from app.api.databases import databases_bp
     app.register_blueprint(databases_bp, url_prefix='/api/v1/databases')
 
+    # Register blueprints - Database engine catalog (composed from templates)
+    from app.api.database_engines import database_engines_bp
+    app.register_blueprint(database_engines_bp, url_prefix='/api/v1/databases/engines')
+
     # Register blueprints - Managed DB users + Adminer SSO
     from app.api.managed_db_users import managed_db_users_bp
     app.register_blueprint(managed_db_users_bp, url_prefix='/api/v1/managed-databases')
@@ -466,6 +470,10 @@ def create_app(config_name=None):
     # Register blueprints - Themes (plan 60)
     from app.api.themes import themes_bp
     app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
+
+    # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
+    from app.api.dashboards import dashboards_bp
+    app.register_blueprint(dashboards_bp, url_prefix='/api/v1/dashboards')
 
     # Register blueprints - Plugins
     from app.api.plugins import plugins_bp

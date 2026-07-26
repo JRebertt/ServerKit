@@ -487,6 +487,8 @@ def get_manifest_spec():
                     'page_titles': {'type': 'object', 'description': 'Map of route path → document title.'},
                     'command_palette': {'type': 'array', 'description': '{label, path, category, keywords}.'},
                     'widgets': {'type': 'array', 'description': '{slot, component}. slot=global renders globally inside DashboardLayout.'},
+                    'dashboard_widgets': {'type': 'array',
+                                          'description': 'Placeable dashboard widget types: {id, name, component, icon?, category?, description?, w?, h?, min?, default_cfg?}. Unlike widgets (fixed host slot), these appear in the dashboard widget library and the user positions, resizes and configures instances of them.'},
                     'layouts': {'type': 'array',
                                 'description': 'Custom layout components: {id, component}. The component must render <Outlet/> somewhere; it wraps every route that references its id. Built-in layouts (padded, full, bare) are reserved.'},
                 },

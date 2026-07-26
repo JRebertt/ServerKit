@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Send, RefreshCw, Inbox } from 'lucide-react';
 import api from '../services/api';
-import { PageTopbar, MetricCard, KpiBand } from '@/components/ds';
+import { PageTopbar, MetricCard, KpiBand, FilterDrawer, FilterButton } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -19,6 +19,7 @@ export default function DeliveryLog() {
     const [stats, setStats] = useState(null);
     const [status, setStatus] = useState('all');
     const [channel, setChannel] = useState('all');
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const pollRef = useRef(null);
 
@@ -72,9 +73,15 @@ export default function DeliveryLog() {
                 title="Notification Delivery Log"
                 meta="Outbound deliveries across all channels"
                 actions={(
-                    <Button variant="outline" size="sm" onClick={load}>
-                        <RefreshCw size={14} /> Refresh
-                    </Button>
+                    <>
+                        <FilterButton
+                            count={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
+                            onClick={() => setFiltersOpen(true)}
+                        />
+                        <Button variant="outline" size="sm" onClick={load}>
+                            <RefreshCw size={14} /> Refresh
+                        </Button>
+                    </>
                 )}
             />
 
@@ -88,20 +95,6 @@ export default function DeliveryLog() {
                     <MetricCard label="Failed" value={byStatus.failed ?? 0} tone="red" />
                 </KpiBand>
 
-                <div className="sk-dlog__filters">
-                    <label>
-                        Status
-                        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                            {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                    </label>
-                    <label>
-                        Channel
-                        <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                            {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                    </label>
-                </div>
 
                 {loading && deliveries.length === 0 ? (
                     <div className="sk-dlog__empty">Loading…</div>
@@ -148,6 +141,27 @@ export default function DeliveryLog() {
                     </div>
                 )}
             </div>
+
+            <FilterDrawer
+                open={filtersOpen}
+                onOpenChange={setFiltersOpen}
+                title="Filter deliveries"
+                activeCount={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
+                groups={[
+                    { key: 'status', label: 'Status', type: 'single',
+                      options: STATUSES.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
+                    { key: 'channel', label: 'Channel', type: 'single',
+                      options: CHANNELS.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
+                ]}
+                value={{
+                    status: status === 'all' ? '' : status,
+                    channel: channel === 'all' ? '' : channel,
+                }}
+                onChange={(next) => {
+                    setStatus(next.status || 'all');
+                    setChannel(next.channel || 'all');
+                }}
+            />
         </>
     );
 }

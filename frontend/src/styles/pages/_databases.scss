@@ -258,6 +258,10 @@ $dbx-sqlite: #3d8fd1;
         padding: 0;
     }
 
+    // The row owns its own padding and truncation; the node is only the
+    // grouping element that carries a row plus its children.
+    .dbx-tree-node { min-width: 0; }
+
     .dbx-tree-row {
         display: flex;
         align-items: center;
@@ -340,6 +344,25 @@ $dbx-sqlite: #3d8fd1;
         line-height: 16px;
     }
 
+    // How many children a node actually holds. Deliberately not a pill: it is a
+    // fact read off the loaded tree, so it sits quieter than the size badge.
+    .dbx-tree-count {
+        flex-shrink: 0;
+        font-family: $font-mono;
+        font-size: 10px;
+        line-height: 16px;
+        color: $text-tertiary;
+        font-variant-numeric: tabular-nums;
+    }
+
+    // Why a not-installed engine offers no install button.
+    .dbx-tree-hint {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-style: italic;
+        color: $text-tertiary;
+    }
+
     .dbx-tree-status {
         display: inline-flex;
         align-items: center;
@@ -377,6 +400,23 @@ $dbx-sqlite: #3d8fd1;
         color: $text-tertiary;
         font-style: italic;
         &.is-error { color: $danger; }
+    }
+
+    // The same message, but the missing thing is one click away. Reads as a
+    // link rather than italic prose, because it does something.
+    .dbx-tree-leaf-link {
+        padding: 0;
+        background: none;
+        border: none;
+        color: $accent-primary;
+        font-family: inherit;
+        font-size: inherit;
+        font-style: normal;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { text-decoration: underline; }
+        &:focus-visible { outline: 2px solid $accent-primary; outline-offset: 2px; }
     }
 
     // ─── Workspace ────────────────────────────────────────
@@ -960,6 +1000,178 @@ $dbx-sqlite: #3d8fd1;
         }
     }
 
+    // ─── Engine install affordances (tree) ────────────────
+    // A "+" that only surfaces on the row you are pointing at, so the tree stays
+    // a tree until you reach for it.
+    .dbx-tree-add {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        background: $bg-tertiary;
+        border: none;
+        border-radius: $radius-sm;
+        color: $text-tertiary;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity $transition-fast, background $transition-fast, color $transition-fast;
+
+        &:hover { background: $accent-primary; color: #fff; }
+    }
+    .dbx-tree-row:hover .dbx-tree-add,
+    .dbx-tree-row:focus-within .dbx-tree-add { opacity: 1; }
+
+    // Unlike the "+", this one is always visible: an engine you cannot install
+    // is the whole problem, so the way out must not be hidden behind a hover.
+    .dbx-tree-install-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        padding: 1px 7px;
+        background: $accent-glow;
+        border: 1px solid transparent;
+        border-radius: $radius-full;
+        color: $accent-primary;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: $font-weight-medium;
+        line-height: 1.6;
+        cursor: pointer;
+        transition: background $transition-fast, color $transition-fast, border-color $transition-fast;
+
+        &:hover { background: $accent-primary; color: $bg-card; border-color: $accent-primary; }
+        svg { flex-shrink: 0; }
+    }
+
+    .dbx-tree-status.is-installing { color: $warning; }
+    .dbx-tree-status.is-failed { color: $danger; }
+    .dbx-tree-row.is-installing .dbx-tree-label { color: $warning; }
+
+    // The last row of the tree: how you get an engine the tree doesn't list.
+    // Dashed, because it adds to the tree rather than being part of it.
+    .dbx-tree-install {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        width: 100%;
+        margin: $space-2 0 $space-1;
+        padding: $space-2 $space-3;
+        background: transparent;
+        border: 1px dashed $border-active;
+        border-radius: $radius-md;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        text-align: left;
+        cursor: pointer;
+        transition: color $transition-fast, border-color $transition-fast, background $transition-fast;
+
+        &:hover {
+            color: $accent-primary;
+            border-color: $accent-primary;
+            background: $accent-glow;
+        }
+        svg { flex-shrink: 0; }
+    }
+
+    // How many engines the catalog behind that row actually holds.
+    .dbx-tree-install-count {
+        margin-left: auto;
+        flex-shrink: 0;
+        font-family: $font-mono;
+        font-size: 10px;
+        color: $text-tertiary;
+        font-variant-numeric: tabular-nums;
+    }
+
+    // ─── Main-pane blank states ───────────────────────────
+    // Reachable three ways: an engine mid-install, an engine that is up but
+    // empty, a database with nothing in it.
+    .dbx-blank {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: $space-8 $space-5;
+
+        &__icon {
+            position: relative;
+            display: grid;
+            place-items: center;
+            width: 52px;
+            height: 52px;
+            margin-bottom: $space-4;
+            background: $bg-elevated;
+            border: 1px solid $border-default;
+            border-radius: $radius-lg;
+            color: $text-secondary;
+
+            &.is-failed { border-color: $danger-border; color: $danger; }
+        }
+
+        // The ring turns the engine glyph itself into the progress indicator,
+        // rather than parking a second spinner beside it.
+        &__spin {
+            position: absolute;
+            inset: -7px;
+            width: auto;
+            height: auto;
+            color: $warning;
+        }
+
+        &__title {
+            display: inline-flex;
+            align-items: center;
+            gap: $space-2;
+            margin: 0;
+            font-size: $font-size-lg;
+            font-weight: $font-weight-semibold;
+            color: $text-primary;
+        }
+
+        &__body {
+            max-width: 46ch;
+            margin: $space-2 0 0;
+            color: $text-secondary;
+            font-size: $font-size-sm;
+            line-height: 1.6;
+
+            code {
+                padding: 1px 5px;
+                border-radius: $radius-sm;
+                background: $bg-tertiary;
+                font-family: $font-mono;
+                font-size: $font-size-xs;
+                color: $text-primary;
+            }
+        }
+
+        &__actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: $space-2;
+            margin-top: $space-5;
+        }
+
+        &__note {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 46ch;
+            margin: $space-5 0 0;
+            font-family: $font-mono;
+            font-size: $font-size-xs;
+            color: $text-tertiary;
+            svg { flex-shrink: 0; }
+        }
+    }
+
     // ─── Context menu ─────────────────────────────────────
     .dbx-context {
         position: fixed;
@@ -1000,6 +1212,937 @@ $dbx-sqlite: #3d8fd1;
         .dbx-menu, .dbx-context { animation: none; }
         .dbx-spin { animation: none; }
     }
+}
+
+// ============================================
+// ENGINE CATALOG & INSTALL (drawer + modal chrome)
+//
+// Everything below renders inside a Radix portal — a drawer or a modal is NOT a
+// descendant of `.db-explorer`, so these rules must live at the top level or
+// they simply never reach the markup. Same `dbx-` namespace, different host.
+// ============================================
+
+// The portalled half of the spinner: @keyframes bubble to the top level, the
+// class that uses them does not.
+.dbx-spin { animation: dbx-spin 1s linear infinite; }
+
+.dbx-drawer {
+    // Three stacked regions inside the sheet body — filters, scroller, footer —
+    // so the footer stays put while the catalog scrolls under it.
+    &__shell {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    &__scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: $space-4 $space-5 $space-6;
+    }
+
+    &__lead {
+        margin: 0 0 $space-4;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        line-height: 1.55;
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        flex-shrink: 0;
+        padding: $space-3 $space-5;
+        border-top: 1px solid $border-subtle;
+        background: $bg-elevated;
+
+        .btn:first-child { margin-right: auto; }
+        &--split { justify-content: space-between; }
+    }
+
+    &__footnote {
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: 1.5;
+    }
+
+    // A drawer is not inside a page form, so its bare controls have no styling
+    // to inherit — give them the panel's own instead of the browser's.
+    select {
+        width: 100%;
+        padding: 8px 11px;
+        background: $bg-elevated;
+        border: 1px solid $border-default;
+        border-radius: $radius-md;
+        color: $text-primary;
+        font-family: inherit;
+        font-size: $font-size-sm;
+        cursor: pointer;
+
+        &:focus {
+            outline: none;
+            border-color: $accent-primary;
+            box-shadow: 0 0 0 3px $accent-glow;
+        }
+    }
+}
+
+// ─── Fields ───────────────────────────────────────────────
+.dbx-field {
+    margin-bottom: $space-4;
+    &:last-child { margin-bottom: 0; }
+
+    &__label {
+        display: block;
+        margin-bottom: 7px;
+        color: $text-secondary;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-medium;
+    }
+
+    &__optional { color: $text-tertiary; font-weight: $font-weight-normal; }
+}
+
+.dbx-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-3;
+    align-items: start;
+}
+
+.dbx-field-hint {
+    margin: 6px 0 0;
+    color: $text-tertiary;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+
+    code {
+        padding: 1px 5px;
+        border-radius: $radius-sm;
+        background: $bg-tertiary;
+        font-family: $font-mono;
+        color: $text-secondary;
+    }
+}
+
+.dbx-input {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 11px;
+    background: $bg-elevated;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    transition: border-color $transition-fast, box-shadow $transition-fast;
+
+    &:focus-within {
+        border-color: $accent-primary;
+        box-shadow: 0 0 0 3px $accent-glow;
+    }
+
+    > svg { flex-shrink: 0; color: $text-tertiary; }
+
+    input {
+        flex: 1;
+        min-width: 0;
+        background: none;
+        border: none;
+        outline: none;
+        color: $text-primary;
+        font-size: $font-size-sm;
+        &::placeholder { color: $text-tertiary; }
+    }
+}
+
+.dbx-inline-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: none;
+    border: none;
+    color: $accent-primary;
+    font-size: $font-size-sm;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { text-decoration: underline; }
+    &:disabled { opacity: 0.6; cursor: default; }
+    svg { flex-shrink: 0; }
+}
+
+// ─── Key / value facts ────────────────────────────────────
+.dbx-kv {
+    margin: 0;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    overflow: hidden;
+
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        padding: 9px 13px;
+        border-top: 1px solid $border-subtle;
+        &:first-child { border-top: none; }
+
+        dt, .dbx-kv__key {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            flex-shrink: 0;
+            color: $text-tertiary;
+            font-size: $font-size-xs;
+            svg { color: $text-tertiary; }
+        }
+
+        dd {
+            margin: 0;
+            min-width: 0;
+            color: $text-primary;
+            font-size: $font-size-sm;
+            text-align: right;
+        }
+    }
+
+    &__mono {
+        font-family: $font-mono;
+        font-size: $font-size-xs;
+        word-break: break-all;
+    }
+
+    &__ok { color: $success; }
+}
+
+// The password is the one thing on the panel you cannot recover later, so it
+// gets reveal, regenerate and copy in the same row as the dots.
+.dbx-secret {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+
+    &__value {
+        font-family: $font-mono;
+        font-size: $font-size-xs;
+        letter-spacing: 0.06em;
+        color: $text-primary;
+        word-break: break-all;
+    }
+
+    &__actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
+}
+
+.dbx-icon-xs {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: $radius-sm;
+    color: $text-tertiary;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background $transition-fast, color $transition-fast;
+
+    &:hover:not(:disabled) { background: $bg-tertiary; color: $text-primary; }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+// ─── Option rows + the public-port warning ────────────────
+.dbx-optlist {
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    overflow: hidden;
+
+    > * + * { border-top: 1px solid $border-subtle; }
+}
+
+.dbx-opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    padding: 11px 13px;
+
+    &__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    &__title { color: $text-primary; font-size: $font-size-sm; font-weight: $font-weight-medium; }
+    &__sub { color: $text-tertiary; font-size: $font-size-xs; line-height: 1.45; }
+}
+
+// Not decorative. A public database port is the single most consequential thing
+// this drawer can do, so it is called out in warning colour every time.
+.dbx-warn-line {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    margin: $space-3 0 0;
+    padding: 10px 12px;
+    background: $warning-bg;
+    border: 1px solid $warning-border;
+    border-radius: $radius-md;
+    color: $text-secondary;
+    font-size: $font-size-xs;
+    line-height: 1.55;
+
+    svg { flex-shrink: 0; margin-top: 1px; color: $warning; }
+}
+
+.dbx-result-lead {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    margin-bottom: $space-4;
+    padding: 11px 13px;
+    background: $success-bg;
+    border: 1px solid $success-border;
+    border-radius: $radius-md;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    line-height: 1.55;
+
+    svg { flex-shrink: 0; margin-top: 2px; color: $success; }
+}
+
+// ─── Catalog: filters, rows, cards ────────────────────────
+.dbx-eng-filters {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    flex-shrink: 0;
+    padding: $space-3 $space-5;
+    background: $bg-elevated;
+    border-bottom: 1px solid $border-subtle;
+}
+
+.dbx-eng-search { flex: 1 1 auto; width: 100%; }
+
+.dbx-cat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.dbx-cat-chip {
+    padding: 3px 10px;
+    background: $bg-tertiary;
+    border: 1px solid transparent;
+    border-radius: $radius-full;
+    color: $text-secondary;
+    font-size: $font-size-xs;
+    cursor: pointer;
+    transition: background $transition-fast, color $transition-fast, border-color $transition-fast;
+
+    &:hover { color: $text-primary; }
+    &.is-on {
+        background: $accent-glow;
+        border-color: $accent-primary;
+        color: $accent-primary;
+    }
+}
+
+.dbx-eng-section { margin-bottom: $space-6; &:last-child { margin-bottom: 0; } }
+
+.dbx-eyebrow {
+    margin: 0 0 $space-2;
+    color: $text-tertiary;
+    font-size: 10.5px;
+    font-weight: $font-weight-semibold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.dbx-eng-glyph {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    color: $text-secondary;
+
+    &--lg {
+        width: 38px;
+        height: 38px;
+        background: $bg-tertiary;
+        border-radius: $radius-md;
+    }
+}
+
+.dbx-eng-img { object-fit: contain; border-radius: 3px; }
+
+.dbx-eng-rowtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
+.dbx-eng-name {
+    color: $text-primary;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    @include dbx-trunc;
+}
+
+.dbx-eng-sub {
+    color: $text-tertiary;
+    font-family: $font-mono;
+    font-size: 11px;
+    @include dbx-trunc;
+}
+
+.dbx-eng-family {
+    flex-shrink: 0;
+    color: $text-tertiary;
+    font-family: $font-mono;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.dbx-eng-facts {
+    min-width: 0;
+    color: $text-tertiary;
+    font-family: $font-mono;
+    font-size: 11px;
+    @include dbx-trunc;
+}
+
+.dbx-eng-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    padding: 3px 8px;
+    border-radius: $radius-sm;
+    font-family: $font-mono;
+    font-size: 10.5px;
+
+    &.is-running { color: $success; background: $success-bg; }
+    &.is-installing { color: $warning; background: $warning-bg; }
+    &.is-failed { color: $danger; background: $danger-bg; }
+    &.is-stopped { color: $text-tertiary; background: $bg-tertiary; }
+}
+
+.dbx-eng-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    overflow: hidden;
+}
+
+.dbx-eng-row {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: 11px 13px;
+    border-top: 1px solid $border-subtle;
+    &:first-child { border-top: none; }
+}
+
+.dbx-engine-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+    gap: $space-3;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.dbx-engine-card {
+    display: flex;
+
+    // The whole card is the hit target — a card you can only activate by its
+    // small "Install" label is a card that reads as clickable and isn't.
+    &__hit {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        width: 100%;
+        min-height: 168px;
+        padding: $space-3;
+        background: $bg-elevated;
+        border: 1px solid $border-default;
+        border-radius: $radius-md;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color $transition-fast, background $transition-fast, transform $transition-fast;
+
+        &:hover {
+            border-color: $accent-primary;
+            background: $bg-hover;
+            transform: translateY(-1px);
+        }
+        &:focus-visible { outline: 2px solid $accent-primary; outline-offset: 2px; }
+    }
+
+    &__top { display: flex; align-items: flex-start; gap: $space-2; }
+
+    &__desc {
+        flex: 1;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: 1.5;
+    }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+    }
+
+    &__cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+        padding: 3px 10px;
+        background: $accent-primary;
+        border-radius: $radius-sm;
+        color: #fff;
+        font-size: $font-size-xs;
+        font-weight: $font-weight-semibold;
+    }
+}
+
+// ─── Engine picker (create-database modal) ────────────────
+.dbx-eng-pick {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: $space-2;
+}
+
+.dbx-eng-opt {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 9px 11px;
+    background: $bg-elevated;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color $transition-fast, background $transition-fast;
+
+    &:hover:not(:disabled) { border-color: $border-active; background: $bg-hover; }
+    &.is-on { border-color: $accent-primary; background: $accent-glow; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+    &--ghost { border-style: dashed; color: $text-tertiary; }
+
+    &__ico {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        flex-shrink: 0;
+        color: $text-secondary;
+
+        &.is-mysql { color: $color-mysql; }
+        &.is-postgresql { color: $color-postgresql; }
+    }
+
+    &__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    &__name {
+        color: $text-primary;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-medium;
+        @include dbx-trunc;
+    }
+    &__sub { color: $text-tertiary; font-family: $font-mono; font-size: 10.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dbx-spin { animation: none; }
+    .dbx-engine-card__hit:hover { transform: none; }
+}
+
+// ============================================
+// TABLE BUILDER & DUMP IMPORT (portalled modals)
+//
+// Both live in a Radix portal, like the catalog above — top-level rules only.
+// ============================================
+
+// ─── Shared: select, notices, statement preview ───────────
+.dbx-select {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    select {
+        appearance: none;
+        width: 100%;
+        padding: 8px 30px 8px 11px;
+        background: $bg-elevated;
+        border: 1px solid $border-default;
+        border-radius: $radius-md;
+        color: $text-primary;
+        font-family: inherit;
+        font-size: $font-size-sm;
+        cursor: pointer;
+
+        &:focus {
+            outline: none;
+            border-color: $accent-primary;
+            box-shadow: 0 0 0 3px $accent-glow;
+        }
+    }
+
+    > svg {
+        position: absolute;
+        right: 10px;
+        color: $text-tertiary;
+        pointer-events: none;
+    }
+
+    &--sm {
+        select {
+            padding: 5px 22px 5px 8px;
+            font-family: $font-mono;
+            font-size: 11.5px;
+        }
+        > svg { right: 6px; }
+    }
+}
+
+// Compact variant of the shared .dbx-input, for the column grid's cells.
+.dbx-input--sm {
+    padding: 5px 8px;
+    input {
+        font-family: $font-mono;
+        font-size: 11.5px;
+    }
+}
+
+// One notice shape, five tones. Every one of them says something the operator
+// has to act on, so none of them are decorative.
+.dbx-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    margin-bottom: $space-4;
+    padding: 11px 13px;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    background: $bg-elevated;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    line-height: 1.55;
+
+    > svg { flex-shrink: 0; margin-top: 2px; color: $text-tertiary; }
+    > div { min-width: 0; }
+
+    strong {
+        display: block;
+        color: $text-primary;
+        font-weight: $font-weight-semibold;
+    }
+
+    p { margin: 2px 0 0; }
+    .dbx-inline-link { margin-top: 6px; }
+
+    &--info {
+        background: $info-bg;
+        border-color: $info-border;
+        > svg { color: $info; }
+    }
+
+    &--warn {
+        background: $warning-bg;
+        border-color: $warning-border;
+        > svg { color: $warning; }
+    }
+
+    &--danger,
+    &--error {
+        background: $danger-bg;
+        border-color: $danger-border;
+        > svg { color: $danger; }
+    }
+
+    &--ok {
+        background: $success-bg;
+        border-color: $success-border;
+        > svg { color: $success; }
+    }
+
+    &__detail {
+        margin: 6px 0 0;
+        padding: 8px 10px;
+        max-height: 160px;
+        overflow: auto;
+        background: var(--bg-code);
+        border-radius: $radius-sm;
+        color: var(--text-code);
+        font-family: $font-mono;
+        font-size: 11.5px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+}
+
+// The statement, exactly as it will be sent. Terminal surface on purpose: this
+// is the safety story of the whole builder, so it must not read as prose.
+.dbx-sqlprev {
+    margin: 0;
+    padding: 11px 13px;
+    max-height: 220px;
+    overflow: auto;
+    background: var(--bg-code);
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    color: var(--text-code);
+    font-family: $font-mono;
+    font-size: 11.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+// Blocking problems, listed in the order they would be fixed.
+.dbx-issues {
+    list-style: none;
+    margin: 0 0 $space-4;
+    padding: 0;
+
+    li {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        padding: 3px 0;
+        color: $danger;
+        font-size: $font-size-xs;
+        line-height: 1.5;
+
+        svg { flex-shrink: 0; margin-top: 2px; }
+    }
+}
+
+// ─── Table builder ────────────────────────────────────────
+.dbx-builder {
+    // The modal body owns the bottom padding; a trailing field margin would
+    // double it.
+    > *:last-child { margin-bottom: 0; }
+
+    .dbx-field-row {
+        margin-bottom: $space-4;
+        .dbx-field { margin-bottom: 0; }
+    }
+
+    &__loading {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        margin: 0;
+        padding: $space-6 0;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+    }
+
+    &__target {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: -$space-2 0 $space-4;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: 1.5;
+
+        code {
+            padding: 1px 5px;
+            border-radius: $radius-sm;
+            background: $bg-tertiary;
+            font-family: $font-mono;
+            color: $text-secondary;
+        }
+    }
+
+    &__target-ico {
+        display: inline-flex;
+        flex-shrink: 0;
+        color: $text-secondary;
+    }
+}
+
+.dbx-colgrid {
+    &__head,
+    &__row {
+        display: grid;
+        grid-template-columns: 1.4fr 1.3fr 34px 52px 1fr 26px;
+        gap: 7px;
+        align-items: center;
+    }
+
+    &__head {
+        padding: 0 2px 6px;
+        color: $text-tertiary;
+        font-family: $font-mono;
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__add {
+        margin-top: $space-2;
+        font-size: $font-size-xs;
+    }
+}
+
+// Checkbox drawn as a square button, so a whole column of them lines up with
+// the grid's other cells instead of inheriting the browser's checkbox metrics.
+.dbx-cbox {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: 1.5px solid $border-active;
+    border-radius: $radius-sm;
+    color: $white;
+    cursor: pointer;
+    transition: background $transition-fast, border-color $transition-fast;
+
+    &:hover { border-color: $accent-primary; }
+    &:focus-visible { outline: 2px solid $accent-primary; outline-offset: 2px; }
+    &.is-on { background: $accent-primary; border-color: $accent-primary; }
+}
+
+// ─── Dump import ──────────────────────────────────────────
+.dbx-import {
+    > *:last-child { margin-bottom: 0; }
+}
+
+.dbx-choice {
+    display: flex;
+    gap: 4px;
+    margin-bottom: $space-3;
+    padding: 3px;
+    background: $bg-tertiary;
+    border-radius: $radius-md;
+
+    &__btn {
+        flex: 1;
+        padding: 6px 10px;
+        background: transparent;
+        border: none;
+        border-radius: $radius-sm;
+        color: $text-secondary;
+        font-family: inherit;
+        font-size: $font-size-xs;
+        cursor: pointer;
+        transition: background $transition-fast, color $transition-fast;
+
+        &:hover { color: $text-primary; }
+        &:focus-visible { outline: 2px solid $accent-primary; outline-offset: -2px; }
+        &.is-on {
+            background: $bg-card;
+            color: $accent-primary;
+            box-shadow: $shadow-sm;
+        }
+    }
+}
+
+.dbx-dumps {
+    display: flex;
+    flex-direction: column;
+    max-height: 210px;
+    overflow-y: auto;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+
+    &__empty {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 0;
+        padding: $space-4;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: 1.5;
+
+        svg { flex-shrink: 0; }
+    }
+}
+
+.dbx-dump {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: 9px 12px;
+    background: transparent;
+    border: none;
+    border-top: 1px solid $border-subtle;
+    text-align: left;
+    cursor: pointer;
+    transition: background $transition-fast;
+
+    &:first-child { border-top: none; }
+    &:hover { background: $bg-hover; }
+    &:focus-visible { outline: 2px solid $accent-primary; outline-offset: -2px; }
+    &.is-on { background: $accent-glow; }
+
+    &__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
+    &__name {
+        color: $text-primary;
+        font-family: $font-mono;
+        font-size: 11.5px;
+        @include dbx-trunc;
+    }
+
+    &__meta {
+        color: $text-tertiary;
+        font-size: 10.5px;
+        @include dbx-trunc;
+    }
+
+    &__tag {
+        flex-shrink: 0;
+        padding: 2px 8px;
+        border-radius: $radius-sm;
+        font-family: $font-mono;
+        font-size: 10px;
+        background: $bg-tertiary;
+        color: $text-tertiary;
+
+        &.is-mysql { background: fade($color-mysql, 16%); color: $color-mysql; }
+        &.is-postgresql { background: fade($color-postgresql, 20%); color: $color-postgresql-secondary; }
+    }
+}
+
+.dbx-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-bottom: $space-4;
+    padding: 11px 13px;
+    border: 1px solid $border-default;
+    border-radius: $radius-md;
+    cursor: pointer;
+
+    input { margin-top: 2px; flex-shrink: 0; accent-color: $accent-primary; }
+    > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+    &__title { color: $text-primary; font-size: $font-size-sm; font-weight: $font-weight-medium; }
+    &__sub { color: $text-tertiary; font-size: $font-size-xs; line-height: 1.45; }
+}
+
+// A label may name an identifier the operator has to retype — give it the same
+// code treatment the hints get.
+.dbx-field__label code {
+    padding: 1px 5px;
+    border-radius: $radius-sm;
+    background: $bg-tertiary;
+    font-family: $font-mono;
+    color: $text-secondary;
 }
 
 // ============================================

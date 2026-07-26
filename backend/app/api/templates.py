@@ -10,7 +10,7 @@ Provides REST endpoints for:
 - Template repository management
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.middleware.rbac import admin_required
 from app.models import User, Application
@@ -79,7 +79,10 @@ def get_template(template_id):
                     'required': var.get('required', False),
                     'options': var.get('options', None),
                     'auto_generated': var_type in auto_generated_types,
-                    'hidden': var_type == 'port'  # Ports are hidden from users
+                    # Ports are hidden by default, but a template may say
+                    # otherwise -- a database engine's port is the operator's
+                    # decision, so its templates declare `hidden: false`.
+                    'hidden': bool(var.get('hidden', var_type == 'port')),
                 })
     elif isinstance(raw_vars, dict):
         # Old dict format: {PORT: {type: 'port', ...}, ...}
@@ -94,7 +97,7 @@ def get_template(template_id):
                     'required': var_config.get('required', False),
                     'options': var_config.get('options', None),
                     'auto_generated': var_type in auto_generated_types,
-                    'hidden': var_type == 'port'
+                    'hidden': bool(var_config.get('hidden', var_type == 'port')),
                 })
 
     return jsonify({
@@ -111,6 +114,9 @@ def get_template(template_id):
             'documentation': template.get('documentation'),
             'website': template.get('website'),
             'variables': variables,
+            # Present only for database-engine templates; the Databases install
+            # drawer reads it to know which variable is the port / password.
+            'engine': TemplateService.engine_metadata(template),
             'has_compose': 'compose' in template,
             'has_dockerfile': 'dockerfile' in template,
             'scripts': list(template.get('scripts', {}).keys()),
@@ -200,10 +206,102 @@ def catalog_schema():
             {'token': '${SERVICE_BASE64_<NAME>}',
              'description': 'Base64 of a freshly generated secret.'},
         ],
+        # The optional `engine:` block is what makes a template installable from
+        # the Databases page. It is described here rather than hardcoded in the
+        # UI so a new engine is a YAML file, never a code change.
+        'engine_block': {
+            'optional': True,
+            'description': 'Presence of a top-level `engine:` block marks the template '
+                           'as an installable database engine and lists it in Databases.',
+            'families': list(TemplateService.ENGINE_FAMILIES),
+            'protocols': list(TemplateService.ENGINE_PROTOCOLS),
+            'fields': [
+                {'field': 'family', 'required': False,
+                 'description': 'Grouping used by the catalog family filter.'},
+                {'field': 'protocol', 'required': False,
+                 'description': "Client adapter that can introspect it. 'none' is valid "
+                                'and means the tree offers no browsing for this engine.'},
+                {'field': 'default_port', 'required': False,
+                 'description': "The engine's conventional port, shown as a hint."},
+                {'field': 'admin_user', 'required': False,
+                 'description': 'Bootstrap superuser created by the image.'},
+                {'field': 'admin_password_var', 'required': False,
+                 'description': "Name of the `variables` entry (type: password) holding "
+                                'the admin secret, so the UI can surface it once.'},
+                {'field': 'database_var', 'required': False,
+                 'description': 'Variable that seeds an initial database, if the image supports one.'},
+                {'field': 'port_var', 'required': False,
+                 'default': TemplateService.ENGINE_DEFAULT_PORT_VAR,
+                 'description': 'Variable holding the published host port.'},
+                {'field': 'bind_var', 'required': False,
+                 'default': TemplateService.ENGINE_DEFAULT_BIND_VAR,
+                 'description': f'Variable holding the bind address. Defaults to '
+                                f'{TemplateService.ENGINE_PRIVATE_BIND} (private); the installer '
+                                f'sets {TemplateService.ENGINE_PUBLIC_BIND} only on an explicit '
+                                'expose_public opt-in.'},
+                {'field': 'unit', 'required': False,
+                 'description': 'What a "table" is called here (collections, keys, buckets, ...).'},
+                {'field': 'client', 'required': False,
+                 'description': 'CLI client hint shown in the UI.'},
+                {'field': 'data_path', 'required': False,
+                 'description': 'Container-side data directory the named volume mounts onto.'},
+                {'field': 'extensions', 'required': False, 'default': False,
+                 'description': 'true when the engine can load database extensions (see '
+                                'extension_block). Opt-in, because speaking a protocol is '
+                                'not the same as supporting its extensions.'},
+                {'field': 'versions', 'required': False,
+                 'description': 'Selectable image versions. Defaults to the template version.'},
+            ],
+        },
+        # An extension is NOT an app template: it has no container, so it is not
+        # in this directory at all. Documented here because this endpoint is
+        # where an author looks for "what can I drop into the catalog".
+        'extension_block': {
+            'optional': True,
+            'location': f'<templates>/{TemplateService.EXTENSIONS_SUBDIR}/<id>.yaml',
+            'family': TemplateService.EXTENSION_FAMILY,
+            'description': 'An extension installs INTO a running engine by executing one '
+                           'statement against it. It declares no compose/dockerfile and '
+                           'creates no application; it lives in its own directory so it '
+                           'never appears in the app catalog.',
+            'protocols': [p for p in TemplateService.ENGINE_PROTOCOLS if p != 'none'],
+            'fields': [
+                {'field': 'protocol', 'required': True,
+                 'description': "Engines that can host it, matched against each engine "
+                                "template's own engine.protocol. Never names an engine."},
+                {'field': 'statement', 'required': True,
+                 'description': 'The statement executed on install, e.g. '
+                                'CREATE EXTENSION IF NOT EXISTS vector;'},
+                {'field': 'available_query', 'required': False,
+                 'description': 'Asked before installing and authoritative: an empty result '
+                                'means the running image cannot load the extension, and the '
+                                'install is refused with a remedy instead of failing with '
+                                '"could not open extension control file".'},
+                {'field': 'installed_query', 'required': False,
+                 'description': 'Returns the installed version, or nothing when absent.'},
+                {'field': 'images', 'required': False,
+                 'description': 'Image repositories that SHIP the extension. Stock postgres '
+                                'does not ship pgvector, so this is what lets the catalog '
+                                'mark an instance incompatible before it is clicked.'},
+                {'field': 'image_hint', 'required': False,
+                 'description': 'Image reference to suggest; {version} is replaced with the '
+                                "installed engine's version."},
+                {'field': 'templates', 'required': False,
+                 'description': 'Optional narrowing to specific engine template ids. Omit to '
+                                'offer it on every engine speaking `protocol`.'},
+                {'field': 'versions', 'required': False,
+                 'description': 'Selectable extension versions. Defaults to the file version.'},
+            ],
+        },
         'notes': [
             'Magic tokens need no variables: entry; they are resolved at install '
             'and persisted to .env / surfaced post-install.',
             '<NAME> groups related tokens: the same <NAME> resolves to a consistent value.',
+            'Unknown top-level keys are tolerated by the validator; `engine` is now a '
+            'known block and is carried through the catalog listing and repo index.',
+            f'Database extensions are separate files under '
+            f'{TemplateService.EXTENSIONS_SUBDIR}/ and are listed by '
+            'GET /api/v1/databases/engines/extensions.',
         ],
     }
     return jsonify(schema), 200
@@ -258,6 +356,24 @@ def install_template(template_id):
         return jsonify({'error': str(e), 'trace': error_trace}), 500
 
 
+@templates_bp.route('/<template_id>/capacity', methods=['GET'])
+@jwt_required()
+def template_capacity(template_id):
+    """Will this template fit on a given server?
+
+    Read-only counterpart to the capacity block on /validate-install, so the
+    deploy drawer can show the answer while the operator is still choosing a
+    target — and update it when they switch servers — without POSTing a
+    half-filled form. `server_id` omitted (or 'local') means this host.
+    """
+    result = TemplateService.get_template(template_id)
+    if not result.get('success'):
+        return jsonify({'error': 'Template not found'}), 404
+
+    from app.services.capacity_service import check_fit
+    return jsonify(check_fit(result['template'], request.args.get('server_id'))), 200
+
+
 @templates_bp.route('/validate-install', methods=['POST'])
 @jwt_required()
 def validate_installation():
@@ -271,8 +387,10 @@ def validate_installation():
         template_id = data.get('template_id')
         app_name = data.get('app_name')
         user_variables = data.get('variables', {})
+        server_id = data.get('server_id') or data.get('target_server_id')
 
         errors = []
+        capacity = None
 
         # Validate app name
         if not app_name:
@@ -308,13 +426,24 @@ def validate_installation():
                     for var_name, var_config in raw_vars.items():
                         if var_config.get('required', False) and var_name not in user_variables:
                             errors.append(f'Required variable "{var_name}" is not provided')
+
+                # Does the target have room? Advisory: it rides alongside
+                # `errors` rather than in it, so a tight server informs the
+                # operator without refusing the install. Never fatal — a
+                # capacity probe that throws must not block a deploy.
+                try:
+                    from app.services.capacity_service import check_fit
+                    capacity = check_fit(template, server_id)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.warning('capacity check failed', exc_info=True)
         else:
             errors.append('Template ID is required')
 
         if errors:
-            return jsonify({'valid': False, 'errors': errors}), 400
+            return jsonify({'valid': False, 'errors': errors,
+                            'capacity': capacity}), 400
 
-        return jsonify({'valid': True}), 200
+        return jsonify({'valid': True, 'capacity': capacity}), 200
 
     except Exception as e:
         import traceback

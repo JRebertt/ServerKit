@@ -50,7 +50,7 @@ export default function ResultsGrid({ columns, rows, loading, error, emptyTitle 
     if (loading) {
         return (
             <div className="dbx-grid-status">
-                <EmptyState loading title="Running query…" />
+                <EmptyState loading loadingVariant="table" title="Running query…" />
             </div>
         );
     }

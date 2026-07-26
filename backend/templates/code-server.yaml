@@ -35,6 +35,10 @@ volumes:
     path: /config
     description: Code Server configuration
 
+requirements:
+  memory: 1GB
+  storage: 5GB
+
 compose:
   services:
     code-server:

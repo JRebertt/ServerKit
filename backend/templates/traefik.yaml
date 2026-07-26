@@ -46,6 +46,10 @@ volumes:
     path: /letsencrypt
     description: Let's Encrypt certificates
 
+requirements:
+  memory: 256MB
+  storage: 1GB
+
 compose:
   services:
     traefik:

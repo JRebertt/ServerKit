@@ -1,4 +1,5 @@
-import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Rows3, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SegControl } from '@/components/ds';
 import { Button } from '@/components/ui/button';
@@ -61,12 +62,50 @@ export default function ResourceListPage({
     filteredEmptyIcon,
     filteredEmptyTitle = 'No results found',
     filteredEmptyDescription = 'Try adjusting your search or filter.',
+    // Opt-in card view: pass a renderer and the toolbar grows a list/cards
+    // switch. Pages that omit it are table-only exactly as before.
+    renderCard,
+    viewStorageKey,
     children,
 }) {
     const resolvedTotal = totalCount ?? items.length;
+    const [view, setView] = useState(() => {
+        if (!renderCard) return 'list';
+        try {
+            return window.localStorage.getItem(viewStorageKey) === 'cards' ? 'cards' : 'list';
+        } catch {
+            return 'list';
+        }
+    });
+
+    const changeView = (next) => {
+        setView(next);
+        if (!viewStorageKey) return;
+        try {
+            window.localStorage.setItem(viewStorageKey, next);
+        } catch {
+            /* private mode / quota — the choice just doesn't persist */
+        }
+    };
 
     if (loading) {
-        return <EmptyState loading title={loadingTitle} />;
+        // Same wrapper as the loaded state below. A skeleton that renders
+        // outside the page's padded container occupies a different box than the
+        // content it predicts — it spans edge to edge, then everything jumps
+        // inward on arrival, which is precisely the flash a skeleton exists to
+        // prevent.
+        //
+        // The variant tracks the real shape: a resource list is a table, or a
+        // card grid when the page opted into one.
+        return (
+            <div className={cn('sk-tabgroup__inner', className)}>
+                <EmptyState
+                    loading
+                    loadingVariant={renderCard && view === 'cards' ? 'cards' : 'table'}
+                    title={loadingTitle}
+                />
+            </div>
+        );
     }
 
     return (
@@ -103,6 +142,23 @@ export default function ResourceListPage({
                             </div>
                         )}
                         {toolbarExtra}
+                        {renderCard && (
+                            <div className="wp-list__viewswitch" role="group" aria-label="Layout">
+                                {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
+                                    <button
+                                        type="button"
+                                        key={key}
+                                        className={view === key ? 'is-active' : ''}
+                                        onClick={() => changeView(key)}
+                                        title={label}
+                                        aria-label={label}
+                                        aria-pressed={view === key}
+                                    >
+                                        <Icon size={15} />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {selectedCount > 0 && (
@@ -125,6 +181,18 @@ export default function ResourceListPage({
                             title={filteredEmptyTitle}
                             description={filteredEmptyDescription}
                         />
+                    ) : view === 'cards' && renderCard ? (
+                        <div className="wp-list__cards">
+                            {items.map((item) => (
+                                <div
+                                    key={item[keyField]}
+                                    className={cn('wp-list__cardtile', rowClassName?.(item))}
+                                    onClick={() => onRowClick?.(item)}
+                                >
+                                    {renderCard(item)}
+                                </div>
+                            ))}
+                        </div>
                     ) : (
                         <div className="wp-list__card">
                             <DataTable

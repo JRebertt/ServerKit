@@ -38,6 +38,10 @@ volumes:
     path: /var/jenkins_home
     description: Jenkins home directory
 
+requirements:
+  memory: 2GB
+  storage: 10GB
+
 compose:
   services:
     jenkins:

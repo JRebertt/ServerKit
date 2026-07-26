@@ -193,7 +193,7 @@ const BuildTab = ({ appId, appPath, app }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading build configuration..." />;
+        return <EmptyState loading loadingVariant="form" title="Loading build configuration..." />;
     }
 
     return (

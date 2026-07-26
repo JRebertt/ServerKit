@@ -27,7 +27,7 @@ import re
 from app.utils.version import compare_versions
 
 # Keep in lock-step with frontend/src/plugins/sdk/index.js `SDK_VERSION`.
-SDK_VERSION = '1.0.0'
+SDK_VERSION = '1.1.0'
 
 
 def _version_tuple(v):

@@ -1,0 +1,77 @@
+# --- ServerKit Docker build context ---
+# The context is uploaded to the daemon before any COPY runs, so anything listed
+# here is never read, never hashed, and never busts a layer cache. Without this
+# file the context is ~750 MB of node_modules/.git/venvs — and the build fails
+# outright on the broken symlink at backend/.venv-wsl/lib64.
+#
+# The Dockerfile only needs: frontend/ (sources + package*.json), backend/, VERSION.
+#
+# NOTE: do NOT add `!exception` patterns here. A single negation makes Docker
+# descend into every excluded directory (a nested file might be re-included),
+# which both slows the walk and re-exposes the unreadable .venv-wsl symlink.
+
+# Version control
+.git
+.gitignore
+.github
+
+# Node / frontend build artifacts (npm ci runs inside the builder stage)
+**/node_modules
+frontend/dist
+frontend/coverage
+frontend/.eslintcache
+frontend/.stylelintcache
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Python virtualenvs — large, host-specific, and .venv-wsl carries a lib64
+# symlink that the Windows daemon cannot stat, aborting the context upload.
+**/venv
+**/.venv
+**/.venv-wsl
+backend/venv
+backend/.venv
+backend/.venv-wsl
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.tox
+**/.coverage
+**/htmlcov
+
+# Local dev state (SQLite DBs, deployed sample apps, captured config)
+backend/dev-data
+backend/instance
+
+# The test suite runs in CI against the source tree, never inside the image
+# (release.yml builds and pushes; it does not `docker run pytest`). Nothing in
+# backend/app imports from tests/ — the only references are source comments.
+backend/tests
+
+# Secrets / environment — must never end up in an image layer
+.env
+**/.env
+**/.env.*
+
+# Docs and marketing assets are not served by the panel (every docs/*.md
+# reference in backend/app is a source comment; manifest_spec_service embeds
+# its JSON Schema precisely so validation works without docs/ present).
+docs
+*.md
+
+# Release artifacts and packaging outputs
+dist
+packages
+*.msi
+*.wixpdb
+
+# Go agent (lives in the sibling serverkit-agent repo; never in the panel image)
+agent
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+Thumbs.db

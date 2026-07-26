@@ -118,7 +118,7 @@ const DoctorPanel = () => {
                 </p>
 
                 {loading ? (
-                    <EmptyState loading title="Loading last report" />
+                    <EmptyState loading loadingVariant="detail" title="Loading last report" />
                 ) : checks.length === 0 ? (
                     <EmptyState
                         icon={Stethoscope}

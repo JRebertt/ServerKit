@@ -1,9 +1,13 @@
-import { ChevronRight, ChevronDown, Table2, Loader2, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, ChevronDown, Table2, Loader2, MoreHorizontal, Plus, Download } from 'lucide-react';
 import { EngineIcon } from '../icons/DatabaseBrands';
+import EngineGlyph from './EngineGlyph';
 
 // Icon per node kind / engine. Brand glyphs come from DatabaseBrands; tint comes
-// from `.is-<engine>` in SCSS (the brand icons use currentColor).
+// from `.is-<engine>` in SCSS (the brand icons use currentColor). An engine
+// installed from a template carries its catalog entry in `iconEntry`, so it can
+// fall back to the template's own icon when we ship no brand glyph for it.
 function NodeIcon({ node }) {
+    if (node.iconEntry) return <EngineGlyph entry={node.iconEntry} size={15} />;
     if (node.kind === 'engine' || node.kind === 'database') {
         return <EngineIcon engine={node.engine} size={15} />;
     }
@@ -12,10 +16,34 @@ function NodeIcon({ node }) {
     return <EngineIcon engine={node.engine} size={15} />;
 }
 
-const STATUS_LABEL = { active: 'Running', inactive: 'Stopped', missing: 'Not installed' };
+const STATUS_LABEL = {
+    active: 'Running',
+    inactive: 'Stopped',
+    missing: 'Not installed',
+    installing: 'Installing',
+    failed: 'Failed',
+};
 
 function matches(node, filter) {
     return !filter || node.label.toLowerCase().includes(filter.toLowerCase());
+}
+
+// What a node counts, so the number beside it is never ambiguous. Children are
+// apps under the Docker root, databases under any other engine, tables under a
+// database.
+function countNoun(node) {
+    if (node.kind === 'database') return 'tables';
+    if (node.kind === 'engine' && node.engine === 'docker') return 'apps';
+    return 'databases';
+}
+
+// "Nothing here" is a normal fact and must never read like a failure. Each kind
+// gets its own words rather than a shared "Empty".
+function emptyLabel(node) {
+    if (node.kind === 'database') return 'No tables yet';
+    if (node.kind === 'app') return 'No databases';
+    if (node.kind === 'engine' && node.engine === 'docker') return 'No Docker apps';
+    return 'No databases yet';
 }
 
 function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, selectedId, filter, handlers }) {
@@ -30,6 +58,11 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
     const hadError = errorMsg != null;
     const childNodes = Array.isArray(kids) ? kids : [];
     const visibleChildren = childNodes.filter((c) => c.expandable || matches(c, filter));
+    // Counted off children we actually hold. A node nobody has opened has no
+    // count — which is honest — and an empty one says so in words below instead
+    // of wearing a "0".
+    const childCount = Array.isArray(kids) && kids.length > 0 ? kids.length : null;
+    const canInstall = Boolean(node.installers?.length && handlers.onInstall);
 
     return (
         <li className="dbx-tree-node" role="none">
@@ -67,7 +100,9 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                 )}
 
                 <span className="dbx-tree-icon"><NodeIcon node={node} /></span>
-                <span className="dbx-tree-label">{node.label}</span>
+                {/* Rows carry status, counts and actions, so the name is the
+                    first thing to lose width — keep it recoverable on hover. */}
+                <span className="dbx-tree-label" title={node.label}>{node.label}</span>
 
                 {node.kind === 'database' && node.source === 'docker' && (
                     <span className="dbx-tree-source" title={node.appName ? `Docker container · ${node.appName}` : 'Docker container'}>
@@ -77,16 +112,59 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                 )}
 
                 {node.kind === 'engine' && node.status && node.status !== 'available' && (
-                    <span className={`dbx-tree-status is-${node.status}`}>
-                        <span className="dbx-status-dot" aria-hidden="true" />
-                        {STATUS_LABEL[node.status]}
+                    <span className={`dbx-tree-status is-${node.status}`} title={STATUS_LABEL[node.status]}>
+                        {node.status === 'installing'
+                            ? <Loader2 size={11} className="dbx-spin" aria-hidden="true" />
+                            : <span className="dbx-status-dot" aria-hidden="true" />}
+                        {/* A running engine's version says more than the word
+                            "Running" the green dot already carries. */}
+                        {node.status === 'active' && node.version
+                            ? `v${node.version}`
+                            : STATUS_LABEL[node.status]}
                     </span>
                 )}
+
+                {/* A not-installed engine is a dead end only if we make it one.
+                    Unlike the row's other buttons this one keeps its place in the
+                    tab order: it is the only way out of the state it announces. */}
+                {canInstall && (
+                    <button
+                        type="button"
+                        className="dbx-tree-install-btn"
+                        onClick={(e) => { e.stopPropagation(); handlers.onInstall(node); }}
+                        aria-label={`${node.label} is not installed — install it`}
+                        title={`Install ${node.label}`}
+                    >
+                        <Download size={11} aria-hidden="true" /> Install
+                    </button>
+                )}
+                {!canInstall && node.installHint && (
+                    <span className="dbx-tree-hint">{node.installHint}</span>
+                )}
+
                 {node.kind === 'table' && node.rows != null && (
                     <span className="dbx-tree-badge">{node.rows.toLocaleString()}</span>
                 )}
                 {node.kind === 'database' && node.sizeText && (
                     <span className="dbx-tree-badge">{node.sizeText}</span>
+                )}
+                {node.kind !== 'table' && childCount != null && (
+                    <span className="dbx-tree-count" title={`${childCount} ${countNoun(node)}`}>
+                        {childCount}
+                    </span>
+                )}
+
+                {node.canCreate && handlers.onCreateChild && (
+                    <button
+                        type="button"
+                        className="dbx-tree-add"
+                        onClick={(e) => { e.stopPropagation(); handlers.onCreateChild(node); }}
+                        aria-label={`Create a database in ${node.label}`}
+                        title="Create a database"
+                        tabIndex={-1}
+                    >
+                        <Plus size={12} aria-hidden="true" />
+                    </button>
                 )}
 
                 <button
@@ -112,7 +190,15 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                     )}
                     {!isLoading && !hadError && childNodes.length === 0 && (
                         <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>
-                            {node.kind === 'database' ? 'No tables yet' : 'Empty'}
+                            {canInstall ? (
+                                <button
+                                    type="button"
+                                    className="dbx-tree-leaf-link"
+                                    onClick={() => handlers.onInstall(node)}
+                                >
+                                    Not installed — install {node.label}
+                                </button>
+                            ) : emptyLabel(node)}
                         </li>
                     )}
                     {visibleChildren.map((child) => (

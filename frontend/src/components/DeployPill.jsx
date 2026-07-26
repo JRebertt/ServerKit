@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
@@ -9,10 +9,19 @@ import socketService from '../services/socket';
 // and always find your way back to the live Deploy Console (plan 51 §1.3).
 // Driven by a lightweight poll of GET /deployment-jobs?status=running, refreshed
 // on socket reconnect and on any deploy_status event that flows through.
+//
+// It is a shortcut *back* to Deploy Activity, so it has nothing to offer while
+// you are already there: on /deployments and /deployments/:jobId it stays out
+// of the way entirely (and stops polling). Installing a database engine sends
+// you straight to that console, which is how a floating "1 deploy running" tag
+// ended up shouting at the page it links to.
 const POLL_MS = 6000;
 
 export default function DeployPill() {
+    const { pathname } = useLocation();
     const [active, setActive] = useState([]);
+    // Deploy Activity and the console are the surface this pill points at.
+    const onDeploySurface = pathname === '/deployments' || pathname.startsWith('/deployments/');
 
     const refresh = useCallback(async () => {
         try {
@@ -28,6 +37,7 @@ export default function DeployPill() {
     }, []);
 
     useEffect(() => {
+        if (onDeploySurface) return undefined;
         refresh();
         const t = setInterval(refresh, POLL_MS);
         // React quickly to live status changes when a console elsewhere is streaming.
@@ -38,9 +48,9 @@ export default function DeployPill() {
             unsubStatus();
             unsubConnect();
         };
-    }, [refresh]);
+    }, [refresh, onDeploySurface]);
 
-    if (active.length === 0) return null;
+    if (onDeploySurface || active.length === 0) return null;
 
     const count = active.length;
     const to = count === 1 ? `/deployments/${active[0].id}` : '/deployments';

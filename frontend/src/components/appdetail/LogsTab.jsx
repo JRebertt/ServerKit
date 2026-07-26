@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logsToText } from '@/utils/logText';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 
@@ -30,7 +31,7 @@ const LogsTab = ({ app }) => {
             } else {
                 data = { logs: 'Logs not available for this app type.' };
             }
-            setLogs(data.logs || 'No logs available');
+            setLogs(logsToText(data) || 'No logs available');
         } catch (err) {
             console.error('Failed to load logs:', err);
             setLogs('Failed to load logs');

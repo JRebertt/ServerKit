@@ -30,6 +30,10 @@ volumes:
     path: /data
     description: Node-RED data
 
+requirements:
+  memory: 512MB
+  storage: 2GB
+
 compose:
   services:
     nodered:

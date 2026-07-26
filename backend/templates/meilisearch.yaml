@@ -1,6 +1,6 @@
 id: meilisearch
 name: Meilisearch
-version: "1.0"
+version: "1.12"
 description: Lightning-fast, typo-tolerant search engine that many apps rely on for instant full-text search.
 icon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSIvPjwvc3ZnPg==
 website: https://www.meilisearch.com
@@ -9,11 +9,41 @@ categories:
   - search
   - database
 
+# Marks this template as an installable database engine. Presence of this block
+# is the ONLY thing that lists it in Databases -- adding it to an existing
+# template is all it takes.
+engine:
+  family: Search
+  # No SQL/Mongo/Redis client can introspect Meilisearch, so the database tree
+  # offers no browsing for it rather than pretending otherwise.
+  protocol: none
+  default_port: 7700
+  # Meilisearch has no user concept -- it authenticates with a master key.
+  admin_password_var: MASTER_KEY
+  port_var: HTTP_PORT
+  bind_var: BIND_ADDRESS
+  unit: indexes
+  client: curl
+  data_path: /meili_data
+  version_var: IMAGE_TAG
+  versions:
+    - "1.12"
+
 variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "1.12"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
   - name: HTTP_PORT
-    description: Port for the Meilisearch HTTP API (auto-assigned)
+    description: Host port for the Meilisearch HTTP API
     type: port
     default: "7700"
+    hidden: false
+  - name: BIND_ADDRESS
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+    type: string
+    default: 127.0.0.1
     hidden: true
   - name: MASTER_KEY
     description: Master key protecting the Meilisearch API (auto-generated)
@@ -33,11 +63,14 @@ requirements:
 compose:
   services:
     meilisearch:
-      image: getmeili/meilisearch:v1.12
+      # Note the leading "v" -- Meilisearch tags are v1.12, not 1.12.
+      image: getmeili/meilisearch:v${IMAGE_TAG}
       container_name: ${APP_NAME}
       restart: unless-stopped
       ports:
-        - "${HTTP_PORT}:7700"
+        # Private by default; the installer swaps BIND_ADDRESS to 0.0.0.0 only
+        # on an explicit expose_public opt-in.
+        - "${BIND_ADDRESS}:${HTTP_PORT}:7700"
       environment:
         MEILI_MASTER_KEY: "${MASTER_KEY}"
         MEILI_ENV: "production"

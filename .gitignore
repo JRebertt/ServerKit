@@ -156,7 +156,7 @@ docs/PLAN_AGENT_FLEET.md
 /.claude
 /.github/skills
 /.playwright-mcp
-docs/UI_CONSISTENCY_AUDIT.md
+docs/audits/UI_CONSISTENCY_AUDIT.md
 docs/REMOTE_ACCESS_ROADMAP.md
 docs/NOTIFICATIONS_ROADMAP.md
 docs/ORCHESTRATION_ROADMAP.md

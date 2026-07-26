@@ -880,6 +880,15 @@
     border-bottom: 1px solid $border-subtle;
 }
 
+// Lead paragraph under a modal title. Lives at the top of the body rather than
+// in the header, so the header stays a single title row for every modal.
+.sk-modal__subtitle {
+    margin: 0 0 $space-4;
+    color: $text-tertiary;
+    font-size: $font-size-sm;
+    line-height: 1.5;
+}
+
 .sk-modal__body {
     flex: 1;
     min-height: 0;

@@ -16,7 +16,15 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     display: flex;
     flex-direction: column;
     gap: $space-3;
-    min-height: 0;
+    // Fill the content area so the log pane reaches the bottom of the
+    // viewport instead of stopping at its 320px floor (topbar + main-content
+    // padding ≈ 200px, same per-page constant idiom as _terminal.scss).
+    min-height: calc(100vh - 200px);
+    // ...and actually grow into it. The tab-group content region is a column
+    // flex container, where a child defaults to its content height — so the
+    // min-height above set the floor but the log still stopped at its own
+    // content, leaving dead space beneath a short log.
+    flex: 1;
 
     &__spin {
         animation: dc-spin 1s linear infinite;
@@ -76,6 +84,13 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         &--running { background: var(--accent-bg); color: var(--accent-bright); }
         &--succeeded { background: var(--green-bg); color: var(--green); }
         &--failed { background: var(--red-bg); color: var(--red); }
+
+        // Demo/simulated jobs (plan 51.5): visually distinct from status pills.
+        &--demo {
+            background: transparent;
+            color: $text-tertiary;
+            border: 1px dashed $border-subtle;
+        }
     }
 
     &__step-count,
@@ -110,21 +125,16 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         color: var(--accent-bright);
     }
 
-    // ---- body: rail + main ----
+    // ---- body: log pane (full width; steps live in the strip above) ----
     &__body {
-        display: grid;
-        grid-template-columns: 220px minmax(0, 1fr);
-        gap: $space-3;
-        align-items: stretch;
+        display: flex;
+        flex: 1;
         min-height: 0;
-
-        @media (max-width: 720px) {
-            grid-template-columns: 1fr;
-        }
     }
 
     &__main {
         display: flex;
+        flex: 1;
         flex-direction: column;
         min-width: 0;
         border: 1px solid $border-subtle;
@@ -132,62 +142,108 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         overflow: hidden;
     }
 
-    // ---- step rail ----
-    &__rail {
-        list-style: none;
-        margin: 0;
-        padding: $space-2;
+    // ---- pipeline strip (one segment per plan step) ----
+    &__pipeline {
+        display: flex;
+        background: $bg-card;
         border: 1px solid $border-subtle;
         border-radius: $radius-lg;
-        background: $bg-card;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        align-self: start;
+        overflow: hidden;
+
+        // Narrow viewports: segments would shrink past legibility, so the strip
+        // scrolls sideways with a readable floor per segment instead.
+        @media (max-width: 720px) {
+            overflow-x: auto;
+        }
     }
 
-    &__rail-btn {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        width: 100%;
-        padding: $space-2;
-        border: none;
-        background: transparent;
-        border-radius: $radius-md;
-        cursor: pointer;
-        text-align: left;
-        color: $text-secondary;
-
-        &:hover { background: $bg-hover; }
-    }
-
-    &__rail-icon {
-        display: inline-flex;
-        flex-shrink: 0;
-    }
-
-    &__rail-name {
+    &__seg {
         flex: 1;
         min-width: 0;
-        font-size: $font-size-sm;
-        white-space: nowrap;
+        padding: 12px 14px 13px;
+        background: none;
+        border: none;
+        // A 2px top edge carries the step's state colour — the strip reads as a
+        // progress bar from across the room, before any label is legible.
+        border-top: 2px solid var(--surface-3);
+        border-left: 1px solid $border-subtle;
+        cursor: pointer;
+        text-align: left;
+        transition: background $transition-fast;
+
+        &:first-child { border-left: none; }
+        &:hover,
+        &.is-selected { background: $bg-hover; }
+
+        @media (max-width: 720px) { min-width: 150px; }
+
+        &--done { border-top-color: $success; }
+        &--failed { border-top-color: $danger; }
+        &--running { border-top-color: var(--amber); }
+    }
+
+    &__seg-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-ghost);
+        font-size: 12.5px;
+        font-weight: 500;
+
+        svg { flex-shrink: 0; }
+    }
+
+    &__seg--done &__seg-head,
+    &__seg--failed &__seg-head,
+    &__seg--running &__seg-head { color: $text-primary; }
+
+    &__seg--done &__seg-head svg { color: $success; }
+    &__seg--failed &__seg-head svg { color: $danger; }
+    &__seg--running &__seg-head svg { color: var(--amber); }
+
+    &__seg-name {
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    &__rail-time {
-        font-size: $font-size-xs;
+    &__seg-bar {
+        display: block;
+        height: 3px;
+        margin-top: 11px;
+        border-radius: 2px;
+        background: var(--surface-3);
+        overflow: hidden;
+
+        i { display: block; height: 100%; border-radius: 2px; background: currentcolor; }
+    }
+
+    &__seg--done &__seg-bar i { background: $success; }
+    &__seg--failed &__seg-bar i { background: $danger; }
+    &__seg--running &__seg-bar i { background: var(--amber); }
+
+    &__seg-dur {
+        display: block;
+        margin-top: 6px;
         color: $text-tertiary;
-        font-variant-numeric: tabular-nums;
+        font-family: $font-mono;
+        font-size: 10.5px;
     }
 
-    &__rail-item {
-        &--done .deploy-console__rail-icon { color: $success; }
-        &--running .deploy-console__rail-icon { color: var(--accent-bright); }
-        &--failed .deploy-console__rail-icon { color: $danger; }
-        &--pending .deploy-console__rail-icon { color: $text-tertiary; }
-        &--running .deploy-console__rail-name { color: $text-primary; font-weight: 600; }
+    &__seg--running &__seg-dur { color: var(--amber); }
+
+    // ---- run identity line ----
+    &__runmeta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 20px;
+        padding: 0 3px;
+        color: var(--text-ghost);
+        font-family: $font-mono;
+        font-size: 11.5px;
+
+        b { color: $text-secondary; font-weight: 500; }
     }
 
     // ---- toolbar ----
@@ -196,7 +252,7 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         align-items: center;
         justify-content: space-between;
         gap: $space-2;
-        padding: $space-2;
+        padding: $space-2 $space-3;
         background: $bg-card;
         border-bottom: 1px solid $border-subtle;
         flex-wrap: wrap;
@@ -245,6 +301,9 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         border-radius: $radius-md;
         border: 1px solid $border-subtle;
         color: $text-tertiary;
+        flex: 1 1 160px;
+        max-width: 280px;
+        min-height: 28px;
 
         input {
             border: none;
@@ -252,7 +311,8 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
             color: $text-primary;
             font-size: $font-size-sm;
             outline: none;
-            width: 140px;
+            width: 100%;
+            min-width: 0;
         }
     }
 
@@ -261,6 +321,65 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         position: relative;
         flex: 1;
         min-height: 320px;
+    }
+
+    // Make room for the severity map only when one is rendered, so a short log
+    // doesn't carry an empty gutter.
+    &__logwrap--mapped {
+        .deploy-console__log { right: 16px; }
+    }
+
+    // ---- severity map ----
+    // The coloured strip beside the log: each slice painted by the worst level
+    // it contains, so a single error in three thousand lines is still visible
+    // and one click away. Sits where a scrollbar would, and drives scrolling
+    // itself.
+    &__map {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 16px;
+        display: flex;
+        flex-direction: column;
+        padding: 2px 3px;
+        gap: 1px;
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 1px solid $dc-surface-line;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    &__map-tick {
+        flex: 1 1 0;
+        min-height: 1px;
+        border-radius: 1px;
+        // Unclassified slices stay empty rather than drawing a bar for
+        // "nothing happened here".
+        background: transparent;
+
+        &--info  { background: rgba($dc-info, 0.45); }
+        &--debug { background: rgba($dc-debug, 0.35); }
+        &--warn,
+        &--warning { background: $dc-warn; }
+        // Errors get full weight and a touch of bleed so one line in thousands
+        // still catches the eye.
+        &--error {
+            background: $dc-error;
+            box-shadow: 0 0 3px rgba($dc-error, 0.9);
+            min-height: 2px;
+        }
+    }
+
+    &__map-view {
+        position: absolute;
+        left: 0;
+        right: 0;
+        min-height: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        pointer-events: none;
     }
 
     &__log {
@@ -432,6 +551,21 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         }
     }
 
+    // The timed return to whatever the run created. It sits above the actions
+    // and carries its own way out, so the countdown can never take the log away
+    // from someone still reading it.
+    &__success-return {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+        padding-top: $space-2;
+        border-top: 1px solid $dc-surface-line;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+    }
+
     // ---- shared buttons ----
     &__btn {
         display: inline-flex;
@@ -501,4 +635,142 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     @media (max-width: 768px) {
         bottom: calc(#{$space-4} + 56px); // clear the mobile bottom bar
     }
+}
+
+// ---- log sections, chips and match navigation (plan 51.6 console parity) ----
+.deploy-console {
+    // Error / warning counts in the toolbar. They read as a summary first and
+    // filter second, so they stay visible even when a filter is off.
+    &__chip {
+        padding: 3px 9px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: var(--surface-3);
+        color: $text-secondary;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &--error { color: $dc-error; background: rgba($dc-error, 0.12); }
+        &--warn  { color: $dc-warn;  background: rgba($dc-warn, 0.12); }
+
+        &.is-active { border-color: currentcolor; }
+        &:hover { filter: brightness(1.15); }
+    }
+
+    &__nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    &__nav-count {
+        color: $text-tertiary;
+        font-family: $font-mono;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    // Step sections inside the log. The header sticks to the top of the pane
+    // while its own lines scroll past, so you always know which step you are
+    // reading — the pin from the mock, done with `sticky` rather than by
+    // measuring offsets.
+    &__sec-head {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 5px $space-2;
+        border: none;
+        border-top: 1px solid $dc-surface-line;
+        background: #131a24;
+        color: $text-secondary;
+        font-family: $font-mono;
+        font-size: 11.5px;
+        text-align: left;
+        cursor: pointer;
+
+        &:hover { background: #17202c; }
+        svg { flex-shrink: 0; color: var(--text-ghost); }
+    }
+
+    &__sec-name {
+        font-weight: 600;
+        color: $text-primary;
+        white-space: nowrap;
+    }
+
+    &__sec-meta {
+        color: var(--text-ghost);
+        font-size: 10.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__sec-err { color: $dc-error; font-weight: 600; }
+
+    // The line prev/next landed on, so the eye finds it after the scroll.
+    &__line.is-current {
+        background: rgba(255, 255, 255, 0.07);
+        box-shadow: inset 2px 0 0 var(--accent-bright);
+    }
+
+    // Skip layout and paint for lines that are off-screen. This is what keeps a
+    // multi-thousand-line log responsive, and unlike JS windowing it survives
+    // wrapped lines (whose heights vary) and leaves find-in-page working.
+    &__line {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 19px;
+    }
+}
+
+// ---- failure card: tail behind a disclosure ----
+.deploy-console {
+    // Sits at the end of the actions row, pushed right — a quiet text control,
+    // since it is a disclosure rather than an action.
+    &__error-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+        padding: 4px 8px;
+        border: none;
+        background: transparent;
+        color: $text-secondary;
+        font-size: 12px;
+        cursor: pointer;
+        border-radius: $radius-md;
+
+        &:hover { color: $text-primary; background: rgba(255, 255, 255, 0.06); }
+    }
+
+    &__error-actions { flex-wrap: wrap; }
+
+    // With the tail collapsed the card is ~100px instead of ~350px, so the log
+    // below gets the height back. Keep the expanded tail shorter than it was
+    // too — it is a preview of the log, not a second copy of it.
+    &__error-tail { max-height: 180px; }
+}
+
+// ---- log focus: the transcript takes the page ----
+// Not browser fullscreen — the sidebar and tabs stay, because reading a log is
+// usually a step on the way to doing something else. What goes is everything
+// between the title and the log: the failure card, the pipeline strip and the
+// run identity line.
+.deploy-console--focus {
+    // Wider than the reading measure the rest of the page uses: long build
+    // output is what this mode is for.
+    max-width: none;
+    padding-bottom: $space-4;
+
+    .deploy-console__header { margin-bottom: 0; }
+
+    // The log claims the height the hidden blocks were using.
+    .deploy-console__logwrap { min-height: 60vh; }
 }

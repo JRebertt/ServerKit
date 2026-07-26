@@ -282,3 +282,22 @@ export async function deleteManagedDbUser(id, userId) {
 export async function launchManagedDbSso(id) {
     return this.request(`/managed-databases/${id}/sso`, { method: 'POST' });
 }
+
+// Database engines. An engine is an app template carrying an `engine:` block,
+// so this is a view over the template catalog plus the apps installed from it —
+// `{ catalog: [...], installed: [...] }`. Installing delegates to the ordinary
+// template install pipeline and answers with the app and its deployment job, so
+// the caller navigates to the deploy console like any other template install.
+//
+// Lifecycle (start / stop / uninstall) is app lifecycle: use the app endpoints.
+//
+// `live` asks the backend to probe each installed engine's container. Callers
+// that only need identity and install variables (resolving which app an engine
+// is, say) pass false and skip a Docker round-trip per engine.
+export async function getDatabaseEngines(live = true) {
+    return this.request(`/databases/engines${live ? '' : '?live=false'}`);
+}
+
+export async function installDatabaseEngine(payload) {
+    return this.request('/databases/engines', { method: 'POST', body: payload });
+}

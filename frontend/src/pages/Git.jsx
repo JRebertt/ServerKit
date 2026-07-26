@@ -655,7 +655,7 @@ function Git({ basePath = '/git' }) {
                 />
             );
         }
-        if (reposLoading) return <EmptyState loading title="Loading repositories" />;
+        if (reposLoading) return <EmptyState loading loadingVariant="table" title="Loading repositories" />;
         if (repositories.length === 0) {
             return (
                 <EmptyState
@@ -770,7 +770,7 @@ function Git({ basePath = '/git' }) {
     );
 
     const renderWebhooks = () => {
-        if (webhooksLoading) return <EmptyState loading title="Loading webhooks" />;
+        if (webhooksLoading) return <EmptyState loading loadingVariant="table" title="Loading webhooks" />;
         if (webhooks.length === 0) {
             return (
                 <EmptyState
@@ -847,7 +847,7 @@ function Git({ basePath = '/git' }) {
     };
 
     const renderDeployments = () => {
-        if (deploymentsLoading) return <EmptyState loading title="Loading deployments" />;
+        if (deploymentsLoading) return <EmptyState loading loadingVariant="table" title="Loading deployments" />;
         if (deployments.length === 0) {
             return (
                 <EmptyState
@@ -1021,7 +1021,7 @@ function Git({ basePath = '/git' }) {
             <div className="page-container--full-bleed sk-tabgroup git-page domains-page">
                 <div className="sk-tabgroup__content">
                     <div className="sk-tabgroup__inner">
-                        <EmptyState loading size="lg" title="Loading Git" />
+                        <EmptyState loading loadingVariant="table" size="lg" title="Loading Git" />
                     </div>
                 </div>
             </div>
@@ -1030,7 +1030,7 @@ function Git({ basePath = '/git' }) {
 
     return (
         <div className="page-container--full-bleed sk-tabgroup git-page domains-page">
-            <PageTopbar icon={activeGit.icon} title={activeGit.label} tabs={GIT_TABS} actions={topbarActions()} />
+            <PageTopbar navLabel={activeGit.label} tabs={GIT_TABS} actions={topbarActions()} />
 
             <div className="sk-tabgroup__content">
                 <div className="sk-tabgroup__inner">

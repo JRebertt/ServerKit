@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import useTabParam from '../hooks/useTabParam';
-import { Upload, Check, AlertTriangle, Clock, Database, Package, FolderArchive, HardDrive, Cloud, CloudOff, RefreshCw, Trash2, Plus, CheckCircle, XCircle, FileArchive, DollarSign, TrendingUp } from 'lucide-react';
+import { Upload, Check, AlertTriangle, Archive, Clock, Database, Package, FolderArchive, HardDrive, History, Cloud, RefreshCw, Trash2, Plus, FileArchive, DollarSign } from 'lucide-react';
 import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
@@ -11,10 +11,16 @@ import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { MetricCard, Pill, SegControl } from '@/components/ds';
+import { Pill, SearchField, SegControl } from '@/components/ds';
+import BackupsOverview from '../components/backups/BackupsOverview';
+import SchedulesTable from '../components/backups/SchedulesTable';
+import StorageDestinations from '../components/backups/StorageDestinations';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 
-const VALID_TABS = ['backups', 'schedules', 'storage', 'settings'];
+// `backups` is kept as an alias so old /backups/backups links still resolve to
+// the archive, which now answers to `snapshots`.
+const VALID_TABS = ['overview', 'schedules', 'snapshots', 'storage', 'settings'];
+const TAB_ALIASES = { backups: 'snapshots' };
 
 const PROVIDER_LABELS = { local: 'Local only', s3: 'S3-Compatible', b2: 'Backblaze B2' };
 
@@ -30,8 +36,10 @@ const Backups = () => {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab] = useTabParam('/backups', VALID_TABS);
+    const [rawTab, setActiveTab] = useTabParam('/backups', VALID_TABS);
+    const activeTab = TAB_ALIASES[rawTab] || rawTab;
     const [filterType, setFilterType] = useState('all');
+    const [search, setSearch] = useState('');
 
     // Modal states
     const [showBackupModal, setShowBackupModal] = useState(false);
@@ -388,27 +396,52 @@ const Backups = () => {
         }
     };
 
+    // Search narrows first so the segment counts always describe what a click
+    // on that segment would actually show.
+    const searchedBackups = (() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return backups;
+        return backups.filter(b => (
+            (b.name || '').toLowerCase().includes(q)
+            || (b.app_name || '').toLowerCase().includes(q)
+            || (b.type || '').toLowerCase().includes(q)
+        ));
+    })();
     const filteredBackups = filterType === 'all'
-        ? backups
-        : backups.filter(b => b.type === filterType);
+        ? searchedBackups
+        : searchedBackups.filter(b => b.type === filterType);
 
+    // One primary action per section, the way the mock does it: Schedules
+    // offers "New schedule", everything else offers "Back up now". A Create
+    // Backup button on the Schedules tab was answering a question nobody on
+    // that tab was asking.
     useTopbarActions(() => (
         <>
-            <Button variant="outline" size="sm" onClick={() => setShowScheduleModal(true)}>
-                <Clock size={16} />
-                Add Schedule
-            </Button>
-            <Button size="sm" onClick={() => setShowBackupModal(true)}>
-                <Plus size={16} />
-                Create Backup
-            </Button>
+            {activeTab === 'schedules' ? (
+                <Button size="sm" onClick={() => setShowScheduleModal(true)}>
+                    <Plus size={16} />
+                    New schedule
+                </Button>
+            ) : (
+                <Button size="sm" onClick={() => setShowBackupModal(true)}>
+                    <Archive size={16} />
+                    Back up now
+                </Button>
+            )}
+            {activeTab === 'snapshots' && (
+                <SearchField
+                    value={search}
+                    onSearch={setSearch}
+                    placeholder="Search snapshots…"
+                />
+            )}
         </>
-    ), []);
+    ), [activeTab, search]);
 
     if (loading) {
         return (
             <div className="sk-tabgroup__inner backups-page">
-                <EmptyState loading size="lg" title="Loading backup data..." />
+                <EmptyState loading loadingVariant="table" size="lg" title="Loading backup data..." />
             </div>
         );
     }
@@ -422,41 +455,33 @@ const Backups = () => {
                 </div>
             )}
 
-            {/* KPI strip */}
-            <div className="bk-kpis">
-                <MetricCard tone="green" icon={<FileArchive size={16} />} value={stats?.total_backups || 0} label="Total backups">
-                    <div className="sk-kpi__sub"><span>{stats?.file_backups || 0} file backups</span></div>
-                </MetricCard>
-                <MetricCard tone="accent" icon={<Package size={16} />} value={stats?.application_backups || 0} label="Application backups" />
-                <MetricCard tone="violet" icon={<Database size={16} />} value={stats?.database_backups || 0} label="Database backups" />
-                <MetricCard tone="amber" icon={<HardDrive size={16} />} value={stats?.total_size_human || '0 B'} label="Local size" />
-                {storageConfig?.provider !== 'local' && (
-                    <MetricCard tone="cyan" icon={<Cloud size={16} />} value={stats?.remote_count || 0} label="Remote backups">
-                        {stats?.remote_size_human && (
-                            <div className="sk-kpi__sub"><span>{stats.remote_size_human} remote</span></div>
-                        )}
-                    </MetricCard>
-                )}
-                <MetricCard tone="green" icon={<DollarSign size={16} />} value={formatMoney(costSummary?.total_cost ?? 0)} label="Est. storage cost / mo">
-                    {costSummary?.total_cost_local === 0 && (
-                        <div className="sk-kpi__sub"><span>local disk is free</span></div>
-                    )}
-                </MetricCard>
-                <MetricCard tone="amber" icon={<TrendingUp size={16} />} value={formatMoney(costSummary?.projected_monthly_cost ?? 0)} label="Projected at full retention" />
-            </div>
+            {/* Overview answers "is my data safe?" — the KPI band, the
+                activity heatmap, the destinations and the recent feed. The
+                archive table it used to sit on top of is now its own section. */}
+            {activeTab === 'overview' && (
+                <BackupsOverview
+                    stats={stats}
+                    storageConfig={storageConfig}
+                    costSummary={costSummary}
+                    schedules={schedules}
+                    backups={backups}
+                    onGo={setActiveTab}
+                />
+            )}
 
-            {activeTab === 'backups' && (
+            {activeTab === 'snapshots' && (
                 <>
+                    {/* Search lives in the top bar with every other list page;
+                        the segments carry the counts. */}
                     <div className="bk-listhead">
-                        <h2>Backup archive</h2>
                         <SegControl
                             value={filterType}
                             onChange={setFilterType}
                             options={[
-                                { value: 'all', label: 'All', count: backups.length },
-                                { value: 'application', label: 'Applications', count: backups.filter(b => b.type === 'application').length },
-                                { value: 'database', label: 'Databases', count: backups.filter(b => b.type === 'database').length },
-                                { value: 'files', label: 'Files', count: backups.filter(b => b.type === 'files').length },
+                                { value: 'all', label: 'All', count: searchedBackups.length },
+                                { value: 'application', label: 'Applications', count: searchedBackups.filter(b => b.type === 'application').length },
+                                { value: 'database', label: 'Databases', count: searchedBackups.filter(b => b.type === 'database').length },
+                                { value: 'files', label: 'Files', count: searchedBackups.filter(b => b.type === 'files').length },
                             ]}
                         />
                         <Button size="sm" variant="outline" onClick={loadData}>
@@ -472,7 +497,11 @@ const Backups = () => {
                             action={<Button onClick={() => setShowBackupModal(true)}>Create Backup</Button>}
                         />
                     ) : filteredBackups.length === 0 ? (
-                        <div className="bk-empty">No backups match the current filter.</div>
+                        <div className="bk-empty">
+                            {search.trim()
+                                ? `No snapshots match “${search.trim()}”.`
+                                : 'No snapshots match the current filter.'}
+                        </div>
                     ) : (
                         <div className="bk-card">
                             <table className="sk-dtable bk-table">
@@ -492,15 +521,17 @@ const Backups = () => {
                                     {filteredBackups.map((backup, index) => (
                                         <tr key={index}>
                                             <td>
-                                                <div className="sk-cell-name">
+                                                <div className="sk-cell-name bk-name">
                                                     <span className={`bk-ico bk-ico--${backup.type}`}>
                                                         {getBackupIcon(backup.type)}
                                                     </span>
-                                                    <span>{backup.name || backup.app_name}</span>
+                                                    <span title={backup.name || backup.app_name}>
+                                                        {backup.name || backup.app_name}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td>
-                                                <span className={`bk-type bk-type--${backup.type}`}>{backup.type}</span>
+                                                <span className="sk-tag">{backup.type}</span>
                                             </td>
                                             <td>{backup.app_name || backup.name?.split('_')[0] || '—'}</td>
                                             <td className="sk-cell-mono">{formatBytes(backup.size, { defaultValue: '0 B' })}</td>
@@ -510,41 +541,42 @@ const Backups = () => {
                                             <td>
                                                 <div className="bk-actions">
                                                     {backup.type !== 'files' && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
+                                                        <button
+                                                            type="button"
+                                                            className="bk-iconbtn"
                                                             onClick={() => {
                                                                 setSelectedBackup(backup);
                                                                 setShowRestoreModal(true);
                                                             }}
-                                                            title="Restore"
+                                                            title="Restore this snapshot"
+                                                            aria-label={`Restore ${backup.name}`}
                                                         >
-                                                            <RefreshCw size={14} />
-                                                        </Button>
+                                                            <History size={15} />
+                                                        </button>
                                                     )}
                                                     {storageConfig?.provider !== 'local' && backup.remote_status !== 'synced' && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
+                                                        <button
+                                                            type="button"
+                                                            className="bk-iconbtn"
                                                             onClick={() => handleUploadToRemote(backup)}
                                                             disabled={uploadingBackup === backup.path}
-                                                            title="Upload to Remote"
+                                                            title="Copy to remote storage"
+                                                            aria-label={`Upload ${backup.name} to remote storage`}
                                                         >
-                                                            {uploadingBackup === backup.path ? (
-                                                                <RefreshCw size={14} className="spinning" />
-                                                            ) : (
-                                                                <Upload size={14} />
-                                                            )}
-                                                        </Button>
+                                                            {uploadingBackup === backup.path
+                                                                ? <RefreshCw size={15} className="spinning" />
+                                                                : <Upload size={15} />}
+                                                        </button>
                                                     )}
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
+                                                    <button
+                                                        type="button"
+                                                        className="bk-iconbtn bk-iconbtn--danger"
                                                         onClick={() => handleDeleteBackup(backup.path)}
-                                                        title="Delete"
+                                                        title="Delete this snapshot"
+                                                        aria-label={`Delete ${backup.name}`}
                                                     >
-                                                        <Trash2 size={14} />
-                                                    </Button>
+                                                        <Trash2 size={15} />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -558,134 +590,42 @@ const Backups = () => {
 
             {activeTab === 'schedules' && (
                 <>
-                    <div className="bk-listhead">
-                        <h2>Backup schedules</h2>
-                        <Button size="sm" onClick={() => setShowScheduleModal(true)}>
-                            <Plus size={14} />
-                            Add Schedule
-                        </Button>
-                    </div>
                     {schedules.length === 0 ? (
                         <EmptyState
                             icon={Clock}
-                            title="No Schedules"
-                            description="No backup schedules configured. Add a schedule for automated backups."
-                            action={<Button onClick={() => setShowScheduleModal(true)}>Add Schedule</Button>}
+                            title="No schedules yet"
+                            description="A schedule runs a backup on its own so you don't have to remember to. Add one and it will appear here with its next fire time."
+                            action={<Button onClick={() => setShowScheduleModal(true)}>New schedule</Button>}
                         />
                     ) : (
-                        <div className="bk-card">
-                            <table className="sk-dtable bk-table bk-table--schedules">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Target</th>
-                                        <th>Time</th>
-                                        <th>Days</th>
-                                        <th>Remote</th>
-                                        <th>Last Run</th>
-                                        <th>Status</th>
-                                        <th aria-label="Actions" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {schedules.map((schedule) => (
-                                        <tr key={schedule.id} className={schedule.enabled ? undefined : 'is-disabled'}>
-                                            <td>
-                                                <div className="sk-cell-name">
-                                                    <span className={`bk-ico bk-ico--${schedule.backup_type}`}>
-                                                        {getBackupIcon(schedule.backup_type)}
-                                                    </span>
-                                                    <span>{schedule.name}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className={`bk-type bk-type--${schedule.backup_type}`}>{schedule.backup_type}</span>
-                                            </td>
-                                            <td className="sk-cell-mono">{schedule.target}</td>
-                                            <td>
-                                                <span className="bk-sched"><Clock size={11} />{schedule.schedule_time}</span>
-                                            </td>
-                                            <td className="sk-cell-mono">{schedule.days?.join(', ') || 'daily'}</td>
-                                            <td>
-                                                {schedule.upload_remote ? (
-                                                    <Cloud size={16} className="bk-remote-on" />
-                                                ) : (
-                                                    <CloudOff size={16} className="bk-remote-off" />
-                                                )}
-                                            </td>
-                                            <td className="bk-when">{schedule.last_run ? formatTimestamp(schedule.last_run) : 'Never'}</td>
-                                            <td>
-                                                {schedule.last_status === 'success' && (
-                                                    <Pill kind="green">Success</Pill>
-                                                )}
-                                                {schedule.last_status === 'failed' && (
-                                                    <Pill kind="red">Failed</Pill>
-                                                )}
-                                                {!schedule.last_status && (
-                                                    <Pill kind={schedule.enabled ? 'green' : 'gray'}>
-                                                        {schedule.enabled ? 'Active' : 'Disabled'}
-                                                    </Pill>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <div className="bk-actions">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={schedule.enabled ? 'outline' : 'default'}
-                                                        onClick={() => handleToggleSchedule(schedule)}
-                                                        title={schedule.enabled ? 'Disable' : 'Enable'}
-                                                    >
-                                                        {schedule.enabled ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="destructive"
-                                                        onClick={() => handleRemoveSchedule(schedule.id)}
-                                                        title="Remove"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <SchedulesTable
+                            schedules={schedules}
+                            retentionDays={config?.retention_days || 30}
+                            remoteLabel={PROVIDER_LABELS[storageConfig?.provider] || 'Local disk'}
+                            onToggle={handleToggleSchedule}
+                            onRemove={handleRemoveSchedule}
+                        />
                     )}
                 </>
             )}
 
             {activeTab === 'storage' && (
                 <>
-                    <div className="bk-specs">
-                        <div className="sk-spec-card">
-                            <div className="sk-spec-card__label">Provider</div>
-                            <div className="sk-spec-card__value">{PROVIDER_LABELS[storageConfig?.provider] || 'Local only'}</div>
-                            <div className="sk-spec-card__sub">
-                                {storageConfig && storageConfig.provider !== 'local'
-                                    ? (storageConfig.auto_upload ? 'auto-upload on' : 'auto-upload off')
-                                    : 'backups stay on this server'}
-                            </div>
-                        </div>
-                        <div className="sk-spec-card">
-                            <div className="sk-spec-card__label">Local archive</div>
-                            <div className="sk-spec-card__value">{stats?.total_size_human || '0 B'}</div>
-                            <div className="sk-spec-card__sub">{stats?.total_backups || 0} backups on disk</div>
-                        </div>
-                        {storageConfig && storageConfig.provider !== 'local' && (
-                            <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">Remote archive</div>
-                                <div className="sk-spec-card__value">{stats?.remote_size_human || '0 B'}</div>
-                                <div className="sk-spec-card__sub">{stats?.remote_count || 0} backups uploaded</div>
-                            </div>
-                        )}
-                    </div>
+                    <StorageDestinations
+                        stats={stats}
+                        storageConfig={storageConfig}
+                        costSummary={costSummary}
+                        testing={testingConnection}
+                        onTest={handleTestConnection}
+                        onBrowse={() => setActiveTab('snapshots')}
+                        onAdd={() => {
+                            document.getElementById('bk-storage-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                    />
 
-                    <div className="card">
+                    <div className="card" id="bk-storage-form">
                         <div className="card-header">
-                            <h3>Remote Storage Configuration</h3>
+                            <h3>Configure destination</h3>
                         </div>
                         <div className="card-body">
                             <form onSubmit={handleSaveStorageConfig}>
