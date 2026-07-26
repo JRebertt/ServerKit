@@ -13,7 +13,7 @@ import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
-    const { user, logout, updateUser } = useAuth();
+    const { user, logout, updateUser, hasPermission } = useAuth();
     const { theme, resolvedTheme, setTheme, whiteLabel } = useTheme();
     const { layout, setLayout } = useLayout();
     const navigate = useNavigate();
@@ -162,6 +162,12 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         let items = [...core, ...fromPlugins].filter(
             (item) => !item.requiresCondition || conds[item.requiresCondition]
         );
+        // Per-user feature permissions: a user whose files.read is revoked
+        // (custom permissions override the role template) gets 403s from every
+        // /api/v1/files endpoint, so don't surface the File Manager at all.
+        if (!hasPermission('files', 'read')) {
+            items = items.filter((item) => item.id !== 'files');
+        }
         // Extension-contributed tab-group tabs (#43) keep the host group's
         // sidebar item lit on extension-owned tab routes (group id == sidebar
         // item id) — the core matchPrefixes only cover the group's own tabs.
@@ -188,7 +194,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             }
         }
         return applyWorkspaceNavPermissions(items, activeWorkspace, user);
-    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, user]);
+    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, user, hasPermission]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {
