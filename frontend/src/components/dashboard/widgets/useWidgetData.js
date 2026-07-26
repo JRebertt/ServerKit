@@ -248,7 +248,9 @@ export function useServerDirectory() {
 /** Display name for a resource id ('local', a server id, or the '$server' var). */
 export function useResourceLabel(resource) {
     const { byId } = useServerDirectory();
-    if (!resource || resource === 'local') return 'Local (this server)';
+    // Kept short on purpose: this sits in a stat widget's one-line meta row,
+    // where "Local (this server)" wrapped onto a second line in a 3-column tile.
+    if (!resource || resource === 'local') return 'This server';
     if (resource === '$server') return 'dashboard variable';
     return byId.get(resource)?.name || resource;
 }

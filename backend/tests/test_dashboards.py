@@ -297,3 +297,77 @@ def test_widget_cfg_round_trips_verbatim(client, auth_headers):
 
     reread = client.get('/api/v1/dashboards', headers=auth_headers).get_json()['boards']
     assert reread[-1]['widgets'][0]['cfg'] == cfg
+
+
+# ── seeded cfg must match what the renderers actually read ───────────────────
+# The shipped boards are the first thing every user sees, and a cfg key the
+# frontend doesn't read fails SILENTLY — the widget just renders empty. That
+# shipped once: `timeseries` seeded `metrics` while the renderer read `series`,
+# and `actions` seeded `actions` while the renderer read `items`, so the default
+# dashboard greeted everyone with a blank chart and "No actions selected".
+#
+# This table mirrors the `cfg.*` reads in
+# frontend/src/components/dashboard/widgets/renderers.jsx and useWidgetData.js.
+# If you change a widget's config shape there, change it here too — that is the
+# coupling this test exists to make loud.
+RENDERER_CFG_KEYS = {
+    'stat':       {'required': {'metric', 'resource'}, 'known': {'metric', 'resource', 'agg', 'thresholds', 'spark', 'color', 'title'}},
+    'timeseries': {'required': {'series'},             'known': {'series', 'legend', 'fill', 'title'}},
+    'gauge':      {'required': {'metric', 'resource'}, 'known': {'metric', 'resource', 'agg', 'thresholds', 'title'}},
+    'topn':       {'required': {'metric'},             'known': {'metric', 'limit', 'title'}},
+    'table':      {'required': {'source'},             'known': {'source', 'limit', 'title'}},
+    'logs':       {'required': {'source'},             'known': {'source', 'path', 'containerId', 'lines', 'level', 'title'}},
+    'deploys':    {'required': set(),                  'known': {'limit', 'title'}},
+    'alerts':     {'required': set(),                  'known': {'limit', 'severity', 'title'}},
+    'status':     {'required': {'source'},             'known': {'source', 'limit', 'title'}},
+    'feed':       {'required': set(),                  'known': {'limit', 'title'}},
+    'actions':    {'required': {'items'},              'known': {'items', 'title'}},
+    'specs':      {'required': {'resource'},           'known': {'resource', 'title'}},
+    'note':       {'required': set(),                  'known': {'text', 'title'}},
+}
+
+# Shortcut keys the quick-actions widget can actually resolve to a route
+# (ACTIONS in renderers.jsx). Anything else renders nothing.
+QUICK_ACTION_KEYS = {
+    'servers', 'services', 'docker', 'terminal', 'deploys', 'databases',
+    'backups', 'monitoring', 'domains', 'files', 'security', 'jobs',
+}
+
+
+def test_seeded_widget_cfgs_match_the_renderer_contract():
+    from app.services.dashboard_service import DEFAULT_BOARDS
+
+    problems = []
+    for board in DEFAULT_BOARDS:
+        for widget in board['widgets']:
+            wtype = widget['type']
+            spec = RENDERER_CFG_KEYS.get(wtype)
+            if spec is None:
+                problems.append(f"{board['slug']}/{widget['i']}: unknown widget type {wtype!r}")
+                continue
+            keys = set((widget.get('cfg') or {}).keys())
+            missing = spec['required'] - keys
+            unread = keys - spec['known']
+            if missing:
+                problems.append(f"{board['slug']}/{widget['i']} ({wtype}): missing {sorted(missing)}")
+            if unread:
+                problems.append(f"{board['slug']}/{widget['i']} ({wtype}): nothing reads {sorted(unread)}")
+
+    assert not problems, 'seeded cfg drifted from the renderers:\n' + '\n'.join(problems)
+
+
+def test_seeded_quick_actions_all_resolve():
+    """An unrecognised shortcut key is filtered out, so a typo shows an empty
+    widget rather than an error."""
+    from app.services.dashboard_service import DEFAULT_BOARDS
+
+    for board in DEFAULT_BOARDS:
+        for widget in board['widgets']:
+            if widget['type'] != 'actions':
+                continue
+            items = set((widget.get('cfg') or {}).get('items') or [])
+            assert items, f"{board['slug']}/{widget['i']}: quick actions with no items"
+            unknown = items - QUICK_ACTION_KEYS
+            assert not unknown, (
+                f"{board['slug']}/{widget['i']}: unroutable shortcuts {sorted(unknown)}"
+            )

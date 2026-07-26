@@ -190,12 +190,14 @@ function WStat({ cfg, ctx }) {
 
     return (
         <div className="skw-stat">
-            <div className="skw-stat-v" style={{ color }}>{formatValue(value, metric.unit)}</div>
-            <div className="skw-stat-meta mono">
+            <div className="skw-stat__value" style={{ color }}>{formatValue(value, metric.unit)}</div>
+            <div className="skw-stat__meta mono">
                 {delta === null ? (
                     <span className="faint">no trend yet</span>
                 ) : (
-                    <span className={delta >= 0 ? 'up' : 'dn'}>
+                    // Written out rather than interpolated so the modifier is a
+                    // literal a stylesheet audit can find.
+                    <span className={delta >= 0 ? 'skw-stat__delta skw-stat__delta--up' : 'skw-stat__delta skw-stat__delta--down'}>
                         {delta >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
                         {Math.abs(delta).toFixed(1)}%
                     </span>
@@ -203,7 +205,7 @@ function WStat({ cfg, ctx }) {
                 <span className="faint">{agg} · {label}</span>
             </div>
             {cfg.spark !== false && (
-                <div className="skw-stat-spark">
+                <div className="skw-stat__spark">
                     <Sparkline data={series} color={color} width={220} height={40} />
                 </div>
             )}
@@ -249,7 +251,7 @@ function WTimeseries({ cfg, ctx }) {
 
     return (
         <div className="skw-ts">
-            <div className="skw-ts-chart">
+            <div className="skw-ts__chart">
                 <WidgetChart
                     series={withData.map((r) => r.series)}
                     colors={colors}
@@ -261,8 +263,8 @@ function WTimeseries({ cfg, ctx }) {
                     {withData.map((row, i) => {
                         const last = row.series[row.series.length - 1];
                         return (
-                            <span className="skw-lg" key={`${row.resource}-${row.metric.id}-${i}`}>
-                                <span className="sw" style={{ background: colors[i] }} />
+                            <span className="skw-legend__item" key={`${row.resource}-${row.metric.id}-${i}`}>
+                                <span className="skw-legend__swatch" style={{ background: colors[i] }} />
                                 {row.metric.label}
                                 <b>{formatValue(last, row.metric.unit)}</b>
                             </span>
@@ -315,7 +317,7 @@ function WGauge({ cfg, ctx }) {
                     {formatValue(value, metric.unit)}
                 </text>
             </svg>
-            <div className="skw-gauge-sub mono">
+            <div className="skw-gauge__sub mono">
                 {label}{metric.max ? ` · max ${metric.max}${metric.unit}` : ''}
             </div>
         </div>
@@ -351,14 +353,14 @@ function WTopN({ cfg, ctx }) {
     return (
         <div className="skw-topn">
             {rows.map((row) => (
-                <div className="skw-bar-row" key={row.id}>
-                    <span className="skw-bar-l">{row.label}</span>
+                <div className="skw-topn__row" key={row.id}>
+                    <span className="skw-topn__label">{row.label}</span>
                     <Gauge
-                        className="skw-bar-t"
+                        className="skw-topn__track"
                         value={(row.value / peak) * 100}
                         color={metric.color}
                     />
-                    <span className="skw-bar-v mono">{formatValue(row.value, metric.unit)}</span>
+                    <span className="skw-topn__value mono">{formatValue(row.value, metric.unit)}</span>
                 </div>
             ))}
         </div>
@@ -455,17 +457,17 @@ function WLogs({ cfg, ctx }) {
 
     return (
         <div className="skw-logs">
-            <div className="skw-logs-bar mono">
+            <div className="skw-logs__bar mono">
                 <span>{label || 'log'}</span>
                 <span className="faint">{lines.length} lines</span>
                 {counts.err ? <span className="lv-err">{counts.err} errors</span> : null}
                 {counts.warn ? <span className="lv-warn">{counts.warn} warnings</span> : null}
             </div>
-            <div className="skw-logs-body" ref={bodyRef}>
+            <div className="skw-logs__body" ref={bodyRef}>
                 {shown.length === 0 ? (
                     <Empty>No lines at this level.</Empty>
                 ) : shown.map((l, i) => (
-                    <div className={`skw-log-line lv-${l.lvl}`} key={i}>
+                    <div className={`skw-logs__line lv-${l.lvl}`} key={i}>
                         {l.t ? <span className="t">{l.t}</span> : null}
                         {l.txt}
                     </div>
@@ -509,20 +511,20 @@ function WDeploys({ cfg, ctx }) {
                     key={job.id}
                     onClick={() => ctx.navigate?.(`/deployments/${job.id}`)}
                 >
-                    <div className="skw-dep-top">
-                        <span className="skw-dep-n">{job.app_name || job.kind || 'deployment'}</span>
-                        <span className="skw-dep-s mono" style={{ color: DEPLOY_COLOR[job.status] || 'var(--text-faint)' }}>
+                    <div className="skw-dep__top">
+                        <span className="skw-dep__name">{job.app_name || job.kind || 'deployment'}</span>
+                        <span className="skw-dep__state mono" style={{ color: DEPLOY_COLOR[job.status] || 'var(--text-faint)' }}>
                             {job.status}
                         </span>
                     </div>
                     {job.total_steps > 0 && (
-                        <div className="skw-dep-steps">
+                        <div className="skw-dep__steps">
                             {Array.from({ length: job.total_steps }, (_, i) => (
                                 <i key={i} className={`st ${stepState(i, job)}`} />
                             ))}
                         </div>
                     )}
-                    <div className="skw-dep-meta mono">
+                    <div className="skw-dep__meta mono">
                         {job.trigger || 'manual'} · {job.target_server_name || 'local'} · {relTime(job.created_at) || '—'}
                     </div>
                 </div>
@@ -553,10 +555,10 @@ function WAlerts({ cfg, ctx }) {
                 const color = SEVERITY_COLOR[alert.severity] || 'var(--cyan)';
                 return (
                     <div className="skw-alert" key={alert.id} onClick={() => ctx.navigate?.('/monitoring')}>
-                        <span className="skw-al-sev" style={{ background: color, boxShadow: `0 0 7px ${color}` }} />
-                        <div className="skw-al-body">
-                            <div className="skw-al-t">{alert.title}</div>
-                            <div className="skw-al-m mono">
+                        <span className="skw-alert__sev" style={{ background: color, boxShadow: `0 0 7px ${color}` }} />
+                        <div className="skw-alert__body">
+                            <div className="skw-alert__title">{alert.title}</div>
+                            <div className="skw-alert__meta mono">
                                 {alert.target}{alert.time ? ` · ${relTime(alert.time)}` : ''}
                             </div>
                         </div>
@@ -587,14 +589,14 @@ function WStatus({ cfg, ctx }) {
                 const color = STATE_COLOR[cell.state] || 'var(--amber)';
                 return (
                     <div
-                        className="skw-st-cell"
+                        className="skw-status__cell"
                         key={cell.id}
                         onClick={() => ctx.navigate?.(target)}
                         title={`${cell.name} · ${cell.state}`}
                     >
-                        <span className="skw-st-dot" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-                        <div className="skw-st-n">{cell.name}</div>
-                        <div className="skw-st-m mono">{cell.meta || cell.state}</div>
+                        <span className="skw-status__dot" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+                        <div className="skw-status__name">{cell.name}</div>
+                        <div className="skw-status__meta mono">{cell.meta || cell.state}</div>
                     </div>
                 );
             })}
@@ -629,10 +631,11 @@ function WFeed({ cfg, ctx }) {
     return (
         <div className="skw-list">
             {items.map((entry) => (
-                <div className="skw-feed-item" key={entry.id} onClick={() => ctx.navigate?.('/security')}>
-                    <div className="skw-feed-body">
-                        <div className="skw-feed-txt">{describeLog(entry)}</div>
-                        <div className="skw-feed-time mono">{relTime(entry.created_at)}</div>
+                <div className="skw-feed__item" key={entry.id} onClick={() => ctx.navigate?.('/security')}>
+                    <span className="skw-feed__dot" />
+                    <div className="skw-feed__body">
+                        <div className="skw-feed__text">{describeLog(entry)}</div>
+                        <div className="skw-feed__time mono">{relTime(entry.created_at)}</div>
                     </div>
                 </div>
             ))}
@@ -674,9 +677,9 @@ function WActions({ cfg, ctx }) {
             {items.map((key) => {
                 const [label, Icon, href] = ACTIONS[key];
                 return (
-                    <button type="button" className="skw-qa-row" key={key} onClick={() => ctx.navigate?.(href)}>
-                        <span className="skw-qa-n">{label}</span>
-                        <span className="skw-qa-ic"><Icon size={15} /></span>
+                    <button type="button" className="skw-actions__row" key={key} onClick={() => ctx.navigate?.(href)}>
+                        <span className="skw-actions__label">{label}</span>
+                        <span className="skw-actions__icon"><Icon size={15} /></span>
                     </button>
                 );
             })}
@@ -697,9 +700,9 @@ function WSpecs({ cfg, ctx }) {
     return (
         <div className="skw-kv">
             {rows.map(([key, value]) => (
-                <div className="skw-kv-row" key={key}>
-                    <span className="k">{key}</span>
-                    <span className="v">{value}</span>
+                <div className="skw-kv__row" key={key}>
+                    <span className="skw-kv__k">{key}</span>
+                    <span className="skw-kv__v">{value}</span>
                 </div>
             ))}
         </div>
