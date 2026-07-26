@@ -1,4 +1,5 @@
 import os
+import sys
 from flask import Flask, send_from_directory, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
@@ -649,74 +650,91 @@ def create_app(config_name=None):
             import logging
             logging.getLogger(__name__).warning(f'Extension backend acquisition: {e}')
 
-        # Start metrics history collection in background
-        from app.services.metrics_history_service import MetricsHistoryService
-        if not MetricsHistoryService.is_running():
-            MetricsHistoryService.start_collection(app)
+        # Background daemons (metrics collector, queue consumers, analytics
+        # flush, the job system, the linked-panel client) only make sense in a
+        # long-running server process. When the app is loaded by a Flask CLI
+        # one-shot — crucially `flask db upgrade` during an update — they must
+        # NOT start: they query the database before migrations have run, and
+        # any failure there (a corrupt DB, or pre-migration schema the new code
+        # doesn't match yet) aborts the CLI command and sinks the whole update.
+        # SERVERKIT_SKIP_BACKGROUND=1 forces the same skip; the updater sets it
+        # as an explicit contract when running migrations.
+        _cli_one_shot = (
+            os.path.basename(sys.argv[0] or '').startswith('flask')
+            and (len(sys.argv) < 2 or sys.argv[1] != 'run')
+        )
+        _skip_background = (
+            os.environ.get('SERVERKIT_SKIP_BACKGROUND') == '1' or _cli_one_shot
+        )
+        if not _skip_background:
+            # Start metrics history collection in background
+            from app.services.metrics_history_service import MetricsHistoryService
+            if not MetricsHistoryService.is_running():
+                MetricsHistoryService.start_collection(app)
 
-        # Start queue-bus webhook consumer
-        from app.queue_bus.consumers import start_webhook_consumer
-        start_webhook_consumer(app)
+            # Start queue-bus webhook consumer
+            from app.queue_bus.consumers import start_webhook_consumer
+            start_webhook_consumer(app)
 
-        # Start queue-bus notification consumer (delivers in-app/email/chat)
-        from app.notifications.consumer import start_notification_consumer
-        start_notification_consumer(app)
+            # Start queue-bus notification consumer (delivers in-app/email/chat)
+            from app.notifications.consumer import start_notification_consumer
+            start_notification_consumer(app)
 
-        # Start the API analytics flush thread (a 5s buffer flush — a real-time
-        # stream, deliberately NOT modeled as a job).
-        from app.middleware.api_analytics import start_analytics_flush_thread
-        start_analytics_flush_thread(app)
+            # Start the API analytics flush thread (a 5s buffer flush — a real-time
+            # stream, deliberately NOT modeled as a job).
+            from app.middleware.api_analytics import start_analytics_flush_thread
+            start_analytics_flush_thread(app)
 
-        # Start the unified job system: ONE consumer runs every enqueued Job and
-        # ONE scheduler ticks all periodic work. This supersedes the former set
-        # of per-domain daemon scheduler threads (auto-sync, snapshot-retention,
-        # workflow, health-check, wp-update, api-background, pairing-prune,
-        # registrar-expiry) — they are now ScheduledJob rows backed by the
-        # built-in handlers in app/jobs/builtin_handlers.py.
-        from app.jobs import start_job_system
-        from app.jobs.builtin_handlers import register_builtin_handlers, seed_builtin_schedules
-        register_builtin_handlers()
-        # Register event-driven job handlers (deployment installs, workflow runs,
-        # scheduled backups).
-        from app.services.deployment_job_service import DeploymentJobService
-        DeploymentJobService.register_jobs()
-        # WorkflowEngine.register_jobs() removed in plan 45 Phase 4 (engine retired).
-        from app.services.backup_service import BackupService
-        BackupService.register_jobs()
-        from app.services.backup_policy_service import BackupPolicyService
-        BackupPolicyService.register_jobs()
-        from app.services.server_onboarding_service import ServerOnboardingService
-        ServerOnboardingService.register_jobs()
-        from app.services.preview_service import PreviewService
-        PreviewService.register_jobs()
-        from app.services.metadata_guard_service import MetadataGuardService
-        MetadataGuardService.register_jobs()
-        if not app.config.get('TESTING'):
-            MetadataGuardService.ensure()  # converge the metadata egress rule (no-op when unsupported)
-        from app.services.speed_test_service import SpeedTestService
-        SpeedTestService.register_jobs()
-        from app.services import login_link_service
-        login_link_service.register_jobs()
-        from app.services.db_admin_sso_service import DbAdminSsoService
-        DbAdminSsoService.register_jobs()
-        from app.services.site_import_service import SiteImportService
-        SiteImportService.register_jobs()
-        from app.services.drift_service import DriftService
-        DriftService.register_jobs()
-        from app.services.doctor_service import DoctorService
-        DoctorService.register_jobs()
-        from app.services.file_integrity_service import FileIntegrityService
-        FileIntegrityService.register_jobs()
-        from app.services.malware_scan_service import MalwareScanService
-        MalwareScanService.register_jobs()
-        from app.services.bandwidth_service import BandwidthService
-        BandwidthService.register_jobs()
-        start_job_system(app, seed=seed_builtin_schedules)
+            # Start the unified job system: ONE consumer runs every enqueued Job and
+            # ONE scheduler ticks all periodic work. This supersedes the former set
+            # of per-domain daemon scheduler threads (auto-sync, snapshot-retention,
+            # workflow, health-check, wp-update, api-background, pairing-prune,
+            # registrar-expiry) — they are now ScheduledJob rows backed by the
+            # built-in handlers in app/jobs/builtin_handlers.py.
+            from app.jobs import start_job_system
+            from app.jobs.builtin_handlers import register_builtin_handlers, seed_builtin_schedules
+            register_builtin_handlers()
+            # Register event-driven job handlers (deployment installs, workflow runs,
+            # scheduled backups).
+            from app.services.deployment_job_service import DeploymentJobService
+            DeploymentJobService.register_jobs()
+            # WorkflowEngine.register_jobs() removed in plan 45 Phase 4 (engine retired).
+            from app.services.backup_service import BackupService
+            BackupService.register_jobs()
+            from app.services.backup_policy_service import BackupPolicyService
+            BackupPolicyService.register_jobs()
+            from app.services.server_onboarding_service import ServerOnboardingService
+            ServerOnboardingService.register_jobs()
+            from app.services.preview_service import PreviewService
+            PreviewService.register_jobs()
+            from app.services.metadata_guard_service import MetadataGuardService
+            MetadataGuardService.register_jobs()
+            if not app.config.get('TESTING'):
+                MetadataGuardService.ensure()  # converge the metadata egress rule (no-op when unsupported)
+            from app.services.speed_test_service import SpeedTestService
+            SpeedTestService.register_jobs()
+            from app.services import login_link_service
+            login_link_service.register_jobs()
+            from app.services.db_admin_sso_service import DbAdminSsoService
+            DbAdminSsoService.register_jobs()
+            from app.services.site_import_service import SiteImportService
+            SiteImportService.register_jobs()
+            from app.services.drift_service import DriftService
+            DriftService.register_jobs()
+            from app.services.doctor_service import DoctorService
+            DoctorService.register_jobs()
+            from app.services.file_integrity_service import FileIntegrityService
+            FileIntegrityService.register_jobs()
+            from app.services.malware_scan_service import MalwareScanService
+            MalwareScanService.register_jobs()
+            from app.services.bandwidth_service import BandwidthService
+            BandwidthService.register_jobs()
+            start_job_system(app, seed=seed_builtin_schedules)
 
-        # Resume the embedded agent when this panel is linked to a master
-        # ServerKit panel (ServerKit-to-ServerKit peering).
-        from app.services.linked_panel_service import LinkedPanelService
-        LinkedPanelService.start_client_if_linked(app)
+            # Resume the embedded agent when this panel is linked to a master
+            # ServerKit panel (ServerKit-to-ServerKit peering).
+            from app.services.linked_panel_service import LinkedPanelService
+            LinkedPanelService.start_client_if_linked(app)
 
     # Request body size limit
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit

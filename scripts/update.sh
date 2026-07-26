@@ -632,12 +632,32 @@ rebuild_virtualenv() {
     good "Virtual environment rebuilt at $target_dir"
 }
 
-# Ensure the target directory has a usable venv. If a pre-built one exists, use
-# it; otherwise rebuild from requirements.
+# Ensure the target directory has a usable venv. If a pre-built one exists AND
+# is bound to this slot's path, use it; otherwise rebuild from requirements.
 require_venv() {
     local target_dir="$1"
     if [ -f "$target_dir/bin/activate" ] && [ -x "$target_dir/bin/python" ]; then
-        good "Virtual environment ready at $target_dir"
+        # A venv is path-bound: bin/activate and every entry-point shebang
+        # embed the absolute path the venv was created at. The release
+        # tarball's prebuilt venv is baked as $INSTALL_DIR/venv, which —
+        # until atomic_switch flips the symlink — resolves to the OLD slot.
+        # Running it would execute the new code with the old slot's
+        # dependencies (and run the OLD flask binary for migrations), so a
+        # venv bound to any other path must be rebuilt in place.
+        local bound_path resolved_bound resolved_target
+        bound_path="$(sed -n 's/^VIRTUAL_ENV="\(.*\)"$/\1/p' "$target_dir/bin/activate" | head -1)"
+        # Compare RESOLVED paths: on a fresh install the symlink already points
+        # at the only slot, so the baked path resolves to the target and the
+        # prebuilt venv is genuinely usable (fast path). During an update it
+        # resolves to the OLD slot — that mismatch triggers the rebuild.
+        resolved_bound="$(readlink -f "$bound_path" 2>/dev/null || true)"
+        resolved_target="$(readlink -f "$target_dir" 2>/dev/null || echo "$target_dir")"
+        if [ -n "$resolved_bound" ] && [ "$resolved_bound" = "$resolved_target" ]; then
+            good "Virtual environment ready at $target_dir"
+            return 0
+        fi
+        warn "Virtual environment at $target_dir is bound to '${bound_path:-unknown path}' — rebuilding for this slot"
+        rebuild_virtualenv "$target_dir"
         return 0
     fi
     warn "Virtual environment missing at $target_dir"
@@ -667,16 +687,36 @@ migrate_database() {
     # Subshell: the venv activation and the cd must not leak into the main
     # shell — the rest of the update keeps running from the caller's cwd.
     local slot_db="$work_dir/backend/instance/serverkit.db"
+    local use_slot_db=0
+    if grep -qE '^DATABASE_URL=sqlite' "$work_dir/.env" 2>/dev/null && [ -f "$slot_db" ]; then
+        use_slot_db=1
+        # Fail fast with an actionable message when the SQLite slot copy is
+        # corrupt, instead of dying deep inside app boot with "database disk
+        # image is malformed". The sqlite3 CLI isn't guaranteed to be
+        # installed — probe via the venv's Python instead.
+        local integrity
+        integrity="$("$venv/bin/python" -c \
+            "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])" \
+            "$slot_db" 2>/dev/null || true)"
+        if [ "$integrity" != "ok" ]; then
+            halt "SQLite database is corrupt (${integrity:-integrity check failed to run}). Repair or restore it from $BACKUP_DIR and re-run the update. The previous installation is still active."
+        fi
+    fi
     if ! (
         # shellcheck source=/dev/null
         source "$venv/bin/activate"
         cd "$work_dir/backend"
-        if grep -qE '^DATABASE_URL=sqlite' "$work_dir/.env" 2>/dev/null && [ -f "$slot_db" ]; then
-            DATABASE_URL="sqlite:///$slot_db" FLASK_ENV=production flask db upgrade
+        # SERVERKIT_SKIP_BACKGROUND=1: create_app() must not start queue
+        # consumers / schedulers / collectors while we only want migrations —
+        # they query the DB before `flask db upgrade` runs, and any error
+        # there aborts the migration (belt & braces; the app also detects the
+        # flask CLI on its own).
+        if [ "$use_slot_db" = "1" ]; then
+            DATABASE_URL="sqlite:///$slot_db" FLASK_ENV=production SERVERKIT_SKIP_BACKGROUND=1 flask db upgrade
         else
             # Non-SQLite (e.g. PostgreSQL): the DB is shared/external, so there
             # is no per-slot copy to isolate — migrate it directly.
-            FLASK_ENV=production flask db upgrade
+            FLASK_ENV=production SERVERKIT_SKIP_BACKGROUND=1 flask db upgrade
         fi
     ); then
         halt "Database migration failed. The previous installation is still active."
