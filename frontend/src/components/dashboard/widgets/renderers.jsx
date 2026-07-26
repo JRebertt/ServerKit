@@ -105,8 +105,14 @@ function pillKind(state) {
  * Gradient ids are per-instance (useId) so two charts on one board cannot
  * capture each other's fills.
  */
-function WidgetChart({ series, colors, fill = true, grid = true, height = '100%', domain = null, lineStyle = 'smooth' }) {
+function WidgetChart({
+    series, colors, fill = true, grid = true, height = '100%', domain = null,
+    lineStyle = 'smooth', interactive = false, stamps = [], labels = [], units = [],
+}) {
     const uid = useId().replace(/:/g, '');
+    // Index of the sample under the pointer, or null. Kept as an index rather
+    // than a pixel so it survives a resize.
+    const [hover, setHover] = useState(null);
     const data = (series || []).filter((s) => Array.isArray(s) && s.length > 0);
     const all = data.flat();
     if (!all.length) return null;
@@ -139,7 +145,38 @@ function WidgetChart({ series, colors, fill = true, grid = true, height = '100%'
         }).join(' ');
     };
 
-    return (
+    const longest = data.reduce((n, sx) => Math.max(n, sx.length), 0);
+
+    // Nearest sample to the pointer. The chart is `preserveAspectRatio="none"`,
+    // so viewBox x maps linearly onto the container width — a ratio is enough.
+    const onMove = (event) => {
+        if (!interactive || longest < 2) return;
+        const box = event.currentTarget.getBoundingClientRect();
+        if (!box.width) return;
+        const ratio = (event.clientX - box.left) / box.width;
+        const index = Math.round(Math.max(0, Math.min(1, ratio)) * (longest - 1));
+        setHover(index);
+    };
+
+    const hovered = hover === null ? null : data.map((sx, i) => {
+        // Series can differ in length; clamp rather than read past the end.
+        const idx = Math.min(hover, sx.length - 1);
+        const value = sx[idx];
+        return {
+            value,
+            color: colors[i % colors.length],
+            label: labels[i] || '',
+            unit: units[i] || '',
+            left: toX(hover, longest),
+            top: toY(value),
+        };
+    });
+    const stampAt = hover === null ? null : (stamps[Math.min(hover, stamps.length - 1)] || null);
+    const hoverPct = hover === null ? 0 : toX(hover, longest);
+    // Flip the tooltip to the left of the crosshair once it would overflow.
+    const flip = hoverPct > 60;
+
+    const chart = (
         <svg
             viewBox={`0 0 ${w} ${h}`}
             preserveAspectRatio="none"
@@ -182,6 +219,46 @@ function WidgetChart({ series, colors, fill = true, grid = true, height = '100%'
                 />
             ))}
         </svg>
+    );
+
+    if (!interactive) return chart;
+
+    return (
+        <div
+            className="skw-chart"
+            onPointerMove={onMove}
+            onPointerLeave={() => setHover(null)}
+        >
+            {chart}
+            {hovered && (
+                <>
+                    <span className="skw-chart__cross" style={{ left: `${hoverPct}%` }} />
+                    {hovered.map((point, i) => (
+                        <span
+                            key={i}
+                            className="skw-chart__dot"
+                            style={{ left: `${point.left}%`, top: `${point.top}%`, background: point.color }}
+                        />
+                    ))}
+                    <div className={`skw-chart__tip${flip ? ' skw-chart__tip--flip' : ''}`} style={{ left: `${hoverPct}%` }}>
+                        {stampAt && (
+                            <div className="skw-chart__tip-when mono">
+                                {new Date(stampAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        )}
+                        {hovered.map((point, i) => (
+                            <div className="skw-chart__tip-row" key={i}>
+                                <span className="skw-chart__tip-dot" style={{ background: point.color }} />
+                                <span className="skw-chart__tip-label">{point.label}</span>
+                                <span className="skw-chart__tip-value mono" style={{ color: point.color }}>
+                                    {formatValue(point.value, point.unit)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
 
@@ -290,6 +367,10 @@ function WTimeseries({ cfg, ctx }) {
                     fill={cfg.fill !== false}
                     domain={chartDomain(withData.map((r) => r.metric.id))}
                     lineStyle={cfg.lineStyle || 'smooth'}
+                    interactive
+                    stamps={withData[0]?.stamps || []}
+                    labels={withData.map((r) => r.metric.label)}
+                    units={withData.map((r) => r.metric.unit)}
                 />
             </div>
             {cfg.legend !== false && (

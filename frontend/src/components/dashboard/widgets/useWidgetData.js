@@ -198,6 +198,9 @@ export function useMetricSeriesSet(entries, range, tick) {
                 supported,
                 color: entry?.color || '',
                 series: supported ? seriesFrom(payloads.get(resource), meta.id) : [],
+                // Carried so the chart can label a hovered point with when it
+                // was actually sampled rather than its index.
+                stamps: supported ? stampsFrom(payloads.get(resource), meta.id) : [],
             };
         });
     });
