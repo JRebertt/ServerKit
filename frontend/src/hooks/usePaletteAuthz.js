@@ -20,7 +20,7 @@ const ALWAYS_VISIBLE = new Set(
  * you hid from your sidebar for tidiness stays reachable via the palette.
  */
 export default function usePaletteAuthz() {
-    const { isAdmin } = useAuth();
+    const { isAdmin, hasPermission } = useAuth();
 
     return useMemo(() => {
         let navMap = null;
@@ -38,6 +38,9 @@ export default function usePaletteAuthz() {
             if (!navId) return true;
             if (isAdmin) return true;
             if (ALWAYS_VISIBLE.has(navId)) return true;
+            // Per-user feature permissions: files.read=false 403s every files
+            // endpoint, so don't offer the File Manager in the palette either.
+            if (navId === 'files' && !hasPermission('files', 'read')) return false;
             if (!navMap) return true;
             const allowed = navMap[role];
             if (!Array.isArray(allowed) || allowed.length === 0) return true;
@@ -52,5 +55,5 @@ export default function usePaletteAuthz() {
         return { isAdmin, allowNav, allowItem };
         // Recomputes on login/role change (isAdmin flips); the workspace nav map
         // is read from localStorage at build time and isn't otherwise reactive.
-    }, [isAdmin]);
+    }, [isAdmin, hasPermission]);
 }

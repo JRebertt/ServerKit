@@ -1,7 +1,7 @@
 """File Manager API endpoints for browsing, editing, and managing files."""
 
 from flask import Blueprint, request, jsonify, send_file
-from flask_jwt_extended import jwt_required
+from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
 import os
@@ -11,7 +11,7 @@ files_bp = Blueprint('files', __name__)
 
 
 @files_bp.route('/browse', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def browse_directory():
     """List directory contents."""
     path = request.args.get('path', '/home')
@@ -25,7 +25,7 @@ def browse_directory():
 
 
 @files_bp.route('/info', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_file_info():
     """Get information about a file or directory."""
     path = request.args.get('path')
@@ -46,7 +46,7 @@ def get_file_info():
 
 
 @files_bp.route('/read', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def read_file():
     """Read file contents."""
     path = request.args.get('path')
@@ -64,7 +64,7 @@ def read_file():
 
 
 @files_bp.route('/write', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def write_file():
     """Write content to a file."""
     data = request.get_json()
@@ -92,7 +92,7 @@ def write_file():
 
 
 @files_bp.route('/create', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def create_file():
     """Create a new file."""
     data = request.get_json()
@@ -116,7 +116,7 @@ def create_file():
 
 
 @files_bp.route('/mkdir', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def create_directory():
     """Create a new directory."""
     data = request.get_json()
@@ -139,7 +139,7 @@ def create_directory():
 
 
 @files_bp.route('/delete', methods=['DELETE'])
-@jwt_required()
+@permission_required('files', 'write')
 def delete_path():
     """Delete a file or directory."""
     path = request.args.get('path')
@@ -157,7 +157,7 @@ def delete_path():
 
 
 @files_bp.route('/rename', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def rename_path():
     """Rename a file or directory."""
     data = request.get_json()
@@ -181,7 +181,7 @@ def rename_path():
 
 
 @files_bp.route('/copy', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def copy_path():
     """Copy a file or directory."""
     data = request.get_json()
@@ -205,7 +205,7 @@ def copy_path():
 
 
 @files_bp.route('/move', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def move_path():
     """Move a file or directory."""
     data = request.get_json()
@@ -229,7 +229,7 @@ def move_path():
 
 
 @files_bp.route('/chmod', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def change_permissions():
     """Change file/directory permissions."""
     data = request.get_json()
@@ -253,7 +253,7 @@ def change_permissions():
 
 
 @files_bp.route('/search', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def search_files():
     """Search for files matching a pattern."""
     directory = request.args.get('directory', '/home')
@@ -273,7 +273,7 @@ def search_files():
 
 
 @files_bp.route('/disk-usage', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_disk_usage():
     """Get disk usage for a path."""
     path = request.args.get('path', '/')
@@ -286,7 +286,7 @@ def get_disk_usage():
 
 
 @files_bp.route('/disk-mounts', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_disk_mounts():
     """Get disk usage for all mount points."""
     result = FileService.get_all_disk_mounts()
@@ -297,7 +297,7 @@ def get_disk_mounts():
 
 
 @files_bp.route('/analyze', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def analyze_directory():
     """Analyze directory sizes."""
     path = request.args.get('path', '/home')
@@ -314,7 +314,7 @@ def analyze_directory():
 
 
 @files_bp.route('/type-breakdown', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_type_breakdown():
     """Get file type breakdown for a directory."""
     path = request.args.get('path', '/home')
@@ -330,7 +330,7 @@ def get_type_breakdown():
 
 
 @files_bp.route('/download', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def download_file():
     """Download a file."""
     path = request.args.get('path')
@@ -358,7 +358,7 @@ def download_file():
 
 
 @files_bp.route('/upload', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def upload_file():
     """Upload a file."""
     if 'file' not in request.files:
@@ -419,7 +419,7 @@ def upload_file():
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──
 
 @files_bp.route('/s3/browse', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_browse():
     """List a bucket prefix in the same entry shape as the local browser."""
     path = request.args.get('path', '/')
@@ -428,7 +428,7 @@ def s3_browse():
 
 
 @files_bp.route('/s3/read', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_read():
     """Read a text object for in-app editing."""
     path = request.args.get('path')
@@ -439,7 +439,7 @@ def s3_read():
 
 
 @files_bp.route('/s3/write', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def s3_write():
     """Write (create or overwrite) an object from text content."""
     data = request.get_json() or {}
@@ -454,7 +454,7 @@ def s3_write():
 
 
 @files_bp.route('/s3/delete', methods=['DELETE'])
-@jwt_required()
+@permission_required('files', 'write')
 def s3_delete():
     """Delete an object (or every object beneath a prefix)."""
     path = request.args.get('path')
@@ -465,7 +465,7 @@ def s3_delete():
 
 
 @files_bp.route('/s3/download-url', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_download_url():
     """Return a short-lived presigned URL the browser can download directly."""
     path = request.args.get('path')
@@ -476,7 +476,7 @@ def s3_download_url():
 
 
 @files_bp.route('/s3/upload', methods=['POST'])
-@jwt_required()
+@permission_required('files', 'write')
 def s3_upload():
     """Upload a file into the bucket at the given prefix."""
     if 'file' not in request.files:

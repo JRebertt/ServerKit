@@ -244,6 +244,8 @@ t="$WORK/t10/serverkit-b"
 mkdir -p "$t/venv/bin" "$t/backend/instance"
 : > "$t/venv/bin/activate"                              # sourceable no-op
 : > "$t/backend/instance/serverkit.db"                  # the slot's DB copy
+printf '#!/usr/bin/env bash\necho ok\n' > "$t/venv/bin/python"  # integrity probe: healthy DB
+chmod +x "$t/venv/bin/python"
 printf 'DATABASE_URL=sqlite:///opt/serverkit/backend/instance/serverkit.db\n' > "$t/.env"
 FLASK_CAP="$WORK/t10/flask-saw-dburl"
 cat > "$STUB_BIN/flask" <<EOF
@@ -267,7 +269,61 @@ fi
 rm -f "$STUB_BIN/flask"
 
 # --------------------------------------------------------------------------
-# T11 — zero-downtime regression: reload_nginx_graceful must RELOAD a running
+# T10b — the corrupt-DB fail-fast: when the integrity probe reports real
+# corruption, migrate_database must halt BEFORE flask runs, with the update
+# still on the old slot. A python stub simulates PRAGMA integrity_check
+# returning 'database disk image is malformed'.
+# --------------------------------------------------------------------------
+t="$WORK/t10b/serverkit-b"
+mkdir -p "$t/venv/bin" "$t/backend/instance"
+: > "$t/venv/bin/activate"
+: > "$t/backend/instance/serverkit.db"
+printf 'DATABASE_URL=sqlite:///opt/serverkit/backend/instance/serverkit.db\n' > "$t/.env"
+printf '#!/usr/bin/env bash\necho "database disk image is malformed"\n' > "$t/venv/bin/python"
+chmod +x "$t/venv/bin/python"
+FLASK_CAP="$WORK/t10b/flask-ran"
+cat > "$STUB_BIN/flask" <<EOF
+#!/usr/bin/env bash
+touch "$FLASK_CAP"
+exit 0
+EOF
+chmod +x "$STUB_BIN/flask"
+mig_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0
+    migrate_database "$t"
+) >/dev/null 2>&1 || mig_rc=$?
+if [ "$mig_rc" -ne 0 ] && [ ! -e "$FLASK_CAP" ]; then
+    ok "migrate_database halts on a corrupt SQLite DB before flask runs (fail-fast)"
+else
+    bad "migrate_database corrupt-DB: rc=$mig_rc (want non-zero), flask-ran=$([ -e "$FLASK_CAP" ] && echo yes || echo no) (want no)"
+fi
+rm -f "$STUB_BIN/flask"
+
+# --------------------------------------------------------------------------
+# T10c — a probe that can't run at all (no usable venv python) is NOT proof
+# of corruption: warn and proceed so flask can surface any real problem.
+# --------------------------------------------------------------------------
+t="$WORK/t10c/serverkit-b"
+mkdir -p "$t/venv/bin" "$t/backend/instance"
+: > "$t/venv/bin/activate"
+: > "$t/backend/instance/serverkit.db"
+printf 'DATABASE_URL=sqlite:///opt/serverkit/backend/instance/serverkit.db\n' > "$t/.env"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/flask"
+chmod +x "$STUB_BIN/flask"
+mig_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0
+    migrate_database "$t"
+) >/dev/null 2>&1 || mig_rc=$?
+if [ "$mig_rc" -eq 0 ]; then
+    ok "migrate_database proceeds (with a warning) when the integrity probe can't run"
+else
+    bad "migrate_database probe-unavailable: rc=$mig_rc, expected rc 0 (warn + proceed)"
+fi
+rm -f "$STUB_BIN/flask"
 # nginx and must NEVER stop it. Host nginx fronts every managed app, so a stop
 # during a panel update used to black out unrelated sites. A recording systemctl
 # stub (PATH-prepended ahead of the global stub) captures every invocation.
@@ -701,6 +757,8 @@ t="$WORK/t24/serverkit-b"
 mkdir -p "$t/venv/bin" "$t/backend/instance"
 : > "$t/venv/bin/activate"
 : > "$t/backend/instance/serverkit.db"
+printf '#!/usr/bin/env bash\necho ok\n' > "$t/venv/bin/python"  # integrity probe: healthy DB
+chmod +x "$t/venv/bin/python"
 printf 'DATABASE_URL=sqlite:////opt/serverkit/backend/instance/serverkit.db\n' > "$t/.env"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$STUB_BIN/flask"
 chmod +x "$STUB_BIN/flask"
