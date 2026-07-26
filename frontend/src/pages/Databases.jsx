@@ -4,7 +4,7 @@ import {
     PanelLeftClose, PanelLeftOpen, Search, X, RefreshCw, Plus, Terminal,
     Archive, Database, Table2, Server, ChevronDown,
     Trash2, DatabaseBackup, Copy, FileCode2, Lock, BookMarked, Activity,
-    SlidersHorizontal, Layers, ExternalLink,
+    SlidersHorizontal, Layers, ExternalLink, Download,
 } from 'lucide-react';
 import api from '../services/api';
 import Modal from '@/components/Modal';
@@ -103,6 +103,9 @@ export default function Databases() {
     const [engineData, setEngineData] = useState({ catalog: [], installed: [], unavailable: false });
     const [enginesLoading, setEnginesLoading] = useState(true);
     const [catalogOpen, setCatalogOpen] = useState(false);
+    // Seeds the catalog's search box, so "Install" on a specific tree row opens
+    // the catalog already narrowed to the engines that could fill that row.
+    const [catalogQuery, setCatalogQuery] = useState('');
     const [installEntry, setInstallEntry] = useState(null);
     // What the workspace shows when there is no tab to show: an engine that is
     // still installing, an engine that is up but empty, an empty database.
@@ -162,27 +165,88 @@ export default function Databases() {
         return () => clearInterval(timer);
     }, [installingCount, loadEngines]);
 
-    const roots = useMemo(() => ([
+    const openCatalog = useCallback((query = '') => {
+        setCatalogQuery(query);
+        setCatalogOpen(true);
+    }, []);
+
+    // The install flow for one specific tree row. A single candidate goes
+    // straight to its configure drawer; several (MySQL and MariaDB both speak
+    // `mysql`) go to the catalog narrowed to exactly those.
+    const startInstall = useCallback((node) => {
+        const offers = node?.installers || [];
+        if (offers.length === 1) {
+            setInstallEntry(offers[0]);
+            return;
+        }
+        openCatalog(offers.length ? node.engine || '' : '');
+    }, [openCatalog]);
+
+    // Which catalog templates could stand in for a host engine that isn't
+    // installed, keyed by the engine's own wire protocol. Nothing is named here:
+    // a new MySQL-compatible template joins the `mysql` list by declaring
+    // `engine.protocol: mysql`, exactly like MariaDB does.
+    const installersByProtocol = useMemo(() => {
+        const map = new Map();
+        engineData.catalog.forEach((entry) => {
+            const key = entry.engine?.protocol || entry.id;
+            if (!key) return;
+            map.set(key, [...(map.get(key) || []), entry]);
+        });
+        return map;
+    }, [engineData.catalog]);
+
+    const roots = useMemo(() => {
         // mysql/postgresql stay expandable even when the host engine is absent —
-        // they can still contain databases that live in Docker containers.
-        { id: 'eng:mysql', kind: 'engine', engine: 'mysql', label: ENGINE_META.mysql.label, status: engineState('mysql', status), expandable: true, canCreate: engineState('mysql', status) === 'active' },
-        { id: 'eng:postgresql', kind: 'engine', engine: 'postgresql', label: ENGINE_META.postgresql.label, status: engineState('postgresql', status), expandable: true, canCreate: engineState('postgresql', status) === 'active' },
-        { id: 'eng:sqlite', kind: 'engine', engine: 'sqlite', label: ENGINE_META.sqlite.label, status: 'available', expandable: true },
-        { id: 'eng:docker', kind: 'engine', engine: 'docker', label: ENGINE_META.docker.label, status: 'available', expandable: true },
-        // Engines installed from the template catalog join the built-in roots
-        // rather than replacing them. They are leaves: each runs as its own
-        // service, and selecting one shows its state in the workspace.
-        ...engineData.installed.map((inst) => ({
-            id: `dbe:${engineInstanceKey(inst)}`,
-            kind: 'engine',
-            engine: engineBrandKey(inst) || 'database',
-            iconEntry: inst,
-            label: inst.name || inst.instance_name || inst.template_id,
-            status: engineTreeStatus(inst),
-            expandable: false,
-            instance: inst,
-        })),
-    ]), [status, engineData.installed]);
+        // they can still contain databases that live in Docker containers. And
+        // "not installed" is a to-do, not a verdict: the row carries whatever
+        // the catalog can do about it.
+        const hostRoot = (engine) => {
+            const state = engineState(engine, status);
+            const node = {
+                id: `eng:${engine}`,
+                kind: 'engine',
+                engine,
+                label: ENGINE_META[engine].label,
+                status: state,
+                expandable: true,
+                canCreate: state === 'active',
+            };
+            if (state !== 'missing') return node;
+            const offers = installersByProtocol.get(engine) || [];
+            if (offers.length) node.installers = offers;
+            else if (!enginesLoading) {
+                // No offer is still an answer — say which kind of nothing it is.
+                node.installHint = engineData.unavailable
+                    ? 'catalog unavailable'
+                    : 'no engine template';
+            }
+            return node;
+        };
+
+        return [
+            hostRoot('mysql'),
+            hostRoot('postgresql'),
+            { id: 'eng:sqlite', kind: 'engine', engine: 'sqlite', label: ENGINE_META.sqlite.label, status: 'available', expandable: true },
+            { id: 'eng:docker', kind: 'engine', engine: 'docker', label: ENGINE_META.docker.label, status: 'available', expandable: true },
+            // Engines installed from the template catalog join the built-in roots
+            // rather than replacing them. They are leaves: each runs as its own
+            // service, and selecting one shows its state in the workspace.
+            ...engineData.installed.map((inst) => ({
+                id: `dbe:${engineInstanceKey(inst)}`,
+                kind: 'engine',
+                engine: engineBrandKey(inst) || 'database',
+                iconEntry: inst,
+                label: inst.name || inst.instance_name || inst.template_id,
+                status: engineTreeStatus(inst),
+                // The template's version is the engine's version — the only
+                // version any endpoint here reports. Host engines have none.
+                version: inst.template_version || null,
+                expandable: false,
+                instance: inst,
+            })),
+        ];
+    }, [status, engineData.installed, engineData.unavailable, enginesLoading, installersByProtocol]);
 
     // ─── lazy child loading ───────────────────────────────────
     const loadChildren = useCallback(async (node) => {
@@ -217,7 +281,17 @@ export default function Databases() {
             }
         }
         if (node.kind === 'app') {
-            const d = await api.getAppDatabases(node.appId);
+            // An app with nothing to introspect answers 400 ("not a Docker app",
+            // no compose to read). That is a fact about the app, not a failure to
+            // read it — the row must say "No databases", not turn red. Anything
+            // else (auth, network, a broken route) really is a failure.
+            let d;
+            try {
+                d = await api.getAppDatabases(node.appId);
+            } catch (err) {
+                if (err.status === 400) return [];
+                throw err;
+            }
             return (d.databases || []).map((db, i) => ({
                 // engine = the brand (mysql/postgresql) so the row shows the right
                 // brand icon/tint; the connection is still routed over docker exec.
@@ -465,6 +539,12 @@ export default function Databases() {
                         { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
+                if (node.installers?.length) {
+                    return [
+                        { label: `Install ${node.label}…`, icon: Download, onClick: () => startInstall(node) },
+                        { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                    ];
+                }
                 return [{ label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'database': {
                 const actions = [
@@ -542,8 +622,9 @@ export default function Databases() {
         onToggle: toggle,
         onActivate: activate,
         onContext: openContext,
+        onInstall: startInstall,
         onCreateChild: (node) => setModal({ type: node.engine === 'mysql' ? 'mysql-db' : 'pg-db' }),
-    }), [toggle]); // eslint-disable-line react-hooks/exhaustive-deps
+    }), [toggle, startInstall]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div className="page-container page-container--full-bleed db-explorer">
@@ -599,7 +680,7 @@ export default function Databases() {
                                     <Server size={14} aria-hidden="true" /> PostgreSQL user
                                 </button>
                                 <div className="dbx-menu-sep" />
-                                <button type="button" role="menuitem" onClick={() => { setCatalogOpen(true); setShowNewMenu(false); }}>
+                                <button type="button" role="menuitem" onClick={() => { openCatalog(); setShowNewMenu(false); }}>
                                     <Layers size={14} aria-hidden="true" /> Install a database engine…
                                 </button>
                             </div>
@@ -653,9 +734,17 @@ export default function Databases() {
                                         <button
                                             type="button"
                                             className="dbx-tree-install"
-                                            onClick={() => setCatalogOpen(true)}
+                                            onClick={() => openCatalog()}
                                         >
                                             <Layers size={14} aria-hidden="true" /> Install a database engine
+                                            {engineData.catalog.length > 0 && (
+                                                <span
+                                                    className="dbx-tree-install-count"
+                                                    title={`${engineData.catalog.length} engines in the catalog`}
+                                                >
+                                                    {engineData.catalog.length}
+                                                </span>
+                                            )}
                                         </button>
                                     )}
                                 </>
@@ -833,7 +922,7 @@ export default function Databases() {
                     status={status}
                     onClose={() => setModal(null)}
                     onCreated={onModalCreated}
-                    onInstallEngine={() => setCatalogOpen(true)}
+                    onInstallEngine={() => openCatalog()}
                 />
             )}
             {modal?.type === 'mysql-user' && <CreateMySQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
@@ -846,6 +935,7 @@ export default function Databases() {
                 catalog={engineData.catalog}
                 installed={engineData.installed}
                 families={engineData.families}
+                presetQuery={catalogQuery}
                 loading={enginesLoading}
                 unavailable={engineData.unavailable}
                 onSynced={loadEngines}

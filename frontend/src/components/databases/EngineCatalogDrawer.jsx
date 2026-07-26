@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Layers, Check, Download, Loader2, PackageX, ShieldAlert, RefreshCw, ChevronRight,
@@ -119,6 +119,10 @@ export default function EngineCatalogDrawer({
     families: providedFamilies = null,
     loading = false,
     unavailable = false,
+    // Seeds the search box each time the drawer opens, so a caller that already
+    // knows which engine you asked for (an "Install" on a tree row) doesn't make
+    // you find it again. Empty is the normal case: browse everything.
+    presetQuery = '',
     onPick,
     onSynced,
 }) {
@@ -126,6 +130,15 @@ export default function EngineCatalogDrawer({
     const [query, setQuery] = useState('');
     const [family, setFamily] = useState(null);
     const [syncing, setSyncing] = useState(false);
+
+    // Only on open/preset change — typing while open must not be overwritten. A
+    // scoped open also drops a family filter left over from a previous visit,
+    // which would otherwise hide the very engine the caller asked for.
+    useEffect(() => {
+        if (!open) return;
+        setQuery(presetQuery);
+        if (presetQuery) setFamily(null);
+    }, [open, presetQuery]);
 
     const families = useMemo(
         () => (providedFamilies?.length ? providedFamilies : familiesOf(catalog)),
