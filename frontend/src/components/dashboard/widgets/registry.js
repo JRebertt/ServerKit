@@ -13,6 +13,7 @@ import {
     BarChart3,
     CheckCircle2,
     CircleDashed,
+    Clock,
     Cpu,
     FileText,
     History,
@@ -216,6 +217,22 @@ export const CORE_WIDGET_TYPES = [
         defaultCfg: {
             title: 'Host details',
             resource: '$server',
+        },
+    },
+    {
+        id: 'clock',
+        name: 'Clock',
+        icon: Clock,
+        cat: 'Utility',
+        desc: 'Current time, for a wall display or a second timezone',
+        w: 3,
+        h: 2,
+        min: [2, 2],
+        defaultCfg: {
+            title: '',
+            timezone: '',
+            showDate: true,
+            showSeconds: true,
         },
     },
     {

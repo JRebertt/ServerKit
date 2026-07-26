@@ -6,7 +6,7 @@
  * may throw: `WidgetBody` wraps each one in a boundary so one bad widget can
  * never take the grid down with it.
  */
-import { Component, useEffect, useId, useMemo, useRef } from 'react';
+import { Component, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
     Activity,
     Archive,
@@ -760,6 +760,53 @@ function WNote({ cfg }) {
 
 /* --------------------------------------------------------------- dispatch */
 
+/* ------------------------------------------------------------------- clock */
+
+/**
+ * Wall clock. Ticks locally rather than polling: the time between two server
+ * samples is not interesting, and a widget that re-fetches every second to
+ * print a number the browser already knows would be silly.
+ *
+ * `cfg.timezone` is an IANA name; empty means this browser's zone.
+ */
+function WClock({ cfg }) {
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    const zone = cfg.timezone || undefined;
+    let time;
+    let date;
+    let label;
+    try {
+        time = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            ...(cfg.showSeconds === false ? {} : { second: '2-digit' }),
+            hour12: false,
+            timeZone: zone,
+        }).format(now);
+        date = new Intl.DateTimeFormat('en-GB', {
+            weekday: 'short', day: 'numeric', month: 'short', timeZone: zone,
+        }).format(now);
+        label = zone || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    } catch {
+        // An invalid IANA name should not blank the widget.
+        return <Empty>{`Unknown timezone “${cfg.timezone}”.`}</Empty>;
+    }
+
+    return (
+        <div className="skw-clock">
+            <div className="skw-clock__time mono">{time}</div>
+            {cfg.showDate !== false && <div className="skw-clock__date">{date}</div>}
+            <div className="skw-clock__zone mono">{label.replace(/_/g, ' ')}</div>
+        </div>
+    );
+}
+
 const CORE_RENDERERS = {
     stat: WStat,
     timeseries: WTimeseries,
@@ -773,6 +820,7 @@ const CORE_RENDERERS = {
     feed: WFeed,
     actions: WActions,
     specs: WSpecs,
+    clock: WClock,
     note: WNote,
 };
 

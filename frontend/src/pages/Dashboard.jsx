@@ -32,15 +32,6 @@ const REFRESH_OPTIONS = [
     { label: '1m', value: 60 },
 ];
 
-function formatUptime(seconds) {
-    if (!seconds) return { days: 0, hours: 0, minutes: 0 };
-    return {
-        days: Math.floor(seconds / 86400),
-        hours: Math.floor((seconds % 86400) / 3600),
-        minutes: Math.floor((seconds % 3600) / 60),
-    };
-}
-
 const Dashboard = () => {
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
@@ -292,11 +283,13 @@ const Dashboard = () => {
     };
 
     // ---- derived display ---------------------------------------------------
+    // IP, kernel and uptime used to live in a header strip above the board.
+    // That strip is gone — the controls are one row now — and those facts are
+    // the Host details widget, which can be placed, sized and pointed at
+    // whichever server you like. The clock is its own widget for the same
+    // reason. Only what the bar itself still needs is derived here.
     const activeSysInfo = isRemote ? remoteSystemInfo : systemInfo;
     const hostname = metrics?.system?.hostname || activeSysInfo?.hostname || 'server';
-    const kernelVersion = metrics?.system?.kernel || activeSysInfo?.kernel || '-';
-    const ipAddress = metrics?.system?.ip_address || activeSysInfo?.ip_address || '-';
-    const uptime = formatUptime(localUptime ?? metrics?.system?.uptime_seconds);
     const isConnected = isRemote ? !!remoteMetrics : !!localMetrics;
     const displayTime = localTime
         ? localTime.toLocaleTimeString('en-GB', { hour12: false })
@@ -345,84 +338,6 @@ const Dashboard = () => {
     // the page no longer reserves a right-hand gutter for it.
     return (
         <div className="page-container dashboard-page">
-            {/* Host identity — which machine the board's $server variable points at */}
-            <div className="top-bar">
-                <div className="server-identity">
-                    {/* A chevron that opens a menu of one is just noise — most
-                        installs manage a single host, so show the name plainly
-                        until there is actually something to switch to. */}
-                    {servers.length < 2 ? (
-                        <span className="srv-switch srv-switch--static">
-                            <span className="srv-switch__name">{hostname}</span>
-                        </span>
-                    ) : (
-                    <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
-                        <PopoverTrigger asChild>
-                            <button
-                                type="button"
-                                className={`srv-switch${serverMenuOpen ? ' srv-switch--open' : ''}`}
-                                aria-label="Switch server"
-                            >
-                                <span className="srv-switch__name">{hostname}</span>
-                                <ChevronDown size={18} className="srv-switch__chev" aria-hidden="true" />
-                            </button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" sideOffset={7} className="env-menu">
-                            <div className="env-menu__head">Connected servers · {servers.length}</div>
-                            {servers.map((server) => {
-                                const online = server.status === 'online';
-                                return (
-                                    <button
-                                        type="button"
-                                        key={server.id}
-                                        className="env-opt"
-                                        onClick={() => { handleServerChange(server.id); setServerMenuOpen(false); }}
-                                    >
-                                        <span
-                                            className={`env-opt__dot env-opt__dot--${online ? 'online' : 'offline'}`}
-                                            aria-hidden="true"
-                                        ></span>
-                                        <span className="env-opt__body">
-                                            <span className="env-opt__name">{server.name}</span>
-                                            <span className="env-opt__meta">
-                                                {server.group_name || (server.is_local ? 'local' : server.id)}
-                                                {' · '}
-                                                {online ? 'online' : 'offline'}
-                                            </span>
-                                        </span>
-                                        {server.id === selectedServer.id && (
-                                            <span className="env-opt__check" aria-hidden="true"><Check size={15} /></span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </PopoverContent>
-                    </Popover>
-                    )}
-                    <div className="server-details">
-                        <span className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`} role="status">
-                            <span className="conn-status__dot" aria-hidden="true"></span>
-                            {isConnected ? 'Live' : 'Reconnecting'}
-                        </span>
-                        <span className="detail-separator">·</span>
-                        <span>IP: {ipAddress}</span>
-                        <span className="detail-separator">·</span>
-                        <span>KERNEL: {kernelVersion}</span>
-                        <span className="detail-separator">·</span>
-                        <span>
-                            UPTIME: {uptime.days}d {String(uptime.hours).padStart(2, '0')}h{' '}
-                            {String(uptime.minutes).padStart(2, '0')}m
-                        </span>
-                    </div>
-                </div>
-                <div className="top-bar-right">
-                    <div className="clock-widget">
-                        <span className="clock-time">{displayTime}</span>
-                        <span className="clock-zone">{metrics?.time?.timezone_id || 'UTC'}</span>
-                    </div>
-                </div>
-            </div>
-
             {/* Extension slot: widgets contributed to the top of the dashboard */}
             <PluginSlot name="dashboard.top" />
 
@@ -482,6 +397,59 @@ const Dashboard = () => {
                 </div>
 
                 <div className="skw-bar__ctl">
+                    {/* Which machine the board's $server variable points at.
+                        A chevron opening a menu of one is noise, so with a
+                        single host this is a plain readout. */}
+                    {servers.length < 2 ? (
+                        <span className="skw-varpick skw-varpick--static">
+                            <span className="skw-varpick__k mono">server</span>
+                            <span className="skw-varpick__v">{hostname}</span>
+                        </span>
+                    ) : (
+                        <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className={`skw-varpick${serverMenuOpen ? ' is-open' : ''}`}
+                                    aria-label="Switch server"
+                                >
+                                    <span className="skw-varpick__k mono">server</span>
+                                    <span className="skw-varpick__v">{selectedServer.name || hostname}</span>
+                                    <ChevronDown size={13} aria-hidden="true" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" sideOffset={7} className="env-menu">
+                                <div className="env-menu__head">Dashboard variable · $server</div>
+                                {servers.map((server) => {
+                                    const online = server.status === 'online';
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={server.id}
+                                            className="env-opt"
+                                            onClick={() => { handleServerChange(server.id); setServerMenuOpen(false); }}
+                                        >
+                                            <span
+                                                className={`env-opt__dot env-opt__dot--${online ? 'online' : 'offline'}`}
+                                                aria-hidden="true"
+                                            ></span>
+                                            <span className="env-opt__body">
+                                                <span className="env-opt__name">{server.name}</span>
+                                                <span className="env-opt__meta">
+                                                    {server.group_name || (server.is_local ? 'local' : server.id)}
+                                                    {' · '}
+                                                    {online ? 'online' : 'offline'}
+                                                </span>
+                                            </span>
+                                            {server.id === selectedServer.id && (
+                                                <span className="env-opt__check" aria-hidden="true"><Check size={15} /></span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </PopoverContent>
+                        </Popover>
+                    )}
                     <SegControl
                         options={RANGES.map(([value, label]) => ({ value, label }))}
                         value={range}

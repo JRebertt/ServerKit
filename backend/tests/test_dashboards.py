@@ -323,6 +323,7 @@ RENDERER_CFG_KEYS = {
     'feed':       {'required': set(),                  'known': {'limit', 'title'}},
     'actions':    {'required': {'items'},              'known': {'items', 'title'}},
     'specs':      {'required': {'resource'},           'known': {'resource', 'title'}},
+    'clock':      {'required': set(),                  'known': {'timezone', 'showDate', 'showSeconds', 'title'}},
     'note':       {'required': set(),                  'known': {'text', 'title'}},
 }
 
