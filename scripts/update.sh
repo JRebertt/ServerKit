@@ -600,6 +600,10 @@ locate_python() {
     for c in python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v="$($c -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)"
+            # An EMPTY version means the binary/shim exists but can't actually
+            # execute Python — and an empty string would pass the sort checks
+            # below ("" sorts before everything). Reject it and move on.
+            [ -n "$v" ] || continue
             if printf '%s\n%s' "3.11" "$v" | sort -C -V && \
                printf '%s\n%s' "$v" "3.12" | sort -C -V; then
                 printf '%s' "$c"
@@ -815,6 +819,29 @@ atomic_switch() {
 }
 
 # ---------------------------------------------------------------------------
+# Consistent SQLite copy. A plain `cp` of the LIVE panel database races the
+# backend's own writes: the copy can capture half a transaction and come out
+# "database disk image is malformed" — which then sinks the migration in the
+# new slot, and silently poisons the pre-upgrade backup that was supposed to
+# be the safety net. The SQLite online backup API snapshots a consistent DB
+# even while the panel is writing. Python 3.11/3.12 is guaranteed by
+# pre-flight; without it we fail rather than fall back to a racy cp.
+# ---------------------------------------------------------------------------
+copy_sqlite_db() {
+    local src="$1" dest="$2" py
+    py="$(locate_python)" || { warn "No Python 3.11/3.12 available for a consistent DB snapshot"; return 1; }
+    "$py" - "$src" "$dest" <<'PYEOF'
+import sqlite3, sys
+src, dest = sys.argv[1], sys.argv[2]
+s = sqlite3.connect(src)
+d = sqlite3.connect(dest)
+s.backup(d)
+d.close()
+s.close()
+PYEOF
+}
+
+# ---------------------------------------------------------------------------
 # Backup
 # ---------------------------------------------------------------------------
 backup_current() {
@@ -827,7 +854,10 @@ backup_current() {
 
     if [ -f "$db_file" ]; then
         backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
-        run_or_dry cp "$db_file" "$backup_file"
+        # A torn backup is worse than none: it looks like a safety net but
+        # restores a malformed DB. Snapshot consistently or refuse to proceed.
+        run_or_dry copy_sqlite_db "$db_file" "$backup_file" \
+            || halt "Database backup failed — refusing to update without a safety net"
         good "Database backed up to $backup_file"
     else
         warn "No SQLite database at $db_file — skipping DB backup"
@@ -1019,20 +1049,28 @@ deploy_source() {
         return 0
     fi
 
-    # Preserve .env and database across rewrites.
-    local tmp_env tmp_db
+    # Preserve .env and database across rewrites. The DB snapshot must be
+    # consistent (online backup API) — a racy cp of the live DB can come out
+    # malformed and sink the migration in the new slot.
+    local tmp_env tmp_db live_db
     tmp_env="$(mktemp)"
     tmp_db="$(mktemp)"
     cp "$INSTALL_DIR/.env" "$tmp_env" 2>/dev/null || true
-    cp "$INSTALL_DIR/backend/instance/serverkit.db" "$tmp_db" 2>/dev/null || true
+    live_db="$INSTALL_DIR/backend/instance/serverkit.db"
+    if [ -f "$live_db" ]; then
+        copy_sqlite_db "$live_db" "$tmp_db" \
+            || halt "Could not snapshot the live database consistently — aborting before any switch"
+    fi
 
     rm -rf "$target"
     git clone --depth 1 --branch "$branch" "https://github.com/${GITHUB_REPO}.git" "$target" \
         || halt "Failed to clone ${GITHUB_REPO}:$branch"
 
     cp "$tmp_env" "$target/.env" 2>/dev/null || true
-    mkdir -p "$target/backend/instance"
-    cp "$tmp_db" "$target/backend/instance/serverkit.db" 2>/dev/null || true
+    if [ -s "$tmp_db" ]; then
+        mkdir -p "$target/backend/instance"
+        cp "$tmp_db" "$target/backend/instance/serverkit.db" 2>/dev/null || true
+    fi
     rm -f "$tmp_env" "$tmp_db"
 
     preserve_installed_plugins "$INSTALL_DIR" "$target"
@@ -1072,10 +1110,15 @@ deploy_release() {
     fi
     [ -d "$unpacked" ] || halt "Release tarball layout is unrecognized"
 
-    # Preserve live state.
+    # Preserve live state. Same consistent-snapshot rule as deploy_source:
+    # never plain-cp the live DB into the new slot.
     cp "$INSTALL_DIR/.env" "$unpacked/.env" 2>/dev/null || true
-    mkdir -p "$unpacked/backend/instance"
-    cp "$INSTALL_DIR/backend/instance/serverkit.db" "$unpacked/backend/instance/serverkit.db" 2>/dev/null || true
+    local live_db="$INSTALL_DIR/backend/instance/serverkit.db"
+    if [ -f "$live_db" ]; then
+        mkdir -p "$unpacked/backend/instance"
+        copy_sqlite_db "$live_db" "$unpacked/backend/instance/serverkit.db" \
+            || halt "Could not snapshot the live database consistently — aborting before any switch"
+    fi
     preserve_installed_plugins "$INSTALL_DIR" "$unpacked"
 
     rm -rf "$target"
@@ -1464,9 +1507,22 @@ backup_docker_db() {
     local backup_file
     backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
     # The live DB lives in the serverkit-data volume at /app/instance inside
-    # the container, not in the source tree.
-    if docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null; then
+    # the container, not in the source tree. Prefer a consistent snapshot via
+    # the container's Python (SQLite online backup API) — a plain docker cp
+    # of the live file races the backend's writes and can come out malformed.
+    if docker exec -i serverkit-backend python - /app/instance/serverkit.db /tmp/.sk-snap.db <<'PYEOF' 2>/dev/null \
+       && docker cp serverkit-backend:/tmp/.sk-snap.db "$backup_file" 2>/dev/null; then
+import sqlite3, sys
+s = sqlite3.connect(sys.argv[1])
+d = sqlite3.connect(sys.argv[2])
+s.backup(d)
+d.close()
+s.close()
+PYEOF
+        docker exec serverkit-backend rm -f /tmp/.sk-snap.db 2>/dev/null || true
         good "Database backed up to $backup_file"
+    elif docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null; then
+        good "Database backed up to $backup_file (plain copy)"
     else
         warn "Could not copy DB from container — continuing (backend self-backs-up before migrating)"
     fi

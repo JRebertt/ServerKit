@@ -324,6 +324,61 @@ else
     bad "migrate_database probe-unavailable: rc=$mig_rc, expected rc 0 (warn + proceed)"
 fi
 rm -f "$STUB_BIN/flask"
+
+# --------------------------------------------------------------------------
+# T10d — copy_sqlite_db snapshots a LIVE database consistently via the SQLite
+# online backup API. A plain cp of a hot DB can capture half a transaction
+# and come out "database disk image is malformed" — the exact failure that
+# sank the migration on a real 1.7.35 -> 1.7.65 update.
+# --------------------------------------------------------------------------
+t="$WORK/t10d"; mkdir -p "$t"
+PY=""
+for c in python3.12 python3.11 python3; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
+        PY="$c"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    skip "copy_sqlite_db snapshots a live DB consistently (no working python3 on this host)"
+else
+    "$PY" - "$t/live.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
+c.executemany('INSERT INTO t(v) VALUES (?)', [('row%d' % i,) for i in range(1000)])
+c.commit(); c.close()
+PYEOF
+    snap_rc=0
+    (
+        set -Eeuo pipefail
+        DRY_RUN=0
+        copy_sqlite_db "$t/live.db" "$t/snap.db"
+    ) >/dev/null 2>&1 || snap_rc=$?
+    snap_check="$("$PY" - "$t/snap.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+print(c.execute('PRAGMA integrity_check').fetchone()[0],
+      c.execute('SELECT COUNT(*) FROM t').fetchone()[0])
+PYEOF
+    )"
+    if [ "$snap_rc" -eq 0 ] && [ "$snap_check" = "ok 1000" ]; then
+        ok "copy_sqlite_db snapshots a live DB consistently (integrity ok, all rows)"
+    else
+        bad "copy_sqlite_db: rc=$snap_rc, snapshot check=[$snap_check], expected 'ok 1000'"
+    fi
+fi
+
+# Contract: no racy plain-cp of the LIVE database anywhere in update.sh —
+# the pre-upgrade backup and both deploy paths must go through copy_sqlite_db.
+if ! grep -qF 'cp "$db_file" "$backup_file"' "$UPDATE_SH" \
+   && ! grep -qF 'cp "$INSTALL_DIR/backend/instance/serverkit.db"' "$UPDATE_SH"; then
+    ok "live SQLite DB is never plain-cp'd (consistent snapshot only)"
+else
+    bad "a racy plain-cp of the live serverkit.db is still in update.sh"
+fi
+
+# --------------------------------------------------------------------------
+# T11 — zero-downtime regression: reload_nginx_graceful must RELOAD a running
 # nginx and must NEVER stop it. Host nginx fronts every managed app, so a stop
 # during a panel update used to black out unrelated sites. A recording systemctl
 # stub (PATH-prepended ahead of the global stub) captures every invocation.
