@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     PanelLeftClose, PanelLeftOpen, Search, X, RefreshCw, Plus, Terminal,
     Archive, Database, Table2, Server, ChevronDown,
@@ -77,6 +77,7 @@ export default function Databases() {
     const toast = useToast();
     const { confirm } = useConfirm();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [status, setStatus] = useState(null);
     const [statusLoading, setStatusLoading] = useState(true);
@@ -112,6 +113,7 @@ export default function Databases() {
     const [blank, setBlank] = useState(null);
     const newMenuRef = useRef(null);
     const didAutoExpand = useRef(false);
+    const didDeepLink = useRef(false);
 
     useEffect(() => { localStorage.setItem(SIDEBAR_KEY, String(sidebarVisible)); }, [sidebarVisible]);
 
@@ -355,6 +357,35 @@ export default function Databases() {
             fetchChildren(first);
         }
     }, [statusLoading, roots, fetchChildren]);
+
+    // Deep link from the deploy console: `/databases?engine=<app_id>` selects
+    // the engine that run just installed, so finishing an install lands on the
+    // thing it created rather than the generic welcome pane. Runs once and then
+    // drops the parameter, so a reload or a later click on the tree isn't
+    // dragged back. Fail soft — an id that resolves to nothing is just ignored.
+    useEffect(() => {
+        if (didDeepLink.current || enginesLoading) return;
+        const raw = searchParams.get('engine');
+        if (!raw) return;
+        didDeepLink.current = true;
+
+        const wanted = Number(raw);
+        const node = Number.isFinite(wanted)
+            ? roots.find((r) => r.instance && engineInstanceKey(r.instance) === wanted)
+            : null;
+        if (node) {
+            // Don't let the "expand the first running engine" convenience fight
+            // an explicit destination.
+            didAutoExpand.current = true;
+            setSelectedNode(node);
+            setBlank({ kind: 'engine', instanceId: wanted });
+            setActiveTabId(null);
+        }
+
+        const next = new URLSearchParams(searchParams);
+        next.delete('engine');
+        setSearchParams(next, { replace: true });
+    }, [enginesLoading, roots, searchParams, setSearchParams]);
 
     // ─── tabs ─────────────────────────────────────────────────
     const reportStatus = useCallback((tabId, s) => {

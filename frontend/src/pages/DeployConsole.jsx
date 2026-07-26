@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, WifiOff } from 'lucide-react';
 import useDeployJobStream from '../hooks/useDeployJobStream';
+import useEngineInstallTarget from '../hooks/useEngineInstallTarget';
 import api from '../services/api';
 import PipelineStrip from '../components/deploy-console/PipelineStrip';
 import ConsoleToolbar from '../components/deploy-console/ConsoleToolbar';
@@ -83,6 +84,20 @@ export default function DeployConsole() {
     const [logFocus, setLogFocus] = useState(false);
 
     const status = job?.status || 'pending';
+
+    // Where to go back to when this run created something with a home of its
+    // own — today, a database engine. Null for every other kind of deploy.
+    const engineTarget = useEngineInstallTarget(job);
+
+    // Did this page watch the run finish, or did we arrive at one that was
+    // already over? Opening a week-old install from Deploy Activity is reading
+    // history, and history must never navigate away under the reader — so the
+    // timed return only arms for a run we actually saw in flight.
+    const [watchedRun, setWatchedRun] = useState(false);
+    useEffect(() => { setWatchedRun(false); }, [jobId]);
+    useEffect(() => {
+        if (job?.status === 'running' || job?.status === 'pending') setWatchedRun(true);
+    }, [job?.status]);
 
     // Live elapsed timer while running.
     useEffect(() => {
@@ -294,7 +309,12 @@ export default function DeployConsole() {
             )}
 
             {status === 'succeeded' && !logFocus && (
-                <SuccessBanner job={job} appUrl={appUrl} />
+                <SuccessBanner
+                    job={job}
+                    appUrl={appUrl}
+                    engineTarget={engineTarget}
+                    armAutoReturn={watchedRun}
+                />
             )}
 
             {!logFocus && (

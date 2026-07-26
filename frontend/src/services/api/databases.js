@@ -290,8 +290,12 @@ export async function launchManagedDbSso(id) {
 // the caller navigates to the deploy console like any other template install.
 //
 // Lifecycle (start / stop / uninstall) is app lifecycle: use the app endpoints.
-export async function getDatabaseEngines() {
-    return this.request('/databases/engines');
+//
+// `live` asks the backend to probe each installed engine's container. Callers
+// that only need identity and install variables (resolving which app an engine
+// is, say) pass false and skip a Docker round-trip per engine.
+export async function getDatabaseEngines(live = true) {
+    return this.request(`/databases/engines${live ? '' : '?live=false'}`);
 }
 
 export async function installDatabaseEngine(payload) {

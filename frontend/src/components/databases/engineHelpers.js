@@ -41,6 +41,18 @@ export function engineInstanceKey(instance) {
     return instance?.app_id ?? instance?.id ?? null;
 }
 
+// The database the engine was told to create on first boot, or null.
+//
+// The listing does not carry an `initial_database` field — it echoes the
+// non-secret install variables, and the engine block names which of them holds
+// the initial database. Reading it through `database_var` keeps this true for
+// any engine template rather than for the ones that happen to call it DB_NAME.
+export function engineInitialDatabase(instance) {
+    const name = engineMeta(instance).database_var;
+    const value = name ? instance?.variables?.[name] : null;
+    return value || instance?.initial_database || null;
+}
+
 // App/container status -> the tree's row status vocabulary. Deliberately
 // generous: the deploy pipeline and Docker each have their own words for
 // "not finished yet" and "broke".

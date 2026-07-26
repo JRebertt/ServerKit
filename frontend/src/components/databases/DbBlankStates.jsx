@@ -1,10 +1,15 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Loader2, Plus, Terminal, Table2, Activity, RefreshCw, ShieldAlert, Layers,
+    Loader2, Plus, Terminal, Table2, Activity, RefreshCw, ShieldAlert, Layers, Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import api from '../../services/api';
 import EngineGlyph from './EngineGlyph';
-import { engineLocation, engineMeta, engineTreeStatus, engineUnit, singular } from './engineHelpers';
+import {
+    engineInitialDatabase, engineInstanceKey, engineLocation, engineMeta,
+    engineTreeStatus, engineUnit, singular,
+} from './engineHelpers';
 
 // The three states the workspace can be in when there is nothing to show yet.
 // Each one names what is happening and offers the single next step, rather than
@@ -14,6 +19,24 @@ import { engineLocation, engineMeta, engineTreeStatus, engineUnit, singular } fr
 export function EngineInstallingPanel({ instance, onRefresh }) {
     const failed = engineTreeStatus(instance) === 'failed';
     const meta = engineMeta(instance);
+    const initialDb = engineInitialDatabase(instance);
+    const appId = engineInstanceKey(instance);
+
+    // The engine listing is a description of an Application, not of a run, so it
+    // carries no job id. Resolve it from the same /deployment-jobs feed the
+    // console reads — an engine install is an ordinary deployment and belongs in
+    // that surface, not in a bespoke progress view here. Fail soft: without an
+    // id the panel still points at Deploy Activity.
+    const [jobId, setJobId] = useState(instance?.deploy_job_id || null);
+    useEffect(() => {
+        if (instance?.deploy_job_id) { setJobId(instance.deploy_job_id); return undefined; }
+        if (appId == null) { setJobId(null); return undefined; }
+        let cancelled = false;
+        api.getDeploymentJobs({ appId, limit: 1 })
+            .then((data) => { if (!cancelled) setJobId(data?.jobs?.[0]?.id || null); })
+            .catch(() => { /* no job feed, no link */ });
+        return () => { cancelled = true; };
+    }, [appId, instance?.deploy_job_id]);
 
     return (
         <div className="dbx-blank">
@@ -44,9 +67,9 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
             )}
 
             <div className="dbx-blank__actions">
-                {instance.deploy_job_id && (
+                {jobId && (
                     <Button asChild size="sm">
-                        <Link to={`/deployments/${instance.deploy_job_id}`}>
+                        <Link to={`/deployments/${jobId}`}>
                             <Terminal size={14} aria-hidden="true" /> View install log
                         </Link>
                     </Button>
@@ -61,10 +84,10 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
                 )}
             </div>
 
-            {instance.initial_database && (
+            {initialDb && !failed && (
                 <p className="dbx-blank__note">
                     <Plus size={12} aria-hidden="true" />
-                    {instance.initial_database} will be created once the engine reports healthy
+                    {initialDb} will be created once the engine reports healthy
                 </p>
             )}
         </div>
@@ -77,6 +100,7 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
     const meta = engineMeta(instance);
     const address = engineLocation(instance);
     const unitOne = singular(engineUnit(instance));
+    const initialDb = engineInitialDatabase(instance);
 
     return (
         <div className="dbx-blank">
@@ -114,6 +138,15 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
                     </Button>
                 )}
             </div>
+            {/* The database the install was asked to seed. Naming it is what
+                makes arriving here from a finished deploy feel like landing on
+                the thing you created. */}
+            {initialDb && (
+                <p className="dbx-blank__note">
+                    <Database size={12} aria-hidden="true" />
+                    {initialDb} was created on install
+                </p>
+            )}
             {meta.protocol === 'none' && (
                 <p className="dbx-blank__note">
                     This engine has no browsable protocol — ServerKit runs it, but table browsing
