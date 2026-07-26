@@ -390,7 +390,7 @@ cat > "$STUB_BIN/pg_dump" <<EOF
 printf '%s\n' "\$1" > "$WORK/t10e/url.txt"
 out=""; prev=""
 for a in "\$@"; do [ "\$prev" = "-f" ] && out="\$a"; prev="\$a"; done
-: > "\$out"
+printf 'PGDMP fake contents\n' > "\$out"
 exit \${PG_DUMP_RC:-0}
 EOF
 chmod +x "$STUB_BIN/pg_dump"
@@ -421,6 +421,114 @@ else
     bad "backup_current proceeded despite a failed pg_dump (rc=0)"
 fi
 rm -f "$STUB_BIN/pg_dump"
+
+# --------------------------------------------------------------------------
+# T10f — backup verification helpers: a backup is only a safety net when it
+# is PROVEN valid. verify_sqlite_db accepts a real DB and rejects garbage;
+# verify_pg_dump rejects empty/truncated dumps.
+# --------------------------------------------------------------------------
+t="$WORK/t10f"; mkdir -p "$t"
+PY=""
+for c in python3.12 python3.11 python3; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
+        PY="$c"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    skip "verify_sqlite_db accepts valid DBs and rejects garbage (no working python3)"
+else
+    "$PY" - "$t/good.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(a)')
+c.commit(); c.close()
+PYEOF
+    printf 'garbage not a database' > "$t/bad.db"
+    v_rc=0
+    (
+        set -Eeuo pipefail
+        verify_sqlite_db "$t/good.db" && ! verify_sqlite_db "$t/bad.db"
+    ) >/dev/null 2>&1 || v_rc=$?
+    if [ "$v_rc" -eq 0 ]; then
+        ok "verify_sqlite_db accepts a valid DB and rejects a malformed one"
+    else
+        bad "verify_sqlite_db misclassified a fixture (rc=$v_rc)"
+    fi
+fi
+: > "$t/empty.dump"; printf 'PGDMP\nstuff\n' > "$t/full.dump"
+v_rc=0
+(
+    set -Eeuo pipefail
+    verify_pg_dump "$t/full.dump" && ! verify_pg_dump "$t/empty.dump" && ! verify_pg_dump "$t/missing.dump"
+) >/dev/null 2>&1 || v_rc=$?
+if [ "$v_rc" -eq 0 ]; then
+    ok "verify_pg_dump rejects empty/missing dumps (TOC check when pg_restore exists)"
+else
+    bad "verify_pg_dump misclassified a fixture (rc=$v_rc)"
+fi
+
+# --------------------------------------------------------------------------
+# T10g — a failed IN-PLACE PostgreSQL migration must trigger an automatic
+# restore from the verified pre-upgrade dump: the DB is shared, so without a
+# restore the half-migrated schema stays live against the old code.
+# --------------------------------------------------------------------------
+t="$WORK/t10g/serverkit-b"
+mkdir -p "$t/venv/bin" "$t/backend/instance"
+: > "$t/venv/bin/activate"
+printf 'DATABASE_URL=postgresql://user:secret@db.host:5432/serverkit\n' > "$t/.env"
+printf 'PGDMP fake contents\n' > "$WORK/t10g.dump"
+cat > "$STUB_BIN/flask" <<'EOF'
+#!/usr/bin/env bash
+exit 1   # migration blows up mid-flight
+EOF
+cat > "$STUB_BIN/pg_restore" <<EOF
+#!/usr/bin/env bash
+echo "\$@" > "$WORK/t10g/restore-args.txt"
+exit 0
+EOF
+chmod +x "$STUB_BIN/flask" "$STUB_BIN/pg_restore"
+mig_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0
+    PRE_UPGRADE_DUMP="$WORK/t10g.dump"
+    migrate_database "$t"
+) >/dev/null 2>&1 || mig_rc=$?
+if [ "$mig_rc" -ne 0 ] && grep -q -- "--clean --if-exists -d postgresql://user:secret@db.host:5432/serverkit $WORK/t10g.dump" "$WORK/t10g/restore-args.txt" 2>/dev/null; then
+    ok "failed in-place PostgreSQL migration auto-restores the pre-upgrade dump"
+else
+    bad "pg auto-restore: rc=$mig_rc, args=[$(cat "$WORK/t10g/restore-args.txt" 2>/dev/null)]"
+fi
+rm -f "$STUB_BIN/flask" "$STUB_BIN/pg_restore"
+
+# --------------------------------------------------------------------------
+# T10h — backup retention is capped (default 5, SERVERKIT_BACKUP_RETENTION
+# overrides) across ALL backup kinds: full-size DB copies pile up fast on
+# small VPSes (a real box carried 6.3G of stale backups on a 25G disk).
+# --------------------------------------------------------------------------
+t="$WORK/t10h"; mkdir -p "$t/backups"
+for i in 1 2 3 4 5 6; do
+    mkdir -p "$t/backups/serverkit-tree-2026010$i"
+    : > "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db"
+    : > "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.dump"
+    touch -d "2026-01-0$i 00:00" "$t/backups/serverkit-tree-2026010$i" \
+        "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db" \
+        "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.dump" 2>/dev/null || true
+done
+ret_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 BACKUP_DIR="$t/backups" SERVERKIT_BACKUP_RETENTION=3
+    cleanup
+) >/dev/null 2>&1 || ret_rc=$?
+left_trees=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name 'serverkit-tree-*' | wc -l)
+left_dbs=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name '*.db' | wc -l)
+left_dumps=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name '*.dump' | wc -l)
+if [ "$ret_rc" -eq 0 ] && [ "$left_trees" -eq 3 ] && [ "$left_dbs" -eq 3 ] && [ "$left_dumps" -eq 3 ]; then
+    ok "cleanup prunes all backup kinds to SERVERKIT_BACKUP_RETENTION (3 kept)"
+else
+    bad "retention: rc=$ret_rc, left trees=$left_trees db=$left_dbs dump=$left_dumps (want 3/3/3)"
+fi
 
 # --------------------------------------------------------------------------
 # T11 — zero-downtime regression: reload_nginx_graceful must RELOAD a running

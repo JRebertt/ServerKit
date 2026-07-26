@@ -730,6 +730,20 @@ migrate_database() {
             FLASK_ENV=production SERVERKIT_SKIP_BACKGROUND=1 flask db upgrade
         fi
     ); then
+        # PostgreSQL (and other external DBs): the migration ran IN PLACE
+        # against the SHARED database — there is no untouched slot copy to
+        # fall back on. Put the database back the way we found it using the
+        # verified pre-upgrade dump before reporting the failure.
+        if [ "$use_slot_db" != "1" ] && [ -n "${PRE_UPGRADE_DUMP:-}" ] && [ -f "${PRE_UPGRADE_DUMP:-}" ]; then
+            warn "Migration failed — restoring the pre-upgrade dump into the shared database..."
+            local pg_url
+            pg_url="$(pg_url_from_env "$work_dir")"
+            if command -v pg_restore >/dev/null 2>&1 \
+               && pg_restore --clean --if-exists -d "$pg_url" "$PRE_UPGRADE_DUMP"; then
+                halt "Database migration failed; the pre-upgrade dump was restored, so the database is back to its pre-update state. The previous installation is still active."
+            fi
+            halt "Database migration failed AND the automatic restore failed. Restore MANUALLY with: pg_restore --clean --if-exists -d '$pg_url' '$PRE_UPGRADE_DUMP' — the previous installation is still active."
+        fi
         halt "Database migration failed. The previous installation is still active."
     fi
     good "Database migrated"
@@ -843,6 +857,31 @@ s.close()
 PYEOF
 }
 
+# A backup that was never verified is a hope, not a safety net. Verify every
+# artifact BEFORE it is allowed to justify proceeding with the update.
+verify_sqlite_db() {
+    local db="$1" py
+    [ -s "$db" ] || return 1
+    py="$(locate_python)" || return 1
+    [ "$("$py" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])" "$db" 2>/dev/null || true)" = "ok" ]
+}
+verify_pg_dump() {
+    local dump="$1"
+    [ -s "$dump" ] || return 1
+    # Structural validation when pg_restore is available: list the dump's TOC.
+    if command -v pg_restore >/dev/null 2>&1; then
+        pg_restore -l "$dump" >/dev/null 2>&1 || return 1
+    fi
+    return 0
+}
+
+# Extract the DATABASE_URL from a slot's .env, normalized for libpq: strip
+# SQLAlchemy driver suffixes (postgresql+psycopg2://) and wrapping quotes.
+pg_url_from_env() {
+    grep -E '^DATABASE_URL=' "$1/.env" 2>/dev/null | head -1 | cut -d= -f2- \
+        | tr -d "\"'" | sed -E 's|^postgres(ql)?\+[a-z0-9]+://|postgresql://|'
+}
+
 # ---------------------------------------------------------------------------
 # Backup
 # ---------------------------------------------------------------------------
@@ -857,9 +896,17 @@ backup_current() {
     if [ -f "$db_file" ]; then
         backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
         # A torn backup is worse than none: it looks like a safety net but
-        # restores a malformed DB. Snapshot consistently or refuse to proceed.
-        run_or_dry copy_sqlite_db "$db_file" "$backup_file" \
-            || halt "Database backup failed — refusing to update without a safety net"
+        # restores a malformed DB. Snapshot consistently, VERIFY the result,
+        # and refuse to proceed without a proven-valid net. Failed or invalid
+        # artifacts are removed so they are never mistaken for a good backup.
+        if ! run_or_dry copy_sqlite_db "$db_file" "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup failed — refusing to update without a safety net"
+        fi
+        if [ "$DRY_RUN" != "1" ] && ! verify_sqlite_db "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup verification failed — refusing to update without a VALID safety net"
+        fi
         good "Database backed up to $backup_file"
     elif grep -qE '^DATABASE_URL=postgres' "$active/.env" 2>/dev/null; then
         # PostgreSQL: the DB is external and SHARED between slots — there is
@@ -869,13 +916,19 @@ backup_current() {
         backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).dump"
         command -v pg_dump >/dev/null 2>&1 \
             || halt "PostgreSQL install but pg_dump is unavailable — install postgresql-client so the update has a safety net"
-        # Strip SQLAlchemy driver suffixes (postgresql+psycopg2://) that
-        # libpq can't parse, and any wrapping quotes from the .env value.
         local pg_url
-        pg_url="$(grep -E '^DATABASE_URL=' "$active/.env" | head -1 | cut -d= -f2- \
-                  | tr -d "\"'" | sed -E 's|^postgres(ql)?\+[a-z0-9]+://|postgresql://|')"
-        run_or_dry pg_dump "$pg_url" -Fc -f "$backup_file" \
-            || halt "PostgreSQL backup failed — refusing to update without a safety net"
+        pg_url="$(pg_url_from_env "$active")"
+        if ! run_or_dry pg_dump "$pg_url" -Fc -f "$backup_file"; then
+            rm -f "$backup_file"
+            halt "PostgreSQL backup failed — refusing to update without a safety net"
+        fi
+        if [ "$DRY_RUN" != "1" ] && ! verify_pg_dump "$backup_file"; then
+            rm -f "$backup_file"
+            halt "PostgreSQL backup verification failed — refusing to update without a VALID safety net"
+        fi
+        # Remember the dump path so migrate_database can offer/perform an
+        # automatic restore if the in-place migration fails.
+        PRE_UPGRADE_DUMP="$backup_file"
         good "Database backed up to $backup_file"
     else
         warn "No SQLite database at $db_file — skipping DB backup"
@@ -1426,8 +1479,14 @@ cleanup() {
         return 0
     fi
 
-    prune_old_backups 'serverkit-tree-*'           10
-    prune_old_backups 'serverkit-pre-upgrade-*.db' 10
+    # Retention is capped (default 5, SERVERKIT_BACKUP_RETENTION overrides):
+    # pre-upgrade DB backups are full-size copies — on a small VPS, keeping
+    # 10 of them is itself a disk-filling time bomb (seen in the wild: 6.3G
+    # of stale backups on a 25G droplet).
+    local keep="${SERVERKIT_BACKUP_RETENTION:-5}"
+    prune_old_backups 'serverkit-tree-*'             "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.db'   "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.dump' "$keep"
 
     local new_version
     new_version="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo "unknown")"
@@ -1528,8 +1587,9 @@ backup_docker_db() {
     # the container, not in the source tree. Prefer a consistent snapshot via
     # the container's Python (SQLite online backup API) — a plain docker cp
     # of the live file races the backend's writes and can come out malformed.
-    if docker exec -i serverkit-backend python - /app/instance/serverkit.db /tmp/.sk-snap.db <<'PYEOF' 2>/dev/null \
-       && docker cp serverkit-backend:/tmp/.sk-snap.db "$backup_file" 2>/dev/null; then
+    local py snap_ok=0
+    for py in python python3; do
+        if docker exec -i serverkit-backend "$py" - /app/instance/serverkit.db /tmp/.sk-snap.db <<'PYEOF' 2>/dev/null; then
 import sqlite3, sys
 s = sqlite3.connect(sys.argv[1])
 d = sqlite3.connect(sys.argv[2])
@@ -1537,12 +1597,21 @@ s.backup(d)
 d.close()
 s.close()
 PYEOF
+            snap_ok=1
+            break
+        fi
+    done
+    if [ "$snap_ok" = "1" ] && docker cp serverkit-backend:/tmp/.sk-snap.db "$backup_file" 2>/dev/null; then
         docker exec serverkit-backend rm -f /tmp/.sk-snap.db 2>/dev/null || true
-        good "Database backed up to $backup_file"
-    elif docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null; then
-        good "Database backed up to $backup_file (plain copy)"
     else
-        warn "Could not copy DB from container — continuing (backend self-backs-up before migrating)"
+        docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null || true
+    fi
+    # Same rule as the host path: an unverified backup is not a safety net.
+    if [ -f "$backup_file" ] && verify_sqlite_db "$backup_file"; then
+        good "Database backed up to $backup_file"
+    else
+        rm -f "$backup_file"
+        halt "Could not obtain a VALID database backup from the container — refusing to update without a safety net"
     fi
 }
 
