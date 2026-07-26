@@ -269,6 +269,11 @@ class TestComposeUpStreaming:
         monkeypatch.setattr(ds.subprocess, 'Popen', fake_popen)
         monkeypatch.setattr(DockerService, '_compose_cmd_with_overlay',
                             classmethod(lambda cls, p, c=None: ['docker', 'compose']))
+        # Pin the compose flavour. The real probe shells out to
+        # `docker compose version`, so without this the assertion below passes
+        # only on a machine that happens to have a working Docker — everywhere
+        # else it silently fell back to v1 and the `--progress` check failed.
+        monkeypatch.setattr(DockerService, '_is_compose_v2', classmethod(lambda cls: True))
 
         got = []
         result = DockerService.compose_up_streaming('/srv/x', on_line=got.append, build=True)
@@ -278,6 +283,28 @@ class TestComposeUpStreaming:
         assert '--ansi' in captured['cmd'] and 'never' in captured['cmd']
         assert '--progress' in captured['cmd'] and 'plain' in captured['cmd']
         assert '--build' in captured['cmd']
+
+    def test_compose_v1_never_gets_the_v2_only_progress_flag(self, app, monkeypatch):
+        """v1 answers an unknown flag with its usage text and exit 1, which is
+        how every template install on a v1 host once failed. `--ansi` is
+        understood by both, `--progress` is not."""
+        import app.services.docker_service as ds
+        from app.services.docker_service import DockerService
+
+        captured = {}
+
+        def fake_popen(cmd, **kw):
+            captured['cmd'] = cmd
+            return _FakeProc(['done\n'], 0)
+
+        monkeypatch.setattr(ds.subprocess, 'Popen', fake_popen)
+        monkeypatch.setattr(DockerService, '_compose_cmd_with_overlay',
+                            classmethod(lambda cls, p, c=None: ['docker-compose']))
+        monkeypatch.setattr(DockerService, '_is_compose_v2', classmethod(lambda cls: False))
+
+        DockerService.compose_up_streaming('/srv/x', on_line=lambda _: None)
+        assert '--ansi' in captured['cmd']
+        assert '--progress' not in captured['cmd']
 
     def test_nonzero_exit_is_failure(self, app, monkeypatch):
         import app.services.docker_service as ds
