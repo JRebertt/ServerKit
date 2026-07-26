@@ -693,13 +693,18 @@ migrate_database() {
         # Fail fast with an actionable message when the SQLite slot copy is
         # corrupt, instead of dying deep inside app boot with "database disk
         # image is malformed". The sqlite3 CLI isn't guaranteed to be
-        # installed — probe via the venv's Python instead.
+        # installed — probe via the venv's Python instead. An EMPTY result
+        # means the probe itself couldn't run (no usable venv python) — that
+        # is not proof of corruption, so warn and let `flask db upgrade`
+        # surface any real problem rather than halting on a false positive.
         local integrity
         integrity="$("$venv/bin/python" -c \
             "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])" \
             "$slot_db" 2>/dev/null || true)"
-        if [ "$integrity" != "ok" ]; then
-            halt "SQLite database is corrupt (${integrity:-integrity check failed to run}). Repair or restore it from $BACKUP_DIR and re-run the update. The previous installation is still active."
+        if [ -n "$integrity" ] && [ "$integrity" != "ok" ]; then
+            halt "SQLite database is corrupt ($integrity). Repair or restore it from $BACKUP_DIR and re-run the update. The previous installation is still active."
+        elif [ -z "$integrity" ]; then
+            warn "Could not pre-check SQLite integrity (venv python unavailable) — proceeding"
         fi
     fi
     if ! (
