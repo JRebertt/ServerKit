@@ -49,7 +49,9 @@ WRITE_CASES = [
     ('post', '/api/v1/files/copy', {'json': {'src': '/tmp/x', 'dest': '/tmp/y'}}),
     ('post', '/api/v1/files/move', {'json': {'src': '/tmp/x', 'dest': '/tmp/y'}}),
     ('post', '/api/v1/files/chmod', {'json': {'path': '/tmp/x', 'mode': '755'}}),
+    ('post', '/api/v1/files/upload', {}),
     ('post', '/api/v1/files/s3/write', {'json': {'path': '/x', 'content': 'x'}}),
+    ('post', '/api/v1/files/s3/upload', {}),
     ('delete', '/api/v1/files/s3/delete?path=/x', {}),
 ]
 
@@ -102,6 +104,10 @@ READ_CASES = [
     '/api/v1/files/info?path=/tmp/x',
     '/api/v1/files/read?path=/tmp/x',
     '/api/v1/files/search?path=/tmp&query=x',
+    '/api/v1/files/disk-usage',
+    '/api/v1/files/disk-mounts',
+    '/api/v1/files/analyze?path=/tmp',
+    '/api/v1/files/type-breakdown?path=/tmp',
     '/api/v1/files/download?path=/tmp/x',
     '/api/v1/files/s3/browse?path=/',
     '/api/v1/files/s3/read?path=/x',

@@ -318,8 +318,10 @@ class LogService:
                 # No shell: list2cmdline() is cmd.exe-style quoting and does
                 # not protect against $(...)/backtick expansion under bash.
                 # grep runs as argv and the tail happens in Python instead.
+                # -F: the unit name is a literal string, not a regex — names
+                # like 'nginx.service' must not have '.' match any character.
                 result = run_privileged(
-                    ['grep', '-i', '--', service, filepath],
+                    ['grep', '-F', '-i', '--', service, filepath],
                     timeout=60,
                 )
             else:
@@ -333,7 +335,10 @@ class LogService:
                 if log_lines and log_lines[-1] == '':
                     log_lines.pop()  # trailing newline artifact
                 if service:
-                    log_lines = log_lines[-int(lines):]
+                    # Clamp like `tail -n`: -0 would slice as [0:] (all
+                    # lines) and a negative count would keep nearly all.
+                    tail_lines = max(0, int(lines))
+                    log_lines = log_lines[-tail_lines:] if tail_lines else []
                 return sourced_result(log_lines, 'syslog', filepath)
             else:
                 return {'success': False, 'error': result.stderr}
