@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Loader2, Plus, Terminal, Table2, Activity, RefreshCw, ShieldAlert, Layers, Database,
+    Loader2, Plus, Terminal, Table2, Activity, RefreshCw, ShieldAlert, Layers, Database, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api from '../../services/api';
@@ -157,10 +157,10 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
     );
 }
 
-// A database that exists but holds no tables/collections yet. The table builder
-// and dump import are deliberately out of scope for this round, so the honest
-// next step is the console.
-export function DatabaseEmptyPanel({ node, unit = 'tables', onOpenConsole }) {
+// A database that exists but holds no tables/collections yet. The two ways to
+// put something in it — build it column by column, or replay a dump — are the
+// primary actions; the console stays as the way to do anything else.
+export function DatabaseEmptyPanel({ node, unit = 'tables', onNewTable, onImport, onOpenConsole }) {
     const unitOne = singular(unit);
     return (
         <div className="dbx-blank">
@@ -169,11 +169,22 @@ export function DatabaseEmptyPanel({ node, unit = 'tables', onOpenConsole }) {
             </div>
             <h2 className="dbx-blank__title">No {unit} in {node?.label}</h2>
             <p className="dbx-blank__body">
-                The database is connected and empty. Create your first {unitOne} from the console.
+                The database is connected and empty. Build your first {unitOne}, import a dump,
+                or write the statement yourself in the console.
             </p>
             <div className="dbx-blank__actions">
+                {onNewTable && (
+                    <Button type="button" size="sm" onClick={onNewTable}>
+                        <Plus size={14} aria-hidden="true" /> New {unitOne}
+                    </Button>
+                )}
+                {onImport && (
+                    <Button type="button" size="sm" variant="outline" onClick={onImport}>
+                        <Download size={14} aria-hidden="true" /> Import dump
+                    </Button>
+                )}
                 {onOpenConsole && (
-                    <Button type="button" size="sm" onClick={onOpenConsole}>
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenConsole}>
                         <Terminal size={14} aria-hidden="true" /> Open SQL console
                     </Button>
                 )}

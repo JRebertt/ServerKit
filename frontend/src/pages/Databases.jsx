@@ -22,13 +22,15 @@ import ConfigTunerPanel from '../components/databases/ConfigTunerPanel';
 import {
     CreateDatabaseModal, CreateMySQLUserModal, CreatePostgreSQLUserModal,
 } from '../components/databases/modals';
+import CreateTableModal from '../components/databases/CreateTableModal';
+import ImportDumpModal from '../components/databases/ImportDumpModal';
 import EngineCatalogDrawer from '../components/databases/EngineCatalogDrawer';
 import EngineInstallDrawer from '../components/databases/EngineInstallDrawer';
 import {
     EngineInstallingPanel, EngineReadyPanel, DatabaseEmptyPanel,
 } from '../components/databases/DbBlankStates';
 import {
-    engineBrandKey, engineInstanceKey, engineTreeStatus, engineUnit,
+    engineBrandKey, engineInstanceKey, engineTreeStatus, engineUnit, singular,
 } from '../components/databases/engineHelpers';
 import { listTables, connKey, connLabel, quoteIdent, ENGINE_META } from '../components/databases/dbAdapter';
 
@@ -534,6 +536,27 @@ export default function Databases() {
         }
     }
 
+    // A table builder or a dump import changes what a database holds, but the
+    // node it happened to is not always the one that is selected — resolve it
+    // from the connection so the tree reloads the right branch.
+    const refreshConn = useCallback((conn) => {
+        if (!conn) return;
+        const key = connKey(conn);
+        childrenCache.forEach((kids) => {
+            if (!Array.isArray(kids)) return;
+            kids.forEach((n) => {
+                if (n.kind === 'database' && n.conn && connKey(n.conn) === key) refresh(n);
+            });
+        });
+    }, [childrenCache, refresh]);
+
+    // What a database node hands to the builder / importer so they open on the
+    // thing that was right-clicked instead of on the first database they find.
+    function dbPreset(node) {
+        if (node?.kind !== 'database' || !node.conn) return null;
+        return { conn: node.conn, engine: node.engine, label: node.label };
+    }
+
     function copyName(node) {
         navigator.clipboard?.writeText(node.label).then(
             () => toast.success('Copied name'),
@@ -579,9 +602,15 @@ export default function Databases() {
                 return [{ label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'database': {
                 const actions = [
+                    { label: `New ${singular(engineUnit(node))}`, icon: Plus, onClick: () => setModal({ type: 'new-table', preset: dbPreset(node) }) },
                     { label: 'Open SQL console', icon: Terminal, onClick: () => openConsole(node.conn, node.engine) },
                     { label: 'Refresh tables', icon: RefreshCw, onClick: () => refresh(node) },
                 ];
+                // Only host MySQL / PostgreSQL have a restore route; a SQLite
+                // file or a containerised database has nothing to import into.
+                if (node.conn?.dbType === 'mysql' || node.conn?.dbType === 'postgresql') {
+                    actions.splice(2, 0, { label: 'Import SQL dump…', icon: Download, onClick: () => setModal({ type: 'import', preset: dbPreset(node) }) });
+                }
                 if (node.engine === 'mysql' || node.engine === 'postgresql') {
                     // Processes live at the server/container level; the db node
                     // is just the natural place to reach them from.
@@ -695,6 +724,20 @@ export default function Databases() {
                                 >
                                     <Terminal size={14} aria-hidden="true" /> SQL console
                                     {!newConsoleConn && <span className="dbx-menu-hint">select a database</span>}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => { setModal({ type: 'new-table', preset: dbPreset(selectedNode) }); setShowNewMenu(false); }}
+                                >
+                                    <Table2 size={14} aria-hidden="true" /> Table or collection
+                                </button>
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => { setModal({ type: 'import', preset: dbPreset(selectedNode) }); setShowNewMenu(false); }}
+                                >
+                                    <Download size={14} aria-hidden="true" /> Import SQL dump…
                                 </button>
                                 <div className="dbx-menu-sep" />
                                 <button type="button" role="menuitem" disabled={engineState('mysql', status) !== 'active'} onClick={() => { setModal({ type: 'mysql-db' }); setShowNewMenu(false); }}>
@@ -846,6 +889,12 @@ export default function Databases() {
                                     <DatabaseEmptyPanel
                                         node={blank.node}
                                         unit={engineUnit(blank.node)}
+                                        onNewTable={() => setModal({ type: 'new-table', preset: dbPreset(blank.node) })}
+                                        onImport={
+                                            blank.node.conn?.dbType === 'mysql' || blank.node.conn?.dbType === 'postgresql'
+                                                ? () => setModal({ type: 'import', preset: dbPreset(blank.node) })
+                                                : null
+                                        }
                                         onOpenConsole={() => openConsole(blank.node.conn, blank.node.engine)}
                                     />
                                 )}
@@ -958,6 +1007,23 @@ export default function Databases() {
             )}
             {modal?.type === 'mysql-user' && <CreateMySQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
             {modal?.type === 'pg-user' && <CreatePostgreSQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
+            {modal?.type === 'new-table' && (
+                <CreateTableModal
+                    preset={modal.preset}
+                    engines={engineData.installed}
+                    isAdmin={isAdmin}
+                    onClose={() => setModal(null)}
+                    onCreated={(target) => refreshConn(target?.conn)}
+                />
+            )}
+            {modal?.type === 'import' && (
+                <ImportDumpModal
+                    preset={modal.preset}
+                    isAdmin={isAdmin}
+                    onClose={() => setModal(null)}
+                    onImported={(target) => refreshConn({ dbType: target.engine, name: target.name })}
+                />
+            )}
 
             {/* ─── Engine catalog + install ───────────────── */}
             <EngineCatalogDrawer
