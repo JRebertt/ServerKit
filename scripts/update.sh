@@ -649,7 +649,9 @@ require_venv() {
         # dependencies (and run the OLD flask binary for migrations), so a
         # venv bound to any other path must be rebuilt in place.
         local bound_path resolved_bound resolved_target
-        bound_path="$(sed -n 's/^VIRTUAL_ENV="\(.*\)"$/\1/p' "$target_dir/bin/activate" | head -1)"
+        # Matches both VIRTUAL_ENV="/path" (classic venv) and the unquoted
+        # export VIRTUAL_ENV=/path form; skips cygpath-style indirection.
+        bound_path="$(grep -m1 -oE 'VIRTUAL_ENV="?/[^")]+"?' "$target_dir/bin/activate" | cut -d= -f2- | tr -d '"')"
         # Compare RESOLVED paths: on a fresh install the symlink already points
         # at the only slot, so the baked path resolves to the target and the
         # prebuilt venv is genuinely usable (fast path). During an update it
