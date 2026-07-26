@@ -566,10 +566,19 @@ $skw-z-tv: 200;
     // Negative side margins cancel the padding so the series bleeds to the
     // frame edge rather than floating in a box (same trick as .sk-kpi__spark).
     &__spark {
+        // Takes the tile's leftover height rather than a fixed sliver, so a
+        // taller stat widget grows its trend line instead of banking dead
+        // space under the value. `min-height: 0` lets it shrink in a 2-row
+        // tile without pushing the meta row out.
         margin-top: auto;
         margin-left: -2px;
         margin-right: -2px;
         line-height: 0;
+        flex: 1 1 auto;
+        min-height: 34px;
+        display: flex;
+
+        > svg { flex: 1; }
     }
 }
 

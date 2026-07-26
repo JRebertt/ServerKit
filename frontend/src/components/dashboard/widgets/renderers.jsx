@@ -23,7 +23,7 @@ import {
     ShieldCheck,
     Terminal,
 } from 'lucide-react';
-import { Gauge, Pill, Sparkline } from '@/components/ds';
+import { Gauge, Pill } from '@/components/ds';
 import { getWidgetType } from './registry';
 import {
     aggregate,
@@ -206,7 +206,11 @@ function WStat({ cfg, ctx }) {
             </div>
             {cfg.spark !== false && (
                 <div className="skw-stat__spark">
-                    <Sparkline data={series} color={color} width={220} height={40} />
+                    {/* WidgetChart, not ds/Sparkline: the latter renders a
+                        fixed-width SVG (width={220}), so in a tile of any other
+                        size the trend line stopped short and left dead space to
+                        its right. This one is viewBox-based and fills. */}
+                    <WidgetChart series={[series]} colors={[color]} fill grid={false} height="100%" />
                 </div>
             )}
         </div>
