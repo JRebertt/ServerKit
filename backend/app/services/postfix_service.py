@@ -131,12 +131,18 @@ mailbox_size_limit = 0
     def install(cls, hostname: str = None) -> Dict:
         """Install Postfix."""
         try:
-            # Pre-seed debconf to avoid interactive prompts
+            if hostname and not re.match(r'^[a-zA-Z0-9.-]+$', hostname):
+                return {'success': False, 'error': 'Invalid hostname format'}
+
+            # Pre-seed debconf to avoid interactive prompts. The values are
+            # piped via stdin so no user input is ever interpolated into a
+            # shell command string (GHSA-mc93-rc3x-fpgq).
             if PackageManager.detect() == 'apt':
-                run_privileged(['bash', '-c',
-                    'echo "postfix postfix/mailname string ' + (hostname or 'localhost') + '" | debconf-set-selections'])
-                run_privileged(['bash', '-c',
-                    'echo "postfix postfix/main_mailer_type select Internet Site" | debconf-set-selections'])
+                debconf_lines = (
+                    f'postfix postfix/mailname string {hostname or "localhost"}\n'
+                    'postfix postfix/main_mailer_type select Internet Site\n'
+                )
+                run_privileged(['debconf-set-selections'], input=debconf_lines)
 
             result = PackageManager.install(['postfix'], timeout=300)
             if result.returncode != 0:
