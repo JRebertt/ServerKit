@@ -1195,6 +1195,34 @@ class DatabaseService:
         except Exception:
             return []
 
+    # Which CLI a DB container actually ships. MariaDB 11 dropped the `mysql`
+    # symlink in favour of `mariadb`, so a hardcoded 'mysql' fails outright with
+    # "executable file not found in $PATH" against any modern MariaDB image —
+    # including the mariadb:11.4 our own engine template installs. Resolved once
+    # per container and remembered; the answer cannot change while it runs.
+    _docker_client_cache = {}
+
+    @staticmethod
+    def _docker_db_client(container_name):
+        """Name of the mysql-compatible client available inside a container."""
+        cached = DatabaseService._docker_client_cache.get(container_name)
+        if cached:
+            return cached
+        for client in ('mariadb', 'mysql'):
+            try:
+                probe = subprocess.run(
+                    ['docker', 'exec', container_name, client, '--version'],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if probe.returncode == 0:
+                    DatabaseService._docker_client_cache[container_name] = client
+                    return client
+            except Exception:
+                continue
+        # Nothing answered — keep the historic default so the caller's error
+        # message stays the familiar one.
+        return 'mysql'
+
     @staticmethod
     def docker_mysql_execute(container_name, query, database=None, user='root', password=None):
         """Execute a MySQL query inside a Docker container."""
@@ -1205,7 +1233,7 @@ class DatabaseService:
             if password:
                 cmd.extend(['-e', f'MYSQL_PWD={password}'])
 
-            cmd.extend([container_name, 'mysql', '-u', user])
+            cmd.extend([container_name, DatabaseService._docker_db_client(container_name), '-u', user])
 
             if database:
                 cmd.extend(['-D', database])
@@ -1315,7 +1343,7 @@ class DatabaseService:
             # Use MYSQL_PWD env var to avoid passing password on CLI
             if password:
                 cmd.extend(['-e', f'MYSQL_PWD={password}'])
-            cmd.extend([container_name, 'mysql', '-u', user])
+            cmd.extend([container_name, DatabaseService._docker_db_client(container_name), '-u', user])
             cmd.extend([
                 '-D', database,
                 '-e', query,
