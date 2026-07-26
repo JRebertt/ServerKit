@@ -13,18 +13,20 @@ the same ones at runtime):
   floating rows or holes above a widget.
 * Every widget respects its type's minimum size from the widget registry.
 
-``cfg`` is free-form per widget type and the backend never interprets it — it is
-stored and handed back verbatim. The shapes used here mirror the widget table in
+``cfg`` is free-form per widget type and the backend does not interpret it —
+it is stored and handed back verbatim. The one exception is ``_repair_board``,
+which rewrites config keys that no renderer reads any more (see below); it never
+invents config the user did not set. The shapes used here mirror the widget table in
 the plan contract:
 
 * ``stat``       ``{metric, agg, resource, thresholds}``
-* ``timeseries`` ``{metrics: [...], resource}``
+* ``timeseries`` ``{series: [{resource, metric}, ...], legend, fill}``
 * ``gauge``      ``{metric, resource, thresholds}``
-* ``topn``       ``{metric, source, limit}``
+* ``topn``       ``{metric, limit}``
 * ``table``      ``{source: 'apps'|'servers'|'containers'|'deploys', limit}``
-* ``logs``       ``{resource, lines}``
+* ``logs``       ``{source, path, containerId, level, lines}``
 * ``deploys`` / ``alerts`` / ``status`` / ``feed``  ``{limit, …}``
-* ``actions``    ``{actions: [...]}``
+* ``actions``    ``{items: [...]}``  (keys the renderer can route)
 * ``specs``      ``{resource}``
 
 ``resource: '$server'`` is the server variable the dashboard topbar binds, so a
@@ -169,14 +171,105 @@ def seed_defaults(user_id):
     return created
 
 
+# Widget configs that early boards were seeded with, mapped to the keys the
+# renderers actually read. Fixing DEFAULT_BOARDS only helps users who have never
+# opened the dashboard — everyone else already has rows in the database, and
+# seeding never runs again for them. So repair on read.
+#
+# Each entry: (old key, new key, converter). A converter of None copies through.
+_CFG_RENAMES = {
+    # `metrics: ['cpu','ram']` -> `series: [{resource, metric}, ...]`
+    'timeseries': [('metrics', 'series',
+                    lambda v, cfg: [{'resource': cfg.get('resource', '$server'),
+                                     'metric': m} for m in v if isinstance(m, str)])],
+    # `actions: [...]` -> `items: [...]`
+    'actions': [('actions', 'items', None)],
+}
+
+# Shortcut keys the quick-actions widget can resolve (ACTIONS in renderers.jsx).
+# Early boards seeded 'new-app'/'deploy'/'backup', none of which route anywhere.
+_QUICK_ACTIONS = {
+    'servers', 'services', 'docker', 'terminal', 'deploys', 'databases',
+    'backups', 'monitoring', 'domains', 'files', 'security', 'jobs',
+}
+_QUICK_ACTION_ALIASES = {'new-app': 'services', 'deploy': 'deploys', 'backup': 'backups'}
+_DEFAULT_QUICK_ACTIONS = ['services', 'docker', 'terminal', 'backups']
+
+
+
+
+
+def _repair_widget_cfg(widget):
+    """Bring one stored widget's cfg up to the current renderer contract.
+
+    Returns True when something changed. Deliberately conservative: it renames
+    known-dead keys and drops unroutable shortcuts, and never touches config the
+    renderers understand.
+    """
+    if not isinstance(widget, dict):
+        return False
+    cfg = widget.get('cfg')
+    if not isinstance(cfg, dict):
+        return False
+
+    changed = False
+    for old, new, convert in _CFG_RENAMES.get(widget.get('type'), []):
+        if old in cfg and new not in cfg:
+            value = cfg.pop(old)
+            cfg[new] = convert(value, cfg) if convert else value
+            changed = True
+
+    if widget.get('type') == 'actions':
+        items = cfg.get('items')
+        mapped = [_QUICK_ACTION_ALIASES.get(i, i)
+                  for i in (items or []) if isinstance(i, str)]
+        kept = [i for i in dict.fromkeys(mapped) if i in _QUICK_ACTIONS]
+        # An empty shortcut list renders "No actions selected", which is a
+        # useless thing to greet someone with. If nothing survived (or nothing
+        # was ever set), fall back to the shipped four.
+        if not kept:
+            kept = _DEFAULT_QUICK_ACTIONS[:]
+        if kept != items:
+            cfg['items'] = kept
+            changed = True
+
+    return changed
+
+
+def _repair_board(board):
+    """Bring one board's stored widgets up to the current renderer contract.
+
+    Works on a deep copy on purpose. A JSON column mutated in place looks
+    unchanged to SQLAlchemy, so no UPDATE is emitted — and the commit then
+    expires the instance, which reloads the ORIGINAL rows and silently undoes
+    the repair. Copying first is what makes the change both detected and kept.
+    """
+    widgets = copy.deepcopy(board.widgets or [])
+    # Only dead config is rewritten. A missing `title` is NOT repaired here —
+    # writing a title into config the user never set would break the promise
+    # that a widget's cfg round-trips verbatim. The frame derives a display
+    # title instead (deriveWidgetTitle in the frontend registry).
+    changed = any([_repair_widget_cfg(w) for w in widgets])
+
+    if not changed:
+        return False
+    board.widgets = widgets
+    return True
+
+
 def get_boards_for_user(user_id):
     """Every board owned by this user, seeding the shipped defaults on the
-    first read for a user who has none."""
+    first read for a user who has none, and repairing configs that predate the
+    current renderer contract."""
     boards = (DashboardBoard.query
               .filter_by(user_id=user_id)
               .order_by(DashboardBoard.position, DashboardBoard.id)
               .all())
     if boards:
+        # Not `any(...)`: it short-circuits, so only the first repairable board
+        # would ever be fixed.
+        if [_repair_board(b) for b in boards].count(True):
+            db.session.commit()
         return boards
     seed_defaults(user_id)
     return (DashboardBoard.query

@@ -15,7 +15,7 @@ import EmptyState from '../components/EmptyState';
 import PluginSlot from '../components/PluginSlot';
 import { DashGrid } from '../components/dashboard/grid/DashGrid';
 import { WidgetLibrary } from '../components/dashboard/grid/WidgetLibrary';
-import { WidgetInspector } from '../components/dashboard/grid/WidgetInspector';
+import { WidgetEditor } from '../components/dashboard/grid/WidgetEditor';
 import { WidgetFullscreen } from '../components/dashboard/grid/WidgetFullscreen';
 import {
     compact, findFreeSpot, nextWidgetId, pushDown,
@@ -341,11 +341,21 @@ const Dashboard = () => {
         );
     }
 
+    // The widget editor is a drawer over the board now, not a docked panel, so
+    // the page no longer reserves a right-hand gutter for it.
     return (
-        <div className={`page-container dashboard-page${edit && selectedWidget ? ' skw-ins-open' : ''}`}>
+        <div className="page-container dashboard-page">
             {/* Host identity — which machine the board's $server variable points at */}
             <div className="top-bar">
                 <div className="server-identity">
+                    {/* A chevron that opens a menu of one is just noise — most
+                        installs manage a single host, so show the name plainly
+                        until there is actually something to switch to. */}
+                    {servers.length < 2 ? (
+                        <span className="srv-switch srv-switch--static">
+                            <span className="srv-switch__name">{hostname}</span>
+                        </span>
+                    ) : (
                     <Popover open={serverMenuOpen} onOpenChange={setServerMenuOpen}>
                         <PopoverTrigger asChild>
                             <button
@@ -388,6 +398,7 @@ const Dashboard = () => {
                             })}
                         </PopoverContent>
                     </Popover>
+                    )}
                     <div className="server-details">
                         <span className={`conn-status conn-status--${isConnected ? 'live' : 'down'}`} role="status">
                             <span className="conn-status__dot" aria-hidden="true"></span>
@@ -573,10 +584,11 @@ const Dashboard = () => {
                 />
             )}
             {edit && selectedWidget && (
-                <WidgetInspector
+                <WidgetEditor
                     widget={selectedWidget}
                     type={selectedType}
                     resources={resources}
+                    ctx={ctx}
                     onChange={updateWidget}
                     onClose={() => setSelectedId(null)}
                     onDuplicate={() => duplicateWidget(selectedWidget)}

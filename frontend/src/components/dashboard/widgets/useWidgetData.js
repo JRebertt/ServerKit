@@ -419,15 +419,15 @@ export function useLogTail(cfg = {}, tick) {
             return { label: target, lines: text.split('\n') };
         }
 
-        let path = target;
-        if (!path) {
-            const files = await api.getLogFiles().then((d) => (Array.isArray(d?.logs) ? d.logs : []));
-            if (!files.length) return { label: '', lines: [] };
-            path = files[0].path;
-        }
-        const result = await api.readLog(path, lineCount);
+        // Nothing configured: say so rather than guessing. This used to grab
+        // whatever `getLogFiles()` listed first, which is typically a system
+        // log the panel can't read without a password — so a freshly seeded
+        // dashboard greeted people with "sudo: a password is required".
+        if (!target) return { unconfigured: true, label: '', lines: [] };
+
+        const result = await api.readLog(target, lineCount);
         if (result && result.success === false) throw new Error(result.error || 'Could not read log file');
-        return { label: path, lines: Array.isArray(result?.lines) ? result.lines : [] };
+        return { label: target, lines: Array.isArray(result?.lines) ? result.lines : [] };
     });
 
     const lines = useMemo(() => (
@@ -436,7 +436,24 @@ export function useLogTail(cfg = {}, tick) {
             .map(toLogLine)
     ), [data]);
 
-    return { lines, label: data?.label || '', loading, error };
+    // A permission failure is a setup fact, not a crash — phrase it that way
+    // instead of leaking the shell's own words at the operator.
+    const friendly = useMemo(() => {
+        if (!error) return null;
+        const text = String(error.message || '');
+        if (/sudo|permission denied|not permitted/i.test(text)) {
+            return { ...error, message: 'this log needs elevated access', elevated: true };
+        }
+        return error;
+    }, [error]);
+
+    return {
+        lines,
+        label: data?.label || '',
+        unconfigured: !!data?.unconfigured,
+        loading,
+        error: friendly,
+    };
 }
 
 /* ------------------------------------------------------------------- specs */

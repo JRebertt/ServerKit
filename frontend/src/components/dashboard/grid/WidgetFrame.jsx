@@ -3,6 +3,7 @@ import {
     Copy, GripVertical, Maximize2, MoreVertical, SlidersHorizontal, Trash2,
 } from 'lucide-react';
 import { WidgetBody } from '../widgets/renderers';
+import { deriveWidgetTitle } from '../widgets/registry';
 
 // Chrome around one placed widget: a header (drag handle + title + actions),
 // the renderer body, and — in edit mode — the bottom-right resize grip.
@@ -38,7 +39,7 @@ export function WidgetFrame({
         };
     }, [menuOpen]);
 
-    const title = widget.cfg?.title || type?.name || widget.type;
+    const title = deriveWidgetTitle(widget, type);
     const fire = (action) => {
         setMenuOpen(false);
         onMenu?.(action, widget);

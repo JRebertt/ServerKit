@@ -439,7 +439,7 @@ function WTable({ cfg, ctx }) {
 
 function WLogs({ cfg, ctx }) {
     const bodyRef = useRef(null);
-    const { lines, label, loading, error } = useLogTail(cfg, ctx.tick);
+    const { lines, label, unconfigured, loading, error } = useLogTail(cfg, ctx.tick);
 
     const shown = cfg.level && cfg.level !== 'all'
         ? lines.filter((l) => l.lvl === cfg.level)
@@ -449,7 +449,13 @@ function WLogs({ cfg, ctx }) {
         if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
     }, [shown.length]);
 
+    if (unconfigured) {
+        return <Empty>Pick a log file or container in this widget&rsquo;s settings.</Empty>;
+    }
     if (loading && !lines.length) return <Loading />;
+    if (error?.elevated) {
+        return <Empty>{label || 'This log'} needs elevated access — choose another source in settings.</Empty>;
+    }
     if (error) return <Failed error={error} subject="logs" />;
     if (!lines.length) return <Empty>No log lines available.</Empty>;
 

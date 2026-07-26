@@ -318,3 +318,51 @@ export function getWidgetType(types, id) {
     if (!Array.isArray(types) || !id) return null;
     return types.find((t) => t && t.id === id) || null;
 }
+
+const METRIC_TITLES = {
+    cpu: 'CPU usage',
+    ram: 'Memory',
+    disk: 'Disk',
+    load: 'Load average',
+    net_in: 'Network in',
+    net_out: 'Network out',
+};
+
+const SOURCE_TITLES = {
+    apps: 'Applications',
+    services: 'Services',
+    servers: 'Servers',
+    containers: 'Containers',
+    deploys: 'Deployments',
+};
+
+/**
+ * What to show in a widget's header.
+ *
+ * Falling straight back to the TYPE name meant a board of four different stats
+ * read "Stat" four times, which tells you nothing about any of them. So when a
+ * widget carries no explicit title, name it after what it is pointed at before
+ * giving up and using the type.
+ *
+ * This is deliberately derived at render time rather than written into the
+ * widget's stored config — config the user never set should not appear in their
+ * saved board.
+ */
+export function deriveWidgetTitle(widget, type) {
+    const cfg = widget?.cfg || {};
+    if (cfg.title) return cfg.title;
+
+    if (METRIC_TITLES[cfg.metric]) return METRIC_TITLES[cfg.metric];
+    if (SOURCE_TITLES[cfg.source]) return SOURCE_TITLES[cfg.source];
+
+    // A multi-series chart is named by its series, up to a point.
+    if (Array.isArray(cfg.series) && cfg.series.length) {
+        const names = cfg.series
+            .map((s) => METRIC_TITLES[s?.metric])
+            .filter(Boolean);
+        if (names.length === 1) return names[0];
+        if (names.length > 1) return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+    }
+
+    return type?.name || widget?.type || 'Widget';
+}

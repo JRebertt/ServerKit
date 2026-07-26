@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { getWidgetType, useWidgetTypes } from '../widgets/registry';
+import { deriveWidgetTitle, getWidgetType, useWidgetTypes } from '../widgets/registry';
 import { WidgetBody } from '../widgets/renderers';
 
 /**
@@ -22,7 +22,7 @@ export function WidgetFullscreen({ widget, type, ctx, onClose }) {
     if (!widget) return null;
 
     const resolved = type || getWidgetType(types, widget.type);
-    const title = widget.cfg?.title || resolved?.name || widget.type;
+    const title = deriveWidgetTitle(widget, resolved);
 
     return (
         <>

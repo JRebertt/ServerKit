@@ -371,3 +371,95 @@ def test_seeded_quick_actions_all_resolve():
             assert not unknown, (
                 f"{board['slug']}/{widget['i']}: unroutable shortcuts {sorted(unknown)}"
             )
+
+
+# ── repairing boards that predate the current renderer contract ──────────────
+def test_legacy_board_is_repaired_on_read(app, client, auth_headers):
+    """Fixing DEFAULT_BOARDS only helps users who have never opened the
+    dashboard — seeding never runs again for anyone else. Boards already in the
+    database carried `metrics`/`actions` keys nothing reads and no titles at
+    all, so every tile read "Stat" and the chart and shortcuts rendered empty.
+    """
+    from app import db as _db
+    from app.models.dashboard import DashboardBoard
+    from app.models import User
+
+    user = User.query.filter_by(username='testadmin').first() or User.query.first()
+    legacy = DashboardBoard(
+        user_id=user.id, slug='overview', name='Overview', icon='grid', position=0,
+        widgets=[
+            {'i': 'w1', 'type': 'stat', 'x': 0, 'y': 0, 'w': 3, 'h': 2,
+             'cfg': {'metric': 'cpu', 'resource': '$server'}},
+            {'i': 'w5', 'type': 'timeseries', 'x': 0, 'y': 2, 'w': 8, 'h': 4,
+             'cfg': {'metrics': ['cpu', 'ram'], 'resource': '$server'}},
+            {'i': 'w6', 'type': 'actions', 'x': 8, 'y': 2, 'w': 4, 'h': 2,
+             'cfg': {'actions': ['new-app', 'deploy', 'terminal', 'backup']}},
+        ])
+    _db.session.add(legacy)
+    _db.session.commit()
+
+    boards = client.get('/api/v1/dashboards', headers=auth_headers).get_json()['boards']
+    board = next(b for b in boards if b['slug'] == 'overview')
+    by_id = {w['i']: w for w in board['widgets']}
+
+    # timeseries: metrics -> series, as [{resource, metric}]
+    ts = by_id['w5']['cfg']
+    assert 'metrics' not in ts
+    assert ts['series'] == [{'resource': '$server', 'metric': 'cpu'},
+                            {'resource': '$server', 'metric': 'ram'}]
+
+    # actions: actions -> items, aliased to keys that actually route
+    items = by_id['w6']['cfg']['items']
+    assert 'actions' not in by_id['w6']['cfg']
+    assert items and all(i in {'servers', 'services', 'docker', 'terminal', 'deploys',
+                              'databases', 'backups', 'monitoring', 'domains',
+                              'files', 'security', 'jobs'} for i in items)
+
+    # Titles are NOT written into stored config — that would break the
+    # verbatim round-trip promise. The frame derives a display title instead.
+    assert 'title' not in by_id['w1']['cfg']
+
+    # and the repair is persisted, not recomputed on every read
+    stored = DashboardBoard.query.get(legacy.id)
+    assert 'series' in stored.widgets[1]['cfg']
+
+
+def test_quick_actions_never_render_empty(app, client, auth_headers):
+    """An empty shortcut list shows "No actions selected", which is a useless
+    thing to greet someone with — fall back to the shipped four."""
+    from app import db as _db
+    from app.models.dashboard import DashboardBoard
+    from app.models import User
+
+    user = User.query.filter_by(username='testadmin').first() or User.query.first()
+    board = DashboardBoard(
+        user_id=user.id, slug=None, name='Custom', icon='grid', position=9,
+        widgets=[{'i': 'a1', 'type': 'actions', 'x': 0, 'y': 0, 'w': 3, 'h': 2,
+                  'cfg': {'items': ['nope', 'also-nope']}}])
+    _db.session.add(board)
+    _db.session.commit()
+
+    boards = client.get('/api/v1/dashboards', headers=auth_headers).get_json()['boards']
+    custom = next(b for b in boards if b['name'] == 'Custom')
+    assert custom['widgets'][0]['cfg']['items'], 'unroutable shortcuts left the widget empty'
+
+
+def test_repair_leaves_a_current_board_untouched(app, client, auth_headers):
+    """The repair must be a no-op for config the renderers already understand."""
+    from app import db as _db
+    from app.models.dashboard import DashboardBoard
+    from app.models import User
+
+    user = User.query.filter_by(username='testadmin').first() or User.query.first()
+    cfg = {'title': 'Mine', 'series': [{'resource': 'local', 'metric': 'cpu'}],
+           'legend': True, 'fill': False}
+    board = DashboardBoard(
+        user_id=user.id, slug=None, name='Current', icon='grid', position=8,
+        widgets=[{'i': 't1', 'type': 'timeseries', 'x': 0, 'y': 0, 'w': 8, 'h': 4,
+                  'cfg': dict(cfg)}])
+    _db.session.add(board)
+    _db.session.commit()
+
+    boards = client.get('/api/v1/dashboards', headers=auth_headers).get_json()['boards']
+    current = next(b for b in boards if b['name'] == 'Current')
+    assert current['widgets'][0]['cfg'] == cfg
