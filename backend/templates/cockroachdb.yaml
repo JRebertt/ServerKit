@@ -1,0 +1,93 @@
+id: cockroachdb
+name: CockroachDB
+version: "24.1"
+description: Distributed SQL database that speaks the PostgreSQL wire protocol, with survivable single-node mode for self-hosting
+icon: https://serverkit.ai/imgs/template-icons/cockroachdb.svg
+categories:
+  - database
+  - sql
+  - distributed
+website: https://www.cockroachlabs.com
+documentation: https://www.cockroachlabs.com/docs/
+
+engine:
+  family: Relational
+  # Cockroach speaks pgwire, so a PostgreSQL client can introspect it.
+  protocol: postgresql
+  default_port: 26257
+  admin_user: root
+  # Deliberately NO admin_password_var -- see the note on the compose command.
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: tables
+  client: cockroach sql
+  data_path: /cockroach/cockroach-data
+  version_var: IMAGE_TAG
+  versions:
+    - "24.1"
+    - "23.2"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "24.1"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "26257"
+    hidden: false
+    description: Host port to publish the SQL endpoint on
+  - name: ADMIN_UI_PORT
+    type: port
+    default: "26258"
+    hidden: false
+    description: Host port for the DB Console (web UI)
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the ports bind to. 127.0.0.1 keeps the engine private.
+  - name: DB_NAME
+    type: string
+    default: defaultdb
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      # Cockroach Labs publishes rolling `latest-v<major.minor>` tags.
+      image: cockroachdb/cockroach:latest-v${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:26257"
+        - "${BIND_ADDRESS}:${ADMIN_UI_PORT}:8080"
+      environment:
+        # Creates the database at first start. COCKROACH_USER/COCKROACH_PASSWORD
+        # are intentionally NOT set: password auth requires a secure (TLS)
+        # cluster with generated certificates, which single-node self-hosting
+        # does not set up. `--insecure` therefore means NO authentication -- the
+        # 127.0.0.1 bind above is what keeps this safe, so do not expose this
+        # engine publicly without first moving it to a certificate-backed
+        # secure cluster.
+        COCKROACH_DATABASE: "${DB_NAME}"
+      command: start-single-node --insecure
+      volumes:
+        - cockroachdb-data:/cockroach/cockroach-data
+
+  volumes:
+    cockroachdb-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: postgresql
+    description: SQL (PostgreSQL wire protocol)
+  - port: "${ADMIN_UI_PORT}"
+    protocol: http
+    description: DB Console
+
+requirements:
+  memory: 2GB
+  storage: 10GB

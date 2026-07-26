@@ -56,6 +56,27 @@ def _local_compose_file(app):
     return app.compose_file if app.compose_file else None
 
 
+def _remove_data_flag(app):
+    """Should ``DELETE /apps/<id>`` take the data volumes down with the app?
+
+    Explicit wins: ``?remove_data=`` (alias ``?volumes=``) is honored as given.
+    With neither present, database engines default to PRESERVING their volumes
+    -- the data is the whole point of the engine and its loss is the only
+    irreversible part of an uninstall -- while every other app keeps the
+    historic "remove volumes too" behavior.
+    """
+    raw = request.args.get('remove_data')
+    if raw is None:
+        raw = request.args.get('volumes')
+    if raw is not None:
+        return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
+    try:
+        from app.services.database_engine_service import is_engine_app
+        return not is_engine_app(app)
+    except Exception:
+        return True
+
+
 def _sync_manual_app_status(app):
     """Update app.status from the real runtime for manual/local apps."""
     if app.source != 'manual':
@@ -1396,17 +1417,25 @@ def delete_app(app_id):
     except Exception as e:
         cleanup_results['firewall'] = {'error': str(e)}
 
-    # For Docker apps, stop and remove containers/volumes
+    # For Docker apps, stop and remove containers (and, by default, volumes).
+    #
+    # Database engines are the exception: destroying the data volume is the one
+    # irreversible part of an uninstall, so an app installed from a template
+    # carrying an `engine:` block KEEPS its volumes unless the caller explicitly
+    # asks for `?remove_data=true`. Everything else keeps the historic
+    # volumes=True default. `?remove_data=` (or `?volumes=`) overrides either way.
+    remove_data = _remove_data_flag(app)
     if app.app_type == 'docker' and app.root_path:
         try:
-            # Stop and remove containers, networks, and volumes
+            # Stop and remove containers, networks, and (optionally) volumes
             result = DockerService.compose_down(
                 app.root_path,
-                volumes=True,
+                volumes=remove_data,
                 remove_orphans=True,
                 compose_file=_local_compose_file(app)
             )
             cleanup_results['docker'] = result
+            cleanup_results['data_volumes_removed'] = remove_data
         except Exception as e:
             cleanup_results['docker'] = {'error': str(e)}
 

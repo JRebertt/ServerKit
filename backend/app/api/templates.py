@@ -79,7 +79,10 @@ def get_template(template_id):
                     'required': var.get('required', False),
                     'options': var.get('options', None),
                     'auto_generated': var_type in auto_generated_types,
-                    'hidden': var_type == 'port'  # Ports are hidden from users
+                    # Ports are hidden by default, but a template may say
+                    # otherwise -- a database engine's port is the operator's
+                    # decision, so its templates declare `hidden: false`.
+                    'hidden': bool(var.get('hidden', var_type == 'port')),
                 })
     elif isinstance(raw_vars, dict):
         # Old dict format: {PORT: {type: 'port', ...}, ...}
@@ -94,7 +97,7 @@ def get_template(template_id):
                     'required': var_config.get('required', False),
                     'options': var_config.get('options', None),
                     'auto_generated': var_type in auto_generated_types,
-                    'hidden': var_type == 'port'
+                    'hidden': bool(var_config.get('hidden', var_type == 'port')),
                 })
 
     return jsonify({
@@ -111,6 +114,9 @@ def get_template(template_id):
             'documentation': template.get('documentation'),
             'website': template.get('website'),
             'variables': variables,
+            # Present only for database-engine templates; the Databases install
+            # drawer reads it to know which variable is the port / password.
+            'engine': TemplateService.engine_metadata(template),
             'has_compose': 'compose' in template,
             'has_dockerfile': 'dockerfile' in template,
             'scripts': list(template.get('scripts', {}).keys()),
@@ -200,10 +206,55 @@ def catalog_schema():
             {'token': '${SERVICE_BASE64_<NAME>}',
              'description': 'Base64 of a freshly generated secret.'},
         ],
+        # The optional `engine:` block is what makes a template installable from
+        # the Databases page. It is described here rather than hardcoded in the
+        # UI so a new engine is a YAML file, never a code change.
+        'engine_block': {
+            'optional': True,
+            'description': 'Presence of a top-level `engine:` block marks the template '
+                           'as an installable database engine and lists it in Databases.',
+            'families': list(TemplateService.ENGINE_FAMILIES),
+            'protocols': list(TemplateService.ENGINE_PROTOCOLS),
+            'fields': [
+                {'field': 'family', 'required': False,
+                 'description': 'Grouping used by the catalog family filter.'},
+                {'field': 'protocol', 'required': False,
+                 'description': "Client adapter that can introspect it. 'none' is valid "
+                                'and means the tree offers no browsing for this engine.'},
+                {'field': 'default_port', 'required': False,
+                 'description': "The engine's conventional port, shown as a hint."},
+                {'field': 'admin_user', 'required': False,
+                 'description': 'Bootstrap superuser created by the image.'},
+                {'field': 'admin_password_var', 'required': False,
+                 'description': "Name of the `variables` entry (type: password) holding "
+                                'the admin secret, so the UI can surface it once.'},
+                {'field': 'database_var', 'required': False,
+                 'description': 'Variable that seeds an initial database, if the image supports one.'},
+                {'field': 'port_var', 'required': False,
+                 'default': TemplateService.ENGINE_DEFAULT_PORT_VAR,
+                 'description': 'Variable holding the published host port.'},
+                {'field': 'bind_var', 'required': False,
+                 'default': TemplateService.ENGINE_DEFAULT_BIND_VAR,
+                 'description': f'Variable holding the bind address. Defaults to '
+                                f'{TemplateService.ENGINE_PRIVATE_BIND} (private); the installer '
+                                f'sets {TemplateService.ENGINE_PUBLIC_BIND} only on an explicit '
+                                'expose_public opt-in.'},
+                {'field': 'unit', 'required': False,
+                 'description': 'What a "table" is called here (collections, keys, buckets, ...).'},
+                {'field': 'client', 'required': False,
+                 'description': 'CLI client hint shown in the UI.'},
+                {'field': 'data_path', 'required': False,
+                 'description': 'Container-side data directory the named volume mounts onto.'},
+                {'field': 'versions', 'required': False,
+                 'description': 'Selectable image versions. Defaults to the template version.'},
+            ],
+        },
         'notes': [
             'Magic tokens need no variables: entry; they are resolved at install '
             'and persisted to .env / surfaced post-install.',
             '<NAME> groups related tokens: the same <NAME> resolves to a consistent value.',
+            'Unknown top-level keys are tolerated by the validator; `engine` is now a '
+            'known block and is carried through the catalog listing and repo index.',
         ],
     }
     return jsonify(schema), 200

@@ -48,6 +48,47 @@ class TemplateService:
     # Template schema version
     SCHEMA_VERSION = '1.0'
 
+    # ==================================================================
+    # The `engine:` block — what makes a template a database engine
+    # ------------------------------------------------------------------
+    # A template becomes installable from the Databases page purely by
+    # carrying a top-level ``engine:`` mapping. Presence of the block is the
+    # ONLY marker; there is no allow-list of engine ids anywhere in Python, so
+    # shipping a new engine (CockroachDB, DuckDB, whatever) is dropping a YAML
+    # file into ``backend/templates/`` or syncing a template repository.
+    #
+    #   engine:
+    #     family: Relational              # see ENGINE_FAMILIES
+    #     protocol: postgresql            # see ENGINE_PROTOCOLS
+    #     default_port: 26257
+    #     admin_user: root
+    #     admin_password_var: DB_PASSWORD # which `variables` entry is the secret
+    #     database_var: DB_NAME           # optional: seeds an initial database
+    #     port_var: PORT                  # optional: which variable is the port
+    #     bind_var: BIND_ADDRESS          # optional: private-vs-public bind
+    #     unit: tables
+    #     client: cockroach sql
+    #     data_path: /cockroach/cockroach-data
+    #
+    # ``protocol: none`` is legitimate: the engine installs and is listed, but
+    # the database tree offers no introspection for it. That is honest — better
+    # than pretending we can browse it.
+    # ==================================================================
+    ENGINE_FAMILIES = (
+        'Relational', 'Document', 'Key-value', 'Time-series',
+        'Analytics', 'Search', 'Graph',
+    )
+    # Which client adapter (if any) can introspect the engine once it is up.
+    ENGINE_PROTOCOLS = ('postgresql', 'mysql', 'mongodb', 'redis', 'none')
+
+    # Conventional variable names, used when the block does not name its own.
+    ENGINE_DEFAULT_PORT_VAR = 'PORT'
+    ENGINE_DEFAULT_BIND_VAR = 'BIND_ADDRESS'
+    # Safety rule 1: an engine is reachable only from the host unless the
+    # operator explicitly opts out.
+    ENGINE_PRIVATE_BIND = '127.0.0.1'
+    ENGINE_PUBLIC_BIND = '0.0.0.0'
+
     @classmethod
     def get_config(cls) -> Dict:
         """Get template configuration."""
@@ -123,9 +164,74 @@ class TemplateService:
                     if not isinstance(var_config, dict):
                         errors.append(f"Variable {var_name} must be a dictionary")
 
+        # Validate the optional `engine:` block. Unknown top-level keys were
+        # already tolerated (this validator checks required fields, it does not
+        # reject extras) -- what was missing is that a MALFORMED engine block
+        # went unnoticed and then silently produced a broken catalog card.
+        if 'engine' in template:
+            errors.extend(cls._engine_block_errors(template['engine']))
+
         if errors:
             return {'valid': False, 'errors': errors}
         return {'valid': True}
+
+    @classmethod
+    def _engine_block_errors(cls, engine: Any) -> List[str]:
+        """Hard errors in an ``engine:`` block (shape only, never opinions)."""
+        if not isinstance(engine, dict):
+            return ["'engine' must be a mapping"]
+        errors = []
+        family = engine.get('family')
+        if family is not None and family not in cls.ENGINE_FAMILIES:
+            errors.append(
+                f"engine.family '{family}' is not one of: {', '.join(cls.ENGINE_FAMILIES)}")
+        protocol = engine.get('protocol')
+        if protocol is not None and protocol not in cls.ENGINE_PROTOCOLS:
+            errors.append(
+                f"engine.protocol '{protocol}' is not one of: {', '.join(cls.ENGINE_PROTOCOLS)}")
+        port = engine.get('default_port')
+        if port is not None:
+            try:
+                if not 1 <= int(port) <= 65535:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors.append('engine.default_port must be a port number (1-65535)')
+        return errors
+
+    @classmethod
+    def is_engine_template(cls, template: Dict) -> bool:
+        """True when a template declares itself a database engine."""
+        return isinstance(template, dict) and isinstance(template.get('engine'), dict)
+
+    @classmethod
+    def engine_metadata(cls, template: Dict) -> Optional[Dict]:
+        """Normalized ``engine:`` block, or ``None`` for a non-engine template.
+
+        Fills in the conventional variable names so every consumer sees the same
+        keys, and resolves ``versions`` from the template's own ``version`` plus
+        any ``engine.versions`` the author offers. Nothing here is hardcoded per
+        engine -- it is all read off the YAML.
+        """
+        if not cls.is_engine_template(template):
+            return None
+        engine = dict(template['engine'])
+        versions = engine.get('versions')
+        if not isinstance(versions, list) or not versions:
+            versions = [template.get('version')] if template.get('version') else []
+        return {
+            'family': engine.get('family'),
+            'protocol': engine.get('protocol') or 'none',
+            'default_port': engine.get('default_port'),
+            'admin_user': engine.get('admin_user'),
+            'admin_password_var': engine.get('admin_password_var'),
+            'database_var': engine.get('database_var'),
+            'port_var': engine.get('port_var') or cls.ENGINE_DEFAULT_PORT_VAR,
+            'bind_var': engine.get('bind_var') or cls.ENGINE_DEFAULT_BIND_VAR,
+            'unit': engine.get('unit'),
+            'client': engine.get('client'),
+            'data_path': engine.get('data_path'),
+            'versions': [str(v) for v in versions],
+        }
 
     @classmethod
     def parse_template(cls, template_path: str) -> Dict:
@@ -469,6 +575,21 @@ class TemplateService:
 
         _check_tokens(scan_target)
 
+        # Engine templates: shape errors already came from validate_template
+        # above. Here we add the soft checks -- a block that names variables
+        # which don't exist would install, but the Databases UI could not find
+        # the password field or the port field.
+        if cls.is_engine_template(entry):
+            engine = entry['engine']
+            declared = {name for name, _ in var_items if name}
+            for key in ('admin_password_var', 'database_var', 'port_var', 'bind_var'):
+                var_name = engine.get(key)
+                if var_name and var_name not in declared:
+                    warnings.append(
+                        f"engine.{key} references '{var_name}', which is not a declared variable")
+            if not engine.get('family'):
+                warnings.append('engine block has no family; it will not match a family filter')
+
         return {'valid': not errors, 'errors': errors, 'warnings': warnings}
 
     @classmethod
@@ -593,6 +714,31 @@ class TemplateService:
         return random.randint(10000, 60000)
 
     @classmethod
+    def _port_is_free(cls, port) -> bool:
+        """True when nothing -- app row, container, or live socket -- holds
+        ``port``. Same three sources as :meth:`_find_available_port`, asked
+        about one specific port instead of scanning."""
+        import socket
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            return False
+        if not 1 <= port <= 65535:
+            return False
+        if port in (cls._get_database_used_ports() | cls._get_docker_used_ports()):
+            return False
+        try:
+            test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            test_sock.bind(('127.0.0.1', port))
+            test_sock.close()
+            return True
+        except OSError:
+            return False
+        except Exception:
+            return False
+
+    @classmethod
     def _get_database_used_ports(cls) -> set:
         """Get all ports assigned to applications in the database."""
         used_ports = set()
@@ -710,9 +856,29 @@ class TemplateService:
                                 'url': repo.get('url'),
                                 'branch': repo.get('branch', 'main'),
                             }
+                        # A database engine declares itself with a top-level
+                        # `engine:` block. This listing is a fixed projection,
+                        # so without carrying the block through, the Databases
+                        # catalog could never see an engine without re-parsing
+                        # every YAML file.
+                        engine = cls.engine_metadata(template)
+                        if engine:
+                            entry['engine'] = engine
                         templates.append(entry)
 
         return templates
+
+    @classmethod
+    def list_engine_templates(cls) -> List[Dict]:
+        """Every available template carrying an ``engine:`` block.
+
+        This is what the Databases engine catalog renders. It is derived
+        entirely from the template sources -- drop a new engine YAML into
+        ``backend/templates/`` (or sync a repository that ships one) and it
+        appears here with no code change.
+        """
+        return [t for t in cls.list_all_templates()
+                if isinstance(t.get('engine'), dict)]
 
     @classmethod
     def build_repo_index(cls, repo_name: str = 'serverkit-official') -> Dict:
@@ -725,8 +891,9 @@ class TemplateService:
         host the ``templates/*.yaml`` files plus this ``index.json``. Lets
         Prompture Hub & friends ship template updates without a panel release.
         """
-        templates = [
-            {
+        templates = []
+        for t in cls.list_local_templates():
+            entry = {
                 'id': t['id'],
                 'name': t.get('name'),
                 'version': t.get('version'),
@@ -734,8 +901,11 @@ class TemplateService:
                 'icon': t.get('icon'),
                 'categories': t.get('categories', []),
             }
-            for t in cls.list_local_templates()
-        ]
+            # Carried in the index so a panel that syncs this repo can list the
+            # engine catalog without fetching all 100+ template files first.
+            if isinstance(t.get('engine'), dict):
+                entry['engine'] = t['engine']
+            templates.append(entry)
         return {
             'name': repo_name,
             'schema_version': cls.SCHEMA_VERSION,
@@ -1037,7 +1207,17 @@ class TemplateService:
             var_type = var_config.get('type', 'string')
 
             if var_type == 'port':
-                variables[var_name] = cls.generate_value(var_config)
+                # Ports are auto-assigned by default (template defaults are
+                # never trusted). An explicitly REQUESTED port is honored, but
+                # only after confirming it is actually free -- so the caller
+                # still can never be handed a port that is already bound. The
+                # Databases engine installer relies on this to make its
+                # documented `port` parameter real rather than advisory.
+                requested = (user_variables or {}).get(var_name)
+                if requested and cls._port_is_free(requested):
+                    variables[var_name] = str(requested)
+                else:
+                    variables[var_name] = cls.generate_value(var_config)
             elif user_variables and var_name in user_variables and user_variables[var_name]:
                 variables[var_name] = user_variables[var_name]
             elif var_config.get('required', False) and var_name not in user_variables:

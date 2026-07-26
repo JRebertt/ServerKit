@@ -1,0 +1,81 @@
+id: mariadb
+name: MariaDB
+version: "11.4"
+description: Community-developed MySQL fork -- a drop-in relational database with a faster release cadence
+icon: https://serverkit.ai/imgs/template-icons/mariadb.svg
+categories:
+  - database
+  - sql
+website: https://mariadb.org
+documentation: https://mariadb.com/kb/en/documentation/
+
+engine:
+  family: Relational
+  protocol: mysql
+  default_port: 3307
+  admin_user: root
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: tables
+  client: mariadb
+  data_path: /var/lib/mysql
+  version_var: IMAGE_TAG
+  versions:
+    - "11.4"
+    - "10.11"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "11.4"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    # 3306 is usually the host MySQL/MariaDB.
+    default: "3307"
+    hidden: false
+    description: Host port to publish MariaDB on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the MariaDB root user
+  - name: DB_NAME
+    type: string
+    default: app
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      image: mariadb:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:3306"
+      environment:
+        # MARIADB_* is the current contract. The MYSQL_* names still work for
+        # backward compatibility but are legacy on this image.
+        MARIADB_ROOT_PASSWORD: "${DB_PASSWORD}"
+        MARIADB_DATABASE: "${DB_NAME}"
+      volumes:
+        - mariadb-data:/var/lib/mysql
+
+  volumes:
+    mariadb-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: mysql
+    description: MySQL wire protocol
+
+requirements:
+  memory: 512MB
+  storage: 5GB

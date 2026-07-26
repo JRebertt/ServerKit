@@ -1,9 +1,13 @@
-import { ChevronRight, ChevronDown, Table2, Loader2, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, ChevronDown, Table2, Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { EngineIcon } from '../icons/DatabaseBrands';
+import EngineGlyph from './EngineGlyph';
 
 // Icon per node kind / engine. Brand glyphs come from DatabaseBrands; tint comes
-// from `.is-<engine>` in SCSS (the brand icons use currentColor).
+// from `.is-<engine>` in SCSS (the brand icons use currentColor). An engine
+// installed from a template carries its catalog entry in `iconEntry`, so it can
+// fall back to the template's own icon when we ship no brand glyph for it.
 function NodeIcon({ node }) {
+    if (node.iconEntry) return <EngineGlyph entry={node.iconEntry} size={15} />;
     if (node.kind === 'engine' || node.kind === 'database') {
         return <EngineIcon engine={node.engine} size={15} />;
     }
@@ -12,7 +16,13 @@ function NodeIcon({ node }) {
     return <EngineIcon engine={node.engine} size={15} />;
 }
 
-const STATUS_LABEL = { active: 'Running', inactive: 'Stopped', missing: 'Not installed' };
+const STATUS_LABEL = {
+    active: 'Running',
+    inactive: 'Stopped',
+    missing: 'Not installed',
+    installing: 'Installing',
+    failed: 'Failed',
+};
 
 function matches(node, filter) {
     return !filter || node.label.toLowerCase().includes(filter.toLowerCase());
@@ -78,7 +88,9 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
 
                 {node.kind === 'engine' && node.status && node.status !== 'available' && (
                     <span className={`dbx-tree-status is-${node.status}`}>
-                        <span className="dbx-status-dot" aria-hidden="true" />
+                        {node.status === 'installing'
+                            ? <Loader2 size={11} className="dbx-spin" aria-hidden="true" />
+                            : <span className="dbx-status-dot" aria-hidden="true" />}
                         {STATUS_LABEL[node.status]}
                     </span>
                 )}
@@ -87,6 +99,19 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                 )}
                 {node.kind === 'database' && node.sizeText && (
                     <span className="dbx-tree-badge">{node.sizeText}</span>
+                )}
+
+                {node.canCreate && handlers.onCreateChild && (
+                    <button
+                        type="button"
+                        className="dbx-tree-add"
+                        onClick={(e) => { e.stopPropagation(); handlers.onCreateChild(node); }}
+                        aria-label={`Create a database in ${node.label}`}
+                        title="Create a database"
+                        tabIndex={-1}
+                    >
+                        <Plus size={12} aria-hidden="true" />
+                    </button>
                 )}
 
                 <button

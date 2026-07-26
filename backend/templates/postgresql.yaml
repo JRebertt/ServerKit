@@ -1,0 +1,86 @@
+id: postgresql
+name: PostgreSQL
+version: "16"
+description: Standards-compliant relational database with JSONB, full-text search and a deep extension ecosystem
+icon: https://serverkit.ai/imgs/template-icons/postgresql.svg
+categories:
+  - database
+  - sql
+website: https://www.postgresql.org
+documentation: https://www.postgresql.org/docs/
+
+# Marks this template as an installable database engine. Presence of this block
+# is the ONLY thing that lists it in Databases -- there is no engine allow-list
+# in Python.
+engine:
+  family: Relational
+  protocol: postgresql
+  default_port: 5433
+  admin_user: postgres
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: tables
+  client: psql
+  data_path: /var/lib/postgresql/data
+  version_var: IMAGE_TAG
+  versions:
+    - "16"
+    - "15"
+    - "14"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "16"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    # 5432 is usually taken by a PostgreSQL on the host itself.
+    default: "5433"
+    hidden: false
+    description: Host port to publish PostgreSQL on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the postgres superuser
+  - name: DB_NAME
+    type: string
+    default: postgres
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      image: postgres:${IMAGE_TAG}-alpine
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:5432"
+      environment:
+        # POSTGRES_PASSWORD is REQUIRED -- without it the entrypoint refuses to
+        # initialise unless trust auth is explicitly opted into.
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_USER: postgres
+        POSTGRES_DB: "${DB_NAME}"
+      volumes:
+        - postgresql-data:/var/lib/postgresql/data
+
+  volumes:
+    postgresql-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: postgresql
+    description: PostgreSQL wire protocol
+
+requirements:
+  memory: 512MB
+  storage: 5GB

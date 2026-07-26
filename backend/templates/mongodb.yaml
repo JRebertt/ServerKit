@@ -1,0 +1,81 @@
+id: mongodb
+name: MongoDB
+version: "7.0"
+description: Document store with flexible schemas, aggregation pipelines and change streams
+icon: https://serverkit.ai/imgs/template-icons/mongodb.svg
+categories:
+  - database
+  - nosql
+website: https://www.mongodb.com
+documentation: https://www.mongodb.com/docs/manual/
+
+engine:
+  family: Document
+  protocol: mongodb
+  default_port: 27017
+  admin_user: root
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: collections
+  client: mongosh
+  data_path: /data/db
+  version_var: IMAGE_TAG
+  versions:
+    - "7.0"
+    - "6.0"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "7.0"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "27017"
+    hidden: false
+    description: Host port to publish MongoDB on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    length: 28
+    description: Password for the MongoDB root user
+  - name: DB_NAME
+    type: string
+    default: app
+    description: Initial database to create
+
+compose:
+  services:
+    app:
+      image: mongo:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:27017"
+      environment:
+        # BOTH of these must be present. With only one set, the entrypoint
+        # starts mongod with authentication DISABLED.
+        MONGO_INITDB_ROOT_USERNAME: root
+        MONGO_INITDB_ROOT_PASSWORD: "${DB_PASSWORD}"
+        MONGO_INITDB_DATABASE: "${DB_NAME}"
+      volumes:
+        - mongodb-data:/data/db
+
+  volumes:
+    mongodb-data:
+
+ports:
+  - port: "${PORT}"
+    protocol: mongodb
+    description: MongoDB wire protocol
+
+requirements:
+  memory: 1GB
+  storage: 10GB

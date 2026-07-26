@@ -1,0 +1,86 @@
+id: neo4j
+name: Neo4j
+version: "5.20"
+description: Graph database with the Cypher query language for highly connected data
+icon: https://serverkit.ai/imgs/template-icons/neo4j.svg
+categories:
+  - database
+  - graph
+website: https://neo4j.com
+documentation: https://neo4j.com/docs/
+
+engine:
+  family: Graph
+  protocol: none
+  default_port: 7687
+  admin_user: neo4j
+  admin_password_var: DB_PASSWORD
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: nodes
+  client: cypher-shell
+  data_path: /data
+  version_var: IMAGE_TAG
+  versions:
+    - "5.20"
+    - "4.4"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "5.20"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "7687"
+    hidden: false
+    description: Host port for the Bolt protocol
+  - name: HTTP_PORT
+    type: port
+    default: "7474"
+    hidden: false
+    description: Host port for the Neo4j Browser
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the ports bind to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    # Neo4j 5 refuses to start with a password shorter than 8 characters.
+    length: 28
+    description: Password for the neo4j user
+
+compose:
+  services:
+    app:
+      image: neo4j:${IMAGE_TAG}
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:7687"
+        - "${BIND_ADDRESS}:${HTTP_PORT}:7474"
+      environment:
+        # One combined variable -- there is no NEO4J_PASSWORD. Setting
+        # NEO4J_AUTH=none would disable authentication entirely.
+        NEO4J_AUTH: "neo4j/${DB_PASSWORD}"
+      volumes:
+        - neo4j-data:/data
+        - neo4j-logs:/logs
+
+  volumes:
+    neo4j-data:
+    neo4j-logs:
+
+ports:
+  - port: "${PORT}"
+    protocol: bolt
+    description: Bolt protocol
+  - port: "${HTTP_PORT}"
+    protocol: http
+    description: Neo4j Browser
+
+requirements:
+  memory: 2GB
+  storage: 10GB

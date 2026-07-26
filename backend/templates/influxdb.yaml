@@ -1,0 +1,100 @@
+id: influxdb
+name: InfluxDB
+version: "2.7"
+description: Purpose-built time-series database for metrics, sensors and monitoring data
+icon: https://serverkit.ai/imgs/template-icons/influxdb.svg
+categories:
+  - database
+  - timeseries
+  - monitoring
+website: https://www.influxdata.com
+documentation: https://docs.influxdata.com/influxdb/v2/
+
+engine:
+  family: Time-series
+  protocol: none
+  default_port: 8086
+  admin_user: admin
+  admin_password_var: DB_PASSWORD
+  database_var: DB_NAME
+  port_var: PORT
+  bind_var: BIND_ADDRESS
+  unit: buckets
+  client: influx
+  data_path: /var/lib/influxdb2
+  # 2.x only. 1.8 uses a completely different env contract
+  # (INFLUXDB_ADMIN_USER / INFLUXDB_DB) and a different data path, so offering
+  # it here would silently produce an unconfigured node.
+  version_var: IMAGE_TAG
+  versions:
+    - "2.7"
+    - "2.6"
+
+variables:
+  - name: IMAGE_TAG
+    type: string
+    default: "2.7"
+    hidden: true
+    description: Image tag; constrained to engine.versions by the installer
+  - name: PORT
+    type: port
+    default: "8086"
+    hidden: false
+    description: Host port to publish InfluxDB on
+  - name: BIND_ADDRESS
+    type: string
+    default: 127.0.0.1
+    hidden: true
+    description: Address the port binds to. 127.0.0.1 keeps the engine private.
+  - name: DB_PASSWORD
+    type: password
+    # InfluxDB rejects setup passwords shorter than 8 characters.
+    length: 28
+    description: Password for the initial admin user
+  - name: DB_NAME
+    type: string
+    default: default
+    description: Initial bucket to create
+  - name: INIT_ORG
+    type: string
+    default: serverkit
+    description: Initial organization name
+  - name: ADMIN_TOKEN
+    type: random
+    length: 48
+    description: API token issued to the admin user
+
+compose:
+  services:
+    app:
+      image: influxdb:${IMAGE_TAG}-alpine
+      container_name: ${APP_NAME}
+      restart: unless-stopped
+      ports:
+        - "${BIND_ADDRESS}:${PORT}:8086"
+      environment:
+        # Setup mode refuses to start unless MODE, USERNAME, PASSWORD, ORG and
+        # BUCKET are all present.
+        DOCKER_INFLUXDB_INIT_MODE: setup
+        DOCKER_INFLUXDB_INIT_USERNAME: admin
+        DOCKER_INFLUXDB_INIT_PASSWORD: "${DB_PASSWORD}"
+        DOCKER_INFLUXDB_INIT_ORG: "${INIT_ORG}"
+        DOCKER_INFLUXDB_INIT_BUCKET: "${DB_NAME}"
+        DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: "${ADMIN_TOKEN}"
+      volumes:
+        # 2.x splits data and config; 1.x used a single /var/lib/influxdb.
+        - influxdb-data:/var/lib/influxdb2
+        - influxdb-config:/etc/influxdb2
+
+  volumes:
+    influxdb-data:
+    influxdb-config:
+
+ports:
+  - port: "${PORT}"
+    protocol: http
+    description: HTTP API and UI
+
+requirements:
+  memory: 1GB
+  storage: 10GB

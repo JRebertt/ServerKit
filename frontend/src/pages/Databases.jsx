@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     PanelLeftClose, PanelLeftOpen, Search, X, RefreshCw, Plus, Terminal,
     Archive, Database, Table2, Server, ChevronDown,
     Trash2, DatabaseBackup, Copy, FileCode2, Lock, BookMarked, Activity,
-    SlidersHorizontal,
+    SlidersHorizontal, Layers, ExternalLink,
 } from 'lucide-react';
 import api from '../services/api';
 import Modal from '@/components/Modal';
@@ -19,9 +20,16 @@ import BackupsTab from '../components/databases/BackupsTab';
 import ProcessListPanel from '../components/databases/ProcessListPanel';
 import ConfigTunerPanel from '../components/databases/ConfigTunerPanel';
 import {
-    CreateMySQLDatabaseModal, CreateMySQLUserModal,
-    CreatePostgreSQLDatabaseModal, CreatePostgreSQLUserModal,
+    CreateDatabaseModal, CreateMySQLUserModal, CreatePostgreSQLUserModal,
 } from '../components/databases/modals';
+import EngineCatalogDrawer from '../components/databases/EngineCatalogDrawer';
+import EngineInstallDrawer from '../components/databases/EngineInstallDrawer';
+import {
+    EngineInstallingPanel, EngineReadyPanel, DatabaseEmptyPanel,
+} from '../components/databases/DbBlankStates';
+import {
+    engineBrandKey, engineInstanceKey, engineTreeStatus, engineUnit,
+} from '../components/databases/engineHelpers';
 import { listTables, connKey, connLabel, quoteIdent, ENGINE_META } from '../components/databases/dbAdapter';
 
 const SIDEBAR_KEY = 'serverkit-dbx-sidebar';
@@ -68,6 +76,7 @@ function TabIcon({ tab }) {
 export default function Databases() {
     const toast = useToast();
     const { confirm } = useConfirm();
+    const navigate = useNavigate();
 
     const [status, setStatus] = useState(null);
     const [statusLoading, setStatusLoading] = useState(true);
@@ -89,6 +98,15 @@ export default function Databases() {
     const [showManaged, setShowManaged] = useState(false);
     const [tunerTarget, setTunerTarget] = useState(null);
     const [modal, setModal] = useState(null); // { type, databases }
+    // Engine catalog + the engines installed from it. `unavailable` is the
+    // fail-soft state: the four built-in roots keep working without it.
+    const [engineData, setEngineData] = useState({ catalog: [], installed: [], unavailable: false });
+    const [enginesLoading, setEnginesLoading] = useState(true);
+    const [catalogOpen, setCatalogOpen] = useState(false);
+    const [installEntry, setInstallEntry] = useState(null);
+    // What the workspace shows when there is no tab to show: an engine that is
+    // still installing, an engine that is up but empty, an empty database.
+    const [blank, setBlank] = useState(null);
     const newMenuRef = useRef(null);
     const didAutoExpand = useRef(false);
 
@@ -111,14 +129,60 @@ export default function Databases() {
         })();
     }, []);
 
+    // The engine catalog is optional: an older backend simply doesn't serve it,
+    // and the explorer has to keep working on its four built-in roots.
+    const loadEngines = useCallback(async () => {
+        try {
+            const d = await api.getDatabaseEngines();
+            setEngineData({
+                catalog: d.catalog || [],
+                installed: d.installed || [],
+                // The backend derives the family list from the catalog it just
+                // built; deriving it again here would be a second source.
+                families: d.families || null,
+                unavailable: false,
+            });
+        } catch {
+            setEngineData({ catalog: [], installed: [], families: null, unavailable: true });
+        } finally {
+            setEnginesLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { loadEngines(); }, [loadEngines]);
+
+    // Poll only while a deploy is in flight, so an `installing` row flips to
+    // `running` on its own instead of waiting for a manual refresh.
+    const installingCount = engineData.installed.filter(
+        (e) => engineTreeStatus(e) === 'installing',
+    ).length;
+    useEffect(() => {
+        if (!installingCount) return undefined;
+        const timer = setInterval(loadEngines, 4000);
+        return () => clearInterval(timer);
+    }, [installingCount, loadEngines]);
+
     const roots = useMemo(() => ([
         // mysql/postgresql stay expandable even when the host engine is absent —
         // they can still contain databases that live in Docker containers.
-        { id: 'eng:mysql', kind: 'engine', engine: 'mysql', label: ENGINE_META.mysql.label, status: engineState('mysql', status), expandable: true },
-        { id: 'eng:postgresql', kind: 'engine', engine: 'postgresql', label: ENGINE_META.postgresql.label, status: engineState('postgresql', status), expandable: true },
+        { id: 'eng:mysql', kind: 'engine', engine: 'mysql', label: ENGINE_META.mysql.label, status: engineState('mysql', status), expandable: true, canCreate: engineState('mysql', status) === 'active' },
+        { id: 'eng:postgresql', kind: 'engine', engine: 'postgresql', label: ENGINE_META.postgresql.label, status: engineState('postgresql', status), expandable: true, canCreate: engineState('postgresql', status) === 'active' },
         { id: 'eng:sqlite', kind: 'engine', engine: 'sqlite', label: ENGINE_META.sqlite.label, status: 'available', expandable: true },
         { id: 'eng:docker', kind: 'engine', engine: 'docker', label: ENGINE_META.docker.label, status: 'available', expandable: true },
-    ]), [status]);
+        // Engines installed from the template catalog join the built-in roots
+        // rather than replacing them. They are leaves: each runs as its own
+        // service, and selecting one shows its state in the workspace.
+        ...engineData.installed.map((inst) => ({
+            id: `dbe:${engineInstanceKey(inst)}`,
+            kind: 'engine',
+            engine: engineBrandKey(inst) || 'database',
+            iconEntry: inst,
+            label: inst.name || inst.instance_name || inst.template_id,
+            status: engineTreeStatus(inst),
+            expandable: false,
+            instance: inst,
+        })),
+    ]), [status, engineData.installed]);
 
     // ─── lazy child loading ───────────────────────────────────
     const loadChildren = useCallback(async (node) => {
@@ -223,18 +287,25 @@ export default function Databases() {
         setTabStatuses((prev) => ({ ...prev, [tabId]: s }));
     }, []);
 
+    // Opening any tab takes the workspace out of a blank state — the blank pane
+    // and the tab panes are alternatives, not neighbours.
+    function showTab(id) {
+        setBlank(null);
+        setActiveTabId(id);
+    }
+
     function openTableTab(node) {
         const id = `tbl:${connKey(node.conn)}:${node.table}`;
         setTabs((prev) => prev.some((t) => t.id === id) ? prev
             : [...prev, { id, kind: 'table', title: node.table, conn: node.conn, table: node.table, rows: node.rows, engine: node.engine }]);
-        setActiveTabId(id);
+        showTab(id);
     }
 
     function openConsole(conn, engine, initialQuery = '') {
         const id = `con:${connKey(conn)}`;
         setTabs((prev) => prev.some((t) => t.id === id) ? prev
             : [...prev, { id, kind: 'console', title: `${connLabel(conn)}`, conn, engine, initialQuery }]);
-        setActiveTabId(id);
+        showTab(id);
     }
 
     function openProcesses(conn, engine) {
@@ -244,12 +315,12 @@ export default function Databases() {
         const title = conn.container ? `Processes · ${conn.container}` : `Processes · ${ENGINE_META[engine]?.short || engine}`;
         setTabs((prev) => prev.some((t) => t.id === id) ? prev
             : [...prev, { id, kind: 'processes', title, conn, engine }]);
-        setActiveTabId(id);
+        showTab(id);
     }
 
     function openBackups() {
         setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', title: 'Backups' }]);
-        setActiveTabId('backups');
+        showTab('backups');
     }
 
     function closeTab(id, e) {
@@ -269,14 +340,41 @@ export default function Databases() {
 
     function activate(node) {
         setSelectedNode(node);
-        if (node.kind === 'table') openTableTab(node);
-        else if (node.kind === 'database') {
-            // single click opens the database's SQL console (it used to be
-            // reachable only via the context menu) and expands its tables;
-            // collapsing stays on the chevron so re-clicks don't fold the tree
+        if (node.kind === 'table') { openTableTab(node); return; }
+
+        // An engine installed from the catalog is a leaf: there is nothing to
+        // expand, so selecting it shows what that engine is doing.
+        if (node.kind === 'engine' && node.instance) {
+            setBlank({ kind: 'engine', instanceId: engineInstanceKey(node.instance) });
+            setActiveTabId(null);
+            return;
+        }
+
+        const kids = childrenCache.get(node.id);
+        const knownEmpty = Array.isArray(kids) && kids.length === 0;
+
+        if (node.kind === 'database') {
+            // Once we know a database holds nothing, say so instead of opening a
+            // console onto an empty schema. Until then, single click opens the
+            // console and expands its tables; collapsing stays on the chevron so
+            // re-clicks don't fold the tree.
+            if (knownEmpty) {
+                setBlank({ kind: 'database', node });
+                setActiveTabId(null);
+                return;
+            }
             openConsole(node.conn, node.engine);
             if (node.expandable && !expanded.has(node.id)) toggle(node);
-        } else if (node.expandable) toggle(node);
+            return;
+        }
+
+        if (node.kind === 'engine' && knownEmpty && node.status === 'active') {
+            setBlank({ kind: 'host-engine', node });
+            setActiveTabId(null);
+            return;
+        }
+
+        if (node.expandable) toggle(node);
     }
 
     // ─── tree context menu ────────────────────────────────────
@@ -341,6 +439,16 @@ export default function Databases() {
     function ctxActions(node) {
         switch (node.kind) {
             case 'engine':
+                // An engine installed from a template is an app: its lifecycle
+                // lives on the service page rather than being duplicated here.
+                if (node.instance) {
+                    const appId = engineInstanceKey(node.instance);
+                    return [
+                        { label: 'Open service', icon: ExternalLink, onClick: () => navigate(`/services/${appId}`) },
+                        { label: 'Deploy activity', icon: Activity, onClick: () => navigate('/deployments') },
+                        { label: 'Refresh', icon: RefreshCw, onClick: () => loadEngines() },
+                    ];
+                }
                 if (node.engine === 'mysql' && node.status === 'active') {
                     return [
                         { label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'mysql-db' }) },
@@ -405,13 +513,36 @@ export default function Databases() {
         if (eng) refresh(eng);
     }
 
+    // A freshly installed engine goes straight into the tree and the workspace,
+    // so the install has somewhere to land instead of leaving the drawer and
+    // nothing to show for it. The install pipeline doesn't always hand back the
+    // app row — when it doesn't, the refresh alone is enough.
+    function onEngineInstalled(app) {
+        loadEngines();
+        const appId = app?.app_id ?? app?.id;
+        if (typeof appId === 'number') {
+            setBlank({ kind: 'engine', instanceId: appId });
+            setActiveTabId(null);
+        }
+    }
+
     const newConsoleConn = selectedNode?.conn || null;
     const activeStatus = tabStatuses[activeTabId];
+
+    // Blank-state subjects are re-resolved from the latest poll, so an
+    // `installing` panel becomes a `ready` panel without any extra wiring.
+    const blankInstance = useMemo(() => {
+        if (blank?.kind !== 'engine') return null;
+        return engineData.installed.find(
+            (e) => engineInstanceKey(e) === blank.instanceId,
+        ) || null;
+    }, [blank, engineData.installed]);
 
     const treeHandlers = useMemo(() => ({
         onToggle: toggle,
         onActivate: activate,
         onContext: openContext,
+        onCreateChild: (node) => setModal({ type: node.engine === 'mysql' ? 'mysql-db' : 'pg-db' }),
     }), [toggle]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
@@ -467,6 +598,10 @@ export default function Databases() {
                                 <button type="button" role="menuitem" disabled={engineState('postgresql', status) !== 'active'} onClick={() => { openUserModal('postgresql'); setShowNewMenu(false); }}>
                                     <Server size={14} aria-hidden="true" /> PostgreSQL user
                                 </button>
+                                <div className="dbx-menu-sep" />
+                                <button type="button" role="menuitem" onClick={() => { setCatalogOpen(true); setShowNewMenu(false); }}>
+                                    <Layers size={14} aria-hidden="true" /> Install a database engine…
+                                </button>
                             </div>
                         )}
                     </div>
@@ -500,16 +635,30 @@ export default function Databases() {
                             {statusLoading ? (
                                 <div className="dbx-tree-loading"><RefreshCw size={14} className="dbx-spin" aria-hidden="true" /> Checking servers…</div>
                             ) : (
-                                <SourceTree
-                                    roots={roots}
-                                    expanded={expanded}
-                                    childrenCache={childrenCache}
-                                    loading={loadingNodes}
-                                    activeKey={null}
-                                    selectedId={selectedNode?.id}
-                                    filter={filter}
-                                    handlers={treeHandlers}
-                                />
+                                <>
+                                    <SourceTree
+                                        roots={roots}
+                                        expanded={expanded}
+                                        childrenCache={childrenCache}
+                                        loading={loadingNodes}
+                                        activeKey={null}
+                                        selectedId={selectedNode?.id}
+                                        filter={filter}
+                                        handlers={treeHandlers}
+                                    />
+                                    {/* The way to get an engine the tree doesn't
+                                        list yet, right where you notice it's
+                                        missing. */}
+                                    {!engineData.unavailable && (
+                                        <button
+                                            type="button"
+                                            className="dbx-tree-install"
+                                            onClick={() => setCatalogOpen(true)}
+                                        >
+                                            <Layers size={14} aria-hidden="true" /> Install a database engine
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </aside>
@@ -525,8 +674,8 @@ export default function Databases() {
                                     aria-selected={tab.id === activeTabId}
                                     tabIndex={0}
                                     className={`dbx-tab is-${tab.engine || tab.kind} ${tab.id === activeTabId ? 'is-active' : ''}`}
-                                    onClick={() => setActiveTabId(tab.id)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTabId(tab.id); } }}
+                                    onClick={() => showTab(tab.id)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showTab(tab.id); } }}
                                 >
                                     <TabIcon tab={tab} />
                                     <span className="dbx-tab-title">{tab.title}</span>
@@ -554,7 +703,34 @@ export default function Databases() {
                     )}
 
                     <div className="dbx-panes">
-                        {tabs.length === 0 ? (
+                        {blank ? (
+                            <>
+                                {blank.kind === 'engine' && blankInstance && (
+                                    engineTreeStatus(blankInstance) === 'installing'
+                                        || engineTreeStatus(blankInstance) === 'failed'
+                                        ? <EngineInstallingPanel instance={blankInstance} onRefresh={loadEngines} />
+                                        : <EngineReadyPanel instance={blankInstance} />
+                                )}
+                                {blank.kind === 'host-engine' && (
+                                    <EngineReadyPanel
+                                        // `id` is what resolves the brand glyph, and a
+                                        // built-in root's id is a tree id, not an engine key.
+                                        instance={{ id: blank.node.engine, name: blank.node.label }}
+                                        label={blank.node.label}
+                                        onNewDatabase={() => setModal({
+                                            type: blank.node.engine === 'mysql' ? 'mysql-db' : 'pg-db',
+                                        })}
+                                    />
+                                )}
+                                {blank.kind === 'database' && (
+                                    <DatabaseEmptyPanel
+                                        node={blank.node}
+                                        unit={engineUnit(blank.node)}
+                                        onOpenConsole={() => openConsole(blank.node.conn, blank.node.engine)}
+                                    />
+                                )}
+                            </>
+                        ) : tabs.length === 0 ? (
                             <div className="dbx-welcome">
                                 <EmptyState
                                     icon={Database}
@@ -564,9 +740,12 @@ export default function Databases() {
                                         : 'Pick a table from the left to browse its rows, or open a SQL console on any database. Right-click a node for more actions.'}
                                 />
                             </div>
-                        ) : (
-                            tabs.map((tab) => (
-                                <div key={tab.id} className="dbx-tabpane" hidden={tab.id !== activeTabId}>
+                        ) : null}
+
+                        {/* Panes stay mounted behind a blank state — a half-typed
+                            query must survive a click on the tree. */}
+                        {tabs.map((tab) => (
+                                <div key={tab.id} className="dbx-tabpane" hidden={Boolean(blank) || tab.id !== activeTabId}>
                                     {tab.kind === 'console' && (
                                         <ConsoleTab
                                             conn={tab.conn}
@@ -598,8 +777,7 @@ export default function Databases() {
                                     )}
                                     {tab.kind === 'backups' && <BackupsTab />}
                                 </div>
-                            ))
-                        )}
+                        ))}
                     </div>
                 </main>
             </div>
@@ -649,10 +827,36 @@ export default function Databases() {
             )}
 
             {/* ─── Modals ─────────────────────────────────── */}
-            {modal?.type === 'mysql-db' && <CreateMySQLDatabaseModal onClose={() => setModal(null)} onCreated={onModalCreated} />}
-            {modal?.type === 'pg-db' && <CreatePostgreSQLDatabaseModal onClose={() => setModal(null)} onCreated={onModalCreated} />}
+            {(modal?.type === 'mysql-db' || modal?.type === 'pg-db') && (
+                <CreateDatabaseModal
+                    engine={modal.type === 'mysql-db' ? 'mysql' : 'postgresql'}
+                    status={status}
+                    onClose={() => setModal(null)}
+                    onCreated={onModalCreated}
+                    onInstallEngine={() => setCatalogOpen(true)}
+                />
+            )}
             {modal?.type === 'mysql-user' && <CreateMySQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
             {modal?.type === 'pg-user' && <CreatePostgreSQLUserModal databases={modal.databases} onClose={() => setModal(null)} onCreated={onModalCreated} />}
+
+            {/* ─── Engine catalog + install ───────────────── */}
+            <EngineCatalogDrawer
+                open={catalogOpen}
+                onOpenChange={setCatalogOpen}
+                catalog={engineData.catalog}
+                installed={engineData.installed}
+                families={engineData.families}
+                loading={enginesLoading}
+                unavailable={engineData.unavailable}
+                onSynced={loadEngines}
+                onPick={(entry) => { setCatalogOpen(false); setInstallEntry(entry); }}
+            />
+            <EngineInstallDrawer
+                entry={installEntry}
+                open={Boolean(installEntry)}
+                onOpenChange={(next) => { if (!next) setInstallEntry(null); }}
+                onInstalled={onEngineInstalled}
+            />
 
             <Modal open={showManaged} onClose={() => setShowManaged(false)} title="Managed databases" size="lg">
                 <ManagedDatabasesPanel />

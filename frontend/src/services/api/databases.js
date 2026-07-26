@@ -282,3 +282,18 @@ export async function deleteManagedDbUser(id, userId) {
 export async function launchManagedDbSso(id) {
     return this.request(`/managed-databases/${id}/sso`, { method: 'POST' });
 }
+
+// Database engines. An engine is an app template carrying an `engine:` block,
+// so this is a view over the template catalog plus the apps installed from it —
+// `{ catalog: [...], installed: [...] }`. Installing delegates to the ordinary
+// template install pipeline and answers with the app and its deployment job, so
+// the caller navigates to the deploy console like any other template install.
+//
+// Lifecycle (start / stop / uninstall) is app lifecycle: use the app endpoints.
+export async function getDatabaseEngines() {
+    return this.request('/databases/engines');
+}
+
+export async function installDatabaseEngine(payload) {
+    return this.request('/databases/engines', { method: 'POST', body: payload });
+}
