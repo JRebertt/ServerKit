@@ -65,6 +65,19 @@ compose:
   volumes:
     couchdb-data:
 
+files:
+  # A CouchDB node with no `single_node` flag never creates its own system
+  # databases: `_all_dbs` comes back empty, `_users` is missing, and the node
+  # logs `database_does_not_exist` for `_users` on a loop -- so no non-admin
+  # account can ever be created. The image has no environment variable for
+  # this (its entrypoint only reads COUCHDB_USER / COUCHDB_PASSWORD /
+  # COUCHDB_SECRET / COUCHDB_ERLANG_COOKIE), so the flag goes in a config
+  # snippet dropped into local.d, which CouchDB merges at startup.
+  - path: /opt/couchdb/etc/local.d/single-node.ini
+    content: |
+      [couchdb]
+      single_node = true
+
 ports:
   - port: "${PORT}"
     protocol: http

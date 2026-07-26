@@ -9,6 +9,7 @@ deployment-job row (``wait=False``), and the docker port probes are stubbed.
 """
 import json
 import os
+import re
 
 import pytest
 import yaml
@@ -324,6 +325,228 @@ class TestShippedEngineTemplateSafety:
                 continue
             declared = {v['name']: v for v in template['variables']}
             assert declared[secret_var]['type'] in ('password', 'random'), template_id
+
+
+# ── what running every engine for real taught us ─────────────────────────────
+class TestShippedEngineTemplateWiring:
+    """Invariants recovered by actually booting all twelve engines.
+
+    Everything here is checkable from the YAML alone, and every one of these
+    rules exists because getting it wrong produces an engine that *starts* and
+    looks healthy while being unusable or -- worse -- wide open:
+
+    * an admin secret that is generated but never handed to the image leaves
+      MongoDB / ClickHouse / CouchDB booting with authentication DISABLED;
+    * an ``engine.admin_user`` that disagrees with the user the compose block
+      actually creates means the credential shown in the drawer cannot log in;
+    * an ``engine.default_port`` that disagrees with the port variable makes
+      the catalog advertise a port nothing listens on;
+    * a ``version`` header that disagrees with the tag actually pulled makes
+      the catalog advertise a release the operator does not get.
+    """
+
+    # Injected by the install pipeline rather than declared per template.
+    PIPELINE_VARIABLES = {'APP_NAME'}
+
+    @staticmethod
+    def _engine_templates():
+        return TestShippedEngineTemplateSafety._engine_templates()
+
+    @staticmethod
+    def _compose_text(template):
+        """Everything an image can be configured by: compose + any ``files:``."""
+        chunks = [yaml.safe_dump(template.get('compose', {}))]
+        for file_def in template.get('files', []) or []:
+            chunks.append(str(file_def.get('path', '')))
+            chunks.append(str(file_def.get('content', '')))
+        return '\n'.join(chunks)
+
+    def test_admin_secret_reaches_the_image(self, app):
+        """Declaring the secret is not enough -- the compose must USE it.
+
+        MongoDB with only ``MONGO_INITDB_ROOT_PASSWORD``, ClickHouse without
+        ``CLICKHOUSE_PASSWORD`` and CouchDB without ``COUCHDB_PASSWORD`` all
+        start happily with auth switched off. A generated password that is
+        never referenced is exactly that failure.
+        """
+        for template_id, template in self._engine_templates():
+            secret_var = (TemplateService.engine_metadata(template)
+                          .get('admin_password_var'))
+            if not secret_var:
+                continue
+            assert '${%s}' % secret_var in self._compose_text(template), (
+                f'{template_id} generates {secret_var} but never passes it to the '
+                'image, so the engine would boot with authentication disabled'
+            )
+
+    def test_every_compose_variable_is_declared(self, app):
+        """No ``${VAR}`` may reach docker compose without a declared value.
+
+        An undeclared name survives substitution as the literal ``${VAR}`` and
+        becomes, say, a password of ``${DB_PASSWD}`` -- which "works" until
+        someone tries to connect.
+        """
+        pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+        for template_id, template in self._engine_templates():
+            declared = {v['name'] for v in template.get('variables', [])}
+            declared |= self.PIPELINE_VARIABLES
+            used = set(pattern.findall(self._compose_text(template)))
+            undeclared = used - declared
+            assert not undeclared, \
+                f'{template_id} uses undeclared variables: {sorted(undeclared)}'
+
+    def test_no_published_port_binds_all_interfaces(self, app):
+        """Rule 1 restated as a literal check, so a hardcoded bind cannot pass.
+
+        ``test_every_published_port_binds_to_loopback`` asserts the prefix is
+        the variable; this asserts nobody wrote the address inline.
+        """
+        for template_id, template in self._engine_templates():
+            text = self._compose_text(template)
+            for literal in ('0.0.0.0:', '::0:', '[::]:'):
+                assert literal not in text, \
+                    f'{template_id} publishes a port on {literal}'
+
+    def test_engine_default_port_matches_the_port_variable(self, app):
+        """The catalog's advertised port has to be the one that is published.
+
+        Several engines deliberately sit off their upstream default (MariaDB on
+        3307, MySQL on 3308, PostgreSQL on 5433, Valkey on 6380) to survive
+        beside a host install; the two places that state it must agree.
+        """
+        for template_id, template in self._engine_templates():
+            engine = TemplateService.engine_metadata(template)
+            port_var = engine.get('port_var') or TemplateService.ENGINE_DEFAULT_PORT_VAR
+            declared = {v['name']: v for v in template['variables']}
+            assert port_var in declared, f'{template_id} declares no {port_var}'
+            assert str(declared[port_var]['default']) == str(engine['default_port']), (
+                f"{template_id}: engine.default_port={engine['default_port']} but "
+                f"{port_var} defaults to {declared[port_var]['default']}"
+            )
+
+    def test_declared_version_is_the_tag_that_gets_installed(self, app):
+        """``version:`` is what the catalog shows; the tag is what you get.
+
+        Meilisearch advertised 1.0 while installing v1.12, and Valkey
+        advertised 8.0 while installing the rolling ``8`` tag.
+        """
+        for template_id, template in self._engine_templates():
+            engine = TemplateService.engine_metadata(template)
+            version_var = (template.get('engine') or {}).get('version_var') or 'IMAGE_TAG'
+            declared = {v['name']: v for v in template['variables']}
+            assert version_var in declared, f'{template_id} declares no {version_var}'
+            default_tag = str(declared[version_var]['default'])
+            assert default_tag in [str(v) for v in engine['versions']], (
+                f'{template_id}: default tag {default_tag} is not in engine.versions'
+            )
+            assert str(template['version']) == default_tag, (
+                f"{template_id}: catalog says version {template['version']} but "
+                f'the default install pulls tag {default_tag}'
+            )
+
+    def test_engine_admin_user_matches_the_user_the_compose_creates(self, app):
+        """The username in the drawer must be the one the image is told to make.
+
+        MongoDB (``MONGO_INITDB_ROOT_USERNAME``), CouchDB (``COUCHDB_USER``),
+        ClickHouse (``CLICKHOUSE_USER``) and InfluxDB
+        (``DOCKER_INFLUXDB_INIT_USERNAME``) each name their admin explicitly;
+        a mismatch hands out a credential that cannot authenticate.
+        """
+        for template_id, template in self._engine_templates():
+            admin_user = TemplateService.engine_metadata(template).get('admin_user')
+            if not admin_user:
+                continue
+            for service in template['compose']['services'].values():
+                for key, value in (service.get('environment') or {}).items():
+                    if not key.endswith(('_USER', '_USERNAME')):
+                        continue
+                    if '${' in str(value):
+                        continue  # operator-chosen, nothing to compare against
+                    assert str(value) == admin_user, (
+                        f'{template_id}: engine.admin_user is {admin_user!r} but '
+                        f'compose sets {key}={value!r}'
+                    )
+
+    def test_engine_data_path_is_where_the_named_volume_is_mounted(self, app):
+        """``engine.data_path`` is what the UI calls the engine's data.
+
+        It has to be a *named volume* target: a bind mount or a stray path
+        means a "managed" engine whose data the panel does not actually keep.
+        """
+        for template_id, template in self._engine_templates():
+            data_path = TemplateService.engine_metadata(template).get('data_path')
+            if not data_path:
+                continue
+            named = set((template['compose'].get('volumes') or {}).keys())
+            targets = set()
+            for service in template['compose']['services'].values():
+                for mount in service.get('volumes', []) or []:
+                    source, _, target = str(mount).partition(':')
+                    if source in named:
+                        targets.add(target.split(':')[0])
+            assert data_path in targets, (
+                f'{template_id}: engine.data_path {data_path} is not the mount '
+                f'target of a named volume (named targets: {sorted(targets)})'
+            )
+
+    def test_config_files_never_shadow_the_data_volume(self, app):
+        """A ``files:`` entry is bind-mounted; it must not land on the data dir.
+
+        ``_apply_bind_mounts_to_compose`` drops any named volume mounted at the
+        same directory as a rendered file, so a config file written into the
+        data path would silently delete the engine's persistence.
+        """
+        for template_id, template in self._engine_templates():
+            data_path = (TemplateService.engine_metadata(template)
+                         .get('data_path') or '').rstrip('/')
+            for file_def in template.get('files', []) or []:
+                path = str(file_def.get('path', ''))
+                if not path.startswith('/') or not data_path:
+                    continue
+                assert os.path.dirname(path).rstrip('/') != data_path, (
+                    f'{template_id}: {path} would replace the data volume at '
+                    f'{data_path}'
+                )
+
+
+class TestCouchDBSingleNode:
+    """CouchDB will not create its own system databases unless told to.
+
+    Booted for real, a node without ``[couchdb] single_node`` answers
+    ``/_all_dbs`` with ``[]``, has no ``_users`` database (so no non-admin
+    account can ever be created) and logs ``database_does_not_exist`` for
+    ``_users`` on a loop. The image's entrypoint reads only COUCHDB_USER,
+    COUCHDB_PASSWORD, COUCHDB_SECRET and COUCHDB_ERLANG_COOKIE -- there is no
+    environment variable for this -- so the flag ships as a config snippet.
+    """
+
+    @staticmethod
+    def _template():
+        return TemplateService.get_template('couchdb')['template']
+
+    def test_single_node_config_file_is_shipped(self, app):
+        files = self._template().get('files') or []
+        inis = [f for f in files if f['path'].startswith('/opt/couchdb/etc/local.d/')]
+        assert inis, 'couchdb ships no local.d config; _users would never exist'
+        content = '\n'.join(f['content'] for f in inis)
+        assert '[couchdb]' in content
+        assert re.search(r'single_node\s*=\s*true', content), content
+
+    def test_the_snippet_is_bind_mounted_and_the_data_volume_survives(self, app):
+        """Rendering it through the real installer, not a hand-written string."""
+        rendered = TemplateService._render_compose_and_files(
+            self._template(),
+            {'APP_NAME': 'couch1', 'IMAGE_TAG': '3.3', 'PORT': '5984',
+             'BIND_ADDRESS': '127.0.0.1', 'DB_PASSWORD': 'x' * 28},
+            '/opt/serverkit/apps/couch1',
+        )
+        assert rendered['success'], rendered.get('error')
+        compose = yaml.safe_load(rendered['compose_content'])
+        volumes = compose['services']['app']['volumes']
+        assert './single-node.ini:/opt/couchdb/etc/local.d/single-node.ini' in volumes
+        # The config mount must not have displaced persistence.
+        assert 'couchdb-data:/opt/couchdb/data' in volumes
+        assert 'couchdb-data' in compose['volumes']
 
 
 # ── install: validation + safety rules ───────────────────────────────────────
