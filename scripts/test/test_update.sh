@@ -378,6 +378,51 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T10e — PostgreSQL installs get a real pre-upgrade safety net: backup_current
+# must pg_dump the external DB (sanitizing SQLAlchemy driver suffixes libpq
+# can't parse) and must HALT when the dump fails — updating a shared,
+# migrate-in-place database with no dump is flying without a parachute.
+# --------------------------------------------------------------------------
+t="$WORK/t10e"; mkdir -p "$t/serverkit" "$t/backups"
+printf 'DATABASE_URL=postgresql+psycopg2://user:secret@db.host:5432/serverkit\n' > "$t/serverkit/.env"
+cat > "$STUB_BIN/pg_dump" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$1" > "$WORK/t10e/url.txt"
+out=""; prev=""
+for a in "\$@"; do [ "\$prev" = "-f" ] && out="\$a"; prev="\$a"; done
+: > "\$out"
+exit \${PG_DUMP_RC:-0}
+EOF
+chmod +x "$STUB_BIN/pg_dump"
+bk_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current
+) >/dev/null 2>&1 || bk_rc=$?
+dump_file="$(ls "$t/backups"/serverkit-pre-upgrade-*.dump 2>/dev/null | head -1)"
+if [ "$bk_rc" -eq 0 ] && [ -n "$dump_file" ] \
+   && [ "$(cat "$WORK/t10e/url.txt" 2>/dev/null)" = "postgresql://user:secret@db.host:5432/serverkit" ]; then
+    ok "backup_current pg_dumps PostgreSQL installs (driver suffix sanitized)"
+else
+    bad "backup_current postgres: rc=$bk_rc, dump=[$dump_file], url=[$(cat "$WORK/t10e/url.txt" 2>/dev/null)]"
+fi
+rm -rf "$t/backups"; mkdir -p "$t/backups"
+bk_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    export PG_DUMP_RC=1
+    backup_current
+) >/dev/null 2>&1 || bk_rc=$?
+if [ "$bk_rc" -ne 0 ]; then
+    ok "backup_current halts when the PostgreSQL dump fails (no safety net, no update)"
+else
+    bad "backup_current proceeded despite a failed pg_dump (rc=0)"
+fi
+rm -f "$STUB_BIN/pg_dump"
+
+# --------------------------------------------------------------------------
 # T11 — zero-downtime regression: reload_nginx_graceful must RELOAD a running
 # nginx and must NEVER stop it. Host nginx fronts every managed app, so a stop
 # during a panel update used to black out unrelated sites. A recording systemctl

@@ -861,6 +861,22 @@ backup_current() {
         run_or_dry copy_sqlite_db "$db_file" "$backup_file" \
             || halt "Database backup failed — refusing to update without a safety net"
         good "Database backed up to $backup_file"
+    elif grep -qE '^DATABASE_URL=postgres' "$active/.env" 2>/dev/null; then
+        # PostgreSQL: the DB is external and SHARED between slots — there is
+        # no per-slot file to snapshot, and the migration runs in place. A
+        # pre-upgrade dump is the only safety net AND the only way back:
+        # without it, a rollback hands the old code a newer schema.
+        backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).dump"
+        command -v pg_dump >/dev/null 2>&1 \
+            || halt "PostgreSQL install but pg_dump is unavailable — install postgresql-client so the update has a safety net"
+        # Strip SQLAlchemy driver suffixes (postgresql+psycopg2://) that
+        # libpq can't parse, and any wrapping quotes from the .env value.
+        local pg_url
+        pg_url="$(grep -E '^DATABASE_URL=' "$active/.env" | head -1 | cut -d= -f2- \
+                  | tr -d "\"'" | sed -E 's|^postgres(ql)?\+[a-z0-9]+://|postgresql://|')"
+        run_or_dry pg_dump "$pg_url" -Fc -f "$backup_file" \
+            || halt "PostgreSQL backup failed — refusing to update without a safety net"
+        good "Database backed up to $backup_file"
     else
         warn "No SQLite database at $db_file — skipping DB backup"
     fi
