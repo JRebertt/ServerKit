@@ -315,8 +315,11 @@ class LogService:
         """Read system logs from a syslog file, optionally filtering by service."""
         try:
             if service:
+                # No shell: list2cmdline() is cmd.exe-style quoting and does
+                # not protect against $(...)/backtick expansion under bash.
+                # grep runs as argv and the tail happens in Python instead.
                 result = run_privileged(
-                    ['bash', '-c', f'grep -i {subprocess.list2cmdline([service])} {subprocess.list2cmdline([filepath])} | tail -n {int(lines)}'],
+                    ['grep', '-i', '--', service, filepath],
                     timeout=60,
                 )
             else:
@@ -327,6 +330,10 @@ class LogService:
 
             if result.returncode == 0 or (service and result.returncode == 1):
                 log_lines = result.stdout.split('\n') if result.stdout else []
+                if log_lines and log_lines[-1] == '':
+                    log_lines.pop()  # trailing newline artifact
+                if service:
+                    log_lines = log_lines[-int(lines):]
                 return sourced_result(log_lines, 'syslog', filepath)
             else:
                 return {'success': False, 'error': result.stderr}

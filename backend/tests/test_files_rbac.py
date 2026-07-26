@@ -8,6 +8,8 @@ GHSA-mc93-rc3x-fpgq — PostfixService.install() interpolated the hostname into
 a bash -c string. Hostnames are now validated and debconf values are piped
 via stdin, never through a shell.
 """
+import subprocess
+
 import pytest
 
 from app import db as _db
@@ -88,6 +90,89 @@ def test_viewer_can_still_browse(client, role_headers):
     resp = client.get('/api/v1/files/browse?path=/tmp',
                       headers=role_headers[User.ROLE_VIEWER])
     assert resp.status_code != 403
+
+
+# --------------------------------------------------------------------------- #
+# files.read revocation: a user whose files.read permission is disabled must
+# be blocked from read endpoints too, not just writes
+# --------------------------------------------------------------------------- #
+
+READ_CASES = [
+    '/api/v1/files/browse?path=/tmp',
+    '/api/v1/files/info?path=/tmp/x',
+    '/api/v1/files/read?path=/tmp/x',
+    '/api/v1/files/search?path=/tmp&query=x',
+    '/api/v1/files/download?path=/tmp/x',
+    '/api/v1/files/s3/browse?path=/',
+    '/api/v1/files/s3/read?path=/x',
+    '/api/v1/files/s3/download-url?path=/x',
+]
+
+
+@pytest.fixture
+def no_read_headers(app):
+    """JWT headers for a viewer whose files.read permission is revoked."""
+    from flask_jwt_extended import create_access_token
+    from werkzeug.security import generate_password_hash
+
+    with app.app_context():
+        u = User(email='files_noread@t.local', username='files_noread',
+                 password_hash=generate_password_hash('x'),
+                 role=User.ROLE_VIEWER, is_active=True)
+        perms = {f: {'read': True, 'write': False} for f in User.PERMISSION_FEATURES}
+        perms['files'] = {'read': False, 'write': False}
+        u.set_permissions(perms)
+        _db.session.add(u)
+        _db.session.commit()
+        return {'Authorization': f'Bearer {create_access_token(identity=u.id)}'}
+
+
+@pytest.mark.parametrize('url', READ_CASES)
+def test_revoked_files_read_blocks_read_endpoints(client, no_read_headers, url):
+    resp = client.get(url, headers=no_read_headers)
+    assert resp.status_code == 403
+    assert 'files' in resp.get_json()['error']
+
+
+# --------------------------------------------------------------------------- #
+# log_service._read_syslog: the service filter must never go through a shell
+# (subprocess.list2cmdline is cmd.exe quoting and does not stop $(...)/backtick
+# expansion under bash)
+# --------------------------------------------------------------------------- #
+
+def test_read_syslog_does_not_use_a_shell(monkeypatch):
+    from app.services import log_service
+    from app.services.log_service import LogService
+
+    captured = {}
+
+    def fake_run_privileged(cmd, **kwargs):
+        captured['cmd'] = cmd
+        return subprocess.CompletedProcess(cmd, 0, stdout='match1\nmatch2\n', stderr='')
+
+    monkeypatch.setattr(log_service, 'run_privileged', fake_run_privileged)
+
+    payload = 'x$(id)`id`'
+    result = LogService._read_syslog('/var/log/syslog', payload, 100)
+
+    cmd = captured['cmd']
+    assert 'bash' not in cmd and '-c' not in cmd
+    # the payload travels as a standalone argv element, verbatim
+    assert payload in cmd
+    assert result['success']
+
+
+def test_read_syslog_tails_matches_in_python(monkeypatch):
+    from app.services import log_service
+    from app.services.log_service import LogService
+
+    def fake_run_privileged(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, 0, stdout='l1\nl2\nl3\n', stderr='')
+
+    monkeypatch.setattr(log_service, 'run_privileged', fake_run_privileged)
+
+    result = LogService._read_syslog('/var/log/syslog', 'nginx', 2)
+    assert result['lines'] == ['l2', 'l3']
 
 
 # --------------------------------------------------------------------------- #

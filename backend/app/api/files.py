@@ -1,7 +1,6 @@
 """File Manager API endpoints for browsing, editing, and managing files."""
 
 from flask import Blueprint, request, jsonify, send_file
-from flask_jwt_extended import jwt_required
 from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
@@ -12,7 +11,7 @@ files_bp = Blueprint('files', __name__)
 
 
 @files_bp.route('/browse', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def browse_directory():
     """List directory contents."""
     path = request.args.get('path', '/home')
@@ -26,7 +25,7 @@ def browse_directory():
 
 
 @files_bp.route('/info', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_file_info():
     """Get information about a file or directory."""
     path = request.args.get('path')
@@ -47,7 +46,7 @@ def get_file_info():
 
 
 @files_bp.route('/read', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def read_file():
     """Read file contents."""
     path = request.args.get('path')
@@ -254,7 +253,7 @@ def change_permissions():
 
 
 @files_bp.route('/search', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def search_files():
     """Search for files matching a pattern."""
     directory = request.args.get('directory', '/home')
@@ -274,7 +273,7 @@ def search_files():
 
 
 @files_bp.route('/disk-usage', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_disk_usage():
     """Get disk usage for a path."""
     path = request.args.get('path', '/')
@@ -287,7 +286,7 @@ def get_disk_usage():
 
 
 @files_bp.route('/disk-mounts', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_disk_mounts():
     """Get disk usage for all mount points."""
     result = FileService.get_all_disk_mounts()
@@ -298,7 +297,7 @@ def get_disk_mounts():
 
 
 @files_bp.route('/analyze', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def analyze_directory():
     """Analyze directory sizes."""
     path = request.args.get('path', '/home')
@@ -315,7 +314,7 @@ def analyze_directory():
 
 
 @files_bp.route('/type-breakdown', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def get_type_breakdown():
     """Get file type breakdown for a directory."""
     path = request.args.get('path', '/home')
@@ -331,7 +330,7 @@ def get_type_breakdown():
 
 
 @files_bp.route('/download', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def download_file():
     """Download a file."""
     path = request.args.get('path')
@@ -420,7 +419,7 @@ def upload_file():
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──
 
 @files_bp.route('/s3/browse', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_browse():
     """List a bucket prefix in the same entry shape as the local browser."""
     path = request.args.get('path', '/')
@@ -429,7 +428,7 @@ def s3_browse():
 
 
 @files_bp.route('/s3/read', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_read():
     """Read a text object for in-app editing."""
     path = request.args.get('path')
@@ -466,7 +465,7 @@ def s3_delete():
 
 
 @files_bp.route('/s3/download-url', methods=['GET'])
-@jwt_required()
+@permission_required('files', 'read')
 def s3_download_url():
     """Return a short-lived presigned URL the browser can download directly."""
     path = request.args.get('path')
