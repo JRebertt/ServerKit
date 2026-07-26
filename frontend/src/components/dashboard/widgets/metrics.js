@@ -97,7 +97,11 @@ export const METRICS = [
         id: 'load',
         label: 'Load average',
         unit: '',
-        color: 'var(--accent-bright)',
+        // NOT --accent-bright: cpu already owns it, so a chart of CPU +
+        // load drew two identical lines. The six metrics map 1:1 onto the
+        // six themeable semantic tokens; load takes red because load
+        // spiking is the classic "this box is struggling" signal.
+        color: 'var(--red)',
         max: null,
         // MetricsHistory column load_1m is serialised as load['1m'].
         // ServerMetrics has no load column, so this is local-host only.
@@ -300,3 +304,27 @@ export function chartDomain(metricIds) {
     const allPercent = metrics.every((m) => m && m.unit === '%' && m.max === 100);
     return allPercent ? [0, 100] : null;
 }
+
+
+/**
+ * Colours a series may be set to in the widget editor.
+ *
+ * Tokens, never hex: a theme repaints these, so a chart follows whatever skin
+ * the operator is running. `''` means "use the metric's own colour", which is
+ * the default and where most series should stay.
+ */
+export const SERIES_COLORS = [
+    ['', 'Metric default'],
+    ['var(--accent-bright)', 'Accent'],
+    ['var(--green)', 'Green'],
+    ['var(--amber)', 'Amber'],
+    ['var(--cyan)', 'Cyan'],
+    ['var(--violet)', 'Violet'],
+    ['var(--red)', 'Red'],
+];
+
+/** Line shapes a chart can draw. `step` is the squared-off look. */
+export const LINE_STYLES = [
+    ['smooth', 'Line'],
+    ['step', 'Stepped'],
+];

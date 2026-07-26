@@ -5,7 +5,8 @@ import {
 import { Drawer, SegControl } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import {
-    AGGREGATIONS, getMetric, metricsForResource, metricsForSource,
+    AGGREGATIONS, LINE_STYLES, SERIES_COLORS, getMetric,
+    metricsForResource, metricsForSource,
 } from '../widgets/metrics';
 // Single source of truth for shortcut targets: what a user can pick here is
 // exactly what the renderer can draw. WidgetBody is what the board itself
@@ -386,6 +387,29 @@ export function WidgetEditor({
                                                             onChange={(value) => setSeries(index, 'metric', value)}
                                                             options={metricOptionsFor(series.resource, series.metric)}
                                                         />
+                                                        <div
+                                                            className="skwe-edit__swatches"
+                                                            role="radiogroup"
+                                                            aria-label={`Series ${index + 1} colour`}
+                                                        >
+                                                            {SERIES_COLORS.map(([value, name]) => {
+                                                                const active = (series.color || '') === value;
+                                                                const metric = getMetric(series.metric);
+                                                                return (
+                                                                    <button
+                                                                        key={value || 'default'}
+                                                                        type="button"
+                                                                        role="radio"
+                                                                        aria-checked={active}
+                                                                        aria-label={name}
+                                                                        title={name}
+                                                                        className={`skwe-edit__swatch${active ? ' is-on' : ''}`}
+                                                                        style={{ background: value || metric?.color }}
+                                                                        onClick={() => setSeries(index, 'color', value)}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </div>
                                                         <button
                                                             type="button"
                                                             className="skwe-edit__del"
@@ -417,6 +441,14 @@ export function WidgetEditor({
                                                 checked={cfg.legend !== false}
                                                 aria-label="Show legend"
                                                 onCheckedChange={(checked) => set('legend', checked)}
+                                            />
+                                        </Field>
+                                        <Field label="Line style">
+                                            <SegControl
+                                                options={LINE_STYLES.map(([value, label]) => ({ value, label }))}
+                                                value={cfg.lineStyle || 'smooth'}
+                                                onChange={(value) => set('lineStyle', value)}
+                                                aria-label="Line style"
                                             />
                                         </Field>
                                         <Field label="Area fill" inline>

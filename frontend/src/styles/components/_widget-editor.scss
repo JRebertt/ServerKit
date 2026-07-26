@@ -383,6 +383,36 @@ $skwe-pane-w: 340px;
 
     // Pushes the close affordance to the far edge, away from Remove.
     &__spacer { flex: 1; }
+
+    // Per-series colour. Swatches rather than a select: the choice IS the
+    // colour, so showing the name instead of the thing would be a worse
+    // control. Values are theme tokens, so these repaint with the skin.
+    &__swatches {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding-top: 2px;
+    }
+
+    &__swatch {
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 1px solid var(--border-strong);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { transform: scale(1.12); }
+
+        // Ring rather than a border swap, so the swatch's own colour stays
+        // exactly the size it was and the row cannot shift on selection.
+        &.is-on {
+            border-color: var(--text);
+            box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-faint);
+        }
+    }
 }
 
 // ------------------------------------------------------------

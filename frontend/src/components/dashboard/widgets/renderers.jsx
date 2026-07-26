@@ -105,7 +105,7 @@ function pillKind(state) {
  * Gradient ids are per-instance (useId) so two charts on one board cannot
  * capture each other's fills.
  */
-function WidgetChart({ series, colors, fill = true, grid = true, height = '100%', domain = null }) {
+function WidgetChart({ series, colors, fill = true, grid = true, height = '100%', domain = null, lineStyle = 'smooth' }) {
     const uid = useId().replace(/:/g, '');
     const data = (series || []).filter((s) => Array.isArray(s) && s.length > 0);
     const all = data.flat();
@@ -123,7 +123,21 @@ function WidgetChart({ series, colors, fill = true, grid = true, height = '100%'
     const span = max - min || 1;
     const toX = (i, len) => (i / (len - 1 || 1)) * w;
     const toY = (v) => h - ((Math.max(min, Math.min(max, v)) - min) / span) * h;
-    const line = (s) => s.map((v, i) => `${i ? 'L' : 'M'}${toX(i, s.length).toFixed(2)} ${toY(v).toFixed(2)}`).join(' ');
+    const line = (s) => {
+        if (lineStyle !== 'step') {
+            return s.map((v, i) => `${i ? 'L' : 'M'}${toX(i, s.length).toFixed(2)} ${toY(v).toFixed(2)}`).join(' ');
+        }
+        // Hold each reading until the next one, then jump — the squared-off
+        // look. A sampled metric genuinely is a series of discrete readings,
+        // and this draws that instead of inventing a slope between them.
+        return s.map((v, i) => {
+            const x = toX(i, s.length).toFixed(2);
+            const y = toY(v).toFixed(2);
+            if (!i) return `M${x} ${y}`;
+            const prevY = toY(s[i - 1]).toFixed(2);
+            return `L${x} ${prevY} L${x} ${y}`;
+        }).join(' ');
+    };
 
     return (
         <svg
@@ -223,6 +237,7 @@ function WStat({ cfg, ctx }) {
                         grid={false}
                         height="100%"
                         domain={chartDomain([metric.id])}
+                        lineStyle={cfg.lineStyle || 'smooth'}
                     />
                 </div>
             )}
@@ -274,6 +289,7 @@ function WTimeseries({ cfg, ctx }) {
                     colors={colors}
                     fill={cfg.fill !== false}
                     domain={chartDomain(withData.map((r) => r.metric.id))}
+                    lineStyle={cfg.lineStyle || 'smooth'}
                 />
             </div>
             {cfg.legend !== false && (

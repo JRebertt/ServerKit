@@ -456,17 +456,18 @@ const Dashboard = () => {
                         onChange={setRange}
                         aria-label="Time range"
                     />
-                    <select
-                        value={refreshInterval}
-                        onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
-                        className="refresh-select"
-                        title="Auto-refresh interval"
-                        aria-label="Auto-refresh interval"
-                    >
-                        {REFRESH_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>↻ {opt.label}</option>
-                        ))}
-                    </select>
+                    <div className="skw-refresh">
+                        <select
+                            value={refreshInterval}
+                            onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
+                            title="Auto-refresh interval"
+                            aria-label="Auto-refresh interval"
+                        >
+                            {REFRESH_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>↻ {opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
                     <button
                         type="button"
                         className="skw-iconbtn"
@@ -487,25 +488,25 @@ const Dashboard = () => {
                     </button>
                     {edit ? (
                         <>
-                            <button type="button" className="btn btn-outline btn-sm" onClick={() => setLibraryOpen(true)}>
+                            <button type="button" className="skw-barbtn" onClick={() => setLibraryOpen(true)}>
                                 <Plus size={14} /> Add widget
                             </button>
                             <button
                                 type="button"
-                                className="btn btn-sm"
+                                className="skw-iconbtn"
                                 onClick={handleReset}
                                 title="Restore the shipped layout"
                                 aria-label="Restore the shipped layout"
                             >
                                 <History size={14} />
                             </button>
-                            <button type="button" className="btn btn-sm" onClick={discardEdit}>Discard</button>
-                            <button type="button" className="btn btn-primary btn-sm" onClick={finishEdit}>
+                            <button type="button" className="skw-barbtn" onClick={discardEdit}>Discard</button>
+                            <button type="button" className="skw-barbtn skw-barbtn--primary" onClick={finishEdit}>
                                 <Check size={14} /> Done
                             </button>
                         </>
                     ) : (
-                        <button type="button" className="btn btn-outline btn-sm" onClick={startEdit}>
+                        <button type="button" className="skw-barbtn" onClick={startEdit}>
                             <SlidersHorizontal size={14} /> Edit
                         </button>
                     )}
