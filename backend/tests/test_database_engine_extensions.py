@@ -761,3 +761,52 @@ class TestProbing:
         client.get(f'/api/v1/databases/engines/{application.id}/extensions',
                    headers=auth_headers)
         assert not fake.statements
+
+
+# ── per-app authorization on the read (plan 29 #9) ──────────────────────────
+class TestInstanceExtensionsAreScopedToTheApp:
+    """`GET /<app_id>/extensions` describes someone's application: the image it
+    runs, the databases on it, what it can load. A bare `@jwt_required()` let
+    any signed-in user enumerate that for every instance on the panel — caught
+    by the structural authz sweep, not by a feature test, which is exactly what
+    that sweep is for."""
+
+    def test_a_user_without_access_is_denied(self, client, viewer_headers,
+                                             tmp_path, monkeypatch):
+        application = _install_engine(tmp_path, monkeypatch)
+        # `_install_engine` hardcodes user_id=1, and with no admin created first
+        # the viewer IS user 1 — so reassign the owner explicitly rather than
+        # letting the assertion depend on fixture ordering.
+        owner = User(email='extowner@test.local', username='extowner',
+                     password_hash='x', role=User.ROLE_ADMIN, is_active=True)
+        db.session.add(owner)
+        db.session.commit()
+        application.user_id = owner.id
+        db.session.commit()
+
+        response = client.get(
+            f'/api/v1/databases/engines/{application.id}/extensions',
+            headers=viewer_headers)
+        assert response.status_code == 403, response.get_json()
+        assert 'error' in response.get_json()
+
+    def test_the_owner_still_sees_it(self, client, auth_headers, tmp_path, monkeypatch):
+        application = _install_engine(tmp_path, monkeypatch)
+        response = client.get(
+            f'/api/v1/databases/engines/{application.id}/extensions',
+            headers=auth_headers)
+        assert response.status_code == 200
+        assert 'extensions' in response.get_json()
+
+    def test_unknown_app_is_404_not_403(self, client, auth_headers):
+        """A missing app and a forbidden one are different answers; conflating
+        them would make the endpoint useless for its own caller."""
+        response = client.get('/api/v1/databases/engines/999999/extensions',
+                              headers=auth_headers)
+        assert response.status_code == 404
+
+    def test_anonymous_is_rejected(self, client, tmp_path, monkeypatch):
+        application = _install_engine(tmp_path, monkeypatch)
+        response = client.get(
+            f'/api/v1/databases/engines/{application.id}/extensions')
+        assert response.status_code == 401

@@ -1,3 +1,7 @@
+# Bucket: PER-APP (plan 29 #9). The per-app extension routes
+# (/<app_id>/extensions) address one installed engine, so they gate on
+# can_access_app; the catalog reads above them are system-level and carry no
+# app linkage, and every mutation is admin-only.
 """Database engine catalog + install, prefix ``/api/v1/databases/engines``.
 
 Deliberately thin. There is no engine model and no engine install mechanism
@@ -20,6 +24,8 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.middleware.rbac import admin_required
+from app.models import Application, User
+from app.services.resource_grant_service import ResourceGrantService
 from app.services import database_engine_extension_service as extensions
 from app.services import database_engine_service as engines
 from app.services.deployment_job_service import DeploymentJobService
@@ -121,6 +127,25 @@ def list_engine_extensions():
                     'family': TemplateService.EXTENSION_FAMILY}), 200
 
 
+def _require_app_access(app_id):
+    """Ensure the caller may see this app, mirroring the per-app docker DB read.
+
+    Returns an (error_body, status) tuple to return, or None when allowed. The
+    extension listing names an instance's image, its databases and what it can
+    load — all facts about someone's application, so a bare `@jwt_required()`
+    would have let any signed-in user enumerate them across the whole panel.
+    """
+    user = User.query.get(get_jwt_identity())
+    if not user:
+        return {'error': 'Unauthorized'}, 401
+    app = Application.query.get(app_id)
+    if not app:
+        return {'error': 'Application not found'}, 404
+    if not ResourceGrantService.can_access_app(user, app):
+        return {'error': 'Access denied'}, 403
+    return None
+
+
 @database_engines_bp.route('/<int:app_id>/extensions', methods=['GET'])
 @jwt_required()
 def list_instance_extensions(app_id):
@@ -130,6 +155,10 @@ def list_instance_extensions(app_id):
     inferring it from the image name -- slower (a docker exec per extension),
     authoritative, and the only way to see what is already installed.
     """
+    denied = _require_app_access(app_id)
+    if denied:
+        return jsonify(denied[0]), denied[1]
+
     probe = request.args.get('probe', 'false').lower() == 'true'
     result = extensions.instance_extensions(app_id, probe=probe)
     if 'error' in result:
