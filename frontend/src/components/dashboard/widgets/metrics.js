@@ -279,3 +279,24 @@ export function thresholdColor(value, thresholds) {
     if (Number.isFinite(amber) && value >= amber) return 'var(--amber)';
     return 'var(--green)';
 }
+
+/**
+ * Fixed y-axis domain for a set of metrics, or null to scale to the data.
+ *
+ * Percentages get a hard [0, 100]. Auto-scaling them reads badly in both
+ * directions: a single spike compresses the rest of the series into a flat line
+ * at the bottom, and a metric that idles between 0.4% and 0.7% gets stretched
+ * into dramatic mountains that mean nothing. A percentage already has an
+ * absolute frame of reference — use it.
+ *
+ * Only applied when EVERY series is a percentage. A chart mixing CPU% with load
+ * average would flatten the load into the floor, so mixed units keep scaling to
+ * their data.
+ */
+export function chartDomain(metricIds) {
+    const ids = (metricIds || []).filter(Boolean);
+    if (!ids.length) return null;
+    const metrics = ids.map((id) => getMetric(id));
+    const allPercent = metrics.every((m) => m && m.unit === '%' && m.max === 100);
+    return allPercent ? [0, 100] : null;
+}

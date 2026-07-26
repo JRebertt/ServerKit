@@ -27,6 +27,7 @@ import { Gauge, Pill } from '@/components/ds';
 import { getWidgetType } from './registry';
 import {
     aggregate,
+    chartDomain,
     deltaPercent,
     formatValue,
     getMetric,
@@ -104,7 +105,7 @@ function pillKind(state) {
  * Gradient ids are per-instance (useId) so two charts on one board cannot
  * capture each other's fills.
  */
-function WidgetChart({ series, colors, fill = true, grid = true, height = '100%' }) {
+function WidgetChart({ series, colors, fill = true, grid = true, height = '100%', domain = null }) {
     const uid = useId().replace(/:/g, '');
     const data = (series || []).filter((s) => Array.isArray(s) && s.length > 0);
     const all = data.flat();
@@ -112,11 +113,16 @@ function WidgetChart({ series, colors, fill = true, grid = true, height = '100%'
 
     const w = 100;
     const h = 100;
-    const max = Math.max(...all) * 1.12;
-    const min = Math.min(...all) * 0.7;
+    // A fixed domain (percentages: [0, 100]) beats scaling to the data, which
+    // both flattens a series under one spike and inflates a flat one into
+    // meaningless mountains. Values outside the domain are clamped rather than
+    // allowed to draw outside the box.
+    const [dMin, dMax] = domain || [];
+    const max = domain ? dMax : Math.max(...all) * 1.12;
+    const min = domain ? dMin : Math.min(...all) * 0.7;
     const span = max - min || 1;
     const toX = (i, len) => (i / (len - 1 || 1)) * w;
-    const toY = (v) => h - ((v - min) / span) * h;
+    const toY = (v) => h - ((Math.max(min, Math.min(max, v)) - min) / span) * h;
     const line = (s) => s.map((v, i) => `${i ? 'L' : 'M'}${toX(i, s.length).toFixed(2)} ${toY(v).toFixed(2)}`).join(' ');
 
     return (
@@ -210,7 +216,14 @@ function WStat({ cfg, ctx }) {
                         fixed-width SVG (width={220}), so in a tile of any other
                         size the trend line stopped short and left dead space to
                         its right. This one is viewBox-based and fills. */}
-                    <WidgetChart series={[series]} colors={[color]} fill grid={false} height="100%" />
+                    <WidgetChart
+                        series={[series]}
+                        colors={[color]}
+                        fill
+                        grid={false}
+                        height="100%"
+                        domain={chartDomain([metric.id])}
+                    />
                 </div>
             )}
         </div>
@@ -260,6 +273,7 @@ function WTimeseries({ cfg, ctx }) {
                     series={withData.map((r) => r.series)}
                     colors={colors}
                     fill={cfg.fill !== false}
+                    domain={chartDomain(withData.map((r) => r.metric.id))}
                 />
             </div>
             {cfg.legend !== false && (
