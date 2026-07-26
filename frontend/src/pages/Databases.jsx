@@ -130,8 +130,11 @@ export default function Databases() {
                 setStatusLoading(false);
             }
             try {
-                const user = await api.getCurrentUser();
-                setIsAdmin(user.role === 'admin');
+                // GET /auth/me answers {user: {...}} — reading `.role` off the
+                // envelope was always undefined, so every admin was treated as
+                // read-only and never saw the console's write mode.
+                const me = await api.getCurrentUser();
+                setIsAdmin((me?.user?.role ?? me?.role) === 'admin');
             } catch { /* non-admin / not logged in handled by route guard */ }
         })();
     }, []);

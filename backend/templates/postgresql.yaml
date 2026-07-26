@@ -24,6 +24,9 @@ engine:
   unit: tables
   client: psql
   data_path: /var/lib/postgresql/data
+  # Can load database extensions -- see templates/extensions/. Whether a given
+  # one works still depends on the image shipping it.
+  extensions: true
   version_var: IMAGE_TAG
   versions:
     - "16"

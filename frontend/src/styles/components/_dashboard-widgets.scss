@@ -1300,16 +1300,15 @@ $skw-z-tv: 200;
         border-bottom: 1px solid var(--border-soft);
     }
 
+    // SearchField merges `className` onto its own root, so this selector IS
+    // the .sk-searchfield element — NOT a wrapper around one. Styling it as a
+    // parent (`&__search .sk-searchfield`) matched nothing, leaving the shared
+    // `flex: 1 1 240px` in force; inside a column-direction filter bar that
+    // 240px basis is a HEIGHT, and the box rendered 240px tall.
     &__search {
-        // The shared .sk-searchfield caps itself at 420px and sits inline;
-        // in a 380px drawer it should simply fill the row.
-        display: flex;
-
-        .sk-searchfield {
-            flex: 1 1 auto;
-            max-width: none;
-            min-width: 0;
-        }
+        flex: 0 0 auto;
+        max-width: none;
+        min-width: 0;
     }
 
     &__chips {
