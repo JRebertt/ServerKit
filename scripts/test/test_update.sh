@@ -476,6 +476,64 @@ fi
 rm -f "$STUB_BIN/pg_restore"
 
 # --------------------------------------------------------------------------
+# T10i — the SQLite helpers must NOT inherit the venv-builder's 3.11/3.12
+# constraint. Snapshotting and integrity-checking a DB needs only an
+# interpreter carrying the stdlib sqlite3 module; demanding 3.11/3.12 blocked
+# updates on stock EL9 (python3.9) and Ubuntu 22.04 (python3.10) boxes for a
+# reason unrelated to the data — including all-Docker installs, which return
+# before preflight_check and do every real step inside the container, yet
+# verified the extracted DB with the HOST's interpreter.
+# --------------------------------------------------------------------------
+t="$WORK/t10i"; mkdir -p "$t/bin" "$t/slot/backend/instance" "$t/slot/venv/bin"
+if [ -z "$PY" ]; then
+    skip "SQLite helpers work without a 3.11/3.12 interpreter (no working python3)"
+else
+    REAL_PY="$(command -v "$PY")"
+    # An interpreter that answers a version probe with 3.9 but is otherwise a
+    # real Python: makes locate_python fail exactly as it does on EL9, while
+    # `import sqlite3` keeps working. Shadowing all four candidate names keeps
+    # the precondition true regardless of what the host actually has.
+    for n in python3.12 python3.11 python3 python; do
+        cat > "$t/bin/$n" <<EOF
+#!/usr/bin/env bash
+case "\$*" in
+    *version_info*) echo "3.9"; exit 0 ;;
+esac
+exec "$REAL_PY" "\$@"
+EOF
+        chmod +x "$t/bin/$n"
+    done
+    cp "$t/bin/python3" "$t/slot/venv/bin/python"
+    "$PY" - "$t/slot/backend/instance/serverkit.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
+c.executemany('INSERT INTO t(v) VALUES (?)', [('row%d' % i,) for i in range(100)])
+c.commit(); c.close()
+PYEOF
+    el9_rc=0
+    (
+        set -Eeuo pipefail
+        PATH="$t/bin:$PATH"
+        DRY_RUN=0
+        # Precondition: to the venv builder this box now looks like EL9.
+        ! locate_python
+        # The sqlite helpers still resolve an interpreter — and prefer the
+        # install's own over anything on PATH, so they stay correct on a box
+        # whose system python is unusable.
+        [ "$(locate_sqlite_python "$t/slot/venv/bin/python")" = "$t/slot/venv/bin/python" ]
+        copy_sqlite_db "$t/slot/backend/instance/serverkit.db" "$t/snap.db"
+        verify_sqlite_db "$t/snap.db"
+    ) >/dev/null 2>&1 || el9_rc=$?
+    rows="$("$PY" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('SELECT COUNT(*) FROM t').fetchone()[0])" "$t/snap.db" 2>/dev/null || true)"
+    if [ "$el9_rc" -eq 0 ] && [ "$rows" = "100" ]; then
+        ok "SQLite snapshot/verify need only sqlite3, not Python 3.11/3.12 (EL9/22.04 boxes)"
+    else
+        bad "sqlite helpers still gated on locate_python: rc=$el9_rc, rows=[$rows], expected 100"
+    fi
+fi
+
+# --------------------------------------------------------------------------
 # T10g — a failed IN-PLACE PostgreSQL migration must trigger an automatic
 # restore from the verified pre-upgrade dump: the DB is shared, so without a
 # restore the half-migrated schema stays live against the old code.

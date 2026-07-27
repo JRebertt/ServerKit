@@ -843,9 +843,40 @@ atomic_switch() {
 # even while the panel is writing. Python 3.11/3.12 is guaranteed by
 # pre-flight; without it we fail rather than fall back to a racy cp.
 # ---------------------------------------------------------------------------
+# Snapshotting or integrity-checking a SQLite file needs nothing more than an
+# interpreter carrying the stdlib `sqlite3` module — NOT the 3.11/3.12 that
+# rebuild_virtualenv and preflight_check legitimately demand. Reusing
+# locate_python here silently coupled the DATA-safety paths to the venv-builder
+# constraint, and blocked updates for a reason unrelated to the data:
+#   * an all-Docker install returns before preflight_check ever runs and does
+#     all its work in the container, yet backup_docker_db verified the extracted
+#     DB on the HOST — so a stock EL9 (python3.9) or Ubuntu 22.04 (python3.10)
+#     host halted with "Could not obtain a VALID database backup", blaming the
+#     backup for a missing interpreter.
+#   * backup_current halts when it cannot snapshot, so the same boxes could
+#     never update at all.
+# Prefer the install's own venv interpreter: on a real box it is guaranteed
+# present, guaranteed to have the module, and independent of what is on PATH.
+locate_sqlite_python() {
+    local c
+    for c in "$@" python3.12 python3.11 python3 python; do
+        [ -n "$c" ] || continue
+        command -v "$c" >/dev/null 2>&1 || continue
+        "$c" -c 'import sqlite3' >/dev/null 2>&1 || continue
+        printf '%s' "$c"
+        return 0
+    done
+    return 1
+}
+
 copy_sqlite_db() {
-    local src="$1" dest="$2" py
-    py="$(locate_python)" || { warn "No Python 3.11/3.12 available for a consistent DB snapshot"; return 1; }
+    local src="$1" dest="$2" py slot
+    # The DB lives at <slot>/backend/instance/serverkit.db — derive that slot's
+    # interpreter as the preferred candidate. A src outside a slot leaves the
+    # path unchanged, yielding a non-executable candidate that is simply skipped.
+    slot="${src%/backend/instance/*}"
+    py="$(locate_sqlite_python "$slot/venv/bin/python")" \
+        || { warn "No Python with the sqlite3 module available for a consistent DB snapshot"; return 1; }
     "$py" - "$src" "$dest" <<'PYEOF'
 import sqlite3, sys
 src, dest = sys.argv[1], sys.argv[2]
@@ -860,9 +891,15 @@ PYEOF
 # A backup that was never verified is a hope, not a safety net. Verify every
 # artifact BEFORE it is allowed to justify proceeding with the update.
 verify_sqlite_db() {
-    local db="$1" py
+    local db="$1" py active hint=""
     [ -s "$db" ] || return 1
-    py="$(locate_python)" || return 1
+    # Backups live in BACKUP_DIR, outside any slot, so hint at the active
+    # install's interpreter instead of deriving one from the file's path.
+    active="$(active_real_dir 2>/dev/null || true)"
+    if [ -n "$active" ]; then
+        hint="$active/venv/bin/python"
+    fi
+    py="$(locate_sqlite_python "$hint")" || return 1
     [ "$("$py" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])" "$db" 2>/dev/null || true)" = "ok" ]
 }
 verify_pg_dump() {
