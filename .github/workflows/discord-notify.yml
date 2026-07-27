@@ -16,6 +16,17 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Repository secrets are NOT exposed to `pull_request` runs triggered
+          # from a fork, so a merged fork PR would reach curl with an empty URL
+          # and fail the job for no useful reason. Skip cleanly instead. The
+          # fix is deliberately NOT `pull_request_target`: that would hand a
+          # write-scoped token and this webhook to an outsider-triggered run,
+          # which is a poor trade for a chat notification.
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL unavailable (fork PR?) — skipping notification."
+            exit 0
+          fi
+
           # Read everything from the event payload via jq: PR text is
           # attacker-controlled input, so it must never be interpolated
           # into the script (backticks/$() would execute).

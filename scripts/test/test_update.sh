@@ -421,6 +421,54 @@ if [ "$bk_rc" -ne 0 ]; then
 else
     bad "backup_current proceeded despite a failed pg_dump (rc=0)"
 fi
+
+# The engine is decided by DATABASE_URL, never by which files happen to exist.
+# An install migrated SQLite -> PostgreSQL keeps its old serverkit.db (every
+# deploy copies it forward on file-existence alone), and backing THAT up
+# instead of dumping left PRE_UPGRADE_DUMP unset — quietly disabling
+# migrate_database's auto-restore, which reads it as "${PRE_UPGRADE_DUMP:-}",
+# on the one engine that migrates in place and cannot roll back by switching
+# slots. Needs no python3: the PostgreSQL path is pg_dump + pg_restore only.
+t="$WORK/t10e2"; mkdir -p "$t/serverkit/backend/instance" "$t/backups"
+printf 'DATABASE_URL=postgresql://user:secret@db.host:5432/serverkit\n' > "$t/serverkit/.env"
+printf 'stale sqlite file left over from before the postgres migration\n' \
+    > "$t/serverkit/backend/instance/serverkit.db"
+lo_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current
+    printf '%s\n' "${PRE_UPGRADE_DUMP:-}" > "$t/dump-var.txt"
+) >/dev/null 2>&1 || lo_rc=$?
+lo_dump="$(ls "$t/backups"/serverkit-pre-upgrade-*.dump 2>/dev/null | head -1)"
+lo_db="$(ls "$t/backups"/serverkit-pre-upgrade-*.db 2>/dev/null | head -1)"
+if [ "$lo_rc" -eq 0 ] && [ -n "$lo_dump" ] && [ -z "$lo_db" ] \
+   && [ "$(cat "$t/dump-var.txt" 2>/dev/null)" = "$lo_dump" ]; then
+    ok "a leftover serverkit.db never diverts a PostgreSQL install away from pg_dump"
+else
+    bad "pg install w/ stale sqlite file: rc=$lo_rc, dump=[$lo_dump], db=[$lo_db], PRE_UPGRADE_DUMP=[$(cat "$t/dump-var.txt" 2>/dev/null)]"
+fi
+
+# An engine this updater cannot dump (MySQL) must say so. "No SQLite database"
+# reads like a benign nothing-to-do while the update proceeds with no safety
+# net at all. The warning names the SCHEME only — a DATABASE_URL carries a
+# password, and this text lands in the update log.
+t="$WORK/t10e3"; mkdir -p "$t/serverkit" "$t/backups"
+printf 'DATABASE_URL=mysql://user:hunter2@db.host:3306/serverkit\n' > "$t/serverkit/.env"
+my_rc=0
+my_out="$(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current 2>&1
+)" || my_rc=$?
+if [ "$my_rc" -eq 0 ] \
+   && printf '%s' "$my_out" | grep -q "mysql" \
+   && printf '%s' "$my_out" | grep -q "NO database backup" \
+   && ! printf '%s' "$my_out" | grep -q "hunter2"; then
+    ok "an undumpable engine is named in the warning, without leaking the password"
+else
+    bad "mysql warning: rc=$my_rc, out=[$my_out]"
+fi
 rm -f "$STUB_BIN/pg_dump" "$STUB_BIN/pg_restore"
 
 # --------------------------------------------------------------------------

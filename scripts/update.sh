@@ -840,8 +840,8 @@ atomic_switch() {
 # "database disk image is malformed" — which then sinks the migration in the
 # new slot, and silently poisons the pre-upgrade backup that was supposed to
 # be the safety net. The SQLite online backup API snapshots a consistent DB
-# even while the panel is writing. Python 3.11/3.12 is guaranteed by
-# pre-flight; without it we fail rather than fall back to a racy cp.
+# even while the panel is writing, using any interpreter that can import
+# sqlite3; with none available we fail rather than fall back to a racy cp.
 # ---------------------------------------------------------------------------
 # Snapshotting or integrity-checking a SQLite file needs nothing more than an
 # interpreter carrying the stdlib `sqlite3` module — NOT the 3.11/3.12 that
@@ -930,22 +930,17 @@ backup_current() {
     active="$(active_real_dir)"
     db_file="$active/backend/instance/serverkit.db"
 
-    if [ -f "$db_file" ]; then
-        backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
-        # A torn backup is worse than none: it looks like a safety net but
-        # restores a malformed DB. Snapshot consistently, VERIFY the result,
-        # and refuse to proceed without a proven-valid net. Failed or invalid
-        # artifacts are removed so they are never mistaken for a good backup.
-        if ! run_or_dry copy_sqlite_db "$db_file" "$backup_file"; then
-            rm -f "$backup_file"
-            halt "Database backup failed — refusing to update without a safety net"
-        fi
-        if [ "$DRY_RUN" != "1" ] && ! verify_sqlite_db "$backup_file"; then
-            rm -f "$backup_file"
-            halt "Database backup verification failed — refusing to update without a VALID safety net"
-        fi
-        good "Database backed up to $backup_file"
-    elif grep -qE '^DATABASE_URL=postgres' "$active/.env" 2>/dev/null; then
+    # Branch on the DECLARED engine, not on which files happen to exist. An
+    # install migrated SQLite -> PostgreSQL keeps its old serverkit.db on disk
+    # (both deploy paths copy it forward on file-existence alone, so it is
+    # carried into every future slot), and a file-first test then backed up
+    # that abandoned file, skipped the dump, and left PRE_UPGRADE_DUMP unset —
+    # silently disabling the auto-restore in migrate_database, which reads it
+    # as "${PRE_UPGRADE_DUMP:-}" and just does nothing. PostgreSQL is the ONE
+    # install type that migrates in place and cannot roll back by switching
+    # slots, so that dump is its only way home. migrate_database has always
+    # keyed off DATABASE_URL; this keeps the two functions in agreement.
+    if grep -qE '^DATABASE_URL=postgres' "$active/.env" 2>/dev/null; then
         # PostgreSQL: the DB is external and SHARED between slots — there is
         # no per-slot file to snapshot, and the migration runs in place. A
         # pre-upgrade dump is the only safety net AND the only way back:
@@ -967,8 +962,34 @@ backup_current() {
         # automatic restore if the in-place migration fails.
         PRE_UPGRADE_DUMP="$backup_file"
         good "Database backed up to $backup_file"
+    elif [ -f "$db_file" ]; then
+        backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
+        # A torn backup is worse than none: it looks like a safety net but
+        # restores a malformed DB. Snapshot consistently, VERIFY the result,
+        # and refuse to proceed without a proven-valid net. Failed or invalid
+        # artifacts are removed so they are never mistaken for a good backup.
+        if ! run_or_dry copy_sqlite_db "$db_file" "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup failed — refusing to update without a safety net"
+        fi
+        if [ "$DRY_RUN" != "1" ] && ! verify_sqlite_db "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup verification failed — refusing to update without a VALID safety net"
+        fi
+        good "Database backed up to $backup_file"
     else
-        warn "No SQLite database at $db_file — skipping DB backup"
+        # Neither engine matched. Say which one, and say plainly that the
+        # update is proceeding unprotected — "No SQLite database" reads like a
+        # benign nothing-to-do on, say, a MySQL install that in fact has no
+        # safety net at all.
+        local db_scheme
+        db_scheme="$(grep -E '^DATABASE_URL=' "$active/.env" 2>/dev/null | head -1 \
+            | cut -d= -f2- | tr -d "\"'" | cut -d: -f1)"
+        if [ -n "$db_scheme" ] && [ "$db_scheme" != "sqlite" ]; then
+            warn "DATABASE_URL uses '$db_scheme', which this updater cannot dump — proceeding with NO database backup"
+        else
+            warn "No SQLite database at $db_file — skipping DB backup"
+        fi
     fi
 
     local tree_backup
