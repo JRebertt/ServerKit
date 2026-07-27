@@ -110,6 +110,28 @@ jobs:
           - 'opensuse/leap:15.5'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Pull ${{ matrix.image }} (retried — Docker Hub is flaky)
+        run: |
+          # `docker run` pulls implicitly, so a registry hiccup ("context
+          # deadline exceeded" reaching registry-1.docker.io) failed the whole
+          # job with exit 125 and cost a manual re-run. Seven images per matrix
+          # run makes that a recurring tax, so pull up front and retry.
+          #
+          # ONLY the pull is retried. Wrapping `docker run` would re-run the
+          # suites on failure too, quietly turning a flaky TEST green.
+          for attempt in 1 2 3 4; do
+            if docker pull --quiet "${{ matrix.image }}"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "::warning::pull of ${{ matrix.image }} failed (attempt $attempt/4) — retrying"
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "::error::could not pull ${{ matrix.image }} after 4 attempts — Docker Hub unreachable"
+          exit 1
+
       - name: bash -n + unit suites on ${{ matrix.image }}
         run: |
           docker run --rm -v "$PWD:/src" -w /src "${{ matrix.image }}" sh -c '
