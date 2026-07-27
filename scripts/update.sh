@@ -600,6 +600,10 @@ locate_python() {
     for c in python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v="$($c -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)"
+            # An EMPTY version means the binary/shim exists but can't actually
+            # execute Python — and an empty string would pass the sort checks
+            # below ("" sorts before everything). Reject it and move on.
+            [ -n "$v" ] || continue
             if printf '%s\n%s' "3.11" "$v" | sort -C -V && \
                printf '%s\n%s' "$v" "3.12" | sort -C -V; then
                 printf '%s' "$c"
@@ -645,7 +649,9 @@ require_venv() {
         # dependencies (and run the OLD flask binary for migrations), so a
         # venv bound to any other path must be rebuilt in place.
         local bound_path resolved_bound resolved_target
-        bound_path="$(sed -n 's/^VIRTUAL_ENV="\(.*\)"$/\1/p' "$target_dir/bin/activate" | head -1)"
+        # Matches both VIRTUAL_ENV="/path" (classic venv) and the unquoted
+        # export VIRTUAL_ENV=/path form; skips cygpath-style indirection.
+        bound_path="$(grep -m1 -oE 'VIRTUAL_ENV="?/[^")]+"?' "$target_dir/bin/activate" | cut -d= -f2- | tr -d '"')"
         # Compare RESOLVED paths: on a fresh install the symlink already points
         # at the only slot, so the baked path resolves to the target and the
         # prebuilt venv is genuinely usable (fast path). During an update it
@@ -724,6 +730,20 @@ migrate_database() {
             FLASK_ENV=production SERVERKIT_SKIP_BACKGROUND=1 flask db upgrade
         fi
     ); then
+        # PostgreSQL (and other external DBs): the migration ran IN PLACE
+        # against the SHARED database — there is no untouched slot copy to
+        # fall back on. Put the database back the way we found it using the
+        # verified pre-upgrade dump before reporting the failure.
+        if [ "$use_slot_db" != "1" ] && [ -n "${PRE_UPGRADE_DUMP:-}" ] && [ -f "${PRE_UPGRADE_DUMP:-}" ]; then
+            warn "Migration failed — restoring the pre-upgrade dump into the shared database..."
+            local pg_url
+            pg_url="$(pg_url_from_env "$work_dir")"
+            if command -v pg_restore >/dev/null 2>&1 \
+               && pg_restore --clean --if-exists -d "$pg_url" "$PRE_UPGRADE_DUMP"; then
+                halt "Database migration failed; the pre-upgrade dump was restored, so the database is back to its pre-update state. The previous installation is still active."
+            fi
+            halt "Database migration failed AND the automatic restore failed. Restore MANUALLY with: pg_restore --clean --if-exists -d '$pg_url' '$PRE_UPGRADE_DUMP' — the previous installation is still active."
+        fi
         halt "Database migration failed. The previous installation is still active."
     fi
     good "Database migrated"
@@ -815,6 +835,91 @@ atomic_switch() {
 }
 
 # ---------------------------------------------------------------------------
+# Consistent SQLite copy. A plain `cp` of the LIVE panel database races the
+# backend's own writes: the copy can capture half a transaction and come out
+# "database disk image is malformed" — which then sinks the migration in the
+# new slot, and silently poisons the pre-upgrade backup that was supposed to
+# be the safety net. The SQLite online backup API snapshots a consistent DB
+# even while the panel is writing, using any interpreter that can import
+# sqlite3; with none available we fail rather than fall back to a racy cp.
+# ---------------------------------------------------------------------------
+# Snapshotting or integrity-checking a SQLite file needs nothing more than an
+# interpreter carrying the stdlib `sqlite3` module — NOT the 3.11/3.12 that
+# rebuild_virtualenv and preflight_check legitimately demand. Reusing
+# locate_python here silently coupled the DATA-safety paths to the venv-builder
+# constraint, and blocked updates for a reason unrelated to the data:
+#   * an all-Docker install returns before preflight_check ever runs and does
+#     all its work in the container, yet backup_docker_db verified the extracted
+#     DB on the HOST — so a stock EL9 (python3.9) or Ubuntu 22.04 (python3.10)
+#     host halted with "Could not obtain a VALID database backup", blaming the
+#     backup for a missing interpreter.
+#   * backup_current halts when it cannot snapshot, so the same boxes could
+#     never update at all.
+# Prefer the install's own venv interpreter: on a real box it is guaranteed
+# present, guaranteed to have the module, and independent of what is on PATH.
+locate_sqlite_python() {
+    local c
+    for c in "$@" python3.12 python3.11 python3 python; do
+        [ -n "$c" ] || continue
+        command -v "$c" >/dev/null 2>&1 || continue
+        "$c" -c 'import sqlite3' >/dev/null 2>&1 || continue
+        printf '%s' "$c"
+        return 0
+    done
+    return 1
+}
+
+copy_sqlite_db() {
+    local src="$1" dest="$2" py slot
+    # The DB lives at <slot>/backend/instance/serverkit.db — derive that slot's
+    # interpreter as the preferred candidate. A src outside a slot leaves the
+    # path unchanged, yielding a non-executable candidate that is simply skipped.
+    slot="${src%/backend/instance/*}"
+    py="$(locate_sqlite_python "$slot/venv/bin/python")" \
+        || { warn "No Python with the sqlite3 module available for a consistent DB snapshot"; return 1; }
+    "$py" - "$src" "$dest" <<'PYEOF'
+import sqlite3, sys
+src, dest = sys.argv[1], sys.argv[2]
+s = sqlite3.connect(src)
+d = sqlite3.connect(dest)
+s.backup(d)
+d.close()
+s.close()
+PYEOF
+}
+
+# A backup that was never verified is a hope, not a safety net. Verify every
+# artifact BEFORE it is allowed to justify proceeding with the update.
+verify_sqlite_db() {
+    local db="$1" py active hint=""
+    [ -s "$db" ] || return 1
+    # Backups live in BACKUP_DIR, outside any slot, so hint at the active
+    # install's interpreter instead of deriving one from the file's path.
+    active="$(active_real_dir 2>/dev/null || true)"
+    if [ -n "$active" ]; then
+        hint="$active/venv/bin/python"
+    fi
+    py="$(locate_sqlite_python "$hint")" || return 1
+    [ "$("$py" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('PRAGMA integrity_check').fetchone()[0])" "$db" 2>/dev/null || true)" = "ok" ]
+}
+verify_pg_dump() {
+    local dump="$1"
+    [ -s "$dump" ] || return 1
+    # Structural validation when pg_restore is available: list the dump's TOC.
+    if command -v pg_restore >/dev/null 2>&1; then
+        pg_restore -l "$dump" >/dev/null 2>&1 || return 1
+    fi
+    return 0
+}
+
+# Extract the DATABASE_URL from a slot's .env, normalized for libpq: strip
+# SQLAlchemy driver suffixes (postgresql+psycopg2://) and wrapping quotes.
+pg_url_from_env() {
+    grep -E '^DATABASE_URL=' "$1/.env" 2>/dev/null | head -1 | cut -d= -f2- \
+        | tr -d "\"'" | sed -E 's|^postgres(ql)?\+[a-z0-9]+://|postgresql://|'
+}
+
+# ---------------------------------------------------------------------------
 # Backup
 # ---------------------------------------------------------------------------
 backup_current() {
@@ -825,12 +930,66 @@ backup_current() {
     active="$(active_real_dir)"
     db_file="$active/backend/instance/serverkit.db"
 
-    if [ -f "$db_file" ]; then
+    # Branch on the DECLARED engine, not on which files happen to exist. An
+    # install migrated SQLite -> PostgreSQL keeps its old serverkit.db on disk
+    # (both deploy paths copy it forward on file-existence alone, so it is
+    # carried into every future slot), and a file-first test then backed up
+    # that abandoned file, skipped the dump, and left PRE_UPGRADE_DUMP unset —
+    # silently disabling the auto-restore in migrate_database, which reads it
+    # as "${PRE_UPGRADE_DUMP:-}" and just does nothing. PostgreSQL is the ONE
+    # install type that migrates in place and cannot roll back by switching
+    # slots, so that dump is its only way home. migrate_database has always
+    # keyed off DATABASE_URL; this keeps the two functions in agreement.
+    if grep -qE '^DATABASE_URL=postgres' "$active/.env" 2>/dev/null; then
+        # PostgreSQL: the DB is external and SHARED between slots — there is
+        # no per-slot file to snapshot, and the migration runs in place. A
+        # pre-upgrade dump is the only safety net AND the only way back:
+        # without it, a rollback hands the old code a newer schema.
+        backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).dump"
+        command -v pg_dump >/dev/null 2>&1 \
+            || halt "PostgreSQL install but pg_dump is unavailable — install postgresql-client so the update has a safety net"
+        local pg_url
+        pg_url="$(pg_url_from_env "$active")"
+        if ! run_or_dry pg_dump "$pg_url" -Fc -f "$backup_file"; then
+            rm -f "$backup_file"
+            halt "PostgreSQL backup failed — refusing to update without a safety net"
+        fi
+        if [ "$DRY_RUN" != "1" ] && ! verify_pg_dump "$backup_file"; then
+            rm -f "$backup_file"
+            halt "PostgreSQL backup verification failed — refusing to update without a VALID safety net"
+        fi
+        # Remember the dump path so migrate_database can offer/perform an
+        # automatic restore if the in-place migration fails.
+        PRE_UPGRADE_DUMP="$backup_file"
+        good "Database backed up to $backup_file"
+    elif [ -f "$db_file" ]; then
         backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
-        run_or_dry cp "$db_file" "$backup_file"
+        # A torn backup is worse than none: it looks like a safety net but
+        # restores a malformed DB. Snapshot consistently, VERIFY the result,
+        # and refuse to proceed without a proven-valid net. Failed or invalid
+        # artifacts are removed so they are never mistaken for a good backup.
+        if ! run_or_dry copy_sqlite_db "$db_file" "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup failed — refusing to update without a safety net"
+        fi
+        if [ "$DRY_RUN" != "1" ] && ! verify_sqlite_db "$backup_file"; then
+            rm -f "$backup_file"
+            halt "Database backup verification failed — refusing to update without a VALID safety net"
+        fi
         good "Database backed up to $backup_file"
     else
-        warn "No SQLite database at $db_file — skipping DB backup"
+        # Neither engine matched. Say which one, and say plainly that the
+        # update is proceeding unprotected — "No SQLite database" reads like a
+        # benign nothing-to-do on, say, a MySQL install that in fact has no
+        # safety net at all.
+        local db_scheme
+        db_scheme="$(grep -E '^DATABASE_URL=' "$active/.env" 2>/dev/null | head -1 \
+            | cut -d= -f2- | tr -d "\"'" | cut -d: -f1)"
+        if [ -n "$db_scheme" ] && [ "$db_scheme" != "sqlite" ]; then
+            warn "DATABASE_URL uses '$db_scheme', which this updater cannot dump — proceeding with NO database backup"
+        else
+            warn "No SQLite database at $db_file — skipping DB backup"
+        fi
     fi
 
     local tree_backup
@@ -1019,20 +1178,28 @@ deploy_source() {
         return 0
     fi
 
-    # Preserve .env and database across rewrites.
-    local tmp_env tmp_db
+    # Preserve .env and database across rewrites. The DB snapshot must be
+    # consistent (online backup API) — a racy cp of the live DB can come out
+    # malformed and sink the migration in the new slot.
+    local tmp_env tmp_db live_db
     tmp_env="$(mktemp)"
     tmp_db="$(mktemp)"
     cp "$INSTALL_DIR/.env" "$tmp_env" 2>/dev/null || true
-    cp "$INSTALL_DIR/backend/instance/serverkit.db" "$tmp_db" 2>/dev/null || true
+    live_db="$INSTALL_DIR/backend/instance/serverkit.db"
+    if [ -f "$live_db" ]; then
+        copy_sqlite_db "$live_db" "$tmp_db" \
+            || halt "Could not snapshot the live database consistently — aborting before any switch"
+    fi
 
     rm -rf "$target"
     git clone --depth 1 --branch "$branch" "https://github.com/${GITHUB_REPO}.git" "$target" \
         || halt "Failed to clone ${GITHUB_REPO}:$branch"
 
     cp "$tmp_env" "$target/.env" 2>/dev/null || true
-    mkdir -p "$target/backend/instance"
-    cp "$tmp_db" "$target/backend/instance/serverkit.db" 2>/dev/null || true
+    if [ -s "$tmp_db" ]; then
+        mkdir -p "$target/backend/instance"
+        cp "$tmp_db" "$target/backend/instance/serverkit.db" 2>/dev/null || true
+    fi
     rm -f "$tmp_env" "$tmp_db"
 
     preserve_installed_plugins "$INSTALL_DIR" "$target"
@@ -1072,10 +1239,15 @@ deploy_release() {
     fi
     [ -d "$unpacked" ] || halt "Release tarball layout is unrecognized"
 
-    # Preserve live state.
+    # Preserve live state. Same consistent-snapshot rule as deploy_source:
+    # never plain-cp the live DB into the new slot.
     cp "$INSTALL_DIR/.env" "$unpacked/.env" 2>/dev/null || true
-    mkdir -p "$unpacked/backend/instance"
-    cp "$INSTALL_DIR/backend/instance/serverkit.db" "$unpacked/backend/instance/serverkit.db" 2>/dev/null || true
+    local live_db="$INSTALL_DIR/backend/instance/serverkit.db"
+    if [ -f "$live_db" ]; then
+        mkdir -p "$unpacked/backend/instance"
+        copy_sqlite_db "$live_db" "$unpacked/backend/instance/serverkit.db" \
+            || halt "Could not snapshot the live database consistently — aborting before any switch"
+    fi
     preserve_installed_plugins "$INSTALL_DIR" "$unpacked"
 
     rm -rf "$target"
@@ -1365,8 +1537,14 @@ cleanup() {
         return 0
     fi
 
-    prune_old_backups 'serverkit-tree-*'           10
-    prune_old_backups 'serverkit-pre-upgrade-*.db' 10
+    # Retention is capped (default 5, SERVERKIT_BACKUP_RETENTION overrides):
+    # pre-upgrade DB backups are full-size copies — on a small VPS, keeping
+    # 10 of them is itself a disk-filling time bomb (seen in the wild: 6.3G
+    # of stale backups on a 25G droplet).
+    local keep="${SERVERKIT_BACKUP_RETENTION:-5}"
+    prune_old_backups 'serverkit-tree-*'             "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.db'   "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.dump' "$keep"
 
     local new_version
     new_version="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo "unknown")"
@@ -1464,11 +1642,34 @@ backup_docker_db() {
     local backup_file
     backup_file="$BACKUP_DIR/serverkit-pre-upgrade-$(date +%Y%m%d-%H%M%S).db"
     # The live DB lives in the serverkit-data volume at /app/instance inside
-    # the container, not in the source tree.
-    if docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null; then
+    # the container, not in the source tree. Prefer a consistent snapshot via
+    # the container's Python (SQLite online backup API) — a plain docker cp
+    # of the live file races the backend's writes and can come out malformed.
+    local py snap_ok=0
+    for py in python python3; do
+        if docker exec -i serverkit-backend "$py" - /app/instance/serverkit.db /tmp/.sk-snap.db <<'PYEOF' 2>/dev/null; then
+import sqlite3, sys
+s = sqlite3.connect(sys.argv[1])
+d = sqlite3.connect(sys.argv[2])
+s.backup(d)
+d.close()
+s.close()
+PYEOF
+            snap_ok=1
+            break
+        fi
+    done
+    if [ "$snap_ok" = "1" ] && docker cp serverkit-backend:/tmp/.sk-snap.db "$backup_file" 2>/dev/null; then
+        docker exec serverkit-backend rm -f /tmp/.sk-snap.db 2>/dev/null || true
+    else
+        docker cp serverkit-backend:/app/instance/serverkit.db "$backup_file" 2>/dev/null || true
+    fi
+    # Same rule as the host path: an unverified backup is not a safety net.
+    if [ -f "$backup_file" ] && verify_sqlite_db "$backup_file"; then
         good "Database backed up to $backup_file"
     else
-        warn "Could not copy DB from container — continuing (backend self-backs-up before migrating)"
+        rm -f "$backup_file"
+        halt "Could not obtain a VALID database backup from the container — refusing to update without a safety net"
     fi
 }
 

@@ -1,0 +1,96 @@
+name: Discord PR Notify
+
+on:
+  pull_request:
+    types: [closed]   # merged only (filtered in the job `if:`)
+
+jobs:
+  notify:
+    # Only when a PR is actually merged; closed-unmerged skips silently.
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send merged PR to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+
+          # Repository secrets are NOT exposed to `pull_request` runs triggered
+          # from a fork, so a merged fork PR would reach curl with an empty URL
+          # and fail the job for no useful reason. Skip cleanly instead. The
+          # fix is deliberately NOT `pull_request_target`: that would hand a
+          # write-scoped token and this webhook to an outsider-triggered run,
+          # which is a poor trade for a chat notification.
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL unavailable (fork PR?) — skipping notification."
+            exit 0
+          fi
+
+          # Read everything from the event payload via jq: PR text is
+          # attacker-controlled input, so it must never be interpolated
+          # into the script (backticks/$() would execute).
+          TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+          URL=$(jq -r '.pull_request.html_url' "$GITHUB_EVENT_PATH")
+          AUTHOR=$(jq -r '.pull_request.user.login' "$GITHUB_EVENT_PATH")
+          BASE=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")
+          NUMBER=$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")
+          MERGED_AT=$(jq -r '.pull_request.merged_at' "$GITHUB_EVENT_PATH")
+
+          echo "title_len=${#TITLE} body_len=${#BODY}"
+
+          # NOTE: use [ \t], never [[:space:]] — the runner's awk is mawk,
+          # which silently mis-parses POSIX character classes.
+          # Extract bullets from the "### Highlights" section (top 5).
+          # Stops at the next heading or the <details> block.
+          HIGHLIGHTS=$(printf '%s\n' "$BODY" | awk '
+            /^#+[ \t]*Highlights/ { f=1; next }
+            f && (/^#/ || /^</)   { exit }
+            f && /^- /            { print }
+          ' | head -5)
+
+          if [ -n "$HIGHLIGHTS" ]; then
+            DESC="$HIGHLIGHTS"
+          else
+            # Lazy PR with no Highlights section: use the first prose
+            # paragraph of the body, truncated to 300 chars.
+            FIRST_PARA=$(printf '%s\n' "$BODY" | awk '
+              /^[ \t]*$/            { if (started) exit; next }
+              /^(#|<|```|\||- )/    { if (started) exit; next }
+              { started=1; print }
+            ' | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-300)
+            if [ -n "$FIRST_PARA" ]; then
+              DESC="$FIRST_PARA"
+            else
+              DESC="_Merged without a description._"
+            fi
+          fi
+
+          # Discord embed descriptions cap at 4096 chars; stay under.
+          DESC=$(printf '%s' "$DESC" | cut -c1-3900)
+
+          jq -n \
+            --arg title "$TITLE" \
+            --arg url "$URL" \
+            --arg desc "$DESC" \
+            --arg author "$AUTHOR" \
+            --arg author_url "https://github.com/$AUTHOR" \
+            --arg avatar "https://github.com/$AUTHOR.png" \
+            --arg footer "PR #$NUMBER merged into $BASE" \
+            --arg ts "$MERGED_AT" \
+            '{
+              username: "ServerKit",
+              embeds: [{
+                author: { name: $author, url: $author_url, icon_url: $avatar },
+                title: $title,
+                url: $url,
+                description: $desc,
+                color: 10181046,
+                footer: { text: $footer },
+                timestamp: $ts
+              }]
+            }' > payload.json
+
+          curl -sS -f -X POST -H "Content-Type: application/json" \
+            -d @payload.json "$DISCORD_WEBHOOK_URL"

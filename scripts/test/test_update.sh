@@ -324,6 +324,328 @@ else
     bad "migrate_database probe-unavailable: rc=$mig_rc, expected rc 0 (warn + proceed)"
 fi
 rm -f "$STUB_BIN/flask"
+
+# --------------------------------------------------------------------------
+# T10d — copy_sqlite_db snapshots a LIVE database consistently via the SQLite
+# online backup API. A plain cp of a hot DB can capture half a transaction
+# and come out "database disk image is malformed" — the exact failure that
+# sank the migration on a real 1.7.35 -> 1.7.65 update.
+# --------------------------------------------------------------------------
+t="$WORK/t10d"; mkdir -p "$t"
+PY=""
+for c in python3.12 python3.11 python3; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
+        PY="$c"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    skip "copy_sqlite_db snapshots a live DB consistently (no working python3 on this host)"
+else
+    "$PY" - "$t/live.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
+c.executemany('INSERT INTO t(v) VALUES (?)', [('row%d' % i,) for i in range(1000)])
+c.commit(); c.close()
+PYEOF
+    snap_rc=0
+    (
+        set -Eeuo pipefail
+        DRY_RUN=0
+        copy_sqlite_db "$t/live.db" "$t/snap.db"
+    ) >/dev/null 2>&1 || snap_rc=$?
+    snap_check="$("$PY" - "$t/snap.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+print(c.execute('PRAGMA integrity_check').fetchone()[0],
+      c.execute('SELECT COUNT(*) FROM t').fetchone()[0])
+PYEOF
+    )"
+    if [ "$snap_rc" -eq 0 ] && [ "$snap_check" = "ok 1000" ]; then
+        ok "copy_sqlite_db snapshots a live DB consistently (integrity ok, all rows)"
+    else
+        bad "copy_sqlite_db: rc=$snap_rc, snapshot check=[$snap_check], expected 'ok 1000'"
+    fi
+fi
+
+# Contract: no racy plain-cp of the LIVE database anywhere in update.sh —
+# the pre-upgrade backup and both deploy paths must go through copy_sqlite_db.
+if ! grep -qF 'cp "$db_file" "$backup_file"' "$UPDATE_SH" \
+   && ! grep -qF 'cp "$INSTALL_DIR/backend/instance/serverkit.db"' "$UPDATE_SH"; then
+    ok "live SQLite DB is never plain-cp'd (consistent snapshot only)"
+else
+    bad "a racy plain-cp of the live serverkit.db is still in update.sh"
+fi
+
+# --------------------------------------------------------------------------
+# T10e — PostgreSQL installs get a real pre-upgrade safety net: backup_current
+# must pg_dump the external DB (sanitizing SQLAlchemy driver suffixes libpq
+# can't parse) and must HALT when the dump fails — updating a shared,
+# migrate-in-place database with no dump is flying without a parachute.
+# --------------------------------------------------------------------------
+t="$WORK/t10e"; mkdir -p "$t/serverkit" "$t/backups"
+printf 'DATABASE_URL=postgresql+psycopg2://user:secret@db.host:5432/serverkit\n' > "$t/serverkit/.env"
+cat > "$STUB_BIN/pg_dump" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$1" > "$WORK/t10e/url.txt"
+out=""; prev=""
+for a in "\$@"; do [ "\$prev" = "-f" ] && out="\$a"; prev="\$a"; done
+printf 'PGDMP fake contents\n' > "\$out"
+exit \${PG_DUMP_RC:-0}
+EOF
+chmod +x "$STUB_BIN/pg_dump"
+make_stub_pg_restore "$STUB_BIN"
+bk_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current
+) >/dev/null 2>&1 || bk_rc=$?
+dump_file="$(ls "$t/backups"/serverkit-pre-upgrade-*.dump 2>/dev/null | head -1)"
+if [ "$bk_rc" -eq 0 ] && [ -n "$dump_file" ] \
+   && [ "$(cat "$WORK/t10e/url.txt" 2>/dev/null)" = "postgresql://user:secret@db.host:5432/serverkit" ]; then
+    ok "backup_current pg_dumps PostgreSQL installs (driver suffix sanitized)"
+else
+    bad "backup_current postgres: rc=$bk_rc, dump=[$dump_file], url=[$(cat "$WORK/t10e/url.txt" 2>/dev/null)]"
+fi
+rm -rf "$t/backups"; mkdir -p "$t/backups"
+bk_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    export PG_DUMP_RC=1
+    backup_current
+) >/dev/null 2>&1 || bk_rc=$?
+if [ "$bk_rc" -ne 0 ]; then
+    ok "backup_current halts when the PostgreSQL dump fails (no safety net, no update)"
+else
+    bad "backup_current proceeded despite a failed pg_dump (rc=0)"
+fi
+
+# The engine is decided by DATABASE_URL, never by which files happen to exist.
+# An install migrated SQLite -> PostgreSQL keeps its old serverkit.db (every
+# deploy copies it forward on file-existence alone), and backing THAT up
+# instead of dumping left PRE_UPGRADE_DUMP unset — quietly disabling
+# migrate_database's auto-restore, which reads it as "${PRE_UPGRADE_DUMP:-}",
+# on the one engine that migrates in place and cannot roll back by switching
+# slots. Needs no python3: the PostgreSQL path is pg_dump + pg_restore only.
+t="$WORK/t10e2"; mkdir -p "$t/serverkit/backend/instance" "$t/backups"
+printf 'DATABASE_URL=postgresql://user:secret@db.host:5432/serverkit\n' > "$t/serverkit/.env"
+printf 'stale sqlite file left over from before the postgres migration\n' \
+    > "$t/serverkit/backend/instance/serverkit.db"
+lo_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current
+    printf '%s\n' "${PRE_UPGRADE_DUMP:-}" > "$t/dump-var.txt"
+) >/dev/null 2>&1 || lo_rc=$?
+lo_dump="$(ls "$t/backups"/serverkit-pre-upgrade-*.dump 2>/dev/null | head -1)"
+lo_db="$(ls "$t/backups"/serverkit-pre-upgrade-*.db 2>/dev/null | head -1)"
+if [ "$lo_rc" -eq 0 ] && [ -n "$lo_dump" ] && [ -z "$lo_db" ] \
+   && [ "$(cat "$t/dump-var.txt" 2>/dev/null)" = "$lo_dump" ]; then
+    ok "a leftover serverkit.db never diverts a PostgreSQL install away from pg_dump"
+else
+    bad "pg install w/ stale sqlite file: rc=$lo_rc, dump=[$lo_dump], db=[$lo_db], PRE_UPGRADE_DUMP=[$(cat "$t/dump-var.txt" 2>/dev/null)]"
+fi
+
+# An engine this updater cannot dump (MySQL) must say so. "No SQLite database"
+# reads like a benign nothing-to-do while the update proceeds with no safety
+# net at all. The warning names the SCHEME only — a DATABASE_URL carries a
+# password, and this text lands in the update log.
+t="$WORK/t10e3"; mkdir -p "$t/serverkit" "$t/backups"
+printf 'DATABASE_URL=mysql://user:hunter2@db.host:3306/serverkit\n' > "$t/serverkit/.env"
+my_rc=0
+my_out="$(
+    set -Eeuo pipefail
+    DRY_RUN=0 INSTALL_DIR="$t/serverkit" BACKUP_DIR="$t/backups"
+    backup_current 2>&1
+)" || my_rc=$?
+if [ "$my_rc" -eq 0 ] \
+   && printf '%s' "$my_out" | grep -q "mysql" \
+   && printf '%s' "$my_out" | grep -q "NO database backup" \
+   && ! printf '%s' "$my_out" | grep -q "hunter2"; then
+    ok "an undumpable engine is named in the warning, without leaking the password"
+else
+    bad "mysql warning: rc=$my_rc, out=[$my_out]"
+fi
+rm -f "$STUB_BIN/pg_dump" "$STUB_BIN/pg_restore"
+
+# --------------------------------------------------------------------------
+# T10f — backup verification helpers: a backup is only a safety net when it
+# is PROVEN valid. verify_sqlite_db accepts a real DB and rejects garbage;
+# verify_pg_dump rejects empty/truncated dumps.
+# --------------------------------------------------------------------------
+t="$WORK/t10f"; mkdir -p "$t"
+PY=""
+for c in python3.12 python3.11 python3; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
+        PY="$c"; break
+    fi
+done
+if [ -z "$PY" ]; then
+    skip "verify_sqlite_db accepts valid DBs and rejects garbage (no working python3)"
+else
+    "$PY" - "$t/good.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(a)')
+c.commit(); c.close()
+PYEOF
+    printf 'garbage not a database' > "$t/bad.db"
+    v_rc=0
+    (
+        set -Eeuo pipefail
+        verify_sqlite_db "$t/good.db" && ! verify_sqlite_db "$t/bad.db"
+    ) >/dev/null 2>&1 || v_rc=$?
+    if [ "$v_rc" -eq 0 ]; then
+        ok "verify_sqlite_db accepts a valid DB and rejects a malformed one"
+    else
+        bad "verify_sqlite_db misclassified a fixture (rc=$v_rc)"
+    fi
+fi
+: > "$t/empty.dump"; printf 'PGDMP\nstuff\n' > "$t/full.dump"
+# A non-archive that is merely NON-EMPTY is the fixture that separates the two
+# verify_pg_dump branches: the size check passes it, only the TOC listing
+# catches it. Requires the stub — see make_stub_pg_restore.
+printf 'ERROR: connection refused\n' > "$t/garbage.dump"
+make_stub_pg_restore "$STUB_BIN"
+v_rc=0
+(
+    set -Eeuo pipefail
+    verify_pg_dump "$t/full.dump" && ! verify_pg_dump "$t/empty.dump" \
+        && ! verify_pg_dump "$t/missing.dump" && ! verify_pg_dump "$t/garbage.dump"
+) >/dev/null 2>&1 || v_rc=$?
+if [ "$v_rc" -eq 0 ]; then
+    ok "verify_pg_dump rejects empty/missing/non-archive dumps (TOC check via pg_restore)"
+else
+    bad "verify_pg_dump misclassified a fixture (rc=$v_rc)"
+fi
+rm -f "$STUB_BIN/pg_restore"
+
+# --------------------------------------------------------------------------
+# T10i — the SQLite helpers must NOT inherit the venv-builder's 3.11/3.12
+# constraint. Snapshotting and integrity-checking a DB needs only an
+# interpreter carrying the stdlib sqlite3 module; demanding 3.11/3.12 blocked
+# updates on stock EL9 (python3.9) and Ubuntu 22.04 (python3.10) boxes for a
+# reason unrelated to the data — including all-Docker installs, which return
+# before preflight_check and do every real step inside the container, yet
+# verified the extracted DB with the HOST's interpreter.
+# --------------------------------------------------------------------------
+t="$WORK/t10i"; mkdir -p "$t/bin" "$t/slot/backend/instance" "$t/slot/venv/bin"
+if [ -z "$PY" ]; then
+    skip "SQLite helpers work without a 3.11/3.12 interpreter (no working python3)"
+else
+    REAL_PY="$(command -v "$PY")"
+    # An interpreter that answers a version probe with 3.9 but is otherwise a
+    # real Python: makes locate_python fail exactly as it does on EL9, while
+    # `import sqlite3` keeps working. Shadowing all four candidate names keeps
+    # the precondition true regardless of what the host actually has.
+    for n in python3.12 python3.11 python3 python; do
+        cat > "$t/bin/$n" <<EOF
+#!/usr/bin/env bash
+case "\$*" in
+    *version_info*) echo "3.9"; exit 0 ;;
+esac
+exec "$REAL_PY" "\$@"
+EOF
+        chmod +x "$t/bin/$n"
+    done
+    cp "$t/bin/python3" "$t/slot/venv/bin/python"
+    "$PY" - "$t/slot/backend/instance/serverkit.db" <<'PYEOF'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute('CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)')
+c.executemany('INSERT INTO t(v) VALUES (?)', [('row%d' % i,) for i in range(100)])
+c.commit(); c.close()
+PYEOF
+    el9_rc=0
+    (
+        set -Eeuo pipefail
+        PATH="$t/bin:$PATH"
+        DRY_RUN=0
+        # Precondition: to the venv builder this box now looks like EL9.
+        ! locate_python
+        # The sqlite helpers still resolve an interpreter — and prefer the
+        # install's own over anything on PATH, so they stay correct on a box
+        # whose system python is unusable.
+        [ "$(locate_sqlite_python "$t/slot/venv/bin/python")" = "$t/slot/venv/bin/python" ]
+        copy_sqlite_db "$t/slot/backend/instance/serverkit.db" "$t/snap.db"
+        verify_sqlite_db "$t/snap.db"
+    ) >/dev/null 2>&1 || el9_rc=$?
+    rows="$("$PY" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('SELECT COUNT(*) FROM t').fetchone()[0])" "$t/snap.db" 2>/dev/null || true)"
+    if [ "$el9_rc" -eq 0 ] && [ "$rows" = "100" ]; then
+        ok "SQLite snapshot/verify need only sqlite3, not Python 3.11/3.12 (EL9/22.04 boxes)"
+    else
+        bad "sqlite helpers still gated on locate_python: rc=$el9_rc, rows=[$rows], expected 100"
+    fi
+fi
+
+# --------------------------------------------------------------------------
+# T10g — a failed IN-PLACE PostgreSQL migration must trigger an automatic
+# restore from the verified pre-upgrade dump: the DB is shared, so without a
+# restore the half-migrated schema stays live against the old code.
+# --------------------------------------------------------------------------
+t="$WORK/t10g/serverkit-b"
+mkdir -p "$t/venv/bin" "$t/backend/instance"
+: > "$t/venv/bin/activate"
+printf 'DATABASE_URL=postgresql://user:secret@db.host:5432/serverkit\n' > "$t/.env"
+printf 'PGDMP fake contents\n' > "$WORK/t10g.dump"
+cat > "$STUB_BIN/flask" <<'EOF'
+#!/usr/bin/env bash
+exit 1   # migration blows up mid-flight
+EOF
+cat > "$STUB_BIN/pg_restore" <<EOF
+#!/usr/bin/env bash
+echo "\$@" > "$WORK/t10g/restore-args.txt"
+exit 0
+EOF
+chmod +x "$STUB_BIN/flask" "$STUB_BIN/pg_restore"
+mig_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0
+    PRE_UPGRADE_DUMP="$WORK/t10g.dump"
+    migrate_database "$t"
+) >/dev/null 2>&1 || mig_rc=$?
+if [ "$mig_rc" -ne 0 ] && grep -q -- "--clean --if-exists -d postgresql://user:secret@db.host:5432/serverkit $WORK/t10g.dump" "$WORK/t10g/restore-args.txt" 2>/dev/null; then
+    ok "failed in-place PostgreSQL migration auto-restores the pre-upgrade dump"
+else
+    bad "pg auto-restore: rc=$mig_rc, args=[$(cat "$WORK/t10g/restore-args.txt" 2>/dev/null)]"
+fi
+rm -f "$STUB_BIN/flask" "$STUB_BIN/pg_restore"
+
+# --------------------------------------------------------------------------
+# T10h — backup retention is capped (default 5, SERVERKIT_BACKUP_RETENTION
+# overrides) across ALL backup kinds: full-size DB copies pile up fast on
+# small VPSes (a real box carried 6.3G of stale backups on a 25G disk).
+# --------------------------------------------------------------------------
+t="$WORK/t10h"; mkdir -p "$t/backups"
+for i in 1 2 3 4 5 6; do
+    mkdir -p "$t/backups/serverkit-tree-2026010$i"
+    : > "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db"
+    : > "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.dump"
+    touch -d "2026-01-0$i 00:00" "$t/backups/serverkit-tree-2026010$i" \
+        "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db" \
+        "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.dump" 2>/dev/null || true
+done
+ret_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 BACKUP_DIR="$t/backups" SERVERKIT_BACKUP_RETENTION=3
+    cleanup
+) >/dev/null 2>&1 || ret_rc=$?
+left_trees=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name 'serverkit-tree-*' | wc -l)
+left_dbs=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name '*.db' | wc -l)
+left_dumps=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name '*.dump' | wc -l)
+if [ "$ret_rc" -eq 0 ] && [ "$left_trees" -eq 3 ] && [ "$left_dbs" -eq 3 ] && [ "$left_dumps" -eq 3 ]; then
+    ok "cleanup prunes all backup kinds to SERVERKIT_BACKUP_RETENTION (3 kept)"
+else
+    bad "retention: rc=$ret_rc, left trees=$left_trees db=$left_dbs dump=$left_dumps (want 3/3/3)"
+fi
+
+# --------------------------------------------------------------------------
+# T11 — zero-downtime regression: reload_nginx_graceful must RELOAD a running
 # nginx and must NEVER stop it. Host nginx fronts every managed app, so a stop
 # during a panel update used to black out unrelated sites. A recording systemctl
 # stub (PATH-prepended ahead of the global stub) captures every invocation.

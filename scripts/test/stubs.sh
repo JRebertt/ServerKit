@@ -111,6 +111,34 @@ make_stub_sleep_noop() {
     make_stub_exit "$1" 0 sleep
 }
 
+# pg_restore in TOC-listing mode (`pg_restore -l`), the archive check
+# verify_pg_dump degrades to when the binary is present. MUST be stubbed:
+# otherwise the assertion depends on the HOST. A runner with postgresql-client
+# installed runs the real binary, which parses the version bytes after the
+# PGDMP magic and rejects the suite's synthetic dumps; a runner without it
+# skips the check entirely and accepts anything non-empty. Same fixtures, two
+# verdicts. Here a dump is valid iff it carries the PGDMP magic.
+make_stub_pg_restore() {
+    cat > "$1/pg_restore" <<'PGR_EOF'
+#!/usr/bin/env bash
+dump=""
+for arg in "$@"; do
+    case "$arg" in -*) ;; *) dump="$arg" ;; esac
+done
+if [ -z "$dump" ] || [ ! -s "$dump" ]; then
+    echo "pg_restore: error: could not open input file" >&2
+    exit 1
+fi
+if [ "$(head -c 5 "$dump" 2>/dev/null)" != "PGDMP" ]; then
+    echo "pg_restore: error: did not find magic string in file header" >&2
+    exit 1
+fi
+printf ';\n; Archive created at 2026-01-01 00:00:00 UTC\n;\n'
+exit 0
+PGR_EOF
+    chmod +x "$1/pg_restore"
+}
+
 # make_fresh_box_fixture <root> — lay out the degenerate fresh-box world:
 #   <root>/bin                              PATH-prepend stubs: systemctl exit 5,
 #                                           docker with zero containers, curl
