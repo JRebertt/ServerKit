@@ -111,25 +111,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull ${{ matrix.image }} (retried — Docker Hub is flaky)
+      - name: Pull ${{ matrix.image }} (Docker Hub, then mirror)
+        env:
+          IMAGE: ${{ matrix.image }}
         run: |
-          # `docker run` pulls implicitly, so a registry hiccup ("context
-          # deadline exceeded" reaching registry-1.docker.io) failed the whole
-          # job with exit 125 and cost a manual re-run. Seven images per matrix
-          # run makes that a recurring tax, so pull up front and retry.
+          # `docker run` pulls implicitly, so an unreachable registry kills the
+          # matrix leg with exit 125 before a single test runs. Docker Hub did
+          # exactly that on two consecutive runs — a sustained egress blackout
+          # from the runner ("Client.Timeout exceeded while awaiting headers"),
+          # not a rate limit, so retrying Hub alone rides it out for two
+          # minutes and then fails anyway. Fall back to Google's public Hub
+          # mirror, a separate failure domain, and re-tag to the original name
+          # so the run step below needs no changes.
           #
           # ONLY the pull is retried. Wrapping `docker run` would re-run the
           # suites on failure too, quietly turning a flaky TEST green.
-          for attempt in 1 2 3 4; do
-            if docker pull --quiet "${{ matrix.image }}"; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 4 ]; then
-              echo "::warning::pull of ${{ matrix.image }} failed (attempt $attempt/4) — retrying"
-              sleep $((attempt * 10))
-            fi
-          done
-          echo "::error::could not pull ${{ matrix.image }} after 4 attempts — Docker Hub unreachable"
+          case "$IMAGE" in
+            */*) MIRROR="mirror.gcr.io/$IMAGE" ;;          # namespaced: opensuse/leap
+            *)   MIRROR="mirror.gcr.io/library/$IMAGE" ;;  # official image
+          esac
+
+          try_pull() {
+            ref="$1"; tries="$2"
+            for i in $(seq 1 "$tries"); do
+              if docker pull --quiet "$ref"; then
+                return 0
+              fi
+              echo "::warning::pull of $ref failed (attempt $i/$tries)"
+              if [ "$i" -lt "$tries" ]; then
+                sleep $((i * 5))
+              fi
+            done
+            return 1
+          }
+
+          if try_pull "$IMAGE" 3; then
+            exit 0
+          fi
+          echo "::warning::Docker Hub unreachable — falling back to $MIRROR"
+          if try_pull "$MIRROR" 3; then
+            # Re-tag so `docker run "$IMAGE"` resolves locally and never
+            # reaches for Hub again (default pull policy is "missing").
+            docker tag "$MIRROR" "$IMAGE"
+            exit 0
+          fi
+          echo "::error::could not pull $IMAGE from Docker Hub or $MIRROR"
           exit 1
 
       - name: bash -n + unit suites on ${{ matrix.image }}
