@@ -394,6 +394,7 @@ printf 'PGDMP fake contents\n' > "\$out"
 exit \${PG_DUMP_RC:-0}
 EOF
 chmod +x "$STUB_BIN/pg_dump"
+make_stub_pg_restore "$STUB_BIN"
 bk_rc=0
 (
     set -Eeuo pipefail
@@ -420,7 +421,7 @@ if [ "$bk_rc" -ne 0 ]; then
 else
     bad "backup_current proceeded despite a failed pg_dump (rc=0)"
 fi
-rm -f "$STUB_BIN/pg_dump"
+rm -f "$STUB_BIN/pg_dump" "$STUB_BIN/pg_restore"
 
 # --------------------------------------------------------------------------
 # T10f — backup verification helpers: a backup is only a safety net when it
@@ -456,16 +457,23 @@ PYEOF
     fi
 fi
 : > "$t/empty.dump"; printf 'PGDMP\nstuff\n' > "$t/full.dump"
+# A non-archive that is merely NON-EMPTY is the fixture that separates the two
+# verify_pg_dump branches: the size check passes it, only the TOC listing
+# catches it. Requires the stub — see make_stub_pg_restore.
+printf 'ERROR: connection refused\n' > "$t/garbage.dump"
+make_stub_pg_restore "$STUB_BIN"
 v_rc=0
 (
     set -Eeuo pipefail
-    verify_pg_dump "$t/full.dump" && ! verify_pg_dump "$t/empty.dump" && ! verify_pg_dump "$t/missing.dump"
+    verify_pg_dump "$t/full.dump" && ! verify_pg_dump "$t/empty.dump" \
+        && ! verify_pg_dump "$t/missing.dump" && ! verify_pg_dump "$t/garbage.dump"
 ) >/dev/null 2>&1 || v_rc=$?
 if [ "$v_rc" -eq 0 ]; then
-    ok "verify_pg_dump rejects empty/missing dumps (TOC check when pg_restore exists)"
+    ok "verify_pg_dump rejects empty/missing/non-archive dumps (TOC check via pg_restore)"
 else
     bad "verify_pg_dump misclassified a fixture (rc=$v_rc)"
 fi
+rm -f "$STUB_BIN/pg_restore"
 
 # --------------------------------------------------------------------------
 # T10g — a failed IN-PLACE PostgreSQL migration must trigger an automatic
