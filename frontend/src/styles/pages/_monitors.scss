@@ -1,0 +1,578 @@
+// ============================================
+// MONITORS — list, detail, incidents, uptime strip
+// ============================================
+// Shared `mon-*` panel/section/hint rules come from _monitoring.scss, whose
+// root selector list includes these pages. Only what is new lives here.
+
+// ── panels ──────────────────────────────────────────────────
+.monitors-page,
+.incidents-page,
+.monitor-detail {
+
+    .mon-stack { display: flex; flex-direction: column; gap: 16px; }
+
+    .mon-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+    }
+
+    .mon-panel {
+        background: var(--bg-card, var(--surface-1));
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        padding: 18px;
+
+        &--flush { padding: 18px 0 0; }
+        &--flush .mon-panel__header { padding: 0 18px; }
+    }
+
+    .mon-panel__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+
+        h3 {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-faint);
+        }
+    }
+
+    .mon-panel__actions { display: flex; align-items: center; gap: 8px; }
+
+    .mon-panel__footer {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .mon-danger { color: var(--red); }
+
+    // Definition rows: key on the left, value right-aligned in mono.
+    .mon-inforows {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+
+        > div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-soft);
+
+            &:last-child { border-bottom: none; }
+        }
+
+        dt {
+            font-size: 12.5px;
+            color: var(--text-faint);
+        }
+
+        dd {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            color: var(--text-dim);
+            text-align: right;
+            word-break: break-word;
+        }
+    }
+
+    .mon-empty {
+        padding: 26px 18px;
+        font-size: 13px;
+        color: var(--text-faint);
+    }
+
+    // Check result code chip (200 / down / ok).
+    .mon-code {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+
+        &--ok { background: var(--green-bg, rgba(63, 185, 80, 0.14)); color: var(--green); }
+        &--bad { background: var(--red-bg, rgba(248, 81, 73, 0.14)); color: var(--red); }
+    }
+}
+
+// ── list ────────────────────────────────────────────────────
+.monitors-page {
+
+    .mon-card {
+        background: var(--bg-card, var(--surface-1));
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .mon-namecell__name { font-weight: 550; }
+
+    .mon-namecell__target {
+        display: block;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-faint);
+    }
+
+    .mon-type {
+        display: inline-flex;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-dim);
+    }
+
+    .mon-response {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+    }
+
+    .mon-response__ms {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+
+        &.is-slow { color: var(--amber); }
+    }
+
+    .mon-uptime,
+    .mon-muted {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+    }
+
+    .mon-muted { color: var(--text-faint); }
+
+    .mon-actions-col { width: 118px; }
+    .mon-actions-cell { text-align: right; }
+    .mon-actions { display: inline-flex; gap: 2px; justify-content: flex-end; }
+
+    tr.is-disabled { opacity: 0.55; }
+
+    // Create-monitor drawer
+    .mon-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px;
+    }
+
+    .mon-form__row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+    }
+
+    .mon-form__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .mon-select {
+        width: 100%;
+        height: 36px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 13px;
+    }
+
+    .mon-switch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 0;
+        border-top: 1px solid var(--border-soft);
+
+        strong { display: block; font-size: 13px; font-weight: 550; }
+        span { font-size: 12px; color: var(--text-faint); }
+    }
+}
+
+// ── detail ──────────────────────────────────────────────────
+.monitor-detail {
+
+    .monitor-detail__crumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        font-size: 12.5px;
+        color: var(--text-faint);
+
+        a { color: var(--accent-bright); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    }
+
+    .monitor-detail__sections { margin: 18px 0 16px; }
+
+    .mon-kpi-sub {
+        margin-top: 4px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-faint);
+    }
+
+    .mon-statstrip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .mon-statstrip__label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+    }
+
+    .mon-statstrip__value {
+        display: block;
+        margin-top: 3px;
+        font-family: var(--mono);
+        font-size: 15px;
+        font-weight: 600;
+    }
+
+    .mon-uptime-summary { display: flex; gap: 18px; text-align: right; }
+
+    .mon-uptime-axis {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-faint);
+    }
+
+    .mon-checkdetail {
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+    }
+
+    tr.is-bad .mon-checkdetail { color: var(--red); }
+}
+
+// ── 90-day uptime strip ─────────────────────────────────────
+.uptime-bars {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    height: 52px;
+    width: 100%;
+
+    &__bar {
+        flex: 1 1 0;
+        min-width: 3px;
+        padding: 0;
+        border: none;
+        border-radius: 2px;
+        background: var(--green);
+        cursor: pointer;
+        transition: opacity 0.12s, transform 0.12s;
+
+        &:hover { opacity: 0.75; }
+        &.is-selected { transform: scaleY(1.06); outline: 1px solid var(--text-dim); }
+
+        // "We weren't watching" is not the same fact as "it was fine".
+        &--none { background: var(--border-soft); cursor: default; }
+        &--partial { background: var(--amber); }
+        &--down { background: var(--red); }
+    }
+}
+
+// ── overview: monitors summary ──────────────────────────────
+.monitoring-page {
+
+    .mon-monitors-summary {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 22px;
+    }
+
+    .mon-nomonitors { margin-bottom: 22px; }
+
+    .mon-monitor-list,
+    .mon-feed { display: flex; flex-direction: column; }
+
+    .mon-monitor-row,
+    .mon-feed-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border-soft);
+        color: inherit;
+        text-decoration: none;
+
+        &:last-child { border-bottom: none; }
+        &:hover { background: var(--surface-2); }
+    }
+
+    .mon-monitor-row__body,
+    .mon-feed-row__body { flex: 1; min-width: 0; }
+
+    .mon-monitor-row__name,
+    .mon-feed-row__name {
+        display: block;
+        font-size: 13px;
+        font-weight: 550;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mon-monitor-row__sub,
+    .mon-feed-row__sub {
+        display: block;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-faint);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mon-monitor-row__ms,
+    .mon-feed-row__ms {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+    }
+}
+
+// ── incidents ───────────────────────────────────────────────
+.incidents-page {
+
+    .incidents-listhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin: 18px 0 14px;
+    }
+
+    .incidents-listhead__meta {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-faint);
+    }
+
+    .incidents-list {
+        background: var(--bg-card, var(--surface-1));
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .incident-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 14px 18px;
+        border: none;
+        border-top: 1px solid var(--border-soft);
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+
+        &:first-child { border-top: none; }
+        &:hover { background: var(--surface-2); }
+    }
+
+    .incident-row__sev {
+        flex-shrink: 0;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-ghost);
+
+        &--red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        &--amber { background: var(--amber); }
+        &--cyan { background: var(--cyan); }
+        &--green { background: var(--green); }
+    }
+
+    .incident-row__body { flex: 1; min-width: 0; }
+
+    .incident-row__title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+        font-size: 13.5px;
+        font-weight: 550;
+    }
+
+    .incident-row__sub {
+        display: block;
+        margin-top: 3px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-faint);
+    }
+
+    .incident-row__chev { flex-shrink: 0; color: var(--text-faint); }
+}
+
+// Incident drawer body
+.incident-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+
+    &__pills { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    &__body { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+    &__heading {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+    }
+
+    &__link {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--accent-bright);
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+
+    &__post { display: flex; flex-direction: column; gap: 10px; }
+
+    &__states { display: flex; gap: 6px; flex-wrap: wrap; }
+}
+
+.incident-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &__item {
+        display: flex;
+        gap: 12px;
+        position: relative;
+        padding-left: 14px;
+        border-left: 1px solid var(--border-soft);
+
+        p { margin: 5px 0 0; font-size: 13px; }
+    }
+
+    &__dot {
+        position: absolute;
+        left: -5px;
+        top: 4px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--text-ghost);
+
+        &.is-red { background: var(--red); }
+        &.is-amber { background: var(--amber); }
+        &.is-cyan { background: var(--cyan); }
+        &.is-green { background: var(--green); }
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-faint);
+    }
+}
+
+// ── status pages: attach an existing monitor ────────────────
+.status-attach-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 12px;
+
+    .status-attach-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        padding: 11px 4px;
+        border: none;
+        border-bottom: 1px solid var(--border-soft);
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+
+        &:last-child { border-bottom: none; }
+        &:hover { background: var(--surface-2); }
+
+        &__body { min-width: 0; }
+
+        strong { display: block; font-size: 13px; font-weight: 550; }
+
+        span span,
+        &__body > span {
+            display: block;
+            margin-top: 2px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+    }
+}
