@@ -195,6 +195,61 @@ def test_ping_uses_platform_appropriate_flags(app):
 
 
 # ---------------------------------------------------------------------------
+# TLS certificate throttling
+# ---------------------------------------------------------------------------
+
+def test_certificate_is_read_when_never_read_before(app):
+    monitor = _monitor(check_target='https://example.test/')
+    expires = datetime.utcnow() + timedelta(days=40)
+    result = {}
+    with patch.object(MonitorService, '_probe_certificate',
+                      return_value={'cert_issuer': "Let's Encrypt", 'cert_expires_at': expires}) as probe:
+        MonitorService._maybe_attach_certificate(monitor, result)
+    assert probe.called
+    assert result['cert_issuer'] == "Let's Encrypt"
+    assert result['cert_checked_at'] is not None
+
+
+def test_certificate_read_is_throttled_by_its_own_clock(app):
+    """Throttling must key on cert_checked_at, not last_check_at: an active
+    monitor is probed every 30s, so gating on the probe clock would read the
+    certificate once and then never refresh it."""
+    monitor = _monitor(check_target='https://example.test/')
+    monitor.cert_checked_at = datetime.utcnow() - timedelta(minutes=5)
+    # A recent probe must NOT unblock a cert re-read.
+    monitor.last_check_at = datetime.utcnow()
+    db.session.commit()
+
+    with patch.object(MonitorService, '_probe_certificate') as probe:
+        MonitorService._maybe_attach_certificate(monitor, {})
+    assert not probe.called
+
+    monitor.cert_checked_at = datetime.utcnow() - timedelta(hours=7)
+    db.session.commit()
+    with patch.object(MonitorService, '_probe_certificate', return_value={}) as probe:
+        MonitorService._maybe_attach_certificate(monitor, {})
+    assert probe.called
+
+
+def test_certificate_failure_still_stamps_the_clock(app):
+    """Otherwise an unreachable TLS endpoint is retried on every single probe."""
+    monitor = _monitor(check_target='https://example.test/')
+    result = {}
+    with patch.object(MonitorService, '_probe_certificate', side_effect=OSError('refused')):
+        MonitorService._maybe_attach_certificate(monitor, result)
+    assert result['cert_checked_at'] is not None
+
+
+def test_certificate_skipped_for_non_https(app):
+    monitor = _monitor(check_target='http://example.test/')
+    result = {}
+    with patch.object(MonitorService, '_probe_certificate') as probe:
+        MonitorService._maybe_attach_certificate(monitor, result)
+    assert not probe.called
+    assert result == {}
+
+
+# ---------------------------------------------------------------------------
 # Recording: status, retries, uptime, incidents
 # ---------------------------------------------------------------------------
 

@@ -253,6 +253,8 @@ class MonitorService:
         monitor.last_check_at = datetime.utcnow()
         if result.get('response_time') is not None:
             monitor.last_response_time = result.get('response_time')
+        if result.get('cert_checked_at'):
+            monitor.cert_checked_at = result['cert_checked_at']
         if result.get('cert_issuer'):
             monitor.cert_issuer = result['cert_issuer']
         if result.get('cert_expires_at'):
@@ -406,14 +408,22 @@ class MonitorService:
     @staticmethod
     def _maybe_attach_certificate(monitor, result):
         """Read the peer certificate for https monitors, at most every
-        CERT_REFRESH_SECONDS — it costs a second connection and barely moves."""
+        CERT_REFRESH_SECONDS — it costs a second connection and barely moves.
+
+        Throttled on ``cert_checked_at``, not ``last_check_at``: an active
+        monitor is checked every 30s, so gating on the probe clock would read the
+        certificate once and then never refresh it.
+        """
         target = monitor.check_target or ''
         if not target.startswith('https://'):
             return
-        if monitor.cert_expires_at and monitor.last_check_at:
-            age = datetime.utcnow() - monitor.last_check_at
-            if age.total_seconds() < CERT_REFRESH_SECONDS:
+        if monitor.cert_checked_at:
+            age = (datetime.utcnow() - monitor.cert_checked_at).total_seconds()
+            if age < CERT_REFRESH_SECONDS:
                 return
+        # Stamped even when the read fails, so an unreachable TLS endpoint is
+        # retried on the same cadence instead of on every single probe.
+        result['cert_checked_at'] = datetime.utcnow()
         try:
             cert = MonitorService._probe_certificate(
                 target, monitor.check_timeout or 10, bool(monitor.verify_tls))
@@ -472,6 +482,30 @@ class MonitorService:
         if limit:
             query = query.limit(limit)
         return query.all()
+
+    @staticmethod
+    def recent_response_times(monitor_ids, per_monitor=24, hours=6):
+        """Last N response times per monitor, oldest first — the list sparkline.
+
+        One query for the whole page rather than one per row, bounded by a time
+        window so a busy monitor's history can't crowd out a quiet one's (which
+        a single global LIMIT would do).
+        """
+        if not monitor_ids:
+            return {}
+        since = datetime.utcnow() - timedelta(hours=hours)
+        rows = HealthCheck.query.filter(
+            HealthCheck.component_id.in_(list(monitor_ids)),
+            HealthCheck.response_time.isnot(None),
+            HealthCheck.checked_at >= since,
+        ).order_by(HealthCheck.checked_at.desc()).all()
+
+        out = {}
+        for row in rows:
+            bucket = out.setdefault(row.component_id, [])
+            if len(bucket) < per_monitor:
+                bucket.append(row.response_time)
+        return {mid: list(reversed(values)) for mid, values in out.items()}
 
     @staticmethod
     def recompute_uptime(monitor):

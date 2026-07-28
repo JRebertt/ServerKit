@@ -29,7 +29,14 @@ def list_monitors():
         q=request.args.get('q') or None,
         page_id=page_id,
     )
-    return jsonify({'monitors': [m.to_dict() for m in monitors]})
+    # One extra query for every row's sparkline, not one per row.
+    sparks = MonitorService.recent_response_times([m.id for m in monitors])
+    payload = []
+    for monitor in monitors:
+        item = monitor.to_dict()
+        item['spark'] = sparks.get(monitor.id, [])
+        payload.append(item)
+    return jsonify({'monitors': payload})
 
 
 @monitors_bp.route('/stats', methods=['GET'])

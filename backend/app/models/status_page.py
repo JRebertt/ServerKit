@@ -88,9 +88,12 @@ class StatusComponent(db.Model):
     # an outage on a status page.
     is_paused = db.Column(db.Boolean, default=False, nullable=False)
 
-    # TLS certificate observed on the last https probe.
+    # TLS certificate observed on the last https probe. `cert_checked_at` is not
+    # the same as `last_check_at`: reading the certificate opens a second
+    # connection, so it is throttled independently of the probe itself.
     cert_issuer = db.Column(db.String(256))
     cert_expires_at = db.Column(db.DateTime)
+    cert_checked_at = db.Column(db.DateTime)
 
     # Optional binding to a managed WordPress site. When set, the component's
     # status is driven from the site's health checks (#26) rather than a network
@@ -150,6 +153,7 @@ class StatusComponent(db.Model):
             'is_paused': bool(self.is_paused),
             'cert_issuer': self.cert_issuer,
             'cert_expires_at': self.cert_expires_at.isoformat() if self.cert_expires_at else None,
+            'cert_checked_at': self.cert_checked_at.isoformat() if self.cert_checked_at else None,
             'wordpress_site_id': self.wordpress_site_id,
             'status': self.status,
             'last_check_at': self.last_check_at.isoformat() if self.last_check_at else None,

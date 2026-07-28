@@ -55,6 +55,10 @@ NEW_COLUMNS = [
     ('consecutive_failures', sa.Integer(), {'nullable': False, 'server_default': '0'}),
     ('cert_issuer', sa.String(length=256), {'nullable': True}),
     ('cert_expires_at', sa.DateTime(), {'nullable': True}),
+    # When the certificate was last read, which is NOT when the monitor was last
+    # checked: the TLS read is throttled to once every few hours because it costs
+    # a second connection, so it needs a clock of its own.
+    ('cert_checked_at', sa.DateTime(), {'nullable': True}),
 ]
 
 
