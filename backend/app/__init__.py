@@ -302,6 +302,11 @@ def create_app(config_name=None):
     from app.api.uptime import uptime_bp
     app.register_blueprint(uptime_bp, url_prefix='/api/v1/uptime')
 
+    # Register blueprints - Monitors (synthetic checks + their incidents).
+    # Core: watching a site must not depend on the status-page extension.
+    from app.api.monitors import monitors_bp
+    app.register_blueprint(monitors_bp, url_prefix='/api/v1/monitors')
+
     # Register blueprints - Environment Variables
     from app.api.env_vars import env_vars_bp
     app.register_blueprint(env_vars_bp, url_prefix='/api/v1/apps')
