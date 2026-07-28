@@ -61,7 +61,6 @@ import FleetProxy from './pages/FleetProxy';
 import PublicStatusPage from './pages/PublicStatusPage';
 import Marketplace from './pages/Marketplace';
 import Vaults from './pages/Vaults';
-import Webhooks from './pages/Webhooks';
 import StyleGuide from './pages/StyleGuide';
 import NotFound from './pages/NotFound';
 import AppMap from './pages/AppMap';
@@ -75,6 +74,7 @@ import DeliveryLog from './pages/DeliveryLog';
 import Telemetry from './pages/Telemetry';
 import Jobs from './pages/Jobs';
 import TestSandbox from './pages/TestSandbox';
+import useDevMode from './hooks/useDevMode';
 import useExtensionRoutes from './plugins/ExtensionRoutes';
 import { useContributions } from './plugins/contributions';
 
@@ -129,7 +129,6 @@ const PAGE_TITLES = {
     '/extensions': 'Extensions',
     '/extensions/installed': 'Installed Extensions',
     '/vaults': 'Vaults',
-    '/webhooks': 'Webhooks',
     '/style-guide': 'Style Guide',
     '/app-map': 'App Map',
     '/documentation': 'Documentation',
@@ -196,6 +195,16 @@ function PageTitleUpdater() {
     }, [location, pluginTitles, panelTitle, publicTitle]);
 
     return null;
+}
+
+// Guard for developer-only pages (Test Sandbox). Reads the same shared flag as
+// the sidebar's requiresCondition: 'devMode', so the nav entry and the route can
+// never disagree. Off ⇒ the URL behaves as if the page doesn't exist.
+function DevOnlyRoute({ children }) {
+    const { devMode, resolved } = useDevMode({ withStatus: true });
+    if (!resolved) return <AppLoader />;
+    if (!devMode) return <Navigate to="/" replace />;
+    return children;
 }
 
 function PrivateRoute({ children }) {
@@ -451,15 +460,18 @@ function AppRoutes() {
                 <Route path="terminal" element={<Terminal />} />
                 <Route path="terminal/terminal" element={<Navigate to="/terminal/shell" replace />} />
                 <Route path="terminal/:tab" element={<Terminal />} />
-                <Route path="webhooks" element={<Webhooks />} />
                 {/* Retired "Secrets & Webhooks" page: Vaults moved into the
-                    Organization tab group (/vaults), Webhooks got its own page.
-                    Redirect old links/bookmarks to their new homes. */}
-                <Route path="secrets/webhooks" element={<Navigate to="/webhooks" replace />} />
+                    Organization tab group (/vaults); the inbound-webhook console
+                    is now a Settings → Admin tab (it's server configuration, not
+                    a daily ops surface). Redirect old links/bookmarks. */}
+                <Route path="webhooks" element={<Navigate to="/settings/webhooks" replace />} />
+                <Route path="secrets/webhooks" element={<Navigate to="/settings/webhooks" replace />} />
                 <Route path="secrets" element={<Navigate to="/vaults" replace />} />
                 <Route path="secrets/:tab" element={<Navigate to="/vaults" replace />} />
                 <Route path="queue" element={<QueueOperations />} />
-                <Route path="test-sandbox" element={<TestSandbox />} />
+                {/* Developer tooling, not an operator surface — see the
+                    matching requiresCondition on the sidebar item. */}
+                <Route path="test-sandbox" element={<DevOnlyRoute><TestSandbox /></DevOnlyRoute>} />
                 <Route path="queue/:groupSlug/:queueSlug" element={<QueueDetail />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="admin/notifications" element={<DeliveryLog />} />

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../services/api';
-import { PageTopbar } from '@/components/ds';
+import api from '../../services/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,20 +9,24 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useToast } from '../contexts/ToastContext';
-import { Webhook, Plus, MoreVertical, Copy, RefreshCw, ArrowRightLeft } from 'lucide-react';
-import EmptyState from '../components/EmptyState';
+import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../hooks/useConfirm';
+import { Plus, MoreVertical, Copy, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import EmptyState from '../EmptyState';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
 /**
- * Webhooks — receive, verify, and forward inbound webhooks. Split out of the
- * old "Secrets & Webhooks" page: secret storage now lives under the
- * Organization tab group (/vaults). This is a standalone page with its own
- * PageTopbar.
+ * Webhooks — receive, verify, and forward inbound webhooks.
+ *
+ * Lives as a Settings → Admin tab rather than a top-level page: it's server
+ * configuration, not a daily operations surface, and it sits next to the
+ * outbound notification subscriptions it complements. /webhooks redirects here.
+ * (Secret storage moved to the Organization tab group at /vaults earlier.)
  */
-export default function Webhooks() {
+export default function WebhooksTab() {
     const toast = useToast();
+    const { confirm } = useConfirm();
 
     const [endpoints, setEndpoints] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -68,7 +71,11 @@ export default function Webhooks() {
     }
 
     async function deleteEndpoint(id) {
-        if (!confirm('Delete this webhook endpoint?')) return;
+        const confirmed = await confirm({
+            title: 'Delete Webhook Endpoint',
+            message: 'Delete this webhook endpoint? Inbound deliveries to its URL will stop being accepted.',
+        });
+        if (!confirmed) return;
         try {
             await api.deleteWebhookEndpoint(id);
             if (selectedEndpoint?.id === id) setSelectedEndpoint(null);
@@ -118,18 +125,11 @@ export default function Webhooks() {
     }, [selectedEndpoint]);
 
     if (loading) {
-        return (
-            <div className="page-container secrets-page">
-                <PageTopbar icon={<Webhook size={18} />} title="Webhooks" />
-                <EmptyState loading loadingVariant="table" title="Loading webhooks..." />
-            </div>
-        );
+        return <EmptyState loading loadingVariant="table" title="Loading webhooks..." />;
     }
 
     return (
-        <div className="page-container secrets-page">
-            <PageTopbar icon={<Webhook size={18} />} title="Webhooks" />
-
+        <div className="settings-webhooks">
             {!selectedEndpoint ? (
                 <Card>
                     <CardHeader>

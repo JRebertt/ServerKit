@@ -9,7 +9,7 @@ import { FolderKanban, Braces, KeyRound, LayoutGrid } from 'lucide-react';
 //
 // Vaults (encrypted secret stores) sits beside Shared Variables here because
 // both are key/value config surfaces; inbound Webhooks — the other half of the
-// retired "Secrets & Webhooks" page — now lives on its own /webhooks page.
+// retired "Secrets & Webhooks" page — now lives at Settings → Admin → Webhooks.
 export const ORG_TABS = [
     { to: '/projects', label: 'Projects', end: true, icon: <FolderKanban size={15} /> },
     { to: '/shared-variables', label: 'Shared Variables', icon: <Braces size={15} /> },

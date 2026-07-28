@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import useTabParam from '../hooks/useTabParam';
+import { refreshDevMode } from '../hooks/useDevMode';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import ProfileTab from '../components/settings/ProfileTab';
@@ -19,19 +20,20 @@ import MigrationHistoryTab from '../components/settings/MigrationHistoryTab';
 import IconReferenceTab from '../components/settings/IconReferenceTab';
 import AISettingsTab from '../components/settings/AISettingsTab';
 import ModulesTab from '../components/settings/ModulesTab';
+import WebhooksTab from '../components/settings/WebhooksTab';
 import AboutTab from '../components/settings/AboutTab';
 import PluginSlot from '../components/PluginSlot';
-import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Webhook, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageTopbar, SegControl } from '@/components/ds';
 import { useNavigate } from 'react-router-dom';
 
-const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'ai', 'modules', 'migrations', 'developer', 'about'];
+const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'developer', 'about'];
 
 // Tabs that belong to the server-wide "Administration" group (admin-only); the
 // rest are personal "My Account" settings. Drives the two-way section switch so
 // personal prefs aren't interleaved with destructive system controls.
-const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'ai', 'modules', 'migrations', 'system', 'developer'];
+const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'system', 'developer'];
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useTabParam('/settings', VALID_TABS);
@@ -234,6 +236,14 @@ const Settings = () => {
                             </Button>
                             <Button
                                 variant="ghost"
+                                className={`settings-nav-item ${activeTab === 'webhooks' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('webhooks')}
+                            >
+                                <Webhook size={18} />
+                                Webhooks
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('ai')}
                             >
@@ -305,9 +315,14 @@ const Settings = () => {
                     {activeTab === 'notifications' && <NotificationsTab />}
                     {activeTab === 'users' && isAdmin && <UsersTab />}
                     {activeTab === 'activity' && isAdmin && <ActivityTab />}
-                    {activeTab === 'site' && isAdmin && <SiteSettingsTab onDevModeChange={setDevMode} />}
+                    {activeTab === 'site' && isAdmin && (
+                        <SiteSettingsTab
+                            onDevModeChange={(v) => { setDevMode(v); refreshDevMode(); }}
+                        />
+                    )}
                     {activeTab === 'sso' && isAdmin && <SSOConfigTab />}
                     {activeTab === 'api' && isAdmin && <ApiSettingsTab />}
+                    {activeTab === 'webhooks' && isAdmin && <WebhooksTab />}
                     {activeTab === 'ai' && isAdmin && <AISettingsTab />}
                     {activeTab === 'modules' && isAdmin && <ModulesTab />}
                     {activeTab === 'migrations' && isAdmin && <MigrationHistoryTab />}

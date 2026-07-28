@@ -11,6 +11,7 @@ import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds,
 import { useContributions } from '../plugins/contributions';
 import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
+import useDevMode from '../hooks/useDevMode';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser, hasPermission } = useAuth();
@@ -117,7 +118,10 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
     const { isEnabled: isModuleEnabled } = useModules();
     const wordpressEnabled = isModuleEnabled('wordpress');
 
-    const conditions = { wpInstalled, gpuAvailable, wordpressEnabled };
+    // Developer-only items (Test Sandbox) — same source the route guard reads.
+    const devMode = useDevMode();
+
+    const conditions = { wpInstalled, gpuAvailable, wordpressEnabled, devMode };
     const currentPreset = user?.sidebar_config?.preset || 'recommended';
     const [manualExpanded, setManualExpanded] = useState({});
     const [autoExpanded, setAutoExpanded] = useState(null);
@@ -156,9 +160,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 category: item.category || 'system',
             }));
         // Top-level items can gate on a runtime condition (e.g. GPU Monitor
-        // only when a GPU is present, or the Email/WordPress modules being
-        // enabled), mirroring sub-item requiresCondition.
-        const conds = { wpInstalled, gpuAvailable, wordpressEnabled };
+        // only when a GPU is present, the Email/WordPress modules being
+        // enabled, or dev-only tooling), mirroring sub-item requiresCondition.
+        const conds = { wpInstalled, gpuAvailable, wordpressEnabled, devMode };
         let items = [...core, ...fromPlugins].filter(
             (item) => !item.requiresCondition || conds[item.requiresCondition]
         );
@@ -194,7 +198,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             }
         }
         return applyWorkspaceNavPermissions(items, activeWorkspace, user);
-    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, user, hasPermission]);
+    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, devMode, user, hasPermission]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {

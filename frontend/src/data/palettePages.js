@@ -39,7 +39,9 @@ export const PALETTE_PAGES = [
     { label: 'Vaults', path: '/vaults', navId: 'organization', keywords: 'secrets tokens credentials vault' },
     { label: 'Queue Bus', path: '/queue', navId: 'queue', keywords: 'bus operations tasks' },
     { label: 'Jobs', path: '/jobs', navId: 'jobs', keywords: 'scheduler background work' },
-    { label: 'Webhooks', path: '/webhooks', navId: 'webhooks', keywords: 'webhook receive forward delivery' },
+    // No navId: the inbound-webhook console is a Settings tab now, not a
+    // sidebar page, so there's no nav item for the permission gate to consult.
+    { label: 'Webhooks', path: '/settings/webhooks', keywords: 'webhook receive forward delivery inbound' },
 ].map((p) => ({ ...p, id: `page:${p.path}`, category: 'Pages' }));
 
 export default PALETTE_PAGES;

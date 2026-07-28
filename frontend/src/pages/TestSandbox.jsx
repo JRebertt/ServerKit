@@ -366,12 +366,6 @@ const TestSandbox = () => {
                 )}
             />
 
-            <p className="ts-intro">
-                Run the ServerKit test matrix against real Linux distros in Docker
-                containers — pick distros, pick a mode, and watch per-distro
-                pass/fail results with live logs.
-            </p>
-
             {loadError && (
                 <div className="alert alert-danger">
                     {loadError}
