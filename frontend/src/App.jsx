@@ -44,7 +44,6 @@ import { MARKET_TABS } from './components/marketplace/marketTabs';
 import { BACKUP_TABS } from './components/backups/backupTabs';
 import { SECURITY_TABS } from './components/security/securityTabs';
 import { ORG_TABS } from './components/organization/organizationTabs';
-import { JOBS_TABS } from './components/jobs/jobsTabs';
 import Downloads from './pages/Downloads';
 import SSLCertificates from './pages/SSLCertificates';
 import SSOCallback from './pages/SSOCallback';
@@ -73,6 +72,9 @@ import Notifications from './pages/Notifications';
 import DeliveryLog from './pages/DeliveryLog';
 import Telemetry from './pages/Telemetry';
 import Jobs from './pages/Jobs';
+import Monitors from './pages/Monitors';
+import MonitorDetail from './pages/MonitorDetail';
+import Incidents from './pages/Incidents';
 import TestSandbox from './pages/TestSandbox';
 import useDevMode from './hooks/useDevMode';
 import useExtensionRoutes from './plugins/ExtensionRoutes';
@@ -137,6 +139,10 @@ const PAGE_TITLES = {
     '/notifications': 'Notifications',
     '/admin/notifications': 'Notification Delivery Log',
     '/telemetry': 'Telemetry',
+    '/monitoring/monitors': 'Monitors',
+    '/monitoring/monitors/:monitorId': 'Monitor',
+    '/monitoring/incidents': 'Incidents',
+    '/monitoring/jobs': 'Jobs',
     '/jobs': 'Jobs',
     '/test-sandbox': 'Test Sandbox',
 };
@@ -428,10 +434,28 @@ function AppRoutes() {
                     the public /status/:slug route stays core above. */}
                 <Route element={<TabGroupLayout tabs={MONITOR_TABS} groupId="monitoring" />}>
                     <Route path="monitoring" element={<Monitoring />} />
+                    {/* Static segments outrank the :tab catch-all below, so these
+                        keep their own pages while /monitoring/rules etc. still
+                        land on <Monitoring/>. */}
+                    <Route path="monitoring/monitors" element={<Monitors />} />
+                    <Route path="monitoring/incidents" element={<Incidents />} />
+                    {/* Alerts merged into Incidents — a host threshold crossing
+                        and a monitor going down are the same question. */}
+                    <Route path="monitoring/alerts" element={<Navigate to="/monitoring/incidents" replace />} />
+                    <Route path="monitoring/fleet-alerts" element={<Navigate to="/monitoring/incidents" replace />} />
+                    {/* Jobs moved in from its own top-level page: it is the same
+                        class of thing as Events and read as a rival page next to
+                        it. Activity/Scheduled is now an in-page SegControl
+                        (the group's bar already owns the tab row). */}
+                    <Route path="monitoring/jobs" element={<Jobs />} />
+                    <Route path="monitoring/jobs/scheduled" element={<Jobs />} />
                     <Route path="monitoring/:tab" element={<Monitoring />} />
                     <Route path="telemetry" element={<Telemetry />} />
                     {groupRoutes.monitoring}
                 </Route>
+                {/* Outside the tab group: a single monitor is a drill-down with
+                    its own breadcrumb top bar, like /queue/:group/:queue. */}
+                <Route path="monitoring/monitors/:monitorId" element={<MonitorDetail />} />
                 <Route path="observability" element={<Navigate to="/monitoring" replace />} />
                 {/* Fleet Monitor folded into /monitoring: it asked the same
                     questions at fleet scope, so its heatmap is now the Host
@@ -475,10 +499,9 @@ function AppRoutes() {
                 <Route path="queue/:groupSlug/:queueSlug" element={<QueueDetail />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="admin/notifications" element={<DeliveryLog />} />
-                <Route element={<TabGroupLayout tabs={JOBS_TABS} />}>
-                    <Route path="jobs" element={<Jobs />} />
-                    <Route path="jobs/scheduled" element={<Jobs />} />
-                </Route>
+                {/* Jobs is a Monitoring tab now; keep old links working. */}
+                <Route path="jobs" element={<Navigate to="/monitoring/jobs" replace />} />
+                <Route path="jobs/scheduled" element={<Navigate to="/monitoring/jobs/scheduled" replace />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="settings/:tab" element={<Settings />} />
                 {dashboardRoutes}

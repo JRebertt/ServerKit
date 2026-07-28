@@ -18,10 +18,12 @@ import {
     Copy,
     ExternalLink,
     Globe2,
+    Link2,
     PlayCircle,
     Plus,
     RefreshCw,
     Trash2,
+    Unlink,
 } from 'lucide-react';
 
 // pill → ds Pill kind · tone → .status-dot modifier · dot → .comp-dots square
@@ -108,6 +110,11 @@ const StatusPages = () => {
     const [incidents, setIncidents] = useState([]);
     const [showCreatePage, setShowCreatePage] = useState(false);
     const [showCreateComponent, setShowCreateComponent] = useState(false);
+    // Monitors are first-class now (core /api/v1/monitors) — a status page
+    // publishes a subset of them rather than owning its own private probes. This
+    // is the list of monitors not yet on any page.
+    const [unattached, setUnattached] = useState([]);
+    const [showAttach, setShowAttach] = useState(false);
     const [showCreateIncident, setShowCreateIncident] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -138,15 +145,42 @@ const StatusPages = () => {
     const loadPageDetails = async (page) => {
         if (!page) return;
         try {
-            const [cData, iData] = await Promise.all([
+            const [cData, iData, mData] = await Promise.all([
                 api.getStatusPageComponents(page.id),
                 api.getStatusPageIncidents(page.id),
+                api.getMonitors().catch(() => null),
             ]);
             setSelectedPage(page);
             setComponents(cData.components || []);
             setIncidents(iData.incidents || []);
+            setUnattached((mData?.monitors || []).filter((m) => m.page_id == null));
         } catch (err) {
             toast.error(err.message || 'Failed to load page details');
+        }
+    };
+
+    // Publishing an existing monitor is just setting its page — no second probe,
+    // no duplicated config, and the monitor keeps the history it already has.
+    const handleAttachMonitor = async (monitor) => {
+        try {
+            await api.updateMonitor(monitor.id, { page_id: selectedPage.id });
+            toast.success(`${monitor.name} added to ${selectedPage.name}`);
+            setShowAttach(false);
+            await loadPageDetails(selectedPage);
+        } catch (err) {
+            toast.error(err.message || 'Could not add the monitor');
+        }
+    };
+
+    // Unpublish without destroying: deleting a component now deletes a real
+    // monitor and its history, so removing it from a page needs its own action.
+    const handleDetachMonitor = async (component) => {
+        try {
+            await api.updateMonitor(component.id, { page_id: null });
+            toast.success(`${component.name} removed from this page`);
+            await loadPageDetails(selectedPage);
+        } catch (err) {
+            toast.error(err.message || 'Could not remove the monitor');
         }
     };
 
@@ -414,10 +448,24 @@ const StatusPages = () => {
                             <TabsContent value="components">
                                 <div className="status-actions-bar">
                                     {isAdmin && (
-                                        <Button size="sm" onClick={() => setShowCreateComponent(true)}>
-                                            <Plus size={14} />
-                                            Add Component
-                                        </Button>
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setShowAttach(true)}
+                                                disabled={unattached.length === 0}
+                                                title={unattached.length === 0
+                                                    ? 'Every monitor is already on a page'
+                                                    : undefined}
+                                            >
+                                                <Link2 size={14} />
+                                                Add existing monitor
+                                            </Button>
+                                            <Button size="sm" onClick={() => setShowCreateComponent(true)}>
+                                                <Plus size={14} />
+                                                New component
+                                            </Button>
+                                        </>
                                     )}
                                 </div>
 
@@ -448,7 +496,20 @@ const StatusPages = () => {
                                                                     <PlayCircle size={14} />
                                                                     Check
                                                                 </Button>
-                                                                <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm({ type: 'component', item: component })}>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => handleDetachMonitor(component)}
+                                                                    title="Remove from this page — the monitor keeps running"
+                                                                >
+                                                                    <Unlink size={14} />
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => setDeleteConfirm({ type: 'component', item: component })}
+                                                                    title="Delete the monitor and its history"
+                                                                >
                                                                     <Trash2 size={14} />
                                                                 </Button>
                                                             </div>
@@ -599,6 +660,41 @@ const StatusPages = () => {
                         onChange={(e) => setPageForm({ ...pageForm, description: e.target.value })}
                         rows={3}
                     />
+                </div>
+            </Modal>
+
+            <Modal
+                open={showAttach}
+                onClose={() => setShowAttach(false)}
+                title="Add an existing monitor"
+                size="md"
+                className="status-modal"
+                footer={<Button variant="outline" onClick={() => setShowAttach(false)}>Close</Button>}
+            >
+                <p className="form-help">
+                    These monitors are already running and are not on any status page yet.
+                    Adding one publishes it here — it keeps the history it has already collected.
+                </p>
+                <div className="status-attach-list">
+                    {unattached.map((monitor) => (
+                        <button
+                            key={monitor.id}
+                            type="button"
+                            className="status-attach-row"
+                            onClick={() => handleAttachMonitor(monitor)}
+                        >
+                            <span className="status-attach-row__body">
+                                <strong>{monitor.name}</strong>
+                                <span>{monitor.check_type.toUpperCase()} · {monitor.check_target || 'bound site'}</span>
+                            </span>
+                            <Pill kind={(STATUS_META[monitor.status] || STATUS_META.operational).pill}>
+                                {(STATUS_META[monitor.status] || STATUS_META.operational).label}
+                            </Pill>
+                        </button>
+                    ))}
+                    {unattached.length === 0 && (
+                        <p className="form-help">Every monitor is already on a page.</p>
+                    )}
                 </div>
             </Modal>
 

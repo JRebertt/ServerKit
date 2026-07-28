@@ -126,11 +126,12 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Monitoring uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
-        // Its sections (Overview / Alerts / Rules / Capacity / Doctor / Events)
-        // share the top bar (PageTopbar MONITOR_TABS); the sidebar entry lights
-        // for any of them via matchPrefixes. Events absorbed the old standalone
-        // Telemetry. Labelled "Monitoring" to match the route and the page —
-        // this used to say "Observability", which named the same thing twice.
+        // Its sections (Overview / Monitors / Incidents / Rules / Capacity /
+        // Events / Jobs / Doctor) share the top bar (PageTopbar MONITOR_TABS);
+        // the sidebar entry lights for any of them via matchPrefixes. Events
+        // absorbed the old standalone Telemetry and Jobs the old top-level Jobs
+        // page. Labelled "Monitoring" to match the route and the page — this
+        // used to say "Observability", which named the same thing twice.
         id: 'monitoring',
         label: 'Monitoring',
         route: '/monitoring',
@@ -175,13 +176,9 @@ export const SIDEBAR_ITEMS = [
         category: 'system',
         icon: '<path d="M4 17l6-6-6-6M12 19h8"/>'
     },
-    {
-        id: 'jobs',
-        label: 'Jobs',
-        route: '/jobs',
-        category: 'system',
-        icon: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'
-    },
+    // Jobs is a Monitoring tab now (/monitoring/jobs), not a top-level page: it
+    // is the same class of thing as Events and the two read as rival pages when
+    // one sat in the sidebar and the other inside the group. /jobs redirects.
     // GPU Monitor lives in the standalone serverkit-gpu extension (own repo,
     // registry-installed); its sidebar item (still gated on gpuAvailable via
     // requiresCondition) is contributed by the extension manifest.

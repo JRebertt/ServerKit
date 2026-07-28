@@ -7,7 +7,6 @@ import EmptyState from '../components/EmptyState';
 import DoctorPanel from '../components/monitoring/DoctorPanel';
 import MonitoringOverview from '../components/monitoring/MonitoringOverview';
 import FleetCapacityPanel from '../components/monitoring/FleetCapacityPanel';
-import FleetAlertsPanel from '../components/monitoring/FleetAlertsPanel';
 import FleetThresholdsPanel from '../components/monitoring/FleetThresholdsPanel';
 import ServerScopePicker from '../components/monitoring/ServerScopePicker';
 import { useMonitorScope } from '../components/monitoring/useMonitorScope';
@@ -20,16 +19,19 @@ import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import {
     Activity, Bell, Cpu, Gauge as GaugeIcon, HardDrive, MemoryStick,
-    PlayCircle, RefreshCw, Settings, Siren,
+    PlayCircle, RefreshCw, Settings,
 } from 'lucide-react';
 
 // One section per top-bar tab. There is deliberately no second tab strip inside
 // the page: the group's own bar (MONITOR_TABS) carries these, the way the
 // design mock does — a nav under a nav reads as two competing headers.
-const VALID_TABS = ['overview', 'alerts', 'rules', 'capacity', 'doctor'];
+// Alerts is gone from this page: host threshold alerts now render in the
+// Incidents tab alongside monitor outages (they are the same question asked of
+// two different subjects). /monitoring/alerts redirects there in App.jsx.
+const VALID_TABS = ['overview', 'rules', 'capacity', 'doctor'];
 
 // Old deep links from when Alert Rules and Delivery were separate inner tabs.
-const TAB_ALIASES = { thresholds: 'rules', config: 'rules', fleet: 'overview', 'fleet-alerts': 'alerts' };
+const TAB_ALIASES = { thresholds: 'rules', config: 'rules', fleet: 'overview' };
 
 const DEFAULT_THRESHOLDS = {
     cpu_percent: 80,
@@ -60,34 +62,18 @@ const RULE_ICONS = {
 const SPEEDTEST_POLL_INTERVAL_MS = 3000;
 const SPEEDTEST_POLL_TIMEOUT_MS = 90000;
 
-function formatTimestamp(timestamp) {
-    if (!timestamp) return 'Never';
-    return new Date(timestamp).toLocaleString();
-}
-
 function formatNumber(value, digits = 1) {
     if (typeof value !== 'number' || Number.isNaN(value)) return '-';
     return value.toFixed(digits);
-}
-
-function getSeverityTone(severity) {
-    switch (severity) {
-        case 'critical': return 'red';
-        case 'warning': return 'amber';
-        case 'info': return 'cyan';
-        default: return 'gray';
-    }
 }
 
 const Monitoring = () => {
     const toast = useToast();
     const [status, setStatus] = useState(null);
     const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS);
-    const [alertHistory, setAlertHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [savingConfig, setSavingConfig] = useState(false);
     const [savingThresholds, setSavingThresholds] = useState(false);
-    const [checkingAlerts, setCheckingAlerts] = useState(false);
     const [error, setError] = useState(null);
     const [rawTab] = useTabParam('/monitoring', VALID_TABS);
     const activeTab = TAB_ALIASES[rawTab] || rawTab;
@@ -119,18 +105,16 @@ const Monitoring = () => {
         try {
             setLoading(true);
             setError(null);
-            const [statusRes, configRes, thresholdsRes, historyRes] = await Promise.all([
+            const [statusRes, configRes, thresholdsRes] = await Promise.all([
                 api.getMonitoringStatus(),
                 api.getMonitoringConfig(),
                 api.getMonitoringThresholds(),
-                api.getAlertHistory(50),
             ]);
 
             const nextThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholdsRes.thresholds || {}) };
             setStatus(statusRes);
             setThresholds(nextThresholds);
             setThresholdForm(nextThresholds);
-            setAlertHistory(historyRes.alerts || []);
             setConfigForm({
                 enabled: Boolean(configRes.enabled),
                 check_interval: configRes.check_interval || 60,
@@ -239,20 +223,6 @@ const Monitoring = () => {
         }
     };
 
-    const handleCheckAlerts = async () => {
-        try {
-            setCheckingAlerts(true);
-            const result = await api.checkAlerts();
-            const count = result.alerts?.length || 0;
-            toast[count > 0 ? 'warning' : 'success'](`${count} active alert${count !== 1 ? 's' : ''}`);
-            await loadData();
-        } catch (err) {
-            toast.error(err.message || 'Alert check failed');
-        } finally {
-            setCheckingAlerts(false);
-        }
-    };
-
     const handleRunSpeedTest = async () => {
         try {
             setSpeedTestRunning(true);
@@ -343,55 +313,6 @@ const Monitoring = () => {
                     onScopeChange={setScope}
                     refreshKey={refreshKey}
                 />
-            )}
-
-            {activeTab === 'alerts' && (
-                <div className="monitoring-stack">
-                    <section className="monitoring-panel">
-                        <div className="monitoring-panel__header">
-                            <div>
-                                <h3>This server</h3>
-                                <span className="mon-panel-sub">
-                                    {activeAlerts.length} firing · {alertHistory.length} in history
-                                </span>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={handleCheckAlerts} disabled={checkingAlerts}>
-                                <Siren size={14} />
-                                {checkingAlerts ? 'Checking…' : 'Check now'}
-                            </Button>
-                        </div>
-                        {alertHistory.length === 0 && activeAlerts.length === 0 ? (
-                            <p className="mon-panel-hint">
-                                Nothing has crossed a limit yet. Rules live one tab over.
-                            </p>
-                        ) : (
-                            <div className="mon-alert-list">
-                                {[...activeAlerts.map((a) => ({ ...a, firing: true })), ...alertHistory]
-                                    .map((alert, index) => (
-                                        <article key={`${alert.timestamp || 'now'}-${index}`} className="mon-alert-row">
-                                            <span className={`mon-sev mon-sev--${alert.severity}`} />
-                                            <div className="mon-alert-row__body">
-                                                <div className="mon-alert-row__title">{alert.message}</div>
-                                                <div className="mon-alert-row__sub">
-                                                    {alert.type} · {formatNumber(alert.value)} / {alert.threshold}
-                                                </div>
-                                            </div>
-                                            <div className="mon-alert-row__end">
-                                                <span className={`mon-state mon-state--${alert.firing ? 'red' : getSeverityTone(alert.severity)}`}>
-                                                    {alert.firing ? 'firing' : alert.severity}
-                                                </span>
-                                                <span className="mon-alert-row__time">
-                                                    {alert.firing ? 'now' : formatTimestamp(alert.timestamp)}
-                                                </span>
-                                            </div>
-                                        </article>
-                                    ))}
-                            </div>
-                        )}
-                    </section>
-
-                    {servers.length > 0 && <FleetAlertsPanel scope={scope} refreshKey={refreshKey} />}
-                </div>
             )}
 
             {activeTab === 'rules' && (

@@ -77,7 +77,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
                 </div>
 
                 {run.job_id && (
-                    <a className="backup-detail-drawer__joblink" href="/jobs">
+                    <a className="backup-detail-drawer__joblink" href="/monitoring/jobs">
                         <ExternalLink size={13} /> View job
                     </a>
                 )}

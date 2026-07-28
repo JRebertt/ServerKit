@@ -1,18 +1,21 @@
 // Jobs — admin view over the unified job system (job orchestration, "Phase 9").
 //
-// Tab-group page (the Marketplace/Domains pattern): a shared PageTopbar carries
-// the Activity/Scheduled sub-nav (JOBS_TABS) plus the reusable SearchField +
-// FilterDrawer (status/kind) + Refresh. Activity shows clickable compact KPIs, a
-// DataTable of runs, and server-side pagination over a job store that can hold
-// six figures of scheduler-tick rows; Scheduled is its own tab so it's not
-// buried below the runs. Wired to the real ApiService job methods
-// (see frontend/src/services/api/jobs.js).
+// A tab in the Monitoring group now, not a top-level page: it is the same class
+// of thing as Events, and the two read as rival pages while one sat in the
+// sidebar and the other inside the group. The group's shared PageTopbar carries
+// SearchField + FilterDrawer (status/kind) + Refresh; Activity/Scheduled is an
+// in-page SegControl rather than its own tab strip, because the group's bar
+// already owns the tab row and a nav under a nav reads as two headers.
+//
+// Activity shows clickable compact KPIs, a DataTable of runs, and server-side
+// pagination over a job store that can hold six figures of scheduler-tick rows.
+// Wired to the real ApiService job methods (see frontend/src/services/api/jobs.js).
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../services/api';
 import {
-    MetricCard, KpiBand, Pill, DataTable,
+    MetricCard, KpiBand, Pill, DataTable, SegControl,
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
@@ -66,6 +69,9 @@ export default function Jobs() {
     const { isAdmin } = useAuth();
     const toast = useToast();
     const location = useLocation();
+    const navigate = useNavigate();
+    // The view still lives in the URL (so a link to the scheduled list keeps
+    // working) — only the control that switches it moved into the page.
     const scheduledView = location.pathname.endsWith('/scheduled');
     const [jobs, setJobs] = useState([]);
     const [total, setTotal] = useState(0);
@@ -260,6 +266,19 @@ export default function Jobs() {
     return (
         <div className="sk-tabgroup__inner jobs-page">
             <div className="sk-jobs">
+                <div className="sk-jobs__viewswitch">
+                    <SegControl
+                        value={scheduledView ? 'scheduled' : 'activity'}
+                        onChange={(value) => navigate(
+                            value === 'scheduled' ? '/monitoring/jobs/scheduled' : '/monitoring/jobs',
+                        )}
+                        options={[
+                            { value: 'activity', label: 'Activity', icon: <ListChecks size={14} /> },
+                            { value: 'scheduled', label: 'Scheduled', icon: <Clock size={14} /> },
+                        ]}
+                    />
+                </div>
+
                 {scheduledView ? (
                     <DataTable
                         columns={scheduledColumns}

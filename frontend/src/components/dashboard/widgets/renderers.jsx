@@ -779,7 +779,7 @@ const ACTIONS = {
     domains: ['Domains', Globe, '/domains'],
     files: ['File manager', FolderOpen, '/files'],
     security: ['Security', ShieldCheck, '/security'],
-    jobs: ['Jobs', ListChecks, '/jobs'],
+    jobs: ['Jobs', ListChecks, '/monitoring/jobs'],
 };
 
 export const QUICK_ACTION_KEYS = Object.keys(ACTIONS);
