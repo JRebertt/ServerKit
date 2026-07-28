@@ -30,12 +30,16 @@ import EmptyState from '../components/EmptyState';
 
 const SEVERITY_ORDER = ['critical', 'error', 'warning', 'info', 'debug'];
 
+// `tone` is a MetricCard tone (accent|green|cyan|amber|red|violet) and `pill` is
+// a Pill kind (green|amber|red|cyan|violet|gray). They overlap but are not the
+// same set — passing one token to both silently drops the Pill's background for
+// values Pill doesn't know, which is what "accent" for info was doing.
 const SEVERITY_CONFIG = {
-    critical: { icon: XCircle, tone: 'red', label: 'Critical' },
-    error: { icon: XCircle, tone: 'red', label: 'Error' },
-    warning: { icon: AlertTriangle, tone: 'amber', label: 'Warning' },
-    info: { icon: Info, tone: 'accent', label: 'Info' },
-    debug: { icon: Activity, tone: 'gray', label: 'Debug' },
+    critical: { icon: XCircle, tone: 'red', pill: 'red', label: 'Critical' },
+    error: { icon: XCircle, tone: 'red', pill: 'red', label: 'Error' },
+    warning: { icon: AlertTriangle, tone: 'amber', pill: 'amber', label: 'Warning' },
+    info: { icon: Info, tone: 'cyan', pill: 'cyan', label: 'Info' },
+    debug: { icon: Activity, tone: 'violet', pill: 'gray', label: 'Debug' },
 };
 
 const PAGE_SIZE = 50;
@@ -200,7 +204,7 @@ export default function Telemetry() {
             header: 'Severity',
             render: (event) => {
                 const config = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
-                return <Pill kind={config.tone}>{config.label}</Pill>;
+                return <Pill kind={config.pill}>{config.label}</Pill>;
             },
         },
         {
@@ -420,7 +424,7 @@ export default function Telemetry() {
                             <div>
                                 <dt>Severity</dt>
                                 <dd>
-                                    <Pill kind={(SEVERITY_CONFIG[selectedEvent.severity] || SEVERITY_CONFIG.info).tone}>
+                                    <Pill kind={(SEVERITY_CONFIG[selectedEvent.severity] || SEVERITY_CONFIG.info).pill}>
                                         {selectedEvent.severity}
                                     </Pill>
                                 </dd>
