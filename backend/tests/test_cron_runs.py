@@ -211,3 +211,48 @@ def test_run_now_records_history(app, cron_store, monkeypatch):
     runs = CronRunService.recent_runs(jid)
     assert len(runs) == 1
     assert runs[0]['status'] == 'success'
+
+
+# --------------------------------------------------------------------------- #
+# list_jobs() enrichment — the admin /cron table renders Last run / Next run /
+# Status straight off these keys, so the list has to carry the same joins
+# jobs_for_application() does. Before this, only the for-app surface had them.
+# --------------------------------------------------------------------------- #
+
+def test_list_jobs_carries_schedule_and_next_run(app, cron_store):
+    CronService.add_job('0 0 * * *', '/usr/bin/task.sh', name='Nightly')
+
+    job = CronService.list_jobs()['jobs'][0]
+
+    assert job['schedule_human']
+    assert job['next_run']            # croniter resolves a concrete next fire
+    assert job['tracked'] is False
+
+
+def test_list_jobs_carries_last_run_join(app, cron_store, monkeypatch):
+    import subprocess
+
+    jid = CronService.add_job('0 0 * * *', '/bin/false', name='Flaky')['job_id']
+
+    class _Result:
+        returncode = 1
+        stdout = ''
+        stderr = 'boom'
+
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: _Result())
+    CronService.run_job_now(jid)
+
+    job = next(j for j in CronService.list_jobs()['jobs'] if str(j['id']) == str(jid))
+
+    assert job['last_status'] == 'failure'
+    assert job['last_run']
+    assert job['success_rate'] == 0.0
+
+
+def test_list_jobs_without_history_has_null_run_fields(app, cron_store):
+    CronService.add_job('*/5 * * * *', '/usr/bin/task.sh', name='Fresh')
+
+    job = CronService.list_jobs()['jobs'][0]
+
+    assert job['last_run'] is None
+    assert job['last_status'] is None
