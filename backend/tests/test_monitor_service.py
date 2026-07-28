@@ -441,6 +441,50 @@ def test_health_sync_ignores_unknown_verdict(app):
 # Scheduler handler
 # ---------------------------------------------------------------------------
 
+def test_monitors_do_not_depend_on_the_status_extension():
+    """The whole point of the promotion: watching a site must keep working on a
+    lean panel with serverkit-status uninstalled.
+
+    Walks the AST rather than grepping the source so the modules' own prose about
+    the extension doesn't trip it — only real imports and calls count.
+    """
+    import ast
+    import inspect
+    from app.services import monitor_service
+    from app.api import monitors as monitors_api
+
+    banned_calls = {'get_installed_extension_attr'}
+    banned_names = {'StatusPageService'}
+
+    for module in (monitor_service, monitors_api):
+        tree = ast.parse(inspect.getsource(module))
+        imported = set()
+        called = set()
+        used = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module)
+                imported.update(a.name for a in node.names)
+            elif isinstance(node, ast.Import):
+                imported.update(a.name for a in node.names)
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                called.add(node.func.id)
+            elif isinstance(node, ast.Name):
+                used.add(node.id)
+
+        assert not any('plugin' in name for name in imported), \
+            f'{module.__name__} imports the plugin loader: {imported}'
+        assert not (called & banned_calls), f'{module.__name__} calls {called & banned_calls}'
+        assert not (used & banned_names), f'{module.__name__} references {used & banned_names}'
+
+
+def test_monitor_routes_are_core(app):
+    rules = [r.rule for r in app.url_map.iter_rules()]
+    assert '/api/v1/monitors/' in rules or '/api/v1/monitors' in rules
+    assert '/api/v1/monitors/<int:monitor_id>/check' in rules
+    assert '/api/v1/monitors/incidents' in rules
+
+
 def test_monitor_sweep_is_registered_as_a_builtin():
     from app.jobs.builtin_handlers import _BUILTINS
     kinds = {kind for kind, _fn, _name, _interval, _delay in _BUILTINS}
