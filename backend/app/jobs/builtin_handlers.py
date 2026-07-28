@@ -84,22 +84,19 @@ _last_health_prune = None
 
 def run_health_checks():
     """Run a health check for every managed (production) WordPress site and sync
-    any status-page components bound to it. Per-site try/except so one hung site
-    never stalls the whole sweep."""
+    any monitors bound to it. Per-site try/except so one hung site never stalls
+    the whole sweep."""
     from app import db
     from app.models.wordpress_site import WordPressSite
     from app.models.status_page import StatusComponent
     from app.services.environment_health_service import EnvironmentHealthService
-    from app.services.plugin_service import get_installed_extension_attr
+    from app.services.monitor_service import MonitorService
 
     _prune_old_health_checks()
 
-    # Status-page component sync lives in the serverkit-status extension (plan 47);
-    # reach it only when installed. StatusComponent rows can't exist without it,
-    # so a lean panel simply runs the health checks without the sync.
-    StatusPageService = get_installed_extension_attr(
-        'serverkit-status', 'status_page_service', 'StatusPageService')
-
+    # The check engine is core now (it used to live in the serverkit-status
+    # extension and was reached through get_installed_extension_attr), so a lean
+    # panel with no status pages still keeps its site-bound monitors up to date.
     sites = WordPressSite.query.filter_by(is_production=True).all()
     for site in sites:
         try:
@@ -111,16 +108,45 @@ def run_health_checks():
             overall = result.get('overall_status')
             if not overall:
                 continue
-            if StatusPageService is not None:
-                components = StatusComponent.query.filter_by(wordpress_site_id=site.id).all()
-                for comp in components:
-                    StatusPageService.sync_component_from_health(comp, overall)
+            monitors = StatusComponent.query.filter_by(wordpress_site_id=site.id).all()
+            for monitor in monitors:
+                if monitor.is_paused:
+                    continue
+                MonitorService.sync_component_from_health(monitor, overall)
         except Exception as e:
             logger.error(f'Health check failed for site {site.id}: {e}')
             try:
                 db.session.rollback()
             except Exception:
                 pass
+
+
+def run_monitor_checks():
+    """Poll every monitor whose interval has elapsed.
+
+    This is what actually makes monitoring happen: before it existed, checks only
+    ran when someone pressed "Check now", so a configured monitor never noticed an
+    outage on its own. Per-monitor try/except mirrors run_health_checks — one
+    unreachable target must not stall the sweep.
+    """
+    from app import db
+    from app.services.monitor_service import MonitorService
+
+    due = MonitorService.due_monitors()
+    if not due:
+        return
+    checked = 0
+    for monitor in due:
+        try:
+            MonitorService.run_check(monitor.id)
+            checked += 1
+        except Exception as e:
+            logger.error(f'Monitor check failed for monitor {monitor.id}: {e}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+    logger.debug('Monitor sweep polled %s of %s due monitors', checked, len(due))
 
 
 def _prune_old_health_checks():
@@ -315,6 +341,9 @@ _BUILTINS = [
     ('builtin.snapshot_retention',  run_snapshot_retention,    'snapshot-retention', 3600,  120),
     ('builtin.workflow_schedules',  check_workflow_schedules,  'workflow-schedules', 60,    60),
     ('builtin.health_check',        run_health_checks,         'health-check',       300,   30),
+    # 30s tick, not the monitor interval: the sweep only polls monitors whose own
+    # interval has elapsed, so this bounds how late a 30s check can fire.
+    ('builtin.monitor_check',       run_monitor_checks,        'monitor-check',      30,    20),
     ('builtin.wp_update',           check_update_schedules,    'wp-update',          60,    105),
     ('builtin.api_background',      run_api_background,        'api-background',     3600,  3600),
     ('builtin.pairing_prune',       run_pairing_prune,         'pairing-prune',      3600,  60),

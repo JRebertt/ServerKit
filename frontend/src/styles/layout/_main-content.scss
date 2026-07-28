@@ -127,50 +127,11 @@
     }
 }
 
-// Page Header (shared base)
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: $space-6;
-    flex-wrap: wrap;
-    gap: $space-4;
-
-    .page-header-content,
-    .header-info {
-        h1 {
-            font-size: $font-size-2xl;
-            font-weight: $font-weight-semibold;
-            margin: 0 0 $space-1 0;
-            color: $text-primary;
-        }
-
-        .page-description,
-        p {
-            color: $text-secondary;
-            font-size: $font-size-sm;
-            margin: 0;
-        }
-    }
-
-    .page-header-actions,
-    .header-actions {
-        display: flex;
-        gap: $space-2;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    @media (max-width: $breakpoint-md) {
-        flex-direction: column;
-        align-items: stretch;
-
-        .page-header-actions,
-        .header-actions {
-            justify-content: flex-end;
-        }
-    }
-}
+// REMOVED: `.page-header` (the old <div class="page-header"><h1>…</h1></div>
+// block). Every page now gets its bar from PageTopbar — either titleless via
+// TabGroupLayout (the default) or titled for standalone/entity pages. Bespoke
+// workspace pages (Docker, Database Explorer) carry no page bar by design.
+// See pages/StyleGuide.jsx → "Page Headers". Don't reintroduce this class.
 
 // .page is a legacy alias for .page-container — kept for any stragglers, no styling.
 // New pages should use .page-container directly.

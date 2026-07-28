@@ -14,25 +14,6 @@
 .wp-projects-page {
     padding: $space-4;
 
-    .page-header {
-        margin-bottom: $space-6;
-    }
-
-    .page-header-content {
-        h1 {
-            font-size: $font-size-xl;
-            font-weight: $font-weight-bold;
-            color: $text-primary;
-            margin: 0 0 $space-1;
-        }
-    }
-
-    .page-description {
-        font-size: $font-size-sm;
-        color: $text-tertiary;
-        margin: 0;
-    }
-
     .empty-state-large {
         display: flex;
         flex-direction: column;

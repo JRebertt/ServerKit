@@ -126,11 +126,12 @@ export const SIDEBAR_ITEMS = [
     },
     {
         // Redesign: Monitoring uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
-        // Its sections (Overview / Alerts / Rules / Capacity / Doctor / Events)
-        // share the top bar (PageTopbar MONITOR_TABS); the sidebar entry lights
-        // for any of them via matchPrefixes. Events absorbed the old standalone
-        // Telemetry. Labelled "Monitoring" to match the route and the page —
-        // this used to say "Observability", which named the same thing twice.
+        // Its sections (Overview / Monitors / Incidents / Rules / Capacity /
+        // Events / Jobs / Doctor) share the top bar (PageTopbar MONITOR_TABS);
+        // the sidebar entry lights for any of them via matchPrefixes. Events
+        // absorbed the old standalone Telemetry and Jobs the old top-level Jobs
+        // page. Labelled "Monitoring" to match the route and the page — this
+        // used to say "Observability", which named the same thing twice.
         id: 'monitoring',
         label: 'Monitoring',
         route: '/monitoring',
@@ -175,32 +176,27 @@ export const SIDEBAR_ITEMS = [
         category: 'system',
         icon: '<path d="M4 17l6-6-6-6M12 19h8"/>'
     },
-    {
-        id: 'jobs',
-        label: 'Jobs',
-        route: '/jobs',
-        category: 'system',
-        icon: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'
-    },
+    // Jobs is a Monitoring tab now (/monitoring/jobs), not a top-level page: it
+    // is the same class of thing as Events and the two read as rival pages when
+    // one sat in the sidebar and the other inside the group. /jobs redirects.
     // GPU Monitor lives in the standalone serverkit-gpu extension (own repo,
     // registry-installed); its sidebar item (still gated on gpuAvailable via
     // requiresCondition) is contributed by the extension manifest.
-    {
-        // Inbound webhook console. Secret storage ("Vaults") that used to share
-        // this page now lives under the Organization tab group (/vaults); only
-        // the receive/verify/forward half remains here on its own page.
-        id: 'webhooks',
-        label: 'Webhooks',
-        route: '/webhooks',
-        category: 'system',
-        icon: '<path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/>'
-    },
+    // The inbound-webhook console is no longer a sidebar page: it's server
+    // configuration, so it lives at Settings → Admin → Webhooks alongside the
+    // outbound notification subscriptions. /webhooks redirects there.
     {
         // Admin distro-matrix test console (Docker-backed runs, per-distro
         // logs). Sits next to Jobs under System.
+        //
+        // Developer tooling, not an operator surface: hidden unless this is a
+        // local `npm run dev` build or an admin has turned on Site Settings →
+        // Developer mode. The route is gated on the same condition, so a
+        // production install neither shows nor serves it.
         id: 'test-sandbox',
         label: 'Test Sandbox',
         route: '/test-sandbox',
+        requiresCondition: 'devMode',
         category: 'system',
         icon: '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>'
     },
@@ -221,12 +217,13 @@ export const SIDEBAR_ITEMS = [
 ];
 
 // "Advanced" items are powerful but not part of the everyday core for a solo
-// dev / small team: the internal job-queue console and the inbound-Webhooks
-// console. They're hidden by the default ("Recommended") view and every curated
-// preset, but stay one click away via the "Full" view or Customize Sidebar — and
-// remain fully routable (deep links, command palette). The Marketplace is NOT in
-// this list — it's alwaysVisible so extensions are always discoverable.
-export const ADVANCED_ITEM_IDS = ['queue', 'webhooks'];
+// dev / small team — currently the internal job-queue console. They're hidden by
+// the default ("Recommended") view and every curated preset, but stay one click
+// away via the "Full" view or Customize Sidebar — and remain fully routable
+// (deep links, command palette). The Marketplace is NOT in this list — it's
+// alwaysVisible so extensions are always discoverable. ("webhooks" left this
+// list when the console moved into Settings → Admin.)
+export const ADVANCED_ITEM_IDS = ['queue'];
 
 // Preset profiles define which items are hidden (top-level only)
 export const SIDEBAR_PRESETS = {

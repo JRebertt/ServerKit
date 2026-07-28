@@ -193,7 +193,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                     onBackupNow={handleBackupNow}
                     onRunDrill={handleRunDrill}
                     onViewGlobal={() => navigate('/backups')}
-                    onViewJobs={() => navigate('/jobs')}
+                    onViewJobs={() => navigate('/monitoring/jobs')}
                     busy={saving}
                     backingUp={backingUp}
                     drilling={drilling || !!view?.restore_proof?.is_drilling}

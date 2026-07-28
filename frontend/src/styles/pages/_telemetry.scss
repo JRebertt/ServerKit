@@ -1,320 +1,153 @@
+// ============================================
+// EVENTS (telemetry stream) — Monitoring group tab
+// ============================================
+// Rewritten alongside the page. The old rules styled a bespoke KPI strip
+// (.telemetry-stat), an inline collapsible filter panel (.telemetry-filters) and
+// a hand-rolled drawer — all replaced by the shared DS primitives (KpiBand /
+// MetricCard, topbar SearchField + FilterDrawer, DS Drawer, DataTable), so only
+// what the DS does not already cover lives here.
+
 .telemetry-page {
-    padding: $spacing-md;
-}
 
-.telemetry-filters {
-    background: $bg-card;
-    border: 1px solid $border-default;
-    border-radius: $radius-md;
-    margin-bottom: $spacing-lg;
-    overflow: hidden;
-
-    &__toggle {
+    // Banner shown while the list is pinned to one correlation id.
+    .telemetry-trace {
         display: flex;
         align-items: center;
-        gap: $spacing-sm;
-        width: 100%;
-        padding: $spacing-md;
-        background: transparent;
-        border: none;
-        color: $text-primary;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 16px 0 12px;
+        padding: 10px 14px;
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--violet);
+        border-radius: 8px;
+        background: var(--surface-2);
+        font-size: 12.5px;
+        color: var(--text-dim);
+
+        code {
+            font-family: var(--mono);
+            font-size: 11.5px;
+            color: var(--violet);
+        }
+    }
+
+    .telemetry-table { margin-top: 16px; }
+
+    .telemetry-cell__message {
+        font-size: 13px;
         font-weight: 500;
-        cursor: pointer;
-
-        &:hover {
-            background: $bg-hover;
-        }
     }
 
-    &__count {
-        display: inline-flex;
+    .telemetry-cell__meta {
+        display: flex;
         align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-faint);
+    }
+
+    .telemetry-cell__source {
+        color: var(--accent-bright);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .telemetry-cell__badge {
+        padding: 1px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+    }
+
+    .telemetry-cell__when {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+        white-space: nowrap;
+    }
+
+    .telemetry-cell__muted { color: var(--text-ghost); }
+
+    // Severity accent down the left edge of a row — the one visual the DataTable
+    // does not provide and the whole point of skimming an event log.
+    tr.is-critical,
+    tr.is-error { box-shadow: inset 3px 0 0 var(--red); }
+    tr.is-warning { box-shadow: inset 3px 0 0 var(--amber); }
+    tr.is-debug { opacity: 0.72; }
+
+    .telemetry-loading,
+    .telemetry-more {
+        display: flex;
         justify-content: center;
-        min-width: 20px;
-        height: 20px;
-        padding: 0 6px;
-        border-radius: $radius-full;
-        background: $accent-primary;
-        color: white;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    &__body {
-        padding: $spacing-md;
-        border-top: 1px solid $border-default;
-    }
-
-    &__grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: $spacing-md;
-        margin-bottom: $spacing-md;
-
-        select,
-        input {
-            width: 100%;
-            padding: $spacing-sm;
-            border-radius: $radius-sm;
-            border: 1px solid $border-default;
-            background: $bg-card;
-            color: $text-primary;
-            font-size: 0.875rem;
-        }
-    }
-
-    &__search {
-        position: relative;
-        display: flex;
-        align-items: center;
-        margin-bottom: $spacing-md;
-
-        svg {
-            position: absolute;
-            left: $spacing-sm;
-            color: $text-tertiary;
-        }
-
-        input {
-            width: 100%;
-            padding-left: 2rem;
-        }
-    }
-
-    &__actions {
-        display: flex;
-        gap: $spacing-sm;
+        padding: 18px 0;
     }
 }
 
-.telemetry-list {
+// Event drawer body
+.telemetry-detail {
     display: flex;
     flex-direction: column;
-    gap: $spacing-sm;
-}
+    gap: 16px;
+    padding: 18px;
 
-.telemetry-item {
-    display: flex;
-    align-items: flex-start;
-    gap: $spacing-md;
-    padding: $spacing-md;
-    background: $bg-card;
-    border: 1px solid $border-default;
-    border-radius: $radius-md;
-    cursor: pointer;
-    transition: background $transition-fast, border-color $transition-fast;
-
-    &:hover {
-        background: $bg-hover;
-        border-color: $border-hover;
-    }
-
-    &__severity {
-        flex-shrink: 0;
-        margin-top: 2px;
-    }
-
-    &__content {
-        flex: 1;
-        min-width: 0;
-    }
-
-    &__header {
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        flex-wrap: wrap;
-        margin-bottom: $spacing-xs;
-    }
-
-    &__source {
-        font-size: 0.75rem;
-        font-weight: 600;
+    &__heading {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: $text-tertiary;
-    }
-
-    &__type {
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: $accent-primary;
-        background: $accent-bg-soft;
-        padding: 2px 8px;
-        border-radius: $radius-sm;
-    }
-
-    &__time {
-        font-size: 0.75rem;
-        color: $text-tertiary;
-        margin-left: auto;
-    }
-
-    &__message {
-        font-size: 0.875rem;
-        color: $text-primary;
-        margin-bottom: $spacing-xs;
-        word-break: break-word;
-    }
-
-    &__meta {
-        display: flex;
-        align-items: center;
-        gap: $spacing-sm;
-        flex-wrap: wrap;
-    }
-
-    &__badge {
-        font-size: 0.75rem;
-        color: $text-tertiary;
-        background: $bg-hover;
-        padding: 2px 8px;
-        border-radius: $radius-sm;
-    }
-
-    &__correlation {
-        display: inline-flex;
-        align-items: center;
-        gap: 2px;
-        font-size: 0.75rem;
-        color: $accent-primary;
-        background: transparent;
-        border: none;
-        padding: 0;
-        cursor: pointer;
-
-        &:hover {
-            text-decoration: underline;
-        }
-    }
-
-    &--critical { border-left: 3px solid $danger; }
-    &--error { border-left: 3px solid $danger-hover; }
-    &--warning { border-left: 3px solid $warning; }
-    &--info { border-left: 3px solid $info; }
-    &--debug { border-left: 3px solid $text-tertiary; }
-}
-
-.telemetry-empty,
-.telemetry-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: $spacing-xl;
-    color: $text-tertiary;
-    gap: $spacing-md;
-}
-
-.telemetry-load-more {
-    align-self: center;
-    margin-top: $spacing-md;
-}
-
-.telemetry-drawer-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: $z-modal;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.telemetry-drawer {
-    width: 100%;
-    max-width: 560px;
-    height: 100%;
-    background: $bg-card;
-    border-left: 1px solid $border-default;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-
-    &__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: $spacing-md;
-        border-bottom: 1px solid $border-default;
-
-        h3 {
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-    }
-
-    &__body {
-        flex: 1;
-        overflow-y: auto;
-        padding: $spacing-md;
-    }
-}
-
-.telemetry-detail {
-    &__row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: $spacing-md;
-        padding: $spacing-sm 0;
-        border-bottom: 1px solid $border-default;
-        font-size: 0.875rem;
-
-        span:first-child {
-            color: $text-tertiary;
-            flex-shrink: 0;
-        }
-
-        span:last-child,
-        code {
-            color: $text-primary;
-            word-break: break-word;
-            text-align: right;
-        }
-    }
-
-    &__severity {
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 2px 8px;
-        border-radius: $radius-sm;
-
-        &--critical { background: $danger-bg; color: $danger; }
-        &--error { background: rgba($danger-hover, 0.15); color: $danger-hover; }
-        &--warning { background: $warning-bg; color: $warning; }
-        &--info { background: $info-bg; color: $info; }
-        &--debug { background: rgba($text-tertiary-raw, 0.15); color: $text-tertiary; }
+        color: var(--text-faint);
     }
 
     &__payload {
-        margin-top: $spacing-md;
+        margin: 0;
+        max-height: 340px;
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-soft);
+        background: var(--surface-2);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--text-dim);
+    }
 
-        span {
-            display: block;
-            font-size: 0.875rem;
-            color: $text-tertiary;
-            margin-bottom: $spacing-sm;
+    code {
+        font-family: var(--mono);
+        font-size: 11.5px;
+    }
+
+    // Same definition rows the monitor surfaces use.
+    .mon-inforows {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+
+        > div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-soft);
+
+            &:last-child { border-bottom: none; }
         }
 
-        pre {
-            background: $bg-tertiary;
-            border: 1px solid $border-default;
-            border-radius: $radius-md;
-            padding: $spacing-md;
-            overflow-x: auto;
-            font-size: 0.8125rem;
-            color: $text-primary;
+        dt { font-size: 12.5px; color: var(--text-faint); }
+
+        dd {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            color: var(--text-dim);
+            text-align: right;
+            word-break: break-word;
         }
     }
-}
-
-.spin {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
 }

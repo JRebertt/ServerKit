@@ -90,6 +90,13 @@ export const SETTINGS_INDEX = [
     { id: 'api-webhooks', label: 'Webhook subscriptions', description: 'Create and manage webhooks for event notifications', keywords: 'webhook events notifications', tab: 'api', adminOnly: false },
     { id: 'api-analytics', label: 'API usage analytics', description: 'Monitor API traffic, response times, and errors', keywords: 'api analytics traffic usage endpoints', tab: 'api', adminOnly: true },
 
+    // Inbound webhooks (the receive/verify/forward console, moved here from the
+    // retired top-level /webhooks page). Distinct from `api-webhooks` above,
+    // which is the OUTBOUND event-subscription surface.
+    { id: 'webhooks-endpoints', label: 'Webhook endpoints', description: 'Create inbound webhook endpoints with a slug, signing secret, and optional forward URL', keywords: 'webhook inbound endpoint receive slug secret forward', tab: 'webhooks', adminOnly: true },
+    { id: 'webhooks-deliveries', label: 'Webhook deliveries', description: 'Inspect received webhook deliveries, signature validity, and replay them', keywords: 'webhook delivery replay signature payload history', tab: 'webhooks', adminOnly: true },
+    { id: 'webhooks-secret', label: 'Regenerate webhook secret', description: 'Rotate the signing secret used to verify an inbound webhook endpoint', keywords: 'webhook secret rotate regenerate signature hmac', tab: 'webhooks', adminOnly: true },
+
     { id: 'ai-enable', label: 'Enable AI assistant', description: 'Toggle the in-panel AI assistant on or off', keywords: 'ai assistant enable disable', tab: 'ai', adminOnly: true },
     { id: 'ai-provider', label: 'AI provider', description: 'Select the AI service provider (OpenAI, Anthropic, Ollama, etc.)', keywords: 'ai provider openai anthropic ollama', tab: 'ai', adminOnly: true },
     { id: 'ai-model', label: 'AI model', description: 'Choose the language model to use', keywords: 'model gpt claude ollama', tab: 'ai', adminOnly: true },

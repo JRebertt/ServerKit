@@ -167,15 +167,11 @@ const Docker = () => {
         return <EmptyState loading loadingVariant="table" title="Checking Docker status..." />;
     }
 
+    // No page header here: the unavailable panel below is its own heading, and
+    // the workspace this falls back from carries no top bar either.
     if (!dockerStatus?.installed) {
         return (
             <div className="page-container docker-page">
-                <div className="page-header">
-                    <div className="page-header-content">
-                        <h1>Docker</h1>
-                        <p className="page-description">Container management</p>
-                    </div>
-                </div>
                 <div className="docker-unavailable">
                     <div className="docker-unavailable-icon">
                         <svg viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" fill="none" strokeWidth="1">

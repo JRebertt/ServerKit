@@ -8,6 +8,7 @@ import { formatBytes } from '@/utils/formatBytes';
 import { AreaChart, KpiBand, MetricCard, Pill, Sparkline } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
+import MonitorsSummary from './MonitorsSummary';
 import { HOST_SCOPE, useScopeMetrics, trendOf } from './useMonitorScope';
 
 const PERIODS = ['1h', '6h', '24h', '7d'];
@@ -185,6 +186,16 @@ export default function MonitoringOverview({
 
     return (
         <div className="mon-overview">
+            {/* Monitors first: "is the site up" is the question this page is
+                for, and everything below describes the machines ServerKit runs
+                on rather than the things it is watching. */}
+            <MonitorsSummary refreshKey={refreshKey} />
+
+            <div className="mon-section-head">
+                <h3>Host health</h3>
+                <span className="mon-section-head__meta">{scopeLabel}</span>
+            </div>
+
             {/* The shared DS tile, not a monitoring-only copy of it — same
                 geometry as every other KPI strip in the panel, plus the
                 sparkline slot this page needed. */}
@@ -278,8 +289,10 @@ export default function MonitoringOverview({
             {fleet.length > 0 && (
                 <>
                     <div className="mon-section-head">
-                        <h3>Host health</h3>
-                        <span className="mon-section-head__meta">{online}/{fleet.length} online</span>
+                        <h3>All hosts</h3>
+                        <span className="mon-section-head__meta">
+                            {online}/{fleet.length} online · click a card to re-scope
+                        </span>
                     </div>
                     <div className="mon-fleet-grid">
                         {/* Always the panel host's own numbers, never the

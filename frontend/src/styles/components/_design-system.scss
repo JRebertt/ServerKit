@@ -643,6 +643,16 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 
     &__chips { display: flex; flex-wrap: wrap; gap: 7px; }
 
+    // Host-supplied fields for filters that aren't a pick-from-a-list
+    // (free text, date bounds). Sits below the chip groups.
+    &__extra {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border-soft);
+    }
+
     &__chip {
         display: inline-flex;
         align-items: center;

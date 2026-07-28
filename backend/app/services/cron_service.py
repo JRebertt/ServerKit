@@ -162,6 +162,18 @@ class CronService:
                     'source': 'serverkit'
                 })
 
+        # Enrich exactly like jobs_for_application(): a human schedule, the next
+        # fire time, and the last-run join (plan 34). The admin list page renders
+        # Last run / Next run / Status columns off these, so both surfaces have
+        # to agree — leaving it out here is what left /cron showing enabled-only.
+        for job in jobs:
+            job_id = str(job.get('id', ''))
+            job['tracked'] = bool(job.get('tracked', False))
+            job['schedule_human'] = (job.get('description')
+                                     or cls._describe_schedule(job.get('schedule', '')))
+            job['next_run'] = cls._next_run(job.get('schedule', ''))
+            cls._attach_run_tracking(job, job_id)
+
         return {
             'success': True,
             'jobs': jobs,

@@ -158,17 +158,14 @@
     }
 }
 
-// Hide nested page headers when a page component is embedded as a tab
+// Hide a nested page's own top bar when a page component is embedded as a tab
+// (the `.page-header` selectors that used to live here went with the class).
 .tab-embedded {
-    > .page-container > .page-header,
-    > .page-header,
     > .top-bar,
-    > div > .page-header,
     > div > .top-bar {
         display: none;
     }
 
-    > [class*="-page"] > .page-header,
     > [class*="-page"] > header.top-bar,
     > [class*="-page"] > .top-bar {
         display: none;

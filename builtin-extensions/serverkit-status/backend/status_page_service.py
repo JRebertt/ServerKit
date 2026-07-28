@@ -1,18 +1,25 @@
+"""Public status pages.
+
+Scope note: this service owns *publishing* — pages, branding, grouping and the
+public JSON/badge. It no longer owns the check engine. Monitors (what used to be
+called "components") and their incidents are core, in
+``app.services.monitor_service``, because watching a site must not depend on
+having this extension installed. The component/health/incident methods below are
+thin delegates kept so existing callers and the extension's own API blueprint
+keep working unchanged.
+"""
 import logging
-import socket
-import time
-from datetime import datetime, timedelta
-from app import db
-from app.models.status_page import (
-    StatusPage, StatusComponent, HealthCheck, StatusIncident, StatusIncidentUpdate
-)
+
+from app.models.status_page import StatusPage, StatusComponent, StatusIncident
+from app.services.monitor_service import MonitorService
 from app.utils.slug import validate_slug
+from app import db
 
 logger = logging.getLogger(__name__)
 
 
 class StatusPageService:
-    """Service for public status pages and automated health checks."""
+    """Service for public status pages."""
 
     @staticmethod
     def normalize_slug(value):
@@ -83,7 +90,10 @@ class StatusPageService:
 
         # Internal probe config must not appear on the unauthenticated public page
         # (a health-driven WP component may carry an internal localhost:port target).
-        public_hidden = ('check_type', 'check_target', 'check_interval', 'check_timeout')
+        public_hidden = ('check_type', 'check_target', 'check_interval', 'check_timeout',
+                         'check_method', 'expected_status', 'keyword', 'follow_redirects',
+                         'verify_tls', 'retries', 'consecutive_failures',
+                         'cert_issuer', 'cert_expires_at', 'next_check_at')
         components = page.components.all()
         grouped = {}
         for comp in components:
@@ -120,290 +130,68 @@ class StatusPageService:
             'recent_incidents': [i.to_dict() for i in resolved],
         }
 
-    # --- Components ---
+    # --- Components (monitors attached to a page) ---
+    # Delegates to MonitorService; a component is just a monitor with a page_id.
 
     @staticmethod
     def create_component(page_id, data):
         page = StatusPage.query.get(page_id)
         if not page:
             raise ValueError('Status page not found')
+        return MonitorService.create({**data, 'page_id': page_id})
 
-        comp = StatusComponent(
-            page_id=page_id,
-            name=data['name'],
-            description=data.get('description', ''),
-            group=data.get('group', 'Services'),
-            sort_order=data.get('sort_order', 0),
-            check_type=data.get('check_type', 'http'),
-            check_target=data.get('check_target', ''),
-            check_interval=data.get('check_interval', 60),
-            check_timeout=data.get('check_timeout', 10),
-            wordpress_site_id=data.get('wordpress_site_id'),
-        )
-        db.session.add(comp)
-        db.session.commit()
-        return comp
+    @staticmethod
+    def attach_component(page_id, monitor_id):
+        """Publish an existing monitor on a page. Lets an operator build a status
+        page out of monitors they already have instead of re-declaring probes."""
+        if not StatusPage.query.get(page_id):
+            raise ValueError('Status page not found')
+        return MonitorService.update(monitor_id, {'page_id': page_id})
+
+    @staticmethod
+    def detach_component(monitor_id):
+        """Remove a monitor from its page without deleting the monitor."""
+        return MonitorService.update(monitor_id, {'page_id': None})
 
     @staticmethod
     def update_component(comp_id, data):
-        comp = StatusComponent.query.get(comp_id)
-        if not comp:
-            return None
-        for field in ['name', 'description', 'group', 'sort_order', 'check_type',
-                      'check_target', 'check_interval', 'check_timeout', 'status']:
-            if field in data:
-                setattr(comp, field, data[field])
-        db.session.commit()
-        return comp
+        return MonitorService.update(comp_id, data)
 
     @staticmethod
     def delete_component(comp_id):
-        comp = StatusComponent.query.get(comp_id)
-        if not comp:
-            return False
-        # Resolve + unlink any incidents referencing this component first, so we
-        # never dangle the component_id FK (enforced on PostgreSQL) or leave a
-        # stale active incident on the public page after the component is gone.
-        for inc in StatusIncident.query.filter_by(component_id=comp_id).all():
-            if inc.status != 'resolved':
-                inc.status = 'resolved'
-                inc.resolved_at = datetime.utcnow()
-            inc.component_id = None
-        db.session.delete(comp)
-        db.session.commit()
-        return True
+        return MonitorService.delete(comp_id)
 
-    # --- Health Checks ---
+    # --- Health Checks (delegated to the core engine) ---
 
     @staticmethod
     def run_check(component_id):
-        """Run a health check for a component."""
-        comp = StatusComponent.query.get(component_id)
-        if not comp:
-            return None
-
-        check_result = StatusPageService._perform_check(comp)
-
-        hc = HealthCheck(
-            component_id=component_id,
-            status=check_result['status'],
-            response_time=check_result.get('response_time'),
-            status_code=check_result.get('status_code'),
-            error=check_result.get('error'),
-        )
-        db.session.add(hc)
-
-        # Update component
-        comp.last_check_at = datetime.utcnow()
-        comp.last_response_time = check_result.get('response_time')
-        if check_result['status'] == 'up':
-            comp.status = StatusComponent.STATUS_OPERATIONAL
-        elif check_result['status'] == 'degraded':
-            comp.status = StatusComponent.STATUS_DEGRADED
-        else:
-            comp.status = StatusComponent.STATUS_MAJOR
-
-        db.session.commit()
-        return hc
-
-    @staticmethod
-    def _perform_check(comp):
-        """Execute the actual health check."""
-        start = time.time()
-        result = {'status': 'down', 'response_time': None, 'error': None}
-
-        try:
-            if comp.check_type == 'http':
-                import requests
-                resp = requests.get(comp.check_target, timeout=comp.check_timeout, verify=True)
-                result['response_time'] = int((time.time() - start) * 1000)
-                result['status_code'] = resp.status_code
-                if resp.status_code < 400:
-                    result['status'] = 'up'
-                elif resp.status_code < 500:
-                    result['status'] = 'degraded'
-                else:
-                    result['status'] = 'down'
-
-            elif comp.check_type == 'tcp':
-                host, port = comp.check_target.rsplit(':', 1)
-                sock = socket.create_connection((host, int(port)), timeout=comp.check_timeout)
-                result['response_time'] = int((time.time() - start) * 1000)
-                result['status'] = 'up'
-                sock.close()
-
-            elif comp.check_type == 'ping':
-                from app.utils.system import run_command
-                res = run_command(['ping', '-c', '1', '-W', str(comp.check_timeout), comp.check_target])
-                result['response_time'] = int((time.time() - start) * 1000)
-                result['status'] = 'up'
-
-            elif comp.check_type == 'dns':
-                socket.getaddrinfo(comp.check_target, None)
-                result['response_time'] = int((time.time() - start) * 1000)
-                result['status'] = 'up'
-
-        except Exception as e:
-            result['response_time'] = int((time.time() - start) * 1000)
-            result['error'] = str(e)
-
-        return result
+        return MonitorService.run_check(component_id)
 
     @staticmethod
     def get_check_history(component_id, hours=24):
-        since = datetime.utcnow() - timedelta(hours=hours)
-        return HealthCheck.query.filter(
-            HealthCheck.component_id == component_id,
-            HealthCheck.checked_at >= since
-        ).order_by(HealthCheck.checked_at.desc()).all()
+        return MonitorService.get_check_history(component_id, hours=hours)
 
     @staticmethod
     def recompute_uptime(comp):
-        """Recompute uptime_24h/7d/30d/90d for a component from its HealthCheck
-        rows (fraction of recorded checks with status 'up'). Only fully-healthy
-        checks count as up — 'degraded' periods reduce the percentage, matching
-        the status-page convention where degraded is not "operational". Leaves a
-        window's existing value untouched when it has no samples yet."""
-        windows = {'uptime_24h': 24, 'uptime_7d': 24 * 7,
-                   'uptime_30d': 24 * 30, 'uptime_90d': 24 * 90}
-        now = datetime.utcnow()
-        for field, hours in windows.items():
-            since = now - timedelta(hours=hours)
-            base = HealthCheck.query.filter(
-                HealthCheck.component_id == comp.id,
-                HealthCheck.checked_at >= since,
-            )
-            total = base.count()
-            if total:
-                up = base.filter(HealthCheck.status == 'up').count()
-                setattr(comp, field, round(up / total * 100, 2))
-        db.session.commit()
-
-    # Map an EnvironmentHealthService overall_status to (HealthCheck status,
-    # StatusComponent status). 'unknown' is intentionally absent — indeterminate
-    # checks are not recorded so they don't pollute the uptime %.
-    _HEALTH_MAP = {
-        'healthy': ('up', StatusComponent.STATUS_OPERATIONAL),
-        'degraded': ('degraded', StatusComponent.STATUS_DEGRADED),
-        'unhealthy': ('down', StatusComponent.STATUS_MAJOR),
-    }
+        return MonitorService.recompute_uptime(comp)
 
     @staticmethod
     def sync_component_from_health(comp, overall_status, error=None):
-        """Drive a managed-site-bound component from an EnvironmentHealthService
-        verdict instead of a network probe (#26): record a HealthCheck sample,
-        update the component's live status, recompute uptime, and auto-open /
-        auto-resolve an incident on the operational<->major_outage edge.
+        return MonitorService.sync_component_from_health(comp, overall_status, error)
 
-        Returns the recorded HealthCheck, or None for an indeterminate
-        ('unknown') verdict (not recorded).
-        """
-        mapped = StatusPageService._HEALTH_MAP.get(overall_status)
-        if not mapped:
-            return None
-        check_status, comp_status = mapped
-        prev_status = comp.status
-
-        hc = HealthCheck(component_id=comp.id, status=check_status, error=error)
-        db.session.add(hc)
-        comp.last_check_at = datetime.utcnow()
-        comp.status = comp_status
-        db.session.commit()
-
-        StatusPageService.recompute_uptime(comp)
-
-        # Open an incident when ENTERING a major outage; resolve it when LEAVING
-        # major (to operational OR degraded). Resolving on the leaving-edge — not
-        # only on a clean major->operational hop — ensures a recovery that passes
-        # through an intermediate degraded poll (a common path) never leaves the
-        # incident stuck open. Degraded itself never opens a full incident.
-        if comp_status == StatusComponent.STATUS_MAJOR and prev_status != StatusComponent.STATUS_MAJOR:
-            StatusPageService._open_incident_for_component(comp, error)
-        elif comp_status != StatusComponent.STATUS_MAJOR and prev_status == StatusComponent.STATUS_MAJOR:
-            StatusPageService._resolve_incident_for_component(comp)
-        return hc
-
-    @staticmethod
-    def _open_incident_for_component(comp, error=None):
-        """Open a major-impact incident for a component if one is not already open."""
-        existing = StatusIncident.query.filter(
-            StatusIncident.component_id == comp.id,
-            StatusIncident.status != 'resolved',
-        ).first()
-        if existing:
-            return existing
-        incident = StatusPageService.create_incident(comp.page_id, {
-            'title': f'{comp.name} is experiencing an outage',
-            'status': 'investigating',
-            'impact': 'major',
-            'body': error or 'Automated health check detected an outage.',
-        })
-        incident.component_id = comp.id
-        db.session.commit()
-        return incident
-
-    @staticmethod
-    def _resolve_incident_for_component(comp):
-        """Resolve the open auto-incident for a component, if any."""
-        existing = StatusIncident.query.filter(
-            StatusIncident.component_id == comp.id,
-            StatusIncident.status != 'resolved',
-        ).first()
-        if existing:
-            StatusPageService.update_incident(existing.id, {
-                'status': 'resolved',
-                'update_body': 'Automated health check detected recovery.',
-            })
-
-    # --- Incidents ---
+    # --- Incidents (delegated) ---
 
     @staticmethod
     def create_incident(page_id, data):
-        incident = StatusIncident(
-            page_id=page_id,
-            title=data['title'],
-            status=data.get('status', 'investigating'),
-            impact=data.get('impact', 'minor'),
-            body=data.get('body', ''),
-            is_maintenance=data.get('is_maintenance', False),
-            scheduled_start=data.get('scheduled_start'),
-            scheduled_end=data.get('scheduled_end'),
-        )
-        db.session.add(incident)
-        db.session.commit()
-        return incident
+        return MonitorService.create_incident(page_id, data)
 
     @staticmethod
     def update_incident(incident_id, data):
-        incident = StatusIncident.query.get(incident_id)
-        if not incident:
-            return None
-        for field in ['title', 'status', 'impact', 'body']:
-            if field in data:
-                setattr(incident, field, data[field])
-        if data.get('status') == 'resolved':
-            incident.resolved_at = datetime.utcnow()
-
-        # Add timeline update
-        if data.get('update_body'):
-            update = StatusIncidentUpdate(
-                incident_id=incident_id,
-                status=data.get('status', incident.status),
-                body=data['update_body'],
-            )
-            db.session.add(update)
-
-        db.session.commit()
-        return incident
+        return MonitorService.update_incident(incident_id, data)
 
     @staticmethod
     def delete_incident(incident_id):
-        incident = StatusIncident.query.get(incident_id)
-        if not incident:
-            return False
-        db.session.delete(incident)
-        db.session.commit()
-        return True
+        return MonitorService.delete_incident(incident_id)
 
     @staticmethod
     def get_badge(slug):

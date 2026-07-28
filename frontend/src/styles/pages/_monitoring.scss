@@ -2,7 +2,14 @@
 // MONITORING PAGE (redesign — infra console look)
 // ============================================
 
-.monitoring-page {
+// Every page in the Monitoring group shares one `mon-*` vocabulary (panels,
+// section heads, hints, info rows). Listing the roots here rather than copying
+// the rules is what keeps Monitors / Incidents / the monitor detail page
+// looking like the same product as Overview.
+.monitoring-page,
+.monitors-page,
+.incidents-page,
+.monitor-detail {
 
     // ── shared bits ─────────────────────────────────────────
     // Mono-uppercase eyebrow section headers

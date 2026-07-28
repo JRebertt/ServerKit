@@ -176,16 +176,17 @@ class TestBuiltins:
         assert 'builtin.backup_scheduler' in kinds
         assert 'builtin.extension_updates' in kinds
         assert 'builtin.job_retention' in kinds
-        assert len([k for k in kinds if k.startswith('builtin.')]) == 11
+        assert 'builtin.monitor_check' in kinds
+        assert len([k for k in kinds if k.startswith('builtin.')]) == 12
 
         builtin_handlers.seed_builtin_schedules()
-        # 11 builtin.* schedules (incl. job-retention) + login-link/SSO reapers +
-        # drift/FIM/bandwidth sweeps + the host doctor sweep (plan 26) + the
-        # setup-health nag (plan 22).
-        assert ScheduledJob.query.count() == 18
+        # 12 builtin.* schedules (incl. job-retention and the monitor sweep) +
+        # login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host doctor
+        # sweep (plan 26) + the setup-health nag (plan 22).
+        assert ScheduledJob.query.count() == 19
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 18
+        assert ScheduledJob.query.count() == 19
 
 
 class TestApi:

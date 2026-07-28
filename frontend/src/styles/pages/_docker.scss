@@ -7,12 +7,6 @@
     padding: 0;
 }
 
-.docker-page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: $space-6;
-}
 
 .docker-page-title {
     h2 {
@@ -624,22 +618,6 @@
         padding: $space-5;
     }
 
-    .page-header {
-        margin-bottom: $space-6;
-
-        .page-header-content {
-            h1 {
-                font-size: $font-size-2xl;
-                font-weight: $font-weight-semibold;
-                margin: 0 0 $space-1 0;
-            }
-
-            .page-description {
-                color: $text-secondary;
-                margin: 0;
-            }
-        }
-    }
 }
 
 .docker-unavailable {
@@ -1105,15 +1083,10 @@
     padding: $space-5;
     overflow: hidden;
 
-    .page-header,
     .lv-header,
     .dx-stats-row,
     .dx-tabs {
         flex-shrink: 0;
-    }
-
-    .page-header {
-        margin-bottom: 0;
     }
 }
 
@@ -1784,14 +1757,13 @@
 
 // Docker workspace polish: File Manager-style rail + click-open details drawer
 .docker-page-new.dx-page {
-    // Full-bleed zeroes out .main-content's padding, and the page-header is
-    // hidden, so without this the workbar hugs the viewport top. Give it the
-    // same breathing room other routes get from .main-content.
+    // Full-bleed zeroes out .main-content's padding, and this workspace carries
+    // no page bar, so without this the workbar hugs the viewport top. Give it
+    // the same breathing room other routes get from .main-content.
     padding: $space-6 $space-5 $space-5;
     gap: $space-3;
     background: transparent;
 
-    .page-header,
     .lv-header,
     .dx-stats-row,
     .dx-tabs {

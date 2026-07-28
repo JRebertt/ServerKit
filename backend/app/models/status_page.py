@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db
 import json
 
@@ -48,21 +48,52 @@ class StatusPage(db.Model):
 
 
 class StatusComponent(db.Model):
-    """A service/component shown on the status page."""
+    """A monitor: one synthetic check against a URL, host or managed site.
+
+    Despite the table name this is the panel's *monitor* primitive — /monitoring
+    lists these directly. ``page_id`` is optional: a monitor exists on its own,
+    and a status page merely publishes a subset of them.
+    """
     __tablename__ = 'status_components'
 
     id = db.Column(db.Integer, primary_key=True)
-    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=False)
+    # Nullable: a monitor can exist with no status page attached (migration 081).
+    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True)
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text)
     group = db.Column(db.String(64))  # e.g., "Web Services", "APIs"
     sort_order = db.Column(db.Integer, default=0)
 
     # Health check config
-    check_type = db.Column(db.String(16), default='http')  # http, tcp, dns, smtp, ping
+    CHECK_TYPES = ('http', 'keyword', 'tcp', 'dns', 'smtp', 'ping')
+    check_type = db.Column(db.String(16), default='http')
     check_target = db.Column(db.String(512))  # URL, host:port, etc.
     check_interval = db.Column(db.Integer, default=60)  # seconds
     check_timeout = db.Column(db.Integer, default=10)
+
+    # Probe options (migration 081). Each backs one control on the monitor's
+    # Configuration section.
+    check_method = db.Column(db.String(8), default='GET')
+    expected_status = db.Column(db.String(32), default='200-299')
+    keyword = db.Column(db.String(256))  # body substring for check_type='keyword'
+    follow_redirects = db.Column(db.Boolean, default=True)
+    verify_tls = db.Column(db.Boolean, default=True)
+    # Failed checks tolerated before an incident opens, and the running counter
+    # that drives it. Reset to 0 on any successful check.
+    retries = db.Column(db.Integer, default=2)
+    consecutive_failures = db.Column(db.Integer, default=0)
+
+    # Paused monitors keep their history and last known status but are skipped
+    # by the scheduler. Kept separate from `status` so pausing never looks like
+    # an outage on a status page.
+    is_paused = db.Column(db.Boolean, default=False, nullable=False)
+
+    # TLS certificate observed on the last https probe. `cert_checked_at` is not
+    # the same as `last_check_at`: reading the certificate opens a second
+    # connection, so it is throttled independently of the probe itself.
+    cert_issuer = db.Column(db.String(256))
+    cert_expires_at = db.Column(db.DateTime)
+    cert_checked_at = db.Column(db.DateTime)
 
     # Optional binding to a managed WordPress site. When set, the component's
     # status is driven from the site's health checks (#26) rather than a network
@@ -91,6 +122,15 @@ class StatusComponent(db.Model):
     checks = db.relationship('HealthCheck', backref='component', lazy='dynamic',
                              order_by='HealthCheck.checked_at.desc()', cascade='all, delete-orphan')
 
+    @property
+    def next_check_at(self):
+        """When the scheduler will next poll this monitor, or None if paused or
+        never checked. Derived rather than stored so changing the interval takes
+        effect immediately."""
+        if self.is_paused or not self.last_check_at:
+            return None
+        return self.last_check_at + timedelta(seconds=self.check_interval or 60)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -103,10 +143,22 @@ class StatusComponent(db.Model):
             'check_target': self.check_target,
             'check_interval': self.check_interval,
             'check_timeout': self.check_timeout,
+            'check_method': self.check_method,
+            'expected_status': self.expected_status,
+            'keyword': self.keyword,
+            'follow_redirects': self.follow_redirects,
+            'verify_tls': self.verify_tls,
+            'retries': self.retries,
+            'consecutive_failures': self.consecutive_failures,
+            'is_paused': bool(self.is_paused),
+            'cert_issuer': self.cert_issuer,
+            'cert_expires_at': self.cert_expires_at.isoformat() if self.cert_expires_at else None,
+            'cert_checked_at': self.cert_checked_at.isoformat() if self.cert_checked_at else None,
             'wordpress_site_id': self.wordpress_site_id,
             'status': self.status,
             'last_check_at': self.last_check_at.isoformat() if self.last_check_at else None,
             'last_response_time': self.last_response_time,
+            'next_check_at': self.next_check_at.isoformat() if self.next_check_at else None,
             'uptime_24h': self.uptime_24h,
             'uptime_7d': self.uptime_7d,
             'uptime_30d': self.uptime_30d,
@@ -143,7 +195,9 @@ class StatusIncident(db.Model):
     __tablename__ = 'status_incidents'
 
     id = db.Column(db.Integer, primary_key=True)
-    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=False)
+    # Nullable: an incident auto-opened for a monitor that belongs to no status
+    # page has no page either (migration 081).
+    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True)
     # Optional link to the component this incident is about. Set when an incident
     # is auto-opened from a health check, so it can be auto-resolved on recovery (#26).
     component_id = db.Column(db.Integer, db.ForeignKey('status_components.id'), nullable=True)

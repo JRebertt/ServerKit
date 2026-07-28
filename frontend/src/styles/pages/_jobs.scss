@@ -11,6 +11,15 @@
     .sk-kpiband-wrap { margin-bottom: $space-5; }
 }
 
+// ── Activity / Scheduled switch ─────────────────────────────────────────
+// This used to be JOBS_TABS in a PageTopbar of its own. Jobs is a Monitoring
+// group tab now, so the group's bar owns the tab row and the view switch moved
+// in-page — a nav under a nav reads as two competing headers.
+.sk-jobs__viewswitch {
+    display: flex;
+    margin-bottom: $space-4;
+}
+
 // ── Slim reset bar (search + filters live in the page top bar; shown only
 //    while filtering) ────────────────────────────────────────────────────
 .sk-jobs__resultbar {

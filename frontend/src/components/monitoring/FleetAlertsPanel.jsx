@@ -15,8 +15,8 @@ const ALERT_FILTERS = [
 
 // Alerts raised by per-server thresholds across the fleet. The panel host's own
 // alerts are a different system (a single set of limits, delivered by the
-// monitoring scheduler) and sit above this on the Alerts tab; the limits behind
-// these rows are edited on the Rules tab.
+// monitoring scheduler) and sit above this in the Incidents timeline; the limits
+// behind these rows are edited on the Rules tab.
 export default function FleetAlertsPanel({ scope, refreshKey = 0 }) {
     const toast = useToast();
     const [alerts, setAlerts] = useState([]);

@@ -80,6 +80,12 @@ export function FilterDrawer({
     // legitimately not count a group whose value is just its default (a sort
     // order sitting on "featured" is not a filter the user applied).
     activeCount,
+    // Optional: extra fields rendered below the chip groups, for filters that
+    // aren't a pick-from-a-list (free text, date bounds). A host that passes
+    // these must also pass `onClear`, otherwise "Clear all" would reset only the
+    // groups and silently leave the extra fields applied.
+    children,
+    onClear,
 }) {
     const isOn = (group, optValue) => (
         group.type === 'multi'
@@ -101,7 +107,7 @@ export function FilterDrawer({
     };
 
     const active = activeCount ?? countActiveFilters(value);
-    const clearAll = () => onChange(emptyFilterValue(groups));
+    const clearAll = () => (onClear ? onClear() : onChange(emptyFilterValue(groups)));
 
     return (
         <Drawer
@@ -137,6 +143,7 @@ export function FilterDrawer({
                         </div>
                     </div>
                 ))}
+                {children && <div className="sk-filter__extra">{children}</div>}
                 <div className="sk-filter__footer">
                     <Button variant="ghost" size="sm" onClick={clearAll} disabled={!active}>
                         Clear all
