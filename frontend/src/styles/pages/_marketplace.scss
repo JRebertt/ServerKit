@@ -46,22 +46,6 @@
         }
     }
 
-    .page-header-content {
-        h1 {
-            margin: 0 0 $space-2;
-            font-size: $font-size-3xl;
-            line-height: $line-height-tight;
-            letter-spacing: 0;
-        }
-
-        .page-description {
-            max-width: 680px;
-            color: $text-secondary;
-            font-size: $font-size-base;
-            line-height: $line-height-normal;
-        }
-    }
-
     .marketplace-tabs__list {
         margin-bottom: $space-5;
 
@@ -410,10 +394,6 @@
     }
 
     @media (max-width: $breakpoint-sm) {
-        .page-header-content h1 {
-            font-size: $font-size-2xl;
-        }
-
         .marketplace-section__header {
             align-items: flex-start;
             flex-direction: column;

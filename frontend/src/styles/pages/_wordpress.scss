@@ -31,34 +31,6 @@
 
 // WordPress Page Layout (extends Docker page styles)
 .wordpress-page {
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: $space-6;
-        padding: $space-4 $space-4 0;
-        flex-wrap: wrap;
-        gap: $space-4;
-
-        .page-header-content {
-            h1 {
-                font-size: $font-size-2xl;
-                font-weight: $font-weight-semibold;
-                margin: 0 0 $space-1 0;
-            }
-
-            .page-description {
-                color: $text-secondary;
-                margin: 0;
-            }
-        }
-
-        .page-header-actions {
-            display: flex;
-            gap: $space-2;
-        }
-    }
-
     .empty-state-large {
         display: flex;
         flex-direction: column;

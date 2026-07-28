@@ -15,8 +15,9 @@ import {
     ChevronDown, ChevronRight, ExternalLink, Server, Database, Globe,
     Shield, Lock, Zap, Activity, BarChart3, Cloud, Terminal, Layers,
     Inbox, Table, AlertCircle, FileText, Monitor, Key, FolderOpen,
-    GitBranch, Package, HardDrive, Wifi, WifiOff
+    GitBranch, Package, HardDrive, Wifi, WifiOff, Clock
 } from 'lucide-react';
+import { PageTopbar, SearchField } from '@/components/ds';
 import Modal from '../components/Modal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import StatusBadge from '../components/StatusBadge';
@@ -95,12 +96,11 @@ export default function StyleGuide() {
 
     return (
         <div className="styleguide">
-            <div className="page-header">
-                <div>
-                    <h1>Style Guide</h1>
-                    <p className="subtitle">Design system reference &mdash; dev only</p>
-                </div>
-            </div>
+            <PageTopbar
+                icon={<Palette size={18} />}
+                title="Style Guide"
+                meta="Design system reference — dev only"
+            />
 
             <Tabs value={activeSection} onValueChange={setActiveSection}>
                 <TabsList>
@@ -1067,45 +1067,59 @@ export default function StyleGuide() {
                 {/* ── PAGE HEADERS ── */}
                 {activeSection === 'pageheaders' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Standard Page Header (.page-header)" />
-                        <p className="text-sm text-secondary mb-2">The canonical pattern. Use this for all pages.</p>
-                        <div className="card" style={{ padding: 24 }}>
-                            <div className="page-header" style={{ margin: 0, padding: 0 }}>
-                                <div>
-                                    <h1>Page Title</h1>
-                                    <p className="subtitle">Description of the page</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button variant="outline"><RefreshCw size={16} /> Refresh</Button>
-                                    <Button><Plus size={16} /> Create</Button>
-                                </div>
-                            </div>
+                        <SectionTitle title="Tab group — the default (no title)" />
+                        <p className="text-sm text-secondary mb-2">
+                            How most pages get their bar: a parent <code>TabGroupLayout</code> renders
+                            one titleless <code>PageTopbar</code> for the whole group and swaps only the
+                            content below. Child pages render <strong>no bar of their own</strong> —
+                            they publish actions through <code>useTopbarActions()</code>, search
+                            right-most. The tab strip is the heading, so there is no title to repeat.
+                        </p>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <PageTopbar
+                                navLabel="Domains"
+                                tabs={[
+                                    { to: '#sg-domains', label: 'Domains' },
+                                    { to: '#sg-ssl', label: 'SSL Certificates' },
+                                ]}
+                                actions={(
+                                    <>
+                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> Check DNS</Button>
+                                        <Button size="sm"><Plus size={15} /> Add domain</Button>
+                                        <SearchField placeholder="Search domains…" />
+                                    </>
+                                )}
+                            />
                         </div>
 
-                        <SectionTitle title="Header with Stats Subtitle" />
-                        <div className="card" style={{ padding: 24 }}>
-                            <div className="page-header" style={{ margin: 0, padding: 0 }}>
-                                <div>
-                                    <h1>Services</h1>
-                                    <p className="subtitle">12 services &middot; 9 live</p>
-                                </div>
-                                <Button><Plus size={16} /> New Service</Button>
-                            </div>
+                        <SectionTitle title="Standalone page — titled bar" />
+                        <p className="text-sm text-secondary mb-2">
+                            Only for pages with no tab group, and for entity pages where the title
+                            names <em>which</em> record you are on (Service Detail, Workspace…).
+                            Everything else should join a group.
+                        </p>
+                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <PageTopbar
+                                icon={<Clock size={18} />}
+                                title="Cron Jobs"
+                                actions={(
+                                    <>
+                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> Refresh</Button>
+                                        <Button size="sm"><Plus size={15} /> Create job</Button>
+                                        <SearchField placeholder="Search jobs or commands…" />
+                                    </>
+                                )}
+                            />
                         </div>
 
-                        <SectionTitle title="Header with Conditional Actions" />
-                        <div className="card" style={{ padding: 24 }}>
-                            <div className="page-header" style={{ margin: 0, padding: 0 }}>
-                                <div>
-                                    <h1>Git Server</h1>
-                                    <p className="subtitle">Self-hosted Git repository management</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button variant="outline"><ExternalLink size={16} /> Open Gitea</Button>
-                                    <Button variant="destructive">Stop Server</Button>
-                                </div>
-                            </div>
-                        </div>
+                        <SectionTitle title="Retired: .page-header" />
+                        <p className="text-sm text-secondary mb-2">
+                            The old <code>&lt;div className=&quot;page-header&quot;&gt;</code> +{' '}
+                            <code>&lt;h1&gt;</code> block has been removed from the codebase and its
+                            styles deleted. Don&apos;t reintroduce it — use one of the two bars above.
+                            Bespoke workspace pages (Docker, Database Explorer) intentionally carry no
+                            page bar at all; that is not a licence to invent a third header.
+                        </p>
 
                         <SectionTitle title="Card with Header + Actions" />
                         <p className="text-sm text-secondary mb-2">For cards inside pages that need their own header row.</p>
