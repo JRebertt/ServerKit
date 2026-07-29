@@ -11,10 +11,18 @@ import { cn } from '@/lib/utils';
 //       …body…
 //   </Drawer>
 //
-// NOTE: `.sk-drawer__body` is the scroll region and carries NO padding — some
-// drawers (log tails, tables, editors) run their content edge-to-edge. Ordinary
-// form/detail bodies must pad themselves, or every field sits flush against the
-// panel edge. Pad the body's own root class, not `.sk-drawer__body`.
+// The body is PADDED by default, to the same 18px inset as the header — a
+// drawer that forgets to pad itself used to render every field flush against
+// the panel edge, and enough of them forgot that the drawers stopped looking
+// like one component. Pass `flush` for bodies that own their own regions
+// (a form with a pinned footer, a two-pane catalog, an editor, a log tail):
+//
+//   <Drawer flush …>
+//       <form className="sk-formdrawer__form">   ← pads its own scroll region
+//           <div className="sk-formdrawer__body">…</div>
+//           <footer>…</footer>
+//       </form>
+//   </Drawer>
 export function Drawer({
     open,
     onOpenChange,
@@ -26,6 +34,8 @@ export function Drawer({
     side = 'right',
     headerExtra,
     className,
+    bodyClassName,
+    flush = false,
     children,
 }) {
     return (
@@ -44,7 +54,9 @@ export function Drawer({
                     </div>
                     {headerExtra}
                 </div>
-                <div className="sk-drawer__body">{children}</div>
+                <div className={cn('sk-drawer__body', flush && 'sk-drawer__body--flush', bodyClassName)}>
+                    {children}
+                </div>
             </SheetContent>
         </Sheet>
     );

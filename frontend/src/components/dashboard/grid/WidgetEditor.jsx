@@ -274,6 +274,7 @@ export function WidgetEditor({
 
     return (
         <Drawer
+            flush
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
             title={title}

@@ -884,6 +884,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
 
     return (
         <Drawer
+            flush
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
             title={`Deploy ${template.name}`}

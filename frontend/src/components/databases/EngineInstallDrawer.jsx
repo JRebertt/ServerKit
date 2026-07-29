@@ -249,6 +249,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
     return (
         <Drawer
+            flush
             open={open}
             onOpenChange={(next) => { if (!next) setResult(null); onOpenChange(next); }}
             title={result ? `${template.name} is installing` : `Install ${template.name}`}

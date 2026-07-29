@@ -280,7 +280,7 @@
 }
 
 .cron-drawer {
-    padding: $space-5 $space-5 $space-8;
+    // Inset comes from .sk-drawer__body (padded by default).
     display: flex;
     flex-direction: column;
     gap: $space-5;

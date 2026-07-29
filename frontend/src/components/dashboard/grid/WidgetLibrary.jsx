@@ -233,6 +233,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
 
     return (
         <Drawer
+            flush
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
             title="Add a widget"

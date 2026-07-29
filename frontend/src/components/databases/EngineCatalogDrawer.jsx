@@ -174,6 +174,7 @@ export default function EngineCatalogDrawer({
 
     return (
         <Drawer
+            flush
             open={open}
             onOpenChange={onOpenChange}
             title="Add a database engine"

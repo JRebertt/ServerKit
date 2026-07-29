@@ -545,6 +545,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
     return (
         <Drawer
+            flush
             open
             onOpenChange={(next) => { if (!next) onClose(); }}
             title={title}
