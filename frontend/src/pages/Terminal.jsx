@@ -10,7 +10,7 @@ import LogToolbar from '../components/log-viewer/LogToolbar';
 import LogContent from '../components/log-viewer/LogContent';
 import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelpers';
 import { formatBytes as formatMemory } from '@/utils/formatBytes';
-import { Pill } from '../components/ds';
+import { Pill, Drawer } from '../components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import {
@@ -1126,20 +1126,19 @@ const ProcessesTab = () => {
                 </div>
             </div>
 
-            {selectedProcess && (
-                <>
-                    <div className="preview-drawer-backdrop" onClick={() => setSelectedProcess(null)} />
-                    <aside className="preview-drawer">
-                        <header className="preview-drawer-header">
-                            <Activity size={20} className="is-accent" />
-                            <div className="preview-drawer-title">
-                                <h3>{selectedProcess.name}</h3>
-                                <p className="preview-drawer-path">PID {selectedProcess.pid} · {selectedProcess.user}</p>
-                            </div>
-                            <button type="button" className="preview-drawer-close" onClick={() => setSelectedProcess(null)}>
-                                <X size={18} />
-                            </button>
-                        </header>
+            {/* The shared DS drawer, not a hand-rolled slide-over: focus trap,
+                escape-to-close and the same chrome as every other drawer. */}
+            <Drawer
+                open={!!selectedProcess}
+                onOpenChange={(open) => { if (!open) setSelectedProcess(null); }}
+                title={selectedProcess?.name || ''}
+                subtitle={selectedProcess ? `PID ${selectedProcess.pid} · ${selectedProcess.user}` : ''}
+                icon={<Activity size={18} />}
+                width={520}
+                flush
+            >
+                {selectedProcess && (
+                    <>
                         <div className="preview-drawer-meta">
                             <div className="meta-item">
                                 <span className="meta-label">PID</span>
@@ -1190,9 +1189,9 @@ const ProcessesTab = () => {
                                 </>
                             )}
                         </div>
-                    </aside>
-                </>
-            )}
+                    </>
+                )}
+            </Drawer>
         </div>
     );
 };
@@ -1493,23 +1492,21 @@ const ServicesTab = () => {
                 </div>
             )}
 
-            {selectedService && (
-                <>
-                    <div className="preview-drawer-backdrop" onClick={closeServiceDrawer} />
-                    <aside className="preview-drawer">
-                        <header className="preview-drawer-header">
-                            <span className={`svc-status-dot status-${statusKind(selectedService.status)} is-large`} />
-                            <div className="preview-drawer-title">
-                                <h3>{selectedService.name}</h3>
-                                <p className="preview-drawer-path">
-                                    {selectedService.description || `journalctl -u ${selectedService.name}`}
-                                </p>
-                            </div>
-                            <button type="button" className="preview-drawer-close" onClick={closeServiceDrawer}>
-                                <X size={18} />
-                            </button>
-                        </header>
-
+            <Drawer
+                open={!!selectedService}
+                onOpenChange={(open) => { if (!open) closeServiceDrawer(); }}
+                title={selectedService?.name || ''}
+                subtitle={selectedService
+                    ? (selectedService.description || `journalctl -u ${selectedService.name}`)
+                    : ''}
+                icon={selectedService
+                    ? <span className={`svc-status-dot status-${statusKind(selectedService.status)} is-large`} />
+                    : null}
+                width={520}
+                flush
+            >
+                {selectedService && (
+                    <>
                         <div className="preview-drawer-meta">
                             <div className="meta-item">
                                 <span className="meta-label">Status</span>
@@ -1604,9 +1601,9 @@ const ServicesTab = () => {
                                 searchPattern={appliedLogSearch}
                             />
                         </div>
-                    </aside>
-                </>
-            )}
+                    </>
+                )}
+            </Drawer>
         </div>
     );
 };
