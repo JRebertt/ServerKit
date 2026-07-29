@@ -591,6 +591,10 @@
     display: flex;
     flex-direction: column;
     gap: $space-5;
+    // `.sk-drawer__body` is the scroll region and carries no padding of its own
+    // (some drawers are edge-to-edge), so every drawer body pads itself. Same
+    // inset as .cron-drawer so the two cron drawers line up.
+    padding: $space-5 $space-5 $space-8;
 
     &__field {
         display: flex;

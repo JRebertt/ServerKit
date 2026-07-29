@@ -10,6 +10,11 @@ import { cn } from '@/lib/utils';
 //           subtitle="server filesystem" icon={<FileIcon/>} width={760}>
 //       …body…
 //   </Drawer>
+//
+// NOTE: `.sk-drawer__body` is the scroll region and carries NO padding — some
+// drawers (log tails, tables, editors) run their content edge-to-edge. Ordinary
+// form/detail bodies must pad themselves, or every field sits flush against the
+// panel edge. Pad the body's own root class, not `.sk-drawer__body`.
 export function Drawer({
     open,
     onOpenChange,
