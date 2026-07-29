@@ -6,7 +6,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
-import { Pill, MetricCard, PageTopbar, SegControl, Drawer } from '../components/ds';
+import { Pill, MetricCard, SegControl, Drawer } from '../components/ds';
+import PageLayout from '../layouts/PageLayout';
 import {
     AlertCircle, FolderGit2, Webhook, Rocket, Server, Globe, Terminal, Tag,
     GitBranch, RefreshCw, Plus, ExternalLink, Lock, Trash2, ChevronRight,
@@ -1018,22 +1019,19 @@ function Git({ basePath = '/git' }) {
 
     if (loading) {
         return (
-            <div className="page-container--full-bleed sk-tabgroup git-page domains-page">
-                <div className="sk-tabgroup__content">
-                    <div className="sk-tabgroup__inner">
-                        <EmptyState loading loadingVariant="table" size="lg" title="Loading Git" />
-                    </div>
-                </div>
-            </div>
+            <PageLayout className="git-page domains-page" navLabel="Git" tabs={GIT_TABS}>
+                <EmptyState loading loadingVariant="table" size="lg" title="Loading Git" />
+            </PageLayout>
         );
     }
 
     return (
-        <div className="page-container--full-bleed sk-tabgroup git-page domains-page">
-            <PageTopbar navLabel={activeGit.label} tabs={GIT_TABS} actions={topbarActions()} />
-
-            <div className="sk-tabgroup__content">
-                <div className="sk-tabgroup__inner">
+        <PageLayout
+            className="git-page domains-page"
+            navLabel={activeGit.label}
+            tabs={GIT_TABS}
+            actions={topbarActions()}
+        >
             {pageError && (
                 <div className="error-banner">
                     {pageError}
@@ -1069,8 +1067,6 @@ function Git({ basePath = '/git' }) {
                     {renderTabContent()}
                 </div>
             )}
-                </div>
-            </div>
 
             {/* Repository drawer */}
             <Drawer
@@ -1523,7 +1519,7 @@ function Git({ basePath = '/git' }) {
                     onCancel={confirmDialog.onCancel}
                 />
             )}
-        </div>
+        </PageLayout>
     );
 }
 
