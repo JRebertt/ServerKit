@@ -77,12 +77,17 @@
     }
 }
 
-// Tab group shell (Servers / Domains-style route groups). A parent layout
-// renders the PageTopbar + routed sub-nav once (see layouts/ServersLayout.jsx)
-// and swaps only the content below, so switching tabs feels like real tabs
-// instead of a full-page remount. The shell is full-bleed so the header pins
-// to the very top and never shifts between tabs.
-.sk-tabgroup {
+// ============================================================
+// PAGE SHELL
+// The one frame every page gets, in two flavours:
+//   .sk-page      — a standalone page   (layouts/PageLayout.jsx)
+//   .sk-tabgroup  — a routed tab group  (layouts/TabGroupLayout.jsx)
+// Both are full-bleed so the top bar pins flush to the top of the content
+// region and the body scrolls beneath it. A page should never hand-roll this:
+// dropping a `.sk-topbar` into the default padded `.page-container` leaves the
+// bar floating in the well with a gutter on every side.
+// ============================================================
+@mixin page-shell {
     height: 100%;
     min-height: 0;
     display: flex;
@@ -95,14 +100,54 @@
 
         // Match the 18px header icon the per-page top bars used to render.
         .sk-topbar__ico svg { width: 18px; height: 18px; }
+
+        @media (max-width: $breakpoint-md) { padding: 10px $space-3; }
     }
+}
+
+// Scroll region below the bar.
+@mixin page-shell-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+// Centered body: the reading column every ordinary page sits in.
+@mixin page-shell-inner {
+    width: 100%;
+    max-width: 1400px;
+    margin-inline: auto;
+    padding: $space-6 $space-6 $space-10;
+
+    @media (max-width: $breakpoint-md) { padding: $space-4 $space-4 $space-8; }
+}
+
+// Standalone pages (Cron Jobs, Settings, Documentation, …).
+.sk-page {
+    @include page-shell;
 
     &__content {
-        flex: 1;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
+        @include page-shell-content;
+
+        // `fill` bodies (terminals, consoles, trees) take the whole region and
+        // manage their own scroll instead of riding the centered column.
+        > .sk-page__fill { flex: 1; min-height: 0; }
+    }
+
+    &__inner { @include page-shell-inner; }
+}
+
+// Tab group shell (Servers / Domains-style route groups). A parent layout
+// renders the PageTopbar + routed sub-nav once and swaps only the content
+// below, so switching tabs feels like real tabs instead of a full-page
+// remount — and the header never shifts between tabs.
+.sk-tabgroup {
+    @include page-shell;
+
+    &__content {
+        @include page-shell-content;
 
         // Full-bleed pages (File Manager) fill the region edge-to-edge and
         // manage their own internal scroll. Centered pages instead wrap their
@@ -113,18 +158,7 @@
 
     // Centered pages (Agent Fleet, Fleet Monitor, Cloud Servers, Config
     // Templates) keep their max-width framing inside the full-bleed shell.
-    &__inner {
-        width: 100%;
-        max-width: 1400px;
-        margin-inline: auto;
-        padding: $space-6 $space-6 $space-10;
-    }
-
-    @media (max-width: $breakpoint-md) {
-        > .sk-topbar { padding: 10px $space-3; }
-
-        &__inner { padding: $space-4 $space-4 $space-8; }
-    }
+    &__inner { @include page-shell-inner; }
 }
 
 // REMOVED: `.page-header` (the old <div class="page-header"><h1>…</h1></div>
