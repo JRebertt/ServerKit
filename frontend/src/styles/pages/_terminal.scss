@@ -828,24 +828,16 @@ $lk-default:  #646b7a;
     50% { opacity: 0.35; transform: scale(0.65); }
 }
 
-// Full-bleed terminal/logs: fill the content region like the Servers ops view
-// instead of a fixed `calc(100vh - …)`. The page is a flex column; the Radix
-// Tabs panel and the inner panes stretch to fill the available height.
-.terminal-page.page-container--full-bleed {
-    height: 100%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    // No top padding — the topbar pins flush to the top like the tab-group
-    // pages (Marketplace/Domains); only inset the sides and bottom.
-    padding: 0 $space-4 $space-4;
-    overflow: hidden;
-
-    > .sk-topbar { flex-shrink: 0; }
-
-    // The routed sections now render straight into .tab-content (no shadcn
-    // Tabs wrapper); it fills the height and the active pane flexes to fit.
-    > .tab-content {
+// Terminal / Logs is a full-bleed WORKSPACE, not a page of cards: it renders
+// through layouts/PageLayout in `fill` mode, so the shell already gives it a
+// pinned top bar over a region it manages itself. All this has to do is let the
+// console panes fill that region.
+//
+// They used to be rounded, bordered cards floating inside a `0 16px 16px` inset
+// — the only page in the app framed that way, which read as stray padding plus
+// stray corners. Flush edges instead, exactly like the File Manager.
+.terminal-page {
+    .tab-content {
         flex: 1;
         min-height: 0;
         display: flex;
@@ -854,11 +846,24 @@ $lk-default:  #646b7a;
 
     .term-shell,
     .lv-page:not(.fullscreen),
-    .proc-page,
+    .proc-page {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+        // The pane IS the content region now — an outer border and radius would
+        // draw a card edge against the region edge. Internal dividers stay.
+        border: 0;
+        border-radius: 0;
+    }
+
+    // Services is a scrolling card grid rather than a console pane, so it
+    // re-pads itself to the reading inset instead of running to the edges.
     .svc-page {
         flex: 1;
         height: auto;
         min-height: 0;
+        overflow-y: auto;
+        padding: $space-5 $space-4 $space-8;
     }
 }
 

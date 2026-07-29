@@ -10,7 +10,8 @@ import LogToolbar from '../components/log-viewer/LogToolbar';
 import LogContent from '../components/log-viewer/LogContent';
 import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelpers';
 import { formatBytes as formatMemory } from '@/utils/formatBytes';
-import { Pill, PageTopbar } from '../components/ds';
+import { Pill } from '../components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import {
     FileText, Clock, AlertCircle, Search, X, RefreshCw, AlertTriangle, Activity,
@@ -38,17 +39,22 @@ const Terminal = () => {
     const [activeTab] = useTabParam('/terminal', VALID_TABS);
 
     return (
-        <div className="page-container page-container--full-bleed terminal-page">
-            <PageTopbar navLabel="Logs" tabs={TERMINAL_TABS} />
-
-            <div className="tab-content">
-                {activeTab === 'shell' && <TerminalShellTab />}
-                {activeTab === 'logs' && <LogFilesTab />}
-                {activeTab === 'journal' && <JournalTab />}
-                {activeTab === 'processes' && <ProcessesTab />}
-                {activeTab === 'services' && <ServicesTab />}
-            </div>
-        </div>
+        // A full-bleed workspace, like the File Manager: the console panes fill
+        // the content region edge-to-edge rather than floating as a rounded card
+        // inside a padded well.
+        <PageLayout
+            fill
+            className="terminal-page"
+            contentClassName="tab-content"
+            navLabel="Logs"
+            tabs={TERMINAL_TABS}
+        >
+            {activeTab === 'shell' && <TerminalShellTab />}
+            {activeTab === 'logs' && <LogFilesTab />}
+            {activeTab === 'journal' && <JournalTab />}
+            {activeTab === 'processes' && <ProcessesTab />}
+            {activeTab === 'services' && <ServicesTab />}
+        </PageLayout>
     );
 };
 
