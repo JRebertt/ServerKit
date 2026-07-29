@@ -25,7 +25,8 @@ import AboutTab from '../components/settings/AboutTab';
 import PluginSlot from '../components/PluginSlot';
 import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Webhook, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PageTopbar, SegControl } from '@/components/ds';
+import { SegControl } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { useNavigate } from 'react-router-dom';
 
 const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'developer', 'about'];
@@ -55,9 +56,11 @@ const Settings = () => {
     }, [isAdmin]);
 
     return (
-        <div className="page-container settings-page">
-            <PageTopbar icon={<SettingsIcon size={18} />} title="Settings" />
-
+        <PageLayout
+            icon={<SettingsIcon size={18} />}
+            title="Settings"
+            className="settings-page"
+        >
             <div className="settings-layout">
                 <nav className="settings-nav">
                     {isAdmin && (
@@ -336,7 +339,7 @@ const Settings = () => {
                     <PluginSlot name="settings.section" context={{ tab: activeTab }} />
                 </div>
             </div>
-        </div>
+        </PageLayout>
     );
 };
 

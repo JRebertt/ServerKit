@@ -18,8 +18,9 @@ import EmptyState from '../components/EmptyState';
 import UptimeBars from '../components/monitoring/UptimeBars';
 import { monitorStateOf } from '../components/monitoring/monitorShared';
 import {
-    AreaChart, DataTable, KpiBand, MetricCard, PageTopbar, Pill, SegControl,
+    AreaChart, DataTable, KpiBand, MetricCard, Pill, SegControl,
 } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 
 const POLL_MS = 15000;
@@ -112,24 +113,26 @@ export default function MonitorDetail() {
         };
     }, [series]);
 
+    // Both pre-load states keep the shell, so the bar is in place from the
+    // first paint rather than appearing once the monitor resolves.
     if (loading && !monitor) {
         return (
-            <div className="page-container monitor-detail">
+            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title="Monitor">
                 <EmptyState loading loadingVariant="detail" title="Loading monitor" />
-            </div>
+            </PageLayout>
         );
     }
 
     if (notFound || !monitor) {
         return (
-            <div className="page-container monitor-detail">
+            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title="Monitor">
                 <EmptyState
                     icon={ShieldAlert}
                     title="Monitor not found"
                     description="It may have been deleted."
                     action={<Button onClick={() => navigate('/monitoring/monitors')}>Back to monitors</Button>}
                 />
-            </div>
+            </PageLayout>
         );
     }
 
@@ -189,30 +192,30 @@ export default function MonitorDetail() {
     };
 
     return (
-        <div className="page-container monitor-detail">
-            <PageTopbar
-                icon={<ArrowLeft size={18} />}
-                title={monitor.name}
-                meta={`${monitor.check_type} · ${monitor.check_target || 'bound site'} · every ${monitor.check_interval}s`}
-                actions={(
-                    <>
-                        <Pill kind={state.tone}>{state.label}</Pill>
-                        <Button variant="outline" size="sm" onClick={onCheckNow} disabled={busy}>
-                            <RefreshCw size={14} /> Check now
+        <PageLayout
+            className="monitor-detail"
+            icon={<ArrowLeft size={18} />}
+            title={monitor.name}
+            meta={`${monitor.check_type} · ${monitor.check_target || 'bound site'} · every ${monitor.check_interval}s`}
+            actions={(
+                <>
+                    <Pill kind={state.tone}>{state.label}</Pill>
+                    <Button variant="outline" size="sm" onClick={onCheckNow} disabled={busy}>
+                        <RefreshCw size={14} /> Check now
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={onTogglePause} disabled={busy}>
+                        {monitor.is_paused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
+                    </Button>
+                    {isHttpish && monitor.check_target && (
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={monitor.check_target} target="_blank" rel="noreferrer">
+                                <ExternalLink size={14} />
+                            </a>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={onTogglePause} disabled={busy}>
-                            {monitor.is_paused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
-                        </Button>
-                        {isHttpish && monitor.check_target && (
-                            <Button variant="outline" size="sm" asChild>
-                                <a href={monitor.check_target} target="_blank" rel="noreferrer">
-                                    <ExternalLink size={14} />
-                                </a>
-                            </Button>
-                        )}
-                    </>
-                )}
-            />
+                    )}
+                </>
+            )}
+        >
 
             <nav className="monitor-detail__crumb">
                 <Link to="/monitoring/monitors">Monitors</Link>
@@ -491,6 +494,6 @@ export default function MonitorDetail() {
                     </div>
                 </div>
             )}
-        </div>
+        </PageLayout>
     );
 }

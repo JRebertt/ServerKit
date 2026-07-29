@@ -14,7 +14,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { PageTopbar } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -102,17 +102,19 @@ const ProjectDetail = () => {
         }
     }
 
+    // Loading / not-found take the same shell as the loaded page, so the top
+    // bar does not appear, move, or vanish as the project resolves.
     if (loading) {
         return (
-            <div className="project-detail-page">
+            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title="Project">
                 <EmptyState loading loadingVariant="detail" title="Loading project" />
-            </div>
+            </PageLayout>
         );
     }
 
     if (error || !project) {
         return (
-            <div className="project-detail-page">
+            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title="Project">
                 <EmptyState
                     icon={FolderKanban}
                     title="Project not found"
@@ -123,7 +125,7 @@ const ProjectDetail = () => {
                         </Button>
                     }
                 />
-            </div>
+            </PageLayout>
         );
     }
 
@@ -132,23 +134,22 @@ const ProjectDetail = () => {
     const unassignedApps = apps.filter(a => !a.environment_id);
 
     return (
-        <div className="project-detail-page">
-            <PageTopbar
-                icon={<FolderKanban size={20} />}
-                title={project.name}
-                meta={project.slug}
-                actions={
-                    <>
-                        <Button variant="outline" asChild>
-                            <Link to="/projects"><ArrowLeft size={16} /> Projects</Link>
-                        </Button>
-                        <Button onClick={() => setShowCreateEnv(true)}>
-                            <Plus size={16} /> New Environment
-                        </Button>
-                    </>
-                }
-            />
-
+        <PageLayout
+            className="project-detail-page"
+            icon={<FolderKanban size={20} />}
+            title={project.name}
+            meta={project.slug}
+            actions={
+                <>
+                    <Button variant="outline" asChild>
+                        <Link to="/projects"><ArrowLeft size={16} /> Projects</Link>
+                    </Button>
+                    <Button onClick={() => setShowCreateEnv(true)}>
+                        <Plus size={16} /> New Environment
+                    </Button>
+                </>
+            }
+        >
             <div className="project-detail-page__body">
                 {project.description && (
                     <p className="project-detail-page__description">{project.description}</p>
@@ -281,7 +282,7 @@ const ProjectDetail = () => {
                 onConfirm={handleDeleteEnvironment}
                 onCancel={() => setDeleteEnv(null)}
             />
-        </div>
+        </PageLayout>
     );
 };
 

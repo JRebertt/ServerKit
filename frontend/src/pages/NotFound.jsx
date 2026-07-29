@@ -1,9 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FileQuestion, LayoutDashboard, Blocks } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import { useContributions } from '@/plugins/contributions';
+import PageLayout from '../layouts/PageLayout';
 
 // Catch-all route (App.jsx `path="*"`). Reached for a genuinely unknown URL and,
 // importantly, for an extension route whose extension isn't installed/active
@@ -22,15 +22,14 @@ export default function NotFound() {
 
     if (!__ready) {
         return (
-            <div className="page-container">
+            <PageLayout title="Loading">
                 <EmptyState loading title="Loading" />
-            </div>
+            </PageLayout>
         );
     }
 
     return (
-        <div className="page-container">
-            <PageTopbar title="Page not found" />
+        <PageLayout title="Page not found">
             <EmptyState
                 icon={FileQuestion}
                 title="Page not found"
@@ -52,6 +51,6 @@ export default function NotFound() {
                     </div>
                 )}
             />
-        </div>
+        </PageLayout>
     );
 }

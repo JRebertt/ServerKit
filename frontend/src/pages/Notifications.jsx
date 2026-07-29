@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, ScrollText, X } from 'lucide-react';
 import api from '../services/api';
-import { PageTopbar } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationsContext';
@@ -92,25 +92,23 @@ export default function Notifications() {
     const noticeItems = (ctxItems || []).filter((it) => it.kind === 'notice');
 
     return (
-        <>
-            <PageTopbar
-                icon={<Bell size={18} />}
-                title="Notifications"
-                meta={unreadCount ? `${unreadCount} unread` : 'All caught up'}
-                actions={(
-                    <>
-                        {isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/notifications')}>
-                                <ScrollText size={15} /> Delivery log
-                            </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={onMarkAll} disabled={!unreadCount}>
-                            <CheckCheck size={15} /> {category ? `Mark ${category} read` : 'Mark all read'}
+        <PageLayout
+            icon={<Bell size={18} />}
+            title="Notifications"
+            meta={unreadCount ? `${unreadCount} unread` : 'All caught up'}
+            actions={(
+                <>
+                    {isAdmin && (
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/admin/notifications')}>
+                            <ScrollText size={15} /> Delivery log
                         </Button>
-                    </>
-                )}
-            />
-
+                    )}
+                    <Button variant="outline" size="sm" onClick={onMarkAll} disabled={!unreadCount}>
+                        <CheckCheck size={15} /> {category ? `Mark ${category} read` : 'Mark all read'}
+                    </Button>
+                </>
+            )}
+        >
             <div className="sk-notif-page">
                 <div className="sk-notif-page__filters" role="tablist" aria-label="Filter notifications">
                     <button
@@ -229,6 +227,6 @@ export default function Notifications() {
                     </div>
                 )}
             </div>
-        </>
+        </PageLayout>
     );
 }

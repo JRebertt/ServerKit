@@ -359,13 +359,10 @@
     }
 }
 
-.main-content:has(.ws-detail-page) {
-    padding: 0;
-
-    @media (max-width: $breakpoint-md) {
-        padding: calc(#{$mobile-header-height} + env(safe-area-inset-top) + #{$space-5}) $space-5 $space-5;
-    }
-}
+// No `.main-content:has(.ws-detail-page)` escape hatch here any more: the page
+// renders through layouts/PageLayout, so the shared full-bleed rule in
+// _main-content.scss already drops the frame (and keeps the mobile header
+// clearance). A second :has() rule would fight it on small screens.
 
 // Workspace detail page using the shared app-detail-page chrome.
 .ws-detail-page {

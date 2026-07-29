@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Send, RefreshCw, Inbox } from 'lucide-react';
 import api from '../services/api';
-import { PageTopbar, MetricCard, KpiBand, FilterDrawer, FilterButton } from '@/components/ds';
+import { MetricCard, KpiBand, FilterDrawer, FilterButton } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -57,34 +58,31 @@ export default function DeliveryLog() {
 
     if (!isAdmin) {
         return (
-            <>
-                <PageTopbar icon={<Send size={18} />} title="Notification Delivery Log" />
+            <PageLayout icon={<Send size={18} />} title="Notification Delivery Log">
                 <div className="sk-dlog"><div className="sk-dlog__empty">Admins only.</div></div>
-            </>
+            </PageLayout>
         );
     }
 
     const byStatus = stats?.by_status || {};
 
     return (
-        <>
-            <PageTopbar
-                icon={<Send size={18} />}
-                title="Notification Delivery Log"
-                meta="Outbound deliveries across all channels"
-                actions={(
-                    <>
-                        <FilterButton
-                            count={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
-                            onClick={() => setFiltersOpen(true)}
-                        />
-                        <Button variant="outline" size="sm" onClick={load}>
-                            <RefreshCw size={14} /> Refresh
-                        </Button>
-                    </>
-                )}
-            />
-
+        <PageLayout
+            icon={<Send size={18} />}
+            title="Notification Delivery Log"
+            meta="Outbound deliveries across all channels"
+            actions={(
+                <>
+                    <FilterButton
+                        count={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
+                        onClick={() => setFiltersOpen(true)}
+                    />
+                    <Button variant="outline" size="sm" onClick={load}>
+                        <RefreshCw size={14} /> Refresh
+                    </Button>
+                </>
+            )}
+        >
             <div className="sk-dlog">
                 <EmailProviders />
 
@@ -162,6 +160,6 @@ export default function DeliveryLog() {
                     setChannel(next.channel || 'all');
                 }}
             />
-        </>
+        </PageLayout>
     );
 }

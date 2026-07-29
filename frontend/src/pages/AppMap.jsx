@@ -12,7 +12,7 @@ import {
     Map as MapIcon, Layers, Compass, Network, Info,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PageTopbar } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import useTabParam from '../hooks/useTabParam';
 
 const VIEWS = [
@@ -284,9 +284,7 @@ export default function AppMap() {
     const view = VIEWS.find(v => v.id === activeView) || VIEWS[0];
 
     return (
-        <div className="app-map">
-            <PageTopbar icon={<MapIcon size={18} />} title="App Map" />
-
+        <PageLayout className="app-map" icon={<MapIcon size={18} />} title="App Map">
             <Tabs value={activeView} onValueChange={setActiveView}>
                 <TabsList>
                     {VIEWS.map(v => (
@@ -329,6 +327,6 @@ export default function AppMap() {
                     <Diagram viewId={activeView} />
                 </ReactFlowProvider>
             </div>
-        </div>
+        </PageLayout>
     );
 }

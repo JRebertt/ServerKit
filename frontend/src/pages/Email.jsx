@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { PageTopbar, Pill, MetricCard, KpiBand, DataTable } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmptyState from '../components/EmptyState';
@@ -109,17 +110,15 @@ export default function Email() {
     }));
 
     return (
-        <>
-            <PageTopbar
-                navLabel="Email Server"
-                tabs={tabs}
-                actions={(
-                    <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>
-                        <RefreshCw size={14} /> Refresh
-                    </Button>
-                )}
-            />
-
+        <PageLayout
+            navLabel="Email Server"
+            tabs={tabs}
+            actions={(
+                <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>
+                    <RefreshCw size={14} /> Refresh
+                </Button>
+            )}
+        >
             <div className="sk-email">
                 {loading ? (
                     <div className="sk-email__empty">Loading…</div>
@@ -141,7 +140,7 @@ export default function Email() {
                     </>
                 )}
             </div>
-        </>
+        </PageLayout>
     );
 }
 
