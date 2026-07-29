@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Cloud, ShieldCheck, Lock, Gauge, Database, Wand2, Eraser, Flame, Zap, Network, HardDrive } from 'lucide-react';
-import { PageTopbar } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import CloudflareWafPanel from '../components/cloudflare/CloudflareWafPanel';
 import WorkersPanel from '../components/cloudflare/WorkersPanel';
 import TunnelsPanel from '../components/cloudflare/TunnelsPanel';
@@ -153,8 +153,12 @@ const CloudflareZoneSettings = () => {
 
     if (error) {
         return (
-            <div className="app-detail-page app-detail-page--wide cf-zone">
-                <PageTopbar icon={<Cloud size={18} />} title={crumbs} />
+            <PageLayout
+                className="cf-zone"
+                contentClassName="app-detail-page app-detail-page--wide"
+                icon={<Cloud size={18} />}
+                title={crumbs}
+            >
                 <div className="cf-zone__body">
                     <EmptyState
                         icon={Cloud}
@@ -166,7 +170,7 @@ const CloudflareZoneSettings = () => {
                         <Link to="/dns"><Button variant="ghost">Back to DNS Zones</Button></Link>
                     </div>
                 </div>
-            </div>
+            </PageLayout>
         );
     }
 
@@ -174,13 +178,13 @@ const CloudflareZoneSettings = () => {
     const firstTab = tabGroups[0]?.key || 'actions';
 
     return (
-        <div className="app-detail-page app-detail-page--wide cf-zone">
-            <PageTopbar
-                icon={<Cloud size={18} />}
-                title={crumbs}
-                meta={zone?.provider_zone_id ? `Zone ${zone.provider_zone_id}` : undefined}
-            />
-
+        <PageLayout
+            className="cf-zone"
+            contentClassName="app-detail-page app-detail-page--wide"
+            icon={<Cloud size={18} />}
+            title={crumbs}
+            meta={zone?.provider_zone_id ? `Zone ${zone.provider_zone_id}` : undefined}
+        >
             <div className="cf-zone__body">
                 <Tabs defaultValue={firstTab} className="cf-zone__tabs">
                     <TabsList>
@@ -316,7 +320,7 @@ const CloudflareZoneSettings = () => {
                     variant="danger"
                 />
             )}
-        </div>
+        </PageLayout>
     );
 };
 

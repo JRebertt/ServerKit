@@ -4,7 +4,8 @@ import {
     Eye, ArrowRightLeft, ServerCog, ShieldCheck, RadioTower, Upload,
     RefreshCw, ArrowRight,
 } from 'lucide-react';
-import { PageTopbar, Pill } from '@/components/ds';
+import { Pill } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import api from '../services/api';
@@ -91,19 +92,18 @@ export default function Coexistence() {
     const observed = servers.filter(isObserved);
 
     return (
-        <div className="page-container coexistence">
-            <PageTopbar
-                icon={<RadioTower size={18} />}
-                title="Coexistence"
-                meta="Running alongside another panel"
-                actions={
-                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                        <RefreshCw size={15} />
-                        Refresh
-                    </Button>
-                }
-            />
-
+        <PageLayout
+            className="coexistence"
+            icon={<RadioTower size={18} />}
+            title="Coexistence"
+            meta="Running alongside another panel"
+            actions={
+                <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                    <RefreshCw size={15} />
+                    Refresh
+                </Button>
+            }
+        >
             <p className="coexistence__intro app-panel-hint">
                 ServerKit has three explicit adoption modes. Pick the one that matches where the
                 box is today — you can move between them as you migrate. The hard rule: keep exactly
@@ -212,6 +212,6 @@ export default function Coexistence() {
                     </div>
                 </section>
             </div>
-        </div>
+        </PageLayout>
     );
 }

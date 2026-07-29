@@ -6,6 +6,7 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
+import { Drawer } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -944,20 +945,17 @@ const ContainerLogsModal = ({ container, onClose }) => {
     }
 
     return (
-        <>
-            <div className="preview-drawer-backdrop" onClick={onClose} />
-            <aside className="preview-drawer">
-                <header className="preview-drawer-header">
-                    <Box size={20} style={{ color: 'var(--accent-primary)' }} />
-                    <div className="preview-drawer-title">
-                        <h3>{getContainerName(container)}</h3>
-                        <p className="preview-drawer-path">{getContainerImage(container)} - {shortId(containerId)}</p>
-                    </div>
-                    <button type="button" className="preview-drawer-close" onClick={onClose}>
-                        <X size={18} />
-                    </button>
-                </header>
-
+        // The shared DS drawer. (The container INSPECTOR next door stays on the
+        // `dx-*` classes — that is the Docker workspace's own language.)
+        <Drawer
+            open
+            onOpenChange={(open) => { if (!open) onClose(); }}
+            title={getContainerName(container)}
+            subtitle={`${getContainerImage(container)} · ${shortId(containerId)}`}
+            icon={<Box size={18} />}
+            width={520}
+            flush
+        >
                 <div className="preview-drawer-meta">
                     <div className="meta-item">
                         <span className="meta-label">Status</span>
@@ -1014,8 +1012,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
                         searchPattern={appliedSearch}
                     />
                 </div>
-            </aside>
-        </>
+        </Drawer>
     );
 };
 

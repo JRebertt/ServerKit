@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
-import { Pill, PageTopbar } from '@/components/ds';
+import { Pill } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { timeAgo, formatDuration } from '../utils/time';
@@ -343,29 +344,28 @@ const TestSandbox = () => {
 
     if (loading) {
         return (
-            <div className="page-container test-sandbox-page">
+            <PageLayout className="test-sandbox-page" icon={<FlaskConical size={18} />} title="Test Sandbox">
                 <EmptyState loading loadingVariant="table" size="lg" title="Loading test sandbox..." />
-            </div>
+            </PageLayout>
         );
     }
 
     return (
-        <div className="page-container test-sandbox-page">
-            <PageTopbar
-                icon={<FlaskConical size={18} />}
-                title="Test Sandbox"
-                actions={(
-                    <Button
-                        variant="outline"
-                        onClick={() => { loadRuns(); }}
-                        disabled={runsLoading}
-                    >
-                        <RefreshCw size={15} />
-                        Refresh
-                    </Button>
-                )}
-            />
-
+        <PageLayout
+            className="test-sandbox-page"
+            icon={<FlaskConical size={18} />}
+            title="Test Sandbox"
+            actions={(
+                <Button
+                    variant="outline"
+                    onClick={() => { loadRuns(); }}
+                    disabled={runsLoading}
+                >
+                    <RefreshCw size={15} />
+                    Refresh
+                </Button>
+            )}
+        >
             {loadError && (
                 <div className="alert alert-danger">
                     {loadError}
@@ -549,7 +549,7 @@ const TestSandbox = () => {
                     </div>
                 )}
             </section>
-        </div>
+        </PageLayout>
     );
 };
 

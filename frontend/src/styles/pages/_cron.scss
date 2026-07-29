@@ -6,12 +6,41 @@
 
     // ── list head ───────────────────────────────────────────
     // No KPI strip and no in-body search box: the segmented filter carries the
-    // counts and search lives in the top bar, matching /domains.
+    // counts and search lives in the top bar, matching /domains. The section
+    // title anchors the left, everything that qualifies the list sits right.
     .cron-listhead {
         display: flex;
         align-items: center;
         gap: $space-4;
         margin-bottom: $space-3;
+
+        &__title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: $font-weight-semibold;
+            letter-spacing: -0.01em;
+            color: var(--text);
+        }
+
+        &__right {
+            display: flex;
+            align-items: center;
+            gap: $space-3;
+            margin-left: auto;
+        }
+
+        &__count {
+            font-family: var(--mono);
+            font-size: 11.5px;
+            color: var(--text-faint);
+            white-space: nowrap;
+        }
+
+        @media (max-width: $breakpoint-md) {
+            flex-wrap: wrap;
+
+            &__right { width: 100%; margin-left: 0; }
+        }
     }
 
     .cron-servicenote {
@@ -251,7 +280,7 @@
 }
 
 .cron-drawer {
-    padding: $space-5 $space-5 $space-8;
+    // Inset comes from .sk-drawer__body (padded by default).
     display: flex;
     flex-direction: column;
     gap: $space-5;
@@ -550,5 +579,90 @@
         font-family: var(--mono);
         font-size: 11px;
         color: var(--text-faint);
+    }
+}
+
+// ============================================
+// CRON CREATE / EDIT DRAWER
+// The form fields around the shared <SchedulePicker/>; the picker brings its
+// own styling (components/_schedule-picker.scss).
+// ============================================
+.cron-form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+    // `.sk-drawer__body` is the scroll region and carries no padding of its own
+    // (some drawers are edge-to-edge), so every drawer body pads itself. Same
+    // inset as .cron-drawer so the two cron drawers line up.
+    padding: $space-5 $space-5 $space-8;
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+
+        > label {
+            font-size: 12px;
+            font-weight: $font-weight-medium;
+            color: var(--text-dim);
+        }
+    }
+
+    &__input {
+        width: 100%;
+        padding: 9px 11px;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        outline: none;
+
+        &::placeholder { color: var(--text-ghost); }
+
+        &:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-bg);
+        }
+
+        &--mono {
+            font-family: var(--mono);
+            font-size: 12.5px;
+        }
+    }
+
+    &__textarea {
+        resize: vertical;
+        min-height: 56px;
+    }
+
+    &__hint {
+        font-size: 11.5px;
+        color: var(--text-faint);
+    }
+
+    &__entry {
+        margin: 0;
+        padding: 10px 12px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-dim);
+        white-space: pre;
+        background: var(--bg-terminal, var(--surface-3));
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+        padding-top: $space-2;
+
+        // Cancel sits left, the commit button right — same footer shape as the
+        // rest of the drawers.
+        > :last-child { margin-left: auto; }
     }
 }

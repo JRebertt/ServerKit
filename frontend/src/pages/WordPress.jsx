@@ -533,6 +533,7 @@ function WordPress() {
                 creating a WordPress site and deploying a template feel like one
                 product rather than two. */}
             <Drawer
+                flush
                 open={showCreateModal}
                 onOpenChange={(next) => { if (!next && !createLoading) setShowCreateModal(false); }}
                 title="Create WordPress Site"

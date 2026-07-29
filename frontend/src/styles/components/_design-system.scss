@@ -555,7 +555,18 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     &__ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; background: var(--surface-2); color: var(--text-dim); }
     &__title { font-weight: 600; font-size: 14.5px; }
     &__sub { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-top: 1px; }
-    &__body { flex: 1; overflow: auto; min-height: 0; }
+    // Padded by default, to the header's own 18px side inset, so a drawer body
+    // never renders flush against the panel edge just because its author forgot
+    // to pad it. Bodies that own their internal regions (a form with a pinned
+    // footer, a two-pane catalog, an editor, a log tail) opt out with `flush`.
+    &__body {
+        flex: 1;
+        overflow: auto;
+        min-height: 0;
+        padding: 18px 18px 28px;
+
+        &--flush { padding: 0; }
+    }
 }
 
 // ------------------------------------------------------------
@@ -629,7 +640,6 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     display: flex;
     flex-direction: column;
     gap: 22px;
-    padding: 18px;
 
     &__group { display: flex; flex-direction: column; gap: 10px; }
 

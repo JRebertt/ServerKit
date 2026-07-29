@@ -64,6 +64,7 @@
 @import 'components/_empty-state';
 @import 'components/_status-badge';
 @import 'components/_server-selector';
+@import 'components/_schedule-picker';   // shared cron picker (CronJobs, Backups, server-detail)
 @import 'components/_contribution-graph';
 @import 'components/_command-palette';
 @import 'components/_logs-drawer';

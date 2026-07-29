@@ -9,7 +9,8 @@ import api from '../services/api';
 import HtaccessConverter from '../components/apps/HtaccessConverter';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { PageTopbar, Pill } from '@/components/ds';
+import { Pill } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -366,24 +367,22 @@ function ImportWizard() {
     const stepperIndex = step - 1;
 
     return (
-        <>
-            <PageTopbar
-                icon={<ArrowDownToLine size={18} />}
-                title="Import a site"
-                meta="Bring a site over from another control panel"
-                actions={(
-                    <>
-                        {/* Imported sites often carry .htaccess rules — offer the translator here. */}
-                        <HtaccessConverter />
-                        {step > 1 && (
-                            <Button variant="outline" size="sm" onClick={resetWizard}>
-                                Start over
-                            </Button>
-                        )}
-                    </>
-                )}
-            />
-
+        <PageLayout
+            icon={<ArrowDownToLine size={18} />}
+            title="Import a site"
+            meta="Bring a site over from another control panel"
+            actions={(
+                <>
+                    {/* Imported sites often carry .htaccess rules — offer the translator here. */}
+                    <HtaccessConverter />
+                    {step > 1 && (
+                        <Button variant="outline" size="sm" onClick={resetWizard}>
+                            Start over
+                        </Button>
+                    )}
+                </>
+            )}
+        >
             <div className="import-wizard">
                 {/* Stepper */}
                 <ol className="import-wizard__stepper">
@@ -680,7 +679,7 @@ function ImportWizard() {
                     )}
                 </section>
             </div>
-        </>
+        </PageLayout>
     );
 }
 

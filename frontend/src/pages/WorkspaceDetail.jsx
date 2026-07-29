@@ -7,7 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
-import { Pill, ServiceTile, PageTopbar } from '@/components/ds';
+import { Pill, ServiceTile } from '@/components/ds';
+import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import {
     LayoutGrid, ChevronLeft, Server, Box, Globe,
@@ -180,14 +181,21 @@ const WorkspaceDetail = () => {
         } catch (err) { toast.error(err.message); }
     };
 
-    if (loading) return <div className="page-container workspaces-page ws-detail"><EmptyState loading loadingVariant="detail" title="Loading workspace" /></div>;
+    // Pre-load states take the same shell as the loaded page.
+    if (loading) {
+        return (
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title="Workspace">
+                <EmptyState loading loadingVariant="detail" title="Loading workspace" />
+            </PageLayout>
+        );
+    }
 
     if (!ws) {
         return (
-            <div className="page-container workspaces-page ws-detail">
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title="Workspace">
                 <Link className="ws-detail__back" to="/workspaces"><ChevronLeft size={14} /> All workspaces</Link>
                 <EmptyState icon={LayoutGrid} title="Workspace not found" description="It may have been deleted, or you may not have access." />
-            </div>
+            </PageLayout>
         );
     }
 
@@ -200,18 +208,19 @@ const WorkspaceDetail = () => {
     const since = formatSince(ws.created_at);
 
     return (
-        <div className="app-detail-page app-detail-page--wide ws-detail-page">
-            <PageTopbar
-                className="ws-detail-topbar"
-                icon={<LayoutGrid size={18} />}
-                title={(
-                    <span className="ws-crumbs">
-                        <Link to="/workspaces">Workspaces</Link>
-                        <span className="ws-crumbs__sep">/</span>
-                        <span className="ws-crumbs__cur">{ws.name}</span>
-                    </span>
-                )}
-            />
+        <PageLayout
+            className="ws-detail-page"
+            topbarClassName="ws-detail-topbar"
+            contentClassName="app-detail-page app-detail-page--wide"
+            icon={<LayoutGrid size={18} />}
+            title={(
+                <span className="ws-crumbs">
+                    <Link to="/workspaces">Workspaces</Link>
+                    <span className="ws-crumbs__sep">/</span>
+                    <span className="ws-crumbs__cur">{ws.name}</span>
+                </span>
+            )}
+        >
 
             <div className="app-detail-body">
                 <div className="app-detail-header">
@@ -364,7 +373,7 @@ const WorkspaceDetail = () => {
                     variant="danger"
                 />
             )}
-        </div>
+        </PageLayout>
     );
 };
 

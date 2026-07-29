@@ -9,12 +9,21 @@ import {
     Clock, Plus, RefreshCw, Play, Pause, Trash2, Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Pill, SegControl, SearchField, PageTopbar, DataTable, Drawer } from '@/components/ds';
+import { Pill, SegControl, SearchField, DataTable, Drawer } from '@/components/ds';
+import SchedulePicker from '../components/SchedulePicker';
+import PageLayout from '../layouts/PageLayout';
+
+// A new job opens on a sane, non-destructive cadence rather than an empty
+// expression the picker would have to render as invalid.
+const DEFAULT_SCHEDULE = '0 3 * * *';
+
+const EMPTY_JOB_FORM = {
+    name: '',
+    command: '',
+    schedule: DEFAULT_SCHEDULE,
+    description: '',
+};
 
 // Fallback humanizer for the handful of schedules the backend can't describe.
 const SCHEDULE_LABELS = {
@@ -81,7 +90,6 @@ const CronJobs = () => {
     const { confirm } = useConfirm();
     const [status, setStatus] = useState(null);
     const [jobs, setJobs] = useState([]);
-    const [presets, setPresets] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -91,32 +99,20 @@ const CronJobs = () => {
 
     // Drawer + modal states
     const [drawerJob, setDrawerJob] = useState(null);
-    const [showJobModal, setShowJobModal] = useState(false);
+    const [showJobDrawer, setShowJobDrawer] = useState(false);
     const [editingJob, setEditingJob] = useState(null);
     const [runningJobId, setRunningJobId] = useState(null);
     const [runOutput, setRunOutput] = useState(null);
 
-    // Form state
-    const [jobForm, setJobForm] = useState({
-        name: '',
-        command: '',
-        schedule: '',
-        description: '',
-        usePreset: true,
-        preset: 'daily',
-    });
-
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const [statusRes, jobsRes, presetsRes] = await Promise.all([
+            const [statusRes, jobsRes] = await Promise.all([
                 api.getCronStatus(),
                 api.getCronJobs(),
-                api.getCronPresets(),
             ]);
             setStatus(statusRes);
             setJobs(jobsRes.jobs || []);
-            setPresets(presetsRes.presets || {});
         } catch (err) {
             setError(err.message);
         } finally {
@@ -128,68 +124,19 @@ const CronJobs = () => {
         loadData();
     }, [loadData]);
 
-    const resetForm = () => {
-        setJobForm({
-            name: '',
-            command: '',
-            schedule: '',
-            description: '',
-            usePreset: true,
-            preset: 'daily',
-        });
-    };
-
-    const openCreateModal = () => {
+    const openCreateDrawer = () => {
         setEditingJob(null);
-        resetForm();
-        setShowJobModal(true);
+        setShowJobDrawer(true);
     };
 
-    const openEditModal = (job) => {
+    const openEditDrawer = (job) => {
         setEditingJob(job);
-        const presetKey = Object.entries(presets).find(([, v]) => v === job.schedule)?.[0];
-        setJobForm({
-            name: job.name || '',
-            command: job.command || '',
-            schedule: job.schedule || '',
-            description: job.description || '',
-            usePreset: !!presetKey,
-            preset: presetKey || 'daily',
-        });
-        setShowJobModal(true);
+        setShowJobDrawer(true);
     };
 
-    const closeJobModal = () => {
-        setShowJobModal(false);
+    const closeJobDrawer = () => {
+        setShowJobDrawer(false);
         setEditingJob(null);
-        resetForm();
-    };
-
-    const handleSubmitJob = async (e) => {
-        e.preventDefault();
-        try {
-            const schedule = jobForm.usePreset ? presets[jobForm.preset] : jobForm.schedule;
-            const payload = {
-                name: jobForm.name,
-                command: jobForm.command,
-                schedule,
-                description: jobForm.description,
-            };
-
-            if (editingJob) {
-                await api.updateCronJob(editingJob.id, payload);
-                toast.success('Cron job updated successfully');
-            } else {
-                await api.createCronJob(payload);
-                toast.success('Cron job created successfully');
-            }
-
-            closeJobModal();
-            setDrawerJob(null);
-            loadData();
-        } catch (err) {
-            toast.error(err.message);
-        }
     };
 
     const handleDeleteJob = async (jobId) => {
@@ -272,27 +219,26 @@ const CronJobs = () => {
             : (status?.type === 'serverkit_scheduler' ? 'internal scheduler' : null);
 
     return (
-        <div className="page-container cron-page">
-            <PageTopbar
-                icon={<Clock size={18} />}
-                title="Cron Jobs"
-                actions={(
-                    <>
-                        <Button variant="outline" size="sm" onClick={loadData}>
-                            <RefreshCw size={15} /> Refresh
-                        </Button>
-                        <Button size="sm" onClick={openCreateModal}>
-                            <Plus size={15} /> Create job
-                        </Button>
-                        <SearchField
-                            value={search}
-                            onSearch={setSearch}
-                            placeholder="Search jobs or commands…"
-                        />
-                    </>
-                )}
-            />
-
+        <PageLayout
+            className="cron-page"
+            icon={<Clock size={18} />}
+            title="Cron Jobs"
+            actions={(
+                <>
+                    <Button variant="outline" size="sm" onClick={loadData}>
+                        <RefreshCw size={15} /> Refresh
+                    </Button>
+                    <Button size="sm" onClick={openCreateDrawer}>
+                        <Plus size={15} /> New cron job
+                    </Button>
+                    <SearchField
+                        value={search}
+                        onSearch={setSearch}
+                        placeholder="Search jobs or commands…"
+                    />
+                </>
+            )}
+        >
             {error && (
                 <div className="error-banner">
                     {error}
@@ -314,15 +260,21 @@ const CronJobs = () => {
                     icon={Clock}
                     title="No cron jobs"
                     description="No scheduled jobs found. Create your first cron job to automate tasks."
-                    action={<Button onClick={openCreateModal}><Plus size={16} /> Create job</Button>}
+                    action={<Button onClick={openCreateDrawer}><Plus size={16} /> Create job</Button>}
                 />
             ) : (
                 <div className="cron-body">
                     {/* No KPI strip: every number it carried is already on the
                         segment you'd click to act on it (mirrors /domains). */}
                     <div className="cron-listhead">
-                        <SegControl value={filter} onChange={setFilter} options={filterOptions} />
-                        {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
+                        <h2 className="cron-listhead__title">All jobs</h2>
+                        <div className="cron-listhead__right">
+                            {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
+                            <span className="cron-listhead__count">
+                                {shown.length} of {jobs.length} jobs
+                            </span>
+                            <SegControl value={filter} onChange={setFilter} options={filterOptions} />
+                        </div>
                     </div>
 
                     {shown.length === 0 ? (
@@ -447,101 +399,17 @@ const CronJobs = () => {
                 onClose={() => setDrawerJob(null)}
                 onRefresh={loadData}
                 onRun={handleRunJob}
-                onEdit={(j) => { setDrawerJob(null); openEditModal(j); }}
+                onEdit={(j) => { setDrawerJob(null); openEditDrawer(j); }}
                 onDelete={handleDeleteJob}
                 onToggle={handleToggleJob}
             />
 
-            {/* Create/Edit Job Modal */}
-            <Modal open={showJobModal} onClose={closeJobModal} title={editingJob ? 'Edit Cron Job' : 'Create Cron Job'}>
-                <form onSubmit={handleSubmitJob}>
-                    <div className="form-group">
-                        <Label htmlFor="job-name">Job Name</Label>
-                        <Input
-                            id="job-name"
-                            type="text"
-                            value={jobForm.name}
-                            onChange={(e) => setJobForm({ ...jobForm, name: e.target.value })}
-                            placeholder="My Backup Job"
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <Label htmlFor="job-command">Command</Label>
-                        <Input
-                            id="job-command"
-                            type="text"
-                            value={jobForm.command}
-                            onChange={(e) => setJobForm({ ...jobForm, command: e.target.value })}
-                            placeholder="/usr/bin/backup.sh"
-                            required
-                        />
-                        <span className="form-help">The command or script to execute</span>
-                    </div>
-
-                    <div className="form-group">
-                        <label className="checkbox-label">
-                            <Checkbox
-                                checked={jobForm.usePreset}
-                                onCheckedChange={(checked) => setJobForm({ ...jobForm, usePreset: !!checked })}
-                            />
-                            <span>Use preset schedule</span>
-                        </label>
-                    </div>
-
-                    {jobForm.usePreset ? (
-                        <div className="form-group">
-                            <Label htmlFor="job-preset">Schedule Preset</Label>
-                            <select
-                                id="job-preset"
-                                value={jobForm.preset}
-                                onChange={(e) => setJobForm({ ...jobForm, preset: e.target.value })}
-                            >
-                                {Object.entries(presets).map(([key, value]) => (
-                                    <option key={key} value={key}>
-                                        {key.replace(/_/g, ' ')} ({value})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    ) : (
-                        <div className="form-group">
-                            <Label htmlFor="job-schedule">Cron Schedule</Label>
-                            <Input
-                                id="job-schedule"
-                                type="text"
-                                value={jobForm.schedule}
-                                onChange={(e) => setJobForm({ ...jobForm, schedule: e.target.value })}
-                                placeholder="0 0 * * *"
-                                required={!jobForm.usePreset}
-                            />
-                            <span className="form-help">
-                                Format: minute hour day month weekday (e.g., &quot;0 0 * * *&quot; for daily at midnight)
-                            </span>
-                        </div>
-                    )}
-
-                    <div className="form-group">
-                        <Label htmlFor="job-description">Description (optional)</Label>
-                        <Textarea
-                            id="job-description"
-                            value={jobForm.description}
-                            onChange={(e) => setJobForm({ ...jobForm, description: e.target.value })}
-                            placeholder="What does this job do?"
-                            rows={2}
-                        />
-                    </div>
-                    <div className="modal-actions">
-                        <Button type="button" variant="outline" onClick={closeJobModal}>
-                            Cancel
-                        </Button>
-                        <Button type="submit">
-                            {editingJob ? 'Save Changes' : 'Create Job'}
-                        </Button>
-                    </div>
-                </form>
-            </Modal>
+            <CronFormDrawer
+                open={showJobDrawer}
+                job={editingJob}
+                onClose={closeJobDrawer}
+                onSaved={() => { closeJobDrawer(); loadData(); }}
+            />
 
             {/* Run Output Modal */}
             <Modal open={!!runOutput} onClose={() => setRunOutput(null)} title={runOutput ? `Run Output: ${runOutput.jobName}` : ''}>
@@ -574,7 +442,7 @@ const CronJobs = () => {
                     <Button variant="outline" onClick={() => setRunOutput(null)}>Close</Button>
                 </div>
             </Modal>
-        </div>
+        </PageLayout>
     );
 };
 
@@ -800,6 +668,142 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                 </section>
             </div>
             )}
+        </Drawer>
+    );
+}
+
+// Create / edit drawer. The schedule half is the shared <SchedulePicker/> —
+// presets, a builder, a raw cron field with per-position hints, the humanized
+// description and the next fire times — the same control Backups schedules use.
+// This page contributes the two fields cron actually needs on top of it.
+function CronFormDrawer({ open, job, onClose, onSaved }) {
+    const toast = useToast();
+    const [form, setForm] = useState(EMPTY_JOB_FORM);
+    const [saving, setSaving] = useState(false);
+
+    // Seed on open rather than on mount: the drawer stays mounted (so closing
+    // plays the slide-out) and is reused for both create and edit.
+    useEffect(() => {
+        if (!open) return;
+        setForm(job
+            ? {
+                name: job.name || '',
+                command: job.command || '',
+                schedule: job.schedule || DEFAULT_SCHEDULE,
+                description: job.description || '',
+            }
+            : { ...EMPTY_JOB_FORM });
+    }, [open, job]);
+
+    const patch = (p) => setForm((f) => ({ ...f, ...p }));
+    const schedule = form.schedule.trim().replace(/\s+/g, ' ');
+    const canSave = !!(form.name.trim() && form.command.trim() && schedule);
+
+    const submit = async (e) => {
+        e.preventDefault();
+        if (!canSave || saving) return;
+        setSaving(true);
+        try {
+            const payload = {
+                name: form.name.trim(),
+                command: form.command.trim(),
+                schedule,
+                description: form.description.trim(),
+            };
+            if (job) {
+                await api.updateCronJob(job.id, payload);
+                toast.success('Cron job updated');
+            } else {
+                await api.createCronJob(payload);
+                toast.success('Cron job created');
+            }
+            onSaved();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Drawer
+            open={open}
+            onOpenChange={(o) => { if (!o) onClose(); }}
+            title={job ? 'Edit cron job' : 'New cron job'}
+            subtitle={job ? job.name : 'Schedule a command on this server'}
+            icon={<Clock size={18} />}
+            width={600}
+            className="cron-form-drawer"
+        >
+            <form className="cron-form" onSubmit={submit}>
+                <div className="cron-form__field">
+                    <label htmlFor="cron-name">Job name</label>
+                    <input
+                        id="cron-name"
+                        className="cron-form__input"
+                        value={form.name}
+                        onChange={(e) => patch({ name: e.target.value })}
+                        placeholder="e.g. Nightly site backups"
+                    />
+                </div>
+
+                <div className="cron-form__field">
+                    <label htmlFor="cron-command">Command</label>
+                    <input
+                        id="cron-command"
+                        className="cron-form__input cron-form__input--mono"
+                        value={form.command}
+                        onChange={(e) => patch({ command: e.target.value })}
+                        placeholder="/usr/bin/backup.sh --all"
+                        spellCheck={false}
+                    />
+                    <span className="cron-form__hint">
+                        Runs as the panel&apos;s system user, from its home directory.
+                    </span>
+                </div>
+
+                <div className="cron-form__field">
+                    <label htmlFor="cron-schedule-picker">Schedule</label>
+                    <div id="cron-schedule-picker">
+                        <SchedulePicker
+                            value={form.schedule}
+                            onChange={(cron) => patch({ schedule: cron })}
+                        />
+                    </div>
+                </div>
+
+                <div className="cron-form__field">
+                    <label htmlFor="cron-description">Description (optional)</label>
+                    <textarea
+                        id="cron-description"
+                        className="cron-form__input cron-form__textarea"
+                        value={form.description}
+                        onChange={(e) => patch({ description: e.target.value })}
+                        placeholder="What does this job do?"
+                        rows={2}
+                    />
+                </div>
+
+                {/* The line this form will actually write to the crontab —
+                    what you would have typed by hand, shown before you commit. */}
+                <div className="cron-form__field">
+                    <label htmlFor="cron-entry">Crontab entry</label>
+                    <pre id="cron-entry" className="cron-form__entry">
+                        {`${schedule || '* * * * *'} ${form.command.trim() || '<command>'}`}
+                    </pre>
+                </div>
+
+                <div className="cron-form__actions">
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="submit" disabled={!canSave || saving}>
+                        {saving
+                            ? 'Saving…'
+                            : job
+                                ? 'Save changes'
+                                : <><Plus size={15} /> Create job</>}
+                    </Button>
+                </div>
+            </form>
         </Drawer>
     );
 }
