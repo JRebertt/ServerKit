@@ -33,7 +33,7 @@ export default function PageLayout({
     children,
 }) {
     return (
-        <div className={cn('page-container page-container--full-bleed sk-page', className)}>
+        <div className={cn('page-container page-container--full-bleed sk-pageshell', className)}>
             <PageTopbar
                 className={topbarClassName}
                 icon={icon}
@@ -43,11 +43,11 @@ export default function PageLayout({
                 navLabel={navLabel}
                 actions={actions}
             />
-            <div className="sk-page__content">
+            <div className="sk-pageshell__content">
                 {fill ? (
-                    <div className={cn('sk-page__fill', contentClassName)}>{children}</div>
+                    <div className={cn('sk-pageshell__fill', contentClassName)}>{children}</div>
                 ) : (
-                    <div className={cn('sk-page__inner', contentClassName)}>{children}</div>
+                    <div className={cn('sk-pageshell__inner', contentClassName)}>{children}</div>
                 )}
             </div>
         </div>

@@ -80,7 +80,7 @@
 // ============================================================
 // PAGE SHELL
 // The one frame every page gets, in two flavours:
-//   .sk-page      — a standalone page   (layouts/PageLayout.jsx)
+//   .sk-pageshell — a standalone page   (layouts/PageLayout.jsx)
 //   .sk-tabgroup  — a routed tab group  (layouts/TabGroupLayout.jsx)
 // Both are full-bleed so the top bar pins flush to the top of the content
 // region and the body scrolls beneath it. A page should never hand-roll this:
@@ -125,7 +125,10 @@
 }
 
 // Standalone pages (Cron Jobs, Settings, Documentation, …).
-.sk-page {
+// NOT `.sk-page` — components/PageSkeleton.jsx already owns that name for its
+// loading archetypes, and its `gap: 16px` leaked in as a band of page
+// background between the top bar and the content on every shell page.
+.sk-pageshell {
     @include page-shell;
 
     &__content {
@@ -133,7 +136,7 @@
 
         // `fill` bodies (terminals, consoles, trees) take the whole region and
         // manage their own scroll instead of riding the centered column.
-        > .sk-page__fill { flex: 1; min-height: 0; }
+        > .sk-pageshell__fill { flex: 1; min-height: 0; }
     }
 
     &__inner { @include page-shell-inner; }
