@@ -75,6 +75,7 @@
 @import 'components/_dashboard-widgets';  // configurable dashboard grid (skw-* namespace)
 @import 'components/_widget-editor';      // wide preview+settings widget drawer (skwe-* namespace)
 @import 'components/_system-notices';
+@import 'components/_requires-docker';
 @import 'components/container-status';
 @import 'components/api-key-scopes';
 @import 'components/onboarding-wizard';

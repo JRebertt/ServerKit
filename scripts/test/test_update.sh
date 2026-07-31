@@ -1449,5 +1449,96 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# Install profiles: the minimal profile ships without Docker on purpose, so
+# preflight must not demand it — otherwise every minimal box is installable but
+# permanently un-updatable.
+# --------------------------------------------------------------------------
+pt="$WORK/profile"; mkdir -p "$pt/slot"
+mkenv() { printf 'DATABASE_URL=sqlite:///x\n%s\n' "$1" > "$pt/slot/.env"; }
+
+read_profile() {  # read_profile — echo install_profile() under a fixture slot
+    ( set -Eeuo pipefail
+      INSTALL_DIR="$pt/slot"; DIR_A="$pt/slot"; DIR_B="$pt/other"
+      install_profile )
+}
+
+mkenv 'SERVERKIT_PROFILE=minimal'
+if [ "$(read_profile)" = "minimal" ]; then
+    ok "install_profile reads SERVERKIT_PROFILE from the active slot's .env"
+else
+    bad "install_profile misread a minimal .env: got [$(read_profile)]"
+fi
+
+mkenv 'SERVERKIT_PROFILE=banana'
+if [ "$(read_profile)" = "standard" ]; then
+    ok "install_profile falls back to standard on a bogus value"
+else
+    bad "install_profile accepted a bogus profile: got [$(read_profile)]"
+fi
+
+# Every install predating profiles has no such key and is effectively standard.
+mkenv 'PORT=80'
+if [ "$(read_profile)" = "standard" ]; then
+    ok "install_profile treats a pre-profile .env as standard"
+else
+    bad "install_profile mishandled a pre-profile .env: got [$(read_profile)]"
+fi
+
+# No .env at all (fresh base dir) must not abort under pipefail.
+if res="$( set -Eeuo pipefail; INSTALL_DIR="$pt/missing"; DIR_A="$pt/missing"
+           DIR_B="$pt/other"; install_profile )"; then
+    ok "install_profile survives a missing .env (got [$res])"
+else
+    bad "install_profile aborted with no .env under set -Eeuo pipefail"
+fi
+
+# The actual regression: minimal + no docker binary → Docker is not required.
+# have_docker() is the seam; hiding docker by trimming PATH would also hide the
+# coreutils install_profile parses with, and the assertion would then pass for
+# the wrong reason.
+mkenv 'SERVERKIT_PROFILE=minimal'
+if ( set -Eeuo pipefail
+     INSTALL_DIR="$pt/slot"; DIR_A="$pt/slot"; DIR_B="$pt/other"
+     have_docker() { return 1; }
+     update_needs_docker ); then
+    bad "update_needs_docker still demands Docker on a minimal Dockerless box (update would halt)"
+else
+    ok "update_needs_docker: minimal + no docker → Docker not required"
+fi
+
+# ...but if the operator later installed Docker, keep validating it.
+if ( set -Eeuo pipefail
+     INSTALL_DIR="$pt/slot"; DIR_A="$pt/slot"; DIR_B="$pt/other"
+     have_docker() { return 0; }
+     update_needs_docker ); then
+    ok "update_needs_docker: minimal + docker present → still validated"
+else
+    bad "update_needs_docker skipped a Docker that is actually installed"
+fi
+
+# A standard install without Docker is real drift and must still halt.
+mkenv 'SERVERKIT_PROFILE=standard'
+if ( set -Eeuo pipefail
+     INSTALL_DIR="$pt/slot"; DIR_A="$pt/slot"; DIR_B="$pt/other"
+     have_docker() { return 1; }
+     update_needs_docker ); then
+    ok "update_needs_docker: standard profile still requires Docker"
+else
+    bad "update_needs_docker let a standard install skip Docker"
+fi
+
+# An all-Docker deployment needs Docker no matter what the profile says.
+mkenv 'SERVERKIT_PROFILE=minimal'
+if ( set -Eeuo pipefail
+     INSTALL_DIR="$pt/slot"; DIR_A="$pt/slot"; DIR_B="$pt/other"
+     have_docker() { return 1; }
+     is_docker_deployment() { return 0; }
+     update_needs_docker ); then
+    ok "update_needs_docker: all-Docker deployment overrides the minimal profile"
+else
+    bad "update_needs_docker skipped Docker for an all-Docker deployment"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]

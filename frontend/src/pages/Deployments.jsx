@@ -16,6 +16,7 @@ import Skeleton from '../components/Skeleton';
 import { Button } from '@/components/ui/button';
 import { SegControl, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import RequiresDocker from '../components/RequiresDocker';
 import {
     KIND_CHIP,
     stepTicks,
@@ -170,6 +171,7 @@ const Deployments = () => {
     );
 
     return (
+        <RequiresDocker what="Deployments">
         <div className="sk-tabgroup__inner deployments-page">
             <div className="deployments-page__toolbar">
                 <SegControl
@@ -347,6 +349,7 @@ const Deployments = () => {
                 </div>
             </Modal>
         </div>
+        </RequiresDocker>
     );
 };
 

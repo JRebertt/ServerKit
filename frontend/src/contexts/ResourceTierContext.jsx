@@ -22,14 +22,16 @@ export function ResourceTierProvider({ children }) {
         try {
             setLoading(true);
             setError(null);
+            // /system/capacity is a superset of /system/resource-tier: same
+            // specs and tier, plus live headroom and the install profile.
             const endpoint = forceRefresh
-                ? '/system/resource-tier?refresh=true'
-                : '/system/resource-tier';
+                ? '/system/capacity?refresh=true'
+                : '/system/capacity';
             const data = await api.request(endpoint);
             setTierInfo(data);
         } catch (err) {
-            console.error('Failed to fetch resource tier:', err);
-            setError(err.message || 'Failed to fetch resource tier');
+            console.error('Failed to fetch server capacity:', err);
+            setError(err.message || 'Failed to fetch server capacity');
         } finally {
             setLoading(false);
         }
@@ -47,7 +49,22 @@ export function ResourceTierProvider({ children }) {
         loading,
         error,
         refresh,
-        canCreateWordPress: tierInfo?.features?.wordpress_create ?? true,
+
+        // Live capacity — the number that actually moves as apps get deployed.
+        headroom: tierInfo?.headroom || null,
+
+        // What this install provisioned, and what it can do right now.
+        profile: tierInfo?.profile || null,
+        profiles: tierInfo?.profiles || {},
+        capabilities: tierInfo?.capabilities || {},
+        recommendedProfile: tierInfo?.recommended_profile || null,
+        profileDrift: tierInfo?.drift || [],
+        canHostApps: tierInfo?.capabilities?.can_host_apps ?? true,
+
+        // Creation is never blocked on resources — this reports whether the
+        // server comfortably meets the recommendation so the UI can warn at
+        // the point of action instead of hiding the action.
+        isWordPressAdvised: tierInfo?.features?.wordpress_create_advised ?? true,
         isLiteTier: tierInfo?.tier === 'lite',
         isStandardTier: tierInfo?.tier === 'standard',
         isPerformanceTier: tierInfo?.tier === 'performance',

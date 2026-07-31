@@ -7,6 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import User
 from app.services.system_service import SystemService
 from app.services.resource_tier_service import ResourceTierService
+from app.services import install_profile_service
 from app.services.site_domain_service import SiteDomainService
 from app.utils.domain import is_valid_canonical_domain
 from app.utils.version import get_panel_version, get_install_dir
@@ -281,6 +282,56 @@ def get_resource_tier():
     tier_info = ResourceTierService.get_tier_info(force_refresh=force_refresh)
 
     return jsonify(tier_info), 200
+
+
+@system_bp.route('/capacity', methods=['GET'])
+@jwt_required()
+def get_capacity():
+    """
+    Server capacity: live headroom, install profile, and probed capabilities.
+
+    This is the endpoint the setup wizard and the dashboard should read.
+    /resource-tier remains for callers that only want the tier label; this one
+    additionally answers "what did we install" and "can this box host apps".
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if not user or user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    force_refresh = request.args.get('refresh', 'false').lower() == 'true'
+    tier_info = ResourceTierService.get_tier_info(force_refresh=force_refresh)
+    profile_info = install_profile_service.get_profile_info(force_refresh=force_refresh)
+
+    return jsonify({
+        **tier_info,
+        **profile_info,
+        'recommended_profile': install_profile_service.recommend_profile(
+            tier_info['specs']
+        ),
+    }), 200
+
+
+@system_bp.route('/capacity/profile', methods=['PUT'])
+@jwt_required()
+def set_capacity_profile():
+    """Record an operator's profile change made after install."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if not user or user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json() or {}
+    profile = data.get('profile')
+
+    try:
+        install_profile_service.set_profile(profile, user_id=user.id)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    return jsonify(install_profile_service.get_profile_info()), 200
 
 
 @system_bp.route('/time', methods=['GET'])

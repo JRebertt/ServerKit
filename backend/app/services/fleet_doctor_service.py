@@ -43,6 +43,14 @@ FLEET_DOCTOR_SCHEDULE_NAME = 'fleet-doctor'
 
 # Core systemd units the fleet doctor probes on every agent (mirrors the
 # panel-host doctor's CORE_SERVICES).
+#
+# Deliberately NOT profile-aware, unlike DoctorService._expected_services():
+# an install profile describes the *panel* host, and these units live on remote
+# agent boxes that were never provisioned by this panel's installer. Telling a
+# Dockerless agent apart from a stopped-Docker agent needs the agent to report
+# "unit not installed" rather than just active=false, which is a change in the
+# serverkit-agent repo — panel↔agent protocol changes are not atomic with this
+# one. Until then a Dockerless fleet member reports a Docker failure.
 DOCTOR_UNITS = ('nginx', 'docker')
 
 # Capability an agent advertises when it implements the batched doctor:probe

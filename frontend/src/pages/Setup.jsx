@@ -5,16 +5,18 @@ import { Check, ArrowLeft } from 'lucide-react';
 import ServerKitLogo from '../components/ServerKitLogo';
 import SetupStepAccount from '../components/setup/SetupStepAccount';
 import SetupStepIntent from '../components/setup/SetupStepIntent';
-import SetupStepTier from '../components/setup/SetupStepTier';
+import SetupStepCapacity from '../components/setup/SetupStepCapacity';
+import SetupStepSecurity from '../components/setup/SetupStepSecurity';
 import SetupStepSummary from '../components/setup/SetupStepSummary';
 import { Button } from '@/components/ui/button';
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const STEP_TITLES = [
     'Account',
     'Use Cases',
-    'Resources',
+    'Capacity',
+    'Security',
     'Summary',
 ];
 
@@ -25,6 +27,7 @@ const Setup = () => {
     const [currentStep, setCurrentStep] = useState(1);
     const [accountInfo, setAccountInfo] = useState(null);
     const [useCases, setUseCases] = useState([]);
+    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
     // If user is already authenticated (e.g. page refresh mid-wizard), skip to step 2
     useEffect(() => {
@@ -43,8 +46,13 @@ const Setup = () => {
         setCurrentStep(3);
     }
 
-    function handleTierComplete() {
+    function handleCapacityComplete() {
         setCurrentStep(4);
+    }
+
+    function handleSecurityComplete(enabled) {
+        setTwoFactorEnabled(Boolean(enabled));
+        setCurrentStep(5);
     }
 
     async function handleFinish(installedExtensions = [], sidebarPreset = null) {
@@ -95,16 +103,19 @@ const Setup = () => {
                 );
             case 3:
                 return (
-                    <SetupStepTier
+                    <SetupStepCapacity
                         useCases={useCases}
-                        onComplete={handleTierComplete}
+                        onComplete={handleCapacityComplete}
                     />
                 );
             case 4:
+                return <SetupStepSecurity onComplete={handleSecurityComplete} />;
+            case 5:
                 return (
                     <SetupStepSummary
                         accountInfo={accountInfo}
                         useCases={useCases}
+                        twoFactorEnabled={twoFactorEnabled}
                         onFinish={handleFinish}
                     />
                 );

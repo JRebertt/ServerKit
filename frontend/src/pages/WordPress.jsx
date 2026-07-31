@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import wordpressApi from '../services/wordpress';
 import { useToast } from '../contexts/ToastContext';
-import { useResourceTier } from '../contexts/ResourceTierContext';
-import ResourceGate from '../components/ResourceGate';
+import ResourceAdvisory from '../components/ResourceAdvisory';
 import Spinner from '../components/Spinner';
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import { Globe, ChevronRight } from 'lucide-react';
@@ -53,7 +52,6 @@ function WordPress() {
 
     const navigate = useNavigate();
     const toast = useToast();
-    const { isLiteTier } = useResourceTier();
 
     useEffect(() => {
         loadSites();
@@ -232,17 +230,6 @@ function WordPress() {
         );
     }
 
-    // Lite tier with no sites -> resource gate
-    if (sites.length === 0 && isLiteTier) {
-        return (
-            <div className="sk-tabgroup__inner wordpress-page">
-                <ResourceGate feature="wordpress_create">
-                    <div />
-                </ResourceGate>
-            </div>
-        );
-    }
-
     const allTags = Array.from(new Set(sites.flatMap(s => s.tags || []))).sort();
     const runningCount = sites.filter(s => s.status === 'running').length;
     const q = siteSearch.trim().toLowerCase();
@@ -348,7 +335,11 @@ function WordPress() {
             keyField="id"
             onRowClick={(site) => navigate(`/wordpress/${site.id}`)}
             rowClassName={(site) => (selectedIds.has(site.id) ? 'is-selected' : '')}
-            header={(createdCreds || createdSite) && (
+            header={<>
+                {/* Advisory, not a gate: a constrained server says so here and
+                    the operator still decides. */}
+                <ResourceAdvisory workload="wordpress" />
+                {(createdCreds || createdSite) && (
                 <div className="wp-creds-banner">
                     <div className="wp-creds-banner-text">
                         {createdSite && (createdSite.domain ? (
@@ -374,7 +365,8 @@ function WordPress() {
                     </div>
                     <Button variant="ghost" onClick={() => { setCreatedCreds(null); setCreatedSite(null); }}>Dismiss</Button>
                 </div>
-            )}
+                )}
+            </>}
             filters={[
                 { value: 'all', label: 'All', count: sites.length },
                 { value: 'running', label: 'Running', count: runningCount },

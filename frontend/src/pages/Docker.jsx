@@ -20,6 +20,7 @@ import ImagesTab, { PullImageButton } from '../components/docker/ImagesTab';
 import NetworksTab, { CreateNetworkButton } from '../components/docker/NetworksTab';
 import VolumesTab, { CreateVolumeButton } from '../components/docker/VolumesTab';
 import PruneButton from '../components/docker/PruneButton';
+import RequiresDocker from '../components/RequiresDocker';
 
 const Docker = () => {
     const [activeTab, setActiveTab] = useTabParam('/docker', VALID_TABS);
@@ -228,6 +229,7 @@ const Docker = () => {
     };
 
     return (
+        <RequiresDocker what="Container management">
         <ServerContext.Provider value={serverContextValue}>
         <div className="page-container page-container--full-bleed docker-page-new dx-page">
             <div className="dx-workspace">
@@ -349,6 +351,7 @@ const Docker = () => {
             </div>
         </div>
         </ServerContext.Provider>
+        </RequiresDocker>
     );
 };
 
