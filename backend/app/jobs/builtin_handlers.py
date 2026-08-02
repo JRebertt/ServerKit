@@ -286,6 +286,22 @@ def run_job_retention():
     return None
 
 
+def run_security_feed_check():
+    """Daily security-advisory feed check.
+
+    Pulls the normalized GHSA feed from serverkit.ai and notifies admins when
+    the running panel version falls inside a published advisory's affected
+    range, plus one-time post-fix reminders (e.g. key rotation) after an
+    upgrade crosses a fix boundary. Fails silent on outbound errors."""
+    from app.services.security_feed_service import check_security_feed
+
+    try:
+        return check_security_feed()
+    except Exception as e:
+        logger.debug(f'Security feed check skipped: {e}')
+        return None
+
+
 def run_extension_update_check():
     """Daily registry check for installed-extension updates (#50).
 
@@ -350,6 +366,7 @@ _BUILTINS = [
     ('builtin.registrar_expiry',    run_registrar_expiry,      'registrar-expiry',   86400, 300),
     ('builtin.backup_scheduler',    run_backup_scheduler,      'backup-scheduler',   30,    30),
     ('builtin.extension_updates',   run_extension_update_check, 'extension-updates', 86400, 600),
+    ('builtin.security_feed',       run_security_feed_check,   'security-feed',     86400, 600),
     ('builtin.job_retention',       run_job_retention,         'job-retention',      21600, 1500),
 ]
 
