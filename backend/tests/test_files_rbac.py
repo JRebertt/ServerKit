@@ -173,6 +173,33 @@ def test_panel_files_are_never_allowed(path):
     assert not _FileService.is_path_allowed(path)
 
 
+def test_protected_roots_resolve_to_the_real_install_layout():
+    """The service's own path math must land on <install>/backend and
+    <install> — one level off silently un-protects <install>/.env and
+    frontend/dist (caught in review; the other tests compute the expected
+    layout independently of the service, so they can't see the service
+    getting it wrong)."""
+    services_dir = _os.path.dirname(_os.path.realpath(
+        _os.path.join(_os.path.dirname(_app_pkg.__file__), 'services', 'file_service.py')))
+    backend_dir = _os.path.realpath(_os.path.join(services_dir, '..', '..'))
+    install_dir = _os.path.realpath(_os.path.join(backend_dir, '..'))
+    assert _FileService._BACKEND_DIR == backend_dir
+    assert _FileService._INSTALL_DIR == install_dir
+
+
+def test_install_root_blocked_even_when_under_an_allowed_root(monkeypatch):
+    """Deployed layout simulation: the install dir sits INSIDE an allowed
+    root (/opt/serverkit under /opt). Protected must win over allowed —
+    this is the exact /read .env path from the advisory."""
+    install_dir = _FileService._INSTALL_DIR
+    monkeypatch.setattr(_FileService, 'ALLOWED_ROOTS', [install_dir])
+    assert not _FileService.is_path_allowed(_os.path.join(install_dir, '.env'))
+    assert not _FileService.is_path_allowed(
+        _os.path.join(install_dir, 'frontend', 'dist', 'index.html'))
+    assert not _FileService.is_path_allowed(
+        _os.path.join(install_dir, 'backend', 'run.py'))
+
+
 @pytest.mark.parametrize('url', [
     '/api/v1/files/read?path=' + _os.path.join(_INSTALL_DIR, '.env'),
     '/api/v1/files/download?path=' + _os.path.join(_BACKEND_DIR, '.env'),

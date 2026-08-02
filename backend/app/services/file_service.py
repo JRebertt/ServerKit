@@ -40,10 +40,15 @@ class FileService:
     # the allowed root /opt, so without this exclusion any user with files.read
     # (including the default viewer role) could read the panel's own secrets
     # and forge admin sessions (GHSA-rm3m-9mvw-68fh).
-    _BACKEND_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+    # __file__ = <install>/backend/app/services/file_service.py — two levels up
+    # is the backend dir, three is the install root. Getting this wrong by one
+    # level silently un-protects <install>/.env and frontend/dist.
+    _BACKEND_DIR = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), '..', '..'))
     _INSTALL_DIR = os.path.realpath(os.path.join(_BACKEND_DIR, '..'))
     PROTECTED_ROOTS = [
         _INSTALL_DIR,
+        _BACKEND_DIR,  # covers flat layouts (e.g. code at /app, install=/ inert)
         os.path.realpath(paths.SERVERKIT_CONFIG_DIR),
     ]
 
@@ -69,7 +74,8 @@ class FileService:
             if any(real_path == root or real_path.startswith(root + os.sep)
                    for root in cls.PROTECTED_ROOTS):
                 return False
-            return any(real_path.startswith(root) for root in cls.ALLOWED_ROOTS)
+            return any(real_path == root or real_path.startswith(root + os.sep)
+                       for root in cls.ALLOWED_ROOTS)
         except (ValueError, OSError):
             return False
 
