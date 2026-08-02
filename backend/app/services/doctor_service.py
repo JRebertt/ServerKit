@@ -128,15 +128,56 @@ class DoctorService:
         return checks
 
     @classmethod
+    def _expected_services(cls):
+        """
+        Core services this install is actually supposed to be running.
+
+        The minimal install profile ships without Docker on purpose, so probing
+        for it there would report a permanent, unfixable failure on a perfectly
+        healthy box. Docker is only dropped when it is genuinely both
+        unexpected *and* absent — an operator who installed it later, or a
+        standard/full install that has lost it (real drift), still gets probed.
+        """
+        from app.services import install_profile_service as ips
+
+        services = []
+        for name in CORE_SERVICES:
+            if name != 'docker':
+                services.append(name)
+                continue
+            try:
+                unexpected = ips.get_profile() == ips.PROFILE_MINIMAL
+                absent = not ips.get_capabilities().get('docker')
+            except Exception:  # noqa: BLE001
+                # Never let profile resolution suppress a real health check.
+                services.append(name)
+                continue
+            if not (unexpected and absent):
+                services.append(name)
+        return services
+
+    @classmethod
+    def _skipped_service_checks(cls, probed):
+        """An 'ok' row explaining each core service deliberately not probed."""
+        return [
+            _check(f'service.{name}', f'{name} service', 'ok',
+                   'Not installed — this install uses the Minimal profile. '
+                   'Add it from Settings to enable app hosting.')
+            for name in CORE_SERVICES if name not in probed
+        ]
+
+    @classmethod
     def _service_checks(cls):
         checks = []
+        probed = cls._expected_services()
         if not sys.platform.startswith('linux'):
             for name in CORE_SERVICES:
                 checks.append(_check(f'service.{name}', f'{name} service', 'warn',
                                      'unsupported on this host'))
             return checks
+        checks.extend(cls._skipped_service_checks(probed))
         from app.utils.system import ServiceControl
-        for name in CORE_SERVICES:
+        for name in probed:
             try:
                 active = ServiceControl.is_active(name)
             except Exception as e:  # noqa: BLE001

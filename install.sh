@@ -42,6 +42,18 @@ SERVERKIT_VERSION="${SERVERKIT_VERSION:-}"
 VERSION="${VERSION:-${SERVERKIT_VERSION:-1.4.11}}"
 CHANNEL="${CHANNEL:-Stable}"
 
+# Install profile: what we put on the box, not what the box is allowed to do.
+#   minimal  — panel + nginx + SQLite. No Docker.
+#   standard — + Docker and the compose plugin (the default).
+#   full     — + recommended extensions and hardening.
+# Everything a profile skips stays installable later from the panel. Set
+# SERVERKIT_PROFILE to skip the interactive prompt. Thresholds below are
+# mirrored by recommend_profile() in backend/app/services/install_profile_service.py
+# — change one, change the other.
+PROFILE="${SERVERKIT_PROFILE:-}"
+RECOMMENDED_PROFILE="standard"
+PROFILE_PROMPT_TIMEOUT="${SERVERKIT_PROFILE_TIMEOUT:-15}"
+
 PANEL_DOMAIN="${PANEL_DOMAIN:-}"
 PANEL_PORT="${PANEL_PORT:-80}"
 SERVERKIT_SKIP_SSL="${SERVERKIT_SKIP_SSL:-0}"
@@ -399,6 +411,148 @@ gauge_memory() {
     fi
 }
 
+detect_container() {
+    # Echo the container flavour, or nothing on bare metal / a full VM. This
+    # matters more than core count: Docker frequently cannot run inside an
+    # unprivileged LXC or OpenVZ guest, so such a box can look adequate on
+    # paper and still be unable to host a single app.
+    if [ -f /.dockerenv ]; then
+        printf 'docker'
+        return 0
+    fi
+    if [ -d /proc/vz ] && [ ! -d /proc/bc ]; then
+        printf 'openvz'
+        return 0
+    fi
+    if command -v systemd-detect-virt &>/dev/null; then
+        local virt
+        virt=$(systemd-detect-virt --container 2>/dev/null) || virt=""
+        if [ -n "$virt" ] && [ "$virt" != "none" ]; then
+            printf '%s' "$virt"
+            return 0
+        fi
+    fi
+    # /proc/1/environ carries container= for LXC and systemd-nspawn.
+    if [ -r /proc/1/environ ]; then
+        if tr '\0' '\n' < /proc/1/environ 2>/dev/null | grep -q '^container=lxc'; then
+            printf 'lxc'
+            return 0
+        fi
+    fi
+    return 0
+}
+
+recommend_profile() {
+    # Pick the profile that this hardware can actually carry. Deliberately
+    # conservative — an operator can always override upward, but silently
+    # defaulting a 700MB VPS to a Docker install produces a box that installs
+    # cleanly and then OOMs on the first deploy.
+    local ram_mb=0 cores=1 disk_gb="" container=""
+
+    if command -v free &>/dev/null; then
+        ram_mb=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}') || ram_mb=0
+    fi
+    [ -n "$ram_mb" ] || ram_mb=0
+
+    if command -v nproc &>/dev/null; then
+        cores=$(nproc 2>/dev/null) || cores=1
+    fi
+    [ -n "$cores" ] || cores=1
+
+    # Free space on the volume that will hold images and backups.
+    if command -v df &>/dev/null; then
+        disk_gb=$(df -BG "$BASE_DIR" 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}') || disk_gb=""
+    fi
+
+    container=$(detect_container)
+
+    RECOMMENDED_PROFILE="standard"
+
+    if [ "$container" = "lxc" ] || [ "$container" = "openvz" ]; then
+        RECOMMENDED_PROFILE="minimal"
+        return 0
+    fi
+    # 1.5GB, expressed in MB to stay in integer arithmetic.
+    if [ "$ram_mb" -gt 0 ] && [ "$ram_mb" -lt 1536 ]; then
+        RECOMMENDED_PROFILE="minimal"
+        return 0
+    fi
+    if [ -n "$disk_gb" ] && [ "$disk_gb" -lt 5 ]; then
+        RECOMMENDED_PROFILE="minimal"
+        return 0
+    fi
+    if [ "$ram_mb" -ge 4096 ] && [ "$cores" -ge 4 ]; then
+        if [ -z "$disk_gb" ] || [ "$disk_gb" -ge 20 ]; then
+            RECOMMENDED_PROFILE="full"
+        fi
+    fi
+    return 0
+}
+
+prompt_for_profile() {
+    # Honour an explicit choice and never ask again.
+    case "$PROFILE" in
+        minimal|standard|full)
+            good "Install profile: $PROFILE (from SERVERKIT_PROFILE)"
+            return 0
+            ;;
+        "")
+            ;;
+        *)
+            warn "Unknown SERVERKIT_PROFILE='$PROFILE' — ignoring it."
+            PROFILE=""
+            ;;
+    esac
+
+    recommend_profile
+
+    # curl | bash has no interactive stdin. Take the recommendation rather than
+    # blocking forever. SERVERKIT_FORCE_PROMPT=1 lets the unit tests drive this
+    # from a pipe (same hook prompt_for_domain uses).
+    if [ ! -t 0 ] && [ "${SERVERKIT_FORCE_PROMPT:-0}" != "1" ]; then
+        PROFILE="$RECOMMENDED_PROFILE"
+        good "Install profile: $PROFILE (auto-detected)"
+        return 0
+    fi
+
+    printf '\n'
+    printf '%sHow much should we install?%s\n' "$BLD" "$RST"
+    printf '  %s1) minimal%s  Panel, nginx and SQLite. No Docker.\n' "$BLD" "$RST"
+    printf '              Monitoring, domains, certificates, cron and DNS all work.\n'
+    printf '  %s2) standard%s Adds Docker so this server can host apps.\n' "$BLD" "$RST"
+    printf '  %s3) full%s     Adds recommended extensions and hardening.\n' "$BLD" "$RST"
+    printf '\n'
+    printf 'Detected hardware suggests: %s%s%s\n' "$BLD" "$RECOMMENDED_PROFILE" "$RST"
+    printf 'Anything skipped can be installed later from the panel.\n'
+    printf '%sTip:%s set SERVERKIT_PROFILE=minimal|standard|full to skip this prompt\n' "$BLD" "$RST"
+    printf '> [%s] ' "$RECOMMENDED_PROFILE"
+
+    local answer=""
+    # A timeout keeps a half-attended install moving instead of parking on the
+    # prompt; the recommendation is the fallback either way.
+    read -r -t "$PROFILE_PROMPT_TIMEOUT" answer || answer=""
+    answer=$(printf '%s' "$answer" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+
+    case "$answer" in
+        1|minimal)  PROFILE="minimal" ;;
+        2|standard) PROFILE="standard" ;;
+        3|full)     PROFILE="full" ;;
+        "")         PROFILE="$RECOMMENDED_PROFILE" ;;
+        *)
+            warn "Unrecognised answer '$answer' — using $RECOMMENDED_PROFILE."
+            PROFILE="$RECOMMENDED_PROFILE"
+            ;;
+    esac
+
+    if [ "$PROFILE" != "minimal" ] && [ "$RECOMMENDED_PROFILE" = "minimal" ]; then
+        warn "Overriding the Minimal recommendation on a constrained host."
+        warn "Docker may fail to start, or deploys may be OOM-killed."
+    fi
+
+    good "Install profile: $PROFILE"
+    return 0
+}
+
 ensure_swap() {
     # No `free` (some LXC templates) → cannot gauge swap; skip quietly. (I14)
     if ! command -v free &>/dev/null; then
@@ -599,6 +753,14 @@ docker_repo_add() {
 provision_docker() {
     phase "Docker"
 
+    # The Minimal profile deliberately ships without Docker. The panel detects
+    # its absence at runtime and hides app hosting; adding Docker later from
+    # Settings promotes the install to Standard.
+    if [ "$PROFILE" = "minimal" ]; then
+        good "Skipping Docker (minimal profile) — add it later from the panel."
+        return
+    fi
+
     if command -v docker &>/dev/null; then
         good "Docker already present: $(docker --version | head -1)"
         return
@@ -667,6 +829,10 @@ provision_docker() {
 }
 
 ensure_compose_plugin() {
+    # No Docker on the minimal profile, so nothing to plug into.
+    if [ "$PROFILE" = "minimal" ]; then
+        return
+    fi
     if docker compose version &>/dev/null; then
         good "Docker Compose plugin present."
         return
@@ -1072,6 +1238,14 @@ write_config() {
         else
             printf 'SERVERKIT_SSL_MODE=%s\n' "$SSL_MODE" >> "$INSTALL_DIR/.env"
         fi
+        # Same reasoning as the SSL mode above: a re-run may have chosen a
+        # different profile, and the panel reads this to decide whether to
+        # offer app hosting.
+        if grep -q '^SERVERKIT_PROFILE=' "$INSTALL_DIR/.env"; then
+            sed -i "s|^SERVERKIT_PROFILE=.*|SERVERKIT_PROFILE=$PROFILE|" "$INSTALL_DIR/.env"
+        else
+            printf 'SERVERKIT_PROFILE=%s\n' "$PROFILE" >> "$INSTALL_DIR/.env"
+        fi
         return
     fi
 
@@ -1117,6 +1291,11 @@ ${public_url:+# SERVERKIT_PUBLIC_URL=$public_url}
 # optional. Mirrors /etc/serverkit/ssl-mode; set to 'secure' only when this
 # server terminates real end-to-end HTTPS.
 SERVERKIT_SSL_MODE=$SSL_MODE
+
+# Install profile (minimal|standard|full) — what this install provisioned, not
+# a licence tier. The panel reads it to decide whether to offer app hosting;
+# anything skipped can still be installed later from Settings.
+SERVERKIT_PROFILE=$PROFILE
 
 # Ports
 PORT=80
@@ -1288,6 +1467,60 @@ svc_start() {
     else
         warn "No init system found to start $svc — start it manually."
     fi
+    return 0
+}
+
+provision_hardening() {
+    # What makes "full" more than "standard".
+    #
+    # The panel ships two features that quietly do nothing unless a daemon it
+    # never installs is present: fail2ban_jail_service manages jails but no
+    # profile installed fail2ban, and configure_nginx only warns "Install
+    # certbot and run..." when certbot is missing. Standard leaves both to the
+    # operator; full is the profile that says "put the whole thing on".
+    #
+    # Every step is warn-and-continue (pkg_add's contract) — a hardening extra
+    # that fails to install must never abort an otherwise good install.
+    [ "$PROFILE" = "full" ] || return 0
+
+    phase "Hardening"
+
+    if command -v fail2ban-server &>/dev/null; then
+        good "fail2ban already present."
+    else
+        step "Installing fail2ban..."
+        pkg_add fail2ban
+    fi
+    if command -v fail2ban-server &>/dev/null; then
+        svc_enable fail2ban
+        svc_start fail2ban
+        good "fail2ban enabled — manage jails from Security in the panel."
+    else
+        warn "fail2ban unavailable; the panel's jail management will stay inert."
+    fi
+
+    # Certbot only matters when this install is actually attempting HTTPS.
+    if [ "$SERVERKIT_SKIP_SSL" = "1" ]; then
+        good "Skipping certbot (SERVERKIT_SKIP_SSL=1)."
+    elif command -v certbot &>/dev/null; then
+        good "certbot already present."
+    else
+        step "Installing certbot..."
+        case "$OS_FAMILY" in
+            debian|ubuntu) pkg_add certbot python3-certbot-nginx ;;
+            fedora|rhel)   pkg_add certbot python3-certbot-nginx ;;
+            suse)          pkg_add certbot python3-certbot-nginx ;;
+            arch)          pkg_add certbot certbot-nginx ;;
+            alpine)        pkg_add certbot certbot-nginx ;;
+            *)             pkg_add certbot ;;
+        esac
+        if command -v certbot &>/dev/null; then
+            good "certbot installed."
+        else
+            warn "certbot unavailable — HTTPS stays best-effort on this host."
+        fi
+    fi
+
     return 0
 }
 
@@ -1704,6 +1937,12 @@ print_outro() {
         printf '  %sPanel URL%s      http://%s\n' "$BLD" "$RST" "$ip"
     fi
 
+    printf '  %sProfile%s        %s\n' "$BLD" "$RST" "$PROFILE"
+    if [ "$PROFILE" = "minimal" ]; then
+        printf '                 Docker was not installed, so app hosting is off.\n'
+        printf '                 Add it any time from Settings — nothing is locked.\n'
+    fi
+
     if [ "$SSL_MODE" != "secure" ]; then
         printf '\n  %sWARNING%s        Running without HTTPS. Passwords and tokens will be\n' "$BLD" "$RST"
         printf '                 transmitted unencrypted. Set PANEL_DOMAIN and run\n'
@@ -1801,6 +2040,9 @@ main() {
     ensure_bootstrap_tools
     gauge_memory
     ensure_swap
+    # Ask what to install before anything is provisioned — the answer decides
+    # whether provision_docker runs at all.
+    prompt_for_profile
     prompt_for_domain
     snapshot_existing
 
@@ -1841,6 +2083,9 @@ main() {
     fi
 
     sync_templates
+    # Before configure_nginx: on the full profile this is what puts certbot on
+    # the box, and configure_nginx's HTTPS attempt needs it already there.
+    provision_hardening
     configure_nginx
     configure_firewall
     write_config

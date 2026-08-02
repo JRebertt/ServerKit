@@ -22,11 +22,38 @@ services automatically. It uses an atomic blue/green layout: `/opt/serverkit` is
 a symlink to either `/opt/serverkit-a` or `/opt/serverkit-b`, so failed updates
 can roll back instantly.
 
+### Install profiles
+
+The installer measures the machine and asks how much to install. Answer within
+15 seconds or accept the suggestion; a piped (`curl | bash`) install takes the
+suggestion immediately.
+
+| Profile | Provisions | Suited for |
+|---------|-----------|------------|
+| `minimal` | Panel, nginx, SQLite. **No Docker.** | 512MB–1GB boxes, LXC/OpenVZ guests where Docker cannot run, or hosts where Docker is managed elsewhere. Monitoring, domains, certificates, cron and DNS all work. |
+| `standard` | Adds Docker and the compose plugin | 2GB RAM and up. This is the default. |
+| `full` | Adds `fail2ban` (powers the panel's jail management) and `certbot` (automatic HTTPS) | 4GB RAM, 4 cores, 20GB disk and up. |
+
+**A profile is a starting point, not a licence tier.** Nothing is permanently
+locked: anything a profile skips can be installed later from the panel, and the
+panel probes what is actually available at runtime rather than trusting the
+recorded profile.
+
+On a `minimal` install:
+
+- Container-dependent pages (Containers, Services, Deployments) explain that
+  Docker is missing and how to add it, instead of failing on first use.
+- `sudo serverkit update` does **not** require Docker. Install Docker later and
+  updates start validating it again automatically.
+- The health doctor does not report the absent Docker service as a failure.
+
 ### Install options
 
 | Variable | Purpose |
 |----------|---------|
 | `PANEL_DOMAIN=panel.example.com` | Set the panel domain and attempt Let's Encrypt |
+| `SERVERKIT_PROFILE=minimal\|standard\|full` | Pick the install profile and skip the prompt |
+| `SERVERKIT_PROFILE_TIMEOUT=15` | Seconds to wait at the profile prompt before taking the suggestion |
 | `SERVERKIT_SKIP_SSL=1` | Skip HTTPS/certbot entirely |
 | `INSTALL_FROM_RELEASE=1` | Install from the latest GitHub release tarball instead of cloning source |
 | `SERVERKIT_VERSION=v1.7.0` | Pin a specific release version |
@@ -37,6 +64,12 @@ Example with a domain:
 
 ```bash
 curl -fsSL https://serverkit.ai/install.sh | sudo PANEL_DOMAIN=panel.example.com bash
+```
+
+Example on a small VPS, skipping Docker:
+
+```bash
+curl -fsSL https://serverkit.ai/install.sh | sudo SERVERKIT_PROFILE=minimal bash
 ```
 
 Example offline install:

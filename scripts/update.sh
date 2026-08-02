@@ -510,6 +510,42 @@ next_real_dir() {
     fi
 }
 
+# Read the install profile recorded by install.sh in the active slot's .env.
+# Anything unrecognised — including every install predating profiles — reports
+# "standard", which is exactly what those installs are.
+install_profile() {
+    local active env_file profile=""
+    active="$(active_real_dir)"
+    if [ -n "$active" ]; then
+        env_file="$active/.env"
+        if [ -f "$env_file" ]; then
+            profile="$(grep -E '^SERVERKIT_PROFILE=' "$env_file" 2>/dev/null \
+                       | head -1 | cut -d= -f2- | tr -d ' \r')"
+        fi
+    fi
+    case "$profile" in
+        minimal|standard|full) printf '%s' "$profile" ;;
+        *)                     printf 'standard' ;;
+    esac
+}
+
+# Whether this update has to insist on Docker. The minimal profile ships
+# without it on purpose, so demanding it here would make every minimal box
+# installable but un-updatable. Two escape hatches keep that honest: an
+# all-Docker deployment obviously needs it, and if Docker is present at all we
+# still validate compose so a half-provisioned box is caught early.
+# Split out so the unit tests can redefine it. Restricting PATH to hide docker
+# would also hide the coreutils install_profile parses with, and the test would
+# then pass for the wrong reason.
+have_docker() { command -v docker &>/dev/null; }
+
+update_needs_docker() {
+    [ "$(install_profile)" = "minimal" ] || return 0
+    is_docker_deployment && return 0
+    have_docker && return 0
+    return 1
+}
+
 # ---------------------------------------------------------------------------
 # Pre-flight checks
 # ---------------------------------------------------------------------------
@@ -541,18 +577,27 @@ preflight_check() {
     # must be checked up front — discovering it missing mid-update would abort
     # after the new slot is already half-built. Release tarballs ship a
     # prebuilt dist and stay npm-free.
-    local cmd missing=() required=(git curl tar rsync systemctl nginx docker python3)
+    local cmd missing=() required=(git curl tar rsync systemctl nginx python3)
     [ "$USE_RELEASE" = "1" ] || required+=(npm)
+    # Docker is conditional — see update_needs_docker().
+    if update_needs_docker; then
+        required+=(docker)
+    fi
     for cmd in "${required[@]}"; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
-    if ! docker compose version &>/dev/null && ! docker-compose --version &>/dev/null; then
-        missing+=("docker compose")
+    if update_needs_docker; then
+        if ! docker compose version &>/dev/null && ! docker-compose --version &>/dev/null; then
+            missing+=("docker compose")
+        fi
     fi
     if [ ${#missing[@]} -gt 0 ]; then
         halt "Missing required tools: ${missing[*]}"
     fi
     good "Required tools available"
+    if ! update_needs_docker; then
+        good "Docker not required (minimal profile)"
+    fi
 
     # Disk space (need 2 GiB free on the install filesystem)
     local avail_kb avail_gb

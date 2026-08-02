@@ -33,6 +33,25 @@ class FileService:
     # Allowed root directories for browsing (security)
     ALLOWED_ROOTS = ['/home', '/var/www', '/opt', '/srv', '/var/log', paths.SERVERKIT_DIR]
 
+    # Panel-internal directories that must NEVER be reachable through the file
+    # manager, for any role. The backend .env (JWT_SECRET_KEY, encryption key,
+    # DB creds), the SQLite instance dir and the generated deploy config all
+    # live here; on the documented install.sh layout the install dir sits under
+    # the allowed root /opt, so without this exclusion any user with files.read
+    # (including the default viewer role) could read the panel's own secrets
+    # and forge admin sessions (GHSA-rm3m-9mvw-68fh).
+    # __file__ = <install>/backend/app/services/file_service.py — two levels up
+    # is the backend dir, three is the install root. Getting this wrong by one
+    # level silently un-protects <install>/.env and frontend/dist.
+    _BACKEND_DIR = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), '..', '..'))
+    _INSTALL_DIR = os.path.realpath(os.path.join(_BACKEND_DIR, '..'))
+    PROTECTED_ROOTS = [
+        _INSTALL_DIR,
+        _BACKEND_DIR,  # covers flat layouts (e.g. code at /app, install=/ inert)
+        os.path.realpath(paths.SERVERKIT_CONFIG_DIR),
+    ]
+
     # File extensions that can be edited in browser
     EDITABLE_EXTENSIONS = {
         '.txt', '.md', '.json', '.xml', '.yml', '.yaml', '.ini', '.conf', '.cfg',
@@ -49,10 +68,14 @@ class FileService:
 
     @classmethod
     def is_path_allowed(cls, path: str) -> bool:
-        """Check if path is within allowed directories."""
+        """Check if path is within allowed directories and not panel-internal."""
         try:
             real_path = os.path.realpath(path)
-            return any(real_path.startswith(root) for root in cls.ALLOWED_ROOTS)
+            if any(real_path == root or real_path.startswith(root + os.sep)
+                   for root in cls.PROTECTED_ROOTS):
+                return False
+            return any(real_path == root or real_path.startswith(root + os.sep)
+                       for root in cls.ALLOWED_ROOTS)
         except (ValueError, OSError):
             return False
 

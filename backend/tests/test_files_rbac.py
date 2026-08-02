@@ -141,6 +141,83 @@ def test_revoked_files_read_blocks_read_endpoints(client, no_read_headers, url):
 
 
 # --------------------------------------------------------------------------- #
+# GHSA-rm3m-9mvw-68fh: the panel's own files must never be reachable through
+# the file manager, for ANY role. The default viewer role legitimately has
+# files.read=True, and the documented install layout (/opt/serverkit) sits
+# under the allowed root /opt — so without the PROTECTED_ROOTS exclusion a
+# viewer could read the backend .env, steal JWT_SECRET_KEY, and forge admin
+# sessions.
+# --------------------------------------------------------------------------- #
+
+import os as _os
+
+import app as _app_pkg
+from app import paths as _paths
+from app.services.file_service import FileService as _FileService
+
+_BACKEND_DIR = _os.path.realpath(_os.path.join(_os.path.dirname(_app_pkg.__file__), '..'))
+_INSTALL_DIR = _os.path.realpath(_os.path.join(_BACKEND_DIR, '..'))
+
+PROTECTED_CASES = [
+    _os.path.join(_INSTALL_DIR, '.env'),
+    _os.path.join(_BACKEND_DIR, '.env'),
+    _os.path.join(_BACKEND_DIR, 'run.py'),
+    _os.path.join(_BACKEND_DIR, 'instance', 'serverkit.db'),
+    _os.path.join(_INSTALL_DIR, 'frontend', 'dist', 'index.html'),
+    _os.path.join(_paths.SERVERKIT_CONFIG_DIR, 'deployments.json'),
+]
+
+
+@pytest.mark.parametrize('path', PROTECTED_CASES)
+def test_panel_files_are_never_allowed(path):
+    assert not _FileService.is_path_allowed(path)
+
+
+def test_protected_roots_resolve_to_the_real_install_layout():
+    """The service's own path math must land on <install>/backend and
+    <install> — one level off silently un-protects <install>/.env and
+    frontend/dist (caught in review; the other tests compute the expected
+    layout independently of the service, so they can't see the service
+    getting it wrong)."""
+    services_dir = _os.path.dirname(_os.path.realpath(
+        _os.path.join(_os.path.dirname(_app_pkg.__file__), 'services', 'file_service.py')))
+    backend_dir = _os.path.realpath(_os.path.join(services_dir, '..', '..'))
+    install_dir = _os.path.realpath(_os.path.join(backend_dir, '..'))
+    assert _FileService._BACKEND_DIR == backend_dir
+    assert _FileService._INSTALL_DIR == install_dir
+
+
+def test_install_root_blocked_even_when_under_an_allowed_root(monkeypatch):
+    """Deployed layout simulation: the install dir sits INSIDE an allowed
+    root (/opt/serverkit under /opt). Protected must win over allowed —
+    this is the exact /read .env path from the advisory."""
+    install_dir = _FileService._INSTALL_DIR
+    monkeypatch.setattr(_FileService, 'ALLOWED_ROOTS', [install_dir])
+    assert not _FileService.is_path_allowed(_os.path.join(install_dir, '.env'))
+    assert not _FileService.is_path_allowed(
+        _os.path.join(install_dir, 'frontend', 'dist', 'index.html'))
+    assert not _FileService.is_path_allowed(
+        _os.path.join(install_dir, 'backend', 'run.py'))
+
+
+@pytest.mark.parametrize('url', [
+    '/api/v1/files/read?path=' + _os.path.join(_INSTALL_DIR, '.env'),
+    '/api/v1/files/download?path=' + _os.path.join(_BACKEND_DIR, '.env'),
+])
+def test_viewer_cannot_read_panel_files(client, role_headers, url):
+    """A viewer (files.read=True) still gets 403 on panel-internal paths."""
+    resp = client.get(url, headers=role_headers[User.ROLE_VIEWER])
+    assert resp.status_code == 403
+
+
+def test_normal_paths_still_allowed(tmp_path, monkeypatch):
+    """Paths under the allowed roots keep working (native path, any OS)."""
+    monkeypatch.setattr(_FileService, 'ALLOWED_ROOTS', [str(tmp_path)])
+    assert _FileService.is_path_allowed(str(tmp_path / 'apps' / 'mysite' / 'index.php'))
+    assert _FileService.is_path_allowed(str(tmp_path / '.env'))  # app envs unaffected
+
+
+# --------------------------------------------------------------------------- #
 # log_service._read_syslog: the service filter must never go through a shell
 # (subprocess.list2cmdline is cmd.exe quoting and does not stop $(...)/backtick
 # expansion under bash)

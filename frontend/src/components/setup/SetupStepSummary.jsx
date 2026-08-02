@@ -17,8 +17,8 @@ const USE_CASE_LABELS = {
     devops: 'DevOps & Monitoring',
 };
 
-const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
-    const { tier, specs, loading } = useResourceTier();
+const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish }) => {
+    const { specs, headroom, profile, profiles, loading } = useResourceTier();
 
     // Sidebar profile. Pre-selected from the use cases already picked, so the
     // default path is zero extra clicks — "Change" reveals the full set for
@@ -107,10 +107,9 @@ const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
         return parts.join(', ');
     }
 
-    function tierLabel() {
+    function profileLabel() {
         if (loading) return 'Detecting...';
-        if (!tier) return 'Unknown';
-        return tier.charAt(0).toUpperCase() + tier.slice(1);
+        return profiles?.[profile]?.label || 'Standard';
     }
 
     const anyError = Object.values(installState).some((v) => v === 'error');
@@ -172,12 +171,28 @@ const SetupStepSummary = ({ accountInfo, useCases, onFinish }) => {
                 <div className="summary-section">
                     <div className="summary-section-title">Server</div>
                     <div className="summary-row">
-                        <span className="summary-label">Tier</span>
-                        <span className="summary-value">{tierLabel()}</span>
+                        <span className="summary-label">Profile</span>
+                        <span className="summary-value">{profileLabel()}</span>
                     </div>
                     <div className="summary-row">
                         <span className="summary-label">Specs</span>
                         <span className="summary-value">{formatSpecs()}</span>
+                    </div>
+                    {headroom?.summary && (
+                        <div className="summary-row">
+                            <span className="summary-label">Capacity</span>
+                            <span className="summary-value">{headroom.summary}</span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="summary-section">
+                    <div className="summary-section-title">Security</div>
+                    <div className="summary-row">
+                        <span className="summary-label">Two-factor</span>
+                        <span className="summary-value">
+                            {twoFactorEnabled ? 'Enabled' : 'Off — you can turn it on in Settings'}
+                        </span>
                     </div>
                 </div>
 

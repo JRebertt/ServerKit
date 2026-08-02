@@ -27,6 +27,7 @@ import {
     DialogDescription,
     DialogFooter,
 } from '@/components/ui/dialog';
+import RequiresDocker from '../components/RequiresDocker';
 
 const STATUS_PILL = { running: 'green', stopped: 'gray', deploying: 'amber', building: 'amber', failed: 'red' };
 
@@ -312,6 +313,7 @@ const Services = () => {
     ];
 
     return (
+        <RequiresDocker what="Services">
         <ResourceListPage
             className="services-page"
             loading={loading}
@@ -437,6 +439,7 @@ const Services = () => {
                 }}
             />
         </ResourceListPage>
+        </RequiresDocker>
     );
 };
 

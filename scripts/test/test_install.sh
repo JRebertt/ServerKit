@@ -1200,11 +1200,193 @@ fi
 FRESH="$WORK/freshbox"
 make_fresh_box_fixture "$FRESH"
 
+# --------------------------------------------------------------------------
+# T31 — install profiles: recommend_profile must read the hardware, and the
+# minimal profile must genuinely skip Docker. A profile is what we install,
+# not a licence tier, so the only thing under test here is "did the right
+# provisioning get skipped".
+# --------------------------------------------------------------------------
+t="$WORK/t31"; mkdir -p "$t/bin"
+mkfree() {  # mkfree <total_mb>
+    printf '#!/usr/bin/env bash\nprintf "              total\\nMem: %s 0 0\\nSwap: 0 0 0\\n"\n' "$1" \
+        > "$t/bin/free"
+    chmod +x "$t/bin/free"
+}
+mknproc() { printf '#!/usr/bin/env bash\nprintf "%s"\n' "$1" > "$t/bin/nproc"; chmod +x "$t/bin/nproc"; }
+mkdf() {    # mkdf <avail_gb>
+    printf '#!/usr/bin/env bash\nprintf "FS 1G 1G %sG 1%%%% /\\nFS 1G 1G %sG 1%%%% /\\n"\n' "$1" "$1" \
+        > "$t/bin/df"
+    chmod +x "$t/bin/df"
+}
+
+# 700MB box → minimal, no matter how many cores it claims.
+mkfree 700; mknproc 8; mkdf 100
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"
+        RECOMMENDED_PROFILE=""; recommend_profile >/dev/null 2>&1
+        printf '%s' "$RECOMMENDED_PROFILE" )"
+if [ "$res" = "minimal" ]; then
+    ok "recommend_profile: 700MB box → minimal"
+else
+    bad "recommend_profile: 700MB box gave [$res], expected minimal"
+fi
+
+# 2GB / 2 cores → standard.
+mkfree 2048; mknproc 2; mkdf 50
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"
+        RECOMMENDED_PROFILE=""; recommend_profile >/dev/null 2>&1
+        printf '%s' "$RECOMMENDED_PROFILE" )"
+if [ "$res" = "standard" ]; then
+    ok "recommend_profile: 2GB/2-core box → standard"
+else
+    bad "recommend_profile: 2GB/2-core box gave [$res], expected standard"
+fi
+
+# 8GB / 4 cores / 50GB free → full.
+mkfree 8192; mknproc 4; mkdf 50
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"
+        RECOMMENDED_PROFILE=""; recommend_profile >/dev/null 2>&1
+        printf '%s' "$RECOMMENDED_PROFILE" )"
+if [ "$res" = "full" ]; then
+    ok "recommend_profile: 8GB/4-core box → full"
+else
+    bad "recommend_profile: 8GB/4-core box gave [$res], expected full"
+fi
+
+# A roomy box with a nearly-full disk still drops to minimal — images and
+# backups need somewhere to land before RAM is the binding constraint.
+mkfree 8192; mknproc 8; mkdf 2
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"
+        RECOMMENDED_PROFILE=""; recommend_profile >/dev/null 2>&1
+        printf '%s' "$RECOMMENDED_PROFILE" )"
+if [ "$res" = "minimal" ]; then
+    ok "recommend_profile: 8GB box with 2GB disk free → minimal"
+else
+    bad "recommend_profile: low-disk box gave [$res], expected minimal"
+fi
+
+# No `free` at all (LXC templates again) must not abort under pipefail.
+mkdir -p "$t/empty"
+if res="$( set -Eeuo pipefail; PATH="$t/empty"; BASE_DIR="$t"
+           RECOMMENDED_PROFILE=""; recommend_profile >/dev/null 2>&1
+           printf '%s' "$RECOMMENDED_PROFILE" )"; then
+    ok "recommend_profile survives a box with no free/nproc/df (got [$res])"
+else
+    bad "recommend_profile aborted with no free/nproc/df under set -Eeuo pipefail"
+fi
+
+# The whole point of minimal: provision_docker must not touch the box.
+out="$( set -Eeuo pipefail; PROFILE=minimal
+        provision_docker 2>&1 )"
+if printf '%s' "$out" | grep -q 'Skipping Docker'; then
+    ok "provision_docker is a no-op on the minimal profile"
+else
+    bad "provision_docker ran on the minimal profile: [$(printf '%s' "$out" | tail -c 120)]"
+fi
+
+out="$( set -Eeuo pipefail; PROFILE=minimal
+        ensure_compose_plugin 2>&1 )"
+if [ -z "$out" ]; then
+    ok "ensure_compose_plugin is a no-op on the minimal profile"
+else
+    bad "ensure_compose_plugin ran on the minimal profile: [$out]"
+fi
+
+# "full" has to earn its name — it was byte-identical to "standard" until
+# provision_hardening existed, so the card promised things nothing installed.
+pkgt="$WORK/t31pkg"; mkdir -p "$pkgt"
+out="$( set -Eeuo pipefail; PROFILE=standard; OS_FAMILY=debian; PKG_MGR=apt
+        SERVERKIT_SKIP_SSL=0
+        pkg_add() { printf 'PKGADD:%s\n' "$*"; }
+        provision_hardening 2>&1 )"
+if [ -z "$out" ]; then
+    ok "provision_hardening is a no-op on the standard profile"
+else
+    bad "provision_hardening ran on standard: [$out]"
+fi
+
+out="$( set -Eeuo pipefail; PROFILE=full; OS_FAMILY=debian; PKG_MGR=apt
+        SERVERKIT_SKIP_SSL=0
+        pkg_add() { printf 'PKGADD:%s\n' "$*"; }
+        svc_enable() { :; }; svc_start() { :; }
+        provision_hardening 2>&1 )"
+if printf '%s' "$out" | grep -q 'PKGADD:fail2ban' && \
+   printf '%s' "$out" | grep -q 'PKGADD:certbot'; then
+    ok "provision_hardening installs fail2ban + certbot on the full profile"
+else
+    bad "full profile did not provision the hardening stack: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# HTTPS off means certbot is pointless; fail2ban still applies.
+out="$( set -Eeuo pipefail; PROFILE=full; OS_FAMILY=debian; PKG_MGR=apt
+        SERVERKIT_SKIP_SSL=1
+        pkg_add() { printf 'PKGADD:%s\n' "$*"; }
+        svc_enable() { :; }; svc_start() { :; }
+        provision_hardening 2>&1 )"
+if printf '%s' "$out" | grep -q 'PKGADD:fail2ban' && \
+   ! printf '%s' "$out" | grep -q 'PKGADD:certbot'; then
+    ok "provision_hardening skips certbot when SERVERKIT_SKIP_SSL=1"
+else
+    bad "SERVERKIT_SKIP_SSL=1 did not suppress certbot: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# A failing package must warn, never abort the install (pkg_add's contract).
+if out="$( set -Eeuo pipefail; PROFILE=full; OS_FAMILY=debian; PKG_MGR=apt
+           SERVERKIT_SKIP_SSL=0
+           pkg_add() { return 0; }
+           svc_enable() { :; }; svc_start() { :; }
+           provision_hardening 2>&1 )"; then
+    ok "provision_hardening survives packages that never appear"
+else
+    bad "provision_hardening aborted when a hardening package failed to install"
+fi
+
+# provision_hardening must run before configure_nginx — certbot has to be on
+# the box before the HTTPS attempt, or full silently degrades to plain HTTP.
+# Match call lines only — a nearby comment mentioning configure_nginx would
+# otherwise satisfy the ordering grep.
+if awk '/^main\(\)/,/^}/' "$INSTALL_SH" \
+   | grep -E '^[[:space:]]*(provision_hardening|configure_nginx)[[:space:]]*$' \
+   | head -2 | tr '\n' ' ' | grep -q 'provision_hardening.*configure_nginx'; then
+    ok "main() runs provision_hardening before configure_nginx"
+else
+    bad "provision_hardening runs after configure_nginx — certbot would arrive too late"
+fi
+
+# An explicit SERVERKIT_PROFILE must be honoured verbatim and never prompt.
+res="$( set -Eeuo pipefail; PROFILE="full"
+        prompt_for_profile >/dev/null 2>&1; printf '%s' "$PROFILE" )"
+if [ "$res" = "full" ]; then
+    ok "prompt_for_profile honours an explicit SERVERKIT_PROFILE"
+else
+    bad "prompt_for_profile clobbered an explicit profile: got [$res]"
+fi
+
+# A garbage value falls back to detection rather than installing "banana".
+mkfree 2048; mknproc 2; mkdf 50
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"; PROFILE="banana"
+        prompt_for_profile >/dev/null 2>&1 </dev/null; printf '%s' "$PROFILE" )"
+if [ "$res" = "standard" ]; then
+    ok "prompt_for_profile rejects an unknown SERVERKIT_PROFILE and re-detects"
+else
+    bad "prompt_for_profile accepted a bogus profile: got [$res]"
+fi
+
+# Non-interactive (curl | bash) must take the recommendation, not block.
+mkfree 700; mknproc 1; mkdf 20
+res="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; BASE_DIR="$t"; PROFILE=""
+        prompt_for_profile >/dev/null 2>&1 </dev/null; printf '%s' "$PROFILE" )"
+if [ "$res" = "minimal" ]; then
+    ok "prompt_for_profile auto-selects the recommendation with no tty"
+else
+    bad "prompt_for_profile gave [$res] non-interactively, expected minimal"
+fi
+
 INSTALL_OBSERVERS=(
     os_family_from ver_in_range py_venv_ok node_major node_ready
     locate_python gauge_memory identify_system preflight resolve_release_tag
     should_default_to_release svc_has_systemd snapshot_existing
     choose_ssl_mode await_health ping_telemetry
+    detect_container recommend_profile
 )
 
 loop_fail=0
