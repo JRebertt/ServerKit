@@ -8,11 +8,18 @@ plus a defense-in-depth pass through :func:`mask_sensitive`.
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
+from app.middleware.rbac import (
+    get_current_user, require_workspace_access, require_workspace_role,
+)
+from app.services.resource_grant_service import ResourceGrantService
 from app.services.shared_resource_service import SharedResourceService
 from app.models.shared_resource import SharedVariableGroup
 from app.utils.sensitive_data_filter import mask_sensitive
 
 shared_resources_bp = Blueprint('shared_resources', __name__)
+
+# Workspace roles allowed to mutate shared variable groups and attachments.
+_WRITE_ROLES = ['owner', 'admin', 'member']
 
 
 def _bad(msg, code=400):
@@ -25,6 +32,138 @@ def _require(data, *keys):
         if data.get(k) in (None, ''):
             return k
     return None
+
+
+# ------------------------------------------------------------ authorization
+
+def _scope_workspace_id(scope_type, scope_id):
+    """Resolve a group scope to its owning workspace id, or None.
+
+    Hierarchy: Workspace ← Project ← Environment. A dangling or malformed
+    scope returns None so callers can deny without leaking what exists.
+    """
+    from app.models.workspace import Workspace
+    from app.models.project import Project
+    from app.models.environment import Environment
+    try:
+        sid = int(scope_id)
+    except (TypeError, ValueError):
+        return None
+    if scope_type == SharedVariableGroup.SCOPE_WORKSPACE:
+        ws = Workspace.query.get(sid)
+        return ws.id if ws else None
+    if scope_type == SharedVariableGroup.SCOPE_PROJECT:
+        project = Project.query.get(sid)
+        return project.workspace_id if project else None
+    if scope_type == SharedVariableGroup.SCOPE_ENVIRONMENT:
+        env = Environment.query.get(sid)
+        if not env:
+            return None
+        project = Project.query.get(env.project_id)
+        return project.workspace_id if project else None
+    return None
+
+
+def _resolve_app(resource_type, resource_id):
+    """Resolve an app-backed resource (application, wordpress) to its
+    Application, or None."""
+    from app.models.application import Application
+    from app.models.wordpress_site import WordPressSite
+    try:
+        rid = int(resource_id)
+    except (TypeError, ValueError):
+        return None
+    if resource_type == 'application':
+        return Application.query.get(rid)
+    if resource_type == 'wordpress':
+        site = WordPressSite.query.get(rid)
+        return Application.query.get(site.application_id) if site else None
+    return None
+
+
+def _check_scope(scope_type, scope_id, write=False):
+    """Authorize the current user against a variable-group scope.
+
+    Returns None when allowed, else a ``(response, status)`` tuple. Panel
+    admins bypass. 'application' scopes gate on can_access_app / can_edit_app;
+    workspace/project/environment scopes resolve to the owning workspace and
+    gate on membership (read) or write roles (mutation).
+    """
+    user = get_current_user()
+    if user is None:
+        return _bad('authentication required', 401)
+    if user.is_admin:
+        return None
+    if scope_type == 'application':
+        application = _resolve_app('application', scope_id)
+        if application is None:
+            return _bad('scope not found', 404)
+        allowed = (ResourceGrantService.can_edit_app(user, application) if write
+                   else ResourceGrantService.can_access_app(user, application))
+        return None if allowed else _bad('access denied', 403)
+    workspace_id = _scope_workspace_id(scope_type, scope_id)
+    if workspace_id is None:
+        return _bad('scope not found', 404)
+    if write:
+        return require_workspace_role(workspace_id, user, _WRITE_ROLES)
+    return require_workspace_access(workspace_id, user)
+
+
+def _get_scoped_group(group_id, write=False):
+    """Fetch a group and authorize the caller against its scope.
+
+    Returns ``(group, None)`` on success or ``(None, response)`` to return.
+    """
+    group = SharedResourceService.get_group(group_id)
+    if not group:
+        return None, _bad('group not found', 404)
+    denied = _check_scope(group.scope_type, group.scope_id, write=write)
+    if denied:
+        return None, denied
+    return group, None
+
+
+def _check_resource_write(resource_type, resource_id):
+    """Authorize attaching/detaching a group to a target resource.
+
+    Attachments inject the group's variables into the target at deploy time,
+    so this fails closed: app-backed targets (application, wordpress) require
+    operate (member+) access; workspace-owned targets (database, server)
+    require a write role in their workspace; types with no ownership seam
+    ('service', ...) are admin-only.
+    """
+    user = get_current_user()
+    if user is None:
+        return _bad('authentication required', 401)
+    if user.is_admin:
+        return None
+    if resource_type in ('application', 'wordpress'):
+        application = _resolve_app(resource_type, resource_id)
+        if application is None:
+            return _bad('resource not found', 404)
+        if not ResourceGrantService.can_operate_app(user, application):
+            return _bad('access denied', 403)
+        return None
+    if resource_type == 'database':
+        from app.models.managed_database import ManagedDatabase
+        try:
+            row = ManagedDatabase.query.get(int(resource_id))
+        except (TypeError, ValueError):
+            row = None
+        if row is None:
+            return _bad('resource not found', 404)
+        if row.workspace_id is None:
+            return _bad('access denied', 403)
+        return require_workspace_role(row.workspace_id, user, _WRITE_ROLES)
+    if resource_type == 'server':
+        from app.models.server import Server
+        server = Server.query.get(str(resource_id))
+        if server is None:
+            return _bad('resource not found', 404)
+        if server.workspace_id is None:
+            return _bad('access denied', 403)
+        return require_workspace_role(server.workspace_id, user, _WRITE_ROLES)
+    return _bad('access denied', 403)
 
 
 # ---------------------------------------------------------------- metadata
@@ -100,9 +239,20 @@ def remove_tag():
 @shared_resources_bp.route('/variable-groups', methods=['GET'])
 @jwt_required()
 def list_groups():
+    scope_type = request.args.get('scope_type')
+    scope_id = request.args.get('scope_id')
+    if scope_type and scope_id not in (None, ''):
+        denied = _check_scope(scope_type, scope_id)
+        if denied:
+            return denied
+    else:
+        # An unscoped listing spans every workspace — panel admins only.
+        user = get_current_user()
+        if user is None or not user.is_admin:
+            return _bad('admin access required', 403)
     groups = SharedResourceService.list_groups(
-        scope_type=request.args.get('scope_type'),
-        scope_id=request.args.get('scope_id'),
+        scope_type=scope_type,
+        scope_id=scope_id,
     )
     return jsonify({'groups': [g.to_dict() for g in groups]})
 
@@ -114,6 +264,9 @@ def create_group():
     missing = _require(data, 'scope_type', 'scope_id', 'name')
     if missing:
         return _bad(f'{missing} is required')
+    denied = _check_scope(data['scope_type'], data['scope_id'], write=True)
+    if denied:
+        return denied
     try:
         group = SharedResourceService.create_group(
             data['scope_type'], data['scope_id'], data['name'],
@@ -127,9 +280,9 @@ def create_group():
 @shared_resources_bp.route('/variable-groups/<int:group_id>', methods=['GET'])
 @jwt_required()
 def get_group(group_id):
-    group = SharedResourceService.get_group(group_id)
-    if not group:
-        return _bad('group not found', 404)
+    group, denied = _get_scoped_group(group_id)
+    if denied:
+        return denied
     payload = group.to_dict(include_variables=True, mask_secrets=True)
     payload['attachments'] = [a.to_dict() for a in group.attachments]
     return jsonify(mask_sensitive(payload))
@@ -138,10 +291,13 @@ def get_group(group_id):
 @shared_resources_bp.route('/variable-groups/<int:group_id>', methods=['PUT'])
 @jwt_required()
 def update_group(group_id):
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
     data = request.get_json() or {}
     try:
         group = SharedResourceService.update_group(
-            group_id, name=data.get('name'), description=data.get('description')
+            group.id, name=data.get('name'), description=data.get('description')
         )
     except ValueError as e:
         return _bad(str(e))
@@ -153,7 +309,10 @@ def update_group(group_id):
 @shared_resources_bp.route('/variable-groups/<int:group_id>', methods=['DELETE'])
 @jwt_required()
 def delete_group(group_id):
-    if not SharedResourceService.delete_group(group_id):
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
+    if not SharedResourceService.delete_group(group.id):
         return _bad('group not found', 404)
     return jsonify({'message': 'group deleted'})
 
@@ -163,12 +322,15 @@ def delete_group(group_id):
 @shared_resources_bp.route('/variable-groups/<int:group_id>/variables', methods=['POST'])
 @jwt_required()
 def add_variable(group_id):
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
     data = request.get_json() or {}
     if data.get('key') in (None, ''):
         return _bad('key is required')
     try:
         var = SharedResourceService.set_variable(
-            group_id, data['key'], data.get('value', ''),
+            group.id, data['key'], data.get('value', ''),
             is_secret=bool(data.get('is_secret', False)),
             target_service=data.get('target_service') if 'target_service' in data else None,
         )
@@ -183,13 +345,20 @@ def add_variable(group_id):
     '/variable-groups/<int:group_id>/variables/<int:variable_id>', methods=['PUT'])
 @jwt_required()
 def update_variable(group_id, variable_id):
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
+    from app.models.shared_resource import SharedVariable
+    existing = SharedVariable.query.get(variable_id)
+    if not existing or existing.group_id != group.id:
+        return _bad('variable not found', 404)
     data = request.get_json() or {}
     _kwargs = {'value': data.get('value'), 'is_secret': data.get('is_secret')}
     if 'target_service' in data:
         # Only forward when the client sent it, so it's preserved otherwise.
         _kwargs['target_service'] = data.get('target_service')
     var = SharedResourceService.update_variable(variable_id, **_kwargs)
-    if not var or var.group_id != group_id:
+    if not var:
         return _bad('variable not found', 404)
     return jsonify(var.to_dict(mask_secrets=True))
 
@@ -198,9 +367,12 @@ def update_variable(group_id, variable_id):
     '/variable-groups/<int:group_id>/variables/<int:variable_id>', methods=['DELETE'])
 @jwt_required()
 def delete_variable(group_id, variable_id):
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
     from app.models.shared_resource import SharedVariable
     var = SharedVariable.query.get(variable_id)
-    if not var or var.group_id != group_id:
+    if not var or var.group_id != group.id:
         return _bad('variable not found', 404)
     SharedResourceService.delete_variable(variable_id)
     return jsonify({'message': 'variable deleted'})
@@ -215,8 +387,14 @@ def attach_group(group_id):
     missing = _require(data, 'resource_type', 'resource_id')
     if missing:
         return _bad(f'{missing} is required')
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
+    denied = _check_resource_write(data['resource_type'], data['resource_id'])
+    if denied:
+        return denied
     att = SharedResourceService.attach_group(
-        group_id, data['resource_type'], data['resource_id']
+        group.id, data['resource_type'], data['resource_id']
     )
     if not att:
         return _bad('group not found', 404)
@@ -230,8 +408,14 @@ def detach_group(group_id):
     missing = _require(data, 'resource_type', 'resource_id')
     if missing:
         return _bad(f'{missing} is required')
+    group, denied = _get_scoped_group(group_id, write=True)
+    if denied:
+        return denied
+    denied = _check_resource_write(data['resource_type'], data['resource_id'])
+    if denied:
+        return denied
     removed = SharedResourceService.detach_group(
-        group_id, data['resource_type'], data['resource_id']
+        group.id, data['resource_type'], data['resource_id']
     )
     return jsonify({'detached': removed})
 

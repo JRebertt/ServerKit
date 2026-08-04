@@ -34,6 +34,28 @@ def _ensure_group_mutable(group_slug):
         raise QueueBusError('System queue groups are read-only', 403)
 
 
+def _ensure_group_accessible(group_slug):
+    """Reject message reads/acks against queue groups the caller doesn't own.
+
+    System-owned groups (jobs, notifications, webhook deliveries, ...) carry
+    internal payloads and are admin-only over the REST API — otherwise any user
+    could pop messages (visibility timeout) and stall internal processing, or
+    read/ack/kill them. User-owned groups are limited to the owning user (and
+    admins). Internal producers and consumers call ``QueueBusService`` directly
+    and are unaffected by this guard.
+    """
+    group = QueueBusService.get_group(group_slug)
+    if not group:
+        return  # missing group — the service call below raises the 404
+    user = _current_user()
+    if _is_admin(user):
+        return
+    if (group.get('owner_type') == 'user' and user is not None
+            and group.get('owner_id') == str(user.id)):
+        return
+    raise QueueBusError('Access denied', 403)
+
+
 def _handle_error(e):
     if isinstance(e, QueueBusError):
         return jsonify({'error': e.message}), e.status_code
@@ -228,6 +250,7 @@ def delete_queue(group_slug, queue_slug):
 @jwt_required()
 def list_messages(group_slug, queue_slug):
     try:
+        _ensure_group_accessible(group_slug)
         status = request.args.get('status')
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
@@ -274,6 +297,7 @@ def send_message(group_slug, queue_slug):
 @jwt_required()
 def receive_messages(group_slug, queue_slug):
     try:
+        _ensure_group_accessible(group_slug)
         data = request.get_json() or {}
         visibility_timeout_ms = data.get('visibility_timeout_ms', 30000)
         max_messages = data.get('max_messages', 1)
@@ -293,6 +317,7 @@ def receive_messages(group_slug, queue_slug):
 @jwt_required()
 def get_message(group_slug, queue_slug, message_id):
     try:
+        _ensure_group_accessible(group_slug)
         message = QueueBusService.get_message(group_slug, queue_slug, message_id)
         if not message:
             return jsonify({'error': 'Message not found'}), 404
@@ -305,6 +330,7 @@ def get_message(group_slug, queue_slug, message_id):
 @jwt_required()
 def complete_message(group_slug, queue_slug, message_id):
     try:
+        _ensure_group_accessible(group_slug)
         message = QueueBusService.complete(group_slug, queue_slug, message_id)
         return jsonify({'message': message}), 200
     except Exception as e:
@@ -315,6 +341,7 @@ def complete_message(group_slug, queue_slug, message_id):
 @jwt_required()
 def fail_message(group_slug, queue_slug, message_id):
     try:
+        _ensure_group_accessible(group_slug)
         data = request.get_json() or {}
         message = QueueBusService.fail(
             group_slug=group_slug,

@@ -49,8 +49,12 @@ def list_containers():
 
 @docker_bp.route('/containers/<container_id>', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_container(container_id):
-    """Get container details."""
+    """Get container details.
+
+    Admin-only (Decision 7): raw inspect output includes the container's env
+    vars — i.e. app secrets — and there is no container→app linkage to gate on."""
     container = DockerService.get_container(container_id)
     if container:
         return jsonify({'container': container}), 200
@@ -174,8 +178,12 @@ def remove_container(container_id):
 
 @docker_bp.route('/containers/<container_id>/logs', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_container_logs(container_id):
-    """Get container logs."""
+    """Get container logs.
+
+    Admin-only (Decision 7): raw container logs can carry app secrets and there
+    is no container→app linkage to gate on; per-app logs go through apps.py."""
     tail = request.args.get('tail', 100, type=int)
     since = request.args.get('since')
     result = DockerService.get_container_logs(container_id, tail, since)

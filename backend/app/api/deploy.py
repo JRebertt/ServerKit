@@ -3,7 +3,7 @@
 # token/signature-verified (ALLOWLISTed — no per-app user session).
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, app_access_tier
 from app.models import User, Application
 from app.services.git_service import GitService
 from app.services.resource_grant_service import ResourceGrantService
@@ -154,9 +154,21 @@ def get_commit_info(app_id):
 @deploy_bp.route('/history', methods=['GET'])
 @jwt_required()
 def get_deployment_history():
-    """Get deployment history."""
+    """Get deployment history. App-scoped queries require access to that app;
+    global queries (no app_id) are restricted to panel admins."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     app_id = request.args.get('app_id', type=int)
     limit = request.args.get('limit', 50, type=int)
+
+    if app_id:
+        app = Application.query.get(app_id)
+        if not app:
+            return jsonify({'error': 'Application not found'}), 404
+        if not user or app_access_tier(user, app) is None:
+            return jsonify({'error': 'Access denied'}), 403
+    elif not user or not user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
 
     history = GitService.get_deployment_history(app_id, limit)
     return jsonify({'deployments': history}), 200
@@ -219,9 +231,21 @@ def get_branches_from_url():
 @deploy_bp.route('/webhook-logs', methods=['GET'])
 @jwt_required()
 def get_webhook_logs():
-    """Get webhook logs for debugging."""
+    """Get webhook logs for debugging. App-scoped queries require access to that
+    app; global queries (no app_id) are restricted to panel admins."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     app_id = request.args.get('app_id', type=int)
     limit = request.args.get('limit', 50, type=int)
+
+    if app_id:
+        app = Application.query.get(app_id)
+        if not app:
+            return jsonify({'error': 'Application not found'}), 404
+        if not user or app_access_tier(user, app) is None:
+            return jsonify({'error': 'Access denied'}), 403
+    elif not user or not user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
 
     logs = GitService.get_webhook_logs(app_id, limit)
     return jsonify({'logs': logs}), 200

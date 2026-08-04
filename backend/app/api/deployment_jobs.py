@@ -1,12 +1,37 @@
+# Bucket: PER-APP (plan 29 #9). App-linked job reads gate on the app-grant
+# seam (can_access_app); retries require can_operate_app. App-less jobs
+# (template installs, simulated deploys) are requester-or-admin only. The
+# job list is admin-only globally and app-access-gated when app_id is given.
 """Deployment job API endpoints."""
 
 from flask import Blueprint, current_app, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from app.middleware.rbac import app_access_tier
+from app.models import User, Application
 from app.models.deployment_job import DeploymentJob, DeploymentJobLog
 from app.services.deployment_job_service import DeploymentJobService
+from app.services.resource_grant_service import ResourceGrantService
 
 deployment_jobs_bp = Blueprint('deployment_jobs', __name__)
+
+
+def _job_visible_to(user, job):
+    """Read gate for one job: app-linked jobs follow the app's grant seam;
+    app-less jobs belong to their requester (or a panel admin)."""
+    if job.app_id:
+        app = Application.query.get(job.app_id)
+        return app is not None and ResourceGrantService.can_access_app(user, app)
+    return user.is_admin or job.requested_by == user.id
+
+
+def _job_operable_by(user, job):
+    """Operate gate (retry): app-linked jobs need member+ on the app; app-less
+    jobs stay requester-or-admin."""
+    if job.app_id:
+        app = Application.query.get(job.app_id)
+        return app is not None and ResourceGrantService.can_operate_app(user, app)
+    return user.is_admin or job.requested_by == user.id
 
 
 @deployment_jobs_bp.route('/simulate', methods=['GET'])
@@ -51,10 +76,24 @@ def simulate_deployment():
 @deployment_jobs_bp.route('', methods=['GET'])
 @jwt_required()
 def list_deployment_jobs():
+    """List deployment jobs. App-scoped queries require access to that app;
+    global queries (no app_id) are restricted to panel admins."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     status = request.args.get('status')
     target_server_id = request.args.get('server_id')
     app_id = request.args.get('app_id', type=int)
     limit = request.args.get('limit', 50, type=int)
+
+    if app_id:
+        app = Application.query.get(app_id)
+        if not app:
+            return jsonify({'error': 'Application not found'}), 404
+        if not user or app_access_tier(user, app) is None:
+            return jsonify({'error': 'Access denied'}), 403
+    elif not user or not user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
+
     jobs = DeploymentJobService.list_jobs(
         status=status,
         target_server_id=target_server_id,
@@ -69,12 +108,14 @@ def list_deployment_jobs():
 def get_deployment_job(job_id):
     include_logs = request.args.get('logs', 'true').lower() == 'true'
     include_plan = request.args.get('plan', 'false').lower() == 'true'
-    job = DeploymentJobService.get_job(
-        job_id, include_logs=include_logs, include_plan=include_plan
-    )
+    job = DeploymentJob.query.get(job_id)
     if not job:
         return jsonify({'error': 'Deployment job not found'}), 404
-    return jsonify({'job': job}), 200
+    user = User.query.get(get_jwt_identity())
+    if not user or not _job_visible_to(user, job):
+        return jsonify({'error': 'Access denied'}), 403
+    return jsonify({'job': job.to_dict(include_logs=include_logs,
+                                       include_plan=include_plan)}), 200
 
 
 @deployment_jobs_bp.route('/<job_id>/retry', methods=['POST'])
@@ -82,7 +123,12 @@ def get_deployment_job(job_id):
 def retry_deployment_job(job_id):
     """Retry a failed deployment job by cloning it and enqueuing a fresh run
     (plan 51 D8). Only failed jobs may be retried."""
-    from flask_jwt_extended import get_jwt_identity
+    job = DeploymentJob.query.get(job_id)
+    if not job:
+        return jsonify({'error': 'Deployment job not found'}), 404
+    user = User.query.get(get_jwt_identity())
+    if not user or not _job_operable_by(user, job):
+        return jsonify({'error': 'Access denied'}), 403
     result = DeploymentJobService.retry_job(job_id, user_id=get_jwt_identity())
     if not result.get('success'):
         # Distinguish "no such job" from a state/enqueue error.
@@ -97,6 +143,9 @@ def get_deployment_job_logs(job_id):
     job = DeploymentJob.query.get(job_id)
     if not job:
         return jsonify({'error': 'Deployment job not found'}), 404
+    user = User.query.get(get_jwt_identity())
+    if not user or not _job_visible_to(user, job):
+        return jsonify({'error': 'Access denied'}), 403
 
     after_id = request.args.get('after_id', type=int)
     query = DeploymentJobLog.query.filter_by(job_id=job_id)

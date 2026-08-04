@@ -281,11 +281,13 @@ class TestListJobsAppIdFilter:
 
     def test_api_filter(self, app, client, auth_headers):
         with app.app_context():
-            j1 = _make_job(app_id=11)
-            _make_job(app_id=22)
-            j1_id = j1.id
-        res = client.get('/api/v1/deployment-jobs?app_id=11', headers=auth_headers)
+            a1 = _make_app('filter-svc1')
+            a2 = _make_app('filter-svc2')
+            j1 = _make_job(app_id=a1.id)
+            _make_job(app_id=a2.id)
+            a1_id, j1_id = a1.id, j1.id
+        res = client.get(f'/api/v1/deployment-jobs?app_id={a1_id}', headers=auth_headers)
         assert res.status_code == 200
         jobs = res.get_json()['jobs']
         assert [j['id'] for j in jobs] == [j1_id]
-        assert jobs[0]['app_id'] == 11
+        assert jobs[0]['app_id'] == a1_id

@@ -1,10 +1,10 @@
 """API endpoints for secrets manager and inbound webhook gateway."""
 from datetime import datetime
-from functools import wraps
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.middleware.rbac import require_workspace_access, require_workspace_role
 from app.services.secret_vault_service import SecretService, SecretVaultService
 from app.services.webhook_gateway_service import WebhookGatewayService
 from app.services.workspace_service import WorkspaceService
@@ -41,14 +41,63 @@ def _json_or_form() -> dict:
     return {}
 
 
-def admin_required(fn):
-    """Require an admin user (placeholder for role check)."""
-    @wraps(fn)
-    @jwt_required()
-    def wrapper(*args, **kwargs):
-        # Role checks can be added here when the auth system exposes roles.
-        return fn(*args, **kwargs)
-    return wrapper
+def _current_user():
+    return User.query.get(get_jwt_identity())
+
+
+# Workspace roles allowed to mutate vault/webhook resources and to expose secret
+# VALUES (reveal / regenerate-secret) — mirroring the admin-gated connection-URI
+# reveal in databases.py.
+_WS_WRITE_ROLES = ('owner', 'admin')
+
+
+def _ws_visible(workspace_id, roles=None):
+    """True when the caller is a panel admin or a workspace member (any role for
+    reads; owner/admin when `roles` is given)."""
+    user = _current_user()
+    guard = (require_workspace_role(workspace_id, user, roles) if roles
+             else require_workspace_access(workspace_id, user))
+    return guard is None
+
+
+def _vault_gate(vault_id, roles=None):
+    """Resolve a vault and enforce workspace authorization. Sealed-from-open:
+    a missing vault AND one the caller can't see both 404."""
+    vault = SecretVaultService.get_vault(vault_id)
+    if not vault or not _ws_visible(vault.workspace_id, roles):
+        return None, ({'error': 'Vault not found'}, 404)
+    return vault, None
+
+
+def _secret_gate(secret_id, roles=None):
+    """Resolve secret -> vault and enforce workspace authorization (404-sealed)."""
+    secret = SecretService.get_secret(secret_id)
+    if not secret:
+        return None, ({'error': 'Secret not found'}, 404)
+    vault, err = _vault_gate(secret.vault_id, roles)
+    if err:
+        return None, ({'error': 'Secret not found'}, 404)
+    return secret, None
+
+
+def _endpoint_gate(endpoint_id, roles=None):
+    """Resolve a webhook endpoint and enforce workspace authorization (404-sealed)."""
+    endpoint = WebhookGatewayService.get_endpoint(endpoint_id)
+    if not endpoint or not _ws_visible(endpoint.workspace_id, roles):
+        return None, ({'error': 'Endpoint not found'}, 404)
+    return endpoint, None
+
+
+def _delivery_gate(delivery_id, roles=None):
+    """Resolve delivery -> endpoint -> workspace and enforce authorization
+    (404-sealed)."""
+    delivery = WebhookGatewayService.get_delivery(delivery_id)
+    if not delivery or not delivery.endpoint:
+        return None, ({'error': 'Delivery not found'}, 404)
+    endpoint, err = _endpoint_gate(delivery.endpoint.id, roles)
+    if err:
+        return None, ({'error': 'Delivery not found'}, 404)
+    return delivery, None
 
 
 # ---------- Secret Vaults ----------
@@ -92,17 +141,20 @@ def create_vault():
 @bp.route('/vaults/<int:vault_id>', methods=['GET'])
 @jwt_required()
 def get_vault(vault_id):
-    vault = SecretVaultService.get_vault(vault_id)
-    if not vault:
-        return {'error': 'Vault not found'}, 404
+    vault, err = _vault_gate(vault_id)
+    if err:
+        return err
     return {'success': True, 'vault': vault.to_dict()}
 
 
 @bp.route('/vaults/<int:vault_id>', methods=['PATCH'])
 @jwt_required()
 def update_vault(vault_id):
+    vault, err = _vault_gate(vault_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
     data = _json_or_form()
-    result = SecretVaultService.update_vault(vault_id, name=data.get('name'), description=data.get('description'))
+    result = SecretVaultService.update_vault(vault.id, name=data.get('name'), description=data.get('description'))
     if not result.get('success'):
         return {'error': result.get('error')}, 404 if 'not found' in result.get('error', '').lower() else 409
     return result
@@ -111,7 +163,10 @@ def update_vault(vault_id):
 @bp.route('/vaults/<int:vault_id>', methods=['DELETE'])
 @jwt_required()
 def delete_vault(vault_id):
-    result = SecretVaultService.delete_vault(vault_id)
+    vault, err = _vault_gate(vault_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = SecretVaultService.delete_vault(vault.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
@@ -122,12 +177,18 @@ def delete_vault(vault_id):
 @bp.route('/vaults/<int:vault_id>/secrets', methods=['GET'])
 @jwt_required()
 def list_secrets(vault_id):
-    return {'success': True, 'secrets': SecretService.list_secrets(vault_id)}
+    vault, err = _vault_gate(vault_id)
+    if err:
+        return err
+    return {'success': True, 'secrets': SecretService.list_secrets(vault.id)}
 
 
 @bp.route('/vaults/<int:vault_id>/secrets', methods=['POST'])
 @jwt_required()
 def create_secret(vault_id):
+    vault, err = _vault_gate(vault_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
     data = _json_or_form()
     name = data.get('name')
     value = data.get('value')
@@ -139,7 +200,7 @@ def create_secret(vault_id):
             expires_at = datetime.fromisoformat(data['expires_at'])
         except ValueError:
             return {'error': 'Invalid expires_at format'}, 400
-    result = SecretService.create_secret(vault_id, name, value, description=data.get('description'), expires_at=expires_at)
+    result = SecretService.create_secret(vault.id, name, value, description=data.get('description'), expires_at=expires_at)
     if not result.get('success'):
         return {'error': result.get('error')}, 409 if 'already exists' in result.get('error', '').lower() else 400
     return result, 201
@@ -148,26 +209,32 @@ def create_secret(vault_id):
 @bp.route('/vaults/<int:vault_id>/secrets/bulk', methods=['POST'])
 @jwt_required()
 def bulk_create_secrets(vault_id):
+    vault, err = _vault_gate(vault_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
     data = _json_or_form()
     secrets_list = data.get('secrets', [])
     if not isinstance(secrets_list, list):
         return {'error': 'secrets must be a list'}, 400
-    result = SecretService.bulk_create_or_update(vault_id, secrets_list)
+    result = SecretService.bulk_create_or_update(vault.id, secrets_list)
     return result, 207
 
 
 @bp.route('/secrets/<int:secret_id>', methods=['GET'])
 @jwt_required()
 def get_secret(secret_id):
-    secret = SecretService.get_secret(secret_id)
-    if not secret:
-        return {'error': 'Secret not found'}, 404
+    secret, err = _secret_gate(secret_id)
+    if err:
+        return err
     return {'success': True, 'secret': secret.to_dict(mask=True)}
 
 
 @bp.route('/secrets/<int:secret_id>', methods=['PATCH'])
 @jwt_required()
 def update_secret(secret_id):
+    secret, err = _secret_gate(secret_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
     data = _json_or_form()
     expires_at = None
     if data.get('expires_at'):
@@ -176,7 +243,7 @@ def update_secret(secret_id):
         except ValueError:
             return {'error': 'Invalid expires_at format'}, 400
     result = SecretService.update_secret(
-        secret_id,
+        secret.id,
         value=data.get('value'),
         description=data.get('description'),
         expires_at=expires_at,
@@ -190,7 +257,12 @@ def update_secret(secret_id):
 @bp.route('/secrets/<int:secret_id>/reveal', methods=['POST'])
 @jwt_required()
 def reveal_secret(secret_id):
-    result = SecretService.reveal_secret(secret_id)
+    # Secret VALUE exposure is a privileged op (owner/admin workspace role or
+    # panel admin), mirroring the admin-gated connection-URI reveal in databases.py.
+    secret, err = _secret_gate(secret_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = SecretService.reveal_secret(secret.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
@@ -199,7 +271,10 @@ def reveal_secret(secret_id):
 @bp.route('/secrets/<int:secret_id>', methods=['DELETE'])
 @jwt_required()
 def delete_secret(secret_id):
-    result = SecretService.delete_secret(secret_id)
+    secret, err = _secret_gate(secret_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = SecretService.delete_secret(secret.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
@@ -237,18 +312,21 @@ def create_webhook_endpoint():
 @bp.route('/webhooks/endpoints/<int:endpoint_id>', methods=['GET'])
 @jwt_required()
 def get_webhook_endpoint(endpoint_id):
-    endpoint = WebhookGatewayService.get_endpoint(endpoint_id)
-    if not endpoint:
-        return {'error': 'Endpoint not found'}, 404
+    endpoint, err = _endpoint_gate(endpoint_id)
+    if err:
+        return err
     return {'success': True, 'endpoint': endpoint.to_dict()}
 
 
 @bp.route('/webhooks/endpoints/<int:endpoint_id>', methods=['PATCH'])
 @jwt_required()
 def update_webhook_endpoint(endpoint_id):
+    endpoint, err = _endpoint_gate(endpoint_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
     data = _json_or_form()
     result = WebhookGatewayService.update_endpoint(
-        endpoint_id,
+        endpoint.id,
         name=data.get('name'),
         forward_url=data.get('forward_url'),
         filter_paths=data.get('filter_paths'),
@@ -263,7 +341,11 @@ def update_webhook_endpoint(endpoint_id):
 @bp.route('/webhooks/endpoints/<int:endpoint_id>/regenerate-secret', methods=['POST'])
 @jwt_required()
 def regenerate_webhook_secret(endpoint_id):
-    result = WebhookGatewayService.regenerate_secret(endpoint_id)
+    # Returns a new signing secret in plaintext — privileged op like reveal.
+    endpoint, err = _endpoint_gate(endpoint_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = WebhookGatewayService.regenerate_secret(endpoint.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
@@ -272,7 +354,10 @@ def regenerate_webhook_secret(endpoint_id):
 @bp.route('/webhooks/endpoints/<int:endpoint_id>', methods=['DELETE'])
 @jwt_required()
 def delete_webhook_endpoint(endpoint_id):
-    result = WebhookGatewayService.delete_endpoint(endpoint_id)
+    endpoint, err = _endpoint_gate(endpoint_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = WebhookGatewayService.delete_endpoint(endpoint.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
@@ -281,15 +366,21 @@ def delete_webhook_endpoint(endpoint_id):
 @bp.route('/webhooks/endpoints/<int:endpoint_id>/deliveries', methods=['GET'])
 @jwt_required()
 def list_webhook_deliveries(endpoint_id):
+    endpoint, err = _endpoint_gate(endpoint_id)
+    if err:
+        return err
     limit = request.args.get('limit', 50, type=int)
     status = request.args.get('status')
-    return {'success': True, 'deliveries': WebhookGatewayService.list_deliveries(endpoint_id, limit=limit, status=status)}
+    return {'success': True, 'deliveries': WebhookGatewayService.list_deliveries(endpoint.id, limit=limit, status=status)}
 
 
 @bp.route('/webhooks/deliveries/<int:delivery_id>/replay', methods=['POST'])
 @jwt_required()
 def replay_webhook_delivery(delivery_id):
-    result = WebhookGatewayService.replay_delivery(delivery_id)
+    delivery, err = _delivery_gate(delivery_id, roles=_WS_WRITE_ROLES)
+    if err:
+        return err
+    result = WebhookGatewayService.replay_delivery(delivery.id)
     if not result.get('success'):
         return {'error': result.get('error')}, 404
     return result
