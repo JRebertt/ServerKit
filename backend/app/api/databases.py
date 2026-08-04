@@ -1,6 +1,10 @@
 # Bucket: PER-APP (plan 29 #9). The per-app docker DB read (/docker/app/<app_id>)
 # gates on can_access_app; the bare-container docker routes have no app linkage
 # and are system-level admin-only, matching their kill/drop siblings.
+# The host-level raw routes (engine lists, tables/structure, users/privileges,
+# backups list, and the raw query consoles) likewise have no app linkage and are
+# admin-only (Decision 7) — per-app managed-database flows go through the
+# /docker/app/<app_id> and /managed surfaces instead.
 import logging
 
 from flask import Blueprint, request, jsonify
@@ -50,6 +54,7 @@ def get_status():
 
 @databases_bp.route('/mysql', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_mysql_databases():
     """List MySQL databases.
 
@@ -115,6 +120,7 @@ def drop_mysql_database(name):
 
 @databases_bp.route('/mysql/<name>/tables', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_mysql_tables(name):
     """Get tables in a MySQL database.
 
@@ -157,6 +163,7 @@ def restore_mysql_database(name):
 
 @databases_bp.route('/mysql/users', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_mysql_users():
     """List MySQL users.
 
@@ -215,6 +222,7 @@ def drop_mysql_user(username):
 
 @databases_bp.route('/mysql/users/<username>/privileges', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_mysql_user_privileges(username):
     """Get privileges for a MySQL user.
 
@@ -270,6 +278,7 @@ def revoke_mysql_privileges(username):
 
 @databases_bp.route('/postgresql', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_pg_databases():
     """List PostgreSQL databases."""
     databases = DatabaseService.pg_list_databases()
@@ -317,6 +326,7 @@ def drop_pg_database(name):
 
 @databases_bp.route('/postgresql/<name>/tables', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_pg_tables(name):
     """Get tables in a PostgreSQL database."""
     tables = DatabaseService.pg_get_tables(name)
@@ -350,6 +360,7 @@ def restore_pg_database(name):
 
 @databases_bp.route('/postgresql/users', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_pg_users():
     """List PostgreSQL users."""
     users = DatabaseService.pg_list_users()
@@ -433,6 +444,7 @@ def revoke_pg_privileges(username):
 
 @databases_bp.route('/backups', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_backups():
     """List all database backups."""
     db_type = request.args.get('type')
@@ -453,6 +465,7 @@ def delete_backup(filename):
 
 @databases_bp.route('/mysql/<name>/query', methods=['POST'])
 @jwt_required()
+@admin_required
 def execute_mysql_query(name):
     """Execute a query on a MySQL database.
 
@@ -493,6 +506,7 @@ def execute_mysql_query(name):
 
 @databases_bp.route('/postgresql/<name>/query', methods=['POST'])
 @jwt_required()
+@admin_required
 def execute_pg_query(name):
     """Execute a query on a PostgreSQL database.
 
@@ -531,6 +545,7 @@ def execute_pg_query(name):
 
 @databases_bp.route('/sqlite/query', methods=['POST'])
 @jwt_required()
+@admin_required
 def execute_sqlite_query():
     """Execute a query on a SQLite database file.
 
@@ -571,6 +586,7 @@ def execute_sqlite_query():
 
 @databases_bp.route('/mysql/<name>/tables/<table>/structure', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_mysql_table_structure(name, table):
     """Get the structure/schema of a MySQL table."""
     root_password = request.headers.get('X-DB-Password')
@@ -580,6 +596,7 @@ def get_mysql_table_structure(name, table):
 
 @databases_bp.route('/postgresql/<name>/tables/<table>/structure', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_pg_table_structure(name, table):
     """Get the structure/schema of a PostgreSQL table."""
     result = DatabaseService.pg_get_table_structure(name, table)
@@ -588,6 +605,7 @@ def get_pg_table_structure(name, table):
 
 @databases_bp.route('/sqlite/tables/<table>/structure', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_sqlite_table_structure(table):
     """Get the structure/schema of a SQLite table.
 
@@ -604,6 +622,7 @@ def get_sqlite_table_structure(table):
 
 @databases_bp.route('/sqlite', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_sqlite_databases():
     """List SQLite database files found in common locations."""
     databases = DatabaseService.sqlite_list_databases()
@@ -612,6 +631,7 @@ def list_sqlite_databases():
 
 @databases_bp.route('/sqlite/tables', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_sqlite_tables():
     """Get tables in a SQLite database.
 
@@ -940,6 +960,7 @@ def _process_error_response(result):
 @databases_bp.route('/mysql/processes', defaults={'engine': 'mysql'}, methods=['GET'])
 @databases_bp.route('/postgresql/processes', defaults={'engine': 'postgresql'}, methods=['GET'])
 @jwt_required()
+@admin_required
 def list_host_db_processes(engine):
     """List live server processes on a host engine."""
     target = {'engine': engine, 'password': request.headers.get('X-DB-Password')}
