@@ -445,6 +445,16 @@ def get_app_deployments(app_id):
 @viewer_required
 def get_deployment(deployment_id):
     """Get a specific deployment with logs."""
+    from app.models import GitDeployment
+
+    deployment = GitDeployment.query.get(deployment_id)
+    if deployment is None:
+        return jsonify({'success': False, 'error': 'Deployment not found'}), 404
+
+    app = Application.query.get(deployment.app_id)
+    if app is None or app_access_tier(get_current_user(), app) is None:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+
     include_logs = request.args.get('logs', 'false').lower() == 'true'
     result = GitDeployService.get_deployment(deployment_id, include_logs=include_logs)
 
@@ -486,6 +496,12 @@ def rollback_deployment(app_id):
 def get_webhook_deployments(webhook_id):
     """Get deployments triggered by a specific webhook."""
     from app.models import GitDeployment
+
+    webhook = GitWebhook.query.get(webhook_id)
+    if webhook is None:
+        return jsonify({'success': False, 'error': 'Webhook not found'}), 404
+    if not _webhook_visible_to(get_current_user(), webhook):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
 
     limit = request.args.get('limit', 20, type=int)
     deployments = GitDeployment.query.filter_by(webhook_id=webhook_id)\
