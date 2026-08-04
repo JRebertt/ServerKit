@@ -50,7 +50,7 @@ passlib==1.7.4
 bcrypt==4.2.1
 
 # Encryption for env vars
-cryptography==48.0.1
+cryptography==50.0.0
 
 # Two-Factor Authentication
 pyotp==2.9.0
