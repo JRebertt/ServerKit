@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.1.0';
+export const SDK_VERSION = '1.2.0';
 
 export { api, default as defaultApi } from '../../services/api';
 
@@ -132,6 +132,23 @@ export { useTopbarActions } from '../../hooks/useTopbarActions';
 export { formatBytes } from '../../utils/formatBytes';
 export { timeAgo, formatRelativeTime, formatDuration } from '../../utils/time';
 
-// NOTE: additive exports above ship without an SDK_VERSION bump (stays 1.1.0)
-// because the backend mirror (backend/app/utils/sdk.py) is frozen by a
-// concurrent workstream this phase; bump both in lock-step at Phase 5.
+// Generic page furniture + cross-feature embeds (plan 52 Phase 5 — the
+// WordPress runtime-ESM extraction proved these out). Two consumer classes:
+//   - generic primitives any extension page may need (ErrorBoundary,
+//     DangerZone, ResourceAdvisory, ResourceListPage, the logs drawer, and
+//     PluginSlot so an extension can itself host a slot);
+//   - shared cross-feature embeds with ≥2 consumers (a git repo-connect form
+//     used by both the Git and WordPress surfaces; the backups protection
+//     panel embedded by both the Backups page and WordPress). Exposing them
+//     here pins their props as SDK contract — change them accordingly.
+export { default as ErrorBoundary, ErrorState } from '../../components/ErrorBoundary';
+export { DangerZone } from '../../components/DangerZone';
+export { default as ResourceAdvisory } from '../../components/ResourceAdvisory';
+export { default as PluginSlot } from '../../components/PluginSlot';
+export { default as ResourceListPage } from '../../components/layouts/ResourceListPage';
+export { useLogsDrawer } from '../../contexts/LogsDrawerContext';
+export { default as RepoConnectForm } from '../../components/git/RepoConnectForm';
+export {
+    GIT_PROVIDERS, detectProvider, RepoProviderStrip,
+} from '../../components/git/GitProviders';
+export { default as ProtectionPanel } from '../../components/backups/ProtectionPanel';
