@@ -53,6 +53,9 @@ export {
     ScoreGauge,
     Sparkline,
     Pill,
+    EnvTag,
+    SegControl,
+    ServiceTile,
     PageTopbar,
     DataTable,
     ResourceCard,
@@ -94,3 +97,41 @@ export {
     useParams,
     Outlet,
 } from 'react-router-dom';
+
+// Layout + feedback primitives (plan 52 Phase 4 — the WordPress frontend
+// relocation proved these out). Generic re-exports, same modules core pages
+// use; an extension page should be able to mirror a core page's chrome
+// (tab group, modal, confirm, empty/loading states) without deep imports.
+export { default as TabGroupLayout } from '../../layouts/TabGroupLayout';
+export { default as Modal } from '../../components/Modal';
+export { ConfirmDialog } from '../../components/ConfirmDialog';
+export { Spinner, LoadingState } from '../../components/Spinner';
+export { default as EmptyState } from '../../components/EmptyState';
+export { SkeletonBoundary } from '../../components/SkeletonBoundary';
+export { Skeleton } from '../../components/Skeleton';
+
+// Form primitives — the ui/* kit extensions reach for most.
+export { Button } from '../../components/ui/button';
+export { Input } from '../../components/ui/input';
+export { Label } from '../../components/ui/label';
+export { Switch } from '../../components/ui/switch';
+export { Checkbox } from '../../components/ui/checkbox';
+export { Textarea } from '../../components/ui/textarea';
+export { Badge } from '../../components/ui/badge';
+export {
+    Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
+    SelectLabel, SelectItem, SelectSeparator,
+} from '../../components/ui/select';
+
+// Common hooks.
+export { useConfirm } from '../../hooks/useConfirm';
+export { default as useTabParam } from '../../hooks/useTabParam';
+export { useTopbarActions } from '../../hooks/useTopbarActions';
+
+// Formatting utilities (canonical host implementations — no local copies).
+export { formatBytes } from '../../utils/formatBytes';
+export { timeAgo, formatRelativeTime, formatDuration } from '../../utils/time';
+
+// NOTE: additive exports above ship without an SDK_VERSION bump (stays 1.1.0)
+// because the backend mirror (backend/app/utils/sdk.py) is frozen by a
+// concurrent workstream this phase; bump both in lock-step at Phase 5.
