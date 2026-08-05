@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "note": "Publisher public keys the panel trusts to verify extension release signatures (ed25519, minisign-style detached envelope over the release zip — see app/services/signing_service.py and docs/EXTENSIONS.md 'Release signing'). The registry index names a key via publisher_key_id; the signature must verify under the pinned key with that id. Operators can pin additional publisher keys via SERVERKIT_TRUSTED_EXTENSION_KEYS (path to a JSON file with this same shape) — that env file is also the rotation path: pin the new key, sign new releases with it, remove the old entry once nothing references it. The matching private keys never live in this repo.",
+  "keys": [
+    {
+      "key_id": "serverkit-official",
+      "publisher": "ServerKit (first-party)",
+      "algorithm": "ed25519",
+      "public_key": "uKD987JPR2o1mshLUx2oDjGzdZW5FMxtaVNcFbowTKs="
+    }
+  ]
+}
