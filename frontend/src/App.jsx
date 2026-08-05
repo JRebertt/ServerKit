@@ -93,8 +93,9 @@ const PAGE_TITLES = {
     '/projects': 'Projects',
     '/shared-variables': 'Shared Variables',
     '/fleet-proxy': 'Fleet Proxy',
-    // WordPress list-page titles come from the serverkit-wordpress manifest
-    // (page_titles) now; the dynamic detail-page fallbacks below stay in core.
+    // WordPress titles come from the serverkit-wordpress manifest
+    // (page_titles) — list pages by exact path, detail pages via the
+    // base-path lookup in PageTitleUpdater below.
     '/templates': 'Templates',
     '/deployments': 'Deployment Activity',
     '/domains': 'Domains',
@@ -188,8 +189,6 @@ function PageTitleUpdater() {
                     title = pluginTitles[basePath];
                 } else if (path.startsWith('/services/')) title = 'Service Details';
                 else if (path.startsWith('/servers/')) title = 'Server Details';
-                else if (path.startsWith('/wordpress/pipelines/') || path.startsWith('/wordpress/projects/')) title = 'WordPress Pipeline';
-                else if (path.startsWith('/wordpress/')) title = 'WordPress Site';
                 else title = '';
             }
         }

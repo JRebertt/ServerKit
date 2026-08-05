@@ -245,18 +245,21 @@ export const SIDEBAR_PRESETS = {
     email: {
         label: 'Email Admin',
         description: 'Email server, security, DNS, and monitoring',
-        hiddenItems: ['services', 'wordpress', 'workflow', 'databases', 'docker', 'git', 'cron', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['services', 'workflow', 'databases', 'docker', 'git', 'cron', ...ADVANCED_ITEM_IDS]
     },
     devops: {
         label: 'Docker / DevOps',
         description: 'Docker, Git, monitoring, and CI/CD tools',
-        hiddenItems: ['wordpress', 'email', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['email', ...ADVANCED_ITEM_IDS]
     },
     minimal: {
         label: 'Minimal',
         description: 'Core only — no databases, containers, or scheduling',
-        hiddenItems: ['wordpress', 'workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
     }
+    // Note: no 'wordpress' literal — its nav item is contributed by the
+    // serverkit-wordpress extension manifest (plan 52 Phase 4), so presets
+    // don't hardcode an extension's id; uninstalled = absent.
 };
 
 // Map the Setup wizard's "use case" selections to an initial sidebar preset, so
