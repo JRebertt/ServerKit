@@ -224,4 +224,7 @@ def test_sdk_is_reachable_from_the_package(app):
     from app import plugins_sdk
 
     plugins_sdk.backups.register('minecraft.world', resolve=_resolve, execute=_execute)
-    assert plugins_sdk.backups.kinds() == ['minecraft.world']
+    # Exact-set equality no longer holds: flagship extensions (WordPress)
+    # legitimately hold kind slots registered at boot (plan 52 D4) and are
+    # refilled per app boot even after this file's clear() fixture.
+    assert 'minecraft.world' in plugins_sdk.backups.kinds()

@@ -10,9 +10,18 @@ from app.models.backup_policy import BackupPolicy, VALID_TARGET_TYPES
 from app.services.backup_policy_service import BackupPolicyService, BackupPolicyError
 
 
-def test_valid_target_types_include_new_targets():
-    for t in ('application', 'wordpress_site', 'database', 'files', 'server'):
+def test_valid_target_types_are_the_core_set():
+    """VALID_TARGET_TYPES is the CORE set only (plan 52 D4): 'wordpress_site'
+    left it and is registered by the WordPress extension at load."""
+    for t in ('application', 'database', 'files', 'server'):
         assert t in VALID_TARGET_TYPES
+    assert 'wordpress_site' not in VALID_TARGET_TYPES
+
+
+def test_wordpress_site_valid_while_extension_present(app):
+    """With the WP flagship seeded (test boot), its backup kind registers via
+    the core_hooks seam and validates like a first-class type."""
+    BackupPolicyService.validate_target_type('wordpress_site')
 
 
 def test_target_meta_round_trips(app):
