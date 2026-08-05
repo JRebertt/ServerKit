@@ -7,6 +7,7 @@ import {
     PlugZap,
     Search,
     ShieldAlert,
+    ShieldCheck,
 } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -52,12 +53,50 @@ const SourceInput = ({
     </div>
 );
 
+// Signature verdict badge for the consent card (plan 55). 'verified' means the
+// release zip's ed25519 signature checked out against a publisher key pinned
+// by this panel; everything else is an honest not-verified treatment.
+const SignatureBadge = ({ signature }) => {
+    const status = signature?.status || 'unsigned';
+    if (status === 'verified') {
+        return (
+            <Badge variant="success" className="plugin-install-consent__badge">
+                <ShieldCheck aria-hidden="true" />
+                Signed · {signature.publisher || signature.key_id}
+            </Badge>
+        );
+    }
+    if (status === 'untrusted_key') {
+        return (
+            <Badge variant="warning" className="plugin-install-consent__badge">
+                <ShieldAlert aria-hidden="true" />
+                Signed · unknown publisher
+            </Badge>
+        );
+    }
+    if (status === 'invalid') {
+        return (
+            <Badge variant="destructive" className="plugin-install-consent__badge">
+                <ShieldAlert aria-hidden="true" />
+                Signature invalid
+            </Badge>
+        );
+    }
+    return (
+        <Badge variant="warning" className="plugin-install-consent__badge">
+            <ShieldAlert aria-hidden="true" />
+            Unsigned
+        </Badge>
+    );
+};
+
 // The consent card shown after a GitHub/zip URL is resolved but before install.
 // Presents what will be installed and what it wants — the same permissions
 // presentation as the registry detail modal — so the install is never blind.
 const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
     const permissions = Array.isArray(preview.permissions) ? preview.permissions : [];
     const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
+    const sigStatus = preview.signature?.status || 'unsigned';
     const compat = preview.min_panel_version || preview.max_panel_version
         ? `Panel ${preview.min_panel_version || '*'}–${preview.max_panel_version || '*'}`
         : null;
@@ -74,14 +113,30 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
                         {compat && <span>{compat}</span>}
                     </div>
                 </div>
-                <Badge variant="warning" className="plugin-install-consent__badge">
-                    <ShieldAlert aria-hidden="true" />
-                    GitHub · unverified
-                </Badge>
+                <SignatureBadge signature={preview.signature} />
             </div>
 
             {preview.description && (
                 <p className="plugin-install-consent__desc">{preview.description}</p>
+            )}
+
+            {sigStatus === 'invalid' && (
+                <p className="plugin-install-consent__sig-note plugin-install-consent__sig-note--danger">
+                    {preview.signature?.error || 'The signature does not match this archive.'}
+                    {' '}The download may have been tampered with — do not install it.
+                </p>
+            )}
+            {sigStatus === 'untrusted_key' && (
+                <p className="plugin-install-consent__sig-note">
+                    This release is signed, but the publisher key is not pinned by this
+                    panel, so the signature cannot be verified. Treat it as unsigned.
+                </p>
+            )}
+            {sigStatus === 'unsigned' && (
+                <p className="plugin-install-consent__sig-note">
+                    This release carries no publisher signature. It will run with full
+                    panel privileges — install only if you trust the source.
+                </p>
             )}
 
             <div className="plugin-install-consent__section">
@@ -112,9 +167,14 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
                 <Button variant="secondary" onClick={onCancel} disabled={installing}>
                     Back
                 </Button>
-                <Button onClick={onInstall} disabled={installing}>
+                <Button
+                    onClick={onInstall}
+                    disabled={installing || sigStatus === 'invalid'}
+                    variant={sigStatus === 'verified' ? 'default' : 'destructive'}
+                >
                     <DownloadCloud aria-hidden="true" />
-                    {installing ? 'Installing...' : 'Install'}
+                    {installing ? 'Installing...'
+                        : sigStatus === 'verified' ? 'Install' : 'Install anyway'}
                 </Button>
             </div>
         </div>
@@ -161,8 +221,10 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
     const handleInstallFromPreview = async () => {
         setInstalling(true);
         try {
-            // Pin the install to the exact previewed bytes (resolved URL + sha256).
-            const result = await api.installPlugin(preview.resolved_url, preview.sha256);
+            // Pin the install to the exact previewed bytes (resolved URL +
+            // sha256) and re-verify the previewed signature against them.
+            const result = await api.installPlugin(
+                preview.resolved_url, preview.sha256, preview.signature);
             toast.success(`Extension "${result.display_name}" installed. Restart backend to activate routes.`);
             onInstalled();
         } catch (err) {

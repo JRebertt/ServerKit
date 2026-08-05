@@ -11,6 +11,7 @@ import {
     Plug,
     PlugZap,
     ServerCog,
+    ShieldAlert,
     ShieldCheck,
     Sparkles,
     Star,
@@ -87,6 +88,12 @@ const getRegistryCatalogEntry = (entry) => ({
     firstParty: isFirstParty(entry.author, entry),
     trust: entry.trust || 'unreviewed',
     review: entry.review || null,
+    // Release-signature state from the index (plan 55): `signed` means the
+    // entry carries an ed25519 signature the panel verifies at install;
+    // `publisherTrusted` means the named key is pinned by this panel.
+    signed: Boolean(entry.signature),
+    publisherTrusted: Boolean(entry.publisher_trusted),
+    publisherKeyId: entry.publisher_key_id || null,
     icon: entry.icon || null,
     logo: entry.logo || null,
     repo: entry.repo || entry.homepage || null,
@@ -126,6 +133,33 @@ const TrustBadge = ({ entry }) => {
         return <Badge variant="warning">Unreviewed</Badge>;
     }
     return null;
+};
+
+// Release-signature badge (plan 55). Shown on the registry detail modal next
+// to TrustBadge: 'signed · verified' means the index pins an ed25519 signature
+// whose publisher key this panel trusts (verified cryptographically at
+// install); unsigned entries get the honest unsigned treatment.
+const SignatureBadge = ({ entry }) => {
+    if (entry.source !== 'registry') return null;
+    if (entry.signed && entry.publisherTrusted) {
+        return (
+            <Badge variant="success" title="Release zip is signed; the panel verifies the ed25519 signature at install">
+                <ShieldCheck aria-hidden="true" /> Signed
+            </Badge>
+        );
+    }
+    if (entry.signed) {
+        return (
+            <Badge variant="warning" title={`Signed with publisher key '${entry.publisherKeyId}', which this panel does not pin`}>
+                <ShieldAlert aria-hidden="true" /> Unknown signer
+            </Badge>
+        );
+    }
+    return (
+        <Badge variant="outline" title="This release carries no publisher signature">
+            Unsigned
+        </Badge>
+    );
 };
 
 const getLocalCatalogEntry = (builtin) => {
@@ -198,8 +232,9 @@ const Marketplace = () => {
     const [detailEntry, setDetailEntry] = useState(null);
     // Registry entry awaiting risk confirmation — drives the acknowledge-risk
     // dialog (confirm retries with acknowledge_risk: true). Shape:
-    // { slug, reason } where reason is 'unreviewed' (proactive gate or 409)
-    // or 'unverified' (409: entry has no pinned checksum).
+    // { slug, reason } where reason is 'unreviewed' (proactive gate or 409),
+    // 'unverified' (409: entry has no pinned checksum), or 'untrusted_key'
+    // (signed by a publisher key this panel doesn't pin — plan 55).
     const [riskTarget, setRiskTarget] = useState(null);
     // Plugin pending uninstall — drives the keep-vs-purge data-policy dialog.
     const [uninstallTarget, setUninstallTarget] = useState(null);
@@ -270,6 +305,10 @@ const Marketplace = () => {
             // Proactive gate: unreviewed registry entries confirm first
             // (the backend 409 path above covers the race/stale cases).
             setRiskTarget({ slug: entry.installKey, reason: 'unreviewed' });
+        } else if (entry.signed && !entry.publisherTrusted) {
+            // Signed by a publisher key this panel doesn't pin — consent first
+            // (plan 55); the backend 409 path is the authoritative backstop.
+            setRiskTarget({ slug: entry.installKey, reason: 'untrusted_key' });
         } else {
             handleRegistryInstall(entry.installKey);
         }
@@ -550,7 +589,9 @@ const Marketplace = () => {
                     onClose={() => setRiskTarget(null)}
                     title={riskTarget.reason === 'unverified'
                         ? 'Install without checksum verification?'
-                        : 'Install unreviewed extension?'}
+                        : riskTarget.reason === 'untrusted_key'
+                            ? 'Install with an unverifiable signature?'
+                            : 'Install unreviewed extension?'}
                     size="sm"
                     footer={
                         <>
@@ -566,8 +607,12 @@ const Marketplace = () => {
                             {riskTarget.reason === 'unverified'
                                 ? 'This extension has no pinned checksum, so the panel '
                                   + 'cannot verify the artifact it would download.'
-                                : 'This is a community extension whose exact code has not '
-                                  + 'been reviewed by the ServerKit maintainers.'}
+                                : riskTarget.reason === 'untrusted_key'
+                                    ? 'This extension is signed, but the publisher key is not '
+                                      + 'pinned by this panel, so the signature cannot be '
+                                      + 'verified. Treat it as unsigned.'
+                                    : 'This is a community extension whose exact code has not '
+                                      + 'been reviewed by the ServerKit maintainers.'}
                         </p>
                         <p className="text-muted">
                             It runs with full panel privileges. Only install it if you trust
@@ -766,6 +811,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                                 <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
                             )}
                             <TrustBadge entry={entry} />
+                            <SignatureBadge entry={entry} />
                             <Badge variant={sourceBadgeVariant(entry.source)}>{entry.sourceLabel}</Badge>
                             <Badge variant="outline">{titleCase(category)}</Badge>
                         </div>

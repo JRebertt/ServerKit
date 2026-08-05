@@ -756,6 +756,19 @@
         line-height: $line-height-normal;
     }
 
+    // Signature verdict explainer under the description (plan 55): plain for
+    // unsigned / unknown-publisher, red when the signature failed to verify.
+    &__sig-note {
+        margin: 0;
+        font-size: $font-size-sm;
+        line-height: $line-height-normal;
+        color: $text-tertiary;
+
+        &--danger {
+            color: $danger;
+        }
+    }
+
     &__label {
         margin: 0 0 $space-2;
         font-size: $font-size-sm;
