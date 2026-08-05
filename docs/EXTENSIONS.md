@@ -561,6 +561,68 @@ Private repos and GitHub's anonymous rate limit are handled by the optional
 never logged). See [`POST /api/v1/plugins/preview`](EXTENSIONS_REGISTRY.md) and
 the site's [Installing](https://serverkit.ai/docs/extensions/installing) guide.
 
+### Release signing (ed25519)
+
+Release zips can carry a **detached ed25519 signature** so the panel proves
+*origin*, not just integrity (a sha256 in the index only says the bytes match
+the index — whoever can edit the index can edit the hash beside it). The scheme
+is deliberately minimal (plan 55, D3): no PKI, no key servers.
+
+**Signature format** — a minisign-style envelope, base64 of 74 bytes:
+
+```
+"ED" (2 bytes) || key_num (8 bytes) || ed25519 signature (64 bytes)
+```
+
+- `ED` marks a *pure* ed25519 signature over the raw zip bytes.
+- `key_num` is `sha256(public_key)[:8]`, binding the envelope to the exact
+  key that made it — a `publisher_key_id` cannot be pointed at a different
+  pinned key than the one that signed.
+
+**Sign a release** with `scripts/sign-extension.mjs`:
+
+```bash
+# once per publisher — keep the key file PRIVATE and out of git
+node scripts/sign-extension.mjs keygen --key-id my-publisher --out <safe dir>
+
+# per release — writes <bundle>.zip.minisig and prints the index fields
+node scripts/sign-extension.mjs sign my-ext-1.0.0.zip --key <safe dir>/my-publisher.signing-key.json
+```
+
+Ship the `.minisig` beside the zip as a release asset (the GitHub preview flow
+looks for `<zip URL>.minisig` automatically). For registry-listed extensions,
+paste the printed `signature` + `publisher_key_id` into the index entry
+(schema v3; v1/v2 indexes without them stay valid — those entries are simply
+treated as unsigned).
+
+**Key model.** The panel pins publisher public keys in
+`backend/app/data/extension_signing_keys.json` (the `serverkit-official`
+first-party key ships there). Operators can trust additional publisher keys via
+`SERVERKIT_TRUSTED_EXTENSION_KEYS` (path to a JSON file with the same shape) —
+that file is also the rotation path: pin the new key, sign new releases with
+it, remove the old entry once nothing references it.
+
+**What the panel does with a signature** (verify logic:
+`app/services/signing_service.py`):
+
+| Verdict | Meaning | Install behavior |
+|---|---|---|
+| `verified` | Signature valid under a pinned key | Installs; no extra friction |
+| `unsigned` | No signature present | Installs behind the existing consent surfaces (preview card badge, registry risk dialog) — never a hard block |
+| `untrusted_key` | Signed, but the publisher key isn't pinned | Registry: 409 consent ("install anyway"); manual: consent card warns |
+| `invalid` | Malformed envelope, key-id mismatch, or verify failed | **Hard failure, always.** Acknowledgment can never override a bad signature |
+
+The verdict is stamped on the installed extension (panel-managed `_signature`
+config key, surfaced as `signature` in the plugin API dict) so origin
+verification stays visible after install. The sha256 runtime-frontend hash
+check is unaffected — signatures cover the zip, `_frontend_hashes` still pins
+the served `.mjs` bundle bytes.
+
+Honesty note (D2): a signature verifies *when present*. Until every
+first-party release is signed, an unsigned first-party index entry still
+installs on the strength of the index itself (TLS + the registry repo's PR
+review), so the index's integrity remains part of the trust story.
+
 ### Docker note
 
 A dockerized backend only sees `/app`, not the host's `frontend/` tree. To install

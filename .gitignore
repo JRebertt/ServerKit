@@ -201,3 +201,6 @@ frontend/src/plugins/serverkit-k8s/
 frontend/src/plugins/serverkit-mail/
 frontend/src/plugins/serverkit-tramo/
 /graphify-out
+
+# Extension release signing keys (private halves — never commit; see scripts/sign-extension.mjs)
+scripts/keys/
