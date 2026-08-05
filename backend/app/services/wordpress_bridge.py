@@ -1,28 +1,19 @@
 """Importlib bridge to the ``serverkit-wordpress`` extension backend.
 
-WordPress ships as a bundled, default-installed, uninstallable extension (D4).
-Its backend lives in ``builtin-extensions/serverkit-wordpress/backend/`` and is
-loaded as the *dashed* package ``app.plugins.serverkit-wordpress``. Because the
-slug contains a dash it can never be reached with a normal ``import`` statement
-(``import app.plugins.serverkit-wordpress`` is a SyntaxError), so the handful of
-core call sites that still reach into the WordPress stack go through this bridge,
-which resolves modules with ``importlib`` on a *string* path — dash-safe.
+WordPress is a standalone extension (plan 52 Phase 5 — own repo, registry
+install). Its backend loads as the *dashed* package
+``app.plugins.serverkit-wordpress``. Because the slug contains a dash it can
+never be reached with a normal ``import`` statement
+(``import app.plugins.serverkit-wordpress`` is a SyntaxError), so the handful
+of core call sites that still reach into the WordPress stack go through this
+bridge, which resolves modules with ``importlib`` on a *string* path —
+dash-safe.
 
-Loadability is uniform across prod / dev / test:
-
-* **Copy-installed** (``app/plugins/serverkit-wordpress`` exists) — the ordinary
-  path-based finder resolves it, same as any marketplace plugin.
-* **In-place** (dev checkout, the test suite, or a fresh boot *before* the
-  flagship seed row is created) — we register the builtin backend directory in
-  ``sys.modules`` as the package via ``spec_from_file_location`` with
-  ``submodule_search_locations`` pointing at it, so both submodule and relative
-  imports inside the extension resolve. **No file copy is required.** This is
-  what makes a dashed, default-installed package loadable everywhere.
-
-During the two-speed migration window the bridge also falls back to the legacy
-core location (``app.services.<module>``) so callers can be re-pointed *before*
-the physical move lands without breaking. Once the files move, the extension
-path wins and the fallback is simply never reached.
+With the extension registry-installed, its backend copy under
+``backend/app/plugins/serverkit-wordpress/`` resolves as an ordinary
+subpackage. With it NOT installed, the bridge raises a clear
+``WordPressExtensionMissingError`` — callers either guard with try/except
+(lazy WP-context paths) or check before calling.
 """
 import importlib
 
@@ -30,14 +21,14 @@ SLUG = 'serverkit-wordpress'
 PKG = f'app.plugins.{SLUG}'
 
 
-def ensure_loadable():
-    """Make ``app.plugins.serverkit-wordpress`` importable, in-place if needed.
+class WordPressExtensionMissingError(RuntimeError):
+    """The serverkit-wordpress extension is not installed/active."""
 
-    Delegates to the canonical in-place loader in ``plugin_service`` (shared with
-    the flagship boot path). Idempotent and cheap after the first call. Returns
-    ``True`` if the package is (now) importable, ``False`` if the extension isn't
-    present on disk at all (in which case callers fall back to the legacy core
-    location during the migration window).
+
+def ensure_loadable():
+    """Make ``app.plugins.serverkit-wordpress`` importable if the extension is
+    installed. Idempotent and cheap after the first call. Returns ``True`` if
+    the package is (now) importable, ``False`` when the extension is absent.
     """
     from app.services.plugin_service import _ensure_builtin_backend_importable
     return _ensure_builtin_backend_importable(SLUG)
@@ -46,15 +37,15 @@ def ensure_loadable():
 def load(module_name):
     """Import a module from the extension backend (e.g. ``'wordpress_service'``).
 
-    Falls back to the legacy core location during the migration window.
+    Raises WordPressExtensionMissingError when the extension isn't installed.
+    A genuine ImportError inside the extension propagates unchanged.
     """
     if ensure_loadable():
-        try:
-            return importlib.import_module(f'{PKG}.{module_name}')
-        except ImportError:
-            pass
-    # Two-speed fallback: the file may still live in core (pre-move).
-    return importlib.import_module(f'app.services.{module_name}')
+        return importlib.import_module(f'{PKG}.{module_name}')
+    raise WordPressExtensionMissingError(
+        f'the serverkit-wordpress extension is not installed '
+        f'(needed for app.plugins.{SLUG}.{module_name}); '
+        f'install it from the Marketplace')
 
 
 def get(module_name, attr):

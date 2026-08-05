@@ -2487,11 +2487,14 @@ def create_app_db_snapshot(app_id):
         return err
     from app.models.wordpress_site import DatabaseSnapshot
     from app.services.db_sync_service import DatabaseSyncService
-    from app.services.wordpress_bridge import wordpress_env_service
-    WordPressEnvService = wordpress_env_service()
     site = _wp_site_for_app(app)
     if not site:
         return jsonify({'error': 'This application is not a WordPress site'}), 400
+    # Resolve the extension only once we know this IS a WordPress site — with
+    # serverkit-wordpress uninstalled a non-WP app must get the 400, not an
+    # import error (plan 52 Phase 5 graceful absence).
+    from app.services.wordpress_bridge import wordpress_env_service
+    WordPressEnvService = wordpress_env_service()
     data = request.get_json() or {}
     result = DatabaseSyncService.create_snapshot(
         db_name=site.db_name,

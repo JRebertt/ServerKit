@@ -62,16 +62,22 @@ BUILTIN_EXTENSIONS_DIR = os.environ.get(
 # (handled one-shot in extension_migration), a flagship is seeded in-place — no
 # file copy — its backend loads straight from builtin-extensions/ and its frontend
 # is pre-bundled (D5). A user uninstall records a marker so it stays gone.
-FLAGSHIP_SLUGS = ['serverkit-wordpress', 'serverkit-cloudflare-ops']
+#
+# serverkit-wordpress GRADUATED from this list in plan 52 Phase 5: it left the
+# tree into its own repo and now distributes through the registry (the
+# k8s/tramo model — bundled index entry + GitHub release zip), offered during
+# onboarding via RECOMMENDED_EXTENSIONS_BY_USE_CASE. Its uninstall-marker
+# semantics are preserved (the settings key machinery below is untouched), so
+# a user who uninstalled WP before the extraction is never re-seeded.
+FLAGSHIP_SLUGS = ['serverkit-cloudflare-ops']
 _FLAGSHIP_UNINSTALLED_KEY = 'extensions.flagship_uninstalled'
 
 # Wizard-optional flagships (plan 47): offered — not force-installed — during
-# onboarding. On a FRESH install (setup wizard not yet completed) the boot-time
-# seeder skips these so the panel stays lean; the wizard installs them only when
-# their use case is picked. Existing installs (setup already completed) keep the
-# prior always-seeded behavior — zero regression. cloudflare-ops is NOT here: it
-# is route-only (no sidebar item) and stays seeded for the CF connection surface.
-WIZARD_OPTIONAL_FLAGSHIP_SLUGS = ['serverkit-wordpress']
+# onboarding. Currently EMPTY: WordPress (the only member) left the tree in
+# plan 52 Phase 5 and is now a registry extension the wizard offers like any
+# other recommendation. The machinery stays — a future in-tree flagship that
+# should be wizard-optional goes here.
+WIZARD_OPTIONAL_FLAGSHIP_SLUGS = []
 
 
 def _ensure_builtin_backend_importable(slug):
