@@ -7,19 +7,6 @@
       "version": "1.0.0",
       "frontend_entry": "",
       "path": "serverkit-cloudflare-ops"
-    },
-    {
-      "name": "serverkit-wordpress",
-      "slug": "serverkit-wordpress",
-      "display_name": "WordPress",
-      "version": "1.0.0",
-      "frontend_entry": "",
-      "path": "serverkit-wordpress",
-      "styles": [
-        "plugins/serverkit-wordpress/styles/wordpress-pipeline.scss",
-        "plugins/serverkit-wordpress/styles/wordpress-plugin-library.scss",
-        "plugins/serverkit-wordpress/styles/wordpress.scss"
-      ]
     }
   ]
 }

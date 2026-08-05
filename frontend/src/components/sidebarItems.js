@@ -87,7 +87,8 @@ export const SIDEBAR_ITEMS = [
         category: 'infrastructure',
         icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
     },
-    // WordPress is now the serverkit-wordpress builtin extension (Phase 5 #38);
+    // WordPress is the standalone serverkit-wordpress extension (plan 52
+    // Phase 5 — registry-installed, offered in the setup wizard);
     // its sidebar item is contributed by the extension manifest (nav), so it
     // disappears cleanly when the extension is uninstalled.
     // Automations (tramo) is the standalone serverkit-tramo extension (own repo,
