@@ -45,6 +45,67 @@ class TemplateService:
         }
     ]
 
+    # Provider-owned templates (plan 52 D4 hook inversion): these ids are
+    # listed and installable ONLY while the owning extension has registered as
+    # their provider (i.e. it is installed + active this boot — registration
+    # happens via the manifest ``core_hooks`` seam). The map itself is core;
+    # the extension supplies availability and any variable-validation hook at
+    # load. Absent extension = the cards vanish from the catalog and installs
+    # refuse with a clear "provider missing" error, never a half-broken deploy.
+    PROVIDER_OWNED_TEMPLATES = {
+        'wordpress': 'serverkit-wordpress',
+        'wordpress-external-db': 'serverkit-wordpress',
+    }
+    # slug -> {'validate': callable(template_id, variables) -> error-dict|None}
+    _TEMPLATE_PROVIDERS = {}
+
+    @classmethod
+    def register_template_provider(cls, slug, validate=None):
+        """Register extension ``slug`` as the provider of its
+        ``PROVIDER_OWNED_TEMPLATES`` entries. Idempotent; the optional
+        ``validate(template_id, variables)`` hook may veto a variable set by
+        returning a ``{'success': False, 'error': ...}`` dict (this replaces
+        hardcoded per-template checks in core — e.g. the WordPress external-DB
+        preflight now lives in the WP extension)."""
+        providers = dict(cls._TEMPLATE_PROVIDERS)
+        providers[slug] = {'validate': validate}
+        cls._TEMPLATE_PROVIDERS = providers
+
+    @classmethod
+    def unregister_template_provider(cls, slug):
+        """Drop a provider registration. Tests only."""
+        providers = dict(cls._TEMPLATE_PROVIDERS)
+        providers.pop(slug, None)
+        cls._TEMPLATE_PROVIDERS = providers
+
+    @classmethod
+    def provider_for_template(cls, template_id):
+        """The registered provider dict for ``template_id``, or None when the
+        template is core-owned or its owning extension is absent."""
+        slug = cls.PROVIDER_OWNED_TEMPLATES.get(template_id)
+        if not slug:
+            return None
+        return cls._TEMPLATE_PROVIDERS.get(slug)
+
+    @classmethod
+    def template_available(cls, template_id):
+        """False only for provider-owned templates whose provider extension is
+        not registered this boot."""
+        slug = cls.PROVIDER_OWNED_TEMPLATES.get(template_id)
+        if slug is None:
+            return True
+        return slug in cls._TEMPLATE_PROVIDERS
+
+    @classmethod
+    def _run_provider_validate(cls, template_id, variables):
+        """Dispatch to the provider's validate hook, if any. Returns an error
+        dict to veto the install, or None."""
+        provider = cls.provider_for_template(template_id)
+        if provider and callable(provider.get('validate')):
+            return provider['validate'](template_id, variables)
+        return None
+
+
     # Template schema version
     SCHEMA_VERSION = '1.0'
 
@@ -1020,6 +1081,10 @@ class TemplateService:
                     template_id = filename.rsplit('.', 1)[0]
                     if template_id in seen_ids:
                         continue
+                    if not cls.template_available(template_id):
+                        # Provider-owned template whose extension is absent
+                        # (plan 52 D4) — hidden from the catalog entirely.
+                        continue
                     filepath = os.path.join(templates_dir, filename)
                     result = cls.parse_template(filepath)
                     if result.get('success'):
@@ -1157,6 +1222,10 @@ class TemplateService:
         if category:
             templates = [t for t in templates if category in t.get('categories', [])]
 
+        # Provider-owned templates from any source (incl. synced remote repos)
+        # are hidden while their extension is absent.
+        templates = [t for t in templates if cls.template_available(t.get('id'))]
+
         # Search filter
         if search:
             search_lower = search.lower()
@@ -1171,6 +1240,13 @@ class TemplateService:
     @classmethod
     def get_template(cls, template_id: str) -> Dict:
         """Get full template details."""
+        if not cls.template_available(template_id):
+            owner = cls.PROVIDER_OWNED_TEMPLATES.get(template_id)
+            return {
+                'success': False,
+                'error': f"Template '{template_id}' is provided by the "
+                         f"'{owner}' extension, which is not installed or not active",
+            }
         # Check local directories (system dir, then bundled fallback)
         for templates_dir in [cls.TEMPLATES_DIR, cls.LOCAL_TEMPLATES_DIR]:
             for ext in ['.yaml', '.yml']:
@@ -1415,19 +1491,12 @@ class TemplateService:
             else:
                 variables[var_name] = cls.generate_value(var_config)
 
-        if template_id == 'wordpress-external-db':
-            db_check = cls.validate_mysql_connection(
-                host=variables.get('DB_HOST'),
-                port=variables.get('DB_PORT', '3306'),
-                user=variables.get('DB_USER'),
-                password=variables.get('DB_PASSWORD'),
-                database=variables.get('DB_NAME')
-            )
-            if not db_check.get('success'):
-                return {
-                    'success': False,
-                    'error': f"Database connection failed: {db_check.get('error')}"
-                }
+        # Provider-owned templates validate through their provider's hook
+        # (plan 52 D4 — the WordPress external-DB preflight lives in the WP
+        # extension now), never through hardcoded per-template branches here.
+        veto = cls._run_provider_validate(template_id, variables)
+        if veto:
+            return veto
 
         # Resolve magic variables (${SERVICE_PASSWORD_*} etc.) used in the
         # template's compose/files/scripts and merge the generated values into the
@@ -1561,20 +1630,12 @@ class TemplateService:
             else:
                 variables[var_name] = cls.generate_value(var_config)
 
-        # Validate external database connection for external-db templates
-        if template_id == 'wordpress-external-db':
-            db_check = cls.validate_mysql_connection(
-                host=variables.get('DB_HOST'),
-                port=variables.get('DB_PORT', '3306'),
-                user=variables.get('DB_USER'),
-                password=variables.get('DB_PASSWORD'),
-                database=variables.get('DB_NAME')
-            )
-            if not db_check.get('success'):
-                return {
-                    'success': False,
-                    'error': f"Database connection failed: {db_check.get('error')}"
-                }
+        # Validate provider-owned templates through their provider hook
+        # (plan 52 D4 — e.g. the external-DB connection preflight for
+        # wordpress-external-db is supplied by the WordPress extension).
+        veto = cls._run_provider_validate(template_id, variables)
+        if veto:
+            return veto
 
         # Resolve magic variables (${SERVICE_*}) and merge generated values.
         # No-op for templates that don't use magic tokens; user values win.
