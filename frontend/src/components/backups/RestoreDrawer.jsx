@@ -34,6 +34,16 @@ const BASE_SCOPE_OPTIONS = [
     { value: 'files', label: 'Files only' },
 ];
 
+// Labels for provider-declared restore scopes (plan 52 D4): extension backup
+// kinds tell the panel which scopes they support via /backups/target-types,
+// so the drawer no longer hardcodes which type owns which scope.
+const SCOPE_LABELS = {
+    full: 'Full site',
+    files: 'Files only',
+    database: 'Database only',
+    tables: 'Selected tables',
+};
+
 const RestoreDrawer = ({
     run,
     open,
@@ -41,6 +51,7 @@ const RestoreDrawer = ({
     onConfirm,
     targetName,
     targetType,
+    restoreScopes,
     siteTables,
     showMaintenanceModeOption,
 }) => {
@@ -66,11 +77,17 @@ const RestoreDrawer = ({
     const isWordPress = targetType === 'wordpress_site';
     const hasTables = isWordPress && !!siteTables?.length;
 
-    const scopeOptions = [
-        ...BASE_SCOPE_OPTIONS,
-        ...(isWordPress ? [{ value: 'database', label: 'Database only' }] : []),
-        ...(hasTables ? [{ value: 'tables', label: 'Selected tables' }] : []),
-    ];
+    // When the target-types API answered, its provider-declared scopes win;
+    // otherwise keep the legacy type-name derivation as the fallback.
+    const scopeOptions = Array.isArray(restoreScopes) && restoreScopes.length
+        ? restoreScopes
+            .filter((s) => s !== 'tables' || (siteTables?.length > 0))
+            .map((s) => ({ value: s, label: SCOPE_LABELS[s] || s }))
+        : [
+            ...BASE_SCOPE_OPTIONS,
+            ...(isWordPress ? [{ value: 'database', label: 'Database only' }] : []),
+            ...(hasTables ? [{ value: 'tables', label: 'Selected tables' }] : []),
+        ];
 
     const toggleTable = (t) => {
         setTables((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));

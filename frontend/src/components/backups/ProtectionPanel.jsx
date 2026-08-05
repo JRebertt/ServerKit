@@ -41,7 +41,26 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
     const [dayFilter, setDayFilter] = useState(null);        // Date | null
     const [detailRun, setDetailRun] = useState(null);
     const [restoreRun, setRestoreRun] = useState(null);
+    // Restore scopes this target type supports, from the target-types API
+    // (extension-provided types declare their own — plan 52 D4). Null until
+    // loaded; RestoreDrawer falls back to its built-in defaults then.
+    const [restoreScopes, setRestoreScopes] = useState(null);
     const reloadTimers = useRef([]);
+
+    // Fetched once per target type, not on every load() (which refires on
+    // window focus) — the type catalog changes only when extensions change.
+    useEffect(() => {
+        let cancelled = false;
+        api.getBackupTargetTypes()
+            .then((res) => {
+                if (cancelled) return;
+                const entry = (res?.target_types || []).find(
+                    (t) => t.target_type === targetType);
+                setRestoreScopes(entry?.restore_scopes || null);
+            })
+            .catch(() => { /* optional — the drawer has sane fallbacks */ });
+        return () => { cancelled = true; };
+    }, [targetType]);
 
     const load = useCallback(async () => {
         if (!targetId) return;
@@ -280,6 +299,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                 onConfirm={handleRestoreConfirm}
                 targetName={targetName}
                 targetType={targetType}
+                restoreScopes={restoreScopes}
                 showMaintenanceModeOption={showMaintenanceModeOption}
             />
         </div>

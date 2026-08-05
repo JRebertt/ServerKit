@@ -320,7 +320,19 @@ class BackupDrillService:
         if target_type == 'database':
             return cls._drill_database(policy, run, meta)
         if target_type == 'wordpress_site':
+            # The WP drill leg replays the backup ARTIFACT layout (files.tar.gz
+            # + database.sql) with core services only — it never touches the
+            # WordPress extension, so it stays core and works even with the
+            # extension absent (drilling an old backup of a removed site).
             return cls._drill_wordpress(policy, run, meta, drill_id)
+        if target_type not in ('files', 'application'):
+            # Unknown type: drillable only while a provider kind is registered
+            # (registered kinds replay their tar via the files leg below).
+            from app.services import backup_kind_registry
+            if not backup_kind_registry.get(target_type):
+                raise BackupDrillError(
+                    f"Cannot drill target type {target_type!r}: the extension "
+                    f"that supplies it is not installed or not active")
         # files + application both replay a tar chain into a scratch dir.
         return cls._drill_files(policy, run, meta, drill_id)
 

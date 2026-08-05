@@ -64,6 +64,14 @@ export async function deleteBackupRun(targetType, targetId, runId) {
 // protected-resource count, the activity heatmap, and the success rate all come
 // from these two lists rather than from the filesystem archive listing.
 
+// Target types available right now (core set + extension-registered kinds,
+// e.g. wordpress_site only while the WordPress extension is installed). The
+// Protection panel / restore drawer read this instead of hardcoding type
+// knowledge, so an absent extension means an absent type (plan 52 D4).
+export async function getBackupTargetTypes() {
+    return this.request('/backups/target-types');
+}
+
 export async function listBackupPolicies(params = {}) {
     const qs = new URLSearchParams(params).toString();
     return this.request(`/backups/policies${qs ? `?${qs}` : ''}`);

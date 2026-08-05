@@ -214,24 +214,14 @@ class BackupPolicyService:
         keys: name, root_path, target_type, site (wp only), app, plus
         db_config (database) / file_paths (files) for the non-resource targets.
         """
-        # Checked first, and before the application fallthrough at the bottom:
-        # an unrecognised type there is treated as an application.
+        # Checked first: extension-registered kinds (plan 52 D4 — e.g.
+        # 'wordpress_site' while the WordPress extension is installed) own
+        # their resolution. An unrecognised type must NEVER reach the
+        # application fallthrough at the bottom (it would back up the wrong
+        # thing), so unknown-without-provider raises explicitly there.
         from app.services import backup_kind_registry
         if backup_kind_registry.get(policy.target_type):
             return backup_kind_registry.resolve(policy)
-
-        if policy.target_type == 'wordpress_site':
-            from app.models.wordpress_site import WordPressSite
-            site = WordPressSite.query.get(policy.target_id)
-            if not site:
-                raise BackupPolicyError('WordPress site not found')
-            app = site.application
-            if not app or not app.root_path:
-                raise BackupPolicyError('Target path not found')
-            return {
-                'name': app.name, 'root_path': app.root_path,
-                'target_type': 'wordpress_site', 'site': site, 'app': app,
-            }
 
         if policy.target_type == 'database':
             meta = policy.get_target_meta()
@@ -303,6 +293,15 @@ class BackupPolicyService:
 
         if policy.target_type == 'server':
             raise BackupPolicyError('Whole-server backups are not yet implemented')
+
+        # Anything that is not a core type and had no registered provider above
+        # is a target whose extension is absent/disabled — refuse loudly with a
+        # "provider missing" error rather than mis-resolving it as an app.
+        if policy.target_type != 'application':
+            raise BackupPolicyError(
+                f"Backup target type {policy.target_type!r} has no provider: the "
+                f"extension that supplies it is not installed or not active"
+            )
 
         # application
         from app.models.application import Application
@@ -381,21 +380,6 @@ class BackupPolicyService:
             return backup_kind_registry.execute(policy, target, kind)
 
         meta = {'engine': target['target_type']}
-        if target['target_type'] == 'wordpress_site':
-            from app.services.wordpress_bridge import wordpress_service
-            WordPressService = wordpress_service()
-            result = WordPressService.backup_wordpress(target['root_path'], include_db=True)
-            if not result.get('success'):
-                raise BackupPolicyError(result.get('error') or 'WordPress backup failed')
-            storage_path = result.get('backup_path')
-            size = result.get('size') or cls._path_size(storage_path)
-            meta.update({
-                'kind': 'full', 'compression': 'gzip', 'incremental': False,
-                'backup_name': result.get('backup_name'), 'includes': ['files', 'database'],
-                'primary_archive': os.path.join(storage_path, 'files.tar.gz'),
-            })
-            return storage_path, size, meta
-
         if target['target_type'] == 'database':
             from app.services.backup_service import BackupService
             cfg = target['db_config']
@@ -729,14 +713,20 @@ class BackupPolicyService:
                 # Ahead of the else-branch below, which would otherwise unpack
                 # a plugin's archive over an application directory.
                 backup_kind_registry.restore(policy, target, run, payload)
-            elif target['target_type'] == 'wordpress_site':
-                cls._restore_wordpress(target, run, scope, payload)
             elif target['target_type'] == 'database':
                 cls._restore_database(target, run)
             elif target['target_type'] == 'files':
                 cls._restore_files(target, run, payload)
-            else:
+            elif target['target_type'] == 'application':
                 cls._restore_application(policy, target, run, scope)
+            else:
+                # Registered-kind restore is handled above; reaching here means
+                # the target's extension is gone (provider missing) — never
+                # fall through to the application restore with foreign bytes.
+                raise BackupPolicyError(
+                    f"Cannot restore target type {target['target_type']!r}: the "
+                    f"extension that supplies it is not installed or not active"
+                )
 
             cls._notify('restore.completed', target['name'], {
                 'app': target['name'], 'scope': scope,
@@ -768,43 +758,6 @@ class BackupPolicyService:
         run.storage_path = storage_path
         run.set_metadata(meta)
         db.session.commit()
-
-    @classmethod
-    def _restore_wordpress(cls, target, run, scope, payload):
-        """Restore a WordPress backup. 'full' (and 'tables', for now) restores
-        files + database; 'database' imports only the SQL dump; 'files' extracts
-        only the file archive."""
-        from app.services.wordpress_bridge import wordpress_service
-        WordPressService = wordpress_service()
-        meta = run.get_metadata() or {}
-        backup_dir = run.storage_path
-        root = target['root_path']
-
-        if scope == 'database':
-            db_sql = os.path.join(backup_dir or '', 'database.sql')
-            if not os.path.exists(db_sql):
-                raise BackupPolicyError('Database dump not found in this backup')
-            result = WordPressService.wp_cli(root, ['db', 'import', db_sql])
-            if not result.get('success'):
-                raise BackupPolicyError(result.get('error') or 'Database restore failed')
-            return
-
-        if scope == 'files':
-            files_archive = os.path.join(backup_dir or '', 'files.tar.gz')
-            if not os.path.exists(files_archive):
-                raise BackupPolicyError('Files archive not found in this backup')
-            import tarfile
-            with tarfile.open(files_archive, 'r:gz') as tar:
-                tar.extractall(os.path.dirname(root.rstrip('/')) or '/', filter='data')
-            return
-
-        # full (or 'tables', approximated as full until per-table is implemented)
-        backup_name = meta.get('backup_name') or (os.path.basename(backup_dir) if backup_dir else None)
-        if not backup_name:
-            raise BackupPolicyError('Backup archive not found')
-        result = WordPressService.restore_backup(backup_name, root)
-        if not result.get('success'):
-            raise BackupPolicyError(result.get('error') or 'Restore failed')
 
     @classmethod
     def _restore_database(cls, target, run):

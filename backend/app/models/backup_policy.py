@@ -4,11 +4,18 @@ from decimal import Decimal
 
 from app import db
 
-# Every data-protection target the unified policy system can back up (§8).
-# 'application' and 'wordpress_site' are the original targets; 'database',
-# 'files', and 'server' were folded in from the legacy BackupService so a
-# single BackupPolicy/BackupRun system covers all data-protection backups.
-VALID_TARGET_TYPES = ('application', 'wordpress_site', 'database', 'files', 'server')
+# Every CORE data-protection target the unified policy system can back up (§8).
+# 'application' is the original target; 'database', 'files', and 'server' were
+# folded in from the legacy BackupService so a single BackupPolicy/BackupRun
+# system covers all data-protection backups.
+#
+# This is the CORE set only (plan 52 D4): extension-owned target types — e.g.
+# 'wordpress_site', registered by the serverkit-wordpress extension at load —
+# come from app.services.backup_kind_registry at runtime, so an absent
+# extension means an absent type. The valid set at any moment is this constant
+# plus the registered kinds (see BackupPolicyService.validate_target_type and
+# GET /api/v1/backups/target-types).
+VALID_TARGET_TYPES = ('application', 'database', 'files', 'server')
 
 
 def _num(value):
@@ -23,8 +30,10 @@ def _num(value):
 class BackupPolicy(db.Model):
     """Automated backup ("protection") policy for a single target.
 
-    A target is either a WordPress site (``target_type='wordpress_site'``) or a
-    generic application (``target_type='application'``). There is at most one
+    A target is a generic application (``target_type='application'``), a
+    database, a files path-list, or the whole server — plus any extension-
+    registered kind (e.g. ``'wordpress_site'`` while the WordPress extension
+    is installed). There is at most one
     policy per target. The cron schedule is mirrored into a ``ScheduledJob`` row
     by :class:`BackupPolicyService` so firing happens on the unified job bus.
 

@@ -11,6 +11,50 @@ from app import db, paths
 backups_bp = Blueprint('backups', __name__)
 
 
+# UI-facing metadata for the CORE target types (plan 52 D4). Extension kinds
+# carry their own label/scopes in backup_kind_registry. 'server' is listed
+# but flagged unimplemented so the UI never shows a dead whole-server button.
+_CORE_TARGET_META = {
+    'application': {'label': 'Application', 'restore_scopes': ['full', 'files'],
+                    'implemented': True},
+    'database': {'label': 'Database', 'restore_scopes': ['full'],
+                 'implemented': True},
+    'files': {'label': 'Files', 'restore_scopes': ['full'], 'implemented': True},
+    'server': {'label': 'Whole server', 'restore_scopes': [], 'implemented': False},
+}
+
+
+@backups_bp.route('/target-types', methods=['GET'])
+@jwt_required()
+def list_target_types():
+    """Target types available for protection RIGHT NOW: the core set plus any
+    extension-registered kinds (e.g. 'wordpress_site' only while the WordPress
+    extension is installed and active). The Protection panel / restore drawer
+    read this instead of hardcoding type knowledge, so an absent extension
+    means an absent type — not a dead button.
+
+    Not admin-gated: it exposes only type names/labels, and per-target policy
+    routes are reachable by non-admin resource editors.
+    """
+    from app.models.backup_policy import VALID_TARGET_TYPES
+    from app.services import backup_kind_registry
+    types = []
+    for t in VALID_TARGET_TYPES:
+        meta = _CORE_TARGET_META.get(t, {})
+        types.append({
+            'target_type': t,
+            'label': meta.get('label', t),
+            'restore_scopes': meta.get('restore_scopes'),
+            'supports_restore': bool(meta.get('restore_scopes')),
+            'implemented': meta.get('implemented', True),
+            'source': 'core',
+        })
+    for entry in backup_kind_registry.catalog():
+        entry.setdefault('implemented', True)
+        types.append(entry)
+    return jsonify({'target_types': types}), 200
+
+
 @backups_bp.route('', methods=['GET'])
 @jwt_required()
 @admin_required
@@ -53,7 +97,19 @@ def list_policies():
     if enabled is not None:
         query = query.filter_by(enabled=str(enabled).lower() in ('1', 'true', 'yes'))
     policies = query.order_by(BackupPolicy.target_type, BackupPolicy.target_id).all()
-    return jsonify({'policies': [p.to_dict() for p in policies]}), 200
+    # Flag policies whose target type currently has no provider (the extension
+    # that owns it was uninstalled/disabled) so the UI can show an explicit
+    # "provider missing" state instead of an apparently-healthy policy.
+    from app.services import backup_kind_registry
+    out = []
+    for p in policies:
+        d = p.to_dict()
+        d['provider_missing'] = (
+            p.target_type not in VALID_TARGET_TYPES
+            and not backup_kind_registry.get(p.target_type)
+        )
+        out.append(d)
+    return jsonify({'policies': out}), 200
 
 
 @backups_bp.route('/runs', methods=['GET'])
