@@ -440,6 +440,27 @@ on install and **pause automatically when the plugin is disabled**:
 "schedules": [ { "name": "myext-nightly", "kind": "myext.reindex", "cron": "0 3 * * *" } ]
 ```
 
+## Core hooks (`core_hooks`)
+
+Some core features are engines with a registration seam — backup target types
+(`app.services.backup_kind_registry`), the event-type catalog
+(`app.services.event_service.register_event_types`), provider-owned app
+templates (`TemplateService.register_template_provider`). Declare a zero-arg
+function that fills them and the platform calls it at install **and on every
+boot** while your extension is active (so it must be idempotent):
+
+```jsonc
+"core_hooks": "core_hooks:register"
+```
+
+Core keeps the engine; your extension supplies the entry. An extension that is
+absent/disabled at boot never registers, so its target types, event types, and
+template cards simply don't exist — that is the intended graceful degradation
+(plan 52 D4), not an error. Reference implementation:
+`builtin-extensions/serverkit-wordpress/backend/core_hooks.py` (the
+`wordpress_site` backup kind, the `wordpress.*` event types, and the
+`wordpress`/`wordpress-external-db` template provider).
+
 ## Config (`config_schema`)
 
 Declare a `config_schema` in the manifest and the Marketplace renders a
