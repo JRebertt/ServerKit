@@ -75,6 +75,11 @@ _FIELDS = {
     'max_panel_version': None,
     'source': '',
     'sha256': None,
+    # Index schema v3 (plan 55 D3): optional ed25519 detached signature over
+    # the release zip + the publisher key id that must verify it. Absent in
+    # v1/v2 indexes → the entry is treated as unsigned (consent, not a block).
+    'signature': None,
+    'publisher_key_id': None,
     'review': None,
     'repo': '',
     'logo': None,
@@ -141,6 +146,20 @@ def _normalize(raw, base_url=None):
     out['bundled'] = bool(out['bundled'])
     out['logo'] = _resolve_logo(out['logo'], base_url)
     out['review'] = _validate_review(out['review'])
+    # Signature fields only count as well-formed strings; a signature without
+    # a key id (or vice versa) is meaningless and collapses to unsigned.
+    if not isinstance(out['signature'], str) or not out['signature'].strip():
+        out['signature'] = None
+    if not isinstance(out['publisher_key_id'], str) or not out['publisher_key_id'].strip():
+        out['publisher_key_id'] = None
+    if not out['signature'] or not out['publisher_key_id']:
+        out['signature'] = None
+        out['publisher_key_id'] = None
+    # Whether the named publisher key is pinned by this panel — drives the
+    # catalog badge / 409 consent distinction between "signed" and "signed by
+    # someone we don't know". The crypto check itself happens at install.
+    from app.services import signing_service
+    out['publisher_trusted'] = signing_service.is_trusted_key(out['publisher_key_id'])
     out['trust'] = _derive_trust(out)
     return out
 

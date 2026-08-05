@@ -503,8 +503,28 @@ def _update_plugin_metadata(plugin, manifest):
     plugin.category = manifest.get('category', 'utility')
 
 
+def _record_signature_status(plugin, sig_result):
+    """Stamp the install-time signature verdict on the plugin's config under
+    the panel-managed ``_signature`` reserved key (same trust-machinery
+    namespace as ``_frontend_hashes`` — config PUTs can't forge it). The
+    extension detail surfaces this so an installed extension's origin
+    verification stays visible after install."""
+    cfg = dict(plugin.config or {})
+    if sig_result and sig_result.get('status') != 'unsigned':
+        cfg['_signature'] = {
+            k: sig_result.get(k)
+            for k in ('status', 'key_id', 'publisher')
+            if sig_result.get(k)
+        }
+    else:
+        cfg['_signature'] = {'status': 'unsigned'}
+    plugin.config = cfg
+    db.session.commit()
+
+
 def install_from_url(url, user_id=None, expected_sha256=None, force=False,
-                     hot_load=True, source_type=None):
+                     hot_load=True, source_type=None,
+                     expected_signature=None, expected_key_id=None):
     """Download and install a plugin from a URL.
 
     Args:
@@ -512,6 +532,11 @@ def install_from_url(url, user_id=None, expected_sha256=None, force=False,
         user_id: ID of the user performing the install
         expected_sha256: if given, the downloaded zip must match this digest
             before extraction — a mismatch is a hard failure (no partial install)
+        expected_signature / expected_key_id: if given, the downloaded zip is
+            verified against this base64 ed25519 signature envelope (plan 55
+            D3) under the pinned publisher key named by expected_key_id. A bad
+            signature is a hard failure; an unpinned key installs but is
+            recorded as 'untrusted_key'.
         force: allow reinstalling over an already-active plugin (used by updates)
         hot_load: register the blueprint into the running app immediately.
             The boot-time repair pass (#48) passes False — load_all_plugins
@@ -539,11 +564,20 @@ def install_from_url(url, user_id=None, expected_sha256=None, force=False,
             )
         buf.seek(0)
 
-    return _install_from_buffer(
+    sig_result = None
+    if expected_signature:
+        from app.services import signing_service
+        sig_result = signing_service.verify_for_install(
+            buf.getvalue(), expected_signature, expected_key_id)
+        buf.seek(0)
+
+    plugin = _install_from_buffer(
         buf, source_url=url, source_type=source_type or 'url',
         user_id=user_id, force=force,
         hot_load=hot_load,
     )
+    _record_signature_status(plugin, sig_result)
+    return plugin
 
 
 def _read_manifest_from_buffer(buf):
@@ -567,17 +601,45 @@ def _read_manifest_from_buffer(buf):
         raise ValueError(f'plugin.json could not be parsed: {e}')
 
 
+def _fetch_detached_signature(resolved_url):
+    """Best-effort fetch of the minisign-style detached signature published
+    beside a release zip (``<zip URL>.minisig`` — the convention
+    scripts/sign-extension.mjs writes). Returns the base64 envelope string,
+    or None when the release carries no signature (or the fetch fails —
+    preview must never hard-fail on a missing optional asset)."""
+    if not (resolved_url or '').startswith(('http://', 'https://')):
+        return None
+    try:
+        headers = {
+            'Accept': 'text/plain, application/octet-stream',
+            'User-Agent': 'ServerKit-Plugin-Installer/1.0',
+        }
+        token = _github_token()
+        if token and _is_github_host(resolved_url):
+            headers['Authorization'] = f'Bearer {token}'
+        resp = requests.get(resolved_url + '.minisig', timeout=15, headers=headers)
+        if resp.status_code != 200:
+            return None
+        text = (resp.text or '').strip()
+        return text or None
+    except Exception as e:
+        logger.debug(f'No detached signature at {resolved_url}.minisig: {e}')
+        return None
+
+
 def preview_from_url(url):
     """Resolve + download a GitHub/zip source and read its manifest WITHOUT
     installing. Returns the metadata a user needs to consent to the install:
     slug, display_name, version, description, permissions, panel-version gate,
-    the resolved download URL, its sha256, and any warnings.
+    the resolved download URL, its sha256, the signature verdict (signed by a
+    pinned publisher / unsigned / untrusted key / invalid), and any warnings.
 
     Stateless by design — the subsequent install re-downloads (extension zips
     are small) and pins the previewed sha256 so the installed bytes are
     byte-identical to the previewed bytes.
     """
     from app.utils.version import version_satisfies, get_panel_version
+    from app.services import signing_service
     import hashlib
 
     normalized = _normalize_source_url(url)
@@ -594,6 +656,22 @@ def preview_from_url(url):
     digest = hashlib.sha256(buf.getvalue()).hexdigest()
     buf.seek(0)
     manifest = _read_manifest_from_buffer(buf)
+
+    # Signature verdict for the consent card (plan 55): the detached .minisig
+    # beside the release asset, verified against the panel's pinned publisher
+    # keys. Unsigned is a verdict, not an error — the card says so honestly.
+    sig_b64 = _fetch_detached_signature(resolved)
+    sig_result = signing_service.verify_detached(buf.getvalue(), sig_b64)
+    signature = {
+        'status': sig_result['status'],
+        'key_id': sig_result.get('key_id'),
+        'publisher': sig_result.get('publisher'),
+        # The raw envelope is echoed back so the install step can re-verify
+        # the exact previewed signature against the pinned sha256 bytes.
+        'signature': sig_b64 if sig_result['status'] != 'unsigned' else None,
+    }
+    if sig_result['status'] == 'invalid':
+        signature['error'] = sig_result.get('error')
 
     # Validate shape early so preview surfaces manifest problems too.
     _validate_manifest(manifest)
@@ -632,6 +710,7 @@ def preview_from_url(url):
         'max_panel_version': maxv,
         'resolved_url': resolved,
         'sha256': digest,
+        'signature': signature,
         'warnings': warnings,
     }
 
@@ -1551,8 +1630,9 @@ def get_plugin_by_slug(slug):
 
 
 # Plugin-config keys the panel owns — never user-editable, preserved across a
-# config PUT. The runtime-frontend loader's per-bundle sha256 hashes live here.
-RESERVED_PLUGIN_CONFIG_KEYS = ('_frontend_hashes',)
+# config PUT. The runtime-frontend loader's per-bundle sha256 hashes live here,
+# and so does the install-time signature verdict (plan 55).
+RESERVED_PLUGIN_CONFIG_KEYS = ('_frontend_hashes', '_signature')
 
 
 def _record_frontend_hashes(plugin, manifest, frontend_dest):
@@ -1942,7 +2022,12 @@ def _assert_panel_compatible(entry):
 
 
 def install_registry_extension(slug, user_id=None):
-    """Install an extension listed in the remote registry (checksum-verified)."""
+    """Install an extension listed in the remote registry (checksum-verified).
+
+    When the index entry carries a ``signature``/``publisher_key_id`` pair
+    (index schema v3, plan 55 D3) the downloaded zip is also verified against
+    the panel's pinned publisher keys — a bad signature is a hard failure
+    even when the sha256 matches."""
     from app.services import registry_service
     entry = registry_service.get_entry(slug)
     if not entry:
@@ -1954,6 +2039,8 @@ def install_registry_extension(slug, user_id=None):
     return install_from_url(
         source, user_id=user_id, expected_sha256=entry.get('sha256'),
         source_type='registry',
+        expected_signature=entry.get('signature'),
+        expected_key_id=entry.get('publisher_key_id'),
     )
 
 
@@ -2011,4 +2098,6 @@ def update_plugin(plugin_id, user_id=None):
     return install_from_url(
         source, user_id=user_id, expected_sha256=entry.get('sha256'), force=True,
         source_type=stamped,
+        expected_signature=entry.get('signature'),
+        expected_key_id=entry.get('publisher_key_id'),
     )

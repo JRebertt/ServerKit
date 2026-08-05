@@ -68,6 +68,11 @@ def install_registry(slug):
             reason = 'unreviewed'
         elif not entry.get('sha256'):
             reason = 'unverified'
+        elif entry.get('signature') and not entry.get('publisher_trusted'):
+            # Signed, but by a publisher key this panel doesn't pin (plan 55).
+            # Consent-overridable like unsigned; a BAD signature is never
+            # overridable — install_registry_extension hard-fails on it below.
+            reason = 'untrusted_key'
     if reason:
         message = (
             'This community extension has not been reviewed by the ServerKit '
@@ -76,6 +81,11 @@ def install_registry(slug):
             if reason == 'unreviewed' else
             'This extension has no pinned checksum, so the panel cannot '
             'verify the artifact it would install.'
+            if reason == 'unverified' else
+            f"This extension is signed, but its publisher key "
+            f"'{entry.get('publisher_key_id')}' is not pinned by this panel, "
+            f"so the signature cannot be verified. Install only if you trust "
+            f"the source."
         )
         return jsonify({
             'error': f'{message} Resend with acknowledge_risk: true to proceed.',

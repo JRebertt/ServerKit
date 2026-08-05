@@ -69,10 +69,19 @@ def install_plugin():
     # Optional checksum continuity: the preview step returns the resolved URL +
     # sha256; passing them here pins the install to the exact previewed bytes.
     expected_sha256 = (data.get('sha256') or None)
+    # Optional signature continuity (plan 55): when the preview verified a
+    # detached signature, pass it through so the install re-verifies the exact
+    # pinned bytes. A bad signature is a hard failure; no signature = the
+    # consent card's "unsigned" path.
+    expected_signature = (data.get('signature') or None)
+    expected_key_id = (data.get('publisher_key_id') or None)
 
     from app.services.plugin_service import install_from_url
     try:
-        plugin = install_from_url(url, user_id=user.id, expected_sha256=expected_sha256)
+        plugin = install_from_url(
+            url, user_id=user.id, expected_sha256=expected_sha256,
+            expected_signature=expected_signature, expected_key_id=expected_key_id,
+        )
         AuditService.log(
             action=AuditLog.ACTION_RESOURCE_CREATE,
             user_id=user.id,

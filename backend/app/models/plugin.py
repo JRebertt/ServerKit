@@ -109,6 +109,10 @@ class InstalledPlugin(db.Model):
             # Schema only — saved VALUES may hold secrets and are served
             # exclusively by the admin-gated /config endpoint.
             'config_schema': manifest.get('config_schema') or {},
+            # Install-time signature verdict (plan 55): None for sources that
+            # predate stamping, else {status: verified|untrusted_key|unsigned,
+            # key_id?, publisher?}. Panel-managed (reserved config key).
+            'signature': (self.config or {}).get('_signature'),
             'installed_at': self.installed_at.isoformat() if self.installed_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
