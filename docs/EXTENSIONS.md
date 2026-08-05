@@ -430,6 +430,28 @@ def register(ctx):
   semantics); the choice is passed to the `uninstall` hook (`func(plugin, purge=...)`)
   and, on purge, drops the `ext_<slug>_*` tables.
 
+### The core data seam (extension uses CORE tables)
+
+The `ext_<slug>_*` mechanism is for extension-owned schema. The deliberate
+exception — **core data seam** (plan 52 D1) — is an extension whose tables are
+core Alembic-managed because they carry live data that predates the extraction
+and are entangled with core features. Canonical example: **serverkit-wordpress**
+— `WordPressSite`, `WordPressVulnerability`, `WordPressUpdateRun`,
+`WordPressReport` live in `app/models/wordpress_site.py` (core migrations own
+their lifecycle) and the standalone extension imports them:
+
+```python
+from app.models.wordpress_site import WordPressSite
+```
+
+Rules of the seam: the extension never creates/migrates those tables (no
+`models` entry for them, no `ext_` rename); core never imports the extension —
+it reaches it through a lazy bridge (`app.services.wordpress_bridge`) or
+`get_installed_extension_attr`, and through registration seams the extension
+fills (`core_hooks`). Absent extension = feature absent, gracefully. The same
+seam covers `StatusPage`, `Tunnel`/`ExposedService`, and `CloudServer` (owned
+by their respective extensions' features but schema-core).
+
 ## Background jobs & schedules
 
 Declare handlers and recurring jobs in the manifest; they wire into the Jobs SDK
@@ -456,10 +478,10 @@ boot** while your extension is active (so it must be idempotent):
 Core keeps the engine; your extension supplies the entry. An extension that is
 absent/disabled at boot never registers, so its target types, event types, and
 template cards simply don't exist — that is the intended graceful degradation
-(plan 52 D4), not an error. Reference implementation:
-`builtin-extensions/serverkit-wordpress/backend/core_hooks.py` (the
-`wordpress_site` backup kind, the `wordpress.*` event types, and the
-`wordpress`/`wordpress-external-db` template provider).
+(plan 52 D4), not an error. Reference implementation: the `serverkit-wordpress`
+repo's `backend/core_hooks.py` (the `wordpress_site` backup kind, the
+`wordpress.*` event types, and the `wordpress`/`wordpress-external-db` template
+provider).
 
 ## Config (`config_schema`)
 
