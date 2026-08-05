@@ -190,6 +190,11 @@ def test_download_token_only_for_github_hosts(monkeypatch):
         return FakeResp()
 
     monkeypatch.setattr(plugin_service.requests, 'get', fake_get)
+    # The SSRF guard resolves hosts before fetching; stub DNS to a public IP
+    # so this test stays offline (its subject is token scoping, not DNS).
+    import socket as _socket
+    monkeypatch.setattr(_socket, 'getaddrinfo',
+                        lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', 0))])
 
     plugin_service._download_resolved('https://github.com/o/r/releases/download/v1/x.zip')
     plugin_service._download_resolved('https://evil.example.com/x.zip')

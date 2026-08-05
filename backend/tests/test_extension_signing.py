@@ -518,3 +518,256 @@ def test_install_endpoint_rejects_bad_signature(
     assert resp.status_code == 400
     assert 'Signature verification failed' in resp.get_json()['error']
     assert InstalledPlugin.query.filter_by(slug='signed-ext').first() is None
+
+
+# --------------------------------------------------------------------------- #
+# Audit M1 — a reinstall via another source must not keep a stale verdict
+# --------------------------------------------------------------------------- #
+
+def test_unsigned_reinstall_clears_verified_badge(
+        app, plugin_dirs, tmp_path, monkeypatch):
+    """Signed URL install → verified. Reinstalling the same slug via upload
+    (no signature possible) must re-stamp the verdict, never leave a forged
+    'verified' badge behind."""
+    priv = Ed25519PrivateKey.generate()
+    _pin_keys(tmp_path, monkeypatch, [('test-pub', priv, 'Test Publisher')])
+    zip_bytes = _make_plugin_zip()
+    sig = signing_service.sign_bytes(zip_bytes, priv)
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
+
+    plugin = plugin_service.install_from_url(
+        'https://x/signed-ext.zip', expected_signature=sig, expected_key_id='test-pub')
+    assert plugin.config['_signature']['status'] == 'verified'
+
+    # Same slug, upload path (force, as the update flow does).
+    plugin = plugin_service._install_from_buffer(
+        io.BytesIO(zip_bytes), source_url='uploaded.zip', source_type='upload',
+        force=True)
+    db.session.refresh(plugin)
+    assert plugin.config['_signature'] == {'status': 'unsigned'}
+
+
+def test_local_reinstall_clears_verified_badge(
+        app, plugin_dirs, tmp_path, monkeypatch):
+    """Same as above but through the public install_from_zip upload helper."""
+    priv = Ed25519PrivateKey.generate()
+    _pin_keys(tmp_path, monkeypatch, [('test-pub', priv, 'Test Publisher')])
+    zip_bytes = _make_plugin_zip()
+    sig = signing_service.sign_bytes(zip_bytes, priv)
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
+
+    plugin = plugin_service.install_from_url(
+        'https://x/signed-ext.zip', expected_signature=sig, expected_key_id='test-pub')
+    assert plugin.config['_signature']['status'] == 'verified'
+
+    # Uninstall then reinstall via upload (the ordinary re-install path).
+    plugin_service.uninstall_plugin(plugin.id)
+    plugin = plugin_service.install_from_zip(zip_bytes, source_name='signed-ext.zip')
+    assert plugin.config['_signature'] == {'status': 'unsigned'}
+
+
+# --------------------------------------------------------------------------- #
+# Audit M2 — the update route passes the same consent gates as install
+# --------------------------------------------------------------------------- #
+
+def _install_v1(app, plugin_dirs, monkeypatch, slug='upd-ext'):
+    """Install v1 of a plugin so the update route has a row to work on."""
+    v1 = _make_plugin_zip(slug=slug, version='1.0.0')
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v1))
+    return plugin_service.install_from_url(f'https://x/{slug}.zip')
+
+
+def _seed_update_entry(monkeypatch, slug, version='2.0.0', **overrides):
+    base = {
+        'slug': slug, 'display_name': 'Upd', 'version': version,
+        'source': f'https://x/{slug}.zip',
+        'min_panel_version': '0.0.1',
+    }
+    base.update(overrides)
+    monkeypatch.setattr(registry_service, '_cache', {
+        'ts': 9e18, 'source': 'test',
+        'entries': [registry_service._normalize(base)],
+    })
+
+
+def test_update_route_hidden_unreviewed_is_404(
+        app, client, auth_headers, plugin_dirs, monkeypatch):
+    plugin = _install_v1(app, plugin_dirs, monkeypatch)
+    _seed_update_entry(monkeypatch, 'upd-ext', sha256='d' * 64)  # → unreviewed
+    monkeypatch.setattr(registry_service, '_show_unreviewed', lambda: False)
+
+    resp = client.post(f'/api/v1/plugins/{plugin.id}/update', headers=auth_headers)
+    assert resp.status_code == 404
+
+
+def test_update_route_unsigned_first_party_409_until_acknowledged(
+        app, client, auth_headers, plugin_dirs, monkeypatch):
+    plugin = _install_v1(app, plugin_dirs, monkeypatch)
+    v2 = _make_plugin_zip(slug='upd-ext', version='2.0.0')
+    _seed_update_entry(monkeypatch, 'upd-ext',
+                       sha256=hashlib.sha256(v2).hexdigest(), first_party=True)
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v2))
+
+    resp = client.post(f'/api/v1/plugins/{plugin.id}/update', headers=auth_headers)
+    assert resp.status_code == 409
+    data = resp.get_json()
+    assert data['requires_acknowledgment'] is True
+    assert data['reason'] == 'unsigned'
+
+    resp = client.post(f'/api/v1/plugins/{plugin.id}/update',
+                       headers=auth_headers, json={'acknowledge_risk': True})
+    assert resp.status_code == 200
+    assert resp.get_json()['version'] == '2.0.0'
+
+
+def test_update_route_signed_installs_without_ack(
+        app, client, auth_headers, plugin_dirs, tmp_path, monkeypatch):
+    priv = Ed25519PrivateKey.generate()
+    _pin_keys(tmp_path, monkeypatch, [('test-pub', priv, 'Test Publisher')])
+    plugin = _install_v1(app, plugin_dirs, monkeypatch)
+    v2 = _make_plugin_zip(slug='upd-ext', version='2.0.0')
+    _seed_update_entry(
+        monkeypatch, 'upd-ext', sha256=hashlib.sha256(v2).hexdigest(),
+        first_party=True,
+        signature=signing_service.sign_bytes(v2, priv),
+        publisher_key_id='test-pub')
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v2))
+
+    resp = client.post(f'/api/v1/plugins/{plugin.id}/update', headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.get_json()['version'] == '2.0.0'
+
+
+def test_update_route_bad_signature_is_400(
+        app, client, auth_headers, plugin_dirs, tmp_path, monkeypatch):
+    priv = Ed25519PrivateKey.generate()
+    _pin_keys(tmp_path, monkeypatch, [('test-pub', priv, 'Test Publisher')])
+    plugin = _install_v1(app, plugin_dirs, monkeypatch)
+    v2 = _make_plugin_zip(slug='upd-ext', version='2.0.0')
+    bad_sig = signing_service.sign_bytes(b'other bytes', priv)
+    _seed_update_entry(
+        monkeypatch, 'upd-ext', sha256=hashlib.sha256(v2).hexdigest(),
+        first_party=True, signature=bad_sig, publisher_key_id='test-pub')
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v2))
+
+    resp = client.post(f'/api/v1/plugins/{plugin.id}/update', headers=auth_headers)
+    assert resp.status_code == 400
+    assert 'Signature verification failed' in resp.get_json()['error']
+    # The installed v1 row was not clobbered.
+    assert InstalledPlugin.query.get(plugin.id).version == '1.0.0'
+
+
+# --------------------------------------------------------------------------- #
+# Audit L4 — download SSRF guards + byte caps
+# --------------------------------------------------------------------------- #
+
+def test_download_rejects_non_http_schemes(app, plugin_dirs):
+    with pytest.raises(ValueError, match='Failed to download plugin'):
+        plugin_service.install_from_url('file:///etc/passwd')
+    with pytest.raises(ValueError, match='scheme'):
+        plugin_service._assert_url_safe('file:///etc/passwd')
+
+
+def test_download_rejects_redirect_to_link_local(app, monkeypatch):
+    """A 302 into the cloud metadata service must be refused on the second hop
+    (redirects are followed manually and re-checked)."""
+
+    class FakeRedirect:
+        status_code = 302
+        headers = {'Location': 'http://169.254.169.254/latest/meta-data'}
+        def close(self): pass
+
+    monkeypatch.setattr(plugin_service.requests, 'get',
+                        lambda *a, **k: FakeRedirect())
+    import socket as _socket
+    monkeypatch.setattr(_socket, 'getaddrinfo',
+                        lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', 0))])
+
+    with pytest.raises(ValueError, match='Plain-http|non-public'):
+        plugin_service._download_resolved('https://example.com/ext.zip')
+
+
+def test_download_rejects_private_and_plain_http_targets(app):
+    with pytest.raises(ValueError, match='Plain-http'):
+        plugin_service._assert_url_safe('http://192.168.1.10/ext.zip')
+    with pytest.raises(ValueError, match='non-public'):
+        plugin_service._assert_url_safe('https://192.168.1.10/ext.zip')
+    with pytest.raises(ValueError, match='non-public'):
+        plugin_service._assert_url_safe('https://169.254.169.254/latest')
+    # Loopback dev hosts stay allowed (http and https).
+    plugin_service._assert_url_safe('http://127.0.0.1:8000/ext.zip')
+    plugin_service._assert_url_safe('http://localhost:8000/ext.zip')
+
+
+def test_download_aborts_past_byte_cap(app, monkeypatch):
+    monkeypatch.setattr(plugin_service, '_MAX_DOWNLOAD_BYTES', 1024)
+
+    class FakeResp:
+        status_code = 200
+        def raise_for_status(self): pass
+        def iter_content(self, chunk_size=8192):
+            return [b'x' * 1024, b'x' * 1024]
+        def close(self): pass
+
+    monkeypatch.setattr(plugin_service.requests, 'get', lambda *a, **k: FakeResp())
+    import socket as _socket
+    monkeypatch.setattr(_socket, 'getaddrinfo',
+                        lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', 0))])
+
+    with pytest.raises(ValueError, match='cap'):
+        plugin_service._download_resolved('https://example.com/ext.zip')
+
+
+# --------------------------------------------------------------------------- #
+# Audit L5 — decompression cap
+# --------------------------------------------------------------------------- #
+
+def test_extraction_cap_aborts_and_leaves_no_residue(
+        app, plugin_dirs, monkeypatch):
+    # Tiny cap so the declared-size pre-check trips on an ordinary plugin zip.
+    monkeypatch.setattr(plugin_service, '_MAX_EXTRACT_BYTES', 16)
+    zip_bytes = _make_plugin_zip()
+
+    with pytest.raises(ValueError, match='zip bomb|cap'):
+        plugin_service.install_from_zip(zip_bytes)
+
+    plugin = InstalledPlugin.query.filter_by(slug='signed-ext').first()
+    assert plugin is not None and plugin.status == InstalledPlugin.STATUS_ERROR
+    assert not (plugin_dirs['backend'] / 'signed-ext').exists()
+    assert not (plugin_dirs['frontend'] / 'signed-ext').exists()
+
+
+# --------------------------------------------------------------------------- #
+# Audit L6 — the GitHub token never travels over plain http
+# --------------------------------------------------------------------------- #
+
+def test_github_host_matching_is_https_only():
+    assert plugin_service._is_github_host('https://github.com/o/r') is True
+    assert plugin_service._is_github_host('https://api.github.com/x') is True
+    assert plugin_service._is_github_host('http://github.com/o/r') is False
+    assert plugin_service._is_github_host('https://github.com.evil.test/') is False
+
+
+# --------------------------------------------------------------------------- #
+# Audit I7 — the install/update audit-log entries carry the signature verdict
+# --------------------------------------------------------------------------- #
+
+def test_install_audit_log_records_signature_verdict(
+        app, client, auth_headers, plugin_dirs, tmp_path, monkeypatch):
+    from app.models.audit_log import AuditLog
+    priv = Ed25519PrivateKey.generate()
+    _pin_keys(tmp_path, monkeypatch, [('test-pub', priv, 'Test Publisher')])
+    zip_bytes = _make_plugin_zip()
+    sig = signing_service.sign_bytes(zip_bytes, priv)
+    monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
+
+    resp = client.post('/api/v1/plugins/install', headers=auth_headers, json={
+        'url': 'https://x/signed-ext.zip',
+        'signature': sig,
+        'publisher_key_id': 'test-pub',
+    })
+    assert resp.status_code == 201
+    row = (AuditLog.query.filter_by(target_type='plugin')
+           .order_by(AuditLog.id.desc()).first())
+    assert row is not None
+    assert row.get_details().get('signature') == 'verified'

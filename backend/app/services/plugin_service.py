@@ -169,8 +169,9 @@ def _github_token():
 
 def _is_github_host(url):
     """True for github.com / api.github.com / codeload.github.com URLs — the only
-    hosts the token is ever attached to (never leak it to third-party mirrors)."""
-    return bool(re.match(r'^https?://(?:[a-z0-9-]+\.)?github\.com/', url or '', re.I))
+    hosts the token is ever attached to (never leak it to third-party mirrors,
+    and never over plain http — audit L6)."""
+    return bool(re.match(r'^https://(?:[a-z0-9-]+\.)?github\.com/', url or '', re.I))
 
 
 def _github_api_headers(accept='application/vnd.github+json'):
@@ -305,6 +306,103 @@ def _download_zip(url):
     return _download_resolved(resolved)
 
 
+# ── Download safety (audit L4): scheme/host checks, redirect re-validation,
+# and byte caps, shared by the zip and detached-signature fetches.
+_MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024   # extension zip cap
+_MAX_SIGNATURE_BYTES = 64 * 1024          # detached .minisig cap
+_MAX_EXTRACT_BYTES = 250 * 1024 * 1024    # decompression cap (audit L5)
+_MAX_REDIRECTS = 5
+
+
+def _ip_is_public(ip):
+    import ipaddress
+    addr = ipaddress.ip_address(ip)
+    return not (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_multicast or addr.is_reserved or addr.is_unspecified)
+
+
+def _assert_url_safe(url):
+    """Reject anything that isn't an https URL to a public host (SSRF guard).
+
+    Rules: https everywhere; http only for loopback dev hosts
+    (http://localhost:8000/ext.zip while developing); loopback targets are
+    always allowed (a same-host registry is legitimate), but RFC1918 /
+    link-local / reserved targets are refused by default — a panel must never
+    follow an attacker-supplied URL into the internal network or the cloud
+    metadata service. Operators with a private-zone registry can opt out with
+    SERVERKIT_ALLOW_PRIVATE_DOWNLOADS=1.
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url or '')
+    scheme = (parsed.scheme or '').lower()
+    if scheme not in ('http', 'https'):
+        raise ValueError(
+            f"Unsupported URL scheme {scheme!r} — extension downloads must be https://")
+    host = parsed.hostname
+    if not host:
+        raise ValueError('Download URL has no host')
+    try:
+        ips = {info[4][0] for info in socket.getaddrinfo(host, None)}
+    except Exception as e:
+        raise ValueError(f'Could not resolve download host {host!r}: {e}')
+    if all(ipaddress.ip_address(ip).is_loopback for ip in ips):
+        return  # loopback dev host — http or https both fine
+    if scheme == 'http':
+        raise ValueError(
+            'Plain-http extension downloads are only allowed for loopback dev hosts')
+    if os.environ.get('SERVERKIT_ALLOW_PRIVATE_DOWNLOADS', '').lower() in ('1', 'true', 'yes'):
+        return
+    bad = sorted(ip for ip in ips if not _ip_is_public(ip))
+    if bad:
+        raise ValueError(
+            f'Download host {host!r} resolves to a non-public address ({bad[0]}) '
+            f'— refusing to fetch (SSRF guard). Set '
+            f'SERVERKIT_ALLOW_PRIVATE_DOWNLOADS=1 to allow private-zone registries.')
+
+
+def _safe_get(url, timeout, headers, max_bytes):
+    """GET ``url`` with per-hop SSRF re-validation (redirects are followed
+    manually so each hop is re-checked), a hard byte cap, and the GitHub
+    token re-computed per hop (never leaked cross-host). Returns bytes."""
+    from urllib.parse import urljoin
+    current = url
+    for _ in range(_MAX_REDIRECTS + 1):
+        _assert_url_safe(current)
+        hop_headers = dict(headers or {})
+        token = _github_token()
+        if token and _is_github_host(current):
+            hop_headers['Authorization'] = f'Bearer {token}'
+        resp = requests.get(current, timeout=timeout, stream=True,
+                            headers=hop_headers, allow_redirects=False)
+        try:
+            # status_code check rather than is_redirect: equivalent semantics,
+            # and tolerant of minimal test doubles.
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get('Location')
+                if not location:
+                    raise ValueError('Redirect without a Location header')
+                current = urljoin(current, location)
+                continue
+            resp.raise_for_status()
+            buf = io.BytesIO()
+            for chunk in resp.iter_content(chunk_size=8192):
+                buf.write(chunk)
+                if buf.tell() > max_bytes:
+                    raise ValueError(
+                        f'Download exceeds the {max_bytes // (1024 * 1024)} MB cap '
+                        f'— aborting (possible zip bomb or misconfigured source)')
+            buf.seek(0)
+            return buf.getvalue()
+        finally:
+            close = getattr(resp, 'close', None)
+            if callable(close):
+                close()
+    raise ValueError(f'Too many redirects fetching {url}')
+
+
 def _download_resolved(resolved):
     """Download an already-resolved zip URL and return a BytesIO buffer."""
     logger.info(f'Downloading plugin from: {resolved}')
@@ -312,18 +410,9 @@ def _download_resolved(resolved):
         'Accept': 'application/octet-stream',
         'User-Agent': 'ServerKit-Plugin-Installer/1.0',
     }
-    # Attach the token only for GitHub hosts (private assets / rate limit).
-    token = _github_token()
-    if token and _is_github_host(resolved):
-        headers['Authorization'] = f'Bearer {token}'
-    resp = requests.get(resolved, timeout=120, stream=True, headers=headers)
-    resp.raise_for_status()
-
-    buf = io.BytesIO()
-    for chunk in resp.iter_content(chunk_size=8192):
-        buf.write(chunk)
-    buf.seek(0)
-    return buf
+    data = _safe_get(resolved, timeout=120, headers=headers,
+                     max_bytes=_MAX_DOWNLOAD_BYTES)
+    return io.BytesIO(data)
 
 
 def _find_manifest(zf):
@@ -580,9 +669,8 @@ def install_from_url(url, user_id=None, expected_sha256=None, force=False,
     plugin = _install_from_buffer(
         buf, source_url=url, source_type=source_type or 'url',
         user_id=user_id, force=force,
-        hot_load=hot_load,
+        hot_load=hot_load, sig_result=sig_result,
     )
-    _record_signature_status(plugin, sig_result)
     return plugin
 
 
@@ -620,13 +708,9 @@ def _fetch_detached_signature(resolved_url):
             'Accept': 'text/plain, application/octet-stream',
             'User-Agent': 'ServerKit-Plugin-Installer/1.0',
         }
-        token = _github_token()
-        if token and _is_github_host(resolved_url):
-            headers['Authorization'] = f'Bearer {token}'
-        resp = requests.get(resolved_url + '.minisig', timeout=15, headers=headers)
-        if resp.status_code != 200:
-            return None
-        text = (resp.text or '').strip()
+        data = _safe_get(resolved_url + '.minisig', timeout=15, headers=headers,
+                         max_bytes=_MAX_SIGNATURE_BYTES)
+        text = data.decode('utf-8', errors='replace').strip()
         return text or None
     except Exception as e:
         logger.debug(f'No detached signature at {resolved_url}.minisig: {e}')
@@ -805,7 +889,7 @@ def install_from_zip(zip_bytes, user_id=None, source_name=None):
 
 
 def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False,
-                         hot_load=True):
+                         hot_load=True, sig_result=None):
     """Shared install pipeline: takes a seekable BytesIO containing a zip,
     extracts it into the panel's plugin dirs, and registers / hot-loads
     the resulting blueprint. All public install_* helpers funnel here so
@@ -814,6 +898,12 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
     `force=True` allows reinstalling over an active plugin (the update path);
     normal installs still refuse to clobber an active install. `hot_load=False`
     skips the immediate blueprint registration (the boot repair pass, #48).
+
+    `sig_result` is the signature verdict produced by the caller (only
+    install_from_url can produce one — local/upload/builtin installs have no
+    detached signature). It is stamped on EVERY successful install so a
+    reinstall via a different source can never inherit a stale 'verified'
+    badge from an earlier signed install (audit M1).
     """
     _ensure_dirs()
 
@@ -904,53 +994,91 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
         if has_frontend and os.path.exists(frontend_dest):
             shutil.rmtree(frontend_dest)
 
-        for member in zf.namelist():
-            # Strip the GitHub zipball prefix
-            rel_path = member[len(prefix):] if prefix else member
-            if not rel_path or rel_path.endswith('/'):
-                continue
+        # Decompression cap (audit L5): refuse archives that expand past
+        # _MAX_EXTRACT_BYTES — a small zip can declare or write gigabytes
+        # (zip bomb). Pre-check the declared sizes (cheap, catches honest
+        # bombs before writing a byte), then count actual bytes written
+        # (the declared size can lie). On abort, remove the partial dest
+        # dirs so no half-extracted plugin is left behind.
+        declared_total = sum(
+            info.file_size for info in zf.infolist() if not info.is_dir())
+        if declared_total > _MAX_EXTRACT_BYTES:
+            raise ValueError(
+                f'Archive expands to {declared_total // (1024 * 1024)} MB, '
+                f'over the {_MAX_EXTRACT_BYTES // (1024 * 1024)} MB cap — '
+                f'refusing to extract (possible zip bomb)')
+        extracted_total = 0
 
-            if rel_path.startswith('backend/'):
-                # Zip Slip defense: _safe_extract_path rejects absolute
-                # paths, .. segments, and anything that resolves outside
-                # backend_dest after normalization.
-                out_path = _safe_extract_path(
-                    backend_dest, rel_path[len('backend/'):]
-                )
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                with zf.open(member) as src, open(out_path, 'wb') as dst:
-                    dst.write(src.read())
+        def _write_member(src, dst):
+            nonlocal extracted_total
+            while True:
+                chunk = src.read(1024 * 1024)
+                if not chunk:
+                    break
+                extracted_total += len(chunk)
+                if extracted_total > _MAX_EXTRACT_BYTES:
+                    raise ValueError(
+                        f'Archive expands past the '
+                        f'{_MAX_EXTRACT_BYTES // (1024 * 1024)} MB cap — '
+                        f'refusing to extract (possible zip bomb)')
+                dst.write(chunk)
 
-            elif rel_path.startswith('frontend/'):
-                out_path = _safe_extract_path(
-                    frontend_dest, rel_path[len('frontend/'):]
-                )
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                with zf.open(member) as src, open(out_path, 'wb') as dst:
-                    dst.write(src.read())
+        try:
+            for member in zf.namelist():
+                # Strip the GitHub zipball prefix
+                rel_path = member[len(prefix):] if prefix else member
+                if not rel_path or rel_path.endswith('/'):
+                    continue
 
-            elif rel_path == 'requirements.txt':
-                # Plugin Python deps are sandboxed by default: installing
-                # them runs pip with the backend's privileges, which means
-                # arbitrary code via setup.py hooks. Operators must opt in
-                # by setting SERVERKIT_ALLOW_PLUGIN_PIP=1.
-                req_content = zf.read(member).decode('utf-8')
-                if req_content.strip() and os.environ.get(
-                    'SERVERKIT_ALLOW_PLUGIN_PIP', ''
-                ).lower() in ('1', 'true', 'yes'):
-                    _install_requirements(req_content, slug)
-                elif req_content.strip():
-                    # Persist the requirements file so the admin can review
-                    # and install it manually if they want.
-                    req_out = _safe_extract_path(backend_dest, 'requirements.txt')
-                    os.makedirs(os.path.dirname(req_out), exist_ok=True)
-                    with open(req_out, 'w', encoding='utf-8') as f:
-                        f.write(req_content)
-                    logger.warning(
-                        f"Plugin {slug} ships requirements.txt; skipping install "
-                        f"(set SERVERKIT_ALLOW_PLUGIN_PIP=1 to enable). "
-                        f"File saved to {req_out} for manual review."
+                if rel_path.startswith('backend/'):
+                    # Zip Slip defense: _safe_extract_path rejects absolute
+                    # paths, .. segments, and anything that resolves outside
+                    # backend_dest after normalization.
+                    out_path = _safe_extract_path(
+                        backend_dest, rel_path[len('backend/'):]
                     )
+                    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                    with zf.open(member) as src, open(out_path, 'wb') as dst:
+                        _write_member(src, dst)
+
+                elif rel_path.startswith('frontend/'):
+                    out_path = _safe_extract_path(
+                        frontend_dest, rel_path[len('frontend/'):]
+                    )
+                    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                    with zf.open(member) as src, open(out_path, 'wb') as dst:
+                        _write_member(src, dst)
+
+                elif rel_path == 'requirements.txt':
+                    # Plugin Python deps are sandboxed by default: installing
+                    # them runs pip with the backend's privileges, which means
+                    # arbitrary code via setup.py hooks. Operators must opt in
+                    # by setting SERVERKIT_ALLOW_PLUGIN_PIP=1.
+                    req_content = zf.read(member).decode('utf-8')
+                    if req_content.strip() and os.environ.get(
+                        'SERVERKIT_ALLOW_PLUGIN_PIP', ''
+                    ).lower() in ('1', 'true', 'yes'):
+                        _install_requirements(req_content, slug)
+                    elif req_content.strip():
+                        # Persist the requirements file so the admin can review
+                        # and install it manually if they want.
+                        req_out = _safe_extract_path(backend_dest, 'requirements.txt')
+                        os.makedirs(os.path.dirname(req_out), exist_ok=True)
+                        with open(req_out, 'w', encoding='utf-8') as f:
+                            f.write(req_content)
+                        logger.warning(
+                            f"Plugin {slug} ships requirements.txt; skipping install "
+                            f"(set SERVERKIT_ALLOW_PLUGIN_PIP=1 to enable). "
+                            f"File saved to {req_out} for manual review."
+                        )
+        except ValueError:
+            # Extraction aborted (zip bomb cap) — drop the partial dest dirs so
+            # no half-extracted plugin is left behind, then re-raise into the
+            # outer error handler (marks the row STATUS_ERROR).
+            for dest in (backend_dest, frontend_dest):
+                if os.path.isdir(dest):
+                    shutil.rmtree(dest, ignore_errors=True)
+            raise
 
         # Also write the manifest into the backend plugin dir for runtime access.
         # The trailing newline matters: these manifests are tracked files that
@@ -989,6 +1117,10 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
             _record_frontend_hashes(plugin, manifest, frontend_dest)
         plugin.status = InstalledPlugin.STATUS_ACTIVE
         db.session.commit()
+        # Stamp the signature verdict on every successful install (None for
+        # local/upload/builtin sources → 'unsigned'), so a reinstall via a
+        # different source never keeps a stale 'verified' badge.
+        _record_signature_status(plugin, sig_result)
 
         # Try to register the blueprint immediately (hot-load)
         if has_backend and entry_point and hot_load:
@@ -1401,6 +1533,9 @@ def uninstall_plugin(plugin_id, purge=False):
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.remove_jobs(plugin, manifest)
+        # Audit F1: seam registrations (backup kinds, event types, template
+        # providers) must not keep executing after uninstall.
+        extension_lifecycle.unregister_capabilities(plugin)
         if purge:
             extension_lifecycle.purge_models(plugin)
             from app.plugins_sdk.store_sdk import purge as purge_store
@@ -1454,6 +1589,8 @@ def enable_plugin(plugin_id):
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.resume_jobs(plugin, plugin.manifest or {})
+        # Audit F4: re-register the core seams disable tore down (idempotent).
+        extension_lifecycle.register_capabilities(plugin, plugin.manifest or {})
     except Exception as e:
         logger.warning(f'Could not resume jobs for {plugin.slug}: {e}')
     return plugin
@@ -1472,6 +1609,9 @@ def disable_plugin(plugin_id):
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.pause_jobs(plugin, plugin.manifest or {})
+        # Audit F1: seam registrations (backup kinds, event types, template
+        # providers) must not keep executing while disabled.
+        extension_lifecycle.unregister_capabilities(plugin)
     except Exception as e:
         logger.warning(f'Could not pause jobs for {plugin.slug}: {e}')
     return plugin
@@ -1850,6 +1990,9 @@ def install_builtin_extension(slug, user_id=None):
                 if existing:
                     existing.status = InstalledPlugin.STATUS_ACTIVE
                     db.session.commit()
+                    # A builtin re-install carries no signature — never keep a
+                    # verdict stamped by some earlier install of the slug.
+                    _record_signature_status(existing, None)
                     return existing
                 plugin = _seed_flagship_row(entry)
                 try:
@@ -2059,7 +2202,10 @@ def check_for_updates():
 
     Update v1 is registry-driven: a plugin whose slug is in the registry with a
     higher version than installed is flagged. Panel-version compatibility is
-    surfaced so the UI can gray out an update the panel can't run yet.
+    surfaced so the UI can gray out an update the panel can't run yet. The
+    installed plugin's ``source_type`` is included so callers can see the
+    provenance the update would cross (audit M2 — a registry entry only ever
+    matches on slug; the update route's consent gate is the enforcement).
     """
     from app.services import registry_service
     from app.utils.version import compare_versions, version_satisfies, get_panel_version
@@ -2080,6 +2226,7 @@ def check_for_updates():
                 panel, entry.get('min_panel_version'), entry.get('max_panel_version')
             ),
             'source': entry.get('source'),
+            'installed_source_type': p.source_type,
         })
     return out
 

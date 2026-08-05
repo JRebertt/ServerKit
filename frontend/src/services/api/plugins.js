@@ -150,8 +150,11 @@ export async function getPluginUpdates() {
 }
 
 // Updates an installed plugin in place; returns the updated plugin dict.
-export async function updatePlugin(pluginId) {
+// Pass { acknowledge_risk: true } to proceed past the 409 consent gate
+// (unsigned/untrusted-key/unreviewed registry versions — audit M2).
+export async function updatePlugin(pluginId, body) {
     return this.request(`/plugins/${pluginId}/update`, {
         method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
     });
 }

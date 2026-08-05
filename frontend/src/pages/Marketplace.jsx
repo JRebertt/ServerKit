@@ -318,8 +318,13 @@ const Marketplace = () => {
 
     const confirmRiskyInstall = () => {
         const slug = riskTarget?.slug;
+        const updatePluginId = riskTarget?.updatePluginId;
         setRiskTarget(null);
-        if (slug) handleRegistryInstall(slug, true);
+        if (updatePluginId) {
+            handlePluginUpdate(updatePluginId, true);
+        } else if (slug) {
+            handleRegistryInstall(slug, true);
+        }
     };
 
     // Land on Installed after a manual install so the new row (and its
@@ -350,15 +355,21 @@ const Marketplace = () => {
         }
     };
 
-    const handlePluginUpdate = async (pluginId) => {
+    const handlePluginUpdate = async (pluginId, acknowledgeRisk = false) => {
         if (busyPlugin) return;
         setBusyPlugin({ id: pluginId, action: 'update' });
         try {
-            const result = await api.updatePlugin(pluginId);
+            const result = await api.updatePlugin(
+                pluginId, acknowledgeRisk ? { acknowledge_risk: true } : undefined);
             toast.success(`Extension "${result.display_name}" updated to v${result.version}.`);
             await loadExtensions();
         } catch (err) {
-            toast.error(err.message || 'Extension update failed');
+            // 409 consent gate (audit M2) — same acknowledge flow as installs.
+            if (err.status === 409 && err.data?.requires_acknowledgment) {
+                setRiskTarget({ updatePluginId: pluginId, reason: err.data?.reason || 'unsigned' });
+            } else {
+                toast.error(err.message || 'Extension update failed');
+            }
         } finally {
             setBusyPlugin(null);
         }
@@ -593,13 +604,15 @@ const Marketplace = () => {
                         ? 'Install without checksum verification?'
                         : riskTarget.reason === 'untrusted_key'
                             ? 'Install with an unverifiable signature?'
-                            : 'Install unreviewed extension?'}
+                            : riskTarget.reason === 'unsigned'
+                                ? `${riskTarget.updatePluginId ? 'Update' : 'Install'} an unsigned release?`
+                                : 'Install unreviewed extension?'}
                     size="sm"
                     footer={
                         <>
                             <Button variant="ghost" onClick={() => setRiskTarget(null)}>Cancel</Button>
                             <Button variant="destructive" onClick={confirmRiskyInstall}>
-                                Install anyway
+                                {riskTarget.updatePluginId ? 'Update anyway' : 'Install anyway'}
                             </Button>
                         </>
                     }
@@ -613,8 +626,12 @@ const Marketplace = () => {
                                     ? 'This extension is signed, but the publisher key is not '
                                       + 'pinned by this panel, so the signature cannot be '
                                       + 'verified. Treat it as unsigned.'
-                                    : 'This is a community extension whose exact code has not '
-                                      + 'been reviewed by the ServerKit maintainers.'}
+                                    : riskTarget.reason === 'unsigned'
+                                        ? 'This release is not signed with a publisher key pinned '
+                                          + 'by this panel, so its origin cannot be verified. It '
+                                          + 'may be a legitimate older release — or a downgrade attempt.'
+                                        : 'This is a community extension whose exact code has not '
+                                          + 'been reviewed by the ServerKit maintainers.'}
                         </p>
                         <p className="text-muted">
                             It runs with full panel privileges. Only install it if you trust
