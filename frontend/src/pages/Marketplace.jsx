@@ -5,6 +5,7 @@ import {
     CheckCircle2,
     DownloadCloud,
     ExternalLink,
+    Gamepad2,
     LayoutGrid,
     Package,
     PackageCheck,
@@ -35,10 +36,11 @@ import {
 } from '../components/icons/ExtensionBrands';
 import { resolveExtensionIcon } from '../components/icons/ExtensionIcons';
 
-const CATEGORIES = ['ai', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
+const CATEGORIES = ['ai', 'games', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
 const CATEGORY_ICONS = {
     ai: Sparkles,
+    games: Gamepad2,
     monitoring: Activity,
     security: ShieldCheck,
     deployment: ServerCog,
