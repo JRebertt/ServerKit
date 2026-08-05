@@ -165,3 +165,37 @@ def remove_jobs(plugin, manifest):
         db.session.commit()
     except Exception as e:
         logger.warning(f'Could not remove schedules for {plugin.slug}: {e}')
+
+
+# --------------------------------------------------------------------------- #
+# Core hooks (plan 52 D4 — hook inversion)
+# --------------------------------------------------------------------------- #
+
+def register_capabilities(plugin, manifest):
+    """Invoke the extension's core-hook registration function.
+
+    Manifest surface::
+
+        "core_hooks": "core_hooks:register"     # zero-arg function under
+                                                # app.plugins.<slug>
+
+    The function registers the extension's entries into core-owned
+    registration seams (backup target kinds, event-catalog types, template
+    providers, …) so core keeps each engine while the extension supplies the
+    entry — an absent extension means the feature is absent, gracefully.
+
+    Called at install AND on every boot for active plugins (right beside
+    register_models/register_jobs), so the function MUST be idempotent.
+    Because it runs per boot rather than per module import, a seam registry
+    cleared since the last boot is refilled. Best-effort: a failure logs and
+    never blocks the load.
+    """
+    target = (manifest or {}).get('core_hooks')
+    if not target:
+        return
+    try:
+        fn = _import_target(plugin.slug, target)
+        if callable(fn):
+            fn()
+    except Exception as e:
+        logger.warning(f'Core-hook registration failed for {plugin.slug}: {e}')

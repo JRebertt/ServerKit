@@ -1010,6 +1010,7 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
                 from app.services import extension_lifecycle
                 extension_lifecycle.register_models(plugin, manifest)
                 extension_lifecycle.register_jobs(plugin, manifest)
+                extension_lifecycle.register_capabilities(plugin, manifest)
             except Exception as e:
                 logger.warning(f'Extension lifecycle setup failed for {slug}: {e}')
             try:
@@ -1350,13 +1351,14 @@ def load_all_plugins(app):
                 manifest = plugin.manifest or {}
                 _register_extra_blueprints(app.register_blueprint, plugin, manifest)
 
-                # Re-establish the plugin's data models, jobs, and socket
-                # namespace on boot (install-time registration doesn't survive
-                # a restart).
+                # Re-establish the plugin's data models, jobs, core-hook
+                # registrations, and socket namespace on boot (install-time
+                # registration doesn't survive a restart).
                 try:
                     from app.services import extension_lifecycle
                     extension_lifecycle.register_models(plugin, manifest)
                     extension_lifecycle.register_jobs(plugin, manifest)
+                    extension_lifecycle.register_capabilities(plugin, manifest)
                     from app.plugins_sdk import sockets as _ext_sockets
                     _ext_sockets.register_from_manifest(plugin, manifest)
                 except Exception as e:
@@ -1923,11 +1925,13 @@ def _seed_flagship_row(entry):
     db.session.add(plugin)
     db.session.commit()
 
-    # Register plugin-owned data models / jobs / sockets, same as a copy-install.
+    # Register plugin-owned data models / jobs / core hooks / sockets, same as
+    # a copy-install.
     try:
         from app.services import extension_lifecycle
         extension_lifecycle.register_models(plugin, manifest)
         extension_lifecycle.register_jobs(plugin, manifest)
+        extension_lifecycle.register_capabilities(plugin, manifest)
         from app.plugins_sdk import sockets as _ext_sockets
         _ext_sockets.register_from_manifest(plugin, manifest)
     except Exception as e:
