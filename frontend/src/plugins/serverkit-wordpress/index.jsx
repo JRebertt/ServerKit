@@ -1,12 +1,20 @@
-// WordPress UI, contributed through the extension system. The full WordPress
-// backend (the /api/v1/wordpress* blueprints + services) lives in this
-// extension's backend/; the page components stay in the host pages/ dir and are
-// re-used here (same re-export pattern as serverkit-git/email/workflows) so
-// their many relative imports keep resolving.
+// WordPress UI, contributed through the extension system. Both halves now
+// live in this extension: the backend (the /api/v1/wordpress* blueprints +
+// services) under backend/, and the full frontend (5 pages + the
+// components/wordpress tree + styles/) here — moved out of the host's pages/
+// and styles/ in plan 52 Phase 4. After `sync-builtin-frontends.mjs` this
+// tree is baked at frontend/src/plugins/serverkit-wordpress/, where the host
+// build compiles it (the @/ alias imports that remain resolve there; the
+// runtime-ESM conversion that drops them is Phase 5).
 //
-// After sync this file lives at frontend/src/plugins/serverkit-wordpress/ so the
-// relative imports resolve against the host's src/ tree.
-//
+// Styles ship with the extension: the three SCSS entries below are compiled
+// by the host build through this module graph (they import the host's
+// variables partial via a sync-safe relative path), replacing the former
+// main.scss partials.
+import './styles/wordpress.scss';
+import './styles/wordpress-pipeline.scss';
+import './styles/wordpress-plugin-library.scss';
+
 // The WordPress surface is a tab group + full-bleed detail pages. Contributed
 // routes are flat (there's no way to contribute a shared TabGroupLayout parent
 // inside the dashboard), so we contribute ONE splat route (`wordpress/*`) and
@@ -15,14 +23,14 @@
 // over the three list pages; full-bleed detail/pipeline routes as siblings;
 // the legacy /wordpress/projects → /wordpress/pipelines deprecation redirects).
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { TabGroupLayout } from 'serverkit-sdk';
 
-import TabGroupLayout from '../../layouts/TabGroupLayout';
-import { WORDPRESS_TABS } from '../../components/wordpress/wordpressTabs';
-import WordPress from '../../pages/WordPress';
-import WordPressPluginLibrary from '../../pages/WordPressPluginLibrary';
-import WordPressProjects from '../../pages/WordPressProjects';
-import WordPressProject from '../../pages/WordPressProject';
-import WordPressDetail from '../../pages/WordPressDetail';
+import { WORDPRESS_TABS } from './components/wordpress/wordpressTabs';
+import WordPress from './pages/WordPress';
+import WordPressPluginLibrary from './pages/WordPressPluginLibrary';
+import WordPressProjects from './pages/WordPressProjects';
+import WordPressProject from './pages/WordPressProject';
+import WordPressDetail from './pages/WordPressDetail';
 import WordPressSshImport from './WordPressSshImport';
 
 // "WordPress Projects" was renamed to "Pipelines" (§2 unification). Forward old

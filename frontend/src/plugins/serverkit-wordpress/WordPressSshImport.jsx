@@ -8,15 +8,10 @@
 //   3. Import — enqueues the pull-import job and polls its step log.
 //
 // After sync this file lives at frontend/src/plugins/serverkit-wordpress/, so
-// shared pieces are imported through the host's `@/` alias like core pages do.
+// shared pieces come from the serverkit-sdk surface like other extensions.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '@/services/api';
-import Spinner from '@/components/Spinner';
-import { useToast } from '@/contexts/ToastContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { api, Spinner, useToast, Button, Input, Label } from 'serverkit-sdk';
 
 const POLL_MS = 2500;
 

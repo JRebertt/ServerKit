@@ -120,10 +120,9 @@
 @import 'pages/_servers';
 @import 'pages/_server-survey';
 @import 'pages/_downloads';
-@import 'pages/_wordpress';
-@import 'pages/_wordpress-pipeline';
-@import 'pages/_wordpress-plugin-library';
 @import 'pages/_ssl';
+// WordPress styles moved into the serverkit-wordpress extension (plan 52
+// Phase 4) — its synced bundle imports them through its own module graph.
 @import 'pages/_email';
 @import 'pages/_setup-wizard';
 @import 'pages/_migration-wizard';
