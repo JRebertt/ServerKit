@@ -25,11 +25,32 @@ class WordPressExtensionMissingError(RuntimeError):
     """The serverkit-wordpress extension is not installed/active."""
 
 
+def _plugin_active():
+    """True only while the extension's InstalledPlugin row is ACTIVE.
+
+    A disabled extension's modules stay importable (same as its blueprints),
+    but its services must not be reachable (audit F2) — so the bridge checks
+    the row, not just importability. No cache: bridge calls are rare and a
+    status flip must take effect immediately (a stale ACTIVE cache would
+    re-open exactly the hole this closes)."""
+    try:
+        from app.models.plugin import InstalledPlugin
+        row = InstalledPlugin.query.filter_by(slug=SLUG).first()
+        return bool(row and row.status == InstalledPlugin.STATUS_ACTIVE)
+    except Exception:
+        # No app context / DB unavailable: fail closed — callers already
+        # handle WordPressExtensionMissingError as the designed absence.
+        return False
+
+
 def ensure_loadable():
     """Make ``app.plugins.serverkit-wordpress`` importable if the extension is
-    installed. Idempotent and cheap after the first call. Returns ``True`` if
-    the package is (now) importable, ``False`` when the extension is absent.
+    installed AND active. Idempotent and cheap after the first call. Returns
+    ``True`` if the package is (now) importable, ``False`` when the extension
+    is absent or disabled.
     """
+    if not _plugin_active():
+        return False
     from app.services.plugin_service import _ensure_builtin_backend_importable
     return _ensure_builtin_backend_importable(SLUG)
 

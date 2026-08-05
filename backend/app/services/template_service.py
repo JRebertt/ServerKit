@@ -56,24 +56,39 @@ class TemplateService:
         'wordpress': 'serverkit-wordpress',
         'wordpress-external-db': 'serverkit-wordpress',
     }
-    # slug -> {'validate': callable(template_id, variables) -> error-dict|None}
+    # slug -> {'validate': callable(template_id, variables) -> error-dict|None,
+    #          'registrant': str|None  # extension that claimed the slug (F5)
+    #          }
     _TEMPLATE_PROVIDERS = {}
 
     @classmethod
-    def register_template_provider(cls, slug, validate=None):
+    def register_template_provider(cls, slug, validate=None, registrant=None):
         """Register extension ``slug`` as the provider of its
         ``PROVIDER_OWNED_TEMPLATES`` entries. Idempotent; the optional
         ``validate(template_id, variables)`` hook may veto a variable set by
         returning a ``{'success': False, 'error': ...}`` dict (this replaces
         hardcoded per-template checks in core — e.g. the WordPress external-DB
-        preflight now lives in the WP extension)."""
+        preflight now lives in the WP extension).
+
+        ``registrant`` is the claiming extension's slug (self-asserted, like
+        every extension seam). Once a slug has an owner, a DIFFERENT
+        registrant can never claim it (audit F5 — defense-in-depth against an
+        extension hijacking another's provider slot)."""
         providers = dict(cls._TEMPLATE_PROVIDERS)
-        providers[slug] = {'validate': validate}
+        existing = providers.get(slug)
+        if (existing and existing.get('registrant') and registrant
+                and existing['registrant'] != registrant):
+            raise ValueError(
+                f"template provider '{slug}' is already registered by "
+                f"'{existing['registrant']}'")
+        providers[slug] = {'validate': validate,
+                           'registrant': registrant or slug}
         cls._TEMPLATE_PROVIDERS = providers
 
     @classmethod
     def unregister_template_provider(cls, slug):
-        """Drop a provider registration. Tests only."""
+        """Drop a provider registration (disable/uninstall teardown, audit
+        F1)."""
         providers = dict(cls._TEMPLATE_PROVIDERS)
         providers.pop(slug, None)
         cls._TEMPLATE_PROVIDERS = providers
@@ -1068,7 +1083,16 @@ class TemplateService:
 
     @classmethod
     def list_local_templates(cls) -> List[Dict]:
-        """List locally available templates."""
+        """List locally available templates.
+
+        Deliberately NOT provider-gated: this is the raw "what is bundled on
+        disk" view, which ``build_repo_index`` needs to describe the bundle
+        faithfully for publishing. Provider-owned templates are hidden from
+        the *catalog* instead — :meth:`list_all_templates` and
+        :meth:`get_template` apply the availability gate (plan 52 D4), so an
+        absent extension means hidden cards and refused installs even though
+        the YAML remains bundled.
+        """
         templates = []
         seen_ids = set()
 
@@ -1080,10 +1104,6 @@ class TemplateService:
                 if filename.endswith('.yaml') or filename.endswith('.yml'):
                     template_id = filename.rsplit('.', 1)[0]
                     if template_id in seen_ids:
-                        continue
-                    if not cls.template_available(template_id):
-                        # Provider-owned template whose extension is absent
-                        # (plan 52 D4) — hidden from the catalog entirely.
                         continue
                     filepath = os.path.join(templates_dir, filename)
                     result = cls.parse_template(filepath)

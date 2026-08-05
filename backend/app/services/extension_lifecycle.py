@@ -199,3 +199,31 @@ def register_capabilities(plugin, manifest):
             fn()
     except Exception as e:
         logger.warning(f'Core-hook registration failed for {plugin.slug}: {e}')
+
+
+def unregister_capabilities(plugin):
+    """Drop a plugin's core-seam registrations (disable/uninstall, audit F1).
+
+    The mirrors of :func:`register_capabilities`: every seam registry tracks
+    its registrant slug (backup kinds, event types, template providers), so
+    teardown removes exactly THIS plugin's entries. The extension's modules
+    stay in sys.modules (same as its blueprints) — but nothing may keep
+    EXECUTING through a core seam once the extension is disabled or
+    uninstalled. Best-effort; never raises into the caller.
+    """
+    slug = plugin.slug
+    try:
+        from app.services import backup_kind_registry
+        backup_kind_registry.unregister(slug)
+    except Exception as e:
+        logger.warning(f'Backup-kind teardown failed for {slug}: {e}')
+    try:
+        from app.services import event_service
+        event_service.unregister_event_types(slug)
+    except Exception as e:
+        logger.warning(f'Event-type teardown failed for {slug}: {e}')
+    try:
+        from app.services.template_service import TemplateService
+        TemplateService.unregister_template_provider(slug)
+    except Exception as e:
+        logger.warning(f'Template-provider teardown failed for {slug}: {e}')

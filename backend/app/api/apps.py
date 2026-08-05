@@ -2492,9 +2492,16 @@ def create_app_db_snapshot(app_id):
         return jsonify({'error': 'This application is not a WordPress site'}), 400
     # Resolve the extension only once we know this IS a WordPress site — with
     # serverkit-wordpress uninstalled a non-WP app must get the 400, not an
-    # import error (plan 52 Phase 5 graceful absence).
-    from app.services.wordpress_bridge import wordpress_env_service
-    WordPressEnvService = wordpress_env_service()
+    # import error (plan 52 Phase 5 graceful absence). A WP SITE with the
+    # extension missing/disabled gets a clean 503, not an uncaught
+    # WordPressExtensionMissingError → 500 (audit F3).
+    from app.services.wordpress_bridge import (
+        WordPressExtensionMissingError, wordpress_env_service,
+    )
+    try:
+        WordPressEnvService = wordpress_env_service()
+    except WordPressExtensionMissingError as e:
+        return jsonify({'error': str(e)}), 503
     data = request.get_json() or {}
     result = DatabaseSyncService.create_snapshot(
         db_name=site.db_name,

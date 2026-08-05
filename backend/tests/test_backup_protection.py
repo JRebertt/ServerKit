@@ -121,9 +121,18 @@ def test_decide_kind(app, tmp_path, monkeypatch):
     db.session.commit()
     assert BackupPolicyService._decide_kind(policy) == 'full'
 
-    # WordPress targets are always full.
-    wp = BackupPolicyService.get_or_create_policy('wordpress_site', 4040)
-    assert BackupPolicyService._decide_kind(wp) == 'full'
+    # Non-application kinds are always full. wordpress_site lives in the WP
+    # extension now (plan 52 D4), so prove the rule with a throwaway
+    # registered kind rather than depending on the extension being mounted.
+    from app.services import backup_kind_registry
+    backup_kind_registry.register(
+        'test.kind', resolve=lambda p: {'name': 'k'},
+        execute=lambda p, t, k: ('/x', 1, {}), source='test-suite')
+    try:
+        wp = BackupPolicyService.get_or_create_policy('test.kind', 4040)
+        assert BackupPolicyService._decide_kind(wp) == 'full'
+    finally:
+        backup_kind_registry.unregister('test-suite')
 
 
 # --------------------------------------------------------------------------- #

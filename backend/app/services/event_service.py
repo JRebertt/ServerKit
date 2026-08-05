@@ -63,6 +63,9 @@ EVENT_CATALOG = [
 # don't exist (subscriptions to them just never match, which is the graceful
 # degradation — emission never validates against the catalog).
 _EXTENSION_EVENT_TYPES = []
+# event type -> registrant slug (audit F5): lets disable/uninstall drop
+# exactly one extension's types (audit F1).
+_EXTENSION_EVENT_SOURCES = {}
 
 
 def register_event_types(entries, source=None):
@@ -70,7 +73,9 @@ def register_event_types(entries, source=None):
 
     ``entries``: list of ``{'type', 'category', 'description'}`` dicts.
     Idempotent — types already in the core catalog or already registered are
-    skipped, so per-boot re-registration never duplicates.
+    skipped, so per-boot re-registration never duplicates. ``source`` is the
+    registrant extension's slug, recorded so teardown
+    (:func:`unregister_event_types`) removes exactly that extension's types.
     """
     known = {e['type'] for e in EVENT_CATALOG}
     known.update(e['type'] for e in _EXTENSION_EVENT_TYPES)
@@ -85,14 +90,31 @@ def register_event_types(entries, source=None):
             'category': entry.get('category') or 'Extensions',
             'description': entry.get('description') or '',
         })
+        _EXTENSION_EVENT_SOURCES[etype] = source
         known.add(etype)
     if source:
         logger.info(f'Registered event types from {source}')
 
 
+def unregister_event_types(source):
+    """Drop every event type registered by ``source`` (disable/uninstall
+    teardown, audit F1). Returns the number removed."""
+    if not source:
+        return 0
+    doomed = {t for t, s in _EXTENSION_EVENT_SOURCES.items() if s == source}
+    if not doomed:
+        return 0
+    _EXTENSION_EVENT_TYPES[:] = [
+        e for e in _EXTENSION_EVENT_TYPES if e['type'] not in doomed]
+    for t in doomed:
+        del _EXTENSION_EVENT_SOURCES[t]
+    return len(doomed)
+
+
 def clear_registered_event_types():
     """Drop every extension-registered event type. Tests only."""
     _EXTENSION_EVENT_TYPES.clear()
+    _EXTENSION_EVENT_SOURCES.clear()
 
 
 class EventService:

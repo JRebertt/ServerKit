@@ -179,18 +179,18 @@ def test_wp_event_types_absent_graceful(app, client, auth_headers, wp_extension)
 # --------------------------------------------------------------------------- #
 
 def test_wp_templates_listed_when_present(app, wp_extension):
-    ids = {t['id'] for t in TemplateService.list_local_templates()}
+    ids = {t['id'] for t in TemplateService.list_all_templates()}
     assert {'wordpress', 'wordpress-external-db'} <= ids
     assert TemplateService.get_template('wordpress')['success'] is True
 
 
 def test_wp_templates_hidden_when_absent(app, wp_extension):
     with wp_hooks_absent():
-        ids = {t['id'] for t in TemplateService.list_local_templates()}
-        assert 'wordpress' not in ids
-        assert 'wordpress-external-db' not in ids
+        # The catalog (what the Templates grid renders) hides them; the
+        # bundled YAMLs stay on disk for the repo-index publishing path.
         all_ids = {t['id'] for t in TemplateService.list_all_templates()}
         assert 'wordpress' not in all_ids
+        assert 'wordpress-external-db' not in all_ids
         result = TemplateService.get_template('wordpress')
         assert result['success'] is False
         assert 'serverkit-wordpress' in result['error']
@@ -306,3 +306,150 @@ def test_ext_to_ext_seam_absent_side_returns_default(app):
     from app.services.plugin_service import get_installed_extension_attr
     assert get_installed_extension_attr(
         'serverkit-analytics', 'wp_integration', 'inject', default=None) is None
+
+
+# --------------------------------------------------------------------------- #
+# Audit F1/F4 — disable/uninstall tear down the seams; enable re-registers
+# --------------------------------------------------------------------------- #
+
+def _wp_plugin_row():
+    from app.models.plugin import InstalledPlugin
+    return InstalledPlugin.query.filter_by(slug=SLUG).first()
+
+
+def _seams_empty():
+    return (
+        backup_kind_registry.get('wordpress_site') is None
+        and not TemplateService.template_available('wordpress')
+        and not [e for e in EventService.get_available_events()
+                 if e['type'].startswith('wordpress.')]
+    )
+
+
+def _seams_filled():
+    return (
+        backup_kind_registry.get('wordpress_site') is not None
+        and TemplateService.template_available('wordpress')
+        and any(e['type'] == 'wordpress.created'
+                for e in EventService.get_available_events())
+    )
+
+
+def test_disable_tears_down_seams_and_enable_restores(app, wp_extension):
+    from app.services import plugin_service
+    assert _seams_filled()
+    plugin = _wp_plugin_row()
+
+    plugin_service.disable_plugin(plugin.id)
+    assert _seams_empty()
+    with pytest.raises(BackupPolicyError):
+        BackupPolicyService.validate_target_type('wordpress_site')
+
+    plugin_service.enable_plugin(plugin.id)
+    assert _seams_filled()
+
+
+def test_uninstall_tears_down_seams(app, wp_extension):
+    from app.services import plugin_service
+    plugin = _wp_plugin_row()
+    plugin_service.uninstall_plugin(plugin.id)
+    assert _seams_empty()
+
+
+# --------------------------------------------------------------------------- #
+# Audit F2 — the bridge refuses a disabled/absent extension
+# --------------------------------------------------------------------------- #
+
+def test_bridge_refuses_when_extension_disabled(app, wp_extension):
+    from app.services import plugin_service, wordpress_bridge
+    assert wordpress_bridge.wordpress_service() is not None
+    plugin = _wp_plugin_row()
+    plugin_service.disable_plugin(plugin.id)
+    try:
+        with pytest.raises(wordpress_bridge.WordPressExtensionMissingError):
+            wordpress_bridge.wordpress_service()
+    finally:
+        plugin_service.enable_plugin(plugin.id)
+    assert wordpress_bridge.wordpress_service() is not None
+
+
+def test_update_schedule_cron_noops_when_extension_disabled(app, wp_extension):
+    """The core cron sweep guards the bridge call — a disabled extension means
+    a logged skip, never a crashed job."""
+    from app.services import plugin_service
+    from app.jobs import builtin_handlers
+    site = _wp_site()
+    site.auto_update_schedule = '* * * * *'
+    db.session.commit()
+    plugin = _wp_plugin_row()
+    plugin_service.disable_plugin(plugin.id)
+    try:
+        builtin_handlers.check_update_schedules()  # must not raise
+    finally:
+        plugin_service.enable_plugin(plugin.id)
+
+
+# --------------------------------------------------------------------------- #
+# Audit F3 — db-snapshot route returns a clean 503, never an uncaught 500
+# --------------------------------------------------------------------------- #
+
+def test_db_snapshot_route_503_when_extension_missing(app, client, auth_headers):
+    """A WordPressSite row exists but the extension is absent (this test
+    deliberately does NOT mount it): clean 503 with the actionable message."""
+    site = _wp_site()
+    resp = client.post(f'/api/v1/apps/{site.application_id}/db-snapshots',
+                       headers=auth_headers, json={})
+    assert resp.status_code == 503
+    assert 'serverkit-wordpress' in resp.get_json()['error']
+
+
+# --------------------------------------------------------------------------- #
+# Audit F5 — seam registrations are bound to their registrant
+# --------------------------------------------------------------------------- #
+
+def test_backup_kind_replace_from_other_registrant_rejected(app):
+    register = backup_kind_registry.register
+    register('ext.one', resolve=lambda p: {}, execute=lambda p, t, k: ('/x', 1, {}),
+             source='ext-one')
+    try:
+        with pytest.raises(ValueError, match='cannot be replaced'):
+            register('ext.one', resolve=lambda p: {},
+                     execute=lambda p, t, k: ('/x', 1, {}),
+                     replace=True, source='ext-two')
+        # The SAME registrant may replace (idempotent re-registration).
+        register('ext.one', resolve=lambda p: {},
+                 execute=lambda p, t, k: ('/x', 1, {}),
+                 replace=True, source='ext-one')
+        assert backup_kind_registry.get('ext.one') is not None
+    finally:
+        # Teardown drops exactly that registrant's kinds.
+        assert backup_kind_registry.unregister('ext-one') >= 1
+    assert backup_kind_registry.get('ext.one') is None
+
+
+def test_event_unregister_drops_only_registrant_types(app):
+    event_service.register_event_types(
+        [{'type': 'exta.fired', 'category': 'A', 'description': ''}], source='ext-a')
+    event_service.register_event_types(
+        [{'type': 'extb.fired', 'category': 'B', 'description': ''}], source='ext-b')
+    try:
+        assert event_service.unregister_event_types('ext-a') == 1
+        types = {e['type'] for e in EventService.get_available_events()}
+        assert 'exta.fired' not in types
+        assert 'extb.fired' in types
+    finally:
+        event_service.unregister_event_types('ext-b')
+
+
+def test_template_provider_hijack_rejected(app):
+    TemplateService.register_template_provider('victim-slug',
+                                               registrant='victim-slug')
+    try:
+        with pytest.raises(ValueError, match='already registered'):
+            TemplateService.register_template_provider('victim-slug',
+                                                       registrant='evil-ext')
+        # The owning registrant re-registering is fine (idempotent per boot).
+        TemplateService.register_template_provider('victim-slug',
+                                                   registrant='victim-slug')
+    finally:
+        TemplateService.unregister_template_provider('victim-slug')

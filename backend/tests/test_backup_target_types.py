@@ -18,9 +18,10 @@ def test_valid_target_types_are_the_core_set():
     assert 'wordpress_site' not in VALID_TARGET_TYPES
 
 
-def test_wordpress_site_valid_while_extension_present(app):
-    """With the WP flagship seeded (test boot), its backup kind registers via
-    the core_hooks seam and validates like a first-class type."""
+def test_wordpress_site_valid_while_extension_present(app, wp_extension):
+    """With the WP extension mounted (standalone repo via the wp_extension
+    fixture), its backup kind registers via the core_hooks seam and validates
+    like a first-class type."""
     BackupPolicyService.validate_target_type('wordpress_site')
 
 
