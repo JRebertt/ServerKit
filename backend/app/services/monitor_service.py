@@ -112,6 +112,23 @@ class MonitorService:
         return StatusComponent.query.get(monitor_id)
 
     @staticmethod
+    def _validate_site_binding(site_id):
+        """A monitor may bind to a WordPress site only when that site exists.
+
+        With the WordPress extension absent (or the site removed) the bind
+        fails loudly here instead of creating an orphan monitor that never
+        gets health-synced (plan 52 task 17). The model itself stays core
+        (D1), so the check is a plain row lookup.
+        """
+        if site_id is None:
+            return
+        from app.models.wordpress_site import WordPressSite
+        if not WordPressSite.query.get(site_id):
+            raise ValueError(
+                'wordpress_site_id does not match an existing WordPress site '
+                '(is the WordPress extension installed?)')
+
+    @staticmethod
     def create(data):
         if not data.get('name'):
             raise ValueError('Monitor name is required')
@@ -124,6 +141,7 @@ class MonitorService:
         # site's health verdict instead of the network.
         if not data.get('check_target') and not data.get('wordpress_site_id'):
             raise ValueError('Monitor needs a check target or a bound site')
+        MonitorService._validate_site_binding(data.get('wordpress_site_id'))
 
         monitor = StatusComponent(
             page_id=data.get('page_id'),
@@ -154,6 +172,8 @@ class MonitorService:
             return None
         if 'check_type' in data and data['check_type'] not in StatusComponent.CHECK_TYPES:
             raise ValueError(f"Unknown check type: {data['check_type']}")
+        if data.get('wordpress_site_id') is not None:
+            MonitorService._validate_site_binding(data['wordpress_site_id'])
         for field in MonitorService.WRITABLE_FIELDS:
             if field in data:
                 setattr(monitor, field, data[field])
