@@ -651,7 +651,7 @@ it, remove the old entry once nothing references it.
 | Verdict | Meaning | Install behavior |
 |---|---|---|
 | `verified` | Signature valid under a pinned key | Installs; no extra friction |
-| `unsigned` | No signature present | Installs behind the existing consent surfaces (preview card badge, registry risk dialog) — never a hard block |
+| `unsigned` | No signature present | Installs behind the existing consent surfaces (preview card badge, registry risk dialog) — never a hard block. For **first-party** registry entries it is a 409 consent gate (possible downgrade); community **reviewed** entries stay exempt because the review stamp already binds a maintainer verdict to the artifact's exact sha256 |
 | `untrusted_key` | Signed, but the publisher key isn't pinned | Registry: 409 consent ("install anyway"); manual: consent card warns |
 | `invalid` | Malformed envelope, key-id mismatch, or verify failed | **Hard failure, always.** Acknowledgment can never override a bad signature |
 
@@ -661,10 +661,11 @@ verification stays visible after install. The sha256 runtime-frontend hash
 check is unaffected — signatures cover the zip, `_frontend_hashes` still pins
 the served `.mjs` bundle bytes.
 
-Honesty note (D2): a signature verifies *when present*. Until every
-first-party release is signed, an unsigned first-party index entry still
-installs on the strength of the index itself (TLS + the registry repo's PR
-review), so the index's integrity remains part of the trust story.
+Honesty note (D2): a signature verifies *when present*. An unsigned
+first-party registry entry installs only behind the explicit 409 consent step
+(acknowledge-risk), and the same gate covers the update path — but the
+acknowledgment itself still rests on the index's integrity (TLS + the
+registry repo's PR review) until every first-party release is signed.
 
 ### Docker note
 
