@@ -48,15 +48,6 @@ EVENT_CATALOG = [
     {'type': 'domain.deleted', 'category': 'Domains', 'description': 'A domain was deleted'},
     {'type': 'api_key.created', 'category': 'API', 'description': 'An API key was created'},
     {'type': 'api_key.revoked', 'category': 'API', 'description': 'An API key was revoked'},
-    {'type': 'wordpress.site_down', 'category': 'WordPress', 'description': 'A WordPress site failed its health check'},
-    {'type': 'wordpress.site_up', 'category': 'WordPress', 'description': 'A WordPress site recovered after a failed health check'},
-    {'type': 'wordpress.created', 'category': 'WordPress', 'description': 'A WordPress site was created'},
-    {'type': 'wordpress.deleted', 'category': 'WordPress', 'description': 'A WordPress site was deleted'},
-    {'type': 'wordpress.backup_completed', 'category': 'WordPress', 'description': 'A WordPress site backup/snapshot completed'},
-    {'type': 'wordpress.updated', 'category': 'WordPress', 'description': 'A WordPress safe-update completed'},
-    {'type': 'wordpress.update_rolled_back', 'category': 'WordPress', 'description': 'A WordPress update was auto-rolled-back'},
-    {'type': 'wordpress.deployed', 'category': 'WordPress', 'description': 'A WordPress git deploy completed'},
-    {'type': 'wordpress.deploy_failed', 'category': 'WordPress', 'description': 'A WordPress git deploy failed'},
     # Ported from the retired Workflow Builder event bus (plan 45 Phase 4) so
     # Automations (tramo) workflows can trigger on them via the events bridge.
     {'type': 'health.check_failed', 'category': 'Monitoring', 'description': 'An environment health check failed'},
@@ -65,14 +56,52 @@ EVENT_CATALOG = [
     {'type': 'monitor.high_memory', 'category': 'Monitoring', 'description': 'A server crossed its high-memory alert threshold'},
 ]
 
+# Extension-registered event types (plan 52 D4 hook inversion). Extensions add
+# their own catalog entries at load via register_event_types() — e.g. the
+# WordPress extension contributes the wordpress.* lifecycle events. The core
+# catalog above keeps only core events; an absent extension's types simply
+# don't exist (subscriptions to them just never match, which is the graceful
+# degradation — emission never validates against the catalog).
+_EXTENSION_EVENT_TYPES = []
+
+
+def register_event_types(entries, source=None):
+    """Register extension-owned event types into the catalog.
+
+    ``entries``: list of ``{'type', 'category', 'description'}`` dicts.
+    Idempotent — types already in the core catalog or already registered are
+    skipped, so per-boot re-registration never duplicates.
+    """
+    known = {e['type'] for e in EVENT_CATALOG}
+    known.update(e['type'] for e in _EXTENSION_EVENT_TYPES)
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        etype = entry.get('type')
+        if not etype or etype in known:
+            continue
+        _EXTENSION_EVENT_TYPES.append({
+            'type': etype,
+            'category': entry.get('category') or 'Extensions',
+            'description': entry.get('description') or '',
+        })
+        known.add(etype)
+    if source:
+        logger.info(f'Registered event types from {source}')
+
+
+def clear_registered_event_types():
+    """Drop every extension-registered event type. Tests only."""
+    _EXTENSION_EVENT_TYPES.clear()
+
 
 class EventService:
     """Service for emitting events and delivering webhooks."""
 
     @staticmethod
     def get_available_events():
-        """Return the event catalog."""
-        return EVENT_CATALOG
+        """Return the event catalog: core events + extension-registered types."""
+        return EVENT_CATALOG + list(_EXTENSION_EVENT_TYPES)
 
     @staticmethod
     def emit_wp(event_type, site, **extra):
