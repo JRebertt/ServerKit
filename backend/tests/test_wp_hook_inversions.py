@@ -6,8 +6,11 @@ every boot by ``extension_lifecycle.register_capabilities``).
 
 Every hook is exercised twice:
 
-* WP present — the flagship seeds on every test boot, so ``app`` boots with
-  the seams filled; behavior must be identical to the pre-inversion core.
+* WP present — the ``wp_extension`` fixture mounts the extension from its
+  standalone repo (plan 52 Phase 5: it left the tree; sibling checkout or
+  SERVERKIT_WORDPRESS_DIR), so the test app boots with the seams filled;
+  behavior must be identical to the pre-inversion core. When the extension
+  source is unavailable these tests SKIP — the absent halves still run.
 * WP absent — the extension's seam registrations are dropped (simulating an
   uninstalled/disabled extension); the feature must be absent *gracefully*:
   clear "provider missing" errors, hidden cards/types, no crashes.
@@ -62,8 +65,8 @@ def _wp_site(name='hook-site'):
 # The seam itself: manifest core_hooks → registrations at boot
 # --------------------------------------------------------------------------- #
 
-def test_core_hooks_registered_at_boot(app):
-    """A stock boot (flagship seeded) fills all three seams via the manifest
+def test_core_hooks_registered_at_boot(app, wp_extension):
+    """Mounting the extension fills all three seams via the manifest
     core_hooks entry — this is what makes 'WP present' behavior identical to
     the pre-inversion core."""
     plugin_manifest_hooks = 'core_hooks:register'
@@ -77,7 +80,7 @@ def test_core_hooks_registered_at_boot(app):
     assert plugin.manifest.get('core_hooks') == plugin_manifest_hooks
 
 
-def test_core_hooks_registration_is_idempotent(app):
+def test_core_hooks_registration_is_idempotent(app, wp_extension):
     hooks = _core_hooks()
     hooks.register()
     hooks.register()
@@ -89,7 +92,7 @@ def test_core_hooks_registration_is_idempotent(app):
 # Task 13 — backup target type 'wordpress_site'
 # --------------------------------------------------------------------------- #
 
-def test_backup_kind_present_resolves_like_before(app):
+def test_backup_kind_present_resolves_like_before(app, wp_extension):
     site = _wp_site()
     policy = BackupPolicyService.get_or_create_policy('wordpress_site', site.id)
     target = BackupPolicyService._resolve_target(policy)
@@ -101,7 +104,7 @@ def test_backup_kind_present_resolves_like_before(app):
     assert backup_kind_registry.supports_restore('wordpress_site') is True
 
 
-def test_backup_kind_absent_is_a_clear_provider_missing(app):
+def test_backup_kind_absent_is_a_clear_provider_missing(app, wp_extension):
     site = _wp_site()
     # Row created directly — with the provider gone, validation alone refuses.
     policy = BackupPolicy(target_type='wordpress_site', target_id=site.id)
@@ -115,7 +118,7 @@ def test_backup_kind_absent_is_a_clear_provider_missing(app):
             BackupPolicyService._resolve_target(policy)
 
 
-def test_backup_target_types_endpoint_reflects_provider(app, client, auth_headers):
+def test_backup_target_types_endpoint_reflects_provider(app, client, auth_headers, wp_extension):
     resp = client.get('/api/v1/backups/target-types', headers=auth_headers)
     assert resp.status_code == 200
     types = {t['target_type']: t for t in resp.get_json()['target_types']}
@@ -131,7 +134,7 @@ def test_backup_target_types_endpoint_reflects_provider(app, client, auth_header
         assert 'wordpress_site' not in gone
 
 
-def test_policy_list_flags_provider_missing(app, client, auth_headers):
+def test_policy_list_flags_provider_missing(app, client, auth_headers, wp_extension):
     site = _wp_site()
     BackupPolicyService.get_or_create_policy('wordpress_site', site.id)
 
@@ -151,7 +154,7 @@ def test_policy_list_flags_provider_missing(app, client, auth_headers):
 # Task 15 — event catalog
 # --------------------------------------------------------------------------- #
 
-def test_wp_event_types_present(app):
+def test_wp_event_types_present(app, wp_extension):
     types = {e['type'] for e in EventService.get_available_events()}
     assert {'wordpress.created', 'wordpress.site_down', 'wordpress.deployed',
             'wordpress.update_rolled_back'} <= types
@@ -160,7 +163,7 @@ def test_wp_event_types_present(app):
     assert not {t for t in core_types if t.startswith('wordpress.')}
 
 
-def test_wp_event_types_absent_graceful(app, client, auth_headers):
+def test_wp_event_types_absent_graceful(app, client, auth_headers, wp_extension):
     with wp_hooks_absent():
         types = {e['type'] for e in EventService.get_available_events()}
         assert not {t for t in types if t.startswith('wordpress.')}
@@ -175,13 +178,13 @@ def test_wp_event_types_absent_graceful(app, client, auth_headers):
 # Task 16 — templates
 # --------------------------------------------------------------------------- #
 
-def test_wp_templates_listed_when_present(app):
+def test_wp_templates_listed_when_present(app, wp_extension):
     ids = {t['id'] for t in TemplateService.list_local_templates()}
     assert {'wordpress', 'wordpress-external-db'} <= ids
     assert TemplateService.get_template('wordpress')['success'] is True
 
 
-def test_wp_templates_hidden_when_absent(app):
+def test_wp_templates_hidden_when_absent(app, wp_extension):
     with wp_hooks_absent():
         ids = {t['id'] for t in TemplateService.list_local_templates()}
         assert 'wordpress' not in ids
@@ -193,14 +196,14 @@ def test_wp_templates_hidden_when_absent(app):
         assert 'serverkit-wordpress' in result['error']
 
 
-def test_wp_template_install_refused_when_absent(app):
+def test_wp_template_install_refused_when_absent(app, wp_extension):
     with wp_hooks_absent():
         result = TemplateService.install_template('wordpress', 'wp-x')
         assert result['success'] is False
         assert 'serverkit-wordpress' in result['error']
 
 
-def test_external_db_preflight_flows_through_provider(app, monkeypatch):
+def test_external_db_preflight_flows_through_provider(app, monkeypatch, wp_extension):
     """The wordpress-external-db connection preflight used to be a hardcoded
     core branch; now core dispatches to the provider's validate hook."""
     calls = []
@@ -265,7 +268,15 @@ def test_no_core_or_wp_module_references_analytics_extension():
     side feature-detects it — there is nothing to route through core."""
     import os
     repo_root = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
-    wp_backend = os.path.join(repo_root, 'builtin-extensions', SLUG, 'backend')
+    # The WP backend left the tree (plan 52 Phase 5): scan it from the
+    # standalone repo when a checkout is available; core files always scan.
+    wp_candidates = [
+        os.environ.get('SERVERKIT_WORDPRESS_DIR', ''),
+        os.path.join(os.path.dirname(repo_root), 'serverkit-wordpress'),
+    ]
+    wp_backend = next(
+        (os.path.join(c, 'backend') for c in wp_candidates
+         if c and os.path.isdir(os.path.join(c, 'backend'))), None)
     core_files = [
         'app/services/event_service.py',
         'app/services/backup_policy_service.py',
@@ -275,9 +286,10 @@ def test_no_core_or_wp_module_references_analytics_extension():
     ]
     backend_root = os.path.join(repo_root, 'backend')
     targets = []
-    for name in os.listdir(wp_backend):
-        if name.endswith('.py'):
-            targets.append(os.path.join(wp_backend, name))
+    if wp_backend:
+        for name in os.listdir(wp_backend):
+            if name.endswith('.py'):
+                targets.append(os.path.join(wp_backend, name))
     targets.extend(os.path.join(backend_root, f) for f in core_files)
 
     for path in targets:

@@ -186,7 +186,7 @@ def test_setup_warns_without_server_ip(app, monkeypatch):
 
 # ── vhost wiring ────────────────────────────────────────────────────────────
 
-def test_write_vhost_uses_wildcard_cert_when_https_enabled(app, monkeypatch):
+def test_write_vhost_uses_wildcard_cert_when_https_enabled(app, monkeypatch, wp_extension_package):
     from app import db
     from app.models.system_settings import SystemSettings
     from app.services import nginx_service
@@ -207,7 +207,7 @@ def test_write_vhost_uses_wildcard_cert_when_https_enabled(app, monkeypatch):
     assert captured['ssl_key'] == '/etc/letsencrypt/live/lvh.me/privkey.pem'
 
 
-def test_write_vhost_no_wildcard_for_custom_domain(app, monkeypatch):
+def test_write_vhost_no_wildcard_for_custom_domain(app, monkeypatch, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     from app.models.system_settings import SystemSettings

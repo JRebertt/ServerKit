@@ -321,7 +321,7 @@ def test_servers_list_global_without_context(app, client):
     assert any(s['name'] == 'srv-a' for s in r.get_json())
 
 
-def test_wordpress_sites_scoping_api(app, client):
+def test_wordpress_sites_scoping_api(app, client, wp_extension):
     from app import db
     from app.services.workspace_service import WorkspaceService
     from app.models import Application, WordPressSite

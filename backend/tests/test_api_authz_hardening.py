@@ -97,7 +97,7 @@ def _destructive_calls(client, rbac):
 
 
 @pytest.mark.parametrize('persona', ['viewer', 'foreign'])
-def test_p0_destructive_denied_for_unauthorized(app, client, rbac, persona):
+def test_p0_destructive_denied_for_unauthorized(app, client, rbac, persona, wp_extension):
     """A viewer-grant and a foreign non-member cannot delete/alter any site —
     the regression anchor: a viewer cannot delete a site."""
     headers = getattr(rbac, persona)
@@ -107,7 +107,7 @@ def test_p0_destructive_denied_for_unauthorized(app, client, rbac, persona):
 
 
 @pytest.mark.parametrize('persona', ['owner', 'editor', 'admin'])
-def test_p0_destructive_allowed_for_authorized(app, client, rbac, persona):
+def test_p0_destructive_allowed_for_authorized(app, client, rbac, persona, wp_extension):
     """Owner, editor-grantee, and admin all pass the write gate (the operation
     itself may 400 without Docker, but it must NOT be the auth 404)."""
     headers = getattr(rbac, persona)
@@ -116,7 +116,7 @@ def test_p0_destructive_allowed_for_authorized(app, client, rbac, persona):
         assert r.status_code != 404, f'{persona} was denied {label} (got 404)'
 
 
-def test_p0_destructive_missing_site_is_404_even_for_admin(app, client, rbac):
+def test_p0_destructive_missing_site_is_404_even_for_admin(app, client, rbac, wp_extension):
     """A non-existent site is 404 for everyone, including admin (no info leak /
     no crash) — the guard resolves the app before acting."""
     r = client.delete('/api/v1/wordpress/sites/987654', headers=rbac.admin)
@@ -134,7 +134,7 @@ def _sealed_denied(r):
     return r.status_code == 404 and (r.get_json() or {}).get('error') == 'Not found'
 
 
-def test_sealed_reads_hidden_from_foreign(app, client, rbac):
+def test_sealed_reads_hidden_from_foreign(app, client, rbac, wp_extension):
     """Previously-open <site_id>/<app_id> reads now hide behind the gate for a
     foreign caller (404 'Not found') and open for any grant (Decision 5)."""
     sid, aid = rbac.site_id, rbac.app_id
@@ -153,7 +153,7 @@ def test_sealed_reads_hidden_from_foreign(app, client, rbac):
         assert not _sealed_denied(client.get(url, headers=rbac.admin)), f'admin denied {url}'
 
 
-def test_convergence_reads_403_for_foreign_grant_opens(app, client, rbac):
+def test_convergence_reads_403_for_foreign_grant_opens(app, client, rbac, wp_extension):
     """The eight formerly-inline `role != 'admin'` feature reads keep their 403 on
     denial (Decision 5) but now honor grants (Decision 3): a viewer-grant reaches
     them, exactly as it already reaches the app's volumes/deployments."""
@@ -336,7 +336,7 @@ def test_raw_docker_processes_admin_only(app, client, scoping_rbac, persona):
 
 
 @pytest.mark.parametrize('persona', ['viewer', 'member', 'foreign'])
-def test_wordpress_standalone_host_ops_admin_only(app, client, scoping_rbac, persona):
+def test_wordpress_standalone_host_ops_admin_only(app, client, scoping_rbac, persona, wp_extension):
     """#3 — the standalone install/uninstall/start/stop/restart host ops predate
     the per-app model and touch the host → admin-only (plan 19's host-touching
     matrix). A non-admin is 403 on every one; admin passes the gate."""
