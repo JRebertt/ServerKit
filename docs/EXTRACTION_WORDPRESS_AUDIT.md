@@ -5,15 +5,20 @@ backend now lives in `builtin-extensions/serverkit-wordpress/` as a bundled,
 default-installed flagship (D4), loaded via an importlib bridge. See the Phase 5
 section of `docs/plans/12_EXTENSIONS_PLATFORM_PLAN.md` for the shipped scope and
 deviations (models stay core; event-catalog + Fail2ban WP filter kept core as
-two-speed items). The **frontend UI is still core, NOT yet extracted** (corrected
-2026-07-22, plan 52 Phase 1 — an earlier revision of this doc overstated it as
-done): the extension's `index.jsx` is only a **re-export shell** that imports the
-real pages from `frontend/src/pages/WordPress*` (5 pages) and
-`frontend/src/components/wordpress/` (40 files), with the three `_wordpress*.scss`
-files still imported by `main.scss` and residual core wiring in `App.jsx`
-(title fallbacks) and `sidebarItems.js`. Only `WordPressSshImport.jsx` truly lives
-in the extension today. The physical frontend move is plan 52 Phase 4; leaving the
-tree entirely is Phase 5.
+two-speed items). The **frontend UI has moved into the extension** (plan 52
+Phase 4, 2026-08-05): the 5 pages, the `components/wordpress/` tree (40 files)
+and the three `wordpress*.scss` stylesheets now live in
+`builtin-extensions/serverkit-wordpress/frontend/`, still baked into the host
+build via `sync-builtin-frontends.mjs` + the build-time glob (D6 intermediate
+state; styles compile through the extension's own module graph, `main.scss`
+no longer imports them). Residual core wiring removed: `App.jsx` title
+fallbacks and the `sidebarItems.js` preset literals. Deep imports were
+rewritten to the `serverkit-sdk` surface (which gained TabGroupLayout, Modal,
+ConfirmDialog, Spinner/EmptyState/SkeletonBoundary/Skeleton, the ui/* form
+primitives, useConfirm/useTabParam/useTopbarActions, and the format/time
+utils); a handful of host-internal imports remain as `@/` alias imports,
+safe under the baked glob. Leaving the tree entirely (runtime-ESM bundle) is
+Phase 5.
 **Verdict:** extractable, but WordPress has **real core hooks** that must be
 inverted/guarded first. WordPress ships as a bundled, default-installed,
 uninstallable extension (D4) — never a marketplace hunt.
