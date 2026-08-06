@@ -243,7 +243,7 @@ class _FakeWP:
         return {'success': True, 'old_url': 'http://localhost:8300', 'new_url': new_url}
 
 
-def test_url_fix_preview_detects_localhost_site(app, wp_site, monkeypatch):
+def test_url_fix_preview_detects_localhost_site(app, wp_site, monkeypatch, wp_extension_package):
     import app.services.wordpress_bridge as bridge
     _FakeWP.current = 'http://localhost:8300'
     monkeypatch.setattr(bridge, 'wordpress_service', lambda: _FakeWP)
@@ -256,7 +256,7 @@ def test_url_fix_preview_detects_localhost_site(app, wp_site, monkeypatch):
     assert item['total'] == 12
 
 
-def test_url_fix_apply_swaps_then_is_idempotent(app, wp_site, monkeypatch):
+def test_url_fix_apply_swaps_then_is_idempotent(app, wp_site, monkeypatch, wp_extension_package):
     import app.services.wordpress_bridge as bridge
     _FakeWP.current = 'http://localhost:8300'
     _FakeWP.swapped = []

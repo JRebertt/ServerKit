@@ -46,6 +46,22 @@ def _stub_wp_target(monkeypatch):
                         classmethod(_resolve_target))
 
 
+@pytest.fixture(autouse=True)
+def _wp_kind_registered():
+    """wordpress_site is an extension-owned kind now (plan 52 D4): policy
+    validation needs SOME registrant. Register a stub for these artifact-
+    replay drill tests (the WP extension's real provider is out of scope)."""
+    from app.services import backup_kind_registry
+    if backup_kind_registry.get('wordpress_site'):
+        yield  # the extension's real provider is mounted — leave it alone
+        return
+    backup_kind_registry.register(
+        'wordpress_site', resolve=lambda p: {},
+        execute=lambda p, t, k: ('/x', 1, {}), source='test-suite')
+    yield
+    backup_kind_registry.unregister('test-suite')
+
+
 def _make_wp_run(policy, tmp_path, with_files=True, with_db=True, name='wp-run'):
     """A successful wordpress_site BackupRun laid out as a run directory with an
     optional files.tar.gz and database.sql."""

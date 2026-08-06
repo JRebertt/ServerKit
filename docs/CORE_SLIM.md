@@ -64,14 +64,14 @@ host import map. Anything else a page uses today from `core` (charts via
 **bundled into the extension** or first **promoted into the SDK**. Workflows
 (`@xyflow/react`) and any chart-heavy page are the ones this bites.
 
-### Tier C — WordPress (largest, last)
+### Tier C — WordPress ✅ DONE (plan 52 Phases 4-5, 2026-08-05)
 
-| Extension | Surface | Why last |
-|---|---|---|
-| `serverkit-wordpress` | `WordPressDetail` + project + sub-tabs (backend already a flagship) | Biggest UI, deep **tab-group** wiring, many sub-components and its own sub-router. Move only after Tier B has proven the tab-group + multi-component migration on `serverkit-git`. |
-
-WordPress backend is already an in-place flagship; the frontend stays core until
-Tier B de-risks the tab-group extraction.
+`serverkit-wordpress` is fully extracted: Phase 4 moved the frontend (5 pages,
+40 components, 3 SCSS files) into the extension and onto the `serverkit-sdk`
+surface; Phase 5 took it out of the tree into the standalone
+`serverkit-wordpress` repo as a runtime-ESM bundle (SDK 1.2.0). It distributes
+through the registry and is offered during onboarding from the bundled index
+entry; its schema stays core via the documented core data seam (D1).
 
 ## Per-page migration checklist
 

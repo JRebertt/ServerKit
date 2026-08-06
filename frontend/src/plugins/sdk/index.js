@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.1.0';
+export const SDK_VERSION = '1.2.0';
 
 export { api, default as defaultApi } from '../../services/api';
 
@@ -53,6 +53,9 @@ export {
     ScoreGauge,
     Sparkline,
     Pill,
+    EnvTag,
+    SegControl,
+    ServiceTile,
     PageTopbar,
     DataTable,
     ResourceCard,
@@ -94,3 +97,58 @@ export {
     useParams,
     Outlet,
 } from 'react-router-dom';
+
+// Layout + feedback primitives (plan 52 Phase 4 — the WordPress frontend
+// relocation proved these out). Generic re-exports, same modules core pages
+// use; an extension page should be able to mirror a core page's chrome
+// (tab group, modal, confirm, empty/loading states) without deep imports.
+export { default as TabGroupLayout } from '../../layouts/TabGroupLayout';
+export { default as Modal } from '../../components/Modal';
+export { ConfirmDialog } from '../../components/ConfirmDialog';
+export { Spinner, LoadingState } from '../../components/Spinner';
+export { default as EmptyState } from '../../components/EmptyState';
+export { SkeletonBoundary } from '../../components/SkeletonBoundary';
+export { Skeleton } from '../../components/Skeleton';
+
+// Form primitives — the ui/* kit extensions reach for most.
+export { Button } from '../../components/ui/button';
+export { Input } from '../../components/ui/input';
+export { Label } from '../../components/ui/label';
+export { Switch } from '../../components/ui/switch';
+export { Checkbox } from '../../components/ui/checkbox';
+export { Textarea } from '../../components/ui/textarea';
+export { Badge } from '../../components/ui/badge';
+export {
+    Select, SelectGroup, SelectValue, SelectTrigger, SelectContent,
+    SelectLabel, SelectItem, SelectSeparator,
+} from '../../components/ui/select';
+
+// Common hooks.
+export { useConfirm } from '../../hooks/useConfirm';
+export { default as useTabParam } from '../../hooks/useTabParam';
+export { useTopbarActions } from '../../hooks/useTopbarActions';
+
+// Formatting utilities (canonical host implementations — no local copies).
+export { formatBytes } from '../../utils/formatBytes';
+export { timeAgo, formatRelativeTime, formatDuration } from '../../utils/time';
+
+// Generic page furniture + cross-feature embeds (plan 52 Phase 5 — the
+// WordPress runtime-ESM extraction proved these out). Two consumer classes:
+//   - generic primitives any extension page may need (ErrorBoundary,
+//     DangerZone, ResourceAdvisory, ResourceListPage, the logs drawer, and
+//     PluginSlot so an extension can itself host a slot);
+//   - shared cross-feature embeds with ≥2 consumers (a git repo-connect form
+//     used by both the Git and WordPress surfaces; the backups protection
+//     panel embedded by both the Backups page and WordPress). Exposing them
+//     here pins their props as SDK contract — change them accordingly.
+export { default as ErrorBoundary, ErrorState } from '../../components/ErrorBoundary';
+export { DangerZone } from '../../components/DangerZone';
+export { default as ResourceAdvisory } from '../../components/ResourceAdvisory';
+export { default as PluginSlot } from '../../components/PluginSlot';
+export { default as ResourceListPage } from '../../components/layouts/ResourceListPage';
+export { useLogsDrawer } from '../../contexts/LogsDrawerContext';
+export { default as RepoConnectForm } from '../../components/git/RepoConnectForm';
+export {
+    GIT_PROVIDERS, detectProvider, RepoProviderStrip,
+} from '../../components/git/GitProviders';
+export { default as ProtectionPanel } from '../../components/backups/ProtectionPanel';

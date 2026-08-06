@@ -34,6 +34,22 @@ def _monitor(**kwargs):
     return MonitorService.create(data)
 
 
+def _wp_site():
+    """A minimal WordPressSite row to bind a monitor to. The model is core
+    (plan 52 D1); MonitorService validates the binding target exists."""
+    from app.models import Application
+    from app.models.wordpress_site import WordPressSite
+    app_row = Application(name='wp-bound-site', app_type='wordpress',
+                          status='running', root_path='/srv/wp-bound',
+                          user_id=1)
+    db.session.add(app_row)
+    db.session.flush()
+    site = WordPressSite(application_id=app_row.id)
+    db.session.add(site)
+    db.session.commit()
+    return site
+
+
 class _Resp:
     """Minimal stand-in for a requests.Response."""
 
@@ -359,7 +375,7 @@ def test_due_monitors_skips_paused_and_site_bound(app):
     paused = _monitor(name='Paused')
     MonitorService.set_paused(paused.id, True)
     site_bound = MonitorService.create({
-        'name': 'WP site', 'wordpress_site_id': 1, 'check_target': '',
+        'name': 'WP site', 'wordpress_site_id': _wp_site().id, 'check_target': '',
     })
     due_ids = [m.id for m in MonitorService.due_monitors()]
     assert paused.id not in due_ids
@@ -422,7 +438,8 @@ def test_health_sync_reaches_major_on_the_first_unhealthy_verdict(app):
     """A health verdict is authoritative, not a flaky network blip, so it should
     not have to wait out the retry streak."""
     monitor = MonitorService.create({
-        'name': 'Bound site', 'wordpress_site_id': 1, 'check_target': '', 'retries': 3,
+        'name': 'Bound site', 'wordpress_site_id': _wp_site().id,
+        'check_target': '', 'retries': 3,
     })
     MonitorService.sync_component_from_health(monitor, 'unhealthy')
     assert monitor.status == StatusComponent.STATUS_MAJOR
@@ -431,7 +448,7 @@ def test_health_sync_reaches_major_on_the_first_unhealthy_verdict(app):
 
 def test_health_sync_ignores_unknown_verdict(app):
     monitor = MonitorService.create({
-        'name': 'Bound site', 'wordpress_site_id': 1, 'check_target': '',
+        'name': 'Bound site', 'wordpress_site_id': _wp_site().id, 'check_target': '',
     })
     assert MonitorService.sync_component_from_health(monitor, 'unknown') is None
     assert HealthCheck.query.filter_by(component_id=monitor.id).count() == 0

@@ -459,10 +459,20 @@ def test_install_gate_passes_with_acknowledge_risk(app, client, auth_headers, fa
     assert resp.status_code == 201
 
 
-def test_install_gate_unaffected_for_first_party(app, client, auth_headers, fake_install, monkeypatch):
+def test_install_gate_unsigned_first_party_requires_ack(app, client, auth_headers, fake_install, monkeypatch):
+    # Audit M3: a first-party entry without a verifiable signature is a
+    # possible downgrade — consent-gated like untrusted_key.
     _seed_cache(monkeypatch, _entry(first_party=True))
     resp = client.post('/api/v1/marketplace/registry/community-ext/install',
                        headers=auth_headers)
+    assert resp.status_code == 409
+    data = resp.get_json()
+    assert data['requires_acknowledgment'] is True
+    assert data['reason'] == 'unsigned'
+    assert 'first-party' in data['error']
+
+    resp = client.post('/api/v1/marketplace/registry/community-ext/install',
+                       headers=auth_headers, json={'acknowledge_risk': True})
     assert resp.status_code == 201
 
 

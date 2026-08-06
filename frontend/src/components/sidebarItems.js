@@ -87,7 +87,8 @@ export const SIDEBAR_ITEMS = [
         category: 'infrastructure',
         icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'
     },
-    // WordPress is now the serverkit-wordpress builtin extension (Phase 5 #38);
+    // WordPress is the standalone serverkit-wordpress extension (plan 52
+    // Phase 5 — registry-installed, offered in the setup wizard);
     // its sidebar item is contributed by the extension manifest (nav), so it
     // disappears cleanly when the extension is uninstalled.
     // Automations (tramo) is the standalone serverkit-tramo extension (own repo,
@@ -245,18 +246,21 @@ export const SIDEBAR_PRESETS = {
     email: {
         label: 'Email Admin',
         description: 'Email server, security, DNS, and monitoring',
-        hiddenItems: ['services', 'wordpress', 'workflow', 'databases', 'docker', 'git', 'cron', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['services', 'workflow', 'databases', 'docker', 'git', 'cron', ...ADVANCED_ITEM_IDS]
     },
     devops: {
         label: 'Docker / DevOps',
         description: 'Docker, Git, monitoring, and CI/CD tools',
-        hiddenItems: ['wordpress', 'email', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['email', ...ADVANCED_ITEM_IDS]
     },
     minimal: {
         label: 'Minimal',
         description: 'Core only — no databases, containers, or scheduling',
-        hiddenItems: ['wordpress', 'workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
+        hiddenItems: ['workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
     }
+    // Note: no 'wordpress' literal — its nav item is contributed by the
+    // serverkit-wordpress extension manifest (plan 52 Phase 4), so presets
+    // don't hardcode an extension's id; uninstalled = absent.
 };
 
 // Map the Setup wizard's "use case" selections to an initial sidebar preset, so

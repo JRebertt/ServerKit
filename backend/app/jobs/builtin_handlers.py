@@ -177,8 +177,6 @@ def _prune_old_health_checks():
 
 def check_update_schedules():
     from app.models.wordpress_site import WordPressSite, WordPressUpdateRun
-    from app.services.wordpress_bridge import wp_update_service
-    WpUpdateService = wp_update_service()
     from datetime import datetime
     import json as _json
 
@@ -189,6 +187,17 @@ def check_update_schedules():
 
     sites = WordPressSite.query.filter(WordPressSite.auto_update_schedule.isnot(None)).all()
     if not sites:
+        return
+
+    # Resolve the extension's update service only when scheduled WP sites
+    # actually exist — with serverkit-wordpress uninstalled there is nothing
+    # to run, and the bridge would raise (plan 52 Phase 5 graceful absence).
+    from app.services.wordpress_bridge import wp_update_service
+    try:
+        WpUpdateService = wp_update_service()
+    except Exception as e:
+        logger.warning(f'WP update schedules exist but the WordPress extension '
+                       f'is not installed; skipping: {e}')
         return
     now = datetime.utcnow()
     for site in sites:

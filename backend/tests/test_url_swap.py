@@ -31,7 +31,7 @@ def _mk_site_app(db, user_id, name='blog', port=8300, host='blog.lvh.me'):
 
 # ── pure helpers ────────────────────────────────────────────────────────────
 
-def test_normalize_url():
+def test_normalize_url(wp_extension_package):
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
     assert WordPressService._normalize_url('example.com') == 'http://example.com'
     assert WordPressService._normalize_url('https://example.com/') == 'https://example.com'
@@ -40,7 +40,7 @@ def test_normalize_url():
     assert WordPressService._normalize_url('') is None
 
 
-def test_url_swap_pairs():
+def test_url_swap_pairs(wp_extension_package):
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
     # Host change -> full-URL pair (covers scheme) + host-only pair.
     assert WordPressService._url_swap_pairs('http://old.com', 'https://new.com') == [
@@ -50,7 +50,7 @@ def test_url_swap_pairs():
         ('http://a.com', 'https://a.com')]
 
 
-def test_parse_sr_count():
+def test_parse_sr_count(wp_extension_package):
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
     assert WordPressService._parse_sr_count('Success: 12 replacements to be made.') == 12
     assert WordPressService._parse_sr_count('Table\tx\nSuccess: Made 1,234 replacements.') == 1234
@@ -60,7 +60,7 @@ def test_parse_sr_count():
 
 # ── preview ─────────────────────────────────────────────────────────────────
 
-def test_preview_counts_per_pair(app, monkeypatch):
+def test_preview_counts_per_pair(app, monkeypatch, wp_extension_package):
     from app import db
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
 
@@ -84,7 +84,7 @@ def test_preview_counts_per_pair(app, monkeypatch):
     assert res['total'] == 10         # 5 per pair
 
 
-def test_preview_rejects_same_url(app, monkeypatch):
+def test_preview_rejects_same_url(app, monkeypatch, wp_extension_package):
     from app import db
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
     user = _mk_user(db, 'o2')
@@ -98,7 +98,7 @@ def test_preview_rejects_same_url(app, monkeypatch):
 
 # ── apply ───────────────────────────────────────────────────────────────────
 
-def test_change_url_happy_path_repoints_domain(app, monkeypatch):
+def test_change_url_happy_path_repoints_domain(app, monkeypatch, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     from app.services import nginx_service
@@ -134,7 +134,7 @@ def test_change_url_happy_path_repoints_domain(app, monkeypatch):
     assert names == {'new.example.com': True}
 
 
-def test_change_url_rolls_back_on_failure(app, monkeypatch):
+def test_change_url_rolls_back_on_failure(app, monkeypatch, wp_extension_package):
     from app import db
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
 
@@ -166,7 +166,7 @@ def test_change_url_rolls_back_on_failure(app, monkeypatch):
     assert 'boom' in res['error']
 
 
-def test_change_url_aborts_if_backup_fails(app, monkeypatch):
+def test_change_url_aborts_if_backup_fails(app, monkeypatch, wp_extension_package):
     from app import db
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
 
@@ -183,7 +183,7 @@ def test_change_url_aborts_if_backup_fails(app, monkeypatch):
     assert 'backup failed' in res['error'].lower()
 
 
-def test_repoint_keep_old_demotes_but_keeps(app):
+def test_repoint_keep_old_demotes_but_keeps(app, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
@@ -199,7 +199,7 @@ def test_repoint_keep_old_demotes_but_keeps(app):
 
 # ── API wiring ──────────────────────────────────────────────────────────────
 
-def test_url_preview_api_smoke(app, client, auth_headers, monkeypatch):
+def test_url_preview_api_smoke(app, client, auth_headers, monkeypatch, wp_extension):
     from app import db
     from app.models import User
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')

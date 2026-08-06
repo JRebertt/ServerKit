@@ -96,7 +96,7 @@ def test_ensure_a_record_no_ip(app):
 
 # ── attach orchestration ────────────────────────────────────────────────────
 
-def test_attach_auto_dns_and_migrate(app, monkeypatch):
+def test_attach_auto_dns_and_migrate(app, monkeypatch, wp_extension_package):
     from app import db
     from app.services.dns_provider_service import DNSProviderService
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
@@ -125,7 +125,7 @@ def test_attach_auto_dns_and_migrate(app, monkeypatch):
     assert res['warning'] is None
 
 
-def test_attach_manual_dns_surfaces_record(app, monkeypatch):
+def test_attach_manual_dns_surfaces_record(app, monkeypatch, wp_extension_package):
     from app import db
     from app.services.dns_provider_service import DNSProviderService
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')
@@ -146,7 +146,7 @@ def test_attach_manual_dns_surfaces_record(app, monkeypatch):
     assert 'manually' in res['warning'].lower()
 
 
-def test_attach_with_ssl_migrates_https(app, monkeypatch):
+def test_attach_with_ssl_migrates_https(app, monkeypatch, wp_extension_package):
     from app import db
     import app.services.ssl_service as ssl_mod
     import app.services.nginx_service as nginx_mod
@@ -173,7 +173,7 @@ def test_attach_with_ssl_migrates_https(app, monkeypatch):
     assert captured['url'] == 'https://secure.example.com'   # https once the cert is obtained
 
 
-def test_attach_without_migrate_sets_primary_domain(app, monkeypatch):
+def test_attach_without_migrate_sets_primary_domain(app, monkeypatch, wp_extension_package):
     from app import db
     import app.services.nginx_service as nginx_mod
     from app.models.domain import Domain

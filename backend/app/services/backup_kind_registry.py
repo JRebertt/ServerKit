@@ -29,7 +29,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# target_type -> {'resolve': fn, 'execute': fn, 'restore': fn|None}
+# target_type -> {'resolve': fn, 'execute': fn, 'restore': fn|None,
+#                 'label': str|None, 'restore_scopes': list|None,
+#                 'source': str|None  # registrant extension slug (audit F5)
+#                 }
 _KINDS = {}
 
 
@@ -39,11 +42,23 @@ def core_kinds():
     return VALID_TARGET_TYPES
 
 
-def register(target_type: str, resolve, execute, restore=None, replace: bool = False):
+def register(target_type: str, resolve, execute, restore=None, replace: bool = False,
+             label: str = None, restore_scopes=None, source: str = None):
     """Register a backup target type.
 
     Namespace it after your plugin (``minecraft.world``); the bare words core
-    uses are reserved.
+    uses are reserved. ('wordpress_site' is the WordPress extension's kind —
+    it left the core set under plan 52 D4.)
+
+    ``label`` / ``restore_scopes`` are optional UI metadata surfaced by
+    ``GET /api/v1/backups/target-types`` so the Protection panel/restore
+    drawer can render the kind without hardcoding its name client-side.
+
+    ``source`` is the registrant extension's slug. It is what lets
+    disable/uninstall tear down exactly that extension's kinds
+    (:func:`unregister`, audit F1) — and it makes ``replace=True``
+    defense-in-depth: a kind owned by a DIFFERENT registrant can never be
+    shadowed (audit F5).
     """
     if not target_type:
         raise ValueError('a backup kind needs a target type')
@@ -53,11 +68,35 @@ def register(target_type: str, resolve, execute, restore=None, replace: bool = F
         raise ValueError('a backup restore must be callable')
     if target_type in core_kinds():
         raise ValueError(f'"{target_type}" is a core backup target type and cannot be overridden')
-    if target_type in _KINDS and not replace:
-        raise ValueError(f'backup kind "{target_type}" is already registered')
-    _KINDS[target_type] = {'resolve': resolve, 'execute': execute, 'restore': restore}
+    existing = _KINDS.get(target_type)
+    if existing is not None:
+        existing_source = existing.get('source')
+        if replace and existing_source and source and existing_source != source:
+            raise ValueError(
+                f'backup kind "{target_type}" is registered by '
+                f'"{existing_source}" and cannot be replaced by "{source}"')
+        if not replace:
+            raise ValueError(f'backup kind "{target_type}" is already registered')
+    _KINDS[target_type] = {
+        'resolve': resolve, 'execute': execute, 'restore': restore,
+        'label': label, 'restore_scopes': list(restore_scopes) if restore_scopes else None,
+        'source': source,
+    }
     logger.info('Registered backup kind: %s', target_type)
     return _KINDS[target_type]
+
+
+def unregister(source: str):
+    """Drop every kind registered by ``source`` (disable/uninstall teardown,
+    audit F1). Returns the number of kinds removed."""
+    if not source:
+        return 0
+    doomed = [t for t, entry in _KINDS.items() if entry.get('source') == source]
+    for t in doomed:
+        del _KINDS[t]
+    if doomed:
+        logger.info('Unregistered %d backup kind(s) from %s', len(doomed), source)
+    return len(doomed)
 
 
 def get(target_type: str):
@@ -68,6 +107,21 @@ def get(target_type: str):
 def kinds():
     """All registered non-core target types."""
     return sorted(_KINDS)
+
+
+def catalog():
+    """Registered kinds as UI-facing descriptors (newest API consumers).
+
+    ``[{target_type, label, restore_scopes, supports_restore, source}]`` —
+    merged with the core types by the ``/backups/target-types`` endpoint.
+    """
+    return [{
+        'target_type': t,
+        'label': (entry.get('label') or t),
+        'restore_scopes': entry.get('restore_scopes'),
+        'supports_restore': bool(entry.get('restore')),
+        'source': 'extension',
+    } for t, entry in sorted(_KINDS.items())]
 
 
 def clear():

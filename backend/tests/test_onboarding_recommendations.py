@@ -2,8 +2,14 @@
 
 Proves the use-case → extension-slug map has no dead slugs, the recommendation
 resolver/endpoint returns real extension metadata, complete-onboarding persists
-what the wizard installed, and wizard-optional flagships (WordPress) are gated on
-fresh installs but kept on completed-setup ones.
+what the wizard installed, and the flagship seeding machinery still works.
+
+WordPress note (plan 52 Phase 5): WP left the tree into the standalone
+serverkit-wordpress repo and now distributes through the registry (the
+k8s/tramo model) — the wizard offers it via the use-case map, but nothing
+auto-seeds it. The wizard-optional flagship list is empty until a future
+in-tree flagship needs it; the gating machinery is proven here with a
+monkeypatched member.
 """
 import pytest
 
@@ -99,56 +105,52 @@ def test_complete_onboarding_still_completes_without_installs(client, auth_heade
 
 # ── wizard-optional flagship gating ──────────────────────────────────────────
 
-def test_finalize_setup_flagships_marks_uninstalled_when_absent(app):
+def test_finalize_setup_flagships_marks_uninstalled_when_absent(app, monkeypatch):
+    """The wizard-optional gating machinery: an uninstalled member gets the
+    uninstall marker so the boot seeder never re-adds it. (The list is empty
+    post-Phase-5 — WordPress graduated to the registry — so the machinery is
+    proven with a monkeypatched member.)"""
+    monkeypatch.setattr(ps, 'WIZARD_OPTIONAL_FLAGSHIP_SLUGS', ['serverkit-demo-opt'])
     with app.app_context():
-        InstalledPlugin.query.filter_by(slug='serverkit-wordpress').delete()
-        db.session.commit()
         ps.finalize_setup_flagships()
-        assert 'serverkit-wordpress' in ps._flagship_uninstalled_set()
+        assert 'serverkit-demo-opt' in ps._flagship_uninstalled_set()
 
 
-def test_finalize_setup_flagships_keeps_installed(app):
+def test_finalize_setup_flagships_keeps_installed(app, monkeypatch):
+    """An INSTALLED wizard-optional flagship is never marked uninstalled."""
+    monkeypatch.setattr(ps, 'WIZARD_OPTIONAL_FLAGSHIP_SLUGS', ['serverkit-cloudflare-ops'])
     with app.app_context():
-        # fixture seeds WordPress under the TESTING bypass; finalize must not
-        # mark an installed flagship as uninstalled
-        assert InstalledPlugin.query.filter_by(slug='serverkit-wordpress').first()
+        # the flagship seeder keeps cloudflare-ops installed under TESTING
+        assert InstalledPlugin.query.filter_by(slug='serverkit-cloudflare-ops').first()
         ps.finalize_setup_flagships()
-        assert 'serverkit-wordpress' not in ps._flagship_uninstalled_set()
+        assert 'serverkit-cloudflare-ops' not in ps._flagship_uninstalled_set()
 
 
-def test_wordpress_flagship_skipped_on_fresh_install(app):
-    """With the TESTING bypass off, a fresh install (no setup) skips WordPress."""
+def test_wordpress_not_seeded_post_extraction(app):
+    """Plan 52 Phase 5: WordPress is a registry extension now — the boot-time
+    flagship seeder never installs it (fresh OR completed setup), while the
+    remaining in-tree flagship (cloudflare-ops) still seeds. The wizard offers
+    WP through the use-case map instead (proven above)."""
     with app.app_context():
         InstalledPlugin.query.filter_by(slug='serverkit-wordpress').delete()
         db.session.commit()
         app.config['TESTING'] = False
         try:
-            assert SettingsService.needs_setup() is True
             ps.seed_flagship_extensions()
             assert InstalledPlugin.query.filter_by(
                 slug='serverkit-wordpress').first() is None
-            # cloudflare-ops (not wizard-optional) is still seeded
             assert InstalledPlugin.query.filter_by(
                 slug='serverkit-cloudflare-ops').first() is not None
         finally:
             app.config['TESTING'] = True
 
 
-def test_wordpress_flagship_seeded_on_completed_setup(app):
-    """An existing/completed-setup install keeps seeding WordPress (no regression)."""
+def test_wordpress_offered_via_registry_in_recommendations(app):
+    """The wizard's WP path post-extraction: the bundled registry index
+    carries the entry, so the use-case map resolves it as a registry install."""
     with app.app_context():
-        InstalledPlugin.query.filter_by(slug='serverkit-wordpress').delete()
-        db.session.commit()
-        user = User(email='a@t.local', username='admin', is_active=True,
-                    role=User.ROLE_ADMIN, password_hash=generate_password_hash('x'))
-        db.session.add(user)
-        db.session.commit()
-        SettingsService.complete_setup(user_id=user.id)
-        app.config['TESTING'] = False
-        try:
-            assert SettingsService.needs_setup() is False
-            ps.seed_flagship_extensions()
-            assert InstalledPlugin.query.filter_by(
-                slug='serverkit-wordpress').first() is not None
-        finally:
-            app.config['TESTING'] = True
+        recs = ps.recommend_extensions_for_use_cases(['wordpress'])
+        wp = next((r for r in recs if r['slug'] == 'serverkit-wordpress'), None)
+        assert wp is not None, 'WP must stay offered during onboarding'
+        assert wp['source'] == 'registry'
+        assert wp['installed'] is False

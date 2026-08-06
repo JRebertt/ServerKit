@@ -62,21 +62,11 @@ def install_registry(slug):
     body = request.get_json(silent=True) or {}
     trust = (entry or {}).get('trust', 'unreviewed')
     acknowledged = body.get('acknowledge_risk') is True
-    reason = None
-    if entry is not None and not acknowledged:
-        if trust == 'unreviewed':
-            reason = 'unreviewed'
-        elif not entry.get('sha256'):
-            reason = 'unverified'
+    # Consent gate (shared with the update path — audits M2/M3):
+    # unreviewed (dev-stage) > unverified (no checksum) > signature gate
+    # (untrusted key, or unsigned first-party = possible downgrade).
+    reason, message = registry_service.consent_gate(entry, acknowledged)
     if reason:
-        message = (
-            'This community extension has not been reviewed by the ServerKit '
-            'maintainers; installing it runs unreviewed code with full panel '
-            'privileges.'
-            if reason == 'unreviewed' else
-            'This extension has no pinned checksum, so the panel cannot '
-            'verify the artifact it would install.'
-        )
         return jsonify({
             'error': f'{message} Resend with acknowledge_risk: true to proceed.',
             'trust': trust,

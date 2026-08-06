@@ -1,22 +1,14 @@
 # WordPress extraction — boundary audit (Phase 5, #37)
 
-**Status:** Audit complete; **backend extraction (#38) SHIPPED** — the WordPress
-backend now lives in `builtin-extensions/serverkit-wordpress/` as a bundled,
-default-installed flagship (D4), loaded via an importlib bridge. See the Phase 5
-section of `docs/plans/12_EXTENSIONS_PLATFORM_PLAN.md` for the shipped scope and
-deviations (models stay core; event-catalog + Fail2ban WP filter kept core as
-two-speed items). The **frontend UI is still core, NOT yet extracted** (corrected
-2026-07-22, plan 52 Phase 1 — an earlier revision of this doc overstated it as
-done): the extension's `index.jsx` is only a **re-export shell** that imports the
-real pages from `frontend/src/pages/WordPress*` (5 pages) and
-`frontend/src/components/wordpress/` (40 files), with the three `_wordpress*.scss`
-files still imported by `main.scss` and residual core wiring in `App.jsx`
-(title fallbacks) and `sidebarItems.js`. Only `WordPressSshImport.jsx` truly lives
-in the extension today. The physical frontend move is plan 52 Phase 4; leaving the
-tree entirely is Phase 5.
-**Verdict:** extractable, but WordPress has **real core hooks** that must be
-inverted/guarded first. WordPress ships as a bundled, default-installed,
-uninstallable extension (D4) — never a marketplace hunt.
+**Status:** ✅ EXTRACTED (plan 52 Phase 5, 2026-08-05). WordPress lives in the
+standalone `serverkit-wordpress` repo (backend + runtime-ESM frontend +
+extension-owned tests + first-party release pipeline) and distributes through
+the registry; the setup wizard offers it from the bundled index entry. Its
+schema stays core forever via the documented **core data seam** (D1 — see
+EXTENSIONS.md "Data models & policy"). This audit remains as the historical
+boundary record.
+**Verdict (historical):** extractable, but WordPress had **real core hooks**
+that were inverted/guarded first (plan 52 Phase 3, the `core_hooks` seam).
 
 ---
 

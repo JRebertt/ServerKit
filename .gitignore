@@ -191,6 +191,7 @@ backend/app/plugins/serverkit-mail/
 backend/app/plugins/serverkit-remote-access/
 backend/app/plugins/serverkit-status/
 backend/app/plugins/serverkit-tramo/
+backend/app/plugins/serverkit-wordpress/
 frontend/src/plugins/serverkit-analytics/
 frontend/src/plugins/serverkit-crowdsec/
 frontend/src/plugins/serverkit-dns-server/
@@ -200,4 +201,8 @@ frontend/src/plugins/serverkit-gui/
 frontend/src/plugins/serverkit-k8s/
 frontend/src/plugins/serverkit-mail/
 frontend/src/plugins/serverkit-tramo/
+frontend/src/plugins/serverkit-wordpress/
 /graphify-out
+
+# Extension release signing keys (private halves — never commit; see scripts/sign-extension.mjs)
+scripts/keys/

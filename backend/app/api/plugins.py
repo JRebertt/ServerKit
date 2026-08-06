@@ -69,16 +69,31 @@ def install_plugin():
     # Optional checksum continuity: the preview step returns the resolved URL +
     # sha256; passing them here pins the install to the exact previewed bytes.
     expected_sha256 = (data.get('sha256') or None)
+    # Optional signature continuity (plan 55): when the preview verified a
+    # detached signature, pass it through so the install re-verifies the exact
+    # pinned bytes. A bad signature is a hard failure; no signature = the
+    # consent card's "unsigned" path.
+    expected_signature = (data.get('signature') or None)
+    expected_key_id = (data.get('publisher_key_id') or None)
 
     from app.services.plugin_service import install_from_url
     try:
-        plugin = install_from_url(url, user_id=user.id, expected_sha256=expected_sha256)
+        plugin = install_from_url(
+            url, user_id=user.id, expected_sha256=expected_sha256,
+            expected_signature=expected_signature, expected_key_id=expected_key_id,
+        )
+        sig = (plugin.config or {}).get('_signature') or {}
         AuditService.log(
             action=AuditLog.ACTION_RESOURCE_CREATE,
             user_id=user.id,
             target_type='plugin',
             target_id=plugin.id,
-            details={'name': plugin.name, 'version': plugin.version, 'url': url}
+            details={
+                'name': plugin.name, 'version': plugin.version, 'url': url,
+                # Forensics (audit I7): the signature verdict of the bytes
+                # that just landed (verified / untrusted_key / unsigned).
+                'signature': sig.get('status') or 'unsigned',
+            }
         )
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
@@ -607,20 +622,62 @@ def list_updates():
 @plugins_bp.route('/<int:plugin_id>/update', methods=['POST'])
 @jwt_required()
 def update_plugin_route(plugin_id):
-    """Update an installed plugin to the registry version (reinstall in place)."""
+    """Update an installed plugin to the registry version (reinstall in place).
+
+    The update re-downloads from the registry, so it passes the SAME consent
+    gates as a fresh registry install (audit M2): hidden unreviewed entries
+    404; unreviewed / unverified / untrusted-key / unsigned-first-party
+    entries 409 until resent with ``acknowledge_risk: true``; a bad signature
+    is always a hard 400 (the service verifies at install).
+    """
     user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
 
-    from app.services.plugin_service import update_plugin
+    from app.services.plugin_service import get_plugin, update_plugin
+    from app.services import registry_service
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': 'Plugin not found'}), 404
+
+    entry = registry_service.get_entry(plugin.slug)
+    if not entry:
+        return jsonify({
+            'error': f"No registry entry for '{plugin.slug}' — cannot update "
+                     f"from the registry."
+        }), 400
+    # Hidden means not updatable either: unreviewed entries only exist in
+    # development contexts (see registry_service._show_unreviewed).
+    if entry.get('trust') == 'unreviewed' \
+            and not registry_service._show_unreviewed():
+        return jsonify({'error': 'Extension not found in the registry'}), 404
+
+    body = request.get_json(silent=True) or {}
+    acknowledged = body.get('acknowledge_risk') is True
+    reason, message = registry_service.consent_gate(entry, acknowledged)
+    if reason:
+        return jsonify({
+            'error': f'{message} Resend with acknowledge_risk: true to proceed.',
+            'trust': entry.get('trust'),
+            'reason': reason,
+            'requires_acknowledgment': True,
+        }), 409
+
     try:
         plugin = update_plugin(plugin_id, user_id=user.id)
+        sig = (plugin.config or {}).get('_signature') or {}
         AuditService.log(
             action=AuditLog.ACTION_RESOURCE_UPDATE,
             user_id=user.id,
             target_type='plugin',
             target_id=plugin.id,
-            details={'name': plugin.name, 'version': plugin.version, 'source': 'registry-update'},
+            details={
+                'name': plugin.name, 'version': plugin.version,
+                'source': 'registry-update',
+                # Forensics (audit I7): the signature verdict of the bytes
+                # that just landed.
+                'signature': sig.get('status') or 'unsigned',
+            },
         )
         return jsonify(plugin.to_dict())
     except ValueError as e:

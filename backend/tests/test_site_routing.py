@@ -57,7 +57,7 @@ def test_runtime_setting_overrides_config(app):
 
 # ── routing provisioning ────────────────────────────────────────────────────
 
-def test_provision_routing_creates_primary_domain_and_docker_vhost(app, monkeypatch):
+def test_provision_routing_creates_primary_domain_and_docker_vhost(app, monkeypatch, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     from app.services import nginx_service
@@ -90,7 +90,7 @@ def test_provision_routing_creates_primary_domain_and_docker_vhost(app, monkeypa
     assert 'blog.lvh.me' in captured['domains']
 
 
-def test_provision_routing_warns_when_nginx_unavailable(app, monkeypatch):
+def test_provision_routing_warns_when_nginx_unavailable(app, monkeypatch, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     from app.services import nginx_service
@@ -108,7 +108,7 @@ def test_provision_routing_warns_when_nginx_unavailable(app, monkeypatch):
     assert res['warning'] and 'nginx' in res['warning']
 
 
-def test_canonical_site_url_prefers_primary_domain(app):
+def test_canonical_site_url_prefers_primary_domain(app, wp_extension_package):
     from app import db
     from app.models.domain import Domain
     WordPressService = wordpress_bridge.get('wordpress_service', 'WordPressService')

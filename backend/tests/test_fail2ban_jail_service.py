@@ -233,7 +233,7 @@ def test_remove_jail_by_key_targets_serverkit_file():
 
 # ---------- WpSecurityService wrapper ----------
 
-def test_wp_security_set_brute_force_delegates_to_jail_service():
+def test_wp_security_set_brute_force_delegates_to_jail_service(wp_extension_package):
     WpSecurityService = wordpress_bridge.get('wp_security_service', 'WpSecurityService')
     app = _app('myblog')
     site = types.SimpleNamespace(application=app)
@@ -246,7 +246,7 @@ def test_wp_security_set_brute_force_delegates_to_jail_service():
     assert r_on['success'] and r_off['success']
 
 
-def test_wp_security_brute_force_handles_missing_application():
+def test_wp_security_brute_force_handles_missing_application(wp_extension_package):
     WpSecurityService = wordpress_bridge.get('wp_security_service', 'WpSecurityService')
     site = types.SimpleNamespace(application=None)
     assert WpSecurityService.set_brute_force(site, True)['success'] is False

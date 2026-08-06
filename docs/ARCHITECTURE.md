@@ -278,7 +278,6 @@ Source lives in this repo under `builtin-extensions/`:
 
 | Slug | Class | Notes |
 |---|---|---|
-| `serverkit-wordpress` | Flagship, in-place | Seeded only if the setup wizard selects it |
 | `serverkit-cloudflare-ops` | Flagship, in-place | Route-only, no sidebar entry |
 | `serverkit-ftp` | Copy-installed builtin | Auto-installs on upgrade |
 | `serverkit-cloud-provision` | Copy-installed builtin | Auto-installs on upgrade |
@@ -287,6 +286,12 @@ Source lives in this repo under `builtin-extensions/`:
 | `serverkit-email` | Copy-installed builtin | Gated — auto-installs only if mail rows exist |
 | `serverkit-git` | Marketplace one-click | Frontend-only, no backend |
 | `serverkit-localkit` | Marketplace one-click | Backend-only, no frontend |
+
+> `serverkit-wordpress` left the tree in plan 52 Phase 5: it is a standalone
+> repo distributed through the registry (like `serverkit-k8s`/`serverkit-tramo`),
+> offered during onboarding from the bundled registry index. Its database
+> schema stays core forever — the **core data seam** (plan 52 D1, see
+> EXTENSIONS.md "Data models & policy").
 
 ### Standalone extension repos
 

@@ -39,17 +39,29 @@ def _repo_root():
 
 
 def _route_files():
-    """Every api/*.py file + the WordPress flagship bridge, as (label, abspath)."""
+    """Every api/*.py file + the WordPress extension's route file, as
+    (label, abspath).
+
+    WordPress left the tree in plan 52 Phase 5: its blueprint file is swept
+    from the standalone repo's checkout when one is available (sibling or
+    SERVERKIT_WORDPRESS_DIR) — the same loader the wp_extension fixtures use.
+    Absent, the sweep covers core routes only (the extension repo carries the
+    same sweep for its own file via its symlinked suite)."""
     root = _repo_root()
     api_dir = os.path.join(root, 'backend', 'app', 'api')
     files = []
     for fname in sorted(os.listdir(api_dir)):
         if fname.endswith('.py') and fname != '__init__.py':
             files.append((fname, os.path.join(api_dir, fname)))
-    files.append((
-        'wordpress.py',
-        os.path.join(root, 'builtin-extensions', 'serverkit-wordpress', 'backend', 'wordpress.py'),
-    ))
+    wp_candidates = [
+        os.environ.get('SERVERKIT_WORDPRESS_DIR', ''),
+        os.path.join(os.path.dirname(root), 'serverkit-wordpress'),
+    ]
+    for cand in wp_candidates:
+        wp_file = os.path.join(cand, 'backend', 'wordpress.py') if cand else ''
+        if wp_file and os.path.isfile(wp_file):
+            files.append(('wordpress.py', wp_file))
+            break
     return files
 
 

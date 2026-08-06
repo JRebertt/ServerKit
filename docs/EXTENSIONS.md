@@ -430,6 +430,28 @@ def register(ctx):
   semantics); the choice is passed to the `uninstall` hook (`func(plugin, purge=...)`)
   and, on purge, drops the `ext_<slug>_*` tables.
 
+### The core data seam (extension uses CORE tables)
+
+The `ext_<slug>_*` mechanism is for extension-owned schema. The deliberate
+exception — **core data seam** (plan 52 D1) — is an extension whose tables are
+core Alembic-managed because they carry live data that predates the extraction
+and are entangled with core features. Canonical example: **serverkit-wordpress**
+— `WordPressSite`, `WordPressVulnerability`, `WordPressUpdateRun`,
+`WordPressReport` live in `app/models/wordpress_site.py` (core migrations own
+their lifecycle) and the standalone extension imports them:
+
+```python
+from app.models.wordpress_site import WordPressSite
+```
+
+Rules of the seam: the extension never creates/migrates those tables (no
+`models` entry for them, no `ext_` rename); core never imports the extension —
+it reaches it through a lazy bridge (`app.services.wordpress_bridge`) or
+`get_installed_extension_attr`, and through registration seams the extension
+fills (`core_hooks`). Absent extension = feature absent, gracefully. The same
+seam covers `StatusPage`, `Tunnel`/`ExposedService`, and `CloudServer` (owned
+by their respective extensions' features but schema-core).
+
 ## Background jobs & schedules
 
 Declare handlers and recurring jobs in the manifest; they wire into the Jobs SDK
@@ -439,6 +461,27 @@ on install and **pause automatically when the plugin is disabled**:
 "jobs":      [ { "kind": "myext.reindex", "handler": "jobs:reindex" } ],
 "schedules": [ { "name": "myext-nightly", "kind": "myext.reindex", "cron": "0 3 * * *" } ]
 ```
+
+## Core hooks (`core_hooks`)
+
+Some core features are engines with a registration seam — backup target types
+(`app.services.backup_kind_registry`), the event-type catalog
+(`app.services.event_service.register_event_types`), provider-owned app
+templates (`TemplateService.register_template_provider`). Declare a zero-arg
+function that fills them and the platform calls it at install **and on every
+boot** while your extension is active (so it must be idempotent):
+
+```jsonc
+"core_hooks": "core_hooks:register"
+```
+
+Core keeps the engine; your extension supplies the entry. An extension that is
+absent/disabled at boot never registers, so its target types, event types, and
+template cards simply don't exist — that is the intended graceful degradation
+(plan 52 D4), not an error. Reference implementation: the `serverkit-wordpress`
+repo's `backend/core_hooks.py` (the `wordpress_site` backup kind, the
+`wordpress.*` event types, and the `wordpress`/`wordpress-external-db` template
+provider).
 
 ## Config (`config_schema`)
 
@@ -560,6 +603,69 @@ Private repos and GitHub's anonymous rate limit are handled by the optional
 `SERVERKIT_GITHUB_TOKEN` env var (Bearer auth, attached only to GitHub hosts,
 never logged). See [`POST /api/v1/plugins/preview`](EXTENSIONS_REGISTRY.md) and
 the site's [Installing](https://serverkit.ai/docs/extensions/installing) guide.
+
+### Release signing (ed25519)
+
+Release zips can carry a **detached ed25519 signature** so the panel proves
+*origin*, not just integrity (a sha256 in the index only says the bytes match
+the index — whoever can edit the index can edit the hash beside it). The scheme
+is deliberately minimal (plan 55, D3): no PKI, no key servers.
+
+**Signature format** — a minisign-style envelope, base64 of 74 bytes:
+
+```
+"ED" (2 bytes) || key_num (8 bytes) || ed25519 signature (64 bytes)
+```
+
+- `ED` marks a *pure* ed25519 signature over the raw zip bytes.
+- `key_num` is `sha256(public_key)[:8]`, binding the envelope to the exact
+  key that made it — a `publisher_key_id` cannot be pointed at a different
+  pinned key than the one that signed.
+
+**Sign a release** with `scripts/sign-extension.mjs`:
+
+```bash
+# once per publisher — keep the key file PRIVATE and out of git
+node scripts/sign-extension.mjs keygen --key-id my-publisher --out <safe dir>
+
+# per release — writes <bundle>.zip.minisig and prints the index fields
+node scripts/sign-extension.mjs sign my-ext-1.0.0.zip --key <safe dir>/my-publisher.signing-key.json
+```
+
+Ship the `.minisig` beside the zip as a release asset (the GitHub preview flow
+looks for `<zip URL>.minisig` automatically). For registry-listed extensions,
+paste the printed `signature` + `publisher_key_id` into the index entry
+(schema v3; v1/v2 indexes without them stay valid — those entries are simply
+treated as unsigned).
+
+**Key model.** The panel pins publisher public keys in
+`backend/app/data/extension_signing_keys.json` (the `serverkit-official`
+first-party key ships there). Operators can trust additional publisher keys via
+`SERVERKIT_TRUSTED_EXTENSION_KEYS` (path to a JSON file with the same shape) —
+that file is also the rotation path: pin the new key, sign new releases with
+it, remove the old entry once nothing references it.
+
+**What the panel does with a signature** (verify logic:
+`app/services/signing_service.py`):
+
+| Verdict | Meaning | Install behavior |
+|---|---|---|
+| `verified` | Signature valid under a pinned key | Installs; no extra friction |
+| `unsigned` | No signature present | Installs behind the existing consent surfaces (preview card badge, registry risk dialog) — never a hard block. For **first-party** registry entries it is a 409 consent gate (possible downgrade); community **reviewed** entries stay exempt because the review stamp already binds a maintainer verdict to the artifact's exact sha256 |
+| `untrusted_key` | Signed, but the publisher key isn't pinned | Registry: 409 consent ("install anyway"); manual: consent card warns |
+| `invalid` | Malformed envelope, key-id mismatch, or verify failed | **Hard failure, always.** Acknowledgment can never override a bad signature |
+
+The verdict is stamped on the installed extension (panel-managed `_signature`
+config key, surfaced as `signature` in the plugin API dict) so origin
+verification stays visible after install. The sha256 runtime-frontend hash
+check is unaffected — signatures cover the zip, `_frontend_hashes` still pins
+the served `.mjs` bundle bytes.
+
+Honesty note (D2): a signature verifies *when present*. An unsigned
+first-party registry entry installs only behind the explicit 409 consent step
+(acknowledge-risk), and the same gate covers the update path — but the
+acknowledgment itself still rests on the index's integrity (TLS + the
+registry repo's PR review) until every first-party release is signed.
 
 ### Docker note
 

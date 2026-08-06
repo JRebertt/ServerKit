@@ -211,3 +211,58 @@ def scoping_rbac(app):
         viewer=_scope_token(viewer.id),
         foreign=_scope_token(foreign.id),
     )
+
+
+# --- WordPress extension (plan 52 Phase 5) -----------------------------------
+# WordPress left the tree into the standalone serverkit-wordpress repo. Core
+# suites that exercise core features THROUGH the WP surface (domains, site
+# routing, url swap, authz, workspace scoping, …) load it from a sibling
+# checkout when one is available and skip cleanly when it isn't — a fresh
+# ServerKit clone's suite must pass without the extension source.
+
+
+def _wp_ext_tests_dir():
+    """The standalone serverkit-wordpress repo's tests/ dir, or None."""
+    env = os.environ.get('SERVERKIT_WORDPRESS_DIR')
+    candidates = [env] if env else []
+    # default sibling checkout: <workspace>/serverkit-wordpress next to
+    # <workspace>/ServerKit
+    candidates.append(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))), 'serverkit-wordpress'))
+    for cand in candidates:
+        if cand and os.path.isfile(os.path.join(cand, 'tests', '_wp_support.py')):
+            return os.path.join(cand, 'tests')
+    return None
+
+
+@pytest.fixture
+def wp_extension(app):
+    """Mount the WordPress extension on the test app from its standalone repo
+    (active row + blueprint mounts + core_hooks seams), or skip when the
+    source isn't available. Set SERVERKIT_WORDPRESS_DIR to its checkout."""
+    tests_dir = _wp_ext_tests_dir()
+    if not tests_dir:
+        pytest.skip('serverkit-wordpress source not available '
+                    '(set SERVERKIT_WORDPRESS_DIR to its checkout)')
+    if tests_dir not in sys.path:
+        sys.path.insert(0, tests_dir)
+    import _wp_support
+    return _wp_support.ensure_plugin(app)
+
+
+@pytest.fixture
+def wp_extension_package():
+    """Load just the WordPress extension's backend package (app.plugins
+    .serverkit-wordpress.*) from its standalone repo — enough for the lazy
+    wordpress_bridge to resolve service classes. Skips when the source isn't
+    available. For route-level tests use wp_extension (also mounts
+    blueprints + seeds the active row)."""
+    tests_dir = _wp_ext_tests_dir()
+    if not tests_dir:
+        pytest.skip('serverkit-wordpress source not available '
+                    '(set SERVERKIT_WORDPRESS_DIR to its checkout)')
+    if tests_dir not in sys.path:
+        sys.path.insert(0, tests_dir)
+    import _wp_support
+    return _wp_support.load_ext()

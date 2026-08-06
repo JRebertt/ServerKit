@@ -20,11 +20,19 @@ export async function previewPlugin(url) {
 }
 
 // Install a plugin from a URL. Pass `sha256` (from previewPlugin) to pin the
-// install to the exact previewed bytes.
-export async function installPlugin(url, sha256 = null) {
+// install to the exact previewed bytes, and `signature` (the preview's
+// signature object) so the install re-verifies the detached ed25519 signature
+// against those pinned bytes.
+export async function installPlugin(url, sha256 = null, signature = null) {
+    const body = { url };
+    if (sha256) body.sha256 = sha256;
+    if (signature && signature.signature) {
+        body.signature = signature.signature;
+        if (signature.key_id) body.publisher_key_id = signature.key_id;
+    }
     return this.request('/plugins/install', {
         method: 'POST',
-        body: JSON.stringify(sha256 ? { url, sha256 } : { url }),
+        body: JSON.stringify(body),
     });
 }
 
@@ -142,8 +150,11 @@ export async function getPluginUpdates() {
 }
 
 // Updates an installed plugin in place; returns the updated plugin dict.
-export async function updatePlugin(pluginId) {
+// Pass { acknowledge_risk: true } to proceed past the 409 consent gate
+// (unsigned/untrusted-key/unreviewed registry versions — audit M2).
+export async function updatePlugin(pluginId, body) {
     return this.request(`/plugins/${pluginId}/update`, {
         method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
     });
 }

@@ -208,7 +208,7 @@ def test_grant_opens_python_read_gate(app, client):
     assert client.get(url, headers=_token(grantee.id)).status_code != 403
 
 
-def test_grant_enables_wordpress_per_site_routes(app, client):
+def test_grant_enables_wordpress_per_site_routes(app, client, wp_extension):
     from app import db
     from app.models import Application, WordPressSite
     from app.services.resource_grant_service import ResourceGrantService

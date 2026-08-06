@@ -164,12 +164,14 @@ def create_app(config_name=None):
     # Register blueprints - PHP
     from app.api.php import php_bp
     app.register_blueprint(php_bp, url_prefix='/api/v1/php')
-    # WordPress moved into the bundled, default-installed `serverkit-wordpress`
-    # extension (#38). Its blueprints (wordpress / wordpress_sites /
-    # environment_pipeline, keeping the /api/v1/wordpress[/projects|/pipelines]
-    # prefixes per D9, incl. the /pipelines alias) are registered from the
-    # extension by the plugin loader — seeded as a flagship in create_app. The old
-    # `wordpress` module toggle is retired; the plugin status guard is the gate.
+    # WordPress is the standalone `serverkit-wordpress` extension (plan 52
+    # Phase 5 — it left the tree into its own repo and installs from the
+    # registry; the setup wizard offers it from the bundled index entry).
+    # Its blueprints (wordpress / wordpress_sites / environment_pipeline,
+    # keeping the /api/v1/wordpress[/projects|/pipelines] prefixes per D3,
+    # incl. the /pipelines alias) are registered from the extension by the
+    # plugin loader when installed. The old `wordpress` module toggle is
+    # retired; the plugin status guard is the gate.
 
     # Register blueprints - Python
     from app.api.python import python_bp

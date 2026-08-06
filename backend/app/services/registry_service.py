@@ -75,6 +75,11 @@ _FIELDS = {
     'max_panel_version': None,
     'source': '',
     'sha256': None,
+    # Index schema v3 (plan 55 D3): optional ed25519 detached signature over
+    # the release zip + the publisher key id that must verify it. Absent in
+    # v1/v2 indexes → the entry is treated as unsigned (consent, not a block).
+    'signature': None,
+    'publisher_key_id': None,
     'review': None,
     'repo': '',
     'logo': None,
@@ -141,6 +146,20 @@ def _normalize(raw, base_url=None):
     out['bundled'] = bool(out['bundled'])
     out['logo'] = _resolve_logo(out['logo'], base_url)
     out['review'] = _validate_review(out['review'])
+    # Signature fields only count as well-formed strings; a signature without
+    # a key id (or vice versa) is meaningless and collapses to unsigned.
+    if not isinstance(out['signature'], str) or not out['signature'].strip():
+        out['signature'] = None
+    if not isinstance(out['publisher_key_id'], str) or not out['publisher_key_id'].strip():
+        out['publisher_key_id'] = None
+    if not out['signature'] or not out['publisher_key_id']:
+        out['signature'] = None
+        out['publisher_key_id'] = None
+    # Whether the named publisher key is pinned by this panel — drives the
+    # catalog badge / 409 consent distinction between "signed" and "signed by
+    # someone we don't know". The crypto check itself happens at install.
+    from app.services import signing_service
+    out['publisher_trusted'] = signing_service.is_trusted_key(out['publisher_key_id'])
     out['trust'] = _derive_trust(out)
     return out
 
@@ -274,3 +293,68 @@ def list_catalog(include_bundled=False):
 
 def registry_source_label():
     return _cache.get('source')
+
+
+def signature_consent_reason(entry):
+    """The signature-side consent reason for an index entry, or None.
+
+    Shared by the registry install gate and the update gate (audits M2/M3):
+
+    - a signature pinned to a panel-trusted publisher key → no consent needed
+      (install verifies it cryptographically; a bad one hard-fails there).
+    - signed by an unpinned key → 'untrusted_key'.
+    - a FIRST-PARTY entry without a verifiable signature → 'unsigned':
+      first-party releases are expected to be signed, so anything less is a
+      possible downgrade and requires explicit consent.
+    - community REVIEWED entries stay exempt: the review stamp already binds
+      a maintainer's verdict to the exact sha256 of the artifact, which is
+      the pre-signature trust mechanism (see docs/EXTENSIONS.md).
+    """
+    if entry.get('signature'):
+        if entry.get('publisher_trusted'):
+            return None
+        return 'untrusted_key'
+    if entry.get('first_party'):
+        return 'unsigned'
+    return None
+
+
+_GATE_MESSAGES = {
+    'unreviewed': (
+        'This community extension has not been reviewed by the ServerKit '
+        'maintainers; installing it runs unreviewed code with full panel '
+        'privileges.'),
+    'unverified': (
+        'This extension has no pinned checksum, so the panel cannot '
+        'verify the artifact it would install.'),
+    # 'untrusted_key' is formatted inline (interpolates the key id).
+    'unsigned': (
+        'This first-party release is not signed with a publisher key '
+        'pinned by this panel, so the panel cannot verify its origin. It '
+        'may be a legitimate older release — or a downgrade attempt.'),
+}
+
+
+def consent_gate(entry, acknowledged):
+    """The shared install/update consent decision (audits M2/M3).
+
+    Returns ``(reason, message)`` — reason is None when the action may
+    proceed without explicit acknowledgment. Order: unreviewed (dev-stage)
+    > unverified (no checksum) > signature gate (untrusted key / unsigned
+    first-party)."""
+    if not entry or acknowledged:
+        return None, None
+    trust = entry.get('trust', 'unreviewed')
+    if trust == 'unreviewed':
+        reason = 'unreviewed'
+    elif not entry.get('sha256'):
+        reason = 'unverified'
+    else:
+        reason = signature_consent_reason(entry)
+    if reason == 'untrusted_key':
+        return reason, (
+            f"This extension is signed, but its publisher key "
+            f"'{entry.get('publisher_key_id')}' is not pinned by this panel, "
+            f"so the signature cannot be verified. Install only if you trust "
+            f"the source.")
+    return reason, _GATE_MESSAGES.get(reason)
