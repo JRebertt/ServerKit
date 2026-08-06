@@ -12,12 +12,14 @@ Supports:
 
 import os
 import re
+import time
 import yaml
 import json
 import shutil
 import secrets
 import string
 import hashlib
+import threading
 import subprocess
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -51,6 +53,25 @@ class TemplateService:
             'enabled': True
         }
     ]
+
+    # Remote index cache.
+    #
+    # `list_all_templates()` runs on every Templates page load and used to call
+    # `fetch_remote_templates()` inline for every enabled repo, with a 30s
+    # timeout and no memoization -- so a single unreachable repo stalled the
+    # whole catalog on every render, and a reachable one was refetched for no
+    # reason. Successes are cached for _REMOTE_TTL. Failures fall back to the
+    # last good payload when there is one (a transient blip must never blank a
+    # catalog the panel has already shown) and are otherwise negatively cached
+    # for the shorter _REMOTE_ERROR_TTL, so a dead repo is retried soon but not
+    # hammered. Same TTL + last-good shape as the serverkit.ai proxy that
+    # DEFAULT_REPOS points at.
+    _REMOTE_TTL_SECONDS = 300
+    _REMOTE_ERROR_TTL_SECONDS = 60
+    _REMOTE_TIMEOUT_SECONDS = 10
+    # url -> {'templates': [...], 'expires': monotonic float, 'ok': bool}
+    _remote_cache = {}
+    _remote_cache_lock = threading.Lock()
 
     # Repo URLs that never worked and should be healed on read rather than
     # left to rot in an operator's templates.json. `serverkit/templates` was a
@@ -218,11 +239,16 @@ class TemplateService:
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
-        """Save template configuration."""
+        """Save template configuration.
+
+        This is the single choke point for repo mutations (add/remove/enable),
+        so the remote index cache is dropped here -- a repo added now must show
+        up on the next listing, not after the TTL."""
         try:
             os.makedirs(cls.CONFIG_DIR, exist_ok=True)
             with open(cls.TEMPLATE_CONFIG, 'w') as f:
                 json.dump(config, f, indent=2)
+            cls.invalidate_remote_cache()
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -1239,14 +1265,67 @@ class TemplateService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
-    def fetch_remote_templates(cls, repo_url: str) -> List[Dict]:
-        """Fetch templates from a remote repository."""
-        templates = []
+    def invalidate_remote_cache(cls, repo_url: str = None) -> None:
+        """Drop cached remote indexes -- all of them, or just ``repo_url``.
 
+        Called whenever the repo list changes so a freshly added repo appears
+        immediately instead of after the TTL, and a removed one stops being
+        served from cache."""
+        with cls._remote_cache_lock:
+            if repo_url is None:
+                cls._remote_cache = {}
+            else:
+                cls._remote_cache.pop(repo_url, None)
+
+    @classmethod
+    def _cached_remote(cls, repo_url: str) -> Optional[List[Dict]]:
+        """Unexpired cache entry for ``repo_url``, or None. Returns copies so a
+        caller mutating an entry cannot corrupt the cache."""
+        with cls._remote_cache_lock:
+            entry = cls._remote_cache.get(repo_url)
+            if entry and entry['expires'] > time.monotonic():
+                return [dict(t) for t in entry['templates']]
+        return None
+
+    @classmethod
+    def _last_good_remote(cls, repo_url: str) -> Optional[List[Dict]]:
+        """Last payload this repo successfully served, regardless of expiry."""
+        with cls._remote_cache_lock:
+            entry = cls._remote_cache.get(repo_url) or {}
+            last_good = entry.get('last_good')
+            return [dict(t) for t in last_good] if last_good else None
+
+    @classmethod
+    def _store_remote(cls, repo_url: str, templates: List[Dict], ok: bool) -> None:
+        """Cache ``templates`` for ``repo_url``. A successful payload also
+        becomes the last-good; a failure carries the previous last-good
+        forward, so repeated failures keep serving it instead of decaying to
+        an empty catalog on the second one."""
+        ttl = cls._REMOTE_TTL_SECONDS if ok else cls._REMOTE_ERROR_TTL_SECONDS
+        with cls._remote_cache_lock:
+            previous = cls._remote_cache.get(repo_url) or {}
+            cls._remote_cache[repo_url] = {
+                'templates': [dict(t) for t in templates],
+                'expires': time.monotonic() + ttl,
+                'ok': ok,
+                'last_good': ([dict(t) for t in templates] if ok
+                              else previous.get('last_good')),
+            }
+
+    @classmethod
+    def fetch_remote_templates(cls, repo_url: str, force: bool = False) -> List[Dict]:
+        """Fetch a repository's template index, memoized (see the cache block
+        near the top of the class). ``force=True`` bypasses the cache, which is
+        what an explicit sync wants."""
+        if not force:
+            cached = cls._cached_remote(repo_url)
+            if cached is not None:
+                return cached
+
+        templates = []
         try:
-            # Fetch index.json from repo
             index_url = f"{repo_url}/index.json"
-            response = requests.get(index_url, timeout=30)
+            response = requests.get(index_url, timeout=cls._REMOTE_TIMEOUT_SECONDS)
             response.raise_for_status()
 
             index = response.json()
@@ -1257,22 +1336,47 @@ class TemplateService:
 
         except Exception as e:
             print(f"Failed to fetch templates from {repo_url}: {e}")
+            # Keep serving the last good index rather than blanking a catalog
+            # the operator has already seen, but still back off so a dead repo
+            # is not retried on every single page load.
+            last_good = cls._last_good_remote(repo_url)
+            cls._store_remote(repo_url, last_good or [], ok=False)
+            return last_good or []
 
-        return templates
+        cls._store_remote(repo_url, templates, ok=True)
+        return [dict(t) for t in templates]
 
     @classmethod
     def list_all_templates(cls, category: str = None, search: str = None) -> List[Dict]:
-        """List all available templates from all sources."""
-        templates = []
+        """List all available templates from all sources, deduped by id.
 
-        # Local templates
-        templates.extend(cls.list_local_templates())
+        Bundled and registry templates deliberately overlap -- the bundle is the
+        offline floor and the registry is the growth path (docs/REGISTRIES.md) --
+        so the same id legitimately arrives from both. Concatenating them listed
+        every bundled template twice. **Local wins**, matching
+        :meth:`get_template`, which already resolves local directories before
+        any repo; among repos, the first enabled one to claim an id keeps it.
+        """
+        by_id = {}
 
-        # Remote templates
+        def _claim(entry):
+            """First source to claim an id keeps it."""
+            template_id = entry.get('id')
+            if template_id and template_id not in by_id:
+                by_id[template_id] = entry
+
+        # Local templates first -- they outrank every repo.
+        for entry in cls.list_local_templates():
+            _claim(entry)
+
+        # Remote templates fill in ids the bundle does not carry.
         config = cls.get_config()
         for repo in config.get('repos', []):
             if repo.get('enabled', True):
-                templates.extend(cls.fetch_remote_templates(repo['url']))
+                for entry in cls.fetch_remote_templates(repo['url']):
+                    _claim(entry)
+
+        templates = list(by_id.values())
 
         # Filter by category
         if category:
