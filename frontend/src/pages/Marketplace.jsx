@@ -220,7 +220,7 @@ const Marketplace = () => {
     const [filters, setFilters] = useState({ ownership: '', category: [] });
     const [filtersOpen, setFiltersOpen] = useState(false);
     const location = useLocation();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     // The active view is driven by the route (/marketplace = browse,
     // /marketplace/installed = installed). The legacy ?tab=installed deep link
@@ -267,6 +267,40 @@ const Marketplace = () => {
     }, [toast]);
 
     useEffect(() => { loadExtensions(); }, [loadExtensions]);
+
+    // Deep link: /extensions?install=<slug> opens that extension's detail
+    // modal. This is what a serverkit.ai install link lands on (and the
+    // counterpart to Templates.jsx's ?install=<id>).
+    //
+    // It opens the modal rather than installing: a URL arriving from another
+    // site must never be able to install anything on its own, so the operator
+    // still presses Install and every trust gate behind it still fires.
+    //
+    // Note /marketplace?install=… cannot work — that path only redirects here
+    // via <Navigate>, which drops the query string. Links must target
+    // /extensions directly.
+    const installSlug = searchParams.get('install');
+    useEffect(() => {
+        if (!installSlug || loading) return;
+
+        // Lookup only, so the catalog's featured/sort ordering is irrelevant.
+        const entry = [
+            ...builtins.map(getLocalCatalogEntry),
+            ...registryExtensions.map(getRegistryCatalogEntry),
+        ].find((candidate) => candidate.installKey === installSlug);
+
+        if (entry) {
+            setDetailEntry(entry);
+        } else {
+            toast.error(`No extension named "${installSlug}" in this panel's catalog.`);
+        }
+
+        // Drop the param either way so a refresh doesn't reopen it.
+        const next = new URLSearchParams(searchParams);
+        next.delete('install');
+        setSearchParams(next, { replace: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [installSlug, loading, builtins, registryExtensions]);
 
     const handleBuiltinInstall = async (slug) => {
         setInstalling(true);
