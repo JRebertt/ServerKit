@@ -2104,6 +2104,13 @@ main() {
 # Sourcing this file (e.g. from scripts/test/test_install.sh) defines every
 # function above for unit testing without running an install. Only a direct
 # execution falls through to the run below.
-[ "${BASH_SOURCE[0]}" = "${0}" ] || return 0
+#
+# Piped execution (`curl -fsSL … | bash`, the documented one-liner) leaves
+# BASH_SOURCE unset entirely, so a bare ${BASH_SOURCE[0]} is an unbound
+# variable under `set -u` and kills the install before main() — test the
+# array is non-empty FIRST. Same guard as scripts/install.sh.
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ "${BASH_SOURCE[0]}" != "$0" ]; then
+    return 0
+fi
 
 main "$@"

@@ -1428,5 +1428,41 @@ if [ "$loop_fail" = "0" ]; then
 fi
 
 # --------------------------------------------------------------------------
+# T41 — the source guard must not break piped execution (`curl … | bash`, the
+# one-liner README/DEPLOYMENT document). Piped, bash leaves BASH_SOURCE unset,
+# so a bare ${BASH_SOURCE[0]} is an unbound variable under `set -u` and aborts
+# before main() ever runs — which is exactly what shipped and broke every
+# curl-piped install ("line NNNN: BASH_SOURCE[0]: unbound variable").
+#
+# CI only ever runs `bash install.sh` from a checkout, where BASH_SOURCE IS
+# set, so the matrix cannot see this. Running the real installer piped would
+# install a server, so exercise the shipped tail — the guard plus the `main
+# "$@"` dispatch, extracted verbatim — against a harmless main() stub.
+# --------------------------------------------------------------------------
+guard_ln="$(grep -n 'BASH_SOURCE' "$INSTALL_SH" | grep -vE ':[[:space:]]*#' | tail -1 | cut -d: -f1)"
+guard_tail="$WORK/t41_tail.sh"
+{
+    printf 'set -euo pipefail\n'
+    printf 'main() { printf "REACHED_MAIN"; }\n'
+    sed -n "${guard_ln},\$p" "$INSTALL_SH"
+} > "$guard_tail"
+
+out="$(bash < "$guard_tail" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "REACHED_MAIN" ]; then
+    ok "piped execution (stdin, as curl|bash) still reaches main()"
+else
+    bad "piped execution broken by the source guard: rc=$rc out=[$out]"
+fi
+
+# The other half of the contract: a real `source` must still return early, or
+# this whole suite would run an install instead of unit-testing one.
+out="$( set -euo pipefail; source "$guard_tail"; printf 'EARLY_RETURN' )"
+if [ "$out" = "EARLY_RETURN" ]; then
+    ok "sourcing still returns before main()"
+else
+    bad "the source guard no longer short-circuits a source: out=[$out]"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]
