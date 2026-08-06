@@ -19,6 +19,11 @@ from app.services.bandwidth_service import (
     _day_prefix,
 )
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

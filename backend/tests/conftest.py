@@ -95,18 +95,100 @@ except ImportError:
     pass
 
 
-@pytest.fixture(scope='function')
-def app():
-    """Create Flask app with testing config and in-memory DB."""
+def pytest_configure(config):
+    config.addinivalue_line(
+        'markers',
+        'fresh_app: build a PRIVATE Flask app for this test instead of sharing '
+        'the session-wide one. Required for tests that mutate application '
+        'STRUCTURE — Flask cannot unregister a blueprint or a url rule, so such '
+        'a mutation would leak into every later test on a shared app.',
+    )
+
+
+@pytest.fixture(scope='session')
+def _flask_app():
+    """The Flask application and the schema, built ONCE for the test process.
+
+    `create_app('testing')` registers 90+ blueprints and is expensive. Building
+    it per test made fixture setup ~90% of this suite's total runtime (plan 64
+    Phase 0), so it is built once and shared.
+
+    Booted TWICE on purpose. `create_app()` is not a pure constructor: it seeds
+    rows as a side effect of booting (the flagship extension rows that
+    test_cloudflare_extraction asserts are "seeded on boot"). So the schema has
+    to exist before the app that seeds into it:
+
+        boot #1  ->  create_all()      tables now exist
+        boot #2  ->  seeds into them   rows land in real tables
+
+    A single boot would seed against a schema that does not exist yet, and the
+    flagship rows would silently never appear. The cost is one extra create_app
+    for the whole session.
+
+    The import stays inside the function body on purpose: some CI jobs run only
+    the stdlib-y system-utils tests with pytest and nothing else installed (see
+    test-system-utils.yml), and conftest still has to import cleanly there.
+    Never make a fixture that touches this one autouse.
+    """
     from app import create_app
     from app import db as _db
 
-    app = create_app('testing')
-    with app.app_context():
+    bootstrap = create_app('testing')
+    with bootstrap.app_context():
         _db.create_all()
-        yield app
-        _db.session.remove()
-        _db.drop_all()
+
+    return create_app('testing')
+
+
+@pytest.fixture(scope='function')
+def app(request, _flask_app):
+    """Per-test database, on the session-wide app unless opted out.
+
+    Still create_all/drop_all per test — Phase 1 deliberately changes only the
+    app's lifetime, so that "shared app object" breakage can be diagnosed
+    separately from "shared database" breakage.
+
+    Two consequences of sharing one app, both handled here rather than patched
+    test by test:
+
+    * Config mutation now leaks where it previously died with the app (e.g.
+      test_demo_deploys sets DEMO_DEPLOYS_ENABLED=False and never restores it),
+      so config is snapshotted and restored around every test.
+    * STRUCTURE mutation cannot be undone at all — Flask has no
+      unregister_blueprint. Tests doing that mark themselves `fresh_app` and get
+      a private app, paying the old per-test create_app cost knowingly.
+    """
+    from app import create_app
+    from app import db as _db
+
+    # `wp_extension` mounts the WordPress extension's blueprints onto whatever
+    # app it is handed, so every test using it is structure-mutating too. Detect
+    # it from the fixture graph instead of requiring each such module to
+    # remember the marker — miss one and the failure lands in an unrelated test
+    # much later in the run.
+    needs_private_app = (
+        request.node.get_closest_marker('fresh_app') is not None
+        or 'wp_extension' in request.fixturenames
+    )
+    target = create_app('testing') if needs_private_app else _flask_app
+
+    saved_config = dict(target.config)
+    with target.app_context():
+        _db.create_all()
+        # create_app() seeds the bundled flagship extension rows as a boot side
+        # effect, and this drop_all/create_all wipes them. With a per-test app
+        # that reseeding came free on every boot; with a shared app it has to be
+        # re-run explicitly, or every test after the first sees no flagship and
+        # the extension routes answer 503.
+        from app.services.plugin_service import seed_flagship_extensions
+        seed_flagship_extensions()
+        try:
+            yield target
+        finally:
+            _db.session.remove()
+            _db.drop_all()
+            target.config.clear()
+            target.config.update(saved_config)
 
 
 @pytest.fixture

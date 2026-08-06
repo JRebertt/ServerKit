@@ -29,6 +29,11 @@ from app.services.event_service import EventService
 from app.services.backup_policy_service import BackupPolicyError, BackupPolicyService
 from app.services.template_service import TemplateService
 
+# Installs plugins, and plugin_service hot-loads their blueprints onto the
+# live app. Flask refuses register_blueprint once an app has served a
+# request, so these need a private app (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 SLUG = 'serverkit-wordpress'
 
 

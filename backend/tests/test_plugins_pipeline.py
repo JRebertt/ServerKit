@@ -14,6 +14,11 @@ from app import db
 from app.models.plugin import InstalledPlugin
 from app.services import plugin_service
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 # --------------------------------------------------------------------------- #
 # Fixtures

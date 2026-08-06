@@ -12,6 +12,12 @@ from app.models.server_template import ServerTemplate, ServerTemplateAssignment
 from app.services.agent_plugin_service import AgentPluginService
 from app.services.server_template_service import ServerTemplateService
 
+import pytest
+# Installs plugins, and plugin_service hot-loads their blueprints onto the
+# live app. Flask refuses register_blueprint once an app has served a
+# request, so these need a private app (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 def test_plugin_install_reports_unimplemented_not_stuck_installing(app):
     with app.app_context():

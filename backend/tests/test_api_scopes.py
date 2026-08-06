@@ -12,6 +12,11 @@ from app.utils.sensitive_data_filter import (
 )
 from app.models.api_key import ApiKey
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 # ---------------------------------------------------------------------------
 # Helpers

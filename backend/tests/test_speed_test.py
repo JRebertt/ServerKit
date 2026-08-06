@@ -13,6 +13,11 @@ from app.services.speed_test_service import (
     SpeedTestService,
 )
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 class _FakeProc:
     def __init__(self, returncode=0, stdout='', stderr=''):

@@ -11,6 +11,11 @@ import pytest
 # body, i.e. AFTER create_all). The panel wires these via `models/__init__.py`.
 import app.models.shared_resource  # noqa: F401,E402
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 # A concurrent, in-flight slice adds `applications.environment_id` (FK →
 # `environments`) but has not yet wired its models into `models/__init__.py`.
 # Until it does, `db.create_all()` cannot resolve that FK and the whole suite's

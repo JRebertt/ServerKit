@@ -13,6 +13,11 @@ from app.models.managed_database_user import ManagedDatabaseUser
 from app.services.managed_database_service import ManagedDatabaseService
 from app.services.managed_db_user_service import ManagedDbUserService
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 @pytest.fixture
 def managed(app):

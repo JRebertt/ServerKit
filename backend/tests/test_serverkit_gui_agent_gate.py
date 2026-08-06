@@ -24,6 +24,11 @@ from app.models.server import Server
 from app.models.user import User
 from app.services import agent_registry as agent_registry_module
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 SLUG = 'serverkit-gui'
 SERVER_ID = 'srv-gui-1'
 PREFIX = '/api/v1/server-gui'

@@ -16,6 +16,11 @@ import pytest
 
 from app import create_app
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 def _build_app(monkeypatch, trust, hops=1):
     """Create a testing app with the trusted-proxy config forced on/off.

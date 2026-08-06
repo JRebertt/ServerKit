@@ -1,4 +1,11 @@
+import pytest
+
 from app.models.audit_log import AuditLog
+
+# Adds routes to the app fixture with @app.route. Flask refuses setup methods
+# once an app has served its first request, so these need a private app rather
+# than the session-wide one (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
 
 
 def test_generic_resource_action_constants_are_defined():

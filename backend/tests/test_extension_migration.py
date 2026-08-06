@@ -14,6 +14,11 @@ from app.models.plugin import InstalledPlugin
 from app.models.user import User
 from app.services import plugin_service, extension_migration
 
+# Installs plugins, and plugin_service hot-loads their blueprints onto the
+# live app. Flask refuses register_blueprint once an app has served a
+# request, so these need a private app (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 @pytest.fixture
 def demo_builtin(tmp_path, monkeypatch):
