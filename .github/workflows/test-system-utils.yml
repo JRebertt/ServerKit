@@ -9,36 +9,21 @@ on:
       - 'backend/tests/test_utils_system*.py'
       - '.github/workflows/test-system-utils.yml'
   pull_request:
-    branches: [main, dev]
+    branches: [main]
     paths:
       - 'backend/app/utils/system.py'
       - 'backend/app/services/**'
       - 'backend/tests/test_utils_system*.py'
 
+# The mocked `unit-tests` job that used to lead this file was removed: it ran
+# `pytest tests/test_utils_system.py` (44 tests), and Backend CI's bare
+# `pytest -v` already collects that exact file — there is no pytest.ini,
+# addopts, or collect_ignore narrowing it. What is left here is the part
+# Backend CI genuinely cannot do: exercise the package-manager detection
+# against real apt/dnf inside real distro images.
 jobs:
   # ──────────────────────────────────────────────────────────────────
-  # Job 1: Mocked unit tests — fast, validates all logic
-  # ──────────────────────────────────────────────────────────────────
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install test deps
-        run: pip install pytest
-
-      - name: Run unit tests
-        working-directory: backend
-        run: python -m pytest tests/test_utils_system.py -v
-
-  # ──────────────────────────────────────────────────────────────────
-  # Job 2: Integration tests on real distros (no mocks)
+  # Job 1: Integration tests on real distros (no mocks)
   # ──────────────────────────────────────────────────────────────────
   integration-tests:
     name: Integration (${{ matrix.distro }})
@@ -91,7 +76,7 @@ jobs:
         run: python3 -m pytest tests/test_utils_system_integration.py -v
 
   # ──────────────────────────────────────────────────────────────────
-  # Job 3: Audit — grep for raw subprocess patterns in services
+  # Job 2: Audit — grep for raw subprocess patterns in services
   # ──────────────────────────────────────────────────────────────────
   audit-raw-patterns:
     name: Audit Raw Subprocess Patterns

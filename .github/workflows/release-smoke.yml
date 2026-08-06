@@ -5,9 +5,12 @@ name: Release Build Smoke Test
 # frontend source files) before they reach main, instead of failing late in the
 # release workflow.
 
+# main is deliberately absent from `push`: on a merge to main, release.yml's
+# `build-release` job runs this very script for real moments later, so building
+# the tarball here too was pure duplication.
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - 'frontend/**'
       - 'backend/**'
@@ -16,7 +19,7 @@ on:
       - '.github/workflows/release.yml'
       - 'VERSION'
   pull_request:
-    branches: [dev, main]
+    branches: [main]
     paths:
       - 'frontend/**'
       - 'backend/**'
