@@ -1,0 +1,58 @@
+name: Frontend CI
+
+# The frontend's lint gate ran nowhere until now — `npm run lint` was in
+# package.json and in CLAUDE.md, but no workflow ever invoked it. That silently
+# unenforced three project-specific checkers that exist precisely because a
+# human review keeps missing what they catch:
+#
+#   check-settings-index  every Settings tab has a search-index entry
+#   check-theme-tokens    the theme-token whitelist stays in 3-way sync
+#   check-html-sinks      every raw-HTML sink is sanitized or annotated (XSS)
+#
+# Only `npm run lint` runs here. The frontend is already COMPILED in CI by
+# Release Build Smoke Test, whose scripts/build-release.sh does `npm ci &&
+# npm run build` — adding a build job here would just duplicate that.
+#
+# backend/app/** is in the paths because check-html-sinks scans it too (for
+# `|safe`, `Markup(`, `render_template_string`), so a backend-only commit can
+# introduce a sink this must catch.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'frontend/**'
+      - 'backend/app/**'
+      - 'scripts/check-html-sinks.mjs'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'backend/app/**'
+      - 'scripts/check-html-sinks.mjs'
+      - '.github/workflows/frontend-ci.yml'
+  workflow_call:
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        # eslint + the three checkers, chained by the package.json script.
+        # Currently 926 warnings / 0 errors, and eslint exits 0 on warnings —
+        # so this gates on errors only. If you ever want the warning count
+        # ratcheted the way backend/tests/BASELINE_COUNT ratchets test count,
+        # add --max-warnings=<N> here rather than mass-fixing in one commit.
+        working-directory: frontend
+        run: npm run lint

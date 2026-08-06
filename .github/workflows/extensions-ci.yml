@@ -8,14 +8,14 @@ name: Extensions CI
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - 'builtin-extensions/**'
       - 'frontend/src/plugins/**'
       - 'scripts/sync-builtin-frontends.mjs'
       - '.github/workflows/extensions-ci.yml'
   pull_request:
-    branches: [dev, main]
+    branches: [main]
     paths:
       - 'builtin-extensions/**'
       - 'frontend/src/plugins/**'

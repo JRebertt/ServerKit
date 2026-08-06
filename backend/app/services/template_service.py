@@ -36,14 +36,31 @@ class TemplateService:
     INSTALLED_DIR = paths.APPS_DIR
     TEMPLATE_CONFIG = os.path.join(CONFIG_DIR, 'templates.json')
 
-    # Default template repository
+    # Default template repository.
+    #
+    # serverkit.ai proxies the serverkit-templates registry and is built for
+    # exactly this consumer: it serves <repo_url>/index.json and the
+    # <repo_url>/templates/<id>.yaml path this class derives below, behind a
+    # TTL cache with last-good fallback. Pointing at the product domain rather
+    # than raw.githubusercontent also means a branch rename upstream cannot
+    # silently empty every panel's catalog.
     DEFAULT_REPOS = [
         {
             'name': 'serverkit-official',
-            'url': 'https://raw.githubusercontent.com/serverkit/templates/main',
+            'url': 'https://serverkit.ai/templates',
             'enabled': True
         }
     ]
+
+    # Repo URLs that never worked and should be healed on read rather than
+    # left to rot in an operator's templates.json. `serverkit/templates` was a
+    # guess at the org name -- the registry is `jhd3197/serverkit-templates` --
+    # so this URL has 404'd for its entire existence and no panel has ever
+    # fetched a template through it. Nothing is lost by replacing it.
+    DEAD_REPO_URLS = {
+        'https://raw.githubusercontent.com/serverkit/templates/main',
+        'https://raw.githubusercontent.com/serverkit/templates',
+    }
 
     # Provider-owned templates (plan 52 D4 hook inversion): these ids are
     # listed and installable ONLY while the owning extension has registered as
@@ -167,11 +184,18 @@ class TemplateService:
 
     @classmethod
     def get_config(cls) -> Dict:
-        """Get template configuration."""
+        """Get template configuration.
+
+        A panel that has ever saved this file keeps whatever repos were in it,
+        so fixing DEFAULT_REPOS alone would only help fresh installs. Dead URLs
+        are therefore corrected on read (see DEAD_REPO_URLS). Not written back
+        here -- a getter should not have a disk side effect -- so the repair
+        re-applies each read until something saves the config normally."""
         if os.path.exists(cls.TEMPLATE_CONFIG):
             try:
                 with open(cls.TEMPLATE_CONFIG, 'r') as f:
-                    return json.load(f)
+                    config = json.load(f)
+                return cls._heal_dead_repos(config)
             except Exception:
                 pass
         return {
@@ -179,6 +203,18 @@ class TemplateService:
             'installed': {},
             'last_sync': None
         }
+
+    @classmethod
+    def _heal_dead_repos(cls, config: Dict) -> Dict:
+        """Point any known-dead repo URL at the current default."""
+        repos = config.get('repos')
+        if not isinstance(repos, list):
+            return config
+        default_url = cls.DEFAULT_REPOS[0]['url']
+        for repo in repos:
+            if isinstance(repo, dict) and repo.get('url', '').rstrip('/') in cls.DEAD_REPO_URLS:
+                repo['url'] = default_url
+        return config
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
@@ -2306,6 +2342,7 @@ class TemplateService:
 
         config = cls.get_config()
         synced = 0
+        unverified = 0  # saved, but the index pinned no sha256 for them
         errors = []
 
         for repo in config.get('repos', []):
@@ -2331,10 +2368,34 @@ class TemplateService:
                         response = requests.get(template_url, timeout=30)
                         response.raise_for_status()
 
-                        # Save locally
+                        # Verify against the checksum the index pinned for this
+                        # entry. A template is a deploy definition -- images,
+                        # ports, volumes, env -- so a swapped file is worth
+                        # refusing outright, and the index already carries the
+                        # hash for every official entry.
+                        #
+                        # Missing hash is allowed (third-party repos may not
+                        # publish one) and counted, mirroring how extensions
+                        # treat unsigned-vs-invalid: absent is a caveat, wrong
+                        # is a hard stop.
+                        expected = (template_info.get('sha256') or '').strip().lower()
+                        if expected:
+                            actual = hashlib.sha256(response.content).hexdigest()
+                            if actual != expected:
+                                errors.append(
+                                    f"Checksum mismatch for {template_id}: index pinned "
+                                    f"{expected[:12]}..., downloaded {actual[:12]}.... Not saved."
+                                )
+                                continue
+                        else:
+                            unverified += 1
+
+                        # Written as bytes so what lands on disk is exactly the
+                        # content that was hashed (text mode would rewrite line
+                        # endings on Windows and no longer match).
                         filepath = os.path.join(cls.TEMPLATES_DIR, f"{template_id}.yaml")
-                        with open(filepath, 'w') as f:
-                            f.write(response.text)
+                        with open(filepath, 'wb') as f:
+                            f.write(response.content)
 
                         synced += 1
                     except Exception as e:
@@ -2349,6 +2410,7 @@ class TemplateService:
         return {
             'success': True,
             'synced': synced,
+            'unverified': unverified,
             'errors': errors if errors else None
         }
 

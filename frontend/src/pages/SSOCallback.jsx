@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { consumeRedirect } from '../utils/redirectAfterLogin';
 import { Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +42,9 @@ const SSOCallback = () => {
             }
 
             setUser(response.user);
-            navigate('/');
+            // sessionStorage survived the round trip to the identity provider;
+            // react-router state would not have.
+            navigate(consumeRedirect());
         } catch (err) {
             setError(err.message || 'SSO authentication failed');
         }

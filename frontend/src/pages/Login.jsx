@@ -5,6 +5,7 @@ import api from '../services/api';
 import SSOProviderIcon from '../components/SSOProviderIcon';
 import ServerKitLogo from '../components/ServerKitLogo';
 import AuthLayout from './auth/AuthLayout';
+import { consumeRedirect } from '../utils/redirectAfterLogin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,7 +55,7 @@ const Login = () => {
         api.redeemLoginLink(token)
             .then((response) => {
                 setUser(response.user);
-                navigate('/', { replace: true });
+                navigate(consumeRedirect(), { replace: true });
             })
             .catch((err) => {
                 setError(err.message || 'Invalid or expired login link');
@@ -110,7 +111,7 @@ const Login = () => {
 
             // No 2FA - complete login
             setUser(response.user);
-            navigate('/');
+            navigate(consumeRedirect());
         } catch (err) {
             setError(err.message || 'Failed to login');
         } finally {
@@ -138,7 +139,7 @@ const Login = () => {
                 console.warn(response.warning);
             }
 
-            navigate('/');
+            navigate(consumeRedirect());
         } catch (err) {
             setError(err.message || 'Invalid verification code');
             // Clear the code inputs on error
