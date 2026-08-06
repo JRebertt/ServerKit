@@ -5,22 +5,28 @@ name: Backend CI
 # registry, pairing, and the panel<->agent command loop exercised end-to-end
 # by tests/test_agent_poll_e2e.py — instead of finding out at install time.
 
+# main is deliberately absent from `push`: release.yml gates itself on this
+# workflow via `ci-gate`, so a push to main already runs the suite once. Listing
+# main here ran it a second time, standalone, on every merge.
 on:
   push:
-    branches: [dev, main]
+    branches: [dev]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
-    branches: [dev, main]
+    branches: [main]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
   workflow_call:
 
 jobs:
-  pytest:
-    name: pytest
+  # The ratchet needs to see the WHOLE suite, so it cannot live inside a shard —
+  # each shard only collects its own quarter. Its own job costs no wall-clock
+  # time: it runs beside the shards and finishes in seconds.
+  ratchet:
+    name: test-count ratchet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +48,49 @@ jobs:
         # Lowering the floor requires editing BASELINE_COUNT in the same commit.
         working-directory: backend
         run: python tests/check_test_count.py
-      - name: Run tests
+
+  # Sharded because this job WAS the entire wait: 21m50s of a ~22m pipeline,
+  # while every other workflow finished inside a minute. Splitting the 3173
+  # tests over 4 runners cuts the critical path to roughly a quarter.
+  #
+  # Sharding rather than pytest-xdist is deliberate: each shard is its own VM,
+  # so the process-shared state that makes in-process parallelism unsafe here
+  # (templates.json, APPS_DIR — see the per-PID DB dance in tests/conftest.py)
+  # simply isn't shared. No test code has to change.
+  #
+  # NOTE: with no .test_durations file, pytest-split balances by test COUNT,
+  # not by time — and these tests range from 0.1s to 10s+. If one shard lands
+  # most of the slow ones it becomes the new critical path. If that shows up,
+  # run once with `--store-durations` and commit backend/.test_durations to
+  # switch it to duration-based balancing.
+  pytest:
+    name: pytest (${{ matrix.group }}/4)
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every failing shard in one pass instead of hiding shards 2-4
+      # behind the first failure — one round of fixes instead of four.
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
         working-directory: backend
-        run: python -m pytest -v
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-split
+      - name: Run tests (shard ${{ matrix.group }} of 4)
+        # Scoped to `tests` rather than a bare `pytest`. Identical here (3173
+        # either way, since backend/dev-data/ is gitignored and absent from a
+        # CI checkout), but it makes the command reproducible on a dev box: a
+        # bare pytest there tries to collect the locally deployed apps under
+        # backend/dev-data/ and dies during collection. Copy this line verbatim
+        # to debug a red shard locally.
+        working-directory: backend
+        run: python -m pytest tests -v --splits 4 --group ${{ matrix.group }}
