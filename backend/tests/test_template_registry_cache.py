@@ -10,6 +10,8 @@ Two bugs motivated these, both only latent while ``DEFAULT_REPOS`` pointed at a
    timeout and no memoization, so one unreachable repo stalled the Templates
    page on every render.
 """
+import os
+
 import pytest
 
 from app.services.template_service import TemplateService
@@ -36,10 +38,12 @@ class _FakeResponse:
 
 @pytest.fixture(autouse=True)
 def _clean_cache():
-    """The cache is class-level state; never leak it between tests."""
+    """Both caches are class-level state; never leak them between tests."""
     TemplateService.invalidate_remote_cache()
+    TemplateService.invalidate_local_cache()
     yield
     TemplateService.invalidate_remote_cache()
+    TemplateService.invalidate_local_cache()
 
 
 @pytest.fixture
@@ -204,3 +208,159 @@ def test_cached_entries_are_copies(monkeypatch, one_repo):
 
     second = TemplateService.fetch_remote_templates(REPO_URL)
     assert second[0]["name"] == "remote-a"
+
+
+# ---------------------------------------------------------------------------
+# Local parse cache
+#
+# With the remote fetch memoized, re-parsing every bundled YAML on every call
+# became the whole cost of a Templates page load (118 files, ~0.4s).
+# ---------------------------------------------------------------------------
+MINIMAL = """\
+name: {name}
+version: "1.0"
+description: A fixture template
+categories:
+  - test
+compose:
+  services:
+    app:
+      image: nginx:alpine
+"""
+
+
+@pytest.fixture
+def template_dirs(monkeypatch, tmp_path):
+    """Point both template directories at a temp tree.
+
+    ``TEMPLATES_DIR`` is the primary (synced/user) directory and
+    ``LOCAL_TEMPLATES_DIR`` the bundled fallback -- the same precedence
+    ``list_local_templates`` walks in production."""
+    primary = tmp_path / "primary"
+    fallback = tmp_path / "fallback"
+    primary.mkdir()
+    fallback.mkdir()
+    monkeypatch.setattr(TemplateService, "TEMPLATES_DIR", str(primary))
+    monkeypatch.setattr(TemplateService, "LOCAL_TEMPLATES_DIR", str(fallback))
+    TemplateService.invalidate_local_cache()
+    return primary, fallback
+
+
+@pytest.fixture
+def parse_calls(monkeypatch):
+    """Record every real parse so the tests assert on work done, not wall time."""
+    calls = []
+    original = TemplateService.parse_template
+
+    def counting(template_path):
+        calls.append(template_path)
+        return original(template_path)
+
+    monkeypatch.setattr(TemplateService, "parse_template", staticmethod(counting))
+    return calls
+
+
+def test_repeat_listing_does_not_reparse(template_dirs, parse_calls):
+    """The bug: every catalog render re-read and re-parsed the whole bundle."""
+    primary, _ = template_dirs
+    for i in range(3):
+        (primary / f"t{i}.yaml").write_text(MINIMAL.format(name=f"T{i}"))
+
+    assert len(TemplateService.list_local_templates()) == 3
+    assert len(parse_calls) == 3
+
+    TemplateService.list_local_templates()
+    TemplateService.list_local_templates()
+
+    assert len(parse_calls) == 3, "repeat listing re-parsed unchanged files"
+
+
+def test_editing_one_template_reparses_only_that_file(template_dirs, parse_calls):
+    """Per-file keying: a sync that rewrites one template costs one parse."""
+    primary, _ = template_dirs
+    for i in range(3):
+        (primary / f"t{i}.yaml").write_text(MINIMAL.format(name=f"T{i}"))
+    TemplateService.list_local_templates()
+    parse_calls.clear()
+
+    # Changes both mtime and size, so this holds even on a filesystem with
+    # coarse mtime granularity.
+    (primary / "t1.yaml").write_text(MINIMAL.format(name="Renamed") + "\n# edited\n")
+
+    listed = {t["id"]: t for t in TemplateService.list_local_templates()}
+
+    assert [os.path.basename(p) for p in parse_calls] == ["t1.yaml"]
+    assert listed["t1"]["name"] == "Renamed"
+    assert listed["t0"]["name"] == "T0"
+
+
+def test_deleted_template_disappears_and_is_pruned(template_dirs):
+    """A removed file leaves the catalog and does not linger in the cache."""
+    primary, _ = template_dirs
+    path = primary / "gone.yaml"
+    path.write_text(MINIMAL.format(name="Gone"))
+
+    assert [t["id"] for t in TemplateService.list_local_templates()] == ["gone"]
+    assert str(path) in TemplateService._local_cache
+
+    path.unlink()
+
+    assert TemplateService.list_local_templates() == []
+    assert str(path) not in TemplateService._local_cache
+
+
+def test_unparseable_template_is_not_retried_until_it_changes(template_dirs, parse_calls):
+    """One malformed YAML must not cost a parse on every single render."""
+    primary, _ = template_dirs
+    broken = primary / "broken.yaml"
+    broken.write_text("name: [unclosed\n")
+
+    assert TemplateService.list_local_templates() == []
+    assert len(parse_calls) == 1
+
+    TemplateService.list_local_templates()
+    TemplateService.list_local_templates()
+    assert len(parse_calls) == 1, "malformed template re-parsed on every listing"
+
+    broken.write_text(MINIMAL.format(name="Fixed"))
+
+    assert [t["id"] for t in TemplateService.list_local_templates()] == ["broken"]
+    assert len(parse_calls) == 2
+
+
+def test_unparseable_primary_does_not_block_the_fallback(template_dirs):
+    """A file that fails to parse must not claim its id, so a valid file of the
+    same name in the fallback directory still supplies it."""
+    primary, fallback = template_dirs
+    (primary / "dup.yaml").write_text("name: [unclosed\n")
+    (fallback / "dup.yaml").write_text(MINIMAL.format(name="FromFallback"))
+
+    assert [t["name"] for t in TemplateService.list_local_templates()] == ["FromFallback"]
+
+
+def test_primary_directory_wins_over_fallback(template_dirs):
+    """Precedence is unchanged by caching: the primary directory shadows the bundle."""
+    primary, fallback = template_dirs
+    (primary / "dup.yaml").write_text(MINIMAL.format(name="FromPrimary"))
+    (fallback / "dup.yaml").write_text(MINIMAL.format(name="FromFallback"))
+
+    listed = TemplateService.list_local_templates()
+
+    assert len(listed) == 1
+    assert listed[0]["name"] == "FromPrimary"
+
+
+def test_local_entries_are_copies(template_dirs):
+    """A caller mutating an entry -- or its nested categories list -- must not
+    corrupt the cache."""
+    primary, _ = template_dirs
+    (primary / "c.yaml").write_text(MINIMAL.format(name="C"))
+
+    first = TemplateService.list_local_templates()[0]
+    first["categories"].append("mutated")
+    first["name"] = "mutated"
+
+    second = TemplateService.list_local_templates()[0]
+
+    assert second["categories"] == ["test"]
+    assert second["name"] == "C"

@@ -12,6 +12,7 @@ Supports:
 
 import os
 import re
+import copy
 import time
 import yaml
 import json
@@ -72,6 +73,23 @@ class TemplateService:
     # url -> {'templates': [...], 'expires': monotonic float, 'ok': bool}
     _remote_cache = {}
     _remote_cache_lock = threading.Lock()
+
+    # Parsed-template cache for the bundled catalog.
+    #
+    # With the remote fetch memoized above, the remaining cost of a Templates
+    # page load was `list_local_templates()` re-reading and re-parsing every
+    # bundled YAML on every call (118 files, ~0.4s). Entries are memoized per
+    # file and keyed on (st_mtime_ns, st_size), so a sync or an edit
+    # invalidates exactly the file that changed and nothing else -- which is
+    # why the writers need no explicit invalidation call. A deleted template
+    # disappears because the listing only returns what the directory scan
+    # finds. (Caveat: a filesystem with coarse mtime granularity could serve a
+    # stale card if a file were rewritten to the identical size within the
+    # same clock tick; ns-resolution local filesystems do not have this
+    # problem.)
+    # filepath -> {'key': (mtime_ns, size), 'entry': dict|None}
+    _local_cache = {}
+    _local_cache_lock = threading.Lock()
 
     # Repo URLs that never worked and should be healed on read rather than
     # left to rot in an operator's templates.json. `serverkit/templates` was a
@@ -1154,56 +1172,131 @@ class TemplateService:
         :meth:`get_template` apply the availability gate (plan 52 D4), so an
         absent extension means hidden cards and refused installs even though
         the YAML remains bundled.
+
+        Parsing is memoized per file (see the cache block near the top of the
+        class); a repeat listing stats each file instead of re-parsing it.
         """
         templates = []
         seen_ids = set()
+        seen_paths = set()
 
         for templates_dir in [cls.TEMPLATES_DIR, cls.LOCAL_TEMPLATES_DIR]:
-            if not os.path.exists(templates_dir):
+            if not os.path.isdir(templates_dir):
                 continue
 
-            for filename in os.listdir(templates_dir):
-                if filename.endswith('.yaml') or filename.endswith('.yml'):
-                    template_id = filename.rsplit('.', 1)[0]
-                    if template_id in seen_ids:
-                        continue
-                    filepath = os.path.join(templates_dir, filename)
-                    result = cls.parse_template(filepath)
-                    if result.get('success'):
-                        template = result['template']
-                        seen_ids.add(template_id)
-                        kind = template.get('kind', 'compose')
-                        entry = {
-                            'id': template_id,
-                            'name': template.get('name'),
-                            'version': template.get('version'),
-                            'description': template.get('description'),
-                            'icon': template.get('icon'),
-                            'categories': template.get('categories', []),
-                            'kind': kind,
-                            'source': 'local',
-                            'filepath': filepath
-                        }
-                        # Repo templates surface a minimal repo summary so the
-                        # catalog grid can badge them and link to the wizard
-                        # without a second fetch.
-                        if kind == 'repo' and isinstance(template.get('repo'), dict):
-                            repo = template['repo']
-                            entry['repo'] = {
-                                'url': repo.get('url'),
-                                'branch': repo.get('branch', 'main'),
-                            }
-                        # A database engine declares itself with a top-level
-                        # `engine:` block. This listing is a fixed projection,
-                        # so without carrying the block through, the Databases
-                        # catalog could never see an engine without re-parsing
-                        # every YAML file.
-                        engine = cls.engine_metadata(template)
-                        if engine:
-                            entry['engine'] = engine
-                        templates.append(entry)
+            try:
+                with os.scandir(templates_dir) as scan:
+                    # Sorted so a same-id collision (foo.yaml vs foo.yml)
+                    # resolves the same way on every platform; os.listdir order
+                    # is filesystem-dependent.
+                    dir_entries = sorted(scan, key=lambda e: e.name)
+            except OSError:
+                continue
 
+            for dir_entry in dir_entries:
+                if not dir_entry.name.endswith(('.yaml', '.yml')):
+                    continue
+                seen_paths.add(dir_entry.path)
+
+                template_id = dir_entry.name.rsplit('.', 1)[0]
+                if template_id in seen_ids:
+                    continue
+                try:
+                    # DirEntry.stat() reuses the data the directory scan
+                    # already returned where the platform provides it, so this
+                    # is cheaper than a separate os.stat per file.
+                    info = dir_entry.stat()
+                except OSError:
+                    continue
+
+                entry = cls._local_entry(dir_entry.path, template_id,
+                                         (info.st_mtime_ns, info.st_size))
+                if entry is not None:
+                    # A file that fails to parse deliberately does NOT claim
+                    # the id, so a valid file of the same name in the fallback
+                    # directory can still supply it.
+                    seen_ids.add(template_id)
+                    templates.append(entry)
+
+        cls._prune_local_cache(seen_paths)
         return templates
+
+    @classmethod
+    def invalidate_local_cache(cls) -> None:
+        """Drop the parsed-template cache.
+
+        Ordinary writes do not need this -- the cache is keyed on
+        (mtime_ns, size), so syncing or editing a template invalidates exactly
+        that file on the next listing. Provided for tests and any out-of-band
+        mutation that could defeat mtime comparison."""
+        with cls._local_cache_lock:
+            cls._local_cache = {}
+
+    @classmethod
+    def _prune_local_cache(cls, seen_paths: set) -> None:
+        """Forget files that are no longer on disk, so a long-running panel
+        that churns templates does not grow the cache without bound."""
+        with cls._local_cache_lock:
+            stale = [p for p in cls._local_cache if p not in seen_paths]
+            for path in stale:
+                del cls._local_cache[path]
+
+    @classmethod
+    def _local_entry(cls, filepath: str, template_id: str,
+                     stat_key: tuple) -> Optional[Dict]:
+        """Catalog projection for one bundled template, memoized on ``stat_key``.
+
+        Returns None when the file does not parse -- and caches that negative
+        result too, so one malformed YAML does not cost a parse on every
+        render. Returns a deep copy so a caller mutating the result (or its
+        nested ``repo``/``engine``/``categories``) cannot corrupt the cache."""
+        with cls._local_cache_lock:
+            cached = cls._local_cache.get(filepath)
+            if cached is not None and cached['key'] == stat_key:
+                return copy.deepcopy(cached['entry'])
+
+        entry = cls._parse_local_entry(filepath, template_id)
+
+        with cls._local_cache_lock:
+            cls._local_cache[filepath] = {'key': stat_key, 'entry': entry}
+        return copy.deepcopy(entry)
+
+    @classmethod
+    def _parse_local_entry(cls, filepath: str, template_id: str) -> Optional[Dict]:
+        """Parse one template file into its catalog projection, or None."""
+        result = cls.parse_template(filepath)
+        if not result.get('success'):
+            return None
+
+        template = result['template']
+        kind = template.get('kind', 'compose')
+        entry = {
+            'id': template_id,
+            'name': template.get('name'),
+            'version': template.get('version'),
+            'description': template.get('description'),
+            'icon': template.get('icon'),
+            'categories': template.get('categories', []),
+            'kind': kind,
+            'source': 'local',
+            'filepath': filepath
+        }
+        # Repo templates surface a minimal repo summary so the catalog grid
+        # can badge them and link to the wizard without a second fetch.
+        if kind == 'repo' and isinstance(template.get('repo'), dict):
+            repo = template['repo']
+            entry['repo'] = {
+                'url': repo.get('url'),
+                'branch': repo.get('branch', 'main'),
+            }
+        # A database engine declares itself with a top-level `engine:` block.
+        # This listing is a fixed projection, so without carrying the block
+        # through, the Databases catalog could never see an engine without
+        # re-parsing every YAML file.
+        engine = cls.engine_metadata(template)
+        if engine:
+            entry['engine'] = engine
+        return entry
 
     @classmethod
     def list_engine_templates(cls) -> List[Dict]:
