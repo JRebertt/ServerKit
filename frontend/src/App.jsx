@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
+import { rememberRedirect } from './utils/redirectAfterLogin';
 import { Toaster } from './components/ui/sonner';
 import ThemeSync from './components/ThemeSync';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -214,6 +215,7 @@ function DevOnlyRoute({ children }) {
 
 function PrivateRoute({ children }) {
     const { isAuthenticated, loading, needsSetup, needsMigration } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return <AppLoader />;
@@ -228,7 +230,14 @@ function PrivateRoute({ children }) {
         return <Navigate to="/setup" />;
     }
 
-    return isAuthenticated ? children : <Navigate to="/login" />;
+    if (isAuthenticated) return children;
+
+    // Park the destination so login can return to it. Deep links into the
+    // panel (?install= from a serverkit.ai badge, a shared /servers/:id) are
+    // routinely opened without a session, and landing on the dashboard with
+    // no explanation is the worst version of that.
+    rememberRedirect(location);
+    return <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }) {
