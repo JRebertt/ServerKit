@@ -28,6 +28,23 @@ export function useTableViews({ page, builtinViews = [], capture, apply }) {
     ];
     const activeView = allViews.find((v) => keyOf(v) === activeKey) || null;
 
+    // Dirty tracking: is the live table state different from the active view's
+    // saved state? Key-order-agnostic, and hiddenKeys compares as a set (its
+    // order is meaningless). Sorts stay order-sensitive — order IS priority.
+    const normalize = (state) => {
+        if (!state || typeof state !== 'object') return {};
+        const out = {};
+        for (const key of Object.keys(state).sort()) {
+            const value = state[key];
+            if (value === undefined) continue;
+            out[key] = key === 'hiddenKeys' && Array.isArray(value) ? [...value].sort() : value;
+        }
+        return out;
+    };
+    const isDirty = !!activeView && (
+        JSON.stringify(normalize(capture())) !== JSON.stringify(normalize(activeView.state))
+    );
+
     useEffect(() => {
         if (!page) { setLoading(false); return undefined; }
         let cancelled = false;
@@ -98,16 +115,23 @@ export function useTableViews({ page, builtinViews = [], capture, apply }) {
         if (activeKey === keyOf(view)) setActiveKey(null);
     }, [activeKey]);
 
+    // Re-apply the active view's saved state (discards live tweaks).
+    const resetView = useCallback(() => {
+        if (activeView) applyView(activeView);
+    }, [activeView, applyView]);
+
     return {
         builtinViews: allViews.filter((v) => v.builtin),
         userViews,
         activeView,
+        isDirty,
         loading,
         applyView,
         saveView,
         updateActiveView,
         toggleDefault,
         removeView,
+        resetView,
     };
 }
 

@@ -15,8 +15,8 @@ import { useToast } from '@/contexts/ToastContext';
 //   <ViewMenu views={views} />
 export function ViewMenu({ views, className }) {
     const {
-        builtinViews, userViews, activeView,
-        applyView, saveView, updateActiveView, toggleDefault, removeView,
+        builtinViews, userViews, activeView, isDirty,
+        applyView, saveView, updateActiveView, toggleDefault, removeView, resetView,
     } = views;
     const toast = useToast();
     const [open, setOpen] = useState(false);
@@ -108,6 +108,7 @@ export function ViewMenu({ views, className }) {
                 >
                     <LayoutList aria-hidden="true" />
                     {activeView ? activeView.name : 'Views'}
+                    {isDirty && <span className="sk-viewmenu__dot" title="Modified — not saved to this view" />}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="sk-tablemenu sk-viewmenu">
@@ -125,10 +126,15 @@ export function ViewMenu({ views, className }) {
                 ) : (
                     <div className="sk-tablemenu__list">{userViews.map(row)}</div>
                 )}
-                {activeView && !activeView.builtin && (
+                {isDirty && activeView && (
                     <div className="sk-viewmenu__update">
-                        <Button variant="ghost" size="sm" onClick={handleUpdate}>
-                            Update &ldquo;{activeView.name}&rdquo; with current state
+                        {!activeView.builtin && (
+                            <Button variant="ghost" size="sm" onClick={handleUpdate}>
+                                Update &ldquo;{activeView.name}&rdquo; with changes
+                            </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={resetView}>
+                            Reset to saved
                         </Button>
                     </div>
                 )}
