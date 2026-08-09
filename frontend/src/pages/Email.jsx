@@ -14,13 +14,15 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { useTableSort } from '../hooks/useTableSort';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
 
 const VALID_TABS = ['overview', 'domains', 'accounts', 'relay', 'spam', 'webmail', 'queue'];
 
@@ -197,15 +199,18 @@ function OverviewTab({ status, installed, onChange }) {
     });
 
     const serviceColumns = [
-        { key: 'component', header: 'Component', render: (r) => r.name },
+        { key: 'component', header: 'Component', sortable: true, hideable: false, sortValue: (r) => r.name, render: (r) => r.name },
         {
             key: 'state',
             header: 'State',
+            sortable: true,
+            sortValue: (r) => (r.running ? 1 : 0),
             render: (r) => <Pill kind={r.running ? 'green' : 'red'}>{r.running ? 'Running' : 'Stopped'}</Pill>,
         },
         {
             key: 'actions',
             header: '',
+            hideable: false,
             className: 'sk-email__actions-col',
             cellClassName: 'sk-email__actions-cell',
             render: (r) => (
@@ -234,7 +239,8 @@ function OverviewTab({ status, installed, onChange }) {
                 columns={serviceColumns}
                 data={serviceRows}
                 keyField="id"
-                sortable={false}
+                storageKey="serverkit-table-email-components"
+                footer={<DataTableFooter shown={serviceRows.length} total={serviceRows.length} noun="service" />}
                 emptyState={<div className="sk-email__empty">No service components reported.</div>}
             />
         </section>
@@ -379,6 +385,8 @@ function AccountsTab({ domains }) {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [form, setForm] = useState({ username: '', password: '', quota_mb: 1024 });
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-accounts-sort' });
+    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-accounts-cols' });
 
     const load = useCallback(async () => {
         if (!domainId) { setAccounts([]); return; }
@@ -432,16 +440,32 @@ function AccountsTab({ domains }) {
     }, [accounts, search]);
 
     const accountColumns = [
-        { key: 'email', header: 'Address', render: (a) => <span className="sk-email__mono">{a.email}</span> },
-        { key: 'quota', header: 'Quota', render: (a) => `${a.quota_used_mb ?? 0} / ${a.quota_mb ?? 0} MB` },
+        {
+            key: 'email',
+            header: 'Address',
+            sortable: true,
+            hideable: false,
+            sortValue: (a) => a.email || '',
+            render: (a) => <span className="sk-email__mono">{a.email}</span>,
+        },
+        {
+            key: 'quota',
+            header: 'Quota',
+            sortable: true,
+            sortValue: (a) => a.quota_mb ?? 0,
+            render: (a) => `${a.quota_used_mb ?? 0} / ${a.quota_mb ?? 0} MB`,
+        },
         {
             key: 'state',
             header: 'State',
+            sortable: true,
+            sortValue: (a) => (a.is_active ? 1 : 0),
             render: (a) => <Pill kind={a.is_active ? 'green' : 'gray'}>{a.is_active ? 'Active' : 'Disabled'}</Pill>,
         },
         {
             key: 'actions',
             header: '',
+            hideable: false,
             className: 'sk-email__actions-col',
             cellClassName: 'sk-email__actions-cell',
             render: (a) => (
@@ -482,6 +506,15 @@ function AccountsTab({ domains }) {
                         aria-label="Search accounts"
                     />
                 </label>
+                <div className="sk-email__tabletools">
+                    <SortMenu columns={accountColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={accountColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
+                </div>
             </div>
 
             <form className="sk-email__add" onSubmit={create}>
@@ -512,8 +545,11 @@ function AccountsTab({ domains }) {
                 columns={accountColumns}
                 data={filtered}
                 keyField="id"
-                sortable={false}
+                sorts={sorts}
+                onSortsChange={setSorts}
+                hiddenKeys={hiddenKeys}
                 loading={loading}
+                footer={<DataTableFooter shown={filtered.length} total={accounts.length} noun="account" />}
                 emptyState={(
                     <div className="sk-email__empty">
                         {accounts.length === 0 ? 'No accounts in this domain.' : 'No accounts match this search.'}
@@ -717,6 +753,8 @@ function QueueTab() {
     const [queue, setQueue] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-queue-sort' });
+    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-queue-cols' });
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -761,13 +799,21 @@ function QueueTab() {
     });
 
     const queueColumns = [
-        { key: 'id', header: 'ID', render: (item) => <span className="sk-email__mono">{item.id || item.queue_id}</span> },
-        { key: 'sender', header: 'Sender', render: (item) => item.sender || '-' },
-        { key: 'recipient', header: 'Recipient', render: (item) => item.recipient || '-' },
-        { key: 'size', header: 'Size', render: (item) => item.size || '-' },
+        {
+            key: 'id',
+            header: 'ID',
+            sortable: true,
+            hideable: false,
+            sortValue: (item) => item.id || item.queue_id || '',
+            render: (item) => <span className="sk-email__mono">{item.id || item.queue_id}</span>,
+        },
+        { key: 'sender', header: 'Sender', sortable: true, sortValue: (item) => item.sender || null, render: (item) => item.sender || '-' },
+        { key: 'recipient', header: 'Recipient', sortable: true, sortValue: (item) => item.recipient || null, render: (item) => item.recipient || '-' },
+        { key: 'size', header: 'Size', sortable: true, sortValue: (item) => item.size ?? null, render: (item) => item.size || '-' },
         {
             key: 'actions',
             header: '',
+            hideable: false,
             className: 'sk-email__actions-col',
             cellClassName: 'sk-email__actions-cell',
             render: (item) => (
@@ -793,6 +839,15 @@ function QueueTab() {
                         aria-label="Search mail queue"
                     />
                 </label>
+                <div className="sk-email__tabletools">
+                    <SortMenu columns={queueColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={queueColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
+                </div>
                 <div className="sk-email__actions">
                     <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
                     <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
@@ -803,8 +858,11 @@ function QueueTab() {
                 columns={queueColumns}
                 data={filtered}
                 keyField={(item) => item.id || item.queue_id}
-                sortable={false}
+                sorts={sorts}
+                onSortsChange={setSorts}
+                hiddenKeys={hiddenKeys}
                 loading={loading}
+                footer={<DataTableFooter shown={filtered.length} total={queue.length} noun="message" />}
                 emptyState={(
                     <div className="sk-email__empty">
                         <Inbox size={24} aria-hidden="true" />

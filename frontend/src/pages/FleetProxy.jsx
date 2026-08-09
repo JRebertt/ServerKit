@@ -95,14 +95,26 @@ const FleetProxy = () => {
 
     // No KPI band and no page title: every tile it held was a re-count of a
     // column already on the table below, and the tab strip names the page.
+    // Sorting is safe with the renderRow escape hatch below (DataTable sorts
+    // the data before rows render; headers still come from `columns`). Column
+    // visibility is not — renderRow always emits every <td>, so hiding a
+    // header would misalign the body — so no storageKey/ColumnsMenu here.
     const columns = [
-        { key: 'server', header: 'Server' },
-        { key: 'type', header: 'Proxy type' },
-        { key: 'status', header: 'Status' },
-        { key: 'apps', header: 'Apps' },
-        { key: 'recommendation', header: 'Recommendation' },
-        { key: 'lastRegenerated', header: 'Last regenerated' },
-        { key: 'networks', header: 'Networks' },
+        { key: 'server', header: 'Server', sortable: true, sortValue: (row) => row.server_name || '' },
+        { key: 'type', header: 'Proxy type', sortable: true, sortValue: (row) => typeMeta(row.proxy_type).label },
+        { key: 'status', header: 'Status', sortable: true, sortValue: (row) => STATUS_LABEL[row.status] || row.status || '' },
+        { key: 'apps', header: 'Apps', sortable: true, sortValue: (row) => row.app_count ?? 0 },
+        { key: 'recommendation', header: 'Recommendation', sortable: true, sortValue: (row) => row.recommendation?.text || null },
+        {
+            key: 'lastRegenerated',
+            header: 'Last regenerated',
+            sortable: true,
+            sortValue: (row) => {
+                const time = Date.parse(row.last_regenerated_at);
+                return Number.isNaN(time) ? null : time;
+            },
+        },
+        { key: 'networks', header: 'Networks', sortable: true, sortValue: (row) => row.networks_count ?? 0 },
         { key: 'actions', header: '', className: 'fleet-proxy__col-actions' },
     ];
 
@@ -117,7 +129,6 @@ const FleetProxy = () => {
                 <div className="fleet-proxy__table">
                     <DataTable
                         loading={loading}
-                        sortable={false}
                         columns={columns}
                         data={rows}
                         keyField="server_id"
