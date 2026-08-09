@@ -24,5 +24,6 @@ export { SortChipBar } from './SortChipBar';
 export { ColumnsMenu } from './ColumnsMenu';
 export { DataTableFooter } from './DataTableFooter';
 export { ViewMenu } from './ViewMenu';
+export { ListToolbar } from './ListToolbar';
 export { ResourceCard, ResourceList } from './ResourceCard';
 export { svcGrad, initials, gaugeColor } from './utils';
