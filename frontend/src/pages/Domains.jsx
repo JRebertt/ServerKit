@@ -505,6 +505,11 @@ const Domains = () => {
                         <EmptyState
                             icon={Globe}
                             title={query ? `No domains match “${search.trim()}”.` : 'No domains match this filter.'}
+                            action={(
+                                <Button variant="outline" onClick={() => { setSearch(''); setFilter('all'); }}>
+                                    Clear filters
+                                </Button>
+                            )}
                         />
                     ) : (
                         <div className="dom-card">

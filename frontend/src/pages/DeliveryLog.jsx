@@ -166,7 +166,15 @@ export default function DeliveryLog() {
                 {loading && deliveries.length === 0 ? (
                     <EmptyState loading loadingVariant="table" title="Loading…" />
                 ) : deliveries.length === 0 ? (
-                    <EmptyState icon={Inbox} title="No deliveries match these filters." />
+                    <EmptyState
+                        icon={Inbox}
+                        title="No deliveries match these filters."
+                        action={(status !== 'all' || channel !== 'all') ? (
+                            <Button variant="outline" onClick={() => { setStatus('all'); setChannel('all'); }}>
+                                Clear filters
+                            </Button>
+                        ) : undefined}
+                    />
                 ) : (
                     <DataTable
                         columns={columns}
