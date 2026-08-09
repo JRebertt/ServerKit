@@ -85,6 +85,8 @@ const Workspaces = () => {
     const columns = [
         {
             key: '__select',
+            sortable: false,
+            hideable: false,
             className: 'wp-list__ck',
             cellClassName: 'wp-list__ck',
             header: (
@@ -116,6 +118,8 @@ const Workspaces = () => {
         {
             key: 'name',
             header: 'Workspace',
+            sortable: true,
+            hideable: false,
             render: (ws) => {
                 const since = formatSince(ws.created_at);
                 return (
@@ -136,13 +140,17 @@ const Workspaces = () => {
                 );
             },
         },
-        { key: 'slug', header: 'Slug', cellClassName: 'sk-cell-mono', render: (ws) => `/${ws.slug}` },
-        { key: 'members', header: 'Members', cellClassName: 'sk-cell-mono', render: (ws) => ws.member_count ?? 0 },
-        { key: 'servers', header: 'Servers', cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
-        { key: 'users', header: 'Users', cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_users > 0 ? ws.max_users : '—') },
+        { key: 'slug', header: 'Slug', sortable: true, cellClassName: 'sk-cell-mono', render: (ws) => `/${ws.slug}` },
+        // Numeric sorts: unlimited (0/unset) sorts last.
+        { key: 'members', header: 'Members', sortable: true, sortValue: (ws) => ws.member_count ?? null, cellClassName: 'sk-cell-mono', render: (ws) => ws.member_count ?? 0 },
+        { key: 'servers', header: 'Servers', sortable: true, sortValue: (ws) => (ws.max_servers > 0 ? ws.max_servers : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
+        { key: 'users', header: 'Users', sortable: true, sortValue: (ws) => (ws.max_users > 0 ? ws.max_users : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_users > 0 ? ws.max_users : '—') },
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            // Matches the pill: the active workspace (and active status) first.
+            sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
             render: (ws) => (
                 activeId === String(ws.id)
                     ? <Pill kind="green">active</Pill>
@@ -152,6 +160,8 @@ const Workspaces = () => {
         {
             key: '__chev',
             header: '',
+            sortable: false,
+            hideable: false,
             className: 'wp-list__action',
             render: () => <ChevronRight size={16} className="wp-list__chev" />,
         },
@@ -162,6 +172,7 @@ const Workspaces = () => {
             className="workspaces-page"
             loading={loading}
             loadingTitle="Loading workspaces"
+            storageKey="serverkit-list-workspaces"
             totalCount={workspaces.length}
             items={shownWorkspaces}
             columns={columns}

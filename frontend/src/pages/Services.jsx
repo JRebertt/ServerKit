@@ -31,6 +31,9 @@ import RequiresDocker from '../components/RequiresDocker';
 
 const STATUS_PILL = { running: 'green', stopped: 'gray', deploying: 'amber', building: 'amber', failed: 'red' };
 
+// Severity order for status sorting — also the page's default row order.
+const STATUS_SORT_ORDER = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
+
 // Sentinels for the move-to-project Select (Radix forbids empty-string values).
 const UNASSIGN = '__unassign__';
 const NO_ENV = '__no_env__';
@@ -112,8 +115,7 @@ const Services = () => {
                 return true;
             })
             .sort((a, b) => {
-                const order = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
-                return (order[a.status] ?? 5) - (order[b.status] ?? 5) || a.name.localeCompare(b.name);
+                return (STATUS_SORT_ORDER[a.status] ?? 5) - (STATUS_SORT_ORDER[b.status] ?? 5) || a.name.localeCompare(b.name);
             });
     }, [apps, searchTerm, statusFilter]);
 
@@ -158,6 +160,8 @@ const Services = () => {
     const columns = [
         {
             key: '__select',
+            sortable: false,
+            hideable: false,
             className: 'wp-list__ck',
             cellClassName: 'wp-list__ck',
             header: (
@@ -182,6 +186,8 @@ const Services = () => {
         {
             key: 'name',
             header: 'Service',
+            sortable: true,
+            hideable: false,
             render: (app) => {
                 const typeInfo = getServiceType(app.app_type);
                 return (
@@ -198,6 +204,9 @@ const Services = () => {
         {
             key: 'project',
             header: 'Project',
+            sortable: true,
+            // Unassigned services (no project) sort last.
+            sortValue: (app) => app.project_name || null,
             render: (app) => (
                 app.project_name ? (
                     <span className="services-page__project">
@@ -249,6 +258,8 @@ const Services = () => {
         {
             key: 'domain',
             header: 'Domain',
+            sortable: true,
+            sortValue: (app) => (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || null,
             cellClassName: 'sk-cell-mono',
             render: (app) => {
                 const primaryDomain = (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || '';
@@ -274,11 +285,17 @@ const Services = () => {
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            // Same severity order as the page's default ordering, not alphabet.
+            sortValue: (app) => STATUS_SORT_ORDER[app.status] ?? 5,
             render: (app) => <Pill kind={STATUS_PILL[app.status] || 'gray'}>{getStatusConfig(app.status).label}</Pill>,
         },
         {
             key: 'last_deploy',
             header: 'Last Deploy',
+            sortable: true,
+            // Numeric timestamp sort; never-deployed services sort last.
+            sortValue: (app) => (app.last_deploy_at ? new Date(app.last_deploy_at).getTime() : null),
             cellClassName: 'sk-cell-mono',
             render: (app) => (
                 app.last_deploy_at ? formatRelativeTime(app.last_deploy_at) : <span className="wp-list__dash">—</span>
@@ -288,6 +305,8 @@ const Services = () => {
             key: '__actions',
             header: '',
             width: 70,
+            sortable: false,
+            hideable: false,
             render: (app) => {
                 const isRunning = app.status === 'running';
                 return (
@@ -318,6 +337,7 @@ const Services = () => {
             className="services-page"
             loading={loading}
             loadingTitle="Loading services..."
+            storageKey="serverkit-list-services"
             totalCount={apps.length}
             items={filteredApps}
             columns={columns}
