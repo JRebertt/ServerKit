@@ -10,7 +10,6 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 
 // Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
 const ACTIVE_KEY = 'active_workspace_id';
@@ -87,41 +86,18 @@ const Workspaces = () => {
 
     const activeCount = workspaces.filter(ws => ws.status === 'active').length;
 
+    const toggleOne = (id, checked) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
+
     // DataTable columns. Interactive cells stop click propagation so they don't
     // trigger the row's navigate.
     const columns = [
-        {
-            key: '__select',
-            sortable: false,
-            hideable: false,
-            className: 'wp-list__ck',
-            cellClassName: 'wp-list__ck',
-            header: (
-                <Checkbox
-                    checked={shownWorkspaces.length > 0 && shownWorkspaces.every(ws => selectedIds.has(ws.id))}
-                    onCheckedChange={(checked) => {
-                        setSelectedIds(checked ? new Set(shownWorkspaces.map(ws => ws.id)) : new Set());
-                    }}
-                    aria-label="Select all workspaces"
-                />
-            ),
-            render: (ws) => (
-                <div onClick={e => e.stopPropagation()}>
-                    <Checkbox
-                        checked={selectedIds.has(ws.id)}
-                        onCheckedChange={(checked) => {
-                            setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (checked) next.add(ws.id);
-                                else next.delete(ws.id);
-                                return next;
-                            });
-                        }}
-                        aria-label={`Select ${ws.name || `workspace ${ws.id}`}`}
-                    />
-                </div>
-            ),
-        },
         {
             key: 'name',
             header: 'Workspace',
@@ -158,6 +134,9 @@ const Workspaces = () => {
             sortable: true,
             // Matches the pill: the active workspace (and active status) first.
             sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
+            groupable: true,
+            groupValue: (ws) => ws.status,
+            groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (ws) => (
                 activeId === String(ws.id)
                     ? <Pill kind="green">active</Pill>
@@ -191,7 +170,10 @@ const Workspaces = () => {
             columns={columns}
             keyField="id"
             onRowClick={(ws) => navigate(`/workspaces/${ws.id}`)}
-            rowClassName={(ws) => (selectedIds.has(ws.id) ? 'is-selected' : '')}
+            selectable
+            selectedIds={selectedIds}
+            onToggleSelect={toggleOne}
+            onSelectAll={(checked) => setSelectedIds(checked ? new Set(shownWorkspaces.map(ws => ws.id)) : new Set())}
             filters={[
                 { value: 'all', label: 'All', count: workspaces.length },
                 { value: 'active', label: 'Active', count: activeCount },

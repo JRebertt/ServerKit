@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
+    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, GroupMenu, ListToolbar, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -114,6 +114,8 @@ const SERVER_COLUMNS = [
         header: 'Status',
         sortable: true,
         sortValue: (server) => server.status || 'pending',
+        groupable: true,
+        groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
         render: (server) => {
             const status = server.status || 'pending';
             return <Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill>;
@@ -158,7 +160,24 @@ const Servers = () => {
     const {
         hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns,
     } = useColumnVisibility({ storageKey: 'serverkit-table-servers-cols' });
+    const [groupBy, setGroupBy] = useState(() => {
+        try {
+            return window.localStorage.getItem('serverkit-table-servers-group') || null;
+        } catch {
+            return null;
+        }
+    });
     const toast = useToast();
+
+    const changeGroupBy = (next) => {
+        setGroupBy(next);
+        try {
+            if (next) window.localStorage.setItem('serverkit-table-servers-group', next);
+            else window.localStorage.removeItem('serverkit-table-servers-group');
+        } catch {
+            /* private mode / quota — the choice just doesn't persist */
+        }
+    };
 
     // Saved views: capture/apply the table chrome state (status filter, group
     // filter, search, sort levels, hidden columns). Every key is guarded so a
@@ -169,7 +188,8 @@ const Servers = () => {
         search: searchTerm,
         sorts,
         hiddenKeys,
-    }), [selectedStatus, selectedGroup, searchTerm, sorts, hiddenKeys]);
+        groupBy,
+    }), [selectedStatus, selectedGroup, searchTerm, sorts, hiddenKeys, groupBy]);
 
     const applyView = useCallback((state) => {
         if (state.status !== undefined) setSelectedStatus(state.status);
@@ -177,6 +197,7 @@ const Servers = () => {
         if (state.search !== undefined) setSearchTerm(state.search);
         if (Array.isArray(state.sorts)) setSorts(state.sorts);
         if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+        if (state.groupBy !== undefined) changeGroupBy(state.groupBy);
     }, [setSorts, setHiddenKeys]);
 
     const tableViews = useTableViews({
@@ -280,6 +301,7 @@ const Servers = () => {
                 tools={(
                     <>
                         <ViewMenu views={tableViews} />
+                        <GroupMenu columns={SERVER_COLUMNS} groupBy={groupBy} onChange={changeGroupBy} />
                         <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
                         <ColumnsMenu
                             columns={SERVER_COLUMNS}
@@ -338,6 +360,9 @@ const Servers = () => {
                     sorts={sorts}
                     onSortsChange={setSorts}
                     hiddenKeys={hiddenKeys}
+                    groupBy={groupBy}
+                    onGroupByChange={changeGroupBy}
+                    keyboardNav
                     onRowClick={(server) => navigate(`/servers/${server.id}`)}
                     rowClassName="servers-row"
                     className="servers-card"

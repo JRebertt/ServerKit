@@ -10,7 +10,6 @@ import { formatBytes } from '../utils/formatBytes';
 import { Pill, ServiceTile, EnvTag, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -137,8 +136,6 @@ const Services = () => {
         [searchTerm]
     );
 
-    const allSelected = filteredApps.length > 0 && filteredApps.every(a => selectedIds.has(a.id));
-
     const toggleOne = (id, checked) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -148,34 +145,9 @@ const Services = () => {
         });
     };
 
-    // DataTable columns. Interactive cells (checkbox, row actions) stop click
+    // DataTable columns. Interactive cells (row actions) stop click
     // propagation so they don't trigger the row's navigate.
     const columns = [
-        {
-            key: '__select',
-            sortable: false,
-            hideable: false,
-            className: 'wp-list__ck',
-            cellClassName: 'wp-list__ck',
-            header: (
-                <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={(checked) => {
-                        setSelectedIds(checked ? new Set(filteredApps.map(a => a.id)) : new Set());
-                    }}
-                    aria-label="Select all services"
-                />
-            ),
-            render: (app) => (
-                <div onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                        checked={selectedIds.has(app.id)}
-                        onCheckedChange={(checked) => toggleOne(app.id, checked)}
-                        aria-label={`Select ${app.name}`}
-                    />
-                </div>
-            ),
-        },
         {
             key: 'name',
             header: 'Service',
@@ -200,6 +172,9 @@ const Services = () => {
             sortable: true,
             // Unassigned services (no project) sort last.
             sortValue: (app) => app.project_name || null,
+            groupable: true,
+            groupValue: (app) => app.project_name || null,
+            groupLabel: (value) => value ?? 'Unassigned',
             render: (app) => (
                 app.project_name ? (
                     <span className="services-page__project">
@@ -281,6 +256,9 @@ const Services = () => {
             sortable: true,
             // Same severity order as the page's default ordering, not alphabet.
             sortValue: (app) => STATUS_SORT_ORDER[app.status] ?? 5,
+            groupable: true,
+            groupValue: (app) => app.status,
+            groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (app) => <Pill kind={STATUS_PILL[app.status] || 'gray'}>{getStatusConfig(app.status).label}</Pill>,
         },
         {
@@ -342,7 +320,10 @@ const Services = () => {
             columns={columns}
             keyField="id"
             onRowClick={(app) => navigate(app.app_type === 'wordpress' ? `/wordpress/${app.id}` : `/services/${app.id}`)}
-            rowClassName={(app) => (selectedIds.has(app.id) ? 'is-selected' : '')}
+            selectable
+            selectedIds={selectedIds}
+            onToggleSelect={toggleOne}
+            onSelectAll={(checked) => setSelectedIds(checked ? new Set(filteredApps.map(a => a.id)) : new Set())}
             filters={[
                 { value: 'all', label: 'All', count: apps.length },
                 { value: 'running', label: 'Running', count: runningCount },
