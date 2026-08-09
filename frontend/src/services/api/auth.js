@@ -184,6 +184,8 @@ export async function getActivityFeed(params = {}) {
     if (params.per_page) searchParams.append('per_page', params.per_page);
     if (params.user_id) searchParams.append('user_id', params.user_id);
     if (params.action) searchParams.append('action', params.action);
+    if (params.target_type) searchParams.append('target_type', params.target_type);
+    if (params.target_id) searchParams.append('target_id', params.target_id);
     if (params.start_date) searchParams.append('start_date', params.start_date);
     if (params.end_date) searchParams.append('end_date', params.end_date);
     const query = searchParams.toString();

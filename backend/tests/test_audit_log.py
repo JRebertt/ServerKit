@@ -160,3 +160,25 @@ def test_explicit_audit_log_suppresses_fallback(app, client):
         log = AuditLog.query.filter_by(action=AuditLog.ACTION_RESOURCE_CREATE).one()
         assert log.target_type == 'explicit_resource'
         assert log.target_id == 7
+
+
+def test_get_logs_filters_by_target_id(app):
+    from app.services.audit_service import AuditService
+
+    with app.app_context():
+        for target_id in (1, 1, 2):
+            AuditService.log(
+                action=AuditLog.ACTION_RESOURCE_UPDATE,
+                user_id=None,
+                target_type='app',
+                target_id=target_id,
+                details={'name': f'app-{target_id}'},
+            )
+
+        page = AuditService.get_logs(target_type='app', target_id=1)
+        assert page.total == 2
+        assert all(log.target_id == 1 for log in page.items)
+
+        # target_type alone still works; an absent target matches nothing
+        assert AuditService.get_logs(target_type='app').total == 3
+        assert AuditService.get_logs(target_type='app', target_id=99).total == 0

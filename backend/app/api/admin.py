@@ -690,6 +690,8 @@ def get_activity_feed():
     per_page = min(request.args.get('per_page', 50, type=int), 100)
     user_id = request.args.get('user_id', type=int)
     action = request.args.get('action')
+    target_type = request.args.get('target_type')
+    target_id = request.args.get('target_id', type=int)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
@@ -698,6 +700,8 @@ def get_activity_feed():
         'per_page': per_page,
         'user_id': user_id,
         'action': action,
+        'target_type': target_type,
+        'target_id': target_id,
     }
 
     if start_date:
