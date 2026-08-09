@@ -14,8 +14,8 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import {
-    DataTable, Drawer, FilterButton, FilterDrawer, KpiBand, MetricCard, Pill,
-    SearchField, Sparkline, countActiveFilters,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, KpiBand,
+    MetricCard, Pill, SearchField, Sparkline, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -201,6 +201,9 @@ export default function Monitors() {
         {
             key: 'name',
             header: 'Monitor',
+            sortable: true,
+            hideable: false,
+            sortValue: (m) => m.name,
             render: (m) => (
                 <div className="sk-cell-name">
                     <span className="mon-ico"><Globe size={15} /></span>
@@ -214,11 +217,14 @@ export default function Monitors() {
         {
             key: 'check_type',
             header: 'Type',
+            sortable: true,
             render: (m) => <span className="mon-type">{m.check_type}</span>,
         },
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            sortValue: (m) => monitorStateOf(m).label,
             render: (m) => {
                 const state = monitorStateOf(m);
                 return <Pill kind={state.tone}>{state.label}</Pill>;
@@ -227,6 +233,8 @@ export default function Monitors() {
         {
             key: 'response',
             header: 'Response',
+            sortable: true,
+            sortValue: (m) => m.last_response_time,
             render: (m) => {
                 if (m.last_response_time == null) return <span className="mon-muted">—</span>;
                 const slow = m.last_response_time > 300;
@@ -250,11 +258,13 @@ export default function Monitors() {
         {
             key: 'uptime_30d',
             header: 'Uptime (30d)',
+            sortable: true,
             render: (m) => <span className="mon-uptime">{formatUptime(m.uptime_30d)}</span>,
         },
         {
             key: 'last_check_at',
             header: 'Last check',
+            sortable: true,
             render: (m) => (
                 <span className="mon-muted">{m.is_paused ? 'paused' : relativeTime(m.last_check_at)}</span>
             ),
@@ -269,6 +279,7 @@ export default function Monitors() {
             header: '',
             className: 'mon-actions-col',
             cellClassName: 'mon-actions-cell',
+            hideable: false,
             render: (m) => (
                 <div className="mon-actions" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => onCheckNow(m)} title="Check now">
@@ -335,12 +346,13 @@ export default function Monitors() {
                 <div className="mon-card">
                     <DataTable
                         tableClassName="sk-dtable monitors-table"
-                        sortable={false}
+                        storageKey="serverkit-table-monitors"
                         data={monitors}
                         keyField="id"
                         columns={columns}
                         onRowClick={(m) => navigate(`/monitoring/monitors/${m.id}`)}
                         rowClassName={(m) => (m.is_paused ? 'is-disabled' : undefined)}
+                        footer={<DataTableFooter shown={monitors.length} total={monitors.length} noun="monitor" />}
                     />
                 </div>
             )}

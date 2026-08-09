@@ -18,10 +18,13 @@ import EmptyState from '../components/EmptyState';
 import UptimeBars from '../components/monitoring/UptimeBars';
 import { monitorStateOf } from '../components/monitoring/monitorShared';
 import {
-    AreaChart, DataTable, KpiBand, MetricCard, Pill, SegControl,
+    AreaChart, ColumnsMenu, DataTable, DataTableFooter, KpiBand, MetricCard,
+    Pill, SegControl, SortMenu,
 } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const POLL_MS = 15000;
 
@@ -73,6 +76,12 @@ export default function MonitorDetail() {
     const [frozen, setFrozen] = useState(null);
     const [busy, setBusy] = useState(false);
     const pollRef = useRef(null);
+    // Sort/column state for the check log lives above the early returns so the
+    // hook order never changes; storageKey keeps the choices across visits.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitor-checks-sort' });
+    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+        storageKey: 'serverkit-table-monitor-checks-cols',
+    });
 
     const load = useCallback(async () => {
         try {
@@ -148,6 +157,39 @@ export default function MonitorDetail() {
             total + Math.round(((100 - (d.uptime ?? 100)) / 100) * 1440)
         ), 0)
         : null;
+
+    const checkColumns = [
+        {
+            key: 'checked_at',
+            header: 'Time',
+            sortable: true,
+            hideable: false,
+            render: (c) => new Date(c.checked_at).toLocaleTimeString(),
+        },
+        {
+            key: 'status',
+            header: 'Result',
+            sortable: true,
+            sortValue: (c) => c.status,
+            render: (c) => (
+                <span className={`mon-code mon-code--${c.status === 'up' ? 'ok' : 'bad'}`}>
+                    {c.status_code ?? c.status}
+                </span>
+            ),
+        },
+        {
+            key: 'response_time',
+            header: 'Latency',
+            sortable: true,
+            render: (c) => (c.response_time == null ? '—' : `${c.response_time} ms`),
+        },
+        {
+            key: 'error',
+            header: 'Detail',
+            cellClassName: 'mon-checkdetail',
+            render: (c) => c.error || `${monitor.check_method || 'GET'} ${monitor.check_target}`,
+        },
+    ];
 
     const act = async (fn, successMessage) => {
         setBusy(true);
@@ -400,6 +442,13 @@ export default function MonitorDetail() {
                             {frozen && newSinceFreeze > 0 && (
                                 <Pill kind="cyan">{newSinceFreeze} new</Pill>
                             )}
+                            <SortMenu columns={checkColumns} sorts={sorts} onChange={setSorts} />
+                            <ColumnsMenu
+                                columns={checkColumns}
+                                hiddenKeys={hiddenKeys}
+                                onToggle={toggleColumn}
+                                onShowAll={showAllColumns}
+                            />
                             <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
                                 {frozen ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Hold</>}
                             </Button>
@@ -407,42 +456,19 @@ export default function MonitorDetail() {
                     </div>
                     <DataTable
                         tableClassName="sk-dtable monitor-checks-table"
-                        sortable={false}
                         data={rows}
                         keyField="id"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
                         rowClassName={(c) => (c.status === 'up' ? undefined : 'is-bad')}
                         emptyState={(
                             <div className="mon-empty">
                                 <p>No checks in this window yet.</p>
                             </div>
                         )}
-                        columns={[
-                            {
-                                key: 'checked_at',
-                                header: 'Time',
-                                render: (c) => new Date(c.checked_at).toLocaleTimeString(),
-                            },
-                            {
-                                key: 'status',
-                                header: 'Result',
-                                render: (c) => (
-                                    <span className={`mon-code mon-code--${c.status === 'up' ? 'ok' : 'bad'}`}>
-                                        {c.status_code ?? c.status}
-                                    </span>
-                                ),
-                            },
-                            {
-                                key: 'response_time',
-                                header: 'Latency',
-                                render: (c) => (c.response_time == null ? '—' : `${c.response_time} ms`),
-                            },
-                            {
-                                key: 'error',
-                                header: 'Detail',
-                                cellClassName: 'mon-checkdetail',
-                                render: (c) => c.error || `${monitor.check_method || 'GET'} ${monitor.check_target}`,
-                            },
-                        ]}
+                        columns={checkColumns}
+                        footer={<DataTableFooter shown={rows.length} total={rows.length} noun="check" />}
                     />
                 </div>
             )}
