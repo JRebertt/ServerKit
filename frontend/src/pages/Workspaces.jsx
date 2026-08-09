@@ -173,6 +173,12 @@ const Workspaces = () => {
             loading={loading}
             loadingTitle="Loading workspaces"
             storageKey="serverkit-list-workspaces"
+            viewPageKey="workspaces"
+            builtinViews={[
+                { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
+                { name: 'Inactive', state: { filter: 'inactive', search: '', sorts: [], hiddenKeys: [] } },
+                { name: 'Most members', state: { filter: 'all', search: '', sorts: [{ key: 'members', direction: 'desc' }], hiddenKeys: [] } },
+            ]}
             totalCount={workspaces.length}
             items={shownWorkspaces}
             columns={columns}

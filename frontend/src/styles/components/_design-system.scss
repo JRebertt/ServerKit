@@ -643,6 +643,107 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 }
 
 // ------------------------------------------------------------
+// ViewMenu — saved-view picker. Reuses the .sk-tablemenu popover chrome and
+// adds view rows (apply / default-star / delete) plus the save-current form.
+// ------------------------------------------------------------
+.sk-viewmenu {
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        border-radius: 7px;
+        padding-right: 4px;
+        transition: background 0.12s;
+
+        &:hover { background: var(--surface-2); }
+        &.is-active { background: var(--accent-bg-soft); }
+    }
+
+    &__apply {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 8px;
+        border: none;
+        background: none;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        .is-active & { color: var(--accent-bright); font-weight: 550; }
+        svg { flex-shrink: 0; }
+    }
+
+    &__name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__star,
+    &__delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+        opacity: 0;
+        transition: 0.12s;
+
+        .sk-viewmenu__row:hover & { opacity: 1; }
+        &:hover { background: var(--surface); color: var(--text); }
+    }
+
+    // The default star stays visible even when the row isn't hovered.
+    &__star.is-on {
+        opacity: 1;
+        color: var(--amber);
+        fill: var(--amber);
+    }
+
+    &__update {
+        padding: 6px 2px 2px;
+        border-top: 1px solid var(--border-soft);
+        margin-top: 4px;
+    }
+
+    &__save {
+        display: flex;
+        gap: 8px;
+        padding-top: 8px;
+        margin-top: 4px;
+        border-top: 1px solid var(--border-soft);
+
+        input {
+            flex: 1;
+            min-width: 0;
+            height: 30px;
+            padding: 0 10px;
+            background: var(--surface-2);
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12.5px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.14s;
+
+            &::placeholder { color: var(--text-faint); }
+            &:focus { border-color: var(--accent-dim); }
+        }
+    }
+}
+
+// ------------------------------------------------------------
 // Floating bulk-actions pill — appears only while rows are selected
 // (Frappe ListSelectBanner style), instead of a permanent toolbar row.
 // ------------------------------------------------------------

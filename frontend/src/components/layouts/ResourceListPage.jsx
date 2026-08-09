@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter } from '@/components/ds';
+import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 
 // Shared chrome for resource list pages (Services, Servers, …): the status
 // filter + search toolbar, sort & column menus, the DataTable with a standard
@@ -43,6 +44,11 @@ export default function ResourceListPage({
     sortable = true,
     // Optional localStorage namespace for sort / column / page-size choices.
     storageKey,
+    // Saved views: pass the page's view key (e.g. 'services') plus any built-in
+    // views to grow a Views menu in the toolbar. A view state is
+    // { filter, search, sorts, hiddenKeys, pageSize } — all keys optional.
+    viewPageKey,
+    builtinViews = [],
     // optional content rendered inside the wrapper, above the toolbar/empty
     // state (e.g. a one-time credentials banner)
     header,
@@ -86,7 +92,7 @@ export default function ResourceListPage({
     const { sorts, setSorts } = useTableSort({
         storageKey: storageKey ? `${storageKey}-sort` : undefined,
     });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
         storageKey: storageKey ? `${storageKey}-cols` : undefined,
     });
     const [pageSize, setPageSize] = useState(() => {
@@ -123,6 +129,34 @@ export default function ResourceListPage({
         () => (pageSize === 'all' ? items : items.slice(0, pageSize)),
         [items, pageSize],
     );
+
+    // Saved views: capture/apply the full table chrome state (status filter,
+    // search, sort levels, hidden columns, page size). The filter and search
+    // values themselves are owned by the page — apply() routes through its
+    // setters so a view can drive them.
+    const captureView = useCallback(() => ({
+        filter: activeFilter,
+        search: searchTerm,
+        sorts,
+        hiddenKeys,
+        pageSize,
+    }), [activeFilter, searchTerm, sorts, hiddenKeys, pageSize]);
+
+    const applyView = useCallback((state) => {
+        if (state.filter !== undefined) onFilterChange?.(state.filter);
+        if (state.search !== undefined) onSearchChange?.(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+        if (state.pageSize !== undefined) changePageSize(state.pageSize);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onFilterChange, onSearchChange, setSorts, setHiddenKeys]);
+
+    const tableViews = useTableViews({
+        page: viewPageKey,
+        builtinViews,
+        capture: captureView,
+        apply: applyView,
+    });
 
     if (loading) {
         // Same wrapper as the loaded state below. A skeleton that renders
@@ -180,6 +214,7 @@ export default function ResourceListPage({
                         {toolbarExtra}
                         {view === 'list' && (
                             <div className="wp-list__tabletools">
+                                {viewPageKey && <ViewMenu views={tableViews} />}
                                 {sortable && (
                                     <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
                                 )}

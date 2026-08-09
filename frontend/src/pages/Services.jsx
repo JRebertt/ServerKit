@@ -338,6 +338,12 @@ const Services = () => {
             loading={loading}
             loadingTitle="Loading services..."
             storageKey="serverkit-list-services"
+            viewPageKey="services"
+            builtinViews={[
+                { name: 'Running', state: { filter: 'running', search: '', sorts: [], hiddenKeys: [] } },
+                { name: 'Stopped', state: { filter: 'stopped', search: '', sorts: [], hiddenKeys: [] } },
+                { name: 'Recently deployed', state: { filter: 'all', search: '', sorts: [{ key: 'last_deploy', direction: 'desc' }], hiddenKeys: [] } },
+            ]}
             totalCount={apps.length}
             items={filteredApps}
             columns={columns}
