@@ -131,7 +131,13 @@ add Tailwind utility classes, CSS-in-JS, or new inline styles.
   - Forms — `styles/components/_forms.scss` (`.form-group`, `.form-field`,
     `.form-row`, `.error-message`); prefer the `FormField` component.
   - Tables — `.sk-dtable` in `styles/components/_design-system.scss`; prefer the
-    `components/ds/DataTable.jsx` primitive.
+    `components/ds/DataTable.jsx` primitive. Supporting pieces: `ds/SortMenu.jsx`
+    + `ds/ColumnsMenu.jsx` (toolbar popovers), `ds/DataTableFooter.jsx` (standard
+    "Shown X of Y · Load more / page-size" bar), `hooks/useTableSort.js` +
+    `hooks/useColumnVisibility.js` (state, localStorage-persistable via
+    `storageKey`). Columns opt into sorting with `sortable: true` (+ `sortValue`);
+    header click sorts, shift+click stacks sort levels. `ResourceListPage` wires
+    the menus + footer itself — consumer pages only declare column defs.
   - Pills/badges — `.sk-pill`, `.sk-state`, `.sk-tag`.
   - Tokens — `styles/_variables.scss`, `styles/_theme-variables.scss`.
 - **Shared utilities** (reuse before rewrite):
