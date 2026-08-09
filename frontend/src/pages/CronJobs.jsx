@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
     Pill, SegControl, SearchField, DataTable, Drawer,
-    SortMenu, ColumnsMenu, DataTableFooter, ViewMenu,
+    SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar,
 } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -415,24 +415,28 @@ const CronJobs = () => {
                 <div className="cron-body">
                     {/* No KPI strip: every number it carried is already on the
                         segment you'd click to act on it (mirrors /domains). */}
-                    <div className="cron-listhead">
-                        <h2 className="cron-listhead__title">All jobs</h2>
-                        <div className="cron-listhead__right">
-                            {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
-                            <span className="cron-listhead__count">
+                    <ListToolbar
+                        title="All jobs"
+                        filters={<SegControl value={filter} onChange={setFilter} options={filterOptions} />}
+                        count={(
+                            <>
+                                {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
                                 {shown.length} of {jobs.length} jobs
-                            </span>
-                            <SegControl value={filter} onChange={setFilter} options={filterOptions} />
-                            <ViewMenu views={tableViews} />
-                            <SortMenu columns={jobColumns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={jobColumns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
-                            />
-                        </div>
-                    </div>
+                            </>
+                        )}
+                        tools={(
+                            <>
+                                <ViewMenu views={tableViews} />
+                                <SortMenu columns={jobColumns} sorts={sorts} onChange={setSorts} />
+                                <ColumnsMenu
+                                    columns={jobColumns}
+                                    hiddenKeys={hiddenKeys}
+                                    onToggle={toggleColumn}
+                                    onShowAll={showAllColumns}
+                                />
+                            </>
+                        )}
+                    />
 
                     {shown.length === 0 ? (
                         <div className="cron-empty">
@@ -820,7 +824,7 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
             title={job ? 'Edit cron job' : 'New cron job'}
             subtitle={job ? job.name : 'Schedule a command on this server'}
             icon={<Clock size={18} />}
-            width={600}
+            width={640}
             className="cron-form-drawer"
         >
             <form className="cron-form" onSubmit={submit}>

@@ -15,7 +15,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import FleetAlertsPanel from '../components/monitoring/FleetAlertsPanel';
-import { Drawer, KpiBand, MetricCard, Pill, SegControl } from '@/components/ds';
+import { Drawer, KpiBand, ListToolbar, MetricCard, Pill, SegControl } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
@@ -220,12 +220,10 @@ export default function Incidents() {
                 />
             </KpiBand>
 
-            <div className="incidents-listhead">
-                <SegControl value={filter} onChange={setFilter} options={FILTERS} />
-                <span className="incidents-listhead__meta">
-                    {shown.length} shown · monitor outages and host threshold alerts
-                </span>
-            </div>
+            <ListToolbar
+                filters={<SegControl value={filter} onChange={setFilter} options={FILTERS} />}
+                count={<>{shown.length} shown · monitor outages and host threshold alerts</>}
+            />
 
             {shown.length === 0 ? (
                 <EmptyState

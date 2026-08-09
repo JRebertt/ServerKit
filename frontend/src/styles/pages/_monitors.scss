@@ -86,12 +86,6 @@
         }
     }
 
-    .mon-empty {
-        padding: 26px 18px;
-        font-size: 13px;
-        color: var(--text-faint);
-    }
-
     // Check result code chip (200 / down / ok).
     .mon-code {
         display: inline-flex;
@@ -384,21 +378,6 @@
 
 // ── incidents ───────────────────────────────────────────────
 .incidents-page {
-
-    .incidents-listhead {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin: 18px 0 14px;
-    }
-
-    .incidents-listhead__meta {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--text-faint);
-    }
 
     .incidents-list {
         background: var(--bg-card, var(--surface-1));

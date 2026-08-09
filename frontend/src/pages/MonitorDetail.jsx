@@ -463,9 +463,10 @@ export default function MonitorDetail() {
                         hiddenKeys={hiddenKeys}
                         rowClassName={(c) => (c.status === 'up' ? undefined : 'is-bad')}
                         emptyState={(
-                            <div className="mon-empty">
-                                <p>No checks in this window yet.</p>
-                            </div>
+                            <EmptyState
+                                icon={Activity}
+                                title="No checks in this window yet."
+                            />
                         )}
                         columns={checkColumns}
                         footer={<DataTableFooter shown={rows.length} total={rows.length} noun="check" />}

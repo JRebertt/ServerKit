@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Pill, SearchField, SegControl, DataTable, SortMenu, ColumnsMenu, SortChipBar, DataTableFooter,
+    ListToolbar,
 } from '@/components/ds';
 import BackupsOverview from '../components/backups/BackupsOverview';
 import SchedulesTable from '../components/backups/SchedulesTable';
@@ -596,31 +597,35 @@ const Backups = () => {
                 <>
                     {/* Search lives in the top bar with every other list page;
                         the segments carry the counts. */}
-                    <div className="bk-listhead">
-                        <SegControl
-                            value={filterType}
-                            onChange={setFilterType}
-                            options={[
-                                { value: 'all', label: 'All', count: searchedBackups.length },
-                                { value: 'application', label: 'Applications', count: searchedBackups.filter(b => b.type === 'application').length },
-                                { value: 'database', label: 'Databases', count: searchedBackups.filter(b => b.type === 'database').length },
-                                { value: 'files', label: 'Files', count: searchedBackups.filter(b => b.type === 'files').length },
-                            ]}
-                        />
-                        <div className="bk-listhead__right">
-                            <SortMenu columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={snapshotColumns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
+                    <ListToolbar
+                        filters={(
+                            <SegControl
+                                value={filterType}
+                                onChange={setFilterType}
+                                options={[
+                                    { value: 'all', label: 'All', count: searchedBackups.length },
+                                    { value: 'application', label: 'Applications', count: searchedBackups.filter(b => b.type === 'application').length },
+                                    { value: 'database', label: 'Databases', count: searchedBackups.filter(b => b.type === 'database').length },
+                                    { value: 'files', label: 'Files', count: searchedBackups.filter(b => b.type === 'files').length },
+                                ]}
                             />
-                            <Button size="sm" variant="outline" onClick={loadData}>
-                                <RefreshCw size={14} />
-                                Refresh
-                            </Button>
-                        </div>
-                    </div>
+                        )}
+                        tools={(
+                            <>
+                                <SortMenu columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
+                                <ColumnsMenu
+                                    columns={snapshotColumns}
+                                    hiddenKeys={hiddenKeys}
+                                    onToggle={toggleColumn}
+                                    onShowAll={showAllColumns}
+                                />
+                                <Button size="sm" variant="outline" onClick={loadData}>
+                                    <RefreshCw size={14} />
+                                    Refresh
+                                </Button>
+                            </>
+                        )}
+                    />
                     <SortChipBar columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
                     {backups.length === 0 ? (
                         <EmptyState
@@ -630,11 +635,12 @@ const Backups = () => {
                             action={<Button onClick={() => setShowBackupModal(true)}>Create Backup</Button>}
                         />
                     ) : filteredBackups.length === 0 ? (
-                        <div className="bk-empty">
-                            {search.trim()
+                        <EmptyState
+                            icon={FileArchive}
+                            title={search.trim()
                                 ? `No snapshots match “${search.trim()}”.`
                                 : 'No snapshots match the current filter.'}
-                        </div>
+                        />
                     ) : (
                         <div className="bk-card">
                             <DataTable
