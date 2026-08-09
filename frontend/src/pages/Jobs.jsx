@@ -16,10 +16,13 @@ import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock } from 'lucide-r
 import api from '../services/api';
 import {
     MetricCard, KpiBand, Pill, DataTable, DataTableFooter, SegControl,
-    SearchField, FilterDrawer, FilterButton, countActiveFilters,
+    SearchField, FilterDrawer, FilterButton, ViewMenu, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/timeAgo';
@@ -29,6 +32,15 @@ const titleCase = (value = '') => value.charAt(0).toUpperCase() + value.slice(1)
 const STATUSES = ['all', 'queued', 'running', 'succeeded', 'failed', 'cancelled'];
 const PAGE_SIZE = 50;
 const POLL_MS = 5000;
+
+// Built-in saved views. State shape: { filters, sorts, hiddenKeys } — `filters`
+// is the FilterDrawer's value (status/kind, '' = all), `sorts` use real column
+// keys. A Scheduled/Activity view is NOT expressible here: that switch lives in
+// the URL-driven SegControl, and the drawer's kind options come from the API.
+const BUILTIN_VIEWS = [
+    { name: 'Failed', state: { filters: { status: 'failed', kind: '' } } },
+    { name: 'Newest first', state: { sorts: [{ key: 'when', direction: 'desc' }] } },
+];
 
 // Map a job status to a DS Pill colour.
 const STATUS_KIND = {
@@ -87,6 +99,48 @@ export default function Jobs() {
     const [loading, setLoading] = useState(true);
     const pollRef = useRef(null);
 
+    // Table sort + column visibility, controlled so saved views can drive
+    // them — same localStorage keys the DataTables used when uncontrolled.
+    const { sorts: activitySorts, setSorts: setActivitySorts } = useTableSort({
+        storageKey: 'serverkit-table-jobs-activity-sort',
+    });
+    const { hiddenKeys: activityHidden, setHiddenKeys: setActivityHidden } = useColumnVisibility({
+        storageKey: 'serverkit-table-jobs-activity-cols',
+    });
+    const { sorts: schedSorts, setSorts: setSchedSorts } = useTableSort({
+        storageKey: 'serverkit-table-jobs-scheduled-sort',
+    });
+    const { hiddenKeys: schedHidden } = useColumnVisibility({
+        storageKey: 'serverkit-table-jobs-scheduled-cols',
+    });
+
+    // Saved views: capture the FilterDrawer value plus the activity table's
+    // sort/column state — never the server-side page/offset.
+    const captureViewState = useCallback(() => ({
+        filters,
+        sorts: activitySorts,
+        hiddenKeys: activityHidden,
+    }), [filters, activitySorts, activityHidden]);
+    const applyViewState = useCallback((state) => {
+        if (state.filters !== undefined) {
+            setFilters({ status: '', kind: '', ...state.filters });
+            setPage(0);
+        }
+        if (Array.isArray(state.sorts)) setActivitySorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setActivityHidden(state.hiddenKeys);
+    }, [setActivitySorts, setActivityHidden]);
+    const tableViews = useTableViews({
+        page: 'jobs',
+        builtinViews: BUILTIN_VIEWS,
+        capture: captureViewState,
+        apply: applyViewState,
+    });
+    // Stable primitive for the topbar publish deps: re-publish the ViewMenu
+    // node when the user's views or the active view change.
+    const activeViewKey = tableViews.activeView
+        ? `${tableViews.activeView.builtin ? 'builtin' : 'user'}:${tableViews.activeView.name}`
+        : '';
+
     const load = useCallback(async () => {
         try {
             const params = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
@@ -140,6 +194,7 @@ export default function Jobs() {
             <>
                 {!scheduledView && (
                     <>
+                        <ViewMenu views={tableViews} />
                         <SearchField value={q} onSearch={onSearch} placeholder="Search by kind or owner…" />
                         <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
                     </>
@@ -149,7 +204,7 @@ export default function Jobs() {
                 </Button>
             </>
         );
-    }, [isAdmin, scheduledView, q, activeFilterCount, load]);
+    }, [isAdmin, scheduledView, q, activeFilterCount, load, tableViews.userViews, activeViewKey]);
 
     const onRetry = async (id) => {
         try { await api.retryJob(id); toast.success('Job re-queued'); load(); }
@@ -293,7 +348,9 @@ export default function Jobs() {
                         columns={scheduledColumns}
                         data={scheduled}
                         keyField="id"
-                        storageKey="serverkit-table-jobs-scheduled"
+                        sorts={schedSorts}
+                        onSortsChange={setSchedSorts}
+                        hiddenKeys={schedHidden}
                         loading={loading && scheduled.length === 0}
                         emptyState={(
                             <div className="sk-jobs__empty">
@@ -327,7 +384,9 @@ export default function Jobs() {
                             columns={jobColumns}
                             data={jobs}
                             keyField="id"
-                            storageKey="serverkit-table-jobs-activity"
+                            sorts={activitySorts}
+                            onSortsChange={setActivitySorts}
+                            hiddenKeys={activityHidden}
                             loading={loading && jobs.length === 0}
                             footer={(
                                 <DataTableFooter

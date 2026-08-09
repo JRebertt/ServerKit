@@ -18,12 +18,15 @@ import {
 import api from '../services/api';
 import {
     DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, KpiBand,
-    MetricCard, Pill, SearchField, countActiveFilters,
+    MetricCard, Pill, SearchField, ViewMenu, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
@@ -55,6 +58,15 @@ const EMPTY_FILTERS = {
     end_date: '',
 };
 
+// Built-in saved views. State shape: { filters, sorts, hiddenKeys } —
+// `filters` is the FilterDrawer's value (merged over EMPTY_FILTERS on apply),
+// `sorts` use real column keys.
+const BUILTIN_VIEWS = [
+    { name: 'Errors', state: { filters: { severity: 'error' } } },
+    { name: 'Warnings', state: { filters: { severity: 'warning' } } },
+    { name: 'Newest first', state: { sorts: [{ key: 'timestamp', direction: 'desc' }] } },
+];
+
 export default function Telemetry() {
     const { isAdmin } = useAuth();
     const { showToast } = useToast();
@@ -70,6 +82,31 @@ export default function Telemetry() {
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [q, setQ] = useState('');
+
+    // Table sort + column visibility, controlled so saved views can drive
+    // them — same localStorage keys the DataTable used when uncontrolled.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-telemetry-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-telemetry-cols' });
+
+    // Saved views: capture the FilterDrawer value plus sort/column state —
+    // never the load-more page or the detail drawer.
+    const captureViewState = useCallback(() => ({ filters, sorts, hiddenKeys }), [filters, sorts, hiddenKeys]);
+    const applyViewState = useCallback((state) => {
+        if (state.filters !== undefined) setFilters({ ...EMPTY_FILTERS, ...state.filters });
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+    const tableViews = useTableViews({
+        page: 'telemetry',
+        builtinViews: BUILTIN_VIEWS,
+        capture: captureViewState,
+        apply: applyViewState,
+    });
+    // Stable primitive for the topbar publish deps: re-publish the ViewMenu
+    // node when the user's views or the active view change.
+    const activeViewKey = tableViews.activeView
+        ? `${tableViews.activeView.builtin ? 'builtin' : 'user'}:${tableViews.activeView.name}`
+        : '';
 
     const loadStats = useCallback(async () => {
         try {
@@ -155,6 +192,7 @@ export default function Telemetry() {
     // the way every other list page in the panel does it.
     useTopbarActions(() => (
         <>
+            <ViewMenu views={tableViews} />
             <SearchField value={q} onSearch={(value) => setQ(value.trim())} placeholder="Search messages…" />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
             {isAdmin && (
@@ -171,7 +209,7 @@ export default function Telemetry() {
                 <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
             </Button>
         </>
-    ), [q, activeFilterCount, isAdmin, loading, fetchEvents]);
+    ), [q, activeFilterCount, isAdmin, loading, fetchEvents, tableViews.userViews, activeViewKey]);
 
     const setSeverityQuick = (severity) => {
         setFilters((f) => ({ ...f, severity: f.severity === severity ? '' : severity }));
@@ -344,9 +382,11 @@ export default function Telemetry() {
                 <>
                     <DataTable
                         tableClassName="sk-dtable telemetry-table"
-                        storageKey="serverkit-table-telemetry"
                         data={events}
                         keyField="id"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
                         loading={loading && events.length === 0}
                         onRowClick={setSelectedEvent}
                         rowClassName={(event) => `is-${event.severity}`}
