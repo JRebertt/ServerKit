@@ -561,6 +561,88 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 }
 
 // ------------------------------------------------------------
+// SortChipBar — active-sort chips above the table (Twenty style). Renders
+// nothing when no sort is active, so the bar never sits empty.
+// ------------------------------------------------------------
+.sk-sortchips {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    padding: 8px 2px 0;
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 24px;
+        padding-left: 9px;
+        border-radius: 999px;
+        background: var(--accent-bg-soft);
+        border: 1px solid var(--accent-dim);
+        color: var(--accent-bright);
+        font-size: 12px;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    &__priority {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        opacity: 0.8;
+        margin-right: 2px;
+    }
+
+    &__body {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 100%;
+        padding: 0 4px 0 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font-size: inherit;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    &__label { font-weight: 550; }
+
+    &__remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin-right: 3px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        opacity: 0.7;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { opacity: 1; background: var(--accent-bg); }
+    }
+
+    &__reset {
+        border: none;
+        background: none;
+        padding: 0 4px;
+        color: var(--text-faint);
+        font-size: 12px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: color 0.12s;
+
+        &:hover { color: var(--text); }
+    }
+}
+
+// ------------------------------------------------------------
 // Floating bulk-actions pill — appears only while rows are selected
 // (Frappe ListSelectBanner style), instead of a permanent toolbar row.
 // ------------------------------------------------------------

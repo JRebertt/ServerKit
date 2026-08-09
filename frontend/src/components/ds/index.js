@@ -20,6 +20,7 @@ export {
 export { PageTopbar } from './PageTopbar';
 export { DataTable } from './DataTable';
 export { SortMenu } from './SortMenu';
+export { SortChipBar } from './SortChipBar';
 export { ColumnsMenu } from './ColumnsMenu';
 export { DataTableFooter } from './DataTableFooter';
 export { ResourceCard, ResourceList } from './ResourceCard';

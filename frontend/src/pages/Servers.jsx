@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortMenu,
+    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortChipBar, SortMenu,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -258,6 +258,8 @@ const Servers = () => {
                     onShowAll={showAllColumns}
                 />
             </div>
+
+            <SortChipBar columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
 
             {filteredServers.length === 0 ? (
                 <EmptyState

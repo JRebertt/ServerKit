@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
+import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -209,6 +209,10 @@ export default function ResourceListPage({
                             </div>
                         )}
                     </div>
+
+                    {view === 'list' && (
+                        <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
+                    )}
 
                     {items.length === 0 ? (
                         <EmptyState
