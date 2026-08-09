@@ -862,21 +862,15 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     flex-direction: column;
     padding: $space-4;
 
-    &__toolbar {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-        flex-wrap: wrap;
-        margin-bottom: $space-3;
-    }
+    // The toolbar row is the shared .sk-listhead (ResourceListPage renders
+    // ListToolbar); only the search fallback and the layout switch stay here.
 
-    // Client-side search (name / status / …): leading icon + borderless field
-    // on a quiet surface. Claims the free space so trailing controls right-align.
+    // In-page search fallback — used when a page does NOT publish its search
+    // into the shared topbar (extensions outside a tab group).
     &__search {
         display: inline-flex;
         align-items: center;
         gap: $space-2;
-        margin-left: auto;
         padding: 0 10px;
         width: 240px;
         max-width: 100%;
@@ -904,18 +898,8 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         }
     }
 
-    // Sort / Columns menus, ahead of the layout switch.
-    &__tabletools {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
-
-        // Pages without a search field still right-align the table tools.
-        &:first-child { margin-left: auto; }
-    }
-
     // Table/cards switch — only rendered by pages that pass a card renderer.
+    // Lives in the ListToolbar tools slot.
     &__viewswitch {
         display: flex;
         gap: 2px;

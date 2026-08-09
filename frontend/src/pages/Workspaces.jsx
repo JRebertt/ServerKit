@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import Modal from '@/components/Modal';
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import { LayoutGrid, Plus, ChevronRight } from 'lucide-react';
-import { Pill, ServiceTile } from '@/components/ds';
+import { Pill, ServiceTile, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,11 +51,18 @@ const Workspaces = () => {
     useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
 
     useTopbarActions(() => (
-        <Button size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus size={16} />
-            New Workspace
-        </Button>
-    ), []);
+        <>
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+                <Plus size={16} />
+                New Workspace
+            </Button>
+            <SearchField
+                value={search}
+                onSearch={setSearch}
+                placeholder="Search workspaces…"
+            />
+        </>
+    ), [search]);
 
     const handleCreate = async () => {
         try {
@@ -195,6 +202,7 @@ const Workspaces = () => {
             searchTerm={search}
             onSearchChange={setSearch}
             searchPlaceholder="Search workspaces…"
+            searchInTopbar
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             emptyIcon={LayoutGrid}

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
+import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -59,6 +59,11 @@ export default function ResourceListPage({
     searchTerm,
     onSearchChange,
     searchPlaceholder = 'Search…',
+    // Placement rule: on tab-group pages the search input belongs in the shared
+    // topbar (the page publishes a SearchField there itself); set this flag so
+    // the in-page search slot stays empty. Extensions outside a tab group leave
+    // it off and keep the in-page input.
+    searchInTopbar = false,
     toolbarExtra,
     // bulk actions
     selectedCount = 0,
@@ -191,15 +196,51 @@ export default function ResourceListPage({
                 />
             ) : (
                 <div className="wp-list">
-                    <div className="wp-list__toolbar">
-                        {filters && (
+                    <ListToolbar
+                        filters={filters && (
                             <SegControl
                                 value={activeFilter}
                                 onChange={onFilterChange}
                                 options={filters}
                             />
                         )}
-                        {onSearchChange && (
+                        tools={(
+                            <>
+                                {view === 'list' && (
+                                    <>
+                                        {viewPageKey && <ViewMenu views={tableViews} />}
+                                        {sortable && (
+                                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                                        )}
+                                        <ColumnsMenu
+                                            columns={columns}
+                                            hiddenKeys={hiddenKeys}
+                                            onToggle={toggleColumn}
+                                            onShowAll={showAllColumns}
+                                        />
+                                    </>
+                                )}
+                                {renderCard && (
+                                    <div className="wp-list__viewswitch" role="group" aria-label="Layout">
+                                        {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
+                                            <button
+                                                type="button"
+                                                key={key}
+                                                className={view === key ? 'is-active' : ''}
+                                                onClick={() => changeView(key)}
+                                                title={label}
+                                                aria-label={label}
+                                                aria-pressed={view === key}
+                                            >
+                                                <Icon size={15} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    >
+                        {onSearchChange && !searchInTopbar && (
                             <div className="wp-list__search">
                                 <Search size={15} aria-hidden="true" />
                                 <input
@@ -212,38 +253,7 @@ export default function ResourceListPage({
                             </div>
                         )}
                         {toolbarExtra}
-                        {view === 'list' && (
-                            <div className="wp-list__tabletools">
-                                {viewPageKey && <ViewMenu views={tableViews} />}
-                                {sortable && (
-                                    <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                                )}
-                                <ColumnsMenu
-                                    columns={columns}
-                                    hiddenKeys={hiddenKeys}
-                                    onToggle={toggleColumn}
-                                    onShowAll={showAllColumns}
-                                />
-                            </div>
-                        )}
-                        {renderCard && (
-                            <div className="wp-list__viewswitch" role="group" aria-label="Layout">
-                                {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
-                                    <button
-                                        type="button"
-                                        key={key}
-                                        className={view === key ? 'is-active' : ''}
-                                        onClick={() => changeView(key)}
-                                        title={label}
-                                        aria-label={label}
-                                        aria-pressed={view === key}
-                                    >
-                                        <Icon size={15} />
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    </ListToolbar>
 
                     {view === 'list' && (
                         <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
