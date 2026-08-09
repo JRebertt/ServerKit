@@ -19,14 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import RequiresDocker from '../components/RequiresDocker';
 
 const STATUS_PILL = { running: 'green', stopped: 'gray', deploying: 'amber', building: 'amber', failed: 'red' };
@@ -524,17 +517,27 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Move to project</DialogTitle>
-                    <DialogDescription>
-                        Assign {count} selected service{count === 1 ? '' : 's'} to a project and
-                        environment, or leave them unassigned.
-                    </DialogDescription>
-                </DialogHeader>
+        <Modal
+            open={open}
+            onClose={() => onOpenChange(false)}
+            title="Move to project"
+            footer={(
+                <>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancel
+                    </Button>
+                    <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
+                        {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
+                    </Button>
+                </>
+            )}
+        >
+            <p className="sk-modal__subtitle">
+                Assign {count} selected service{count === 1 ? '' : 's'} to a project and
+                environment, or leave them unassigned.
+            </p>
 
-                <div className="services-move">
+            <div className="services-move">
                     <div className="services-move__field">
                         <Label htmlFor="move-project">Project</Label>
                         <Select value={projectValue} onValueChange={handleProjectChange} disabled={loadingProjects}>
@@ -567,17 +570,7 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
                         </div>
                     )}
                 </div>
-
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
-                        {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </Modal>
     );
 };
 

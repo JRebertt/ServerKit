@@ -182,7 +182,7 @@ export default function EngineCatalogDrawer({
                 ? 'catalog unavailable'
                 : `${catalog.length} engines · same catalog as Services › Templates`}
             icon={<Layers size={18} aria-hidden="true" />}
-            width={800}
+            width={720}
             className="dbx-drawer"
         >
             <div className="dbx-drawer__shell">

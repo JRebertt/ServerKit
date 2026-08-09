@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '../contexts/ToastContext';
@@ -253,13 +253,9 @@ export default function Vaults() {
                 </Card>
             )}
 
-            <Dialog open={vaultForm.open} onOpenChange={(open) => setVaultForm({ ...vaultForm, open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New Vault</DialogTitle>
-                        <DialogDescription>Create an encrypted vault to group secrets.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={createVault} className="space-y-4">
+            <Modal open={vaultForm.open} onClose={() => setVaultForm({ ...vaultForm, open: false })} title="New Vault">
+                <p className="sk-modal__subtitle">Create an encrypted vault to group secrets.</p>
+                <form onSubmit={createVault} className="space-y-4">
                         <div>
                             <Label htmlFor="vaultName">Name</Label>
                             <Input id="vaultName" value={vaultForm.name} onChange={(e) => setVaultForm({ ...vaultForm, name: e.target.value })} required />
@@ -287,20 +283,15 @@ export default function Vaults() {
                                 </Select>
                             </div>
                         )}
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="submit">Create Vault</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
 
-            <Dialog open={secretForm.open} onOpenChange={(open) => setSecretForm({ ...secretForm, open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Secret</DialogTitle>
-                        <DialogDescription>Add an encrypted secret to {selectedVault?.name}.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={createSecret} className="space-y-4">
+            <Modal open={secretForm.open} onClose={() => setSecretForm({ ...secretForm, open: false })} title="Add Secret">
+                <p className="sk-modal__subtitle">Add an encrypted secret to {selectedVault?.name}.</p>
+                <form onSubmit={createSecret} className="space-y-4">
                         <div>
                             <Label htmlFor="secretName">Name</Label>
                             <Input id="secretName" value={secretForm.name} onChange={(e) => setSecretForm({ ...secretForm, name: e.target.value })} required />
@@ -313,12 +304,11 @@ export default function Vaults() {
                             <Label htmlFor="secretDesc">Description</Label>
                             <Textarea id="secretDesc" value={secretForm.description} onChange={(e) => setSecretForm({ ...secretForm, description: e.target.value })} />
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="submit">Save Secret</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
         </div>
     );
 }

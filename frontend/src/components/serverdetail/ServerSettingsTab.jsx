@@ -7,14 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Pill } from '../ds';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -414,21 +407,37 @@ export const TokenModal = ({ server, onClose, onGenerated }) => {
 Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.registration_token}"` : '';
 
     return (
-        <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Connection String</DialogTitle>
-                    {!result && (
-                        <DialogDescription>
-                            Generate a single pasteable string the agent can consume.
-                            The token inside is single-use — burned the moment any
-                            agent registers with it.
-                        </DialogDescription>
-                    )}
-                </DialogHeader>
+        <Modal
+            open
+            onClose={onClose}
+            title="Connection String"
+            size="lg"
+            footer={!result ? (
+                <>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleGenerate} disabled={generating}>
+                        {generating ? 'Generating…' : 'Generate'}
+                    </Button>
+                </>
+            ) : (
+                <>
+                    <Button variant="outline" onClick={() => setResult(null)}>
+                        Generate another
+                    </Button>
+                    <Button onClick={onClose}>Done</Button>
+                </>
+            )}
+        >
+            {!result && (
+                <p className="sk-modal__subtitle">
+                    Generate a single pasteable string the agent can consume.
+                    The token inside is single-use — burned the moment any
+                    agent registers with it.
+                </p>
+            )}
 
-                {!result ? (
-                    <>
+            {!result ? (
+                <>
                         <div className="space-y-2">
                             <Label htmlFor="token-expires">Token expires</Label>
                             <Select value={String(expiresIn)} onValueChange={(v) => setExpiresIn(Number(v))}>
@@ -442,13 +451,6 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                 </SelectContent>
                             </Select>
                         </div>
-
-                        <DialogFooter>
-                            <Button variant="outline" onClick={onClose}>Cancel</Button>
-                            <Button onClick={handleGenerate} disabled={generating}>
-                                {generating ? 'Generating…' : 'Generate'}
-                            </Button>
-                        </DialogFooter>
                     </>
                 ) : (
                     <>
@@ -501,17 +503,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                 </div>
                             </div>
                         </details>
-
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setResult(null)}>
-                                Generate another
-                            </Button>
-                            <Button onClick={onClose}>Done</Button>
-                        </DialogFooter>
                     </>
                 )}
-            </DialogContent>
-        </Dialog>
+        </Modal>
     );
 };
 

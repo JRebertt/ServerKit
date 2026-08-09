@@ -9,14 +9,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { Cloud } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
 import {
     OfflineIcon,
@@ -367,18 +360,15 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                 )
             )}
 
-            <Dialog
+            <Modal
                 open={showCreateModal}
-                onOpenChange={(open) => { if (!open && !creating) setShowCreateModal(false); }}
+                onClose={() => { if (!creating) setShowCreateModal(false); }}
+                title="Create Tunnel"
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create Tunnel</DialogTitle>
-                        <DialogDescription>
-                            Provisions a new Cloudflare Tunnel on this server.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreate} className="space-y-4">
+                <p className="sk-modal__subtitle">
+                    Provisions a new Cloudflare Tunnel on this server.
+                </p>
+                <form onSubmit={handleCreate} className="space-y-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="cf-name">Tunnel Name</Label>
                             <Input
@@ -391,26 +381,22 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                             />
                             <p className="text-xs text-muted-foreground">Letters, numbers, dashes, underscores. Up to 32 chars.</p>
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={creating}>Cancel</Button>
                             <Button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
 
-            <Dialog
+            <Modal
                 open={showRouteModal && !!routeTunnel}
-                onOpenChange={(open) => { if (!open && !routing) setShowRouteModal(false); }}
+                onClose={() => { if (!routing) setShowRouteModal(false); }}
+                title={`Route Subdomain${routeTunnel ? ` → ${routeTunnel.name}` : ''}`}
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Route Subdomain{routeTunnel ? ` → ${routeTunnel.name}` : ''}</DialogTitle>
-                        <DialogDescription>
-                            A CNAME for this hostname will be created in Cloudflare DNS, pointing at the tunnel.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleRoute} className="space-y-4">
+                <p className="sk-modal__subtitle">
+                    A CNAME for this hostname will be created in Cloudflare DNS, pointing at the tunnel.
+                </p>
+                <form onSubmit={handleRoute} className="space-y-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="cf-host">Hostname</Label>
                             <Input
@@ -422,13 +408,12 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                                 autoFocus
                             />
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={() => setShowRouteModal(false)} disabled={routing}>Cancel</Button>
                             <Button type="submit" disabled={routing}>{routing ? 'Adding…' : 'Add Route'}</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
         </div>
     );
 };

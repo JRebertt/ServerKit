@@ -890,7 +890,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
             title={`Deploy ${template.name}`}
             subtitle={[`v${template.version}`, ...(template.categories || []).slice(0, 3)].join(' · ')}
             icon={renderIcon(template, 20)}
-            width={560}
+            width={520}
             className="sk-formdrawer"
         >
             <form onSubmit={handleInstall} className="sk-formdrawer__form">

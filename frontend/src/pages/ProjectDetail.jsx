@@ -19,14 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 
 const ProjectDetail = () => {
     const { id } = useParams();
@@ -331,17 +324,13 @@ const CreateEnvironmentDialog = ({ projectId, open, onOpenChange, onCreated }) =
     }
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) setName(''); onOpenChange(v); }}>
-            <DialogContent>
-                <form onSubmit={handleSubmit}>
-                    <DialogHeader>
-                        <DialogTitle>New Environment</DialogTitle>
-                        <DialogDescription>
-                            Common names are production, staging, and development — but any name works.
-                        </DialogDescription>
-                    </DialogHeader>
+        <Modal open={open} onClose={() => { setName(''); onOpenChange(false); }} title="New Environment">
+            <form onSubmit={handleSubmit}>
+                <p className="sk-modal__subtitle">
+                    Common names are production, staging, and development — but any name works.
+                </p>
 
-                    <div className="projects-form">
+                <div className="projects-form">
                         <div className="projects-form__field">
                             <Label htmlFor="env-name">Name</Label>
                             <Input
@@ -355,17 +344,16 @@ const CreateEnvironmentDialog = ({ projectId, open, onOpenChange, onCreated }) =
                         </div>
                     </div>
 
-                    <DialogFooter>
+                    <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={submitting || !name.trim()}>
                             {submitting ? 'Creating…' : 'Create Environment'}
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+        </Modal>
     );
 };
 

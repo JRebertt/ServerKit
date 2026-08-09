@@ -10,14 +10,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { Clock3 } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -284,18 +277,15 @@ const CronTab = ({ serverId, serverStatus }) => {
                 />
             )}
 
-            <Dialog
+            <Modal
                 open={showAddModal}
-                onOpenChange={(open) => { if (!open && !submitting) setShowAddModal(false); }}
+                onClose={() => { if (!submitting) setShowAddModal(false); }}
+                title="Add Cron Job"
             >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Cron Job</DialogTitle>
-                        <DialogDescription>
-                            Schedule a command on the host crontab. Runs as the agent user.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                <p className="sk-modal__subtitle">
+                    Schedule a command on the host crontab. Runs as the agent user.
+                </p>
+                <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="cron-name">Name (optional)</Label>
                             <Input
@@ -345,13 +335,12 @@ const CronTab = ({ serverId, serverStatus }) => {
                             />
                             <p className="text-xs text-muted-foreground">Absolute path. Shell operators (;, &amp;&amp;, |, $(), &gt;, &lt;) are not allowed.</p>
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</Button>
                             <Button type="submit" disabled={submitting}>{submitting ? 'Adding…' : 'Add Job'}</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
         </div>
     );
 };
