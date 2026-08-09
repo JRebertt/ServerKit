@@ -12,10 +12,11 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
     Pill, SegControl, SearchField, DataTable, Drawer,
-    SortMenu, ColumnsMenu, DataTableFooter,
+    SortMenu, ColumnsMenu, DataTableFooter, ViewMenu,
 } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import SchedulePicker from '../components/SchedulePicker';
 import PageLayout from '../layouts/PageLayout';
 
@@ -48,6 +49,14 @@ const SCHEDULE_LABELS = {
 const describeSchedule = (job) => (
     job.schedule_human || SCHEDULE_LABELS[job.schedule] || job.schedule
 );
+
+// Built-in saved views. State shape: { filter, search, sorts, hiddenKeys } —
+// `filter` values are the SegControl options below, `sorts` use real column keys.
+const BUILTIN_VIEWS = [
+    { name: 'Paused', state: { filter: 'paused', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Recently run', state: { filter: 'all', search: '', sorts: [{ key: 'last_run', direction: 'desc' }], hiddenKeys: [] } },
+];
 
 // The browser's zone, not the host's — times are ISO strings rendered client
 // side, so this is what the reader is actually seeing. Say so rather than
@@ -112,8 +121,25 @@ const CronJobs = () => {
 
     // Table sort + column visibility (persisted, mirrored by the toolbar menus)
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-cronjobs-sort' });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
         storageKey: 'serverkit-table-cronjobs-cols',
+    });
+
+    // Saved views: capture/apply adapt the hook to this page's table state.
+    const captureViewState = useCallback(() => ({
+        filter, search, sorts, hiddenKeys,
+    }), [filter, search, sorts, hiddenKeys]);
+    const applyViewState = useCallback((state) => {
+        if (state.filter !== undefined) setFilter(state.filter);
+        if (state.search !== undefined) setSearch(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+    const tableViews = useTableViews({
+        page: 'cronjobs',
+        builtinViews: BUILTIN_VIEWS,
+        capture: captureViewState,
+        apply: applyViewState,
     });
 
     // Drawer + modal states
@@ -397,6 +423,7 @@ const CronJobs = () => {
                                 {shown.length} of {jobs.length} jobs
                             </span>
                             <SegControl value={filter} onChange={setFilter} options={filterOptions} />
+                            <ViewMenu views={tableViews} />
                             <SortMenu columns={jobColumns} sorts={sorts} onChange={setSorts} />
                             <ColumnsMenu
                                 columns={jobColumns}
