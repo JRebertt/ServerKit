@@ -8,6 +8,7 @@ import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
     Pill, MetricCard, SegControl, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter,
+    ListToolbar,
 } from '../components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -802,9 +803,7 @@ function Git({ basePath = '/git' }) {
     // ── Tab content ───────────────────────────────────────────
     const renderOverview = () => (
         <>
-            <div className="dom-listhead">
-                <h2 className="dom-listhead__title">Server overview</h2>
-            </div>
+            <ListToolbar title="Server overview" />
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">HTTP URL</div>
@@ -854,29 +853,33 @@ function Git({ basePath = '/git' }) {
         }
         return (
             <>
-                <div className="dom-listhead">
-                    <h2 className="dom-listhead__title">Repositories</h2>
-                    <SegControl
-                        value={repoFilter}
-                        onChange={setRepoFilter}
-                        options={[
-                            { value: 'all', label: 'All', count: repositories.length },
-                            { value: 'private', label: 'Private', count: repoPrivateCount },
-                            { value: 'forks', label: 'Forks', count: repoForkCount },
-                        ]}
-                    />
-                    <div className="dom-listhead__tools">
-                        <SortMenu columns={REPO_COLUMNS} sorts={repoSorts} onChange={setRepoSorts} />
-                        <ColumnsMenu
-                            columns={REPO_COLUMNS}
-                            hiddenKeys={repoHiddenKeys}
-                            onToggle={toggleRepoColumn}
-                            onShowAll={showAllRepoColumns}
+                <ListToolbar
+                    title="Repositories"
+                    filters={(
+                        <SegControl
+                            value={repoFilter}
+                            onChange={setRepoFilter}
+                            options={[
+                                { value: 'all', label: 'All', count: repositories.length },
+                                { value: 'private', label: 'Private', count: repoPrivateCount },
+                                { value: 'forks', label: 'Forks', count: repoForkCount },
+                            ]}
                         />
-                    </div>
-                </div>
+                    )}
+                    tools={(
+                        <>
+                            <SortMenu columns={REPO_COLUMNS} sorts={repoSorts} onChange={setRepoSorts} />
+                            <ColumnsMenu
+                                columns={REPO_COLUMNS}
+                                hiddenKeys={repoHiddenKeys}
+                                onToggle={toggleRepoColumn}
+                                onShowAll={showAllRepoColumns}
+                            />
+                        </>
+                    )}
+                />
                 {filteredRepos.length === 0 ? (
-                    <div className="dom-empty">No repositories match this filter.</div>
+                    <EmptyState icon={FolderGit2} title="No repositories match this filter." />
                 ) : (
                     <div className="dom-card">
                         <DataTable
@@ -904,9 +907,7 @@ function Git({ basePath = '/git' }) {
 
     const renderAccess = () => (
         <>
-            <div className="dom-listhead">
-                <h2 className="dom-listhead__title">Access information</h2>
-            </div>
+            <ListToolbar title="Access information" />
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">HTTP Access</div>
@@ -948,29 +949,33 @@ function Git({ basePath = '/git' }) {
         }
         return (
             <>
-                <div className="dom-listhead">
-                    <h2 className="dom-listhead__title">External repository webhooks</h2>
-                    <SegControl
-                        value={webhookFilter}
-                        onChange={setWebhookFilter}
-                        options={[
-                            { value: 'all', label: 'All', count: webhooks.length },
-                            { value: 'active', label: 'Active', count: webhookActiveCount },
-                            { value: 'inactive', label: 'Inactive', count: webhookInactiveCount },
-                        ]}
-                    />
-                    <div className="dom-listhead__tools">
-                        <SortMenu columns={WEBHOOK_COLUMNS} sorts={webhookSorts} onChange={setWebhookSorts} />
-                        <ColumnsMenu
-                            columns={WEBHOOK_COLUMNS}
-                            hiddenKeys={webhookHiddenKeys}
-                            onToggle={toggleWebhookColumn}
-                            onShowAll={showAllWebhookColumns}
+                <ListToolbar
+                    title="External repository webhooks"
+                    filters={(
+                        <SegControl
+                            value={webhookFilter}
+                            onChange={setWebhookFilter}
+                            options={[
+                                { value: 'all', label: 'All', count: webhooks.length },
+                                { value: 'active', label: 'Active', count: webhookActiveCount },
+                                { value: 'inactive', label: 'Inactive', count: webhookInactiveCount },
+                            ]}
                         />
-                    </div>
-                </div>
+                    )}
+                    tools={(
+                        <>
+                            <SortMenu columns={WEBHOOK_COLUMNS} sorts={webhookSorts} onChange={setWebhookSorts} />
+                            <ColumnsMenu
+                                columns={WEBHOOK_COLUMNS}
+                                hiddenKeys={webhookHiddenKeys}
+                                onToggle={toggleWebhookColumn}
+                                onShowAll={showAllWebhookColumns}
+                            />
+                        </>
+                    )}
+                />
                 {filteredWebhooks.length === 0 ? (
-                    <div className="dom-empty">No webhooks match this filter.</div>
+                    <EmptyState icon={Webhook} title="No webhooks match this filter." />
                 ) : (
                     <div className="dom-card">
                         <DataTable
@@ -1011,21 +1016,23 @@ function Git({ basePath = '/git' }) {
         }
         return (
             <>
-                <div className="dom-listhead">
-                    <h2 className="dom-listhead__title">Deployment history</h2>
-                    <SegControl
-                        value={deploymentFilter}
-                        onChange={setDeploymentFilter}
-                        options={[
-                            { value: 'all', label: 'All', count: deployments.length },
-                            { value: 'success', label: 'Success', count: deploymentSuccessCount },
-                            { value: 'failed', label: 'Failed', count: deploymentFailedCount },
-                            { value: 'running', label: 'Running', count: deploymentRunningCount },
-                        ]}
-                    />
-                </div>
+                <ListToolbar
+                    title="Deployment history"
+                    filters={(
+                        <SegControl
+                            value={deploymentFilter}
+                            onChange={setDeploymentFilter}
+                            options={[
+                                { value: 'all', label: 'All', count: deployments.length },
+                                { value: 'success', label: 'Success', count: deploymentSuccessCount },
+                                { value: 'failed', label: 'Failed', count: deploymentFailedCount },
+                                { value: 'running', label: 'Running', count: deploymentRunningCount },
+                            ]}
+                        />
+                    )}
+                />
                 {filteredDeployments.length === 0 ? (
-                    <div className="dom-empty">No deployments match this filter.</div>
+                    <EmptyState icon={Rocket} title="No deployments match this filter." />
                 ) : (
                     <div className="dom-card">
                         {filteredDeployments.map(deployment => (
@@ -1061,9 +1068,7 @@ function Git({ basePath = '/git' }) {
 
     const renderSettings = () => (
         <>
-            <div className="dom-listhead">
-                <h2 className="dom-listhead__title">Server settings</h2>
-            </div>
+            <ListToolbar title="Server settings" />
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">Server power</div>

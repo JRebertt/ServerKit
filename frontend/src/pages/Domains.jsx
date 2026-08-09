@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
+import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
@@ -464,23 +464,27 @@ const Domains = () => {
                 <div className="domains-body">
                     {/* No KPI strip: every number it carried is already on the
                         segment you would click to act on it. */}
-                    <div className="dom-listhead">
-                        <SegControl
-                            value={filter}
-                            onChange={setFilter}
-                            options={filterOptions}
-                        />
-                        <div className="dom-listhead__tools">
-                            <ViewMenu views={tableViews} />
-                            <SortMenu columns={domainColumns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={domainColumns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
+                    <ListToolbar
+                        filters={(
+                            <SegControl
+                                value={filter}
+                                onChange={setFilter}
+                                options={filterOptions}
                             />
-                        </div>
-                    </div>
+                        )}
+                        tools={(
+                            <>
+                                <ViewMenu views={tableViews} />
+                                <SortMenu columns={domainColumns} sorts={sorts} onChange={setSorts} />
+                                <ColumnsMenu
+                                    columns={domainColumns}
+                                    hiddenKeys={hiddenKeys}
+                                    onToggle={toggleColumn}
+                                    onShowAll={showAllColumns}
+                                />
+                            </>
+                        )}
+                    />
 
                     {portfolioErrors.length > 0 && (
                         <div className="dom-portfolio-note">
@@ -495,9 +499,10 @@ const Domains = () => {
                     )}
 
                     {shown.length === 0 ? (
-                        <div className="dom-empty">
-                            {query ? `No domains match “${search.trim()}”.` : 'No domains match this filter.'}
-                        </div>
+                        <EmptyState
+                            icon={Globe}
+                            title={query ? `No domains match “${search.trim()}”.` : 'No domains match this filter.'}
+                        />
                     ) : (
                         <div className="dom-card">
                             <DataTable

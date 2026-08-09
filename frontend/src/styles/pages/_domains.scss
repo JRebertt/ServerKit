@@ -14,38 +14,12 @@
     padding-top: $space-5;
 }
 
-// Segmented filter above the table. The counts it carries replaced the KPI
-// strip that used to sit here — same numbers, on the control you'd click.
-.dom-listhead {
-    display: flex;
-    align-items: center;
-    gap: $space-4;
-    margin-bottom: $space-3;
-
-    &__tools {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        margin-left: auto;
-    }
-}
-
 // Table card
 .dom-card {
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
     overflow: hidden;
-}
-
-.dom-empty {
-    padding: $space-10;
-    text-align: center;
-    color: $text-tertiary;
-    font-size: $font-size-sm;
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
 }
 
 // Domain cell bits
