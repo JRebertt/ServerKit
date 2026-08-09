@@ -16,7 +16,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { SegControl, SearchField, Pill, Drawer, DataTable } from '@/components/ds';
+import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
@@ -35,6 +37,12 @@ const Domains = () => {
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+
+    // Table sort + column visibility (persisted, mirrored by the toolbar menus)
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-domains-sort' });
+    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+        storageKey: 'serverkit-table-domains-cols',
+    });
     const [drawerDomain, setDrawerDomain] = useState(null);
     const [regInfo, setRegInfo] = useState(null);            // lazy registration lookup for the open drawer
     const [searchParams, setSearchParams] = useSearchParams();
@@ -302,6 +310,85 @@ const Domains = () => {
         }
     }, [loading, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const domainColumns = [
+        {
+            key: 'name',
+            header: 'Domain',
+            sortable: true,
+            hideable: false,
+            sortValue: (d) => norm(d.name),
+            render: (d) => (
+                <div className="sk-cell-name">
+                    <span className="dom-fav">
+                        {d.provider
+                            ? <ProviderBrandIcon provider={d.provider} size={15} />
+                            : <Globe size={15} />}
+                    </span>
+                    <span>
+                        {d.name}
+                        {d.is_primary && <span className="dom-primary">Primary</span>}
+                        {d.source === 'provider' && d.adopted && <span className="dom-managed">Managed</span>}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'site',
+            header: 'Linked site',
+            sortable: true,
+            sortValue: (d) => (d.application_id ? getAppName(d.application_id) : null),
+            render: (d) => (
+                d.application_id
+                    ? <span className="sk-tag">{getAppName(d.application_id)}</span>
+                    : <span className="dom-dash">—</span>
+            ),
+        },
+        {
+            key: 'expiry',
+            header: 'Expires',
+            sortable: true,
+            sortValue: (d) => {
+                if (!d.expires_at) return null;
+                const t = new Date(d.expires_at).getTime();
+                return Number.isNaN(t) ? null : t;
+            },
+            render: (d) => {
+                const exp = formatExpiry(d.expires_at);
+                if (!exp) return <span className="dom-dash">—</span>;
+                return (
+                    <span className={`dom-expiry dom-expiry--${exp.tone}`} title={exp.relative}>
+                        {exp.absolute}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'ssl',
+            header: 'SSL',
+            sortable: true,
+            sortValue: (d) => sslState(d),
+            render: (d) => d.source === 'provider' ? <span className="dom-dash">—</span> : sslPill(d),
+        },
+        {
+            key: 'autoRenew',
+            header: 'Auto-renew',
+            sortable: true,
+            sortValue: (d) => (d.auto_renew == null ? null : d.auto_renew ? 1 : 0),
+            render: (d) => (
+                d.auto_renew == null
+                    ? <span className="dom-dash">—</span>
+                    : d.auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>
+            ),
+        },
+        {
+            key: 'chevron',
+            header: '',
+            width: 30,
+            hideable: false,
+            render: () => <ChevronRight size={16} className="dom-chev" />,
+        },
+    ];
+
     useTopbarActions(() =>
         <>
             <Button variant="outline" size="sm" onClick={loadData}>
@@ -349,6 +436,15 @@ const Domains = () => {
                             onChange={setFilter}
                             options={filterOptions}
                         />
+                        <div className="dom-listhead__tools">
+                            <SortMenu columns={domainColumns} sorts={sorts} onChange={setSorts} />
+                            <ColumnsMenu
+                                columns={domainColumns}
+                                hiddenKeys={hiddenKeys}
+                                onToggle={toggleColumn}
+                                onShowAll={showAllColumns}
+                            />
+                        </div>
                     </div>
 
                     {portfolioErrors.length > 0 && (
@@ -371,72 +467,20 @@ const Domains = () => {
                         <div className="dom-card">
                             <DataTable
                                 tableClassName="sk-dtable"
-                                sortable={false}
                                 data={shown}
                                 keyField="key"
+                                columns={domainColumns}
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                hiddenKeys={hiddenKeys}
                                 onRowClick={setDrawerDomain}
-                                columns={[
-                                    {
-                                        key: 'name',
-                                        header: 'Domain',
-                                        render: (d) => (
-                                            <div className="sk-cell-name">
-                                                <span className="dom-fav">
-                                                    {d.provider
-                                                        ? <ProviderBrandIcon provider={d.provider} size={15} />
-                                                        : <Globe size={15} />}
-                                                </span>
-                                                <span>
-                                                    {d.name}
-                                                    {d.is_primary && <span className="dom-primary">Primary</span>}
-                                                    {d.source === 'provider' && d.adopted && <span className="dom-managed">Managed</span>}
-                                                </span>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        key: 'site',
-                                        header: 'Linked site',
-                                        render: (d) => (
-                                            d.application_id
-                                                ? <span className="sk-tag">{getAppName(d.application_id)}</span>
-                                                : <span className="dom-dash">—</span>
-                                        ),
-                                    },
-                                    {
-                                        key: 'expiry',
-                                        header: 'Expires',
-                                        render: (d) => {
-                                            const exp = formatExpiry(d.expires_at);
-                                            if (!exp) return <span className="dom-dash">—</span>;
-                                            return (
-                                                <span className={`dom-expiry dom-expiry--${exp.tone}`} title={exp.relative}>
-                                                    {exp.absolute}
-                                                </span>
-                                            );
-                                        },
-                                    },
-                                    {
-                                        key: 'ssl',
-                                        header: 'SSL',
-                                        render: (d) => d.source === 'provider' ? <span className="dom-dash">—</span> : sslPill(d),
-                                    },
-                                    {
-                                        key: 'autoRenew',
-                                        header: 'Auto-renew',
-                                        render: (d) => (
-                                            d.auto_renew == null
-                                                ? <span className="dom-dash">—</span>
-                                                : d.auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>
-                                        ),
-                                    },
-                                    {
-                                        key: 'chevron',
-                                        header: '',
-                                        width: 30,
-                                        render: () => <ChevronRight size={16} className="dom-chev" />,
-                                    },
-                                ]}
+                                footer={(
+                                    <DataTableFooter
+                                        shown={shown.length}
+                                        total={mergedRows.length}
+                                        noun="domain"
+                                    />
+                                )}
                             />
                         </div>
                     )}

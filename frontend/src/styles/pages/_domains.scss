@@ -21,6 +21,13 @@
     align-items: center;
     gap: $space-4;
     margin-bottom: $space-3;
+
+    &__tools {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        margin-left: auto;
+    }
 }
 
 // Table card
