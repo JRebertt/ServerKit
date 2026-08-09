@@ -1,6 +1,7 @@
 import { X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DataTable, DataTableFooter } from '@/components/ds';
 
 export function UsageCell({ percent = 0, variant = 'cpu' }) {
     const clamped = Math.min(Number(percent) || 0, 100);
@@ -21,76 +22,119 @@ export function ProcessTable({
     formatMemory = defaultFormatMemory,
     getStatusVariant = defaultGetStatusVariant,
 }) {
-    return (
-        <div className="processes-table-wrapper">
-            <table
-                className="table processes-table"
-                spellCheck={false}
-                data-gramm="false"
-                data-gramm_editor="false"
-                data-enable-grammarly="false"
-            >
-                <thead>
-                    <tr>
-                        <th>PID</th>
-                        <th>Name</th>
-                        <th>User</th>
-                        <th>CPU %</th>
-                        <th>Memory %</th>
-                        <th>Memory</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {processes.map(p => (
-                        <tr
-                            key={p.pid}
-                            className={selectedPid === p.pid ? 'selected' : ''}
-                            onClick={() => onSelect?.(p)}
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _terminal.scss keeps applying
+    // (.processes-table, .mono, .process-name, .usage-cell, .action-buttons).
+    // No menus: this component has no toolbar row of its own, and the SCSS
+    // pins column widths by nth-child, so columns stay visible.
+    const columns = [
+        {
+            key: 'pid',
+            header: 'PID',
+            sortable: true,
+            sortValue: (p) => p.pid,
+            cellClassName: 'mono',
+            render: (p) => p.pid,
+        },
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (p) => p.name || '',
+            render: (p) => <div className="process-name"><span>{p.name}</span></div>,
+        },
+        {
+            key: 'user',
+            header: 'User',
+            sortable: true,
+            sortValue: (p) => p.user || '',
+            render: (p) => p.user,
+        },
+        {
+            key: 'cpu',
+            header: 'CPU %',
+            sortable: true,
+            sortValue: (p) => Number(p.cpu_percent) || 0,
+            render: (p) => <UsageCell percent={p.cpu_percent} variant="cpu" />,
+        },
+        {
+            key: 'memoryPercent',
+            header: 'Memory %',
+            sortable: true,
+            sortValue: (p) => Number(p.memory_percent) || 0,
+            render: (p) => <UsageCell percent={p.memory_percent} variant="memory" />,
+        },
+        {
+            key: 'memory',
+            header: 'Memory',
+            sortable: true,
+            sortValue: (p) => p.memory_info?.rss ?? null,
+            render: (p) => formatMemory(p.memory_info?.rss),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (p) => p.status || '',
+            render: (p) => (
+                <Badge variant={getStatusVariant(p.status)}>{p.status}</Badge>
+            ),
+        },
+        {
+            key: '__actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (p) => (
+                <div className="action-buttons">
+                     {onKill && (
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="process-action-button"
+                            onClick={(e) => { e.stopPropagation(); onKill(p); }}
+                            title="Kill"
+                            aria-label={`Kill ${p.name}`}
                         >
-                            <td className="mono">{p.pid}</td>
-                            <td><div className="process-name"><span>{p.name}</span></div></td>
-                            <td>{p.user}</td>
-                            <td><UsageCell percent={p.cpu_percent} variant="cpu" /></td>
-                            <td><UsageCell percent={p.memory_percent} variant="memory" /></td>
-                            <td>{formatMemory(p.memory_info?.rss)}</td>
-                            <td>
-                                <Badge variant={getStatusVariant(p.status)}>{p.status}</Badge>
-                            </td>
-                            <td>
-                                <div className="action-buttons">
-                                     {onKill && (
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="process-action-button"
-                                            onClick={(e) => { e.stopPropagation(); onKill(p); }}
-                                            title="Kill"
-                                            aria-label={`Kill ${p.name}`}
-                                        >
-                                            <X size={12} />
-                                        </Button>
-                                    )}
-                                    {onForceKill && (
-                                        <Button
-                                            variant="destructive"
-                                            size="icon"
-                                            className="process-action-button"
-                                            onClick={(e) => { e.stopPropagation(); onForceKill(p); }}
-                                            title="Force Kill"
-                                            aria-label={`Force kill ${p.name}`}
-                                        >
-                                            <AlertTriangle size={12} />
-                                        </Button>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+                            <X size={12} />
+                        </Button>
+                    )}
+                    {onForceKill && (
+                        <Button
+                            variant="destructive"
+                            size="icon"
+                            className="process-action-button"
+                            onClick={(e) => { e.stopPropagation(); onForceKill(p); }}
+                            title="Force Kill"
+                            aria-label={`Force kill ${p.name}`}
+                        >
+                            <AlertTriangle size={12} />
+                        </Button>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
+    return (
+        <DataTable
+            columns={columns}
+            data={processes}
+            keyField="pid"
+            storageKey="serverkit-table-processes"
+            onRowClick={(p) => onSelect?.(p)}
+            rowClassName={(p) => (selectedPid === p.pid ? 'selected' : '')}
+            className="processes-table-wrapper"
+            tableClassName="table processes-table"
+            footer={(
+                <DataTableFooter
+                    shown={processes.length}
+                    total={processes.length}
+                    noun="process"
+                />
+            )}
+        />
     );
 }
 

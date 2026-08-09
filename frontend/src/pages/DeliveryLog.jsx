@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Send, RefreshCw, Inbox } from 'lucide-react';
 import api from '../services/api';
-import { MetricCard, KpiBand, FilterDrawer, FilterButton } from '@/components/ds';
+import { MetricCard, KpiBand, FilterDrawer, FilterButton, DataTable, DataTableFooter } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,6 +66,74 @@ export default function DeliveryLog() {
 
     const byStatus = stats?.by_status || {};
 
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _notification-center.scss keeps
+    // applying (.sk-dlog__table, .sk-dlog__status, .sk-dlog__target, ...).
+    // Runs uncontrolled (storageKey only): the page's own controls live in the
+    // shared topbar + FilterDrawer, not in an in-page toolbar row.
+    const columns = [
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (d) => d.status || '',
+            render: (d) => <span className={`sk-dlog__status is-${d.status}`}>{d.status}</span>,
+        },
+        {
+            key: 'channel',
+            header: 'Channel',
+            sortable: true,
+            sortValue: (d) => d.channel || '',
+            render: (d) => d.channel,
+        },
+        {
+            key: 'target',
+            header: 'To',
+            sortable: true,
+            sortValue: (d) => d.target || null,
+            cellClassName: 'sk-dlog__target',
+            render: (d) => d.target || '—',
+        },
+        {
+            key: 'notification',
+            header: 'Notification',
+            sortable: true,
+            sortValue: (d) => d.title || d.event_key || '',
+            render: (d) => (
+                <>
+                    <div className="sk-dlog__title">{d.title || d.event_key}</div>
+                    {d.error && <div className="sk-dlog__error" title={d.error}>{d.error}</div>}
+                </>
+            ),
+        },
+        {
+            key: 'tries',
+            header: 'Tries',
+            sortable: true,
+            sortValue: (d) => d.attempts ?? 0,
+            render: (d) => d.attempts,
+        },
+        {
+            key: 'when',
+            header: 'When',
+            sortable: true,
+            sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
+            cellClassName: 'sk-dlog__when',
+            render: (d) => timeAgo(d.created_at),
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            render: (d) => (
+                (d.status === 'failed' || d.status === 'skipped') && d.channel !== 'inapp' && (
+                    <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>Retry</Button>
+                )
+            ),
+        },
+    ];
+
     return (
         <PageLayout
             icon={<Send size={18} />}
@@ -102,41 +170,21 @@ export default function DeliveryLog() {
                         <p>No deliveries match these filters.</p>
                     </div>
                 ) : (
-                    <div className="sk-dlog__table-wrap">
-                        <table className="sk-dlog__table">
-                            <thead>
-                                <tr>
-                                    <th>Status</th>
-                                    <th>Channel</th>
-                                    <th>To</th>
-                                    <th>Notification</th>
-                                    <th>Tries</th>
-                                    <th>When</th>
-                                    <th aria-label="Actions" />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {deliveries.map((d) => (
-                                    <tr key={d.id}>
-                                        <td><span className={`sk-dlog__status is-${d.status}`}>{d.status}</span></td>
-                                        <td>{d.channel}</td>
-                                        <td className="sk-dlog__target">{d.target || '—'}</td>
-                                        <td>
-                                            <div className="sk-dlog__title">{d.title || d.event_key}</div>
-                                            {d.error && <div className="sk-dlog__error" title={d.error}>{d.error}</div>}
-                                        </td>
-                                        <td>{d.attempts}</td>
-                                        <td className="sk-dlog__when">{timeAgo(d.created_at)}</td>
-                                        <td>
-                                            {(d.status === 'failed' || d.status === 'skipped') && d.channel !== 'inapp' && (
-                                                <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>Retry</Button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={columns}
+                        data={deliveries}
+                        keyField="id"
+                        storageKey="serverkit-table-delivery-log"
+                        className="sk-dlog__table-wrap"
+                        tableClassName="sk-dlog__table"
+                        footer={(
+                            <DataTableFooter
+                                shown={deliveries.length}
+                                total={deliveries.length}
+                                noun="delivery"
+                            />
+                        )}
+                    />
                 )}
             </div>
 

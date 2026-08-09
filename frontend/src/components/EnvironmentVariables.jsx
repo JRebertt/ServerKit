@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import Modal from './Modal';
 import EmptyState from './EmptyState';
+import { DataTable, DataTableFooter } from '@/components/ds';
 
 const EnvironmentVariables = ({ appId }) => {
     const toast = useToast();
@@ -584,28 +585,48 @@ const EnvironmentVariables = ({ appId }) => {
                 {history.length === 0 ? (
                     <p className="hint">No changes recorded yet.</p>
                 ) : (
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Key</th>
-                                <th>Action</th>
-                                <th>Changed At</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {history.map((h, idx) => (
-                                <tr key={idx}>
-                                    <td className="mono">{h.key}</td>
-                                    <td>
-                                        <Badge variant={h.action === 'created' ? 'success' : h.action === 'deleted' ? 'destructive' : 'warning'}>
-                                            {h.action}
-                                        </Badge>
-                                    </td>
-                                    <td>{new Date(h.changed_at).toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={[
+                            {
+                                key: 'key',
+                                header: 'Key',
+                                sortable: true,
+                                hideable: false,
+                                sortValue: (h) => h.key || '',
+                                cellClassName: 'mono',
+                                render: (h) => h.key,
+                            },
+                            {
+                                key: 'action',
+                                header: 'Action',
+                                sortable: true,
+                                sortValue: (h) => h.action || '',
+                                render: (h) => (
+                                    <Badge variant={h.action === 'created' ? 'success' : h.action === 'deleted' ? 'destructive' : 'warning'}>
+                                        {h.action}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: 'changed_at',
+                                header: 'Changed At',
+                                sortable: true,
+                                sortValue: (h) => new Date(h.changed_at).getTime(),
+                                render: (h) => new Date(h.changed_at).toLocaleString(),
+                            },
+                        ]}
+                        data={history.map((h, idx) => ({ ...h, __idx: idx }))}
+                        keyField="__idx"
+                        storageKey="serverkit-table-env-history"
+                        tableClassName="table"
+                        footer={(
+                            <DataTableFooter
+                                shown={history.length}
+                                total={history.length}
+                                noun="change"
+                            />
+                        )}
+                    />
                 )}
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowHistoryModal(false)}>

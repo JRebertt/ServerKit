@@ -6,14 +6,16 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
-import { Drawer } from '@/components/ds';
+import { Drawer, DataTable, DataTableFooter, SortMenu, ColumnsMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Box, Search, X, RefreshCw, Trash2, Play, Square, RotateCw,
     Terminal as TerminalLucide, FileText, Activity, Clock3, Copy,
-    Database, Gauge, Package, Server as ServerIcon, ArrowUpDown, Lock,
+    Database, Gauge, Package, Server as ServerIcon, Lock,
 } from 'lucide-react';
 import {
     useServer,
@@ -65,8 +67,15 @@ const ContainersTab = ({ onStatsChange }) => {
     const [execContainer, setExecContainer] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [sortKey, setSortKey] = useState('status');
-    const [sortDirection, setSortDirection] = useState('asc');
+    // Native DataTable header sorting (the old <select> + direction button is
+    // gone). Default keeps the previous behavior: running containers first.
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: [{ key: 'status', direction: 'asc' }],
+        storageKey: 'serverkit-table-docker-containers-sort',
+    });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-docker-containers-cols' });
     const statsRequestSeq = useRef(0);
 
     useEffect(() => {
@@ -241,7 +250,7 @@ const ContainersTab = ({ onStatsChange }) => {
 
     const filteredContainers = useMemo(() => {
         const search = searchTerm.toLowerCase();
-        const filtered = containers.filter(c => {
+        return containers.filter(c => {
             if (statusFilter === 'running' && !isContainerRunning(c)) return false;
             if (statusFilter === 'stopped' && isContainerRunning(c)) return false;
             if (!search) return true;
@@ -249,42 +258,164 @@ const ContainersTab = ({ onStatsChange }) => {
                    getContainerId(c).toLowerCase().includes(search) ||
                    getContainerImage(c).toLowerCase().includes(search);
         });
-
-        const direction = sortDirection === 'asc' ? 1 : -1;
-        const statusRank = (container) => isContainerRunning(container) ? 0 : 1;
-        const createdTime = (container) => {
-            const raw = container.created || container.CreatedAt || '';
-            const parsed = Date.parse(raw);
-            return Number.isNaN(parsed) ? 0 : parsed;
-        };
-
-        return [...filtered].sort((a, b) => {
-            const statsA = parseStats(containerStats[getContainerId(a)]);
-            const statsB = parseStats(containerStats[getContainerId(b)]);
-            let result = 0;
-
-            if (sortKey === 'status') {
-                result = statusRank(a) - statusRank(b) ||
-                    getContainerStatus(a).localeCompare(getContainerStatus(b));
-            } else if (sortKey === 'name') {
-                result = getContainerName(a).localeCompare(getContainerName(b));
-            } else if (sortKey === 'image') {
-                result = getContainerImage(a).localeCompare(getContainerImage(b));
-            } else if (sortKey === 'cpu') {
-                result = statsA.cpu - statsB.cpu;
-            } else if (sortKey === 'memory') {
-                result = statsA.memory - statsB.memory;
-            } else if (sortKey === 'created') {
-                result = createdTime(a) - createdTime(b);
-            }
-
-            return result * direction;
-        });
-    }, [containers, statusFilter, searchTerm, sortKey, sortDirection, containerStats]);
+    }, [containers, statusFilter, searchTerm]);
 
     const selectedStats = selectedContainer
         ? parseStats(containerStats[getContainerId(selectedContainer)])
         : { cpu: 0, memory: 0, available: false };
+
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _docker.scss keeps applying
+    // (.dx-manager-table, .dx-name-stack, .dx-status-pill, .dx-row-actions...).
+    const columns = [
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (container) => getContainerName(container),
+            render: (container) => {
+                const isRunning = isContainerRunning(container);
+                return (
+                    <div className="dx-name-stack">
+                        <span className="dx-name-line">
+                            {/* hue-hashed per-container identity dot (demo .dot-ico);
+                                dims when stopped — status itself lives in the Status pill */}
+                            <span
+                                className={`dx-status-dot ${isRunning ? 'running' : 'stopped'}`}
+                                style={{
+                                    background: `hsl(${containerHue(getContainerName(container))} 60% 60%)`,
+                                    boxShadow: isRunning
+                                        ? `0 0 6px hsl(${containerHue(getContainerName(container))} 60% 60% / 0.55)`
+                                        : 'none',
+                                    opacity: isRunning ? 1 : 0.4,
+                                }}
+                            />
+                            <span title={getContainerName(container)}>{getContainerName(container)}</span>
+                        </span>
+                        <span className="dx-muted-line mono">{shortId(getContainerId(container))}</span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'image',
+            header: 'Image',
+            sortable: true,
+            sortValue: (container) => getContainerImage(container),
+            render: (container) => (
+                <span className="dx-code-pill" title={getContainerImage(container)}>
+                    {getContainerImage(container)}
+                </span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            // Running first on asc, matching the old default sort.
+            sortValue: (container) => (isContainerRunning(container) ? 0 : 1),
+            render: (container) => (
+                <>
+                    <span className={`dx-status-pill ${isContainerRunning(container) ? 'running' : 'stopped'}`}>
+                        {getContainerStatusLabel(container)}
+                    </span>
+                    <span className="dx-muted-line">{getContainerStatus(container)}</span>
+                </>
+            ),
+        },
+        {
+            key: 'ports',
+            header: 'Ports',
+            sortable: false,
+            render: (container) => {
+                const ports = formatPorts(container.ports);
+                return (
+                    <div className="dx-port-list">
+                        {ports.slice(0, 2).map((port, i) => (
+                            <span key={i} className={`dx-port-pill ${port === '-' ? 'is-empty' : ''}`}>{port}</span>
+                        ))}
+                        {ports.length > 2 && <span className="dx-port-more">+{ports.length - 2}</span>}
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'resources',
+            header: 'Resources',
+            sortable: true,
+            // CPU% is the headline number; containers without stats sort last.
+            sortValue: (container) => {
+                const stats = parseStats(containerStats[getContainerId(container)]);
+                return stats.available ? stats.cpu : null;
+            },
+            render: (container) => (
+                <ContainerResourceBars
+                    stats={parseStats(containerStats[getContainerId(container)])}
+                    muted={!isContainerRunning(container)}
+                />
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (container) => {
+                const parsed = Date.parse(container.created || container.CreatedAt || '');
+                return Number.isNaN(parsed) ? null : parsed;
+            },
+            render: (container) => (
+                <span className="dx-muted-line">{container.created || container.CreatedAt || '-'}</span>
+            ),
+        },
+        {
+            key: '__actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            className: 'text-right',
+            render: (container) => {
+                const containerId = getContainerId(container);
+                const isRunning = isContainerRunning(container);
+                const isProtected = isProtectedContainer(container);
+                return (
+                    <div className="dx-row-actions" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title="Logs">
+                            <FileText size={13} />
+                        </button>
+                        {isRunning && !isRemote && (
+                            <button type="button" className="dx-row-action" onClick={() => setExecContainer(container)} title="Exec">
+                                <TerminalLucide size={13} />
+                            </button>
+                        )}
+                        {isProtected ? (
+                            <span className="dx-row-protected" title="ServerKit system container — managed by the panel, lifecycle controls are disabled">
+                                <Lock size={11} /> System
+                            </span>
+                        ) : isRunning ? (
+                            <>
+                                <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title="Restart">
+                                    <RotateCw size={13} />
+                                </button>
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title="Stop">
+                                    <Square size={13} />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title="Start">
+                                    <Play size={13} />
+                                </button>
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title="Remove">
+                                    <Trash2 size={13} />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
 
     if (loading) {
         return (
@@ -315,24 +446,13 @@ const ContainersTab = ({ onStatsChange }) => {
                     ))}
                 </div>
                 <div className="dx-tab-toolbar-right">
-                    <div className="dx-sort-control">
-                        <span>Sort</span>
-                        <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-                            <option value="status">Status</option>
-                            <option value="name">Name</option>
-                            <option value="image">Image</option>
-                            <option value="cpu">CPU</option>
-                            <option value="memory">RAM</option>
-                            <option value="created">Created</option>
-                        </select>
-                        <button type="button"
-                            className="lv-icon-btn"
-                            onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                            title={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-                        >
-                            <ArrowUpDown size={13} />
-                        </button>
-                    </div>
+                    <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={columns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
                     <label className="dx-toggle">
                         <input
                             type="checkbox"
@@ -379,117 +499,27 @@ const ContainersTab = ({ onStatsChange }) => {
             ) : (
                 <div className="dx-manager-layout">
                     <section className="dx-resource-list">
-                        <div className="dx-table-wrap">
-                            <table className="dx-manager-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Image</th>
-                                        <th>Status</th>
-                                        <th>Ports</th>
-                                        <th>Resources</th>
-                                        <th>Created</th>
-                                        <th className="text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredContainers.map(container => {
-                                        const containerId = getContainerId(container);
-                                        const stats = parseStats(containerStats[containerId]);
-                                        const isRunning = isContainerRunning(container);
-                                        const isProtected = isProtectedContainer(container);
-                                        const ports = formatPorts(container.ports);
-                                        const isSelected = getContainerId(selectedContainer) === containerId;
-                                        return (
-                                            <tr
-                                                key={containerId}
-                                                className={`${isRunning ? 'is-running' : 'is-stopped'} ${isSelected ? 'is-selected' : ''}`}
-                                                onClick={() => setSelectedContainer(container)}
-                                            >
-                                                <td>
-                                                    <div className="dx-name-stack">
-                                                        <span className="dx-name-line">
-                                                            {/* hue-hashed per-container identity dot (demo .dot-ico);
-                                                                dims when stopped — status itself lives in the Status pill */}
-                                                            <span
-                                                                className={`dx-status-dot ${isRunning ? 'running' : 'stopped'}`}
-                                                                style={{
-                                                                    background: `hsl(${containerHue(getContainerName(container))} 60% 60%)`,
-                                                                    boxShadow: isRunning
-                                                                        ? `0 0 6px hsl(${containerHue(getContainerName(container))} 60% 60% / 0.55)`
-                                                                        : 'none',
-                                                                    opacity: isRunning ? 1 : 0.4,
-                                                                }}
-                                                            />
-                                                            <span title={getContainerName(container)}>{getContainerName(container)}</span>
-                                                        </span>
-                                                        <span className="dx-muted-line mono">{shortId(containerId)}</span>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <span className="dx-code-pill" title={getContainerImage(container)}>
-                                                        {getContainerImage(container)}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className={`dx-status-pill ${isRunning ? 'running' : 'stopped'}`}>
-                                                        {getContainerStatusLabel(container)}
-                                                    </span>
-                                                    <span className="dx-muted-line">{getContainerStatus(container)}</span>
-                                                </td>
-                                                <td>
-                                                    <div className="dx-port-list">
-                                                        {ports.slice(0, 2).map((port, i) => (
-                                                            <span key={i} className={`dx-port-pill ${port === '-' ? 'is-empty' : ''}`}>{port}</span>
-                                                        ))}
-                                                        {ports.length > 2 && <span className="dx-port-more">+{ports.length - 2}</span>}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <ContainerResourceBars stats={stats} muted={!isRunning} />
-                                                </td>
-                                                <td>
-                                                    <span className="dx-muted-line">{container.created || container.CreatedAt || '-'}</span>
-                                                </td>
-                                                <td className="dx-row-actions" onClick={(e) => e.stopPropagation()}>
-                                                    <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title="Logs">
-                                                        <FileText size={13} />
-                                                    </button>
-                                                    {isRunning && !isRemote && (
-                                                        <button type="button" className="dx-row-action" onClick={() => setExecContainer(container)} title="Exec">
-                                                            <TerminalLucide size={13} />
-                                                        </button>
-                                                    )}
-                                                    {isProtected ? (
-                                                        <span className="dx-row-protected" title="ServerKit system container — managed by the panel, lifecycle controls are disabled">
-                                                            <Lock size={11} /> System
-                                                        </span>
-                                                    ) : isRunning ? (
-                                                        <>
-                                                            <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title="Restart">
-                                                                <RotateCw size={13} />
-                                                            </button>
-                                                            <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title="Stop">
-                                                                <Square size={13} />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title="Start">
-                                                                <Play size={13} />
-                                                            </button>
-                                                            <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title="Remove">
-                                                                <Trash2 size={13} />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={columns}
+                            data={filteredContainers}
+                            keyField={(container) => getContainerId(container)}
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            hiddenKeys={hiddenKeys}
+                            onRowClick={(container) => setSelectedContainer(container)}
+                            rowClassName={(container) => (
+                                `${isContainerRunning(container) ? 'is-running' : 'is-stopped'} ${getContainerId(selectedContainer) === getContainerId(container) ? 'is-selected' : ''}`
+                            )}
+                            className="dx-table-wrap"
+                            tableClassName="dx-manager-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={filteredContainers.length}
+                                    total={containers.length}
+                                    noun="container"
+                                />
+                            )}
+                        />
                     </section>
                 </div>
             )}

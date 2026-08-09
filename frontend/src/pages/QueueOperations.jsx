@@ -22,7 +22,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MetricCard, Pill } from '@/components/ds';
+import {
+    ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortChipBar, SortMenu,
+} from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatCompact, formatFull } from '../utils/formatNumber';
 
 const STATUS_KINDS = {
@@ -66,6 +70,10 @@ const QueueOperations = () => {
 
     const [sendTarget, setSendTarget] = useState(null);
     const [sendForm, setSendForm] = useState({ payload: '{}', priority: 0, delay_ms: 0 });
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-queue-ops-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-queue-ops-cols' });
 
     const pollRef = useRef(null);
     const navigate = useNavigate();
@@ -260,6 +268,88 @@ const QueueOperations = () => {
         : `${STATUS_LABELS[messageFilter]} queues`;
     const activeGroupLabel = activeGroup ? activeGroup.name : 'All groups';
 
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _queue-operations.scss keeps applying
+    // (.queue-table, .queue-row-*, .queue-actions, .col-actions).
+    const columns = [
+        {
+            key: 'name',
+            header: 'Queue',
+            sortable: true,
+            hideable: false,
+            sortValue: (queue) => queue.name || queue.slug || '',
+            render: (queue) => (
+                <div className="queue-row-name">
+                    <span className="queue-row-title">{queue.name}</span>
+                    <code className="queue-row-sub">/{queue.slug}</code>
+                </div>
+            ),
+        },
+        {
+            key: 'group',
+            header: 'Group',
+            sortable: true,
+            sortValue: (queue) => queue.group_slug || null,
+            render: (queue) => (
+                queue.group_slug && (
+                    <span className="queue-row-group">
+                        <Folder size={12} /> {queue.group_slug}
+                    </span>
+                )
+            ),
+        },
+        {
+            key: 'messages',
+            header: 'Messages',
+            sortable: true,
+            sortValue: (queue) => queue.stats?.total ?? 0,
+            render: (queue) => (
+                <div className="queue-row-counts" onClick={e => e.stopPropagation()}>
+                    {STATUS_ORDER.filter(s => (queue.stats?.[s] || 0) > 0).map(status => (
+                        <Pill key={status} kind={STATUS_KINDS[status]}>
+                            {STATUS_LABELS[status]} {queue.stats[status]}
+                        </Pill>
+                    ))}
+                    {(queue.stats?.total || 0) === 0 && (
+                        <span className="muted">Empty</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (queue) => new Date(queue.created_at).getTime(),
+            render: (queue) => new Date(queue.created_at).toLocaleString(),
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            className: 'col-actions',
+            cellClassName: 'col-actions',
+            render: (queue) => (
+                <div className="queue-actions" onClick={e => e.stopPropagation()}>
+                    {!systemGroupSlugs.has(queue.group_slug) && (
+                        <Button variant="ghost" size="sm" onClick={() => openSendModal(queue)} title="Send message">
+                            <Send size={14} />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => openQueue(queue)} title="View messages">
+                        <Inbox size={14} />
+                    </Button>
+                    {!systemGroupSlugs.has(queue.group_slug) && (
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteQueue(queue)} title="Delete queue">
+                            <Trash2 size={14} />
+                        </Button>
+                    )}
+                </div>
+            ),
+        },
+    ];
+
     if (loading) {
         return (
             <div className="queue-page queue-page--loading">
@@ -392,6 +482,13 @@ const QueueOperations = () => {
                                 <option value="">All groups</option>
                                 {groups.map(g => <option key={g.id} value={g.slug}>{g.name}</option>)}
                             </select>
+                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                            <ColumnsMenu
+                                columns={columns}
+                                hiddenKeys={hiddenKeys}
+                                onToggle={toggleColumn}
+                                onShowAll={showAllColumns}
+                            />
                         </div>
                         <div className="queue-results-summary">
                             <strong>{filteredQueues.length}</strong>
@@ -411,6 +508,8 @@ const QueueOperations = () => {
                             )}
                         </div>
                     </div>
+
+                    <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 
                     {filteredQueues.length === 0 ? (
                         <EmptyState
@@ -434,72 +533,24 @@ const QueueOperations = () => {
                             )}
                         />
                     ) : (
-                        <div className="queue-table-wrap">
-                            <table className="queue-table">
-                                <thead>
-                                    <tr>
-                                        <th>Queue</th>
-                                        <th>Group</th>
-                                        <th>Messages</th>
-                                        <th>Created</th>
-                                        <th className="col-actions" aria-label="Actions" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredQueues.map(queue => (
-                                        <tr
-                                            key={queue.id}
-                                            className="is-clickable"
-                                            onClick={() => openQueue(queue)}
-                                        >
-                                            <td>
-                                                <div className="queue-row-name">
-                                                    <span className="queue-row-title">{queue.name}</span>
-                                                    <code className="queue-row-sub">/{queue.slug}</code>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {queue.group_slug && (
-                                                    <span className="queue-row-group">
-                                                        <Folder size={12} /> {queue.group_slug}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td onClick={e => e.stopPropagation()}>
-                                                <div className="queue-row-counts">
-                                                    {STATUS_ORDER.filter(s => (queue.stats?.[s] || 0) > 0).map(status => (
-                                                        <Pill key={status} kind={STATUS_KINDS[status]}>
-                                                            {STATUS_LABELS[status]} {queue.stats[status]}
-                                                        </Pill>
-                                                    ))}
-                                                    {(queue.stats?.total || 0) === 0 && (
-                                                        <span className="muted">Empty</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>{new Date(queue.created_at).toLocaleString()}</td>
-                                            <td className="col-actions" onClick={e => e.stopPropagation()}>
-                                                <div className="queue-actions">
-                                                    {!systemGroupSlugs.has(queue.group_slug) && (
-                                                        <Button variant="ghost" size="sm" onClick={() => openSendModal(queue)} title="Send message">
-                                                            <Send size={14} />
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="ghost" size="sm" onClick={() => openQueue(queue)} title="View messages">
-                                                        <Inbox size={14} />
-                                                    </Button>
-                                                    {!systemGroupSlugs.has(queue.group_slug) && (
-                                                        <Button variant="ghost" size="sm" onClick={() => handleDeleteQueue(queue)} title="Delete queue">
-                                                            <Trash2 size={14} />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={columns}
+                            data={filteredQueues}
+                            keyField="id"
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            hiddenKeys={hiddenKeys}
+                            onRowClick={(queue) => openQueue(queue)}
+                            className="queue-table-wrap"
+                            tableClassName="queue-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={filteredQueues.length}
+                                    total={queues.length}
+                                    noun="queue"
+                                />
+                            )}
+                        />
                     )}
                 </main>
             </div>

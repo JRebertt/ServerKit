@@ -18,7 +18,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { MetricCard, Pill } from '@/components/ds';
+import {
+    ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortChipBar, SortMenu,
+} from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const STATUS_KINDS = {
     pending: 'blue',
@@ -54,6 +58,10 @@ const QueueDetail = () => {
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [showSend, setShowSend] = useState(false);
     const [sendForm, setSendForm] = useState({ payload: '{}', priority: 0, delay_ms: 0 });
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-queue-messages-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-queue-messages-cols' });
 
     const pollRef = useRef(null);
 
@@ -156,6 +164,60 @@ const QueueDetail = () => {
         }
     };
 
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _queue-operations.scss keeps applying
+    // (.queue-table, .col-actions, .queue-payload-preview, .queue-actions).
+    const columns = [
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            // Lifecycle order, not alphabet.
+            sortValue: (msg) => STATUS_ORDER.indexOf(msg.status),
+            render: (msg) => <Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill>,
+        },
+        {
+            key: 'payload',
+            header: 'Payload',
+            sortable: false,
+            render: (msg) => <code className="queue-payload-preview">{JSON.stringify(msg.payload).slice(0, 80)}</code>,
+        },
+        {
+            key: 'attempts',
+            header: 'Attempts',
+            sortable: true,
+            sortValue: (msg) => msg.attempts,
+            render: (msg) => <>{msg.attempts} / {msg.max_attempts}</>,
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (msg) => new Date(msg.created_at).getTime(),
+            render: (msg) => new Date(msg.created_at).toLocaleString(),
+        },
+        ...(!viewOnly ? [{
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            className: 'col-actions',
+            cellClassName: 'col-actions',
+            render: (msg) => (
+                <div className="queue-actions" onClick={e => e.stopPropagation()}>
+                    {(msg.status === 'failed' || msg.status === 'dead_letter') && (
+                        <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title="Requeue">
+                            <RefreshCw size={14} />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title="Delete message">
+                        <Trash2 size={14} />
+                    </Button>
+                </div>
+            ),
+        }] : []),
+    ];
+
     if (loading) {
         return (
             <div className="queue-page queue-page--loading">
@@ -212,19 +274,32 @@ const QueueDetail = () => {
             <div className={`queue-detail-body ${selectedMessage ? 'has-panel' : ''}`}>
                 <div className="queue-detail-main">
                     <div className="queue-messages-toolbar">
-                        <select
-                            className="queue-select"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">All statuses</option>
-                            {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-                        </select>
-                        <span className="queue-results-summary">
-                            <strong>{messages.length}</strong>
-                            <span>{messages.length === 1 ? 'message' : 'messages'}</span>
-                        </span>
+                        <div className="queue-messages-selects">
+                            <select
+                                className="queue-select"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="all">All statuses</option>
+                                {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                            </select>
+                        </div>
+                        <div className="queue-messages-actions">
+                            <span className="queue-results-summary">
+                                <strong>{messages.length}</strong>
+                                <span>{messages.length === 1 ? 'message' : 'messages'}</span>
+                            </span>
+                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                            <ColumnsMenu
+                                columns={columns}
+                                hiddenKeys={hiddenKeys}
+                                onToggle={toggleColumn}
+                                onShowAll={showAllColumns}
+                            />
+                        </div>
                     </div>
+
+                    <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 
                     {messages.length === 0 ? (
                         <EmptyState
@@ -235,47 +310,25 @@ const QueueDetail = () => {
                                 : 'This queue is empty. Send a message to get started.'}
                         />
                     ) : (
-                        <div className="queue-table-wrap">
-                            <table className="queue-table">
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th>Payload</th>
-                                        <th>Attempts</th>
-                                        <th>Created</th>
-                                        {!viewOnly && <th className="col-actions" aria-label="Actions" />}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {messages.map(msg => (
-                                        <tr
-                                            key={msg.id}
-                                            className={`is-clickable ${selectedMessage?.id === msg.id ? 'is-selected' : ''}`}
-                                            onClick={() => setSelectedMessage(msg)}
-                                        >
-                                            <td><Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill></td>
-                                            <td><code className="queue-payload-preview">{JSON.stringify(msg.payload).slice(0, 80)}</code></td>
-                                            <td>{msg.attempts} / {msg.max_attempts}</td>
-                                            <td>{new Date(msg.created_at).toLocaleString()}</td>
-                                            {!viewOnly && (
-                                                <td className="col-actions" onClick={e => e.stopPropagation()}>
-                                                    <div className="queue-actions">
-                                                        {(msg.status === 'failed' || msg.status === 'dead_letter') && (
-                                                            <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title="Requeue">
-                                                                <RefreshCw size={14} />
-                                                            </Button>
-                                                        )}
-                                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title="Delete message">
-                                                            <Trash2 size={14} />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={columns}
+                            data={messages}
+                            keyField="id"
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            hiddenKeys={hiddenKeys}
+                            onRowClick={(msg) => setSelectedMessage(msg)}
+                            rowClassName={(msg) => (selectedMessage?.id === msg.id ? 'is-selected' : '')}
+                            className="queue-table-wrap"
+                            tableClassName="queue-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={messages.length}
+                                    total={messages.length}
+                                    noun="message"
+                                />
+                            )}
+                        />
                     )}
                 </div>
 

@@ -2006,35 +2006,6 @@
     margin-left: auto;
 }
 
-.dx-sort-control {
-    display: inline-flex;
-    align-items: center;
-    gap: $space-1;
-
-    span {
-        color: $text-tertiary;
-        font-size: $font-size-xs;
-        font-weight: $font-weight-semibold;
-    }
-
-    select {
-        height: 32px;
-        min-width: 108px;
-        padding: 0 $space-6 0 $space-2;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
-        background: $bg-elevated;
-        color: $text-primary;
-        font-size: $font-size-xs;
-        outline: none;
-
-        &:focus {
-            border-color: $accent-primary;
-            box-shadow: 0 0 0 2px $accent-glow;
-        }
-    }
-}
-
 .dx-manager-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
