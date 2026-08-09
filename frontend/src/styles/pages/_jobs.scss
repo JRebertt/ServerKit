@@ -60,13 +60,3 @@
     justify-content: flex-end;
     white-space: nowrap;
 }
-
-.sk-jobs__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: $space-3;
-    padding: $space-8;
-    color: $text-tertiary;
-}

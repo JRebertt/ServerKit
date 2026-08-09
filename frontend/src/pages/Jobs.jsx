@@ -19,6 +19,7 @@ import {
     SearchField, FilterDrawer, FilterButton, ViewMenu, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
+import EmptyState from '../components/EmptyState';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -226,7 +227,7 @@ export default function Jobs() {
     if (!isAdmin) {
         return (
             <div className="sk-tabgroup__inner jobs-page">
-                <div className="sk-jobs"><div className="sk-jobs__empty">Admins only.</div></div>
+                <div className="sk-jobs"><EmptyState title="Admins only." /></div>
             </div>
         );
     }
@@ -352,12 +353,8 @@ export default function Jobs() {
                         onSortsChange={setSchedSorts}
                         hiddenKeys={schedHidden}
                         loading={loading && scheduled.length === 0}
-                        emptyState={(
-                            <div className="sk-jobs__empty">
-                                <Clock size={24} aria-hidden="true" />
-                                <p>No scheduled jobs yet.</p>
-                            </div>
-                        )}
+                        emptyTitle="No scheduled jobs yet."
+                        emptyMessage=""
                     />
                 ) : (
                     <>
@@ -398,12 +395,8 @@ export default function Jobs() {
                                     onPageChange={(next) => setPage(next - 1)}
                                 />
                             )}
-                            emptyState={(
-                                <div className="sk-jobs__empty">
-                                    <ListChecks size={24} aria-hidden="true" />
-                                    <p>{hasFilters ? 'No jobs match these filters.' : 'No jobs have run yet.'}</p>
-                                </div>
-                            )}
+                            emptyTitle={hasFilters ? 'No jobs match these filters.' : 'No jobs have run yet.'}
+                            emptyMessage=""
                         />
                     </>
                 )}

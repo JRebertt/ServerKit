@@ -233,26 +233,6 @@
     }
 }
 
-.settings-card__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: $space-3;
-    padding: $space-8 $space-4;
-    color: $text-tertiary;
-    text-align: center;
-
-    > svg {
-        opacity: 0.4;
-    }
-
-    p {
-        margin: 0;
-        font-size: $font-size-sm;
-        color: $text-tertiary;
-    }
-}
-
 // Source provider connections
 .source-connections {
     .source-connection-status {

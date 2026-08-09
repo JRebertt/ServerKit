@@ -310,7 +310,10 @@ const RemoteAccess = ({ serverId }) => {
 
                                 <div className="ra-svcs">
                                     {svcs.length === 0 ? (
-                                        <p className="ra-svcs__empty">No services exposed on this tunnel yet.</p>
+                                        <EmptyState
+                                            icon={Globe}
+                                            title="No services exposed on this tunnel yet."
+                                        />
                                     ) : (
                                         svcs.map((svc) => (
                                             <div key={svc.id} className="ra-svc">

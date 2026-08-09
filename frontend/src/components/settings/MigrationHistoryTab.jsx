@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { Database, Loader, CheckCircle, ArrowUpCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import useSettingFocus from '../../hooks/useSettingFocus';
@@ -150,9 +151,7 @@ const MigrationHistoryTab = () => {
     if (error) {
         return (
             <div className="settings-section">
-                <div className="empty-state">
-                    <p>{error}</p>
-                </div>
+                <EmptyState icon={Database} title={error} />
             </div>
         );
     }
@@ -224,10 +223,7 @@ const MigrationHistoryTab = () => {
             )}
 
             {revisions.length === 0 ? (
-                <div className="empty-state">
-                    <Database size={32} />
-                    <p>No migration history found.</p>
-                </div>
+                <EmptyState icon={Database} title="No migration history found." />
             ) : (
                 <div {...register('migrations-history', 'table-container')}>
                     <DataTable

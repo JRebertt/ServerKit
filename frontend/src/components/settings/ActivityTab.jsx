@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import ContributionGraph from './ContributionGraph';
+import EmptyState from '../EmptyState';
 import { Search, Filter, X, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTableFooter } from '@/components/ds';
@@ -247,10 +248,7 @@ const ActivityTab = () => {
                         Loading logs...
                     </div>
                 ) : logs.length === 0 ? (
-                    <div className="empty-state">
-                        <Search size={40} />
-                        <p>No audit logs found</p>
-                    </div>
+                    <EmptyState icon={Search} title="No audit logs found" />
                 ) : (
                     <div className="audit-log-list" role="list">
                         {logs.map(log => (

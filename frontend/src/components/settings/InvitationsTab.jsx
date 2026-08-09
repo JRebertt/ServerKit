@@ -4,6 +4,7 @@ import InviteModal from './InviteModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import EmptyState from '../EmptyState';
 
 const InvitationsTab = () => {
     const [invitations, setInvitations] = useState([]);
@@ -186,7 +187,7 @@ const InvitationsTab = () => {
             {loading ? (
                 <div className="loading-state">Loading invitations...</div>
             ) : invitations.length === 0 ? (
-                <div className="empty-state">No invitations yet</div>
+                <EmptyState title="No invitations yet" />
             ) : (
                 <div className="users-table-container">
                     <DataTable

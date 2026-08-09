@@ -3,6 +3,7 @@ import { Send, RefreshCw, Inbox } from 'lucide-react';
 import api from '../services/api';
 import { MetricCard, KpiBand, FilterDrawer, FilterButton, DataTable, DataTableFooter } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -59,7 +60,7 @@ export default function DeliveryLog() {
     if (!isAdmin) {
         return (
             <PageLayout icon={<Send size={18} />} title="Notification Delivery Log">
-                <div className="sk-dlog"><div className="sk-dlog__empty">Admins only.</div></div>
+                <div className="sk-dlog"><EmptyState title="Admins only." /></div>
             </PageLayout>
         );
     }
@@ -163,12 +164,9 @@ export default function DeliveryLog() {
 
 
                 {loading && deliveries.length === 0 ? (
-                    <div className="sk-dlog__empty">Loading…</div>
+                    <EmptyState loading loadingVariant="table" title="Loading…" />
                 ) : deliveries.length === 0 ? (
-                    <div className="sk-dlog__empty">
-                        <Inbox size={24} aria-hidden="true" />
-                        <p>No deliveries match these filters.</p>
-                    </div>
+                    <EmptyState icon={Inbox} title="No deliveries match these filters." />
                 ) : (
                     <DataTable
                         columns={columns}

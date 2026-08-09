@@ -103,7 +103,7 @@ export function DataTable({
 
     if (!loading && data.length === 0) {
         if (emptyState) return emptyState;
-        return <EmptyState title={emptyTitle} message={emptyMessage} />;
+        return <EmptyState title={emptyTitle} description={emptyMessage} />;
     }
 
     const multiSort = sorts.length > 1;

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pill } from '@/components/ds/Pill';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import EmptyState from '../EmptyState';
 
 const ApiSettingsTab = () => {
     const { isAdmin } = useAuth();
@@ -189,10 +190,11 @@ const ApiKeysSection = () => {
             {loading ? (
                 <div className="settings-card__loading">Loading...</div>
             ) : keys.length === 0 ? (
-                <div className="settings-card__empty">
-                    <Key size={24} />
-                    <p>No API keys yet. Create one to get started.</p>
-                </div>
+                <EmptyState
+                    icon={Key}
+                    title="No API keys yet."
+                    description="Create one to get started."
+                />
             ) : (
                 <div className="api-settings__table-wrap">
                     <DataTable
@@ -435,10 +437,11 @@ const WebhookSection = () => {
             {loading ? (
                 <div className="settings-card__loading">Loading...</div>
             ) : subscriptions.length === 0 ? (
-                <div className="settings-card__empty">
-                    <Zap size={24} />
-                    <p>No webhook subscriptions. Create one to get notified of events.</p>
-                </div>
+                <EmptyState
+                    icon={Zap}
+                    title="No webhook subscriptions."
+                    description="Create one to get notified of events."
+                />
             ) : (
                 <div className="api-settings__webhooks">
                     {subscriptions.map(sub => (
