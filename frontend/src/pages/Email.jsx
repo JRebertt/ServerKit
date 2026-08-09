@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTableSort } from '../hooks/useTableSort';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { useTableViews } from '../hooks/useTableViews';
 
 const VALID_TABS = ['overview', 'domains', 'accounts', 'relay', 'spam', 'webmail', 'queue'];
 
@@ -386,7 +387,32 @@ function AccountsTab({ domains }) {
     const [search, setSearch] = useState('');
     const [form, setForm] = useState({ username: '', password: '', quota_mb: 1024 });
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-accounts-sort' });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-accounts-cols' });
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-accounts-cols' });
+
+    // Saved views: capture/apply the table chrome state (search, sort levels,
+    // hidden columns). There is no status filter here — state only enters via
+    // sorting, so the built-in views are sort presets.
+    const captureView = useCallback(() => ({
+        search,
+        sorts,
+        hiddenKeys,
+    }), [search, sorts, hiddenKeys]);
+
+    const applyViewState = useCallback((state) => {
+        if (state.search !== undefined) setSearch(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+
+    const tableViews = useTableViews({
+        page: 'email-accounts',
+        builtinViews: [
+            { name: 'Active first', state: { search: '', sorts: [{ key: 'state', direction: 'desc' }], hiddenKeys: [] } },
+            { name: 'Largest quota', state: { search: '', sorts: [{ key: 'quota', direction: 'desc' }], hiddenKeys: [] } },
+        ],
+        capture: captureView,
+        apply: applyViewState,
+    });
 
     const load = useCallback(async () => {
         if (!domainId) { setAccounts([]); return; }
@@ -507,6 +533,7 @@ function AccountsTab({ domains }) {
                     />
                 </label>
                 <div className="sk-email__tabletools">
+                    <ViewMenu views={tableViews} />
                     <SortMenu columns={accountColumns} sorts={sorts} onChange={setSorts} />
                     <ColumnsMenu
                         columns={accountColumns}
@@ -754,7 +781,32 @@ function QueueTab() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-queue-sort' });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-queue-cols' });
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-queue-cols' });
+
+    // Saved views: capture/apply the table chrome state (search, sort levels,
+    // hidden columns). No time column exists in the queue payload, so the
+    // built-in views are sort presets over the real columns.
+    const captureView = useCallback(() => ({
+        search,
+        sorts,
+        hiddenKeys,
+    }), [search, sorts, hiddenKeys]);
+
+    const applyViewState = useCallback((state) => {
+        if (state.search !== undefined) setSearch(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+
+    const tableViews = useTableViews({
+        page: 'email-queue',
+        builtinViews: [
+            { name: 'Largest first', state: { search: '', sorts: [{ key: 'size', direction: 'desc' }], hiddenKeys: [] } },
+            { name: 'By sender', state: { search: '', sorts: [{ key: 'sender', direction: 'asc' }], hiddenKeys: [] } },
+        ],
+        capture: captureView,
+        apply: applyViewState,
+    });
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -840,6 +892,7 @@ function QueueTab() {
                     />
                 </label>
                 <div className="sk-email__tabletools">
+                    <ViewMenu views={tableViews} />
                     <SortMenu columns={queueColumns} sorts={sorts} onChange={setSorts} />
                     <ColumnsMenu
                         columns={queueColumns}
