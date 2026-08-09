@@ -7,6 +7,7 @@ import LoginLinksSection from './LoginLinksSection';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import useSettingFocus from '../../hooks/useSettingFocus';
 
 const UsersTab = () => {
@@ -107,6 +108,128 @@ const UsersTab = () => {
         );
     }
 
+    // Columns for the shared DataTable. Cell markup and classNames are
+    // identical to the hand-rolled table they replace, so _users.scss keeps
+    // applying (.user-info, .user-avatar, .status-badge, .date-cell,
+    // .actions-cell, tr.inactive).
+    const columns = [
+        {
+            key: 'user',
+            header: 'User',
+            sortable: true,
+            hideable: false,
+            sortValue: (user) => user.username || '',
+            cellClassName: 'user-info',
+            render: (user) => (
+                <>
+                    <div className="user-avatar">
+                        {user.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="user-details">
+                        <span className="username">
+                            {user.username}
+                            {user.id === currentUser?.id && (
+                                <span className="you-badge">You</span>
+                            )}
+                        </span>
+                        <span className="email">{user.email}</span>
+                    </div>
+                </>
+            ),
+        },
+        {
+            key: 'role',
+            header: 'Role',
+            sortable: true,
+            sortValue: (user) => user.role || '',
+            render: (user) => (
+                <Badge variant={getRoleBadgeVariant(user.role)}>
+                    {user.role}
+                </Badge>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            render: (user) => (
+                <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                    {user.is_active ? 'Active' : 'Disabled'}
+                </span>
+            ),
+        },
+        {
+            key: 'lastLogin',
+            header: 'Last Login',
+            cellClassName: 'date-cell',
+            render: (user) => formatDate(user.last_login_at),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (user) => (user.created_at ? new Date(user.created_at).getTime() : null),
+            cellClassName: 'date-cell',
+            render: (user) => formatDate(user.created_at),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions-cell',
+            render: (user) => (
+                <>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                        title="Edit user"
+                    >
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </Button>
+                    {user.id !== currentUser?.id && (
+                        <>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleActive(user)}
+                                title={user.is_active ? 'Disable user' : 'Enable user'}
+                                className={user.is_active ? 'text-warning' : 'text-success'}
+                            >
+                                {user.is_active ? (
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                        <line x1="1" y1="1" x2="23" y2="23"/>
+                                    </svg>
+                                ) : (
+                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                )}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteConfirm(user)}
+                                title="Delete user"
+                                className="text-destructive hover:text-destructive"
+                            >
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                </svg>
+                            </Button>
+                        </>
+                    )}
+                </>
+            ),
+        },
+    ];
+
     return (
         <div className="users-tab">
             <div className="tab-header">
@@ -126,98 +249,21 @@ const UsersTab = () => {
             {error && <div className="error-message">{error}</div>}
 
             <div {...register('users-management', 'users-table-container')}>
-                <table className="users-table">
-                    <thead>
-                        <tr>
-                            <th>User</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Last Login</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map(user => (
-                            <tr key={user.id} className={!user.is_active ? 'inactive' : ''}>
-                                <td className="user-info">
-                                    <div className="user-avatar">
-                                        {user.username.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="user-details">
-                                        <span className="username">
-                                            {user.username}
-                                            {user.id === currentUser?.id && (
-                                                <span className="you-badge">You</span>
-                                            )}
-                                        </span>
-                                        <span className="email">{user.email}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                                        {user.role}
-                                    </Badge>
-                                </td>
-                                <td>
-                                    <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                                        {user.is_active ? 'Active' : 'Disabled'}
-                                    </span>
-                                </td>
-                                <td className="date-cell">{formatDate(user.last_login_at)}</td>
-                                <td className="date-cell">{formatDate(user.created_at)}</td>
-                                <td className="actions-cell">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleEditUser(user)}
-                                        title="Edit user"
-                                    >
-                                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                        </svg>
-                                    </Button>
-                                    {user.id !== currentUser?.id && (
-                                        <>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleToggleActive(user)}
-                                                title={user.is_active ? 'Disable user' : 'Enable user'}
-                                                className={user.is_active ? 'text-warning' : 'text-success'}
-                                            >
-                                                {user.is_active ? (
-                                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                                        <line x1="1" y1="1" x2="23" y2="23"/>
-                                                    </svg>
-                                                ) : (
-                                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                                        <circle cx="12" cy="12" r="3"/>
-                                                    </svg>
-                                                )}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setDeleteConfirm(user)}
-                                                title="Delete user"
-                                                className="text-destructive hover:text-destructive"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                    <polyline points="3 6 5 6 21 6"/>
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                                </svg>
-                                            </Button>
-                                        </>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable
+                    columns={columns}
+                    data={users}
+                    keyField="id"
+                    storageKey="serverkit-table-settings-users"
+                    rowClassName={(user) => (!user.is_active ? 'inactive' : '')}
+                    tableClassName="users-table"
+                    footer={(
+                        <DataTableFooter
+                            shown={users.length}
+                            total={users.length}
+                            noun="user"
+                        />
+                    )}
+                />
             </div>
 
             {showModal && (

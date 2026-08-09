@@ -3,6 +3,7 @@ import api from '../../services/api';
 import InviteModal from './InviteModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DataTable, DataTableFooter } from '@/components/ds';
 
 const InvitationsTab = () => {
     const [invitations, setInvitations] = useState([]);
@@ -76,6 +77,94 @@ const InvitationsTab = () => {
         }
     }
 
+    // Columns for the shared DataTable. Cell markup and classNames are
+    // identical to the hand-rolled table they replace, so _users.scss keeps
+    // applying (.users-table, .date-cell, .actions-cell).
+    const columns = [
+        {
+            key: 'recipient',
+            header: 'Recipient',
+            sortable: true,
+            hideable: false,
+            sortValue: (inv) => inv.email || '',
+            render: (inv) => inv.email || <span className="text-muted">Link only</span>,
+        },
+        {
+            key: 'role',
+            header: 'Role',
+            render: (inv) => (
+                <Badge variant={getRoleBadgeVariant(inv.role)}>
+                    {inv.role}
+                </Badge>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (inv) => (inv.is_expired && inv.status === 'pending' ? 'expired' : inv.status || ''),
+            render: (inv) => (
+                <Badge variant={getStatusBadgeVariant(inv.status, inv.is_expired)}>
+                    {inv.is_expired && inv.status === 'pending' ? 'expired' : inv.status}
+                </Badge>
+            ),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (inv) => (inv.created_at ? new Date(inv.created_at).getTime() : null),
+            cellClassName: 'date-cell',
+            render: (inv) => formatDate(inv.created_at),
+        },
+        {
+            key: 'expires',
+            header: 'Expires',
+            cellClassName: 'date-cell',
+            render: (inv) => formatDate(inv.expires_at),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions-cell',
+            render: (inv) => (
+                inv.status === 'pending' && !inv.is_expired && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyLink(inv.token)}
+                            title="Copy invite link"
+                        >
+                            {copied === inv.token ? 'Copied!' : 'Copy Link'}
+                        </Button>
+                        {inv.email && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleResend(inv.id)}
+                                title="Resend email"
+                            >
+                                Resend
+                            </Button>
+                        )}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRevoke(inv.id)}
+                            title="Revoke invitation"
+                            className="text-destructive hover:text-destructive"
+                        >
+                            Revoke
+                        </Button>
+                    </>
+                )
+            ),
+        },
+    ];
+
     return (
         <div className="invitations-section">
             <div className="tab-header">
@@ -100,70 +189,20 @@ const InvitationsTab = () => {
                 <div className="empty-state">No invitations yet</div>
             ) : (
                 <div className="users-table-container">
-                    <table className="users-table">
-                        <thead>
-                            <tr>
-                                <th>Recipient</th>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Created</th>
-                                <th>Expires</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {invitations.map(inv => (
-                                <tr key={inv.id}>
-                                    <td>{inv.email || <span className="text-muted">Link only</span>}</td>
-                                    <td>
-                                        <Badge variant={getRoleBadgeVariant(inv.role)}>
-                                            {inv.role}
-                                        </Badge>
-                                    </td>
-                                    <td>
-                                        <Badge variant={getStatusBadgeVariant(inv.status, inv.is_expired)}>
-                                            {inv.is_expired && inv.status === 'pending' ? 'expired' : inv.status}
-                                        </Badge>
-                                    </td>
-                                    <td className="date-cell">{formatDate(inv.created_at)}</td>
-                                    <td className="date-cell">{formatDate(inv.expires_at)}</td>
-                                    <td className="actions-cell">
-                                        {inv.status === 'pending' && !inv.is_expired && (
-                                            <>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => copyLink(inv.token)}
-                                                    title="Copy invite link"
-                                                >
-                                                    {copied === inv.token ? 'Copied!' : 'Copy Link'}
-                                                </Button>
-                                                {inv.email && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => handleResend(inv.id)}
-                                                        title="Resend email"
-                                                    >
-                                                        Resend
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRevoke(inv.id)}
-                                                    title="Revoke invitation"
-                                                    className="text-destructive hover:text-destructive"
-                                                >
-                                                    Revoke
-                                                </Button>
-                                            </>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={columns}
+                        data={invitations}
+                        keyField="id"
+                        storageKey="serverkit-table-settings-invitations"
+                        tableClassName="users-table"
+                        footer={(
+                            <DataTableFooter
+                                shown={invitations.length}
+                                total={invitations.length}
+                                noun="invitation"
+                            />
+                        )}
+                    />
                 </div>
             )}
 

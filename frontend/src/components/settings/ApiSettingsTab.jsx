@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pill } from '@/components/ds/Pill';
+import { DataTable, DataTableFooter } from '@/components/ds';
 
 const ApiSettingsTab = () => {
     const { isAdmin } = useAuth();
@@ -69,6 +70,107 @@ const ApiKeysSection = () => {
         setCreatedKey(null);
     };
 
+    // Columns for the shared DataTable. Cell markup and classNames are
+    // identical to the hand-rolled table they replace, so _api-settings.scss
+    // keeps applying (.api-settings__key-name, __key-prefix, __scopes,
+    // __muted, __actions).
+    const keyColumns = [
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (key) => key.name || '',
+            cellClassName: 'api-settings__key-name',
+            render: (key) => key.name,
+        },
+        {
+            key: 'key',
+            header: 'Key',
+            render: (key) => <code className="api-settings__key-prefix">{key.key_prefix}...</code>,
+        },
+        {
+            key: 'scopes',
+            header: 'Scopes',
+            render: (key) => (
+                <div className="api-settings__scopes">
+                    {(!key.scopes || key.scopes.length === 0) ? (
+                        <span className="api-settings__muted">None</span>
+                    ) : key.scopes.includes('*') ? (
+                        <Pill kind="violet">Full access</Pill>
+                    ) : (
+                        <>
+                            {key.scopes.slice(0, 3).map(s => (
+                                <Pill key={s} kind="cyan" dot={false}>{s}</Pill>
+                            ))}
+                            {key.scopes.length > 3 && (
+                                <Pill kind="gray" dot={false}>+{key.scopes.length - 3}</Pill>
+                            )}
+                        </>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: 'tier',
+            header: 'Tier',
+            render: (key) => <Badge variant="outline">{key.tier}</Badge>,
+        },
+        {
+            key: 'lastUsed',
+            header: 'Last Used',
+            sortable: true,
+            sortValue: (key) => (key.last_used_at ? new Date(key.last_used_at).getTime() : null),
+            cellClassName: 'api-settings__muted',
+            render: (key) => (
+                key.last_used_at
+                    ? new Date(key.last_used_at).toLocaleDateString()
+                    : 'Never'
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            render: (key) => (
+                key.is_active && !key.revoked_at ? (
+                    <Badge variant="success">Active</Badge>
+                ) : (
+                    <Badge variant="destructive">Revoked</Badge>
+                )
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'api-settings__actions',
+            render: (key) => (
+                key.is_active && !key.revoked_at && (
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRotate(key.id)}
+                            title="Rotate"
+                        >
+                            <RotateCcw size={14} />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRevoke(key.id)}
+                            title="Revoke"
+                            className="text-destructive hover:text-destructive"
+                        >
+                            <Trash2 size={14} />
+                        </Button>
+                    </>
+                )
+            ),
+        },
+    ];
+
     return (
         <div {...register('api-keys', 'settings-card')}>
             <div className="settings-card__header">
@@ -93,83 +195,20 @@ const ApiKeysSection = () => {
                 </div>
             ) : (
                 <div className="api-settings__table-wrap">
-                    <table className="api-settings__table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Key</th>
-                                <th>Scopes</th>
-                                <th>Tier</th>
-                                <th>Last Used</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {keys.map(key => (
-                                <tr key={key.id}>
-                                    <td className="api-settings__key-name">{key.name}</td>
-                                    <td><code className="api-settings__key-prefix">{key.key_prefix}...</code></td>
-                                    <td>
-                                        <div className="api-settings__scopes">
-                                            {(!key.scopes || key.scopes.length === 0) ? (
-                                                <span className="api-settings__muted">None</span>
-                                            ) : key.scopes.includes('*') ? (
-                                                <Pill kind="violet">Full access</Pill>
-                                            ) : (
-                                                <>
-                                                    {key.scopes.slice(0, 3).map(s => (
-                                                        <Pill key={s} kind="cyan" dot={false}>{s}</Pill>
-                                                    ))}
-                                                    {key.scopes.length > 3 && (
-                                                        <Pill kind="gray" dot={false}>+{key.scopes.length - 3}</Pill>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <Badge variant="outline">{key.tier}</Badge>
-                                    </td>
-                                    <td className="api-settings__muted">
-                                        {key.last_used_at
-                                            ? new Date(key.last_used_at).toLocaleDateString()
-                                            : 'Never'}
-                                    </td>
-                                    <td>
-                                        {key.is_active && !key.revoked_at ? (
-                                            <Badge variant="success">Active</Badge>
-                                        ) : (
-                                            <Badge variant="destructive">Revoked</Badge>
-                                        )}
-                                    </td>
-                                    <td className="api-settings__actions">
-                                        {key.is_active && !key.revoked_at && (
-                                            <>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRotate(key.id)}
-                                                    title="Rotate"
-                                                >
-                                                    <RotateCcw size={14} />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRevoke(key.id)}
-                                                    title="Revoke"
-                                                    className="text-destructive hover:text-destructive"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </Button>
-                                            </>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={keyColumns}
+                        data={keys}
+                        keyField="id"
+                        storageKey="serverkit-table-settings-api-keys"
+                        tableClassName="api-settings__table"
+                        footer={(
+                            <DataTableFooter
+                                shown={keys.length}
+                                total={keys.length}
+                                noun="key"
+                            />
+                        )}
+                    />
                 </div>
             )}
 
@@ -272,6 +311,53 @@ const RateLimitsSection = () => {
 };
 
 // ─── Webhook Subscriptions Section ─────────────────────
+
+// Columns for the deliveries DataTable (compact variant). Cell markup is
+// identical to the hand-rolled table it replaces.
+const DELIVERY_COLUMNS = [
+    {
+        key: 'event',
+        header: 'Event',
+        sortable: true,
+        hideable: false,
+        sortValue: (d) => d.event_type || '',
+        render: (d) => <code>{d.event_type}</code>,
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (d) => d.status || '',
+        render: (d) => (
+            <Badge variant={d.status === 'success' ? 'success' : d.status === 'failed' ? 'destructive' : 'warning'}>
+                {d.status}
+            </Badge>
+        ),
+    },
+    {
+        key: 'http',
+        header: 'HTTP',
+        sortable: true,
+        sortValue: (d) => d.http_status ?? null,
+        render: (d) => d.http_status || '-',
+    },
+    {
+        key: 'duration',
+        header: 'Duration',
+        sortable: true,
+        sortValue: (d) => d.duration_ms ?? null,
+        render: (d) => (d.duration_ms ? `${d.duration_ms}ms` : '-'),
+    },
+    {
+        key: 'time',
+        header: 'Time',
+        sortable: true,
+        sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
+        cellClassName: 'api-settings__muted',
+        render: (d) => (d.created_at ? new Date(d.created_at).toLocaleString() : '-'),
+    },
+];
+
 const WebhookSection = () => {
     const register = useSettingFocus();
     const [subscriptions, setSubscriptions] = useState([]);
@@ -404,34 +490,13 @@ const WebhookSection = () => {
                                             {deliveries[sub.id].length === 0 ? (
                                                 <p className="api-settings__muted">No deliveries yet</p>
                                             ) : (
-                                                <table className="api-settings__table api-settings__table--compact">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Event</th>
-                                                            <th>Status</th>
-                                                            <th>HTTP</th>
-                                                            <th>Duration</th>
-                                                            <th>Time</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {deliveries[sub.id].slice(0, 10).map(d => (
-                                                            <tr key={d.id}>
-                                                                <td><code>{d.event_type}</code></td>
-                                                                <td>
-                                                                    <Badge variant={d.status === 'success' ? 'success' : d.status === 'failed' ? 'destructive' : 'warning'}>
-                                                                        {d.status}
-                                                                    </Badge>
-                                                                </td>
-                                                                <td>{d.http_status || '-'}</td>
-                                                                <td>{d.duration_ms ? `${d.duration_ms}ms` : '-'}</td>
-                                                                <td className="api-settings__muted">
-                                                                    {d.created_at ? new Date(d.created_at).toLocaleString() : '-'}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                <DataTable
+                                                    columns={DELIVERY_COLUMNS}
+                                                    data={deliveries[sub.id].slice(0, 10)}
+                                                    keyField="id"
+                                                    storageKey="serverkit-table-settings-webhook-deliveries"
+                                                    tableClassName="api-settings__table api-settings__table--compact"
+                                                />
                                             )}
                                         </div>
                                     )}
@@ -460,6 +525,48 @@ const WebhookSection = () => {
 };
 
 // ─── Analytics Section ─────────────────────────────────
+
+// Columns for the top-endpoints DataTable (compact variant). Cell markup is
+// identical to the hand-rolled table it replaces.
+const ENDPOINT_COLUMNS = [
+    {
+        key: 'method',
+        header: 'Method',
+        sortable: true,
+        hideable: false,
+        sortValue: (ep) => ep.method || '',
+        render: (ep) => <Badge variant="outline">{ep.method}</Badge>,
+    },
+    {
+        key: 'endpoint',
+        header: 'Endpoint',
+        sortable: true,
+        sortValue: (ep) => ep.endpoint || '',
+        render: (ep) => <code>{ep.endpoint}</code>,
+    },
+    {
+        key: 'requests',
+        header: 'Requests',
+        sortable: true,
+        sortValue: (ep) => ep.count ?? null,
+        render: (ep) => ep.count.toLocaleString(),
+    },
+    {
+        key: 'avgTime',
+        header: 'Avg Time',
+        sortable: true,
+        sortValue: (ep) => ep.avg_response_time_ms ?? null,
+        render: (ep) => `${ep.avg_response_time_ms}ms`,
+    },
+    {
+        key: 'errors',
+        header: 'Errors',
+        sortable: true,
+        sortValue: (ep) => ep.error_count ?? null,
+        render: (ep) => (ep.error_count > 0 ? <span className="api-settings__error-count">{ep.error_count}</span> : '-'),
+    },
+];
+
 const AnalyticsSection = () => {
     const register = useSettingFocus();
     const [overview, setOverview] = useState(null);
@@ -559,28 +666,20 @@ const AnalyticsSection = () => {
                     {endpoints.length > 0 && (
                         <div className="api-settings__top-endpoints">
                             <h4>Top Endpoints</h4>
-                            <table className="api-settings__table api-settings__table--compact">
-                                <thead>
-                                    <tr>
-                                        <th>Method</th>
-                                        <th>Endpoint</th>
-                                        <th>Requests</th>
-                                        <th>Avg Time</th>
-                                        <th>Errors</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {endpoints.slice(0, 10).map((ep, i) => (
-                                        <tr key={i}>
-                                            <td><Badge variant="outline">{ep.method}</Badge></td>
-                                            <td><code>{ep.endpoint}</code></td>
-                                            <td>{ep.count.toLocaleString()}</td>
-                                            <td>{ep.avg_response_time_ms}ms</td>
-                                            <td>{ep.error_count > 0 ? <span className="api-settings__error-count">{ep.error_count}</span> : '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <DataTable
+                                columns={ENDPOINT_COLUMNS}
+                                data={endpoints.slice(0, 10)}
+                                keyField={(ep) => `${ep.method} ${ep.endpoint}`}
+                                storageKey="serverkit-table-settings-api-endpoints"
+                                tableClassName="api-settings__table api-settings__table--compact"
+                                footer={(
+                                    <DataTableFooter
+                                        shown={Math.min(endpoints.length, 10)}
+                                        total={endpoints.length}
+                                        noun="endpoint"
+                                    />
+                                )}
+                            />
                         </div>
                     )}
                 </>

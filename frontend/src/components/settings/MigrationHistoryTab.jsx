@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Database, Loader, CheckCircle, ArrowUpCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import useSettingFocus from '../../hooks/useSettingFocus';
@@ -58,6 +59,46 @@ const MigrationHistoryTab = () => {
     // (renamed during development). The schema is already in sync, so applying
     // re-stamps the version pointer rather than running DDL.
     const orphaned = Boolean(currentRev) && currentIdx === -1 && revisions.length > 0;
+
+    // Columns for the shared DataTable. Cell markup is identical to the
+    // hand-rolled table it replaces, so the .data-table rules keep applying.
+    const columns = [
+        {
+            key: 'revision',
+            header: 'Revision',
+            sortable: true,
+            hideable: false,
+            sortValue: (rev) => rev.revision || '',
+            render: (rev) => <code>{short(rev.revision)}</code>,
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            sortValue: (rev) => rev.description || 'Schema update',
+            render: (rev) => rev.description || 'Schema update',
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            // current -> applied -> pending keeps the lifecycle order sensible.
+            sortValue: (rev) => (rev.is_current ? 0 : pendingIds.has(rev.revision) ? 2 : 1),
+            render: (rev) => (
+                rev.is_current ? (
+                    <Badge variant="success">
+                        <CheckCircle size={12} /> Current
+                    </Badge>
+                ) : pendingIds.has(rev.revision) ? (
+                    <Badge variant="warning">
+                        <ArrowUpCircle size={12} /> Pending
+                    </Badge>
+                ) : (
+                    <Badge variant="secondary">Applied</Badge>
+                )
+            ),
+        },
+    ];
 
     async function runMigrations() {
         const ok = await confirm({
@@ -189,38 +230,20 @@ const MigrationHistoryTab = () => {
                 </div>
             ) : (
                 <div {...register('migrations-history', 'table-container')}>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Revision</th>
-                                <th>Description</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {revisions.map((rev, i) => (
-                                <tr key={i}>
-                                    <td>
-                                        <code>{short(rev.revision)}</code>
-                                    </td>
-                                    <td>{rev.description || 'Schema update'}</td>
-                                    <td>
-                                        {rev.is_current ? (
-                                            <Badge variant="success">
-                                                <CheckCircle size={12} /> Current
-                                            </Badge>
-                                        ) : pendingIds.has(rev.revision) ? (
-                                            <Badge variant="warning">
-                                                <ArrowUpCircle size={12} /> Pending
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="secondary">Applied</Badge>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={columns}
+                        data={revisions}
+                        keyField="revision"
+                        storageKey="serverkit-table-settings-migrations"
+                        tableClassName="data-table"
+                        footer={(
+                            <DataTableFooter
+                                shown={revisions.length}
+                                total={revisions.length}
+                                noun="migration"
+                            />
+                        )}
+                    />
                 </div>
             )}
         </div>
