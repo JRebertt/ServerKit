@@ -12,10 +12,10 @@
 // Wired to the real ApiService job methods (see frontend/src/services/api/jobs.js).
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock } from 'lucide-react';
 import api from '../services/api';
 import {
-    MetricCard, KpiBand, Pill, DataTable, SegControl,
+    MetricCard, KpiBand, Pill, DataTable, DataTableFooter, SegControl,
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
@@ -178,8 +178,7 @@ export default function Jobs() {
 
     const byStatus = stats?.by_status || {};
     const hasFilters = Boolean(filters.status || filters.kind || q);
-    const hasPrev = page > 0;
-    const hasNext = (page + 1) * PAGE_SIZE < total;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
     const kindOptions = kinds
         .map((k) => (typeof k === 'string' ? k : k.kind || k.name))
@@ -201,9 +200,9 @@ export default function Jobs() {
     ];
 
     const jobColumns = [
-        { key: 'status', header: 'Status', render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill> },
-        { key: 'kind', header: 'Kind', cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
-        { key: 'owner', header: 'Owner', cellClassName: 'sk-jobs__owner', render: ownerLabel },
+        { key: 'status', header: 'Status', sortable: true, render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill> },
+        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
+        { key: 'owner', header: 'Owner', sortable: true, sortValue: (j) => j.owner_type || null, cellClassName: 'sk-jobs__owner', render: ownerLabel },
         {
             key: 'progress',
             header: 'Progress',
@@ -216,7 +215,17 @@ export default function Jobs() {
                 </>
             ),
         },
-        { key: 'when', header: 'When', cellClassName: 'sk-jobs__when', render: (j) => timeAgo(j.created_at || j.updated_at) },
+        {
+            key: 'when',
+            header: 'When',
+            sortable: true,
+            sortValue: (j) => {
+                const stamp = j.created_at || j.updated_at;
+                return stamp ? new Date(stamp).getTime() : null;
+            },
+            cellClassName: 'sk-jobs__when',
+            render: (j) => timeAgo(j.created_at || j.updated_at),
+        },
         {
             key: 'actions',
             header: '',
@@ -240,9 +249,9 @@ export default function Jobs() {
     ];
 
     const scheduledColumns = [
-        { key: 'name', header: 'Name', render: (s) => s.name || s.kind || `#${s.id}` },
-        { key: 'kind', header: 'Kind', cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
-        { key: 'schedule', header: 'Schedule', cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
+        { key: 'name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
+        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
+        { key: 'schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
         { key: 'next', header: 'Next run', cellClassName: 'sk-jobs__when', render: (s) => (s.next_run_at ? timeAgo(s.next_run_at) : '—') },
         { key: 'enabled', header: 'Enabled', render: (s) => <Pill kind={s.enabled ? 'green' : 'gray'}>{s.enabled ? 'On' : 'Off'}</Pill> },
         {
@@ -284,7 +293,7 @@ export default function Jobs() {
                         columns={scheduledColumns}
                         data={scheduled}
                         keyField="id"
-                        sortable={false}
+                        storageKey="serverkit-table-jobs-scheduled"
                         loading={loading && scheduled.length === 0}
                         emptyState={(
                             <div className="sk-jobs__empty">
@@ -318,8 +327,18 @@ export default function Jobs() {
                             columns={jobColumns}
                             data={jobs}
                             keyField="id"
-                            sortable={false}
+                            storageKey="serverkit-table-jobs-activity"
                             loading={loading && jobs.length === 0}
+                            footer={(
+                                <DataTableFooter
+                                    shown={jobs.length}
+                                    total={total}
+                                    noun="job"
+                                    page={page + 1}
+                                    totalPages={totalPages}
+                                    onPageChange={(next) => setPage(next - 1)}
+                                />
+                            )}
                             emptyState={(
                                 <div className="sk-jobs__empty">
                                     <ListChecks size={24} aria-hidden="true" />
@@ -327,18 +346,6 @@ export default function Jobs() {
                                 </div>
                             )}
                         />
-
-                        {(hasPrev || hasNext) && (
-                            <div className="sk-jobs__pager">
-                                <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-                                    <ChevronLeft size={14} /> Prev
-                                </Button>
-                                <span className="sk-jobs__pager-label">Page {page + 1}</span>
-                                <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setPage((p) => p + 1)}>
-                                    Next <ChevronRight size={14} />
-                                </Button>
-                            </div>
-                        )}
                     </>
                 )}
             </div>

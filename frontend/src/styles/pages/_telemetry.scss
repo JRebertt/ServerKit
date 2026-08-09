@@ -79,8 +79,7 @@
     tr.is-warning { box-shadow: inset 3px 0 0 var(--amber); }
     tr.is-debug { opacity: 0.72; }
 
-    .telemetry-loading,
-    .telemetry-more {
+    .telemetry-loading {
         display: flex;
         justify-content: center;
         padding: 18px 0;

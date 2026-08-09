@@ -1,8 +1,8 @@
 // Jobs page (plan 39) — host-idiom table-with-search, the /servers–/domains
 // pattern. Most weight is carried by shared primitives: .sk-dtable (DataTable),
 // .sk-kpiband (KpiBand), .sk-seg (SegControl) and the global .search-box. This
-// file only lays out the page shell, the command bar, pagination, the
-// scheduled-jobs section, and the row cell tints.
+// file only lays out the page shell, the command bar, the scheduled-jobs
+// section, and the row cell tints (pagination is the shared DataTableFooter).
 
 // The page shell (.page-container in Jobs.jsx) handles max-width + centering and
 // .main-content supplies the outer padding — matching /cron and /domains — so
@@ -59,17 +59,6 @@
     gap: $space-1;
     justify-content: flex-end;
     white-space: nowrap;
-}
-
-// ── Pagination ──────────────────────────────────────────────────────────
-.sk-jobs__pager {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: $space-3;
-    margin-top: $space-4;
-
-    &-label { color: $text-tertiary; font-size: $font-size-sm; }
 }
 
 .sk-jobs__empty {

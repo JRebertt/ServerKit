@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import {
-    DataTable, Drawer, FilterButton, FilterDrawer, KpiBand, MetricCard, Pill,
-    SearchField, countActiveFilters,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, KpiBand,
+    MetricCard, Pill, SearchField, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -202,6 +202,11 @@ export default function Telemetry() {
         {
             key: 'severity',
             header: 'Severity',
+            sortable: true,
+            sortValue: (event) => {
+                const rank = SEVERITY_ORDER.indexOf(event.severity);
+                return rank === -1 ? null : rank;
+            },
             render: (event) => {
                 const config = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
                 return <Pill kind={config.pill}>{config.label}</Pill>;
@@ -210,6 +215,8 @@ export default function Telemetry() {
         {
             key: 'message',
             header: 'Event',
+            sortable: true,
+            sortValue: (event) => event.message || event.event_type || null,
             render: (event) => (
                 <div className="telemetry-cell">
                     <div className="telemetry-cell__message">{event.message || event.event_type}</div>
@@ -248,6 +255,8 @@ export default function Telemetry() {
         {
             key: 'timestamp',
             header: 'When',
+            sortable: true,
+            sortValue: (event) => (event.timestamp ? new Date(event.timestamp).getTime() : null),
             cellClassName: 'telemetry-cell__when',
             render: (event) => new Date(event.timestamp).toLocaleString(),
         },
@@ -335,25 +344,27 @@ export default function Telemetry() {
                 <>
                     <DataTable
                         tableClassName="sk-dtable telemetry-table"
-                        sortable={false}
+                        storageKey="serverkit-table-telemetry"
                         data={events}
                         keyField="id"
                         loading={loading && events.length === 0}
                         onRowClick={setSelectedEvent}
                         rowClassName={(event) => `is-${event.severity}`}
                         columns={columns}
+                        footer={(
+                            <DataTableFooter
+                                shown={events.length}
+                                total={null}
+                                noun="event"
+                                hasMore={hasMore}
+                                onLoadMore={() => fetchEvents(page + 1, false)}
+                                loading={loading}
+                            />
+                        )}
                     />
 
                     {loading && events.length > 0 && (
                         <div className="telemetry-loading"><Loader2 size={20} className="spin" /></div>
-                    )}
-
-                    {hasMore && !loading && (
-                        <div className="telemetry-more">
-                            <Button variant="outline" onClick={() => fetchEvents(page + 1, false)}>
-                                Load more
-                            </Button>
-                        </div>
                     )}
                 </>
             )}
