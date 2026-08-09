@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl, SortMenu, SortChipBar, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
+import { SegControl, SortMenu, SortChipBar, ColumnsMenu, GroupMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -82,6 +82,16 @@ export default function ResourceListPage({
     // switch. Pages that omit it are table-only exactly as before.
     renderCard,
     viewStorageKey,
+    // Row selection: pass selectedIds (Set) + handlers to get a native
+    // checkbox column and the floating bulk bar (replaces the hand-rolled
+    // __select column pattern).
+    selectable = false,
+    selectedIds,
+    onToggleSelect,
+    onSelectAll,
+    // j/k/Enter/x row cursor (defaults on for list pages; keys are ignored
+    // while typing or while a dialog is open).
+    keyboardNav = true,
     children,
 }) {
     const resolvedTotal = totalCount ?? items.length;
@@ -100,6 +110,25 @@ export default function ResourceListPage({
     const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
         storageKey: storageKey ? `${storageKey}-cols` : undefined,
     });
+    const [groupBy, setGroupBy] = useState(() => {
+        if (!storageKey) return null;
+        try {
+            return window.localStorage.getItem(`${storageKey}-group`) || null;
+        } catch {
+            return null;
+        }
+    });
+
+    const changeGroupBy = (next) => {
+        setGroupBy(next);
+        if (!storageKey) return;
+        try {
+            if (next) window.localStorage.setItem(`${storageKey}-group`, next);
+            else window.localStorage.removeItem(`${storageKey}-group`);
+        } catch {
+            /* private mode / quota — the choice just doesn't persist */
+        }
+    };
     const [pageSize, setPageSize] = useState(() => {
         if (!storageKey) return 'all';
         try {
@@ -145,7 +174,8 @@ export default function ResourceListPage({
         sorts,
         hiddenKeys,
         pageSize,
-    }), [activeFilter, searchTerm, sorts, hiddenKeys, pageSize]);
+        groupBy,
+    }), [activeFilter, searchTerm, sorts, hiddenKeys, pageSize, groupBy]);
 
     const applyView = useCallback((state) => {
         if (state.filter !== undefined) onFilterChange?.(state.filter);
@@ -153,6 +183,7 @@ export default function ResourceListPage({
         if (Array.isArray(state.sorts)) setSorts(state.sorts);
         if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
         if (state.pageSize !== undefined) changePageSize(state.pageSize);
+        if (state.groupBy !== undefined) changeGroupBy(state.groupBy);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onFilterChange, onSearchChange, setSorts, setHiddenKeys]);
 
@@ -209,6 +240,7 @@ export default function ResourceListPage({
                                 {view === 'list' && (
                                     <>
                                         {viewPageKey && <ViewMenu views={tableViews} />}
+                                        <GroupMenu columns={columns} groupBy={groupBy} onChange={changeGroupBy} />
                                         {sortable && (
                                             <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
                                         )}
@@ -287,6 +319,13 @@ export default function ResourceListPage({
                                 sorts={sorts}
                                 onSortsChange={setSorts}
                                 hiddenKeys={hiddenKeys}
+                                groupBy={groupBy}
+                                onGroupByChange={changeGroupBy}
+                                selectable={selectable}
+                                selectedKeys={selectable && selectedIds ? [...selectedIds] : undefined}
+                                onToggleRow={selectable ? onToggleSelect : undefined}
+                                onToggleAll={selectable ? onSelectAll : undefined}
+                                keyboardNav={keyboardNav}
                                 onRowClick={onRowClick}
                                 rowClassName={rowClassName}
                                 footer={(
