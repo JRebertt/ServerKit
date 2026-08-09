@@ -61,17 +61,31 @@ const IPListsTab = () => {
         }
     };
 
-    const handleRemove = async (ip, listType) => {
+    const handleRemove = async (item, listType) => {
         const confirmed = await confirm({
             title: `Remove from ${listType}`,
-            message: `Are you sure you want to remove ${ip} from the ${listType}?`,
+            message: `Are you sure you want to remove ${item.ip} from the ${listType}?`,
             confirmText: 'Remove',
             variant: 'warning',
         });
         if (!confirmed) return;
         try {
-            await api.removeFromIPList(ip, listType);
-            toast.success(`IP removed from ${listType}`);
+            await api.removeFromIPList(item.ip, listType);
+            toast.success(`IP removed from ${listType}`, {
+                duration: 8000,
+                action: {
+                    label: 'Undo',
+                    onClick: async () => {
+                        try {
+                            await api.addToIPList(item.ip, listType, item.comment || '');
+                            toast.success(`IP restored to ${listType}`);
+                            await loadLists();
+                        } catch (error) {
+                            toast.error(`Could not restore IP: ${error.message}`);
+                        }
+                    },
+                },
+            });
             await loadLists();
         } catch (error) {
             toast.error(`Failed to remove IP: ${error.message}`);
@@ -115,7 +129,7 @@ const IPListsTab = () => {
                 hideable: false,
                 cellClassName: 'sec-rowend',
                 render: (item) => (
-                    <Button variant="destructive" size="sm" onClick={() => handleRemove(item.ip, listType)}>
+                    <Button variant="destructive" size="sm" onClick={() => handleRemove(item, listType)}>
                         Remove
                     </Button>
                 ),

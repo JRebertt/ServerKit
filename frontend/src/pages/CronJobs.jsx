@@ -3,6 +3,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
+import useFocusParam from '@/hooks/useFocusParam';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
@@ -173,6 +174,8 @@ const CronJobs = () => {
         setEditingJob(null);
         setShowJobDrawer(true);
     };
+    // Quick-create deep link: /cron?focus=create:cron opens the job drawer.
+    useFocusParam('create', openCreateDrawer);
 
     const openEditDrawer = (job) => {
         setEditingJob(job);
@@ -184,15 +187,34 @@ const CronJobs = () => {
         setEditingJob(null);
     };
 
-    const handleDeleteJob = async (jobId) => {
+    const handleDeleteJob = async (job) => {
         const confirmed = await confirm({
             title: 'Delete Cron Job',
             message: 'Are you sure you want to delete this cron job?',
         });
         if (!confirmed) return;
         try {
-            await api.deleteCronJob(jobId);
-            toast.success('Cron job deleted');
+            await api.deleteCronJob(job.id);
+            toast.success(`Cron job "${job.name}" deleted`, {
+                duration: 8000,
+                action: {
+                    label: 'Undo',
+                    onClick: async () => {
+                        try {
+                            await api.createCronJob({
+                                name: job.name,
+                                command: job.command,
+                                schedule: job.schedule,
+                                description: job.description,
+                            });
+                            toast.success(`Cron job "${job.name}" restored`);
+                            loadData();
+                        } catch (err) {
+                            toast.error(err.message || 'Could not restore the cron job');
+                        }
+                    },
+                },
+            });
             setDrawerJob(null);
             loadData();
         } catch (err) {
@@ -753,7 +775,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                 {trackingBusy ? 'Disabling…' : 'Disable run tracking'}
                             </Button>
                         )}
-                        <Button variant="destructive" size="sm" onClick={() => onDelete(job.id)}>
+                        <Button variant="destructive" size="sm" onClick={() => onDelete(job)}>
                             <Trash2 size={14} /> Delete
                         </Button>
                     </div>
