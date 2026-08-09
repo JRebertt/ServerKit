@@ -12,6 +12,7 @@ import { useContributions } from '../plugins/contributions';
 import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
 import useDevMode from '../hooks/useDevMode';
+import QuickCreate from './QuickCreate';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser, hasPermission } = useAuth();
@@ -550,6 +551,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         </span>
                         <ChevronUp size={14} className={`user-menu-arrow ${menuOpen ? 'open' : ''}`} aria-hidden="true" />
                     </button>
+                    <QuickCreate />
                     <NotificationBell />
                 </div>
             </div>
