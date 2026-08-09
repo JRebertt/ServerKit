@@ -6,6 +6,9 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const IPListsTab = () => {
     const [lists, setLists] = useState({ allowlist: [], blocklist: [] });
@@ -16,6 +19,11 @@ const IPListsTab = () => {
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    // Each list is its own table with its own persisted sort/columns state.
+    const allowSorts = useTableSort({ storageKey: 'serverkit-table-ip-allowlist-sort' });
+    const allowCols = useColumnVisibility({ storageKey: 'serverkit-table-ip-allowlist-cols' });
+    const blockSorts = useTableSort({ storageKey: 'serverkit-table-ip-blocklist-sort' });
+    const blockCols = useColumnVisibility({ storageKey: 'serverkit-table-ip-blocklist-cols' });
 
     useEffect(() => {
         loadLists();
@@ -73,48 +81,92 @@ const IPListsTab = () => {
         });
     };
 
-    const renderList = (title, listType, items, tone) => (
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    const renderList = (title, listType, items, tone, sortState, colState) => {
+        const columns = [
+            {
+                key: 'ip',
+                header: 'IP / CIDR',
+                sortable: true,
+                hideable: false,
+                sortValue: (item) => item.ip || '',
+                cellClassName: `sk-cell-mono sec-ip--${tone}`,
+                render: (item) => item.ip,
+            },
+            {
+                key: 'comment',
+                header: 'Comment',
+                sortable: true,
+                sortValue: (item) => item.comment || '',
+                render: (item) => item.comment || <span className="sec-dash">—</span>,
+            },
+            {
+                key: 'added',
+                header: 'Added',
+                sortable: true,
+                sortValue: (item) => {
+                    const t = new Date(item.added_at).getTime();
+                    return Number.isNaN(t) ? null : t;
+                },
+                cellClassName: 'sk-cell-mono sec-faint',
+                render: (item) => new Date(item.added_at).toLocaleDateString(),
+            },
+            {
+                key: 'actions',
+                header: '',
+                sortable: false,
+                hideable: false,
+                cellClassName: 'sec-rowend',
+                render: (item) => (
+                    <Button variant="destructive" size="sm" onClick={() => handleRemove(item.ip, listType)}>
+                        Remove
+                    </Button>
+                ),
+            },
+        ];
+        return (
         <div className="card sec-flush">
             <div className="card-header">
                 <h3 className={`sec-listtitle sec-listtitle--${tone}`}>
                     {title} <span className="sec-count">· {items.length}</span>
                 </h3>
-                <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
-                    Add IP
-                </Button>
+                <div className="sec-tableactions">
+                    <SortMenu columns={columns} sorts={sortState.sorts} onChange={sortState.setSorts} />
+                    <ColumnsMenu
+                        columns={columns}
+                        hiddenKeys={colState.hiddenKeys}
+                        onToggle={colState.toggleColumn}
+                        onShowAll={colState.showAllColumns}
+                    />
+                    <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
+                        Add IP
+                    </Button>
+                </div>
             </div>
             {items.length === 0 ? (
                 <div className="card-body">
                     <p className="text-muted">No IPs in {listType}.</p>
                 </div>
             ) : (
-                <table className="sk-dtable">
-                    <thead>
-                        <tr>
-                            <th>IP / CIDR</th>
-                            <th>Comment</th>
-                            <th>Added</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.map((item, index) => (
-                            <tr key={index}>
-                                <td className={`sk-cell-mono sec-ip--${tone}`}>{item.ip}</td>
-                                <td>{item.comment || <span className="sec-dash">—</span>}</td>
-                                <td className="sk-cell-mono sec-faint">{new Date(item.added_at).toLocaleDateString()}</td>
-                                <td className="sec-rowend">
-                                    <Button variant="destructive" size="sm" onClick={() => handleRemove(item.ip, listType)}>
-                                        Remove
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable
+                    columns={columns}
+                    data={items}
+                    keyField={(item) => item.ip}
+                    sorts={sortState.sorts}
+                    onSortsChange={sortState.setSorts}
+                    hiddenKeys={colState.hiddenKeys}
+                    footer={(
+                        <DataTableFooter
+                            shown={items.length}
+                            total={items.length}
+                            noun="entry"
+                        />
+                    )}
+                />
             )}
         </div>
-    );
+        );
+    };
 
     if (loading) {
         return <div className="loading-sm">Loading IP lists...</div>;
@@ -123,8 +175,8 @@ const IPListsTab = () => {
     return (
         <div className="ip-lists-tab">
             <div className="ip-lists-grid">
-                {renderList('Allowlist', 'allowlist', lists.allowlist, 'green')}
-                {renderList('Blocklist', 'blocklist', lists.blocklist, 'red')}
+                {renderList('Allowlist', 'allowlist', lists.allowlist, 'green', allowSorts, allowCols)}
+                {renderList('Blocklist', 'blocklist', lists.blocklist, 'red', blockSorts, blockCols)}
             </div>
 
             <Modal open={!!showAddModal} onClose={() => setShowAddModal(null)} title={`Add to ${showAddModal || ''}`}>

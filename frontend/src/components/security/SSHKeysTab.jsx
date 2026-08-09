@@ -6,6 +6,9 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const SSHKeysTab = () => {
     const [keys, setKeys] = useState([]);
@@ -15,6 +18,10 @@ const SSHKeysTab = () => {
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ssh-keys-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-ssh-keys-cols' });
 
     useEffect(() => {
         loadKeys();
@@ -68,12 +75,57 @@ const SSHKeysTab = () => {
         });
     };
 
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    const columns = [
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            sortValue: (key) => key.type || '',
+            render: (key) => <span className="sk-tag">{key.type}</span>,
+        },
+        {
+            key: 'fingerprint',
+            header: 'Fingerprint',
+            sortable: true,
+            hideable: false,
+            sortValue: (key) => key.fingerprint || '',
+            cellClassName: 'sk-cell-mono sec-fp',
+            render: (key) => key.fingerprint,
+        },
+        {
+            key: 'comment',
+            header: 'Comment',
+            sortable: true,
+            sortValue: (key) => key.comment || '',
+            render: (key) => key.comment || <span className="sec-dash">—</span>,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (key) => (
+                <Button variant="destructive" size="sm" onClick={() => handleRemoveKey(key.id, key.comment)}>
+                    Remove
+                </Button>
+            ),
+        },
+    ];
+
     return (
         <div className="ssh-keys-tab">
             <div className="card sec-flush">
                 <div className="card-header">
                     <h3>SSH Authorized Keys {!loading && keys.length > 0 && <span className="sec-count">· {keys.length}</span>}</h3>
                     <div className="card-actions">
+                        <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={columns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
                         <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
                             Add Key
                         </Button>
@@ -96,30 +148,21 @@ const SSHKeysTab = () => {
                         </div>
                     </div>
                 ) : (
-                    <table className="sk-dtable">
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Fingerprint</th>
-                                <th>Comment</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {keys.map((key) => (
-                                <tr key={key.id}>
-                                    <td><span className="sk-tag">{key.type}</span></td>
-                                    <td className="sk-cell-mono sec-fp">{key.fingerprint}</td>
-                                    <td>{key.comment || <span className="sec-dash">—</span>}</td>
-                                    <td>
-                                        <Button variant="destructive" size="sm" onClick={() => handleRemoveKey(key.id, key.comment)}>
-                                            Remove
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={columns}
+                        data={keys}
+                        keyField="id"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
+                        footer={(
+                            <DataTableFooter
+                                shown={keys.length}
+                                total={keys.length}
+                                noun="key"
+                            />
+                        )}
+                    />
                 )}
             </div>
 

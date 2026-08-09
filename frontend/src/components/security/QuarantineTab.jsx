@@ -1,12 +1,19 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
+import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatBytes } from '@/utils/formatBytes';
 
 const QuarantineTab = () => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState(null);
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-quarantine-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-quarantine-cols' });
 
     useEffect(() => {
         loadFiles();
@@ -48,6 +55,76 @@ const QuarantineTab = () => {
         }
     }
 
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    const columns = [
+        {
+            key: 'filename',
+            header: 'Filename',
+            sortable: true,
+            hideable: false,
+            sortValue: (file) => file.name || '',
+            cellClassName: 'sk-cell-mono sec-path sec-path--red',
+            render: (file) => file.name,
+        },
+        {
+            key: 'original',
+            header: 'Original Location',
+            sortable: true,
+            sortValue: (file) => file.original_path || '',
+            cellClassName: 'sk-cell-mono sec-path sec-faint',
+            render: (file) => (
+                <span title={file.original_path || ''}>
+                    {file.original_path || '—'}
+                </span>
+            ),
+        },
+        {
+            key: 'size',
+            header: 'Size',
+            sortable: true,
+            sortValue: (file) => (file.size == null ? null : Number(file.size)),
+            cellClassName: 'sk-cell-mono',
+            render: (file) => formatBytes(file.size, { defaultValue: '0 B' }),
+        },
+        {
+            key: 'quarantined',
+            header: 'Quarantined',
+            sortable: true,
+            sortValue: (file) => {
+                const t = new Date(file.quarantined_at).getTime();
+                return Number.isNaN(t) ? null : t;
+            },
+            cellClassName: 'sk-cell-mono sec-faint',
+            render: (file) => new Date(file.quarantined_at).toLocaleString(),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (file) => (
+                <div className="quarantine-actions">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestore(file)}
+                        disabled={!file.original_path}
+                        title={file.original_path ? 'Restore to original location' : 'Original location unknown'}
+                    >
+                        Restore
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(file.name)}
+                    >
+                        Delete
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <div className="quarantine-tab">
             {message && (
@@ -59,7 +136,16 @@ const QuarantineTab = () => {
             <div className="card sec-flush">
                 <div className="card-header">
                     <h3>Quarantined Files {!loading && files.length > 0 && <span className="sec-count">· {files.length}</span>}</h3>
-                    <Button variant="outline" size="sm" onClick={loadFiles}>Refresh</Button>
+                    <div className="sec-tableactions">
+                        <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={columns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
+                        <Button variant="outline" size="sm" onClick={loadFiles}>Refresh</Button>
+                    </div>
                 </div>
                 {loading ? (
                     <div className="card-body">
@@ -77,49 +163,21 @@ const QuarantineTab = () => {
                         </div>
                     </div>
                 ) : (
-                    <table className="sk-dtable">
-                        <thead>
-                            <tr>
-                                <th>Filename</th>
-                                <th>Original Location</th>
-                                <th>Size</th>
-                                <th>Quarantined</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {files.map((file, index) => (
-                                <tr key={index}>
-                                    <td className="sk-cell-mono sec-path sec-path--red">{file.name}</td>
-                                    <td className="sk-cell-mono sec-path sec-faint" title={file.original_path || ''}>
-                                        {file.original_path || '—'}
-                                    </td>
-                                    <td className="sk-cell-mono">{formatBytes(file.size, { defaultValue: '0 B' })}</td>
-                                    <td className="sk-cell-mono sec-faint">{new Date(file.quarantined_at).toLocaleString()}</td>
-                                    <td>
-                                        <div className="quarantine-actions">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleRestore(file)}
-                                                disabled={!file.original_path}
-                                                title={file.original_path ? 'Restore to original location' : 'Original location unknown'}
-                                            >
-                                                Restore
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => handleDelete(file.name)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={columns}
+                        data={files}
+                        keyField="name"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
+                        footer={(
+                            <DataTableFooter
+                                shown={files.length}
+                                total={files.length}
+                                noun="file"
+                            />
+                        )}
+                    />
                 )}
             </div>
         </div>

@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Pill, SegControl } from '@/components/ds';
+import { ColumnsMenu, DataTable, DataTableFooter, Pill, SegControl, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Shield } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
@@ -34,6 +36,10 @@ const FirewallTab = () => {
     const [guard, setGuard] = useState(null);
     const [guardLoading, setGuardLoading] = useState(false);
     const toast = useToast();
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-firewall-rules-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-firewall-rules-cols' });
 
     const commonPorts = [
         { port: 22, name: 'SSH', protocol: 'tcp' },
@@ -252,6 +258,57 @@ const FirewallTab = () => {
     const isActive = status?.any_active;
     const activeFirewall = status?.active_firewall;
 
+    // Cell markup/classNames are identical to the hand-rolled table they
+    // replace, so _security.scss keeps applying (.sec-state, .sec-rich-rule…).
+    const ruleColumns = [
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            sortValue: (rule) => rule.type || '',
+            render: (rule) => (
+                <span className={`sec-state sec-state--${RULE_TYPE_TONES[rule.type] || 'gray'}`}>
+                    {rule.type}
+                </span>
+            ),
+        },
+        {
+            key: 'target',
+            header: 'Target',
+            sortable: true,
+            sortValue: (rule) => rule.service || rule.port || rule.rule || '',
+            cellClassName: 'sk-cell-mono',
+            render: (rule) => (
+                <>
+                    {rule.type === 'service' && rule.service}
+                    {rule.type === 'port' && rule.port}
+                    {rule.type === 'rich' && <span className="sec-rich-rule">{rule.rule}</span>}
+                </>
+            ),
+        },
+        {
+            key: 'protocol',
+            header: 'Protocol',
+            sortable: true,
+            sortValue: (rule) => rule.protocol || '',
+            cellClassName: 'sk-cell-mono sec-proto',
+            render: (rule) => rule.protocol || '-',
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (rule) => (
+                rule.type === 'port' && (
+                    <Button variant="destructive" size="sm" onClick={() => handleRemovePort(rule.port, rule.protocol)}>
+                        Remove
+                    </Button>
+                )
+            ),
+        },
+    ];
+
     if (loading) {
         return <div className="loading-sm">Loading firewall status...</div>;
     }
@@ -360,47 +417,37 @@ const FirewallTab = () => {
                         <div className="card sec-flush">
                             <div className="card-header">
                                 <h3>Firewall Rules</h3>
-                                <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
+                                <div className="sec-tableactions">
+                                    <SortMenu columns={ruleColumns} sorts={sorts} onChange={setSorts} />
+                                    <ColumnsMenu
+                                        columns={ruleColumns}
+                                        hiddenKeys={hiddenKeys}
+                                        onToggle={toggleColumn}
+                                        onShowAll={showAllColumns}
+                                    />
+                                    <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
+                                </div>
                             </div>
                             {rules.length === 0 ? (
                                 <div className="card-body">
                                     <p className="text-muted">No rules configured</p>
                                 </div>
                             ) : (
-                                <table className="sk-dtable">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>Target</th>
-                                            <th>Protocol</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rules.map((rule, index) => (
-                                            <tr key={index}>
-                                                <td>
-                                                    <span className={`sec-state sec-state--${RULE_TYPE_TONES[rule.type] || 'gray'}`}>
-                                                        {rule.type}
-                                                    </span>
-                                                </td>
-                                                <td className="sk-cell-mono">
-                                                    {rule.type === 'service' && rule.service}
-                                                    {rule.type === 'port' && rule.port}
-                                                    {rule.type === 'rich' && <span className="sec-rich-rule">{rule.rule}</span>}
-                                                </td>
-                                                <td className="sk-cell-mono sec-proto">{rule.protocol || '-'}</td>
-                                                <td>
-                                                    {rule.type === 'port' && (
-                                                        <Button variant="destructive" size="sm" onClick={() => handleRemovePort(rule.port, rule.protocol)}>
-                                                            Remove
-                                                        </Button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                <DataTable
+                                    columns={ruleColumns}
+                                    data={rules}
+                                    keyField={(rule) => `${rule.type}-${rule.service || rule.port || rule.rule}-${rule.protocol || ''}`}
+                                    sorts={sorts}
+                                    onSortsChange={setSorts}
+                                    hiddenKeys={hiddenKeys}
+                                    footer={(
+                                        <DataTableFooter
+                                            shown={rules.length}
+                                            total={rules.length}
+                                            noun="rule"
+                                        />
+                                    )}
+                                />
                             )}
                         </div>
                     )}

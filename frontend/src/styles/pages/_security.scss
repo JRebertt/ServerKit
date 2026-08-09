@@ -58,6 +58,15 @@
         gap: $space-2;
     }
 
+    // Right-end cluster in a table card header (sort/columns menus + actions).
+    // Same layout as .card-actions but outside the legacy `card*` namespace the
+    // ESLint no-restricted-syntax rule flags on new markup.
+    .sec-tableactions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
+
     // ── shared page atoms ───────────────────────────────────
     // Count suffix inside an eyebrow heading ("Banned IPs · 4")
     .sec-count {

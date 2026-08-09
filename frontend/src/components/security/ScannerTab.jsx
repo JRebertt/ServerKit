@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill } from '@/components/ds';
+import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Zap, Radar, FolderSearch, Download, Box, ShieldAlert, FileCode2, Trash2 } from 'lucide-react';
 
 const SEVERITY_TONE = {
@@ -29,6 +31,11 @@ const ScannerTab = () => {
     // Findings (YARA + ClamAV) from the last completed job/scan
     const [findings, setFindings] = useState([]);
     const [quarantining, setQuarantining] = useState(null);
+    // Per-table sort + column visibility (persisted, mirrored by header menus)
+    const findingsSorts = useTableSort({ storageKey: 'serverkit-table-scanner-findings-sort' });
+    const findingsCols = useColumnVisibility({ storageKey: 'serverkit-table-scanner-findings-cols' });
+    const historySorts = useTableSort({ storageKey: 'serverkit-table-scanner-history-sort' });
+    const historyCols = useColumnVisibility({ storageKey: 'serverkit-table-scanner-history-cols' });
 
     // YARA rules manager
     const [rules, setRules] = useState(null);
@@ -228,6 +235,115 @@ const ScannerTab = () => {
     const isScanning = scanStatus.status === 'running';
     const jobRunning = scanJob && ['pending', 'running'].includes(scanJob.status);
 
+    // Cell markup/classNames identical to the hand-rolled tables they replace.
+    const findingColumns = [
+        {
+            key: 'rule',
+            header: 'Rule',
+            sortable: true,
+            hideable: false,
+            sortValue: (f) => f.rule || '',
+            cellClassName: 'sk-cell-mono',
+            render: (f) => <span title={f.description}>{f.rule}</span>,
+        },
+        {
+            key: 'severity',
+            header: 'Severity',
+            sortable: true,
+            sortValue: (f) => f.severity || '',
+            render: (f) => (
+                <span className={`sec-state sec-state--${SEVERITY_TONE[f.severity] || 'gray'}`}>
+                    {f.severity}
+                </span>
+            ),
+        },
+        {
+            key: 'file',
+            header: 'File',
+            sortable: true,
+            sortValue: (f) => f.file || '',
+            cellClassName: 'sk-cell-mono sec-path sec-path--red',
+            render: (f) => <span title={f.file}>{f.file}</span>,
+        },
+        {
+            key: 'match',
+            header: 'Match',
+            cellClassName: 'sk-cell-mono scan-snippet',
+            render: (f) => f.matched || '—',
+        },
+        {
+            key: 'source',
+            header: 'Source',
+            sortable: true,
+            sortValue: (f) => f.source || '',
+            render: (f) => <span className="sec-state sec-state--gray">{f.source}</span>,
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'sec-rowend',
+            render: (f) => (
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleQuarantine(f)}
+                    disabled={quarantining === f.file}
+                >
+                    {quarantining === f.file ? 'Moving…' : 'Quarantine'}
+                </Button>
+            ),
+        },
+    ];
+
+    const historyColumns = [
+        {
+            key: 'date',
+            header: 'Date',
+            sortable: true,
+            hideable: false,
+            sortValue: (scan) => {
+                const t = new Date(scan.started_at).getTime();
+                return Number.isNaN(t) ? null : t;
+            },
+            cellClassName: 'sk-cell-mono sec-faint',
+            render: (scan) => new Date(scan.started_at).toLocaleString(),
+        },
+        {
+            key: 'directory',
+            header: 'Directory',
+            sortable: true,
+            sortValue: (scan) => scan.directory || '',
+            cellClassName: 'sk-cell-mono sec-path',
+            render: (scan) => scan.directory,
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (scan) => scan.status || '',
+            render: (scan) => (
+                <Pill kind={scan.status === 'completed' ? 'green' : scan.status === 'error' ? 'red' : 'amber'}>
+                    {scan.status}
+                </Pill>
+            ),
+        },
+        {
+            key: 'threats',
+            header: 'Threats',
+            sortable: true,
+            sortValue: (scan) => scan.infected_files?.length ?? 0,
+            render: (scan) => (
+                scan.infected_files?.length > 0 ? (
+                    <span className="sec-state sec-state--red">{scan.infected_files.length} found</span>
+                ) : (
+                    <span className="sec-state sec-state--green">clean</span>
+                )
+            ),
+        },
+    ];
+
     return (
         <div className="scanner-tab">
             {message && (
@@ -426,52 +542,48 @@ const ScannerTab = () => {
                             <ShieldAlert size={13} />
                             Findings <span className="sec-count">· {findings.length}</span>
                         </h3>
-                        <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
+                        <div className="sec-tableactions">
+                            <SortMenu columns={findingColumns} sorts={findingsSorts.sorts} onChange={findingsSorts.setSorts} />
+                            <ColumnsMenu
+                                columns={findingColumns}
+                                hiddenKeys={findingsCols.hiddenKeys}
+                                onToggle={findingsCols.toggleColumn}
+                                onShowAll={findingsCols.showAllColumns}
+                            />
+                            <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
+                        </div>
                     </div>
-                    <table className="sk-dtable">
-                        <thead>
-                            <tr>
-                                <th>Rule</th>
-                                <th>Severity</th>
-                                <th>File</th>
-                                <th>Match</th>
-                                <th>Source</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {findings.map((f, index) => (
-                                <tr key={`${f.file}-${f.rule}-${index}`}>
-                                    <td className="sk-cell-mono" title={f.description}>{f.rule}</td>
-                                    <td>
-                                        <span className={`sec-state sec-state--${SEVERITY_TONE[f.severity] || 'gray'}`}>
-                                            {f.severity}
-                                        </span>
-                                    </td>
-                                    <td className="sk-cell-mono sec-path sec-path--red" title={f.file}>{f.file}</td>
-                                    <td className="sk-cell-mono scan-snippet">{f.matched || '—'}</td>
-                                    <td><span className="sec-state sec-state--gray">{f.source}</span></td>
-                                    <td className="sec-rowend">
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => handleQuarantine(f)}
-                                            disabled={quarantining === f.file}
-                                        >
-                                            {quarantining === f.file ? 'Moving…' : 'Quarantine'}
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={findingColumns}
+                        data={findings}
+                        keyField={(f) => `${f.file}-${f.rule}-${f.source}`}
+                        sorts={findingsSorts.sorts}
+                        onSortsChange={findingsSorts.setSorts}
+                        hiddenKeys={findingsCols.hiddenKeys}
+                        footer={(
+                            <DataTableFooter
+                                shown={findings.length}
+                                total={findings.length}
+                                noun="finding"
+                            />
+                        )}
+                    />
                 </div>
             )}
 
             <div className="card sec-flush">
                 <div className="card-header">
                     <h3>Scan History</h3>
-                    <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
+                    <div className="sec-tableactions">
+                        <SortMenu columns={historyColumns} sorts={historySorts.sorts} onChange={historySorts.setSorts} />
+                        <ColumnsMenu
+                            columns={historyColumns}
+                            hiddenKeys={historyCols.hiddenKeys}
+                            onToggle={historyCols.toggleColumn}
+                            onShowAll={historyCols.showAllColumns}
+                        />
+                        <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
+                    </div>
                 </div>
                 {history.length === 0 ? (
                     <div className="card-body">
@@ -484,36 +596,21 @@ const ScannerTab = () => {
                         </div>
                     </div>
                 ) : (
-                    <table className="sk-dtable">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Directory</th>
-                                <th>Status</th>
-                                <th>Threats</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {history.map((scan, index) => (
-                                <tr key={index}>
-                                    <td className="sk-cell-mono sec-faint">{new Date(scan.started_at).toLocaleString()}</td>
-                                    <td className="sk-cell-mono sec-path">{scan.directory}</td>
-                                    <td>
-                                        <Pill kind={scan.status === 'completed' ? 'green' : scan.status === 'error' ? 'red' : 'amber'}>
-                                            {scan.status}
-                                        </Pill>
-                                    </td>
-                                    <td>
-                                        {scan.infected_files?.length > 0 ? (
-                                            <span className="sec-state sec-state--red">{scan.infected_files.length} found</span>
-                                        ) : (
-                                            <span className="sec-state sec-state--green">clean</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={historyColumns}
+                        data={history}
+                        keyField={(scan) => `${scan.started_at}-${scan.directory}`}
+                        sorts={historySorts.sorts}
+                        onSortsChange={historySorts.setSorts}
+                        hiddenKeys={historyCols.hiddenKeys}
+                        footer={(
+                            <DataTableFooter
+                                shown={history.length}
+                                total={history.length}
+                                noun="scan"
+                            />
+                        )}
+                    />
                 )}
             </div>
         </div>

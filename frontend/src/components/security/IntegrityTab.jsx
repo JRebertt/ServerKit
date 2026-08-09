@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { DataTable, DataTableFooter } from '@/components/ds';
 
 // Scoped file-integrity monitoring: baseline-and-diff over the paths
 // ServerKit manages (nginx configs, serverkit-owned systemd units, and
@@ -116,42 +117,55 @@ const IntegrityTab = () => {
             })),
         ];
         const shown = rows.slice(0, 200);
+        // Cell markup/classNames identical to the hand-rolled table they
+        // replace. The old "… and N more" truncation row is now the standard
+        // DataTableFooter count ("Shown 200 of N changes").
+        const columns = [
+            {
+                key: 'change',
+                header: 'Change',
+                sortable: true,
+                sortValue: (row) => row.kind,
+                render: (row) => <span className={`sec-state sec-state--${row.tone}`}>{row.kind}</span>,
+            },
+            {
+                key: 'path',
+                header: 'Path',
+                sortable: true,
+                sortValue: (row) => row.path,
+                cellClassName: 'sk-cell-mono sec-path',
+                render: (row) => row.path,
+            },
+            {
+                key: 'what',
+                header: 'What changed',
+                render: (row) => (
+                    row.what ? (
+                        <span className="sec-what">
+                            {row.what.map((w) => (
+                                <span key={w} className="sec-state sec-state--gray">{w}</span>
+                            ))}
+                        </span>
+                    ) : (
+                        <span className="sec-dash">—</span>
+                    )
+                ),
+            },
+        ];
         return (
-            <table className="sk-dtable">
-                <thead>
-                    <tr>
-                        <th>Change</th>
-                        <th>Path</th>
-                        <th>What changed</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {shown.map((row, i) => (
-                        <tr key={i}>
-                            <td><span className={`sec-state sec-state--${row.tone}`}>{row.kind}</span></td>
-                            <td className="sk-cell-mono sec-path">{row.path}</td>
-                            <td>
-                                {row.what ? (
-                                    <span className="sec-what">
-                                        {row.what.map((w) => (
-                                            <span key={w} className="sec-state sec-state--gray">{w}</span>
-                                        ))}
-                                    </span>
-                                ) : (
-                                    <span className="sec-dash">—</span>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                    {rows.length > shown.length && (
-                        <tr>
-                            <td colSpan={3} className="sk-cell-mono sec-faint">
-                                … and {rows.length - shown.length} more
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+            <DataTable
+                columns={columns}
+                data={shown}
+                keyField={(row) => `${row.kind}:${row.path}`}
+                storageKey="serverkit-table-integrity-changes"
+                footer={(
+                    <DataTableFooter
+                        shown={shown.length}
+                        total={rows.length}
+                        noun="change"
+                    />
+                )}
+            />
         );
     }
 

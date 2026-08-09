@@ -7,7 +7,9 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Pill } from '@/components/ds';
+import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const Fail2banTab = () => {
@@ -21,6 +23,10 @@ const Fail2banTab = () => {
     const [banJail, setBanJail] = useState('sshd');
     const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fail2ban-bans-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-fail2ban-bans-cols' });
 
     useEffect(() => {
         loadData();
@@ -109,6 +115,37 @@ const Fail2banTab = () => {
     if (loading) {
         return <div className="loading-sm">Loading Fail2ban status...</div>;
     }
+
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    const banColumns = [
+        {
+            key: 'ip',
+            header: 'IP Address',
+            sortable: true,
+            hideable: false,
+            sortValue: (ban) => ban.ip || '',
+            cellClassName: 'sk-cell-mono sec-ip--red',
+            render: (ban) => ban.ip,
+        },
+        {
+            key: 'jail',
+            header: 'Jail',
+            sortable: true,
+            sortValue: (ban) => ban.jail || '',
+            render: (ban) => <span className="sk-tag">{ban.jail}</span>,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (ban) => (
+                <Button variant="secondary" size="sm" onClick={() => handleUnban(ban.ip, ban.jail)}>
+                    Unban
+                </Button>
+            ),
+        },
+    ];
 
     return (
         <div className="fail2ban-tab">
@@ -199,34 +236,36 @@ const Fail2banTab = () => {
                     <div className="card sec-flush">
                         <div className="card-header">
                             <h3>Banned IPs {bans.length > 0 && <span className="sec-count">· {bans.length}</span>}</h3>
+                            <div className="sec-tableactions">
+                                <SortMenu columns={banColumns} sorts={sorts} onChange={setSorts} />
+                                <ColumnsMenu
+                                    columns={banColumns}
+                                    hiddenKeys={hiddenKeys}
+                                    onToggle={toggleColumn}
+                                    onShowAll={showAllColumns}
+                                />
+                            </div>
                         </div>
                         {bans.length === 0 ? (
                             <div className="card-body">
                                 <p className="text-muted">No IPs are currently banned.</p>
                             </div>
                         ) : (
-                            <table className="sk-dtable">
-                                <thead>
-                                    <tr>
-                                        <th>IP Address</th>
-                                        <th>Jail</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {bans.map((ban, index) => (
-                                        <tr key={index}>
-                                            <td className="sk-cell-mono sec-ip--red">{ban.ip}</td>
-                                            <td><span className="sk-tag">{ban.jail}</span></td>
-                                            <td>
-                                                <Button variant="secondary" size="sm" onClick={() => handleUnban(ban.ip, ban.jail)}>
-                                                    Unban
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <DataTable
+                                columns={banColumns}
+                                data={bans}
+                                keyField={(ban) => `${ban.ip}-${ban.jail}`}
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                hiddenKeys={hiddenKeys}
+                                footer={(
+                                    <DataTableFooter
+                                        shown={bans.length}
+                                        total={bans.length}
+                                        noun="banned IP"
+                                    />
+                                )}
+                            />
                         )}
                     </div>
                 </>
