@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -242,7 +242,8 @@ function OverviewTab({ status, installed, onChange }) {
                 keyField="id"
                 storageKey="serverkit-table-email-components"
                 footer={<DataTableFooter shown={serviceRows.length} total={serviceRows.length} noun="service" />}
-                emptyState={<div className="sk-email__empty">No service components reported.</div>}
+                emptyTitle="No service components reported."
+                emptyMessage=""
             />
         </section>
     );
@@ -515,7 +516,21 @@ function AccountsTab({ domains }) {
 
     return (
         <section className="sk-email__section">
-            <div className="sk-email__filters">
+            <ListToolbar
+                className="sk-email__filters"
+                tools={(
+                    <>
+                        <ViewMenu views={tableViews} />
+                        <SortMenu columns={accountColumns} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={accountColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
+                    </>
+                )}
+            >
                 <label>
                     Domain
                     <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
@@ -532,17 +547,7 @@ function AccountsTab({ domains }) {
                         aria-label="Search accounts"
                     />
                 </label>
-                <div className="sk-email__tabletools">
-                    <ViewMenu views={tableViews} />
-                    <SortMenu columns={accountColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={accountColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
-                </div>
-            </div>
+            </ListToolbar>
 
             <form className="sk-email__add" onSubmit={create}>
                 <Input
@@ -577,11 +582,8 @@ function AccountsTab({ domains }) {
                 hiddenKeys={hiddenKeys}
                 loading={loading}
                 footer={<DataTableFooter shown={filtered.length} total={accounts.length} noun="account" />}
-                emptyState={(
-                    <div className="sk-email__empty">
-                        {accounts.length === 0 ? 'No accounts in this domain.' : 'No accounts match this search.'}
-                    </div>
-                )}
+                emptyTitle={accounts.length === 0 ? 'No accounts in this domain.' : 'No accounts match this search.'}
+                emptyMessage=""
             />
         </section>
     );
@@ -880,7 +882,25 @@ function QueueTab() {
 
     return (
         <section className="sk-email__section">
-            <div className="sk-email__filters">
+            <ListToolbar
+                className="sk-email__filters"
+                tools={(
+                    <>
+                        <ViewMenu views={tableViews} />
+                        <SortMenu columns={queueColumns} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={queueColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
+                        <div className="sk-email__actions">
+                            <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
+                            <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
+                        </div>
+                    </>
+                )}
+            >
                 <label className="search-box">
                     <Search size={16} />
                     <Input
@@ -891,21 +911,7 @@ function QueueTab() {
                         aria-label="Search mail queue"
                     />
                 </label>
-                <div className="sk-email__tabletools">
-                    <ViewMenu views={tableViews} />
-                    <SortMenu columns={queueColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={queueColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
-                </div>
-                <div className="sk-email__actions">
-                    <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
-                    <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
-                </div>
-            </div>
+            </ListToolbar>
 
             <DataTable
                 columns={queueColumns}
@@ -916,12 +922,8 @@ function QueueTab() {
                 hiddenKeys={hiddenKeys}
                 loading={loading}
                 footer={<DataTableFooter shown={filtered.length} total={queue.length} noun="message" />}
-                emptyState={(
-                    <div className="sk-email__empty">
-                        <Inbox size={24} aria-hidden="true" />
-                        <p>{queue.length === 0 ? 'The mail queue is empty.' : 'No messages match this search.'}</p>
-                    </div>
-                )}
+                emptyTitle={queue.length === 0 ? 'The mail queue is empty.' : 'No messages match this search.'}
+                emptyMessage=""
             />
         </section>
     );

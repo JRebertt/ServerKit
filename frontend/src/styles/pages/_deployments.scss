@@ -17,28 +17,8 @@ $deploy-feed-cols: 20px minmax(0, 1fr) 132px 116px 56px 76px 14px;
     max-width: 1180px;
     margin: 0 auto;
 
-    &__toolbar {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-        margin-bottom: $space-4;
-    }
-
-    &__server-select {
-        min-height: 34px;
-        padding: $space-1 $space-2;
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: $radius-md;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-        cursor: pointer;
-
-        &:focus {
-            outline: none;
-            border-color: $accent-primary;
-        }
-    }
+    // The toolbar row is the shared ListToolbar (.sk-listhead); the empty
+    // state is the shared EmptyState component.
 
     &__loading {
         display: grid;
@@ -51,22 +31,6 @@ $deploy-feed-cols: 20px minmax(0, 1fr) 132px 116px 56px 76px 14px;
         grid-template-columns: 110px 1fr 1fr 1fr;
         gap: $space-4;
         align-items: center;
-    }
-
-    &__empty {
-        min-height: 320px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: $space-2;
-        padding: $space-8;
-        color: $text-tertiary;
-        text-align: center;
-
-        svg { color: $text-tertiary; opacity: 0.72; }
-        strong { color: $text-secondary; font-size: $font-size-sm; font-weight: $font-weight-semibold; }
-        span { max-width: 280px; font-size: $font-size-sm; line-height: 1.45; }
     }
 
     // ---- feed ----
@@ -320,12 +284,6 @@ $deploy-feed-cols: 20px minmax(0, 1fr) 132px 116px 56px 76px 14px;
 
 @media (max-width: $breakpoint-md) {
     .deployments-page {
-        &__toolbar {
-            width: 100%;
-            flex-direction: column;
-            align-items: stretch;
-        }
-
         .sk-seg { overflow-x: auto; }
 
         // Below the grid's natural width the feed scrolls sideways rather than

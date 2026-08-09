@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
+    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -257,20 +257,42 @@ const Servers = () => {
 
     return (
         <div className="sk-tabgroup__inner servers-page">
-            <div className="servers-listhead">
-                <SegControl
-                    value={selectedStatus}
-                    onChange={setSelectedStatus}
-                    options={STATUS_FILTERS.map((key) => ({
-                        value: key,
-                        label: key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1),
-                        count: key === 'all' ? servers.length : (statusCounts[key] || 0),
-                    }))}
-                    aria-label="Filter by status"
-                />
+            <ListToolbar
+                filters={(
+                    <SegControl
+                        value={selectedStatus}
+                        onChange={setSelectedStatus}
+                        options={STATUS_FILTERS.map((key) => ({
+                            value: key,
+                            label: key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1),
+                            count: key === 'all' ? servers.length : (statusCounts[key] || 0),
+                        }))}
+                        aria-label="Filter by status"
+                    />
+                )}
+                count={(
+                    <>
+                        {filteredServers.length} of {servers.length} server{servers.length === 1 ? '' : 's'}
+                        <i>&middot;</i>
+                        <b>{online} online</b>
+                    </>
+                )}
+                tools={(
+                    <>
+                        <ViewMenu views={tableViews} />
+                        <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={SERVER_COLUMNS}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
+                    </>
+                )}
+            >
                 {groups.length > 0 && (
                     <select
-                        className="servers-groupselect"
+                        className="sk-listhead__select"
                         value={selectedGroup}
                         onChange={(e) => setSelectedGroup(e.target.value)}
                         aria-label="Filter by group"
@@ -280,20 +302,7 @@ const Servers = () => {
                         <option value="ungrouped">Ungrouped</option>
                     </select>
                 )}
-                <span className="servers-count">
-                    {filteredServers.length} of {servers.length} server{servers.length === 1 ? '' : 's'}
-                    <i>&middot;</i>
-                    <b>{online} online</b>
-                </span>
-                <ViewMenu views={tableViews} />
-                <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
-                <ColumnsMenu
-                    columns={SERVER_COLUMNS}
-                    hiddenKeys={hiddenKeys}
-                    onToggle={toggleColumn}
-                    onShowAll={showAllColumns}
-                />
-            </div>
+            </ListToolbar>
 
             <SortChipBar columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableFooter, Pill } from '../ds';
+import { DataTable, DataTableFooter, ListToolbar, Pill } from '../ds';
 import EmptyState from '../EmptyState';
 import {
     FileSearch,
@@ -159,7 +159,19 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
 
     return (
         <div className="survey-tab">
-            <div className="survey-tab__toolbar">
+            <ListToolbar
+                tools={(
+                    <div className="survey-tab__toolbar-actions">
+                        <Button variant="outline" size="sm" onClick={loadCatalog}>
+                            <FileSearch size={14} /> {showCatalog ? 'Hide' : 'What we check'}
+                        </Button>
+                        <Button size="sm" onClick={refly} disabled={flying || serverStatus !== 'online'}>
+                            <RefreshCw size={14} className={flying ? 'spin' : ''} />
+                            {flying ? 'Surveying…' : (snapshots.length ? 'Re-fly survey' : 'Run survey')}
+                        </Button>
+                    </div>
+                )}
+            >
                 <div className="survey-tab__toolbar-info">
                     {takenAt ? (
                         <span className="survey-tab__muted">Last flight {new Date(takenAt).toLocaleString()}</span>
@@ -172,16 +184,7 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
                         </Pill>
                     )}
                 </div>
-                <div className="survey-tab__toolbar-actions">
-                    <Button variant="outline" size="sm" onClick={loadCatalog}>
-                        <FileSearch size={14} /> {showCatalog ? 'Hide' : 'What we check'}
-                    </Button>
-                    <Button size="sm" onClick={refly} disabled={flying || serverStatus !== 'online'}>
-                        <RefreshCw size={14} className={flying ? 'spin' : ''} />
-                        {flying ? 'Surveying…' : (snapshots.length ? 'Re-fly survey' : 'Run survey')}
-                    </Button>
-                </div>
-            </div>
+            </ListToolbar>
 
             {serverStatus !== 'online' && !snapshots.length && (
                 <p className="survey-tab__muted">The agent is offline — reconnect it to fly a survey.</p>

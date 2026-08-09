@@ -8,12 +8,7 @@
     flex-direction: column;
     gap: 1rem;
 
-    &__toolbar {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-    }
+    // The toolbar row is the shared ListToolbar (.sk-listhead).
 
     &__search {
         flex: 1 1 280px;

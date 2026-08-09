@@ -13,8 +13,9 @@ import {
 import api from '../services/api';
 import Modal from '../components/Modal';
 import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { SegControl, SearchField } from '@/components/ds';
+import { SegControl, SearchField, ListToolbar } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RequiresDocker from '../components/RequiresDocker';
 import {
@@ -173,19 +174,22 @@ const Deployments = () => {
     return (
         <RequiresDocker what="Deployments">
         <div className="sk-tabgroup__inner deployments-page">
-            <div className="deployments-page__toolbar">
-                <SegControl
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    options={STATUS_FILTERS.map(([value, label]) => ({
-                        value,
-                        label,
-                        count: counts[value],
-                    }))}
-                    aria-label="Filter by status"
-                />
+            <ListToolbar
+                filters={(
+                    <SegControl
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        options={STATUS_FILTERS.map(([value, label]) => ({
+                            value,
+                            label,
+                            count: counts[value],
+                        }))}
+                        aria-label="Filter by status"
+                    />
+                )}
+            >
                 <select
-                    className="deployments-page__server-select"
+                    className="sk-listhead__select"
                     value={serverFilter}
                     onChange={(e) => setServerFilter(e.target.value)}
                     aria-label="Filter by target server"
@@ -197,7 +201,7 @@ const Deployments = () => {
                         </option>
                     ))}
                 </select>
-            </div>
+            </ListToolbar>
 
             {loading ? (
                 <div className="deployments-page__loading" aria-busy="true">
@@ -211,17 +215,13 @@ const Deployments = () => {
                     ))}
                 </div>
             ) : groups.length === 0 ? (
-                <div className="deployments-page__empty">
-                    <PlayCircle size={34} />
-                    <strong>
-                        {jobs.length === 0 ? 'No deployment jobs yet' : 'No deploys match this filter'}
-                    </strong>
-                    <span>
-                        {jobs.length === 0
-                            ? 'Create a service from a repository or install a template to see activity here.'
-                            : 'Try a different status, server, or search term.'}
-                    </span>
-                </div>
+                <EmptyState
+                    icon={PlayCircle}
+                    title={jobs.length === 0 ? 'No deployment jobs yet' : 'No deploys match this filter'}
+                    description={jobs.length === 0
+                        ? 'Create a service from a repository or install a template to see activity here.'
+                        : 'Try a different status, server, or search term.'}
+                />
             ) : (
                 <div className="deployments-page__feed">
                     <div className="deployments-page__feed-head" aria-hidden="true">

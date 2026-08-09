@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill, ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '../ds';
+import { Pill, ColumnsMenu, DataTable, DataTableFooter, ListToolbar, SortMenu } from '../ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import Modal from '../Modal';
@@ -177,7 +177,27 @@ const ServicesTab = ({ serverId, serverStatus }) => {
 
     return (
         <div className="server-services">
-            <div className="server-services__toolbar">
+            <ListToolbar
+                tools={(
+                    <div className="server-services__actions">
+                        <Button variant="outline" onClick={loadUnits}>Refresh</Button>
+                        <Button
+                            variant="outline"
+                            onClick={reloadDaemon}
+                            disabled={busyUnit === '__daemon__'}
+                        >
+                            Reload daemon
+                        </Button>
+                        <SortMenu columns={unitColumns} sorts={sorts} onChange={setSorts} />
+                        <ColumnsMenu
+                            columns={unitColumns}
+                            hiddenKeys={hiddenKeys}
+                            onToggle={toggleColumn}
+                            onShowAll={showAllColumns}
+                        />
+                    </div>
+                )}
+            >
                 <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -196,24 +216,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                         </Button>
                     ))}
                 </div>
-                <div className="server-services__actions">
-                    <Button variant="outline" onClick={loadUnits}>Refresh</Button>
-                    <Button
-                        variant="outline"
-                        onClick={reloadDaemon}
-                        disabled={busyUnit === '__daemon__'}
-                    >
-                        Reload daemon
-                    </Button>
-                    <SortMenu columns={unitColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={unitColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
-                </div>
-            </div>
+            </ListToolbar>
 
             {loading ? (
                 <p className="text-muted-foreground">Loading…</p>
