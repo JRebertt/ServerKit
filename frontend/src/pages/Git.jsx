@@ -6,7 +6,11 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { DangerZone } from '../components/DangerZone';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
-import { Pill, MetricCard, SegControl, Drawer } from '../components/ds';
+import {
+    Pill, MetricCard, SegControl, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter,
+} from '../components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import PageLayout from '../layouts/PageLayout';
 import {
     AlertCircle, FolderGit2, Webhook, Rocket, Server, Globe, Terminal, Tag,
@@ -21,6 +25,199 @@ import { Label } from '@/components/ui/label';
 const VALID_TABS = ['overview', 'repositories', 'access', 'webhooks', 'deployments', 'settings'];
 
 const SOURCE_INITIALS = { github: 'GH', gitlab: 'GL', bitbucket: 'BB' };
+
+const getStatusColor = (status) => {
+    switch (status) {
+        case 'success': return 'green';
+        case 'failed': return 'red';
+        case 'running': return 'amber';
+        default: return 'gray';
+    }
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    return date.toLocaleDateString();
+};
+
+// Columns for the shared DataTable. Cell markup and classNames are identical
+// to the hand-rolled tables they replace, so _git.scss keeps applying
+// (.sk-cell-name, .git-reponame, .git-branch-chip, .git-url, .dom-chev).
+const REPO_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Repository',
+        sortable: true,
+        hideable: false,
+        sortValue: (repo) => repo.name || '',
+        render: (repo) => (
+            <div className="sk-cell-name">
+                <span className="dom-fav git-repo-ico">
+                    {repo.private ? (
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    ) : (
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+                    )}
+                </span>
+                <div className="git-repocell">
+                    <div className="git-reponame">
+                        <span className="own">{repo.owner.login}/</span>{repo.name}
+                        {repo.private && <span className="git-chip git-chip--amber">private</span>}
+                        {repo.fork && <span className="git-chip git-chip--cyan">fork</span>}
+                    </div>
+                    {repo.description && <div className="sk-cell-sub git-repo-desc">{repo.description}</div>}
+                </div>
+            </div>
+        ),
+    },
+    {
+        key: 'branch',
+        header: 'Branch',
+        sortable: true,
+        sortValue: (repo) => repo.default_branch || '',
+        render: (repo) => (
+            <span className="git-branch-chip">
+                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                {repo.default_branch}
+            </span>
+        ),
+    },
+    {
+        key: 'stars',
+        header: 'Stars',
+        sortable: true,
+        sortValue: (repo) => repo.stars ?? 0,
+        cellClassName: 'sk-cell-mono',
+    },
+    {
+        key: 'forks',
+        header: 'Forks',
+        sortable: true,
+        sortValue: (repo) => repo.forks ?? 0,
+        cellClassName: 'sk-cell-mono',
+    },
+    {
+        key: 'updated',
+        header: 'Updated',
+        sortable: true,
+        sortValue: (repo) => (repo.updated_at ? new Date(repo.updated_at).getTime() : null),
+        cellClassName: 'sk-cell-mono',
+        render: (repo) => formatDate(repo.updated_at),
+    },
+    {
+        key: 'open',
+        header: '',
+        sortable: false,
+        hideable: false,
+        width: 30,
+        render: () => <ChevronRight size={16} className="dom-chev" />,
+    },
+];
+
+const WEBHOOK_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Webhook',
+        sortable: true,
+        hideable: false,
+        sortValue: (webhook) => webhook.name || '',
+        render: (webhook) => (
+            <div className="sk-cell-name">
+                <span className={`git-src-tile git-src-tile--${webhook.source}`}>{SOURCE_INITIALS[webhook.source] || webhook.source?.slice(0, 2).toUpperCase()}</span>
+                <div className="git-repocell">
+                    <div className="git-reponame">{webhook.name}</div>
+                    <div className="sk-cell-sub">{webhook.source}{webhook.deploy_on_push ? ' · deploy on push' : ''}</div>
+                </div>
+            </div>
+        ),
+    },
+    {
+        key: 'repository',
+        header: 'Repository',
+        sortable: true,
+        sortValue: (webhook) => webhook.source_repo_url || '',
+        cellClassName: 'sk-cell-mono git-url',
+        render: (webhook) => <span title={webhook.source_repo_url}>{webhook.source_repo_url}</span>,
+    },
+    {
+        key: 'branch',
+        header: 'Branch',
+        sortable: true,
+        sortValue: (webhook) => webhook.source_branch || '',
+        render: (webhook) => (
+            <span className="git-branch-chip">
+                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                {webhook.source_branch}
+            </span>
+        ),
+    },
+    {
+        key: 'lastSync',
+        header: 'Last sync',
+        sortable: true,
+        sortValue: (webhook) => (webhook.last_sync_at ? new Date(webhook.last_sync_at).getTime() : null),
+        cellClassName: 'sk-cell-mono',
+        render: (webhook) => (
+            <span title={webhook.last_sync_at ? new Date(webhook.last_sync_at).toLocaleString() : undefined}>
+                {webhook.last_sync_at ? formatDate(webhook.last_sync_at) : 'never'}
+            </span>
+        ),
+    },
+    {
+        key: 'sync_count',
+        header: 'Syncs',
+        sortable: true,
+        sortValue: (webhook) => webhook.sync_count ?? 0,
+        cellClassName: 'sk-cell-mono',
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (webhook) => (webhook.is_active ? 1 : 0),
+        render: (webhook) => <Pill kind={webhook.is_active ? 'green' : 'gray'}>{webhook.is_active ? 'Active' : 'Inactive'}</Pill>,
+    },
+    {
+        key: 'open',
+        header: '',
+        sortable: false,
+        hideable: false,
+        width: 30,
+        render: () => <ChevronRight size={16} className="dom-chev" />,
+    },
+];
+
+// Recent deployments table inside the webhook drawer.
+const HOOK_DEPLOY_COLUMNS = [
+    {
+        key: 'version',
+        header: 'Version',
+        sortable: true,
+        sortValue: (d) => d.version ?? 0,
+        render: (d) => `v${d.version}`,
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (d) => d.status || '',
+        render: (d) => <Pill kind={getStatusColor(d.status)}>{d.status}</Pill>,
+    },
+    {
+        key: 'when',
+        header: 'When',
+        sortable: true,
+        sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
+        render: (d) => formatDate(d.created_at),
+    },
+];
 
 function Git({ basePath = '/git' }) {
     const [status, setStatus] = useState(null);
@@ -82,6 +279,15 @@ function Git({ basePath = '/git' }) {
     const [showDeploymentLogs, setShowDeploymentLogs] = useState(false);
     const [deployingAppId, setDeployingAppId] = useState(null);
     const [deploymentFilter, setDeploymentFilter] = useState('all');
+
+    const { sorts: repoSorts, setSorts: setRepoSorts } = useTableSort({ storageKey: 'serverkit-table-git-repos-sort' });
+    const {
+        hiddenKeys: repoHiddenKeys, toggleColumn: toggleRepoColumn, showAllColumns: showAllRepoColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-git-repos-cols' });
+    const { sorts: webhookSorts, setSorts: setWebhookSorts } = useTableSort({ storageKey: 'serverkit-table-git-webhooks-sort' });
+    const {
+        hiddenKeys: webhookHiddenKeys, toggleColumn: toggleWebhookColumn, showAllColumns: showAllWebhookColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-git-webhooks-cols' });
 
     const toast = useToast();
 
@@ -406,33 +612,12 @@ function Git({ basePath = '/git' }) {
         }
     };
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'success': return 'green';
-            case 'failed': return 'red';
-            case 'running': return 'amber';
-            default: return 'gray';
-        }
-    };
-
     const formatFileSize = (bytes) => {
         if (bytes === 0) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'Unknown';
-        const date = new Date(dateString);
-        const now = new Date();
-        const diff = now - date;
-        if (diff < 60000) return 'just now';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
-        return date.toLocaleDateString();
     };
 
     const handleInstall = async () => {
@@ -680,58 +865,37 @@ function Git({ basePath = '/git' }) {
                             { value: 'forks', label: 'Forks', count: repoForkCount },
                         ]}
                     />
+                    <div className="dom-listhead__tools">
+                        <SortMenu columns={REPO_COLUMNS} sorts={repoSorts} onChange={setRepoSorts} />
+                        <ColumnsMenu
+                            columns={REPO_COLUMNS}
+                            hiddenKeys={repoHiddenKeys}
+                            onToggle={toggleRepoColumn}
+                            onShowAll={showAllRepoColumns}
+                        />
+                    </div>
                 </div>
                 {filteredRepos.length === 0 ? (
                     <div className="dom-empty">No repositories match this filter.</div>
                 ) : (
                     <div className="dom-card">
-                        <table className="sk-dtable git-repos-table">
-                            <thead>
-                                <tr>
-                                    <th>Repository</th>
-                                    <th>Branch</th>
-                                    <th>Stars</th>
-                                    <th>Forks</th>
-                                    <th>Updated</th>
-                                    <th style={{ width: 30 }} />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredRepos.map(repo => (
-                                    <tr key={repo.id} className="is-clickable" onClick={() => openRepoDrawer(repo)}>
-                                        <td>
-                                            <div className="sk-cell-name">
-                                                <span className="dom-fav git-repo-ico">
-                                                    {repo.private ? (
-                                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                                    ) : (
-                                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
-                                                    )}
-                                                </span>
-                                                <div className="git-repocell">
-                                                    <div className="git-reponame">
-                                                        <span className="own">{repo.owner.login}/</span>{repo.name}
-                                                        {repo.private && <span className="git-chip git-chip--amber">private</span>}
-                                                        {repo.fork && <span className="git-chip git-chip--cyan">fork</span>}
-                                                    </div>
-                                                    {repo.description && <div className="sk-cell-sub git-repo-desc">{repo.description}</div>}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span className="git-branch-chip">
-                                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-                                                {repo.default_branch}
-                                            </span>
-                                        </td>
-                                        <td className="sk-cell-mono">{repo.stars}</td>
-                                        <td className="sk-cell-mono">{repo.forks}</td>
-                                        <td className="sk-cell-mono">{formatDate(repo.updated_at)}</td>
-                                        <td><ChevronRight size={16} className="dom-chev" /></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={REPO_COLUMNS}
+                            data={filteredRepos}
+                            keyField="id"
+                            sorts={repoSorts}
+                            onSortsChange={setRepoSorts}
+                            hiddenKeys={repoHiddenKeys}
+                            onRowClick={openRepoDrawer}
+                            tableClassName="git-repos-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={filteredRepos.length}
+                                    total={repositories.length}
+                                    noun="repo"
+                                />
+                            )}
+                        />
                     </div>
                 )}
             </>
@@ -795,52 +959,38 @@ function Git({ basePath = '/git' }) {
                             { value: 'inactive', label: 'Inactive', count: webhookInactiveCount },
                         ]}
                     />
+                    <div className="dom-listhead__tools">
+                        <SortMenu columns={WEBHOOK_COLUMNS} sorts={webhookSorts} onChange={setWebhookSorts} />
+                        <ColumnsMenu
+                            columns={WEBHOOK_COLUMNS}
+                            hiddenKeys={webhookHiddenKeys}
+                            onToggle={toggleWebhookColumn}
+                            onShowAll={showAllWebhookColumns}
+                        />
+                    </div>
                 </div>
                 {filteredWebhooks.length === 0 ? (
                     <div className="dom-empty">No webhooks match this filter.</div>
                 ) : (
                     <div className="dom-card">
-                        <table className="sk-dtable git-webhooks-table">
-                            <thead>
-                                <tr>
-                                    <th>Webhook</th>
-                                    <th>Repository</th>
-                                    <th>Branch</th>
-                                    <th>Last sync</th>
-                                    <th>Syncs</th>
-                                    <th>Status</th>
-                                    <th style={{ width: 30 }} />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredWebhooks.map(webhook => (
-                                    <tr key={webhook.id} className={`is-clickable ${!webhook.is_active ? 'is-disabled' : ''}`} onClick={() => setDrawerWebhook(webhook)}>
-                                        <td>
-                                            <div className="sk-cell-name">
-                                                <span className={`git-src-tile git-src-tile--${webhook.source}`}>{SOURCE_INITIALS[webhook.source] || webhook.source?.slice(0, 2).toUpperCase()}</span>
-                                                <div className="git-repocell">
-                                                    <div className="git-reponame">{webhook.name}</div>
-                                                    <div className="sk-cell-sub">{webhook.source}{webhook.deploy_on_push ? ' · deploy on push' : ''}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="sk-cell-mono git-url" title={webhook.source_repo_url}>{webhook.source_repo_url}</td>
-                                        <td>
-                                            <span className="git-branch-chip">
-                                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
-                                                {webhook.source_branch}
-                                            </span>
-                                        </td>
-                                        <td className="sk-cell-mono" title={webhook.last_sync_at ? new Date(webhook.last_sync_at).toLocaleString() : undefined}>
-                                            {webhook.last_sync_at ? formatDate(webhook.last_sync_at) : 'never'}
-                                        </td>
-                                        <td className="sk-cell-mono">{webhook.sync_count}</td>
-                                        <td><Pill kind={webhook.is_active ? 'green' : 'gray'}>{webhook.is_active ? 'Active' : 'Inactive'}</Pill></td>
-                                        <td><ChevronRight size={16} className="dom-chev" /></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={WEBHOOK_COLUMNS}
+                            data={filteredWebhooks}
+                            keyField="id"
+                            sorts={webhookSorts}
+                            onSortsChange={setWebhookSorts}
+                            hiddenKeys={webhookHiddenKeys}
+                            onRowClick={setDrawerWebhook}
+                            rowClassName={(webhook) => (!webhook.is_active ? 'is-disabled' : '')}
+                            tableClassName="git-webhooks-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={filteredWebhooks.length}
+                                    total={webhooks.length}
+                                    noun="webhook"
+                                />
+                            )}
+                        />
                     </div>
                 )}
             </>
@@ -1274,18 +1424,20 @@ function Git({ basePath = '/git' }) {
                                 <p className="dom-drawer__hint">No deployments for this webhook.</p>
                             ) : (
                                 <div className="dom-dns__table">
-                                    <table className="sk-dtable">
-                                        <thead><tr><th>Version</th><th>Status</th><th>When</th></tr></thead>
-                                        <tbody>
-                                            {webhookDeployments.map(d => (
-                                                <tr key={d.id} className="is-clickable" onClick={() => { setDrawerWebhook(null); viewDeploymentLogs(d.id); }}>
-                                                    <td>v{d.version}</td>
-                                                    <td><Pill kind={getStatusColor(d.status)}>{d.status}</Pill></td>
-                                                    <td>{formatDate(d.created_at)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                    <DataTable
+                                        columns={HOOK_DEPLOY_COLUMNS}
+                                        data={webhookDeployments}
+                                        keyField="id"
+                                        storageKey="serverkit-table-git-hook-deploys"
+                                        onRowClick={(d) => { setDrawerWebhook(null); viewDeploymentLogs(d.id); }}
+                                        footer={(
+                                            <DataTableFooter
+                                                shown={webhookDeployments.length}
+                                                total={webhookDeployments.length}
+                                                noun="deployment"
+                                            />
+                                        )}
+                                    />
                                 </div>
                             )}
                         </div>
