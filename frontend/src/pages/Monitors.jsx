@@ -15,13 +15,16 @@ import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import {
     DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, KpiBand,
-    MetricCard, Pill, SearchField, Sparkline, countActiveFilters,
+    MetricCard, Pill, SearchField, Sparkline, ViewMenu, countActiveFilters,
 } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import { CHECK_TYPES, MONITOR_STATUS, monitorStateOf } from '../components/monitoring/monitorShared';
 
 const POLL_MS = 15000;
@@ -76,6 +79,15 @@ function formatUptime(value) {
     return `${Number(value).toFixed(2)}%`;
 }
 
+// Built-in saved views. State shape: { search, filters, sorts, hiddenKeys } —
+// `filters` values are the FilterDrawer's real group options (status values
+// from MONITOR_STATUS), `sorts` use real column keys.
+const BUILTIN_VIEWS = [
+    { name: 'Down', state: { search: '', filters: { status: 'major_outage', type: '' }, sorts: [], hiddenKeys: [] } },
+    { name: 'Degraded', state: { search: '', filters: { status: 'degraded', type: '' }, sorts: [], hiddenKeys: [] } },
+    { name: 'Slowest', state: { search: '', filters: { status: '', type: '' }, sorts: [{ key: 'response', direction: 'desc' }], hiddenKeys: [] } },
+];
+
 export default function Monitors() {
     const navigate = useNavigate();
     const toast = useToast();
@@ -123,11 +135,39 @@ export default function Monitors() {
     const activeFilterCount = countActiveFilters(filters);
     const setStatusQuick = (value) => setFilters((f) => ({ ...f, status: f.status === value ? '' : value }));
 
+    // Table sort + column visibility, controlled so saved views can drive them.
+    // Same storage keys DataTable used internally, so existing choices survive.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitors-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-monitors-cols' });
+
+    // Saved views: capture/apply adapt the hook to this page's table state.
+    const captureViewState = useCallback(() => ({
+        search: q, filters, sorts, hiddenKeys,
+    }), [q, filters, sorts, hiddenKeys]);
+    const applyViewState = useCallback((state) => {
+        if (state.search !== undefined) setQ(state.search);
+        if (state.filters !== undefined) setFilters((f) => ({ ...f, ...state.filters }));
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+    const tableViews = useTableViews({
+        page: 'monitors',
+        builtinViews: BUILTIN_VIEWS,
+        capture: captureViewState,
+        apply: applyViewState,
+    });
+    // Stable dep for the topbar publish below — the views object itself is
+    // rebuilt every render, so depending on it would re-publish in a loop.
+    const activeViewKey = tableViews.activeView
+        ? `${tableViews.activeView.builtin ? 'builtin' : 'user'}:${tableViews.activeView.id ?? tableViews.activeView.name}`
+        : null;
+
     const openCreate = () => { setForm(emptyForm); setFormOpen(true); };
 
     useTopbarActions(() => (
         <>
             <SearchField value={q} onSearch={(value) => setQ(value.trim())} placeholder="Search monitors or targets…" />
+            <ViewMenu views={tableViews} />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
             <Button variant="outline" size="sm" onClick={load}>
                 <RefreshCw size={14} /> Refresh
@@ -136,7 +176,7 @@ export default function Monitors() {
                 <Plus size={14} /> Add monitor
             </Button>
         </>
-    ), [q, activeFilterCount, load]);
+    ), [q, activeFilterCount, load, captureViewState, tableViews.userViews, activeViewKey]);
 
     const onSave = async (e) => {
         e.preventDefault();
@@ -350,6 +390,9 @@ export default function Monitors() {
                         data={monitors}
                         keyField="id"
                         columns={columns}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
                         onRowClick={(m) => navigate(`/monitoring/monitors/${m.id}`)}
                         rowClassName={(m) => (m.is_paused ? 'is-disabled' : undefined)}
                         footer={<DataTableFooter shown={monitors.length} total={monitors.length} noun="monitor" />}
