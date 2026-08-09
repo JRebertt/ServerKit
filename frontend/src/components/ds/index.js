@@ -19,5 +19,8 @@ export {
 } from './FilterDrawer';
 export { PageTopbar } from './PageTopbar';
 export { DataTable } from './DataTable';
+export { SortMenu } from './SortMenu';
+export { ColumnsMenu } from './ColumnsMenu';
+export { DataTableFooter } from './DataTableFooter';
 export { ResourceCard, ResourceList } from './ResourceCard';
 export { svcGrad, initials, gaugeColor } from './utils';

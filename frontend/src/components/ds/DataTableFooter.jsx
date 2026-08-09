@@ -1,0 +1,96 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { SegControl } from './SegControl';
+import { cn } from '@/lib/utils';
+
+// Shared table footer — one standard way to answer "how much am I looking at
+// and how do I see more", replacing the four ad-hoc pagers pages grew
+// (Prev/Next labels, bare "Load more", server params, nothing).
+//
+// Client-side slicing:
+//   <DataTableFooter shown={rows.length} total={rows.length}
+//     pageSize={pageSize} onPageSizeChange={setPageSize} />
+//
+// Incremental loading (server or client):
+//   <DataTableFooter shown={rows.length} total={total}
+//     hasMore={hasMore} onLoadMore={loadMore} loading={loading} />
+//
+// Paged server data:
+//   <DataTableFooter shown={rows.length} total={total}
+//     page={page} totalPages={pages} onPageChange={setPage} />
+export function DataTableFooter({
+    shown,
+    total,
+    noun = 'row',
+    // client-side page-size segment (omit to hide)
+    pageSize,
+    pageSizeOptions = [25, 50, 100],
+    onPageSizeChange,
+    // load-more mode
+    hasMore = false,
+    onLoadMore,
+    loading = false,
+    // paged mode
+    page,
+    totalPages,
+    onPageChange,
+    className,
+}) {
+    const label = total == null || total === shown
+        ? `${shown} ${noun}${shown === 1 ? '' : 's'}`
+        : `Shown ${shown} of ${total} ${noun}s`;
+
+    const paged = page != null && totalPages != null && onPageChange;
+
+    return (
+        <div className={cn('sk-dtable-footer', className)}>
+            <span className="sk-dtable-footer__count">{label}</span>
+            <div className="sk-dtable-footer__controls">
+                {onPageSizeChange && (
+                    <SegControl
+                        className="sk-dtable-footer__sizes"
+                        value={String(pageSize)}
+                        onChange={(value) => onPageSizeChange(value === 'all' ? 'all' : Number(value))}
+                        options={[
+                            ...pageSizeOptions.map((n) => ({ value: String(n), label: String(n) })),
+                            { value: 'all', label: 'All' },
+                        ]}
+                        aria-label="Rows per page"
+                    />
+                )}
+                {onLoadMore && hasMore && (
+                    <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loading}>
+                        {loading ? 'Loading…' : 'Load more'}
+                    </Button>
+                )}
+                {paged && totalPages > 1 && (
+                    <div className="sk-dtable-footer__pager">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => onPageChange(page - 1)}
+                            disabled={page <= 1}
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeft aria-hidden="true" />
+                        </Button>
+                        <span className="sk-dtable-footer__page">
+                            {page} / {totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => onPageChange(page + 1)}
+                            disabled={page >= totalPages}
+                            aria-label="Next page"
+                        >
+                            <ChevronRight aria-hidden="true" />
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export default DataTableFooter;
