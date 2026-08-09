@@ -4,6 +4,30 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmptyState from '../EmptyState';
+import { DataTable, DataTableFooter } from '@/components/ds';
+
+// DataTable columns. Cell markup and classNames are identical to the
+// hand-rolled table they replace, so _service-detail.scss keeps applying
+// (.sk-cell-mono, .svc-pkg-name).
+const PACKAGE_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Package',
+        sortable: true,
+        hideable: false,
+        cellClassName: 'sk-cell-mono svc-pkg-name',
+        sortValue: (pkg) => pkg.name || '',
+        render: (pkg) => pkg.name,
+    },
+    {
+        key: 'version',
+        header: 'Version',
+        sortable: true,
+        cellClassName: 'sk-cell-mono',
+        sortValue: (pkg) => pkg.version || '',
+        render: (pkg) => pkg.version,
+    },
+];
 
 const PackagesTab = ({ appId }) => {
     const toast = useToast();
@@ -79,24 +103,16 @@ const PackagesTab = ({ appId }) => {
                 </Button>
             </form>
 
-            <div className="svc-card">
-                <table className="sk-dtable">
-                    <thead>
-                        <tr>
-                            <th>Package</th>
-                            <th>Version</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {packages.map(pkg => (
-                            <tr key={pkg.name}>
-                                <td className="sk-cell-mono svc-pkg-name">{pkg.name}</td>
-                                <td className="sk-cell-mono">{pkg.version}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <DataTable
+                columns={PACKAGE_COLUMNS}
+                data={packages}
+                keyField="name"
+                storageKey="serverkit-table-packages"
+                className="svc-card"
+                emptyTitle="No packages"
+                emptyMessage="Install a package above to get started."
+                footer={<DataTableFooter shown={packages.length} total={packages.length} noun="package" />}
+            />
         </div>
     );
 };
