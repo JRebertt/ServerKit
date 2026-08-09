@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Globe, Plus, ShieldCheck, RefreshCw, Trash2, ExternalLink,
@@ -16,15 +16,25 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
+import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
 import DomainDnsPanel from '../components/domains/DomainDnsPanel';
 import PluginSlot from '../components/PluginSlot';
 import { formatExpiry } from '../utils/expiry';
+
+// Built-in saved views for the Views menu. States only use real SegControl
+// values ('all' | 'ssl' | 'issues') and column keys from `domainColumns`.
+const DOMAIN_BUILTIN_VIEWS = [
+    // Registration expiry (the 'expiry' column), soonest first.
+    { name: 'Expiring soon', state: { filter: 'all', sorts: [{ key: 'expiry', direction: 'asc' }] } },
+    // The 'issues' segment is exactly app-linked domains with no certificate.
+    { name: 'No SSL', state: { filter: 'issues' } },
+];
 
 const Domains = () => {
     const toast = useToast();
@@ -40,12 +50,36 @@ const Domains = () => {
 
     // Table sort + column visibility (persisted, mirrored by the toolbar menus)
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-domains-sort' });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
         storageKey: 'serverkit-table-domains-cols',
     });
     const [drawerDomain, setDrawerDomain] = useState(null);
     const [regInfo, setRegInfo] = useState(null);            // lazy registration lookup for the open drawer
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // Saved views: capture/apply the table chrome state (segment filter,
+    // search, sort levels, hidden columns). Every apply key is guarded so
+    // partial states (e.g. a builtin that only sets a filter) work.
+    const captureView = useCallback(() => ({
+        filter,
+        search,
+        sorts,
+        hiddenKeys,
+    }), [filter, search, sorts, hiddenKeys]);
+
+    const applyView = useCallback((state) => {
+        if (state.filter !== undefined) setFilter(state.filter);
+        if (state.search !== undefined) setSearch(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+
+    const tableViews = useTableViews({
+        page: 'domains',
+        builtinViews: DOMAIN_BUILTIN_VIEWS,
+        capture: captureView,
+        apply: applyView,
+    });
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
@@ -437,6 +471,7 @@ const Domains = () => {
                             options={filterOptions}
                         />
                         <div className="dom-listhead__tools">
+                            <ViewMenu views={tableViews} />
                             <SortMenu columns={domainColumns} sorts={sorts} onChange={setSorts} />
                             <ColumnsMenu
                                 columns={domainColumns}
