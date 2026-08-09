@@ -1,24 +1,26 @@
-import { useState } from 'react';
-import { Search, Rows3, LayoutGrid } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl } from '@/components/ds';
-import { Button } from '@/components/ui/button';
+import { SegControl, SortMenu, ColumnsMenu, DataTableFooter } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 // Shared chrome for resource list pages (Services, Servers, …): the status
-// filter + search toolbar, the bulk-actions bar, and the DataTable, plus the
-// loading / empty / filtered-empty states. Pages become thin: they own data +
-// columns + handlers and pass them in. Markup mirrors the established `.wp-list`
-// design so existing SCSS applies unchanged.
+// filter + search toolbar, sort & column menus, the DataTable with a standard
+// footer, and the loading / empty / filtered-empty states. Pages become thin:
+// they own data + columns + handlers and pass them in. Markup mirrors the
+// established `.wp-list` design so existing SCSS applies unchanged.
 //
 //   <ResourceListPage
 //     className="services-page"
 //     loading={loading}
 //     totalCount={apps.length}          // distinguishes "no items at all" from "filtered empty"
 //     items={filteredApps}               // already-filtered rows for the table
-//     columns={columns} keyField="id"
+//     columns={columns} keyField="id"    // columns opt into sorting with `sortable: true`
 //     onRowClick={app => navigate(...)} rowClassName={rowClassName}
+//     storageKey="serverkit-list-services"   // optional: persist sort/columns/page-size
 //     filters={[{ value, label, count }]} activeFilter={statusFilter} onFilterChange={setStatusFilter}
 //     searchTerm={searchTerm} onSearchChange={setSearchTerm} searchPlaceholder="Search services…"
 //     selectedCount={selectedIds.size} onClearSelection={clear} bulkActions={<>…</>}
@@ -37,7 +39,10 @@ export default function ResourceListPage({
     keyField = 'id',
     onRowClick,
     rowClassName,
-    sortable = false,
+    // Global sorting toggle — individual columns still need `sortable: true`.
+    sortable = true,
+    // Optional localStorage namespace for sort / column / page-size choices.
+    storageKey,
     // optional content rendered inside the wrapper, above the toolbar/empty
     // state (e.g. a one-time credentials banner)
     header,
@@ -78,6 +83,32 @@ export default function ResourceListPage({
         }
     });
 
+    const { sorts, setSorts } = useTableSort({
+        storageKey: storageKey ? `${storageKey}-sort` : undefined,
+    });
+    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+        storageKey: storageKey ? `${storageKey}-cols` : undefined,
+    });
+    const [pageSize, setPageSize] = useState(() => {
+        if (!storageKey) return 'all';
+        try {
+            const raw = window.localStorage.getItem(`${storageKey}-pagesize`);
+            return raw ? (raw === 'all' ? 'all' : Number(raw)) : 'all';
+        } catch {
+            return 'all';
+        }
+    });
+
+    const changePageSize = (next) => {
+        setPageSize(next);
+        if (!storageKey) return;
+        try {
+            window.localStorage.setItem(`${storageKey}-pagesize`, String(next));
+        } catch {
+            /* private mode / quota — the choice just doesn't persist */
+        }
+    };
+
     const changeView = (next) => {
         setView(next);
         if (!viewStorageKey) return;
@@ -87,6 +118,11 @@ export default function ResourceListPage({
             /* private mode / quota — the choice just doesn't persist */
         }
     };
+
+    const pagedItems = useMemo(
+        () => (pageSize === 'all' ? items : items.slice(0, pageSize)),
+        [items, pageSize],
+    );
 
     if (loading) {
         // Same wrapper as the loaded state below. A skeleton that renders
@@ -142,6 +178,19 @@ export default function ResourceListPage({
                             </div>
                         )}
                         {toolbarExtra}
+                        {view === 'list' && (
+                            <div className="wp-list__tabletools">
+                                {sortable && (
+                                    <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
+                                )}
+                                <ColumnsMenu
+                                    columns={columns}
+                                    hiddenKeys={hiddenKeys}
+                                    onToggle={toggleColumn}
+                                    onShowAll={showAllColumns}
+                                />
+                            </div>
+                        )}
                         {renderCard && (
                             <div className="wp-list__viewswitch" role="group" aria-label="Layout">
                                 {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
@@ -160,20 +209,6 @@ export default function ResourceListPage({
                             </div>
                         )}
                     </div>
-
-                    {selectedCount > 0 && (
-                        <div className="wp-list__bulkbar">
-                            <span className="wp-list__bulkcount">{selectedCount} selected</span>
-                            <div className="wp-list__bulkactions">
-                                {bulkActions}
-                                {onClearSelection && (
-                                    <Button variant="ghost" size="sm" onClick={onClearSelection}>
-                                        Clear
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
                     {items.length === 0 ? (
                         <EmptyState
@@ -197,13 +232,44 @@ export default function ResourceListPage({
                         <div className="wp-list__card">
                             <DataTable
                                 columns={columns}
-                                data={items}
+                                data={pagedItems}
                                 keyField={keyField}
                                 sortable={sortable}
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                hiddenKeys={hiddenKeys}
                                 onRowClick={onRowClick}
                                 rowClassName={rowClassName}
+                                footer={(
+                                    <DataTableFooter
+                                        shown={pagedItems.length}
+                                        total={items.length}
+                                        noun="row"
+                                        pageSize={pageSize}
+                                        onPageSizeChange={changePageSize}
+                                    />
+                                )}
                             />
                         </div>
+                    )}
+                </div>
+            )}
+
+            {/* Floating bulk-actions pill: appears only while a selection is
+                active, instead of a permanent bar reserving toolbar space. */}
+            {selectedCount > 0 && (
+                <div className="sk-bulkbar" role="status">
+                    <span className="sk-bulkbar__count">{selectedCount} selected</span>
+                    <div className="sk-bulkbar__actions">{bulkActions}</div>
+                    {onClearSelection && (
+                        <button
+                            type="button"
+                            className="sk-bulkbar__clear"
+                            onClick={onClearSelection}
+                            aria-label="Clear selection"
+                        >
+                            <X size={14} />
+                        </button>
                     )}
                 </div>
             )}
