@@ -472,6 +472,14 @@ h3.svc-eyebrow {
         &--expanded {
             background: var(--surface-2);
         }
+
+        // Compact rows (config/audit entries) aren't expandable — no pointer,
+        // no hover affordance, tighter text.
+        &--compact {
+            cursor: default;
+
+            &:hover { background: transparent; }
+        }
     }
 
     &__event-status {
