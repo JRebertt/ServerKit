@@ -5,6 +5,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import useFocusParam from '@/hooks/useFocusParam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,8 @@ const Projects = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
+    // Quick-create deep link: /projects?focus=create:project opens the dialog.
+    useFocusParam('create', () => setShowCreate(true));
     const toast = useToast();
 
     const loadProjects = useCallback(async () => {

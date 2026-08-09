@@ -7,6 +7,7 @@ import ResourceListPage from '../components/layouts/ResourceListPage';
 import { LayoutGrid, Plus, ChevronRight } from 'lucide-react';
 import { Pill, ServiceTile, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import useFocusParam from '@/hooks/useFocusParam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +33,8 @@ const Workspaces = () => {
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showCreateModal, setShowCreateModal] = useState(false);
+    // Quick-create deep link: /workspaces?focus=create:workspace opens the modal.
+    useFocusParam('create', () => setShowCreateModal(true));
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
 
     const activeId = localStorage.getItem(ACTIVE_KEY);

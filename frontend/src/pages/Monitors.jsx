@@ -25,6 +25,7 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
+import useFocusParam from '@/hooks/useFocusParam';
 import { CHECK_TYPES, MONITOR_STATUS, monitorStateOf } from '../components/monitoring/monitorShared';
 
 const POLL_MS = 15000;
@@ -163,6 +164,8 @@ export default function Monitors() {
         : null;
 
     const openCreate = () => { setForm(emptyForm); setFormOpen(true); };
+    // Quick-create deep link: /monitoring/monitors?focus=create:monitor opens the form.
+    useFocusParam('create', openCreate);
 
     useTopbarActions(() => (
         <>

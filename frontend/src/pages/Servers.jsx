@@ -14,6 +14,7 @@ import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
+import useFocusParam from '@/hooks/useFocusParam';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
 
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
@@ -152,6 +153,8 @@ const Servers = () => {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
+    // Quick-create deep link: /servers?focus=create:server opens the add modal.
+    useFocusParam('create', () => setShowAddModal(true));
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');

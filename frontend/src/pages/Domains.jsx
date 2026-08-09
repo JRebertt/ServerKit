@@ -21,6 +21,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import useFocusParam from '@/hooks/useFocusParam';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
 import DomainDnsPanel from '../components/domains/DomainDnsPanel';
@@ -83,6 +84,8 @@ const Domains = () => {
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
+    // Quick-create deep link: /domains?focus=create:domain opens the add modal.
+    useFocusParam('create', () => setShowAddModal(true));
     const [showSslModal, setShowSslModal] = useState(false);
     const [selectedDomain, setSelectedDomain] = useState(null);
 
