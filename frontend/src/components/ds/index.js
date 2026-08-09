@@ -25,5 +25,6 @@ export { ColumnsMenu } from './ColumnsMenu';
 export { DataTableFooter } from './DataTableFooter';
 export { ViewMenu } from './ViewMenu';
 export { ListToolbar } from './ListToolbar';
+export { GroupMenu } from './GroupMenu';
 export { ResourceCard, ResourceList } from './ResourceCard';
 export { svcGrad, initials, gaugeColor } from './utils';
