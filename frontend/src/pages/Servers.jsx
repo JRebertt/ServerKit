@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Folder, Plus, RefreshCw, Server as ServerLucideIcon } from 'lucide-react';
+import { ChevronRight, Folder, Plus, RefreshCw, Server as ServerLucideIcon, X } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
@@ -159,6 +159,8 @@ const Servers = () => {
     const [selectedGroup, setSelectedGroup] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkBusy, setBulkBusy] = useState(false);
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-servers-sort' });
     const {
         hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns,
@@ -365,6 +367,17 @@ const Servers = () => {
                     hiddenKeys={hiddenKeys}
                     groupBy={groupBy}
                     onGroupByChange={changeGroupBy}
+                    selectable
+                    selectedKeys={[...selectedIds]}
+                    onToggleRow={(id, checked) => setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(id);
+                        else next.delete(id);
+                        return next;
+                    })}
+                    onToggleAll={(checked) => setSelectedIds(
+                        checked ? new Set(filteredServers.map((s) => s.id)) : new Set(),
+                    )}
                     keyboardNav
                     onRowClick={(server) => navigate(`/servers/${server.id}`)}
                     rowClassName="servers-row"
@@ -378,6 +391,54 @@ const Servers = () => {
                         />
                     )}
                 />
+            )}
+
+            {/* Bulk edit: assign the selected servers to a group. */}
+            {selectedIds.size > 0 && (
+                <div className="sk-bulkbar" role="status">
+                    <span className="sk-bulkbar__count">{selectedIds.size} selected</span>
+                    <div className="sk-bulkbar__actions">
+                        <select
+                            className="sk-listhead__select"
+                            defaultValue=""
+                            disabled={bulkBusy}
+                            aria-label="Set group for selected servers"
+                            onChange={async (e) => {
+                                const groupId = e.target.value;
+                                if (!groupId) return;
+                                setBulkBusy(true);
+                                try {
+                                    await Promise.all([...selectedIds].map((id) => api.updateServer(id, {
+                                        group_id: groupId === 'none' ? null : Number(groupId),
+                                    })));
+                                    const groupName = groupId === 'none'
+                                        ? 'Ungrouped'
+                                        : groups.find((g) => String(g.id) === groupId)?.name;
+                                    toast.success(`Moved ${selectedIds.size} server(s) to ${groupName}`);
+                                    setSelectedIds(new Set());
+                                    loadData();
+                                } catch (err) {
+                                    toast.error(err.message || 'Could not set the group');
+                                } finally {
+                                    setBulkBusy(false);
+                                    e.target.value = '';
+                                }
+                            }}
+                        >
+                            <option value="" disabled>Set group…</option>
+                            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                            <option value="none">Ungrouped</option>
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        className="sk-bulkbar__clear"
+                        onClick={() => setSelectedIds(new Set())}
+                        aria-label="Clear selection"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
             )}
 
             {showAddModal && (
