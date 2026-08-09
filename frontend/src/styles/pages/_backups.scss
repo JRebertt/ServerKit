@@ -534,6 +534,12 @@
     align-items: center;
     gap: $space-3;
     margin-bottom: $space-3;
+
+    &__right {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+    }
 }
 
 .bk-empty {

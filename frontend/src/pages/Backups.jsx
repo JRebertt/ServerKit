@@ -11,11 +11,15 @@ import { FormField, FormRow } from '../components/FormField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Pill, SearchField, SegControl } from '@/components/ds';
+import {
+    Pill, SearchField, SegControl, DataTable, SortMenu, ColumnsMenu, SortChipBar, DataTableFooter,
+} from '@/components/ds';
 import BackupsOverview from '../components/backups/BackupsOverview';
 import SchedulesTable from '../components/backups/SchedulesTable';
 import StorageDestinations from '../components/backups/StorageDestinations';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 // `backups` is kept as an alias so old /backups/backups links still resolve to
 // the archive, which now answers to `snapshots`.
@@ -40,6 +44,10 @@ const Backups = () => {
     const activeTab = TAB_ALIASES[rawTab] || rawTab;
     const [filterType, setFilterType] = useState('all');
     const [search, setSearch] = useState('');
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-backups-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-backups-cols' });
 
     // Modal states
     const [showBackupModal, setShowBackupModal] = useState(false);
@@ -396,6 +404,121 @@ const Backups = () => {
         }
     };
 
+    // DataTable columns for the snapshot archive. Cell markup and classNames
+    // are identical to the hand-rolled table they replace, so _backups.scss
+    // keeps applying (.bk-name, .bk-ico, .bk-when, .bk-actions).
+    const snapshotColumns = [
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (b) => b.name || b.app_name || '',
+            render: (backup) => (
+                <div className="sk-cell-name bk-name">
+                    <span className={`bk-ico bk-ico--${backup.type}`}>
+                        {getBackupIcon(backup.type)}
+                    </span>
+                    <span title={backup.name || backup.app_name}>
+                        {backup.name || backup.app_name}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            sortValue: (b) => b.type || '',
+            render: (backup) => <span className="sk-tag">{backup.type}</span>,
+        },
+        {
+            key: 'site',
+            header: 'Site/Service',
+            sortable: true,
+            sortValue: (b) => b.app_name || b.name?.split('_')[0] || null,
+            render: (backup) => backup.app_name || backup.name?.split('_')[0] || '—',
+        },
+        {
+            key: 'size',
+            header: 'Size',
+            sortable: true,
+            sortValue: (b) => b.size || 0,
+            cellClassName: 'sk-cell-mono',
+            render: (backup) => formatBytes(backup.size, { defaultValue: '0 B' }),
+        },
+        {
+            key: 'storage',
+            header: 'Storage',
+            sortable: true,
+            sortValue: (b) => b.remote_status || 'local',
+            render: (backup) => getRemoteStatusPill(backup.remote_status),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            sortValue: (b) => (b.timestamp ? new Date(b.timestamp).getTime() : null),
+            cellClassName: 'bk-when',
+            render: (backup) => formatTimestamp(backup.timestamp),
+        },
+        {
+            key: 'cost',
+            header: 'Cost',
+            sortable: true,
+            sortValue: (b) => ((b.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0),
+            cellClassName: 'sk-cell-mono',
+            render: (backup) => formatMoney(((backup.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0)),
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            render: (backup) => (
+                <div className="bk-actions">
+                    {backup.type !== 'files' && (
+                        <button
+                            type="button"
+                            className="bk-iconbtn"
+                            onClick={() => {
+                                setSelectedBackup(backup);
+                                setShowRestoreModal(true);
+                            }}
+                            title="Restore this snapshot"
+                            aria-label={`Restore ${backup.name}`}
+                        >
+                            <History size={15} />
+                        </button>
+                    )}
+                    {storageConfig?.provider !== 'local' && backup.remote_status !== 'synced' && (
+                        <button
+                            type="button"
+                            className="bk-iconbtn"
+                            onClick={() => handleUploadToRemote(backup)}
+                            disabled={uploadingBackup === backup.path}
+                            title="Copy to remote storage"
+                            aria-label={`Upload ${backup.name} to remote storage`}
+                        >
+                            {uploadingBackup === backup.path
+                                ? <RefreshCw size={15} className="spinning" />
+                                : <Upload size={15} />}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="bk-iconbtn bk-iconbtn--danger"
+                        onClick={() => handleDeleteBackup(backup.path)}
+                        title="Delete this snapshot"
+                        aria-label={`Delete ${backup.name}`}
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     // Search narrows first so the segment counts always describe what a click
     // on that segment would actually show.
     const searchedBackups = (() => {
@@ -484,11 +607,21 @@ const Backups = () => {
                                 { value: 'files', label: 'Files', count: searchedBackups.filter(b => b.type === 'files').length },
                             ]}
                         />
-                        <Button size="sm" variant="outline" onClick={loadData}>
-                            <RefreshCw size={14} />
-                            Refresh
-                        </Button>
+                        <div className="bk-listhead__right">
+                            <SortMenu columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
+                            <ColumnsMenu
+                                columns={snapshotColumns}
+                                hiddenKeys={hiddenKeys}
+                                onToggle={toggleColumn}
+                                onShowAll={showAllColumns}
+                            />
+                            <Button size="sm" variant="outline" onClick={loadData}>
+                                <RefreshCw size={14} />
+                                Refresh
+                            </Button>
+                        </div>
                     </div>
+                    <SortChipBar columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
                     {backups.length === 0 ? (
                         <EmptyState
                             icon={FileArchive}
@@ -504,85 +637,22 @@ const Backups = () => {
                         </div>
                     ) : (
                         <div className="bk-card">
-                            <table className="sk-dtable bk-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Type</th>
-                                        <th>Site/Service</th>
-                                        <th>Size</th>
-                                        <th>Storage</th>
-                                        <th>Created</th>
-                                        <th>Cost</th>
-                                        <th aria-label="Actions" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredBackups.map((backup, index) => (
-                                        <tr key={index}>
-                                            <td>
-                                                <div className="sk-cell-name bk-name">
-                                                    <span className={`bk-ico bk-ico--${backup.type}`}>
-                                                        {getBackupIcon(backup.type)}
-                                                    </span>
-                                                    <span title={backup.name || backup.app_name}>
-                                                        {backup.name || backup.app_name}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className="sk-tag">{backup.type}</span>
-                                            </td>
-                                            <td>{backup.app_name || backup.name?.split('_')[0] || '—'}</td>
-                                            <td className="sk-cell-mono">{formatBytes(backup.size, { defaultValue: '0 B' })}</td>
-                                            <td>{getRemoteStatusPill(backup.remote_status)}</td>
-                                            <td className="bk-when">{formatTimestamp(backup.timestamp)}</td>
-                                            <td className="sk-cell-mono">{formatMoney(((backup.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0))}</td>
-                                            <td>
-                                                <div className="bk-actions">
-                                                    {backup.type !== 'files' && (
-                                                        <button
-                                                            type="button"
-                                                            className="bk-iconbtn"
-                                                            onClick={() => {
-                                                                setSelectedBackup(backup);
-                                                                setShowRestoreModal(true);
-                                                            }}
-                                                            title="Restore this snapshot"
-                                                            aria-label={`Restore ${backup.name}`}
-                                                        >
-                                                            <History size={15} />
-                                                        </button>
-                                                    )}
-                                                    {storageConfig?.provider !== 'local' && backup.remote_status !== 'synced' && (
-                                                        <button
-                                                            type="button"
-                                                            className="bk-iconbtn"
-                                                            onClick={() => handleUploadToRemote(backup)}
-                                                            disabled={uploadingBackup === backup.path}
-                                                            title="Copy to remote storage"
-                                                            aria-label={`Upload ${backup.name} to remote storage`}
-                                                        >
-                                                            {uploadingBackup === backup.path
-                                                                ? <RefreshCw size={15} className="spinning" />
-                                                                : <Upload size={15} />}
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        className="bk-iconbtn bk-iconbtn--danger"
-                                                        onClick={() => handleDeleteBackup(backup.path)}
-                                                        title="Delete this snapshot"
-                                                        aria-label={`Delete ${backup.name}`}
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <DataTable
+                                columns={snapshotColumns}
+                                data={filteredBackups}
+                                keyField="path"
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                hiddenKeys={hiddenKeys}
+                                tableClassName="bk-table"
+                                footer={(
+                                    <DataTableFooter
+                                        shown={filteredBackups.length}
+                                        total={backups.length}
+                                        noun="snapshot"
+                                    />
+                                )}
+                            />
                         </div>
                     )}
                 </>
