@@ -478,6 +478,8 @@ def create_app(config_name=None):
     # Register blueprints - Themes (plan 60)
     from app.api.themes import themes_bp
     app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
+    from app.api.views import views_bp
+    app.register_blueprint(views_bp, url_prefix='/api/v1/views')
 
     # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
     from app.api.dashboards import dashboards_bp
