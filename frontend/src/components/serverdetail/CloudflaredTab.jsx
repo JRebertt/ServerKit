@@ -4,7 +4,9 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill } from '../ds';
+import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '../ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { Cloud } from 'lucide-react';
 import {
@@ -49,6 +51,11 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
 
     // Login flow: { channel, authUrl, status: 'starting'|'awaiting'|'done'|'error', error, certPath }
     const [login, setLogin] = useState(null);
+
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-cloudflared-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-sd-cloudflared-cols' });
 
     const loadStatus = useCallback(async () => {
         try {
@@ -222,6 +229,59 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
     const notInstalled = status?.available === false;
     const notAuthed = status?.available && status?.authenticated === false;
 
+    // Tunnels table columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace so the .cron-tab__* / .data-table SCSS
+    // keeps applying.
+    const tunnelColumns = [
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (t) => t.name || '',
+            render: (t) => <span className="cron-tab__name">{t.name}</span>,
+        },
+        {
+            key: 'id',
+            header: 'ID',
+            cellClassName: 'mono',
+            render: (t) => `${(t.id || '').substring(0, 8)}…`,
+        },
+        {
+            key: 'connections',
+            header: 'Connections',
+            sortable: true,
+            sortValue: (t) => t.connections?.length ?? 0,
+            render: (t) => t.connections?.length || 0,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            className: 'actions-cell',
+            cellClassName: 'actions-cell',
+            render: (t) => (
+                <>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { setRouteTunnel(t); setShowRouteModal(true); }}
+                    >
+                        Route subdomain
+                    </Button>
+                    <button type="button"
+                        className="btn-icon danger"
+                        onClick={() => handleDelete(t)}
+                        title="Delete"
+                    >
+                        <TrashIcon />
+                    </button>
+                </>
+            ),
+        },
+    ];
+
     return (
         <div className="cloudflared-tab">
             <div className="cron-tab__header">
@@ -240,6 +300,13 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     <Button onClick={() => setShowCreateModal(true)} disabled={notInstalled || notAuthed}>
                         Create Tunnel
                     </Button>
+                    <SortMenu columns={tunnelColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={tunnelColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
                 </div>
             </div>
 
@@ -281,41 +348,22 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         description="No tunnels on this server. Use Create Tunnel to make one."
                     />
                 ) : (
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>ID</th>
-                                <th>Connections</th>
-                                <th className="actions-cell">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {tunnels.map(t => (
-                                <tr key={t.id || t.name}>
-                                    <td><span className="cron-tab__name">{t.name}</span></td>
-                                    <td className="mono">{(t.id || '').substring(0, 8)}…</td>
-                                    <td>{t.connections?.length || 0}</td>
-                                    <td className="actions-cell">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => { setRouteTunnel(t); setShowRouteModal(true); }}
-                                        >
-                                            Route subdomain
-                                        </Button>
-                                        <button type="button"
-                                            className="btn-icon danger"
-                                            onClick={() => handleDelete(t)}
-                                            title="Delete"
-                                        >
-                                            <TrashIcon />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={tunnelColumns}
+                        data={tunnels}
+                        keyField={(t) => t.id || t.name}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        hiddenKeys={hiddenKeys}
+                        tableClassName="data-table"
+                        footer={(
+                            <DataTableFooter
+                                shown={tunnels.length}
+                                total={tunnels.length}
+                                noun="tunnel"
+                            />
+                        )}
+                    />
                 )
             )}
 

@@ -3,7 +3,9 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill } from '../ds';
+import { Pill, ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '../ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import Modal from '../Modal';
 
 const STATE_FILTERS = [
@@ -34,6 +36,10 @@ const ServicesTab = ({ serverId, serverStatus }) => {
     const [search, setSearch] = useState('');
     const [busyUnit, setBusyUnit] = useState(null);
     const [logsFor, setLogsFor] = useState(null); // { unit, entries, raw }
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-services-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-sd-services-cols' });
 
     const loadUnits = useCallback(async () => {
         setLoading(true);
@@ -105,6 +111,70 @@ const ServicesTab = ({ serverId, serverStatus }) => {
         );
     }
 
+    // Units table columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace so the .server-services__* SCSS keeps
+    // applying (.server-services__desc, .server-services__row-actions, .mono).
+    const unitColumns = [
+        {
+            key: 'unit',
+            header: 'Unit',
+            sortable: true,
+            hideable: false,
+            sortValue: (u) => u.unit || '',
+            cellClassName: 'mono',
+            render: (u) => u.unit,
+        },
+        {
+            key: 'state',
+            header: 'State',
+            sortable: true,
+            sortValue: (u) => u.active || u.sub || 'unknown',
+            render: (u) => (
+                <Pill kind={STATE_PILL[u.active] || STATE_PILL[u.sub] || 'gray'}>
+                    {u.active || u.sub || 'unknown'}
+                </Pill>
+            ),
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            sortValue: (u) => u.description || '',
+            cellClassName: 'server-services__desc',
+            render: (u) => u.description,
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'server-services__row-actions',
+            render: (u) => (
+                <>
+                    <Button
+                        size="sm" variant="outline"
+                        disabled={busyUnit === u.unit}
+                        onClick={() => control(u.unit, 'start')}
+                    >Start</Button>
+                    <Button
+                        size="sm" variant="outline"
+                        disabled={busyUnit === u.unit}
+                        onClick={() => control(u.unit, 'stop')}
+                    >Stop</Button>
+                    <Button
+                        size="sm" variant="outline"
+                        disabled={busyUnit === u.unit}
+                        onClick={() => control(u.unit, 'restart')}
+                    >Restart</Button>
+                    <Button
+                        size="sm" variant="outline"
+                        onClick={() => viewLogs(u.unit)}
+                    >Logs</Button>
+                </>
+            ),
+        },
+    ];
+
     return (
         <div className="server-services">
             <div className="server-services__toolbar">
@@ -135,6 +205,13 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                     >
                         Reload daemon
                     </Button>
+                    <SortMenu columns={unitColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={unitColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
                 </div>
             </div>
 
@@ -143,50 +220,22 @@ const ServicesTab = ({ serverId, serverStatus }) => {
             ) : filtered.length === 0 ? (
                 <p className="text-muted-foreground">No matching units.</p>
             ) : (
-                <table className="server-services__table">
-                    <thead>
-                        <tr>
-                            <th>Unit</th>
-                            <th>State</th>
-                            <th>Description</th>
-                            <th aria-label="actions" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((u) => (
-                            <tr key={u.unit}>
-                                <td className="mono">{u.unit}</td>
-                                <td>
-                                    <Pill kind={STATE_PILL[u.active] || STATE_PILL[u.sub] || 'gray'}>
-                                        {u.active || u.sub || 'unknown'}
-                                    </Pill>
-                                </td>
-                                <td className="server-services__desc">{u.description}</td>
-                                <td className="server-services__row-actions">
-                                    <Button
-                                        size="sm" variant="outline"
-                                        disabled={busyUnit === u.unit}
-                                        onClick={() => control(u.unit, 'start')}
-                                    >Start</Button>
-                                    <Button
-                                        size="sm" variant="outline"
-                                        disabled={busyUnit === u.unit}
-                                        onClick={() => control(u.unit, 'stop')}
-                                    >Stop</Button>
-                                    <Button
-                                        size="sm" variant="outline"
-                                        disabled={busyUnit === u.unit}
-                                        onClick={() => control(u.unit, 'restart')}
-                                    >Restart</Button>
-                                    <Button
-                                        size="sm" variant="outline"
-                                        onClick={() => viewLogs(u.unit)}
-                                    >Logs</Button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable
+                    columns={unitColumns}
+                    data={filtered}
+                    keyField="unit"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    hiddenKeys={hiddenKeys}
+                    tableClassName="server-services__table"
+                    footer={(
+                        <DataTableFooter
+                            shown={filtered.length}
+                            total={units.length}
+                            noun="unit"
+                        />
+                    )}
+                />
             )}
 
             <Modal

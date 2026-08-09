@@ -5,7 +5,9 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Pill } from '../ds';
+import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '../ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { Clock3 } from 'lucide-react';
 import {
@@ -47,6 +49,10 @@ const CronTab = ({ serverId, serverStatus }) => {
         schedule: '0 * * * *',
         command: '',
     });
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-cron-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-sd-cron-cols' });
 
     const loadJobs = useCallback(async () => {
         try {
@@ -150,6 +156,76 @@ const CronTab = ({ serverId, serverStatus }) => {
         return <EmptyState loading title="Loading cron jobs" />;
     }
 
+    // Jobs table columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace so the .cron-tab / .data-table SCSS
+    // keeps applying (.cron-tab__name, .cron-tab__command, .mono).
+    const cronColumns = [
+        {
+            key: 'schedule',
+            header: 'Schedule',
+            sortable: true,
+            hideable: false,
+            sortValue: (job) => job.schedule || '',
+            render: (job) => (
+                <>
+                    <span className="mono" title={job.schedule}>{job.schedule}</span>
+                    {job.description && job.description !== job.schedule && (
+                        <div className="cron-tab__description">{job.description}</div>
+                    )}
+                </>
+            ),
+        },
+        {
+            key: 'command',
+            header: 'Command',
+            sortable: true,
+            sortValue: (job) => job.command || '',
+            render: (job) => (
+                <>
+                    {job.name && <div className="cron-tab__name">{job.name}</div>}
+                    <code className="cron-tab__command">{job.command}</code>
+                </>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (job) => (job.enabled ? 'enabled' : 'disabled'),
+            render: (job) => (
+                <Pill kind={job.enabled ? 'green' : 'gray'}>
+                    {job.enabled ? 'enabled' : 'disabled'}
+                </Pill>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            className: 'actions-cell',
+            cellClassName: 'actions-cell',
+            render: (job) => (
+                <>
+                    <button type="button"
+                        className="btn-icon"
+                        onClick={() => handleToggle(job)}
+                        title={job.enabled ? 'Disable' : 'Enable'}
+                    >
+                        {job.enabled ? <StopIcon /> : <PlayIcon />}
+                    </button>
+                    <button type="button"
+                        className="btn-icon danger"
+                        onClick={() => handleRemove(job)}
+                        title="Remove"
+                    >
+                        <TrashIcon />
+                    </button>
+                </>
+            ),
+        },
+    ];
+
     return (
         <div className="cron-tab">
             <div className="cron-tab__header">
@@ -168,6 +244,13 @@ const CronTab = ({ serverId, serverStatus }) => {
                     <Button onClick={() => setShowAddModal(true)} disabled={status?.available === false}>
                         Add Job
                     </Button>
+                    <SortMenu columns={cronColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={cronColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
                 </div>
             </div>
 
@@ -182,53 +265,23 @@ const CronTab = ({ serverId, serverStatus }) => {
                     description="No scheduled jobs on this server. Use Add Job to schedule one."
                 />
             ) : (
-                <table className="data-table">
-                    <thead>
-                        <tr>
-                            <th>Schedule</th>
-                            <th>Command</th>
-                            <th>Status</th>
-                            <th className="actions-cell">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {jobs.map(job => (
-                            <tr key={job.id} className={!job.enabled ? 'row-disabled' : ''}>
-                                <td>
-                                    <span className="mono" title={job.schedule}>{job.schedule}</span>
-                                    {job.description && job.description !== job.schedule && (
-                                        <div className="cron-tab__description">{job.description}</div>
-                                    )}
-                                </td>
-                                <td>
-                                    {job.name && <div className="cron-tab__name">{job.name}</div>}
-                                    <code className="cron-tab__command">{job.command}</code>
-                                </td>
-                                <td>
-                                    <Pill kind={job.enabled ? 'green' : 'gray'}>
-                                        {job.enabled ? 'enabled' : 'disabled'}
-                                    </Pill>
-                                </td>
-                                <td className="actions-cell">
-                                    <button type="button"
-                                        className="btn-icon"
-                                        onClick={() => handleToggle(job)}
-                                        title={job.enabled ? 'Disable' : 'Enable'}
-                                    >
-                                        {job.enabled ? <StopIcon /> : <PlayIcon />}
-                                    </button>
-                                    <button type="button"
-                                        className="btn-icon danger"
-                                        onClick={() => handleRemove(job)}
-                                        title="Remove"
-                                    >
-                                        <TrashIcon />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable
+                    columns={cronColumns}
+                    data={jobs}
+                    keyField="id"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    hiddenKeys={hiddenKeys}
+                    rowClassName={(job) => (!job.enabled ? 'row-disabled' : '')}
+                    tableClassName="data-table"
+                    footer={(
+                        <DataTableFooter
+                            shown={jobs.length}
+                            total={jobs.length}
+                            noun="job"
+                        />
+                    )}
+                />
             )}
 
             <Dialog
