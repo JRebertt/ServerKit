@@ -131,13 +131,12 @@ add Tailwind utility classes, CSS-in-JS, or new inline styles.
   - Forms — `styles/components/_forms.scss` (`.form-group`, `.form-field`,
     `.form-row`, `.error-message`); prefer the `FormField` component.
   - Tables — `.sk-dtable` in `styles/components/_design-system.scss`; prefer the
-    `components/ds/DataTable.jsx` primitive. Supporting pieces: `ds/SortMenu.jsx`
-    + `ds/ColumnsMenu.jsx` (toolbar popovers), `ds/DataTableFooter.jsx` (standard
-    "Shown X of Y · Load more / page-size" bar), `hooks/useTableSort.js` +
-    `hooks/useColumnVisibility.js` (state, localStorage-persistable via
-    `storageKey`). Columns opt into sorting with `sortable: true` (+ `sortValue`);
-    header click sorts, shift+click stacks sort levels. `ResourceListPage` wires
-    the menus + footer itself — consumer pages only declare column defs.
+    `components/ds/DataTable.jsx` primitive. Supporting pieces: `ds/ListToolbar.jsx`
+    (the one list toolbar row), `ds/SortMenu.jsx` + `ds/ColumnsMenu.jsx` (toolbar
+    popovers), `ds/SortChipBar.jsx` (active-sort chips), `ds/ViewMenu.jsx` (saved
+    views), `ds/DataTableFooter.jsx` (standard "Shown X of Y · Load more /
+    page-size" bar), `hooks/useTableSort.js` + `hooks/useColumnVisibility.js` +
+    `hooks/useTableViews.js` (state, localStorage- or server-persisted).
   - Pills/badges — `.sk-pill`, `.sk-state`, `.sk-tag`.
   - Tokens — `styles/_variables.scss`, `styles/_theme-variables.scss`.
 - **Shared utilities** (reuse before rewrite):
@@ -151,6 +150,37 @@ add Tailwind utility classes, CSS-in-JS, or new inline styles.
 **Migration status**: Tailwind removal is in progress (see
 `docs/plans/05_FRONTEND_UX_TAILWIND_CLEANUP_PLAN.md`). Do not introduce new Tailwind
 usage; convert any you touch to the SCSS equivalents above.
+
+## Page Anatomy (List Pages)
+
+One anatomy for every list page — do not invent per-page toolbar/empty-state
+markup:
+
+```
+PageTopbar (tabs + actions: Add/Refresh/…, FilterButton, SearchField)
+└─ ListToolbar (.sk-listhead)   [title?] [quick filters/SegControl] [extras] … [count] [ViewMenu SortMenu ColumnsMenu]
+   └─ SortChipBar (only while a sort is active)
+   └─ table card: DataTable + DataTableFooter
+   └─ floating .sk-bulkbar (only while rows are selected)
+```
+
+- **Placement rule**: page-level actions, `FilterButton` (advanced drawer
+  filters) and `SearchField` (always rightmost) publish into the shared topbar
+  via `useTopbarActions`; quick filters (`SegControl`), counts, `ViewMenu`,
+  `SortMenu`, `ColumnsMenu` and secondary selects live in the in-page
+  `ListToolbar` (`components/ds/ListToolbar.jsx`). Pages with no quick filters
+  skip the ListToolbar and put everything in the topbar.
+- **Tables**: `DataTable` + `useTableSort`/`useColumnVisibility` (see the
+  Styling Standard primitives). Saved views via `useTableViews` + `ViewMenu`.
+- **Empty states**: always the shared `EmptyState` component — never a new
+  `__empty` class. DataTable takes `emptyTitle`/`emptyMessage`.
+- **Drawers**: `ds/Drawer` only, widths from the scale **380 / 520 / 640 / 720**
+  (1100 for the domain-detail exception). **Modals**: `components/Modal.jsx` —
+  do not use raw `ui/dialog` for ordinary dialogs.
+- **Confirms**: `useConfirm()` (promise-based) — no `window.confirm`, no
+  per-page confirm-dialog state.
+- **Row clicks**: entity with a detail page → navigate; entity without one →
+  Drawer; action-only tables → no row click.
 
 ## Adding a New Feature (Full Stack)
 
