@@ -7,7 +7,7 @@ import {
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import { CHART_COLORS, METRIC_LABELS } from './fleetMetrics';
 
 // The three fleet-wide questions that only make sense across servers: how do
@@ -97,6 +97,70 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
             prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
         ));
     };
+
+    // Columns for the shared DataTable; cell markup is identical to the
+    // hand-rolled table it replaces (.sk-cell-mono). No toolbar row on this
+    // section, so the table runs uncontrolled with a storageKey.
+    const anomalyColumns = [
+        {
+            key: 'server',
+            header: 'Server',
+            sortable: true,
+            hideable: false,
+            sortValue: (a) => a.server_name || '',
+            render: (a) => a.server_name,
+        },
+        {
+            key: 'metric',
+            header: 'Metric',
+            sortable: true,
+            sortValue: (a) => METRIC_LABELS[a.metric] || a.metric,
+            render: (a) => METRIC_LABELS[a.metric] || a.metric,
+        },
+        {
+            key: 'current',
+            header: 'Current',
+            sortable: true,
+            sortValue: (a) => a.current_value ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (a) => `${a.current_value}%`,
+        },
+        {
+            key: 'baseline',
+            header: 'Baseline (mean)',
+            sortable: true,
+            sortValue: (a) => a.mean ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (a) => `${a.mean}%`,
+        },
+        {
+            key: 'stddev',
+            header: 'Std dev',
+            sortable: true,
+            sortValue: (a) => a.stddev ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (a) => a.stddev,
+        },
+        {
+            key: 'zscore',
+            header: 'Z-score',
+            sortable: true,
+            sortValue: (a) => a.z_score ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (a) => a.z_score,
+        },
+        {
+            key: 'direction',
+            header: 'Direction',
+            sortable: true,
+            sortValue: (a) => a.direction || '',
+            render: (a) => (
+                <Pill kind={a.direction === 'high' ? 'red' : 'cyan'}>
+                    {a.direction === 'high' ? 'Unusually high' : 'Unusually low'}
+                </Pill>
+            ),
+        },
+    ];
 
     // Recharts wants one row per timestamp with a column per series; the API
     // returns one series per server, so pivot before rendering.
@@ -212,38 +276,20 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     <h3>Anomaly Detection</h3>
                 </div>
                 {anomalies.length > 0 ? (
-                    <div className="mon-table-scroll">
-                        <table className="sk-dtable">
-                            <thead>
-                                <tr>
-                                    <th>Server</th>
-                                    <th>Metric</th>
-                                    <th>Current</th>
-                                    <th>Baseline (mean)</th>
-                                    <th>Std dev</th>
-                                    <th>Z-score</th>
-                                    <th>Direction</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {anomalies.map((a, i) => (
-                                    <tr key={`${a.server_name}-${a.metric}-${i}`}>
-                                        <td>{a.server_name}</td>
-                                        <td>{METRIC_LABELS[a.metric] || a.metric}</td>
-                                        <td className="sk-cell-mono">{a.current_value}%</td>
-                                        <td className="sk-cell-mono">{a.mean}%</td>
-                                        <td className="sk-cell-mono">{a.stddev}</td>
-                                        <td className="sk-cell-mono">{a.z_score}</td>
-                                        <td>
-                                            <Pill kind={a.direction === 'high' ? 'red' : 'cyan'}>
-                                                {a.direction === 'high' ? 'Unusually high' : 'Unusually low'}
-                                            </Pill>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={anomalyColumns}
+                        data={anomalies}
+                        keyField={(a) => `${a.server_name}-${a.metric}-${a.z_score}`}
+                        storageKey="serverkit-table-fleet-anomalies"
+                        className="mon-table-scroll"
+                        footer={(
+                            <DataTableFooter
+                                shown={anomalies.length}
+                                total={anomalies.length}
+                                noun="anomaly"
+                            />
+                        )}
+                    />
                 ) : (
                     <p className="mon-panel-hint">
                         <CheckCircle size={14} /> Every metric is within its own recent baseline.

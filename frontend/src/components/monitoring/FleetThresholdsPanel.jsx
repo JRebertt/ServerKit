@@ -5,6 +5,9 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { METRIC_LABELS } from './fleetMetrics';
 
 const DEFAULT_THRESHOLD = {
@@ -55,6 +58,67 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
         }
     };
 
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fleet-thresholds-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-fleet-thresholds-cols' });
+
+    // Columns for the shared DataTable; cell markup is identical to the
+    // hand-rolled table it replaces (.sk-cell-mono, .mon-row-actions).
+    const thresholdColumns = [
+        {
+            key: 'applies',
+            header: 'Applies to',
+            sortable: true,
+            hideable: false,
+            sortValue: (t) => t.server_name || 'Every server',
+            render: (t) => t.server_name || 'Every server',
+        },
+        {
+            key: 'metric',
+            header: 'Metric',
+            sortable: true,
+            sortValue: (t) => METRIC_LABELS[t.metric] || t.metric,
+            render: (t) => METRIC_LABELS[t.metric] || t.metric,
+        },
+        {
+            key: 'warning',
+            header: 'Warning',
+            sortable: true,
+            sortValue: (t) => t.warning_threshold ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (t) => `${t.warning_threshold}%`,
+        },
+        {
+            key: 'critical',
+            header: 'Critical',
+            sortable: true,
+            sortValue: (t) => t.critical_threshold ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (t) => `${t.critical_threshold}%`,
+        },
+        {
+            key: 'sustained',
+            header: 'Sustained',
+            sortable: true,
+            sortValue: (t) => t.duration_seconds ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (t) => `${t.duration_seconds}s`,
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'mon-row-actions',
+            render: (t) => (
+                <Button variant="ghost" size="sm" onClick={() => removeThreshold(t.id)}>
+                    <XCircle size={14} />
+                </Button>
+            ),
+        },
+    ];
+
     return (
         <section className="monitoring-panel">
             <div className="monitoring-panel__header">
@@ -62,9 +126,18 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
                     <h3>Per-server rules</h3>
                     <span className="mon-panel-sub">Limits applied to paired servers by their agents</span>
                 </div>
-                <Button size="sm" variant={adding ? 'outline' : 'default'} onClick={() => setAdding((v) => !v)}>
-                    <Plus size={14} /> {adding ? 'Cancel' : 'Add rule'}
-                </Button>
+                <div>
+                    <SortMenu columns={thresholdColumns} sorts={sorts} onChange={setSorts} />
+                    <ColumnsMenu
+                        columns={thresholdColumns}
+                        hiddenKeys={hiddenKeys}
+                        onToggle={toggleColumn}
+                        onShowAll={showAllColumns}
+                    />
+                    <Button size="sm" variant={adding ? 'outline' : 'default'} onClick={() => setAdding((v) => !v)}>
+                        <Plus size={14} /> {adding ? 'Cancel' : 'Add rule'}
+                    </Button>
+                </div>
             </div>
 
             {adding && (
@@ -124,36 +197,22 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
             )}
 
             {thresholds.length > 0 ? (
-                <div className="mon-table-scroll">
-                    <table className="sk-dtable">
-                        <thead>
-                            <tr>
-                                <th>Applies to</th>
-                                <th>Metric</th>
-                                <th>Warning</th>
-                                <th>Critical</th>
-                                <th>Sustained</th>
-                                <th />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {thresholds.map((t) => (
-                                <tr key={t.id}>
-                                    <td>{t.server_name || 'Every server'}</td>
-                                    <td>{METRIC_LABELS[t.metric] || t.metric}</td>
-                                    <td className="sk-cell-mono">{t.warning_threshold}%</td>
-                                    <td className="sk-cell-mono">{t.critical_threshold}%</td>
-                                    <td className="sk-cell-mono">{t.duration_seconds}s</td>
-                                    <td className="mon-row-actions">
-                                        <Button variant="ghost" size="sm" onClick={() => removeThreshold(t.id)}>
-                                            <XCircle size={14} />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={thresholdColumns}
+                    data={thresholds}
+                    keyField="id"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    hiddenKeys={hiddenKeys}
+                    className="mon-table-scroll"
+                    footer={(
+                        <DataTableFooter
+                            shown={thresholds.length}
+                            total={thresholds.length}
+                            noun="rule"
+                        />
+                    )}
+                />
             ) : (
                 <p className="mon-panel-hint">
                     No per-server rules yet — paired servers fall back to their agent defaults.

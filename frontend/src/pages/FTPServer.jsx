@@ -6,7 +6,9 @@ import {
 import useTabParam from '../hooks/useTabParam';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { api } from '../services/api';
-import { MetricCard, Pill } from '@/components/ds';
+import { ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortMenu } from '@/components/ds';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -37,6 +39,22 @@ function FTPServer() {
     const [confirmDialog, setConfirmDialog] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const toast = useToast();
+    const { sorts: userSorts, setSorts: setUserSorts } = useTableSort({
+        storageKey: 'serverkit-table-ftp-users-sort',
+    });
+    const {
+        hiddenKeys: userHiddenKeys,
+        toggleColumn: toggleUserColumn,
+        showAllColumns: showAllUserColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-ftp-users-cols' });
+    const { sorts: connSorts, setSorts: setConnSorts } = useTableSort({
+        storageKey: 'serverkit-table-ftp-connections-sort',
+    });
+    const {
+        hiddenKeys: connHiddenKeys,
+        toggleColumn: toggleConnColumn,
+        showAllColumns: showAllConnColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-ftp-connections-cols' });
 
     useEffect(() => {
         loadData();
@@ -231,6 +249,142 @@ function FTPServer() {
         setShowPasswordModal(true);
     };
 
+    // Columns for the shared DataTable. Cell markup and classNames are
+    // identical to the hand-rolled tables they replace, so _ftp-server.scss
+    // keeps applying (.user-name, .sk-cell-mono, .actions).
+    const userColumns = [
+        {
+            key: 'username',
+            header: 'Username',
+            sortable: true,
+            hideable: false,
+            sortValue: (user) => user.username || '',
+            render: (user) => (
+                <>
+                    <span className="user-name">{user.username}</span>
+                    {user.in_userlist && (
+                        <Badge variant="info">FTP</Badge>
+                    )}
+                </>
+            ),
+        },
+        {
+            key: 'home',
+            header: 'Home Directory',
+            sortable: true,
+            sortValue: (user) => user.home || '',
+            cellClassName: 'sk-cell-mono',
+            render: (user) => (
+                <>
+                    <code>{user.home}</code>
+                    {!user.home_exists && (
+                        <Badge variant="warning">Missing</Badge>
+                    )}
+                </>
+            ),
+        },
+        {
+            key: 'usage',
+            header: 'Usage',
+            sortable: true,
+            sortValue: (user) => user.home_size ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (user) => user.home_size_human,
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (user) => (user.is_active ? 'Active' : 'Disabled'),
+            render: (user) => (
+                <Pill kind={user.is_active ? 'green' : 'gray'}>
+                    {user.is_active ? 'Active' : 'Disabled'}
+                </Pill>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions',
+            render: (user) => (
+                <>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPasswordModal(user.username)}
+                        title="Change Password"
+                    >
+                        <KeyRound size={14} />
+                    </Button>
+                    <Button
+                        variant={user.is_active ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => handleToggleUser(user.username, user.is_active)}
+                        title={user.is_active ? 'Disable' : 'Enable'}
+                    >
+                        {user.is_active ? <Ban size={14} /> : <Check size={14} />}
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.username)}
+                        title="Delete"
+                    >
+                        <Trash2 size={14} />
+                    </Button>
+                </>
+            ),
+        },
+    ];
+
+    const connectionColumns = [
+        {
+            key: 'local',
+            header: 'Local Address',
+            sortable: true,
+            hideable: false,
+            sortValue: (conn) => conn.local || '',
+            cellClassName: 'sk-cell-mono',
+            render: (conn) => <code>{conn.local}</code>,
+        },
+        {
+            key: 'remote',
+            header: 'Remote Address',
+            sortable: true,
+            sortValue: (conn) => conn.remote || '',
+            cellClassName: 'sk-cell-mono',
+            render: (conn) => <code>{conn.remote}</code>,
+        },
+        {
+            key: 'state',
+            header: 'State',
+            sortable: true,
+            sortValue: (conn) => conn.state || '',
+            render: (conn) => (
+                <Pill kind="green">{conn.state}</Pill>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions',
+            render: (conn) => (
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDisconnect(conn.pid)}
+                    title="Disconnect"
+                >
+                    <X size={14} />
+                </Button>
+            ),
+        },
+    ];
+
     const isInstalled = status?.any_installed;
     const isRunning = status?.any_running;
 
@@ -419,9 +573,18 @@ function FTPServer() {
                             <div className="users-tab">
                                 <div className="section-header">
                                     <h3>FTP Users</h3>
-                                    <Button onClick={() => setShowUserModal(true)}>
-                                        Add User
-                                    </Button>
+                                    <div className="section-header__actions">
+                                        <SortMenu columns={userColumns} sorts={userSorts} onChange={setUserSorts} />
+                                        <ColumnsMenu
+                                            columns={userColumns}
+                                            hiddenKeys={userHiddenKeys}
+                                            onToggle={toggleUserColumn}
+                                            onShowAll={showAllUserColumns}
+                                        />
+                                        <Button onClick={() => setShowUserModal(true)}>
+                                            Add User
+                                        </Button>
+                                    </div>
                                 </div>
                                 {users.length === 0 ? (
                                     <EmptyState
@@ -430,69 +593,22 @@ function FTPServer() {
                                         action={<Button onClick={() => setShowUserModal(true)}>Create First User</Button>}
                                     />
                                 ) : (
-                                    <div className="users-table">
-                                        <table className="sk-dtable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Username</th>
-                                                    <th>Home Directory</th>
-                                                    <th>Usage</th>
-                                                    <th>Status</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {users.map((user) => (
-                                                    <tr key={user.username}>
-                                                        <td>
-                                                            <span className="user-name">{user.username}</span>
-                                                            {user.in_userlist && (
-                                                                <Badge variant="info">FTP</Badge>
-                                                            )}
-                                                        </td>
-                                                        <td className="sk-cell-mono">
-                                                            <code>{user.home}</code>
-                                                            {!user.home_exists && (
-                                                                <Badge variant="warning">Missing</Badge>
-                                                            )}
-                                                        </td>
-                                                        <td className="sk-cell-mono">{user.home_size_human}</td>
-                                                        <td>
-                                                            <Pill kind={user.is_active ? 'green' : 'gray'}>
-                                                                {user.is_active ? 'Active' : 'Disabled'}
-                                                            </Pill>
-                                                        </td>
-                                                        <td className="actions">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => openPasswordModal(user.username)}
-                                                                title="Change Password"
-                                                            >
-                                                                <KeyRound size={14} />
-                                                            </Button>
-                                                            <Button
-                                                                variant={user.is_active ? 'secondary' : 'outline'}
-                                                                size="sm"
-                                                                onClick={() => handleToggleUser(user.username, user.is_active)}
-                                                                title={user.is_active ? 'Disable' : 'Enable'}
-                                                            >
-                                                                {user.is_active ? <Ban size={14} /> : <Check size={14} />}
-                                                            </Button>
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={() => handleDeleteUser(user.username)}
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    <DataTable
+                                        columns={userColumns}
+                                        data={users}
+                                        keyField="username"
+                                        sorts={userSorts}
+                                        onSortsChange={setUserSorts}
+                                        hiddenKeys={userHiddenKeys}
+                                        className="users-table"
+                                        footer={(
+                                            <DataTableFooter
+                                                shown={users.length}
+                                                total={users.length}
+                                                noun="user"
+                                            />
+                                        )}
+                                    />
                                 )}
                             </div>
                         </TabsContent>
@@ -501,47 +617,39 @@ function FTPServer() {
                             <div className="connections-tab">
                                 <div className="section-header">
                                     <h3>Active Connections</h3>
-                                    <Button variant="outline" onClick={loadConnections}>
-                                        <RefreshCw size={14} />
-                                        Refresh
-                                    </Button>
+                                    <div className="section-header__actions">
+                                        <SortMenu columns={connectionColumns} sorts={connSorts} onChange={setConnSorts} />
+                                        <ColumnsMenu
+                                            columns={connectionColumns}
+                                            hiddenKeys={connHiddenKeys}
+                                            onToggle={toggleConnColumn}
+                                            onShowAll={showAllConnColumns}
+                                        />
+                                        <Button variant="outline" onClick={loadConnections}>
+                                            <RefreshCw size={14} />
+                                            Refresh
+                                        </Button>
+                                    </div>
                                 </div>
                                 {connections.length === 0 ? (
                                     <EmptyState icon={Network} title="No active connections" />
                                 ) : (
-                                    <div className="connections-table">
-                                        <table className="sk-dtable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Local Address</th>
-                                                    <th>Remote Address</th>
-                                                    <th>State</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {connections.map((conn, index) => (
-                                                    <tr key={index}>
-                                                        <td className="sk-cell-mono"><code>{conn.local}</code></td>
-                                                        <td className="sk-cell-mono"><code>{conn.remote}</code></td>
-                                                        <td>
-                                                            <Pill kind="green">{conn.state}</Pill>
-                                                        </td>
-                                                        <td className="actions">
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={() => handleDisconnect(conn.pid)}
-                                                                title="Disconnect"
-                                                            >
-                                                                <X size={14} />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    <DataTable
+                                        columns={connectionColumns}
+                                        data={connections}
+                                        keyField={(conn) => conn.pid ?? `${conn.local}-${conn.remote}`}
+                                        sorts={connSorts}
+                                        onSortsChange={setConnSorts}
+                                        hiddenKeys={connHiddenKeys}
+                                        className="connections-table"
+                                        footer={(
+                                            <DataTableFooter
+                                                shown={connections.length}
+                                                total={connections.length}
+                                                noun="connection"
+                                            />
+                                        )}
+                                    />
                                 )}
                             </div>
                         </TabsContent>

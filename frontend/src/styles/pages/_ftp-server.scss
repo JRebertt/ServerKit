@@ -41,6 +41,13 @@
         }
     }
 
+    // Right-end cluster of a section header (sort/column menus + action button)
+    .section-header__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
+
     // ─── Overview: config + connection-info cards ───────
     .overview-tab {
         display: grid;
