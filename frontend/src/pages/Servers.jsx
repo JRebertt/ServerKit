@@ -8,11 +8,12 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortChipBar, SortMenu,
+    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTableViews } from '@/hooks/useTableViews';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
 
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
@@ -26,6 +27,14 @@ const STATUS_KIND = {
 };
 
 const STATUS_FILTERS = ['all', 'online', 'offline', 'connecting', 'pending'];
+
+// Built-in saved views. States only use real SegControl values
+// (STATUS_FILTERS), group values ('all') and column keys (SERVER_COLUMNS).
+const SERVER_BUILTIN_VIEWS = [
+    { name: 'Online', state: { status: 'online', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Offline', state: { status: 'offline', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'By CPU', state: { status: 'all', group: 'all', search: '', sorts: [{ key: 'cpu', direction: 'desc' }], hiddenKeys: [] } },
+];
 
 const formatLastSeen = (timestamp) => {
     if (!timestamp) return 'Never';
@@ -147,9 +156,35 @@ const Servers = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-servers-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns,
     } = useColumnVisibility({ storageKey: 'serverkit-table-servers-cols' });
     const toast = useToast();
+
+    // Saved views: capture/apply the table chrome state (status filter, group
+    // filter, search, sort levels, hidden columns). Every key is guarded so a
+    // partial view state only touches what it sets.
+    const captureView = useCallback(() => ({
+        status: selectedStatus,
+        group: selectedGroup,
+        search: searchTerm,
+        sorts,
+        hiddenKeys,
+    }), [selectedStatus, selectedGroup, searchTerm, sorts, hiddenKeys]);
+
+    const applyView = useCallback((state) => {
+        if (state.status !== undefined) setSelectedStatus(state.status);
+        if (state.group !== undefined) setSelectedGroup(state.group);
+        if (state.search !== undefined) setSearchTerm(state.search);
+        if (Array.isArray(state.sorts)) setSorts(state.sorts);
+        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
+    }, [setSorts, setHiddenKeys]);
+
+    const tableViews = useTableViews({
+        page: 'servers',
+        builtinViews: SERVER_BUILTIN_VIEWS,
+        capture: captureView,
+        apply: applyView,
+    });
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -250,6 +285,7 @@ const Servers = () => {
                     <i>&middot;</i>
                     <b>{online} online</b>
                 </span>
+                <ViewMenu views={tableViews} />
                 <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
                 <ColumnsMenu
                     columns={SERVER_COLUMNS}

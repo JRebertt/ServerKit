@@ -56,7 +56,6 @@ export function useTableViews({ page, builtinViews = [], capture, apply }) {
     const applyView = useCallback((view) => {
         apply(view.state || {});
         setActiveKey(keyOf(view));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [apply]);
 
     const saveView = useCallback(async (name, { setDefault = false } = {}) => {
