@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import api from '../../../services/api';
 import useSettingFocus from '../../../hooks/useSettingFocus';
+import { useConfirm } from '../../../hooks/useConfirm';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import {
@@ -40,6 +41,7 @@ export default function ConnectionsHub() {
     const register = useSettingFocus();
     const { isAdmin } = useAuth();
     const toast = useToast();
+    const { confirm } = useConfirm();
 
     const [sourceStatus, setSourceStatus] = useState({ github: null, gitlab: null, bitbucket: null });
     const [sourceConfig, setSourceConfig] = useState({ github: null, gitlab: null, bitbucket: null });
@@ -174,7 +176,13 @@ export default function ConnectionsHub() {
     }, [toast, loadData]);
 
     const onRemoveDns = useCallback(async (record) => {
-        if (!window.confirm(`Remove the connection "${record.name}"?`)) return false;
+        const confirmed = await confirm({
+            title: 'Remove Connection',
+            message: `Remove the connection "${record.name}"?`,
+            confirmText: 'Remove',
+            variant: 'danger',
+        });
+        if (!confirmed) return false;
         try {
             await api.deleteEmailDNSProvider(record.id);
             toast.success(`${record.name} removed`);
@@ -184,7 +192,7 @@ export default function ConnectionsHub() {
             toast.error(err.message || 'Failed to remove connection');
             return false;
         }
-    }, [toast, loadData]);
+    }, [confirm, toast, loadData]);
 
     const onTestDns = useCallback(async (id) => {
         try {
@@ -212,7 +220,13 @@ export default function ConnectionsHub() {
     }, [toast, loadData]);
 
     const onRemoveCloud = useCallback(async (id) => {
-        if (!window.confirm('Disconnect this cloud account? Existing servers are not affected.')) return false;
+        const confirmed = await confirm({
+            title: 'Disconnect Cloud Account',
+            message: 'Disconnect this cloud account? Existing servers are not affected.',
+            confirmText: 'Disconnect',
+            variant: 'danger',
+        });
+        if (!confirmed) return false;
         try {
             await api.deleteCloudProvider(id);
             toast.success('Disconnected');
@@ -222,7 +236,7 @@ export default function ConnectionsHub() {
             toast.error(err.message || 'Failed to disconnect');
             return false;
         }
-    }, [toast, loadData]);
+    }, [confirm, toast, loadData]);
 
     // ── Storage ──
     const onSaveStorage = useCallback(async (config) => {
@@ -301,7 +315,13 @@ export default function ConnectionsHub() {
     }, [toast, loadData]);
 
     const onRemoveRegistrar = useCallback(async (id) => {
-        if (!window.confirm('Disconnect this registrar?')) return false;
+        const confirmed = await confirm({
+            title: 'Disconnect Registrar',
+            message: 'Disconnect this registrar?',
+            confirmText: 'Disconnect',
+            variant: 'danger',
+        });
+        if (!confirmed) return false;
         try {
             await api.deleteRegistrarConnection(id);
             toast.success('Registrar disconnected');
@@ -311,7 +331,7 @@ export default function ConnectionsHub() {
             toast.error(err.message || 'Failed to disconnect');
             return false;
         }
-    }, [toast, loadData]);
+    }, [confirm, toast, loadData]);
 
     const onTestRegistrar = useCallback(async (id) => {
         try {
@@ -339,7 +359,13 @@ export default function ConnectionsHub() {
     }, [toast, loadData]);
 
     const onRemoveRegistry = useCallback(async (id) => {
-        if (!window.confirm('Remove this container registry? Apps that pull from it will lose access.')) return false;
+        const confirmed = await confirm({
+            title: 'Remove Container Registry',
+            message: 'Remove this container registry? Apps that pull from it will lose access.',
+            confirmText: 'Remove',
+            variant: 'danger',
+        });
+        if (!confirmed) return false;
         try {
             await api.deleteContainerRegistry(id);
             toast.success('Registry removed');
@@ -349,7 +375,7 @@ export default function ConnectionsHub() {
             toast.error(err.message || 'Failed to remove registry');
             return false;
         }
-    }, [toast, loadData]);
+    }, [confirm, toast, loadData]);
 
     const onTestRegistry = useCallback(async (id) => {
         try {

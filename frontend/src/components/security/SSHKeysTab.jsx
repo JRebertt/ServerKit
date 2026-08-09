@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { KeyRound } from 'lucide-react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
+import EmptyState from '@/components/EmptyState';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,8 +18,8 @@ const SSHKeysTab = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [newKey, setNewKey] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ssh-keys-sort' });
     const {
         hiddenKeys, toggleColumn, showAllColumns,
@@ -56,23 +58,20 @@ const SSHKeysTab = () => {
     };
 
     const handleRemoveKey = async (keyId, comment) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Remove SSH Key',
             message: `Are you sure you want to remove the SSH key${comment ? ` "${comment}"` : ''}? This may lock you out if it's your only key.`,
             confirmText: 'Remove',
             variant: 'danger',
-            onConfirm: async () => {
-                try {
-                    await api.removeSSHKey(keyId);
-                    toast.success('SSH key removed');
-                    await loadKeys();
-                } catch (error) {
-                    toast.error(`Failed to remove key: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.removeSSHKey(keyId);
+            toast.success('SSH key removed');
+            await loadKeys();
+        } catch (error) {
+            toast.error(`Failed to remove key: ${error.message}`);
+        }
     };
 
     // Cell markup/classNames identical to the hand-rolled table they replace.
@@ -140,12 +139,15 @@ const SSHKeysTab = () => {
                     </div>
                 ) : keys.length === 0 ? (
                     <div className="card-body">
-                        <div className="empty-state-sm">
-                            <p>No SSH keys configured for root user.</p>
-                            <Button variant="default" onClick={() => setShowAddModal(true)}>
-                                Add SSH Key
-                            </Button>
-                        </div>
+                        <EmptyState
+                            icon={KeyRound}
+                            title="No SSH keys configured for root user."
+                            action={(
+                                <Button variant="default" onClick={() => setShowAddModal(true)}>
+                                    Add SSH Key
+                                </Button>
+                            )}
+                        />
                     </div>
                 ) : (
                     <DataTable
@@ -184,17 +186,6 @@ const SSHKeysTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };

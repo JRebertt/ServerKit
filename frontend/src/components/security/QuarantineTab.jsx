@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import api from '../../services/api';
+import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -153,14 +155,11 @@ const QuarantineTab = () => {
                     </div>
                 ) : files.length === 0 ? (
                     <div className="card-body">
-                        <div className="empty-state">
-                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                <polyline points="9 12 12 15 16 10"/>
-                            </svg>
-                            <p>No files in quarantine</p>
-                            <span className="text-muted">Infected files will appear here when detected</span>
-                        </div>
+                        <EmptyState
+                            icon={ShieldCheck}
+                            title="No files in quarantine"
+                            description="Infected files will appear here when detected"
+                        />
                     </div>
                 ) : (
                     <DataTable

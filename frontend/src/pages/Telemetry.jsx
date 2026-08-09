@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useConfirm } from '@/hooks/useConfirm';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
@@ -70,6 +71,7 @@ const BUILTIN_VIEWS = [
 export default function Telemetry() {
     const { isAdmin } = useAuth();
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -173,7 +175,13 @@ export default function Telemetry() {
     };
 
     const cleanupOldEvents = async () => {
-        if (!window.confirm('Delete telemetry events older than 90 days? This cannot be undone.')) {
+        const confirmed = await confirm({
+            title: 'Clean Up Old Events',
+            message: 'Delete telemetry events older than 90 days? This cannot be undone.',
+            confirmText: 'Delete',
+            variant: 'danger',
+        });
+        if (!confirmed) {
             return;
         }
         try {

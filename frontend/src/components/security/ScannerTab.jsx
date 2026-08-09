@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { Zap, Radar, FolderSearch, Download, Box, ShieldAlert, FileCode2, Trash2 } from 'lucide-react';
+import { Zap, Radar, FolderSearch, Download, Box, ShieldAlert, FileCode2, Trash2, Search } from 'lucide-react';
+import EmptyState from '@/components/EmptyState';
 
 const SEVERITY_TONE = {
     critical: 'red',
@@ -587,13 +588,11 @@ const ScannerTab = () => {
                 </div>
                 {history.length === 0 ? (
                     <div className="card-body">
-                        <div className="empty-state-sm">
-                            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" fill="none" strokeWidth="1.5">
-                                <circle cx="11" cy="11" r="8"/>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                            </svg>
-                            <p>No scans have been run yet. Start a scan above to check for threats.</p>
-                        </div>
+                        <EmptyState
+                            icon={Search}
+                            title="No scans have been run yet."
+                            description="Start a scan above to check for threats."
+                        />
                     </div>
                 ) : (
                     <DataTable

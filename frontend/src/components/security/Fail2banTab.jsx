@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Ban } from 'lucide-react';
+import { Ban, Shield } from 'lucide-react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
+import EmptyState from '@/components/EmptyState';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +22,8 @@ const Fail2banTab = () => {
     const [showBanModal, setShowBanModal] = useState(false);
     const [banIP, setBanIP] = useState('');
     const [banJail, setBanJail] = useState('sshd');
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fail2ban-bans-sort' });
     const {
         hiddenKeys, toggleColumn, showAllColumns,
@@ -93,23 +94,20 @@ const Fail2banTab = () => {
     };
 
     const handleUnban = async (ip, jail) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Unban IP',
             message: `Are you sure you want to unban ${ip} from ${jail}?`,
             confirmText: 'Unban',
             variant: 'warning',
-            onConfirm: async () => {
-                try {
-                    await api.fail2banUnban(ip, jail);
-                    toast.success(`IP ${ip} unbanned`);
-                    await loadData();
-                } catch (error) {
-                    toast.error(`Failed to unban: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.fail2banUnban(ip, jail);
+            toast.success(`IP ${ip} unbanned`);
+            await loadData();
+        } catch (error) {
+            toast.error(`Failed to unban: ${error.message}`);
+        }
     };
 
     if (loading) {
@@ -150,16 +148,16 @@ const Fail2banTab = () => {
     return (
         <div className="fail2ban-tab">
             {!status?.installed ? (
-                <div className="empty-state">
-                    <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <h3>Fail2ban Not Installed</h3>
-                    <p>Install Fail2ban to protect against brute force attacks.</p>
-                    <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
-                        {actionLoading ? 'Installing...' : 'Install Fail2ban'}
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={Shield}
+                    title="Fail2ban Not Installed"
+                    description="Install Fail2ban to protect against brute force attacks."
+                    action={(
+                        <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
+                            {actionLoading ? 'Installing...' : 'Install Fail2ban'}
+                        </Button>
+                    )}
+                />
             ) : (
                 <>
                     <div className="card">
@@ -301,17 +299,6 @@ const Fail2banTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
+import EmptyState from '@/components/EmptyState';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { ColumnsMenu, DataTable, DataTableFooter, Pill, SegControl, SortMenu } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { Shield } from 'lucide-react';
+import { Ban, Shield } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 
 const RULE_TYPE_TONES = {
@@ -32,10 +33,10 @@ const FirewallTab = () => {
     const [newPort, setNewPort] = useState({ port: '', protocol: 'tcp' });
     const [selectedFirewall, setSelectedFirewall] = useState('ufw');
     const [actionLoading, setActionLoading] = useState(false);
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const [guard, setGuard] = useState(null);
     const [guardLoading, setGuardLoading] = useState(false);
     const toast = useToast();
+    const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-firewall-rules-sort' });
     const {
         hiddenKeys, toggleColumn, showAllColumns,
@@ -132,26 +133,23 @@ const FirewallTab = () => {
     };
 
     const handleDisable = async () => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Disable Firewall',
             message: 'Are you sure you want to disable the firewall? This will leave your server unprotected.',
             confirmText: 'Disable',
             variant: 'danger',
-            onConfirm: async () => {
-                setActionLoading(true);
-                try {
-                    await api.disableFirewall();
-                    toast.success('Firewall disabled');
-                    await loadStatus();
-                } catch (error) {
-                    toast.error(`Failed to disable firewall: ${error.message}`);
-                } finally {
-                    setActionLoading(false);
-                    setConfirmDialog(null);
-                }
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        setActionLoading(true);
+        try {
+            await api.disableFirewall();
+            toast.success('Firewall disabled');
+            await loadStatus();
+        } catch (error) {
+            toast.error(`Failed to disable firewall: ${error.message}`);
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleBlockIP = async () => {
@@ -172,24 +170,21 @@ const FirewallTab = () => {
     };
 
     const handleUnblockIP = async (ip) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Unblock IP',
             message: `Are you sure you want to unblock ${ip}?`,
             confirmText: 'Unblock',
             variant: 'warning',
-            onConfirm: async () => {
-                try {
-                    await api.unblockIP(ip);
-                    toast.success(`IP ${ip} unblocked`);
-                    await loadBlockedIPs();
-                    await loadRules();
-                } catch (error) {
-                    toast.error(`Failed to unblock IP: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.unblockIP(ip);
+            toast.success(`IP ${ip} unblocked`);
+            await loadBlockedIPs();
+            await loadRules();
+        } catch (error) {
+            toast.error(`Failed to unblock IP: ${error.message}`);
+        }
     };
 
     const handleAllowPort = async () => {
@@ -222,23 +217,20 @@ const FirewallTab = () => {
     };
 
     const handleRemovePort = async (port, protocol) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Remove Port Rule',
             message: `Are you sure you want to remove the rule for port ${port}/${protocol}?`,
             confirmText: 'Remove',
             variant: 'danger',
-            onConfirm: async () => {
-                try {
-                    await api.denyPort(parseInt(port), protocol);
-                    toast.success(`Port ${port}/${protocol} rule removed`);
-                    await loadRules();
-                } catch (error) {
-                    toast.error(`Failed to remove port: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.denyPort(parseInt(port), protocol);
+            toast.success(`Port ${port}/${protocol} rule removed`);
+            await loadRules();
+        } catch (error) {
+            toast.error(`Failed to remove port: ${error.message}`);
+        }
     };
 
     const handleInstall = async () => {
@@ -316,16 +308,16 @@ const FirewallTab = () => {
     return (
         <div className="firewall-tab">
             {!status?.any_installed ? (
-                <div className="empty-state">
-                    <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <h3>No Firewall Installed</h3>
-                    <p>Install a firewall to protect your server from unauthorized access.</p>
-                    <Button variant="default" onClick={() => setShowInstallModal(true)}>
-                        Install Firewall
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={Shield}
+                    title="No Firewall Installed"
+                    description="Install a firewall to protect your server from unauthorized access."
+                    action={(
+                        <Button variant="default" onClick={() => setShowInstallModal(true)}>
+                            Install Firewall
+                        </Button>
+                    )}
+                />
             ) : (
                 <>
                     <div className="firewall-header">
@@ -460,9 +452,7 @@ const FirewallTab = () => {
                             </div>
                             {blockedIPs.length === 0 ? (
                                 <div className="card-body">
-                                    <div className="empty-state-sm">
-                                        <p>No blocked IPs</p>
-                                    </div>
+                                    <EmptyState icon={Ban} title="No blocked IPs" />
                                 </div>
                             ) : (
                                 <div className="blocked-list">
@@ -639,17 +629,6 @@ const FirewallTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };

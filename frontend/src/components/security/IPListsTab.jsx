@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,8 +17,8 @@ const IPListsTab = () => {
     const [newIP, setNewIP] = useState('');
     const [newComment, setNewComment] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { confirm } = useConfirm();
     // Each list is its own table with its own persisted sort/columns state.
     const allowSorts = useTableSort({ storageKey: 'serverkit-table-ip-allowlist-sort' });
     const allowCols = useColumnVisibility({ storageKey: 'serverkit-table-ip-allowlist-cols' });
@@ -62,23 +62,20 @@ const IPListsTab = () => {
     };
 
     const handleRemove = async (ip, listType) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: `Remove from ${listType}`,
             message: `Are you sure you want to remove ${ip} from the ${listType}?`,
             confirmText: 'Remove',
             variant: 'warning',
-            onConfirm: async () => {
-                try {
-                    await api.removeFromIPList(ip, listType);
-                    toast.success(`IP removed from ${listType}`);
-                    await loadLists();
-                } catch (error) {
-                    toast.error(`Failed to remove IP: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.removeFromIPList(ip, listType);
+            toast.success(`IP removed from ${listType}`);
+            await loadLists();
+        } catch (error) {
+            toast.error(`Failed to remove IP: ${error.message}`);
+        }
     };
 
     // Cell markup/classNames identical to the hand-rolled table they replace.
@@ -205,17 +202,6 @@ const IPListsTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };
