@@ -7,8 +7,12 @@ import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Drawer, Gauge, Pill, SearchField, SegControl } from '@/components/ds';
+import {
+    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, SegControl, SortMenu,
+} from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
 
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
@@ -35,6 +39,97 @@ const formatLastSeen = (timestamp) => {
 
 const clamp = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
+const isLive = (server) => Boolean(server.metrics) && (server.status || 'pending') === 'online';
+
+// One metric column (CPU / Memory / Disk): a percentage over a thin gauge.
+// A gauge with nothing behind it reads as 0%, which is a claim — offline and
+// pending rows get a dash instead, and sort as null (always last).
+const meterColumn = (key, header, metricKey) => ({
+    key,
+    header,
+    sortable: true,
+    sortValue: (server) => (isLive(server) ? clamp(server.metrics?.[metricKey]) : null),
+    className: 'servers-table__meter',
+    cellClassName: 'servers-table__meter',
+    render: (server) => {
+        if (!isLive(server)) return <span className="servers-row__nodata">&mdash;</span>;
+        const value = clamp(server.metrics?.[metricKey]);
+        return (
+            <>
+                <div className="sk-cell-mono">{value.toFixed(0)}%</div>
+                <Gauge value={value} />
+            </>
+        );
+    },
+});
+
+// Columns for the shared DataTable. Cell markup and classNames are identical
+// to the hand-rolled table they replace, so _servers.scss keeps applying
+// (.sk-cell-name, .sk-cell-mono, .servers-row__*, .servers-table__meter).
+const SERVER_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Server',
+        sortable: true,
+        hideable: false,
+        sortValue: (server) => server.name || '',
+        render: (server) => (
+            <div className="sk-cell-name">
+                <span className="servers-row__ico">
+                    <ServerLucideIcon size={15} />
+                </span>
+                <span>
+                    <div>{server.name}</div>
+                    <div className="sk-cell-sub">
+                        {[server.group_name, server.os_version || server.os_type]
+                            .filter(Boolean).join(' \u00b7 ') || 'unclaimed'}
+                    </div>
+                </span>
+            </div>
+        ),
+    },
+    {
+        key: 'host',
+        header: 'Host',
+        cellClassName: 'sk-cell-mono',
+        render: (server) => server.hostname || server.ip_address || '\u2014',
+    },
+    {
+        key: 'agent',
+        header: 'Agent',
+        cellClassName: 'sk-cell-mono servers-row__agent',
+        render: (server) => server.agent_version || 'not installed',
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (server) => server.status || 'pending',
+        render: (server) => {
+            const status = server.status || 'pending';
+            return <Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill>;
+        },
+    },
+    meterColumn('cpu', 'CPU', 'cpu_percent'),
+    meterColumn('memory', 'Memory', 'memory_percent'),
+    meterColumn('disk', 'Disk', 'disk_percent'),
+    {
+        key: 'lastSeen',
+        header: 'Last seen',
+        sortable: true,
+        sortValue: (server) => (server.last_seen ? new Date(server.last_seen).getTime() : null),
+        cellClassName: 'sk-cell-mono servers-row__seen',
+        render: (server) => formatLastSeen(server.last_seen),
+    },
+    {
+        key: 'open',
+        header: '',
+        sortable: false,
+        hideable: false,
+        render: () => <ChevronRight size={16} className="servers-row__chev" />,
+    },
+];
+
 // The fleet as one table. The previous layout wrapped this list in a rail of
 // its own: a health dial, a status nav and a groups nav, each restating a
 // number the table already carries. Every one of those is now a column or a
@@ -50,6 +145,10 @@ const Servers = () => {
     const [selectedGroup, setSelectedGroup] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-servers-sort' });
+    const {
+        hiddenKeys, toggleColumn, showAllColumns,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-servers-cols' });
     const toast = useToast();
 
     const loadData = useCallback(async () => {
@@ -151,6 +250,13 @@ const Servers = () => {
                     <i>&middot;</i>
                     <b>{online} online</b>
                 </span>
+                <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
+                <ColumnsMenu
+                    columns={SERVER_COLUMNS}
+                    hiddenKeys={hiddenKeys}
+                    onToggle={toggleColumn}
+                    onShowAll={showAllColumns}
+                />
             </div>
 
             {filteredServers.length === 0 ? (
@@ -178,84 +284,25 @@ const Servers = () => {
                     )}
                 />
             ) : (
-                <div className="servers-card">
-                    <table className="sk-dtable servers-table">
-                        <thead>
-                            <tr>
-                                <th>Server</th>
-                                <th>Host</th>
-                                <th>Agent</th>
-                                <th>Status</th>
-                                <th className="servers-table__meter">CPU</th>
-                                <th className="servers-table__meter">Memory</th>
-                                <th className="servers-table__meter">Disk</th>
-                                <th>Last seen</th>
-                                <th aria-label="Open" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredServers.map((server) => {
-                                const status = server.status || 'pending';
-                                const live = Boolean(server.metrics) && status === 'online';
-                                const meters = [
-                                    clamp(server.metrics?.cpu_percent),
-                                    clamp(server.metrics?.memory_percent),
-                                    clamp(server.metrics?.disk_percent),
-                                ];
-                                return (
-                                    <tr
-                                        key={server.id}
-                                        className="servers-row"
-                                        onClick={() => navigate(`/servers/${server.id}`)}
-                                    >
-                                        <td>
-                                            <div className="sk-cell-name">
-                                                <span className="servers-row__ico">
-                                                    <ServerLucideIcon size={15} />
-                                                </span>
-                                                <span>
-                                                    <div>{server.name}</div>
-                                                    <div className="sk-cell-sub">
-                                                        {[server.group_name, server.os_version || server.os_type]
-                                                            .filter(Boolean).join(' \u00b7 ') || 'unclaimed'}
-                                                    </div>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="sk-cell-mono">
-                                            {server.hostname || server.ip_address || '\u2014'}
-                                        </td>
-                                        <td className="sk-cell-mono servers-row__agent">
-                                            {server.agent_version || 'not installed'}
-                                        </td>
-                                        <td><Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill></td>
-                                        {/* A gauge with nothing behind it reads as 0%,
-                                            which is a claim. Offline and pending rows
-                                            get a dash instead. */}
-                                        {meters.map((value, i) => (
-                                            <td key={i} className="servers-table__meter">
-                                                {live ? (
-                                                    <>
-                                                        <div className="sk-cell-mono">{value.toFixed(0)}%</div>
-                                                        <Gauge value={value} />
-                                                    </>
-                                                ) : (
-                                                    <span className="servers-row__nodata">&mdash;</span>
-                                                )}
-                                            </td>
-                                        ))}
-                                        <td className="sk-cell-mono servers-row__seen">
-                                            {formatLastSeen(server.last_seen)}
-                                        </td>
-                                        <td>
-                                            <ChevronRight size={16} className="servers-row__chev" />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={SERVER_COLUMNS}
+                    data={filteredServers}
+                    keyField="id"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    hiddenKeys={hiddenKeys}
+                    onRowClick={(server) => navigate(`/servers/${server.id}`)}
+                    rowClassName="servers-row"
+                    className="servers-card"
+                    tableClassName="servers-table"
+                    footer={(
+                        <DataTableFooter
+                            shown={filteredServers.length}
+                            total={servers.length}
+                            noun="server"
+                        />
+                    )}
+                />
             )}
 
             {showAddModal && (
