@@ -4,6 +4,8 @@ import useTabParam from '../hooks/useTabParam';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
+import FavoriteStar from '@/components/FavoriteStar';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
@@ -54,6 +56,9 @@ const WorkspaceDetail = () => {
     const [activeTab, setActiveTab] = useTabParam(`/workspaces/${id}`, VALID_TABS, 'overview');
 
     const [ws, setWs] = useState(null);
+    useRecordVisit(ws && {
+        type: 'workspace', id: ws.id, path: `/workspaces/${ws.id}`, label: ws.name,
+    });
     const [members, setMembers] = useState([]);
     const [apps, setApps] = useState([]);
     const [servers, setServers] = useState([]);
@@ -228,6 +233,7 @@ const WorkspaceDetail = () => {
                     <div className="app-detail-title-block">
                         <h1>
                             {ws.name}
+                            <FavoriteStar type="workspace" id={ws.id} path={`/workspaces/${ws.id}`} label={ws.name} />
                             {isCurrent
                                 ? <Pill kind="green">active workspace</Pill>
                                 : <Pill kind={ws.status === 'active' ? 'green' : 'amber'}>{ws.status}</Pill>}

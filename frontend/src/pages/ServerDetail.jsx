@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
+import FavoriteStar from '@/components/FavoriteStar';
 import { Button } from '@/components/ui/button';
 import { Pill } from '../components/ds';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -31,6 +33,9 @@ const ServerDetail = () => {
     const navigate = useNavigate();
     const { confirm } = useConfirm();
     const [server, setServer] = useState(null);
+    useRecordVisit(server && {
+        type: 'server', id: server.id, path: `/servers/${server.id}`, label: server.name,
+    });
     const [metrics, setMetrics] = useState(null);
     const [systemInfo, setSystemInfo] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -250,6 +255,7 @@ const ServerDetail = () => {
                     <div className="server-detail-header__identity">
                         <div className="server-detail-header__title-row">
                             <h1>{server.name}</h1>
+                            <FavoriteStar type="server" id={server.id} path={`/servers/${server.id}`} label={server.name} />
                             <Pill kind={STATUS_PILL_KIND[server.status] || 'gray'}>
                                 {server.status || 'pending'}
                             </Pill>

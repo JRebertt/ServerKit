@@ -14,6 +14,8 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
+import FavoriteStar from '@/components/FavoriteStar';
 import EmptyState from '../components/EmptyState';
 import UptimeBars from '../components/monitoring/UptimeBars';
 import { monitorStateOf } from '../components/monitoring/monitorShared';
@@ -64,6 +66,9 @@ export default function MonitorDetail() {
     const { confirm } = useConfirm();
 
     const [monitor, setMonitor] = useState(null);
+    useRecordVisit(monitor && {
+        type: 'monitor', id: monitor.id, path: `/monitoring/monitors/${monitor.id}`, label: monitor.name,
+    });
     const [checks, setChecks] = useState([]);
     const [uptime, setUptime] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -241,6 +246,7 @@ export default function MonitorDetail() {
             meta={`${monitor.check_type} · ${monitor.check_target || 'bound site'} · every ${monitor.check_interval}s`}
             actions={(
                 <>
+                    <FavoriteStar type="monitor" id={monitor.id} path={`/monitoring/monitors/${monitor.id}`} label={monitor.name} />
                     <Pill kind={state.tone}>{state.label}</Pill>
                     <Button variant="outline" size="sm" onClick={onCheckNow} disabled={busy}>
                         <RefreshCw size={14} /> Check now

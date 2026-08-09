@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
+import FavoriteStar from '@/components/FavoriteStar';
 import EmptyState from '../components/EmptyState';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import PageLayout from '../layouts/PageLayout';
@@ -26,6 +28,9 @@ const ProjectDetail = () => {
     const toast = useToast();
 
     const [project, setProject] = useState(null);
+    useRecordVisit(project && {
+        type: 'project', id: project.id, path: `/projects/${project.id}`, label: project.name,
+    });
     const [environments, setEnvironments] = useState([]);
     const [apps, setApps] = useState([]);
     const [activeEnvId, setActiveEnvId] = useState(null);
@@ -134,6 +139,7 @@ const ProjectDetail = () => {
             meta={project.slug}
             actions={
                 <>
+                    <FavoriteStar type="project" id={project.id} path={`/projects/${project.id}`} label={project.name} />
                     <Button variant="outline" asChild>
                         <Link to="/projects"><ArrowLeft size={16} /> Projects</Link>
                     </Button>
