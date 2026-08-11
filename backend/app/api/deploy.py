@@ -1,8 +1,11 @@
 # Bucket: PER-APP (plan 29 #9). Deploy config reads/writes gate on the shared
 # app-access seam (can_access_app / can_edit_app); the public inbound webhook is
 # token/signature-verified (ALLOWLISTed — no per-app user session).
+import os
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app import paths
 from app.middleware.rbac import admin_required, app_access_tier
 from app.models import User, Application
 from app.services.git_service import GitService
@@ -189,8 +192,16 @@ def clone_repository():
     if missing:
         return jsonify({'error': f'Missing required fields: {", ".join(missing)}'}), 400
 
+    # GHSA-8vx6-432p-h62q: app_path is attacker-controlled here (unlike
+    # /apps/from-repository, which derives it server-side). Confine clones to
+    # the managed apps root, mirroring _assert_managed_app_path.
+    base_dir = os.path.abspath(paths.APPS_DIR)
+    app_path = os.path.abspath(data['app_path'])
+    if app_path == base_dir or not app_path.startswith(base_dir + os.sep):
+        return jsonify({'error': 'app_path must be inside the managed apps directory'}), 400
+
     result = GitService.clone_repository(
-        app_path=data['app_path'],
+        app_path=app_path,
         repo_url=data['repo_url'],
         branch=data.get('branch', 'main')
     )
