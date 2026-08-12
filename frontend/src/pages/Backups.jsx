@@ -123,7 +123,10 @@ const Backups = () => {
             setStats(statsRes);
             setSchedules(schedulesRes.schedules || []);
             setConfig(configRes);
-            setApps(appsRes.applications || []);
+            // GET /apps responds { apps: [...] } — reading `.applications` here
+            // silently produced [] on every load, so the app picker in the
+            // backup dialogs was permanently empty.
+            setApps(appsRes.apps || []);
             setCostSummary(costRes || null);
 
             if (storageRes) {
