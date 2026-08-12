@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import useTableViews from '@/hooks/useTableViews';
+import useViewLink from './useViewLink';
 import { emptyValueFor, isFilterable, OPS, ruleId } from './fields';
 
 // The whole of a grid's chrome is ONE serialisable object, so a saved view is
@@ -67,6 +68,11 @@ export function useGridConfig({ page, columns, initial, builtinViews = [] }) {
     const apply = useCallback((state) => setCfg(makeGridConfig(state || {})), []);
 
     const views = useTableViews({ page, builtinViews, capture, apply });
+
+    // ?view=<slug> / readable params <-> the active view. Same hook the legacy
+    // chrome uses, so a DataGrid page and a DataTable page produce and accept
+    // the same links.
+    const { copyLink } = useViewLink({ views, apply, capture, enabled: !!page });
 
     // ---- narrow setters the menus talk to ------------------------------
     const patch = useCallback((next) => setCfg((prev) => ({ ...prev, ...next })), []);
@@ -179,6 +185,7 @@ export function useGridConfig({ page, columns, initial, builtinViews = [] }) {
         cfg,
         setCfg,
         views,
+        copyLink,
         base,
         setSort,
         toggleGroup,

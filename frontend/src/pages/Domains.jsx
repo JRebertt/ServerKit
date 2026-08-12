@@ -580,6 +580,7 @@ const Domains = () => {
                 noun="domains"
                 onRefresh={loadData}
                 onReset={grid.resetToView}
+                onCopyLink={grid.copyLink}
                 onDensity={grid.setDensity}
                 onExported={(n, fields, format) => toast.success(`${n} rows · ${fields} fields · ${format.toUpperCase()}`)}
             />

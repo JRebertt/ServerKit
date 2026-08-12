@@ -275,3 +275,17 @@ def test_restoring_the_last_domain_re_enables_the_site(app, app_with_domain, mon
 
     assert seen['create'] >= 1, 'vhost was never written'
     assert seen['enable'] >= 1, 'vhost written but never enabled — the site stays unserved'
+
+
+def test_restoring_a_view_is_refused_when_the_name_was_reused(app):
+    """Deleting a view frees its name and slug, so either can be taken by the
+    time you press Restore — that must be a refusal, not an IntegrityError."""
+    with app.app_context():
+        first, _ = saved_view_service.create_view(1, 'domains', 'Triage', {})
+        saved_view_service.delete_view(1, first['id'])
+        saved_view_service.create_view(1, 'domains', 'Triage', {})   # reuses name + slug
+
+        item, err = recycle_bin_service.restore('saved_view', first['id'])
+        assert item is None
+        assert 'already have' in err
+        assert SavedView.query.get(first['id']).deleted_at is not None

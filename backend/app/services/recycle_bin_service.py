@@ -158,8 +158,26 @@ def register_builtin_types():
         pre_restore=pre_restore_domain,
         on_restore=on_restore_domain,
     )
+    def _pre_restore_view(view):
+        # Same partial-unique-index conflict as Domain: deleting a view frees
+        # its name AND its slug, so either can be taken by the time you press
+        # Restore. Clearing the tombstone would then violate
+        # uq_saved_views_user_page_name_live / _slug_live and 500 at commit.
+        clash = (SavedView.query_active()
+                 .filter(SavedView.user_id == view.user_id,
+                         SavedView.page == view.page,
+                         SavedView.id != view.id)
+                 .filter(db.or_(SavedView.name == view.name,
+                                SavedView.slug == view.slug))
+                 .first())
+        if clash:
+            return (f'you already have a “{clash.name}” view on this page '
+                    f'-- rename it first, or leave this one in the bin')
+        return None
+
     register(
         'saved_view', SavedView, noun='saved view',
         label=lambda v: v.name,
         description=lambda v: f'{v.page} view',
+        pre_restore=_pre_restore_view,
     )
