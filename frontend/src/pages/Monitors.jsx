@@ -461,7 +461,7 @@ export default function Monitors() {
                 label="monitors"
                 total={(
                     <>
-                        {monitors.length} monitor{monitors.length === 1 ? '' : 's'}
+                        {chrome.shownCount} of {monitors.length} monitor{monitors.length === 1 ? '' : 's'}
                         {stats?.overall_uptime_30d != null && (
                             <> &middot; {stats.overall_uptime_30d}% uptime (30d)</>
                         )}

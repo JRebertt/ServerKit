@@ -467,7 +467,7 @@ const CronJobs = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="jobs"
-                        total={`${shown.length} of ${jobs.length} jobs`}
+                        total={`${chrome.shownCount} of ${jobs.length} jobs`}
                         onCreate={chrome.createView}
                     />
                     <ListToolbar
@@ -503,7 +503,7 @@ const CronJobs = () => {
                                 rowClassName={(job) => (job.enabled ? undefined : 'is-disabled')}
                                 footer={(
                                     <DataTableFooter
-                                        shown={shown.length}
+                                        shown={chrome.shownCount}
                                         total={jobs.length}
                                         noun="job"
                                     />

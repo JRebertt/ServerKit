@@ -360,7 +360,7 @@ const UsersTab = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="users"
-                total={`${users.length} user${users.length === 1 ? '' : 's'}`}
+                total={`${chrome.shownCount} of ${users.length} user${users.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
             />
             <ListToolbar

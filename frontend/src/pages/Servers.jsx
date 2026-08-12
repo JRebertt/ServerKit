@@ -371,7 +371,7 @@ const Servers = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="servers"
-                total={`${filteredServers.length} of ${servers.length} servers`}
+                total={`${chrome.shownCount} of ${servers.length} servers`}
                 onCreate={chrome.createView}
             />
             <ListToolbar
@@ -446,7 +446,7 @@ const Servers = () => {
                     tableClassName="servers-table"
                     footer={(
                         <DataTableFooter
-                            shown={filteredServers.length}
+                            shown={chrome.shownCount}
                             total={servers.length}
                             noun="server"
                         />

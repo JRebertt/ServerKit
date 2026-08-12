@@ -173,11 +173,6 @@ export default function ResourceListPage({
         }
     };
 
-    const pagedItems = useMemo(
-        () => (pageSize === 'all' ? items : items.slice(0, pageSize)),
-        [items, pageSize],
-    );
-
     // The chrome — view picker, chip bar, filter drawer, tools menu, shareable
     // links — comes from the shared hook rather than being adapted again here.
     // This wrapper used to carry its own copy of that adapter, which is how it
@@ -217,6 +212,15 @@ export default function ResourceListPage({
 
     const orderedColumns = chrome.columns;
     const tableViews = chrome.views;
+
+    // Paged AFTER the column rules, not before. Slicing `items` meant a page
+    // size of 25 took 25 unfiltered rows and THEN filtered them, so "show 25"
+    // could render three. `chrome.shownRows` is the same set the table renders,
+    // so the two agree; DataTable re-applying the rules to it is a no-op.
+    const pagedItems = useMemo(
+        () => (pageSize === 'all' ? chrome.shownRows : chrome.shownRows.slice(0, pageSize)),
+        [chrome.shownRows, pageSize],
+    );
 
     if (loading) {
         // Same wrapper as the loaded state below. A skeleton that renders
@@ -260,7 +264,7 @@ export default function ResourceListPage({
                         <GridViewPicker
                             views={tableViews}
                             label={noun}
-                            total={`${items.length} of ${resolvedTotal} ${noun}`}
+                            total={`${chrome.shownCount} of ${resolvedTotal} ${noun}`}
                             onCreate={chrome.createView}
                         />
                     )}
@@ -365,7 +369,7 @@ export default function ResourceListPage({
                                 footer={(
                                     <DataTableFooter
                                         shown={pagedItems.length}
-                                        total={items.length}
+                                        total={chrome.shownCount}
                                         noun={noun.replace(/s$/, '')}
                                         pageSize={pageSize}
                                         onPageSizeChange={changePageSize}

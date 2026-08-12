@@ -268,7 +268,7 @@ export default function DeliveryLog() {
                 <GridViewPicker
                     views={chrome.views}
                     label="deliveries"
-                    total={`${deliveries.length} of ${stats?.total ?? deliveries.length} deliveries`}
+                    total={`${chrome.shownCount} of ${stats?.total ?? deliveries.length} deliveries`}
                     onCreate={chrome.createView}
                 />
                 <ListToolbar

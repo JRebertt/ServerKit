@@ -395,7 +395,7 @@ export default function Incidents() {
             <GridViewPicker
                 views={chrome.views}
                 label="incidents"
-                total={`${shown.length} of ${items.length} · ${openIncidents} open · ${activeAlerts.length} host alerts firing`}
+                total={`${chrome.shownCount} of ${items.length} · ${openIncidents} open · ${activeAlerts.length} host alerts firing`}
                 onCreate={chrome.createView}
                 actions={(
                     <>

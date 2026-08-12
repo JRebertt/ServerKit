@@ -389,7 +389,7 @@ const QueueDetail = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="messages"
-                        total={`${messages.length} loaded`}
+                        total={`${chrome.shownCount} of ${messages.length} loaded`}
                         onCreate={chrome.createView}
                     />
 

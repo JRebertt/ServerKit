@@ -293,7 +293,7 @@ const ApiKeysSection = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="keys"
-                total={loading ? null : `${keys.length} key${keys.length === 1 ? '' : 's'}`}
+                total={loading ? null : `${chrome.shownCount} of ${keys.length} key${keys.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
             />
             <ListToolbar

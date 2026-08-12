@@ -277,7 +277,7 @@ const InvitationsTab = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="invitations"
-                total={loading ? null : `${invitations.length} invitation${invitations.length === 1 ? '' : 's'}`}
+                total={loading ? null : `${chrome.shownCount} of ${invitations.length} invitation${invitations.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
             />
             <ListToolbar

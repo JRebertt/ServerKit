@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import useGridViews from './useGridViews';
-import { OPS, emptyValueFor, isFilterable, ruleId, withInferredTypes } from './fields';
+import { OPS, applyFilters, emptyValueFor, isFilterable, ruleId, withInferredTypes } from './fields';
 
 const NO_FILTERS = { match: 'all', rules: [] };
 
@@ -149,12 +149,24 @@ export function useTableChrome({
         resetToView: api.resetToView,
     });
 
+    // What the table will ACTUALLY render. `rows` is the page's own already
+    // searched/filtered array; the column rules are applied by <DataTable>
+    // itself, so a page counting `rows.length` for its view bar reported "4 of
+    // 4" while the table showed 2. Computed here, once, from the same engine
+    // the table uses, so the two can never disagree.
+    const shownRows = useMemo(
+        () => applyFilters(rows, filters, orderedColumns),
+        [rows, filters, orderedColumns],
+    );
+
     return {
         cfg,
         api,
         views,
         columns: orderedColumns,
         noun,
+        shownRows,
+        shownCount: shownRows.length,
         filterCount: filters.rules.length,
         drawerOpen,
         setDrawerOpen,

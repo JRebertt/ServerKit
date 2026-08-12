@@ -309,7 +309,7 @@ const MigrationHistoryTab = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="migrations"
-                        total={`${revisions.length} revision${revisions.length === 1 ? '' : 's'}`}
+                        total={`${chrome.shownCount} of ${revisions.length} revision${revisions.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
                     />
                     <ListToolbar

@@ -489,8 +489,8 @@ export default function Jobs() {
                             views={chrome.views}
                             label="jobs"
                             total={hasFilters
-                                ? `${jobs.length} of ${total} matching · ${allJobs} jobs total`
-                                : `${jobs.length} of ${allJobs} jobs`}
+                                ? `${chrome.shownCount} of ${total} matching · ${allJobs} jobs total`
+                                : `${chrome.shownCount} of ${allJobs} jobs`}
                             onCreate={chrome.createView}
                         />
                         <ListToolbar

@@ -377,7 +377,7 @@ export default function Telemetry() {
             <GridViewPicker
                 views={chrome.views}
                 label="events"
-                total={`${events.length} loaded · ${stats?.total || 0} in the last 24h`}
+                total={`${chrome.shownCount} of ${events.length} loaded · ${stats?.total || 0} in the last 24h`}
                 onCreate={chrome.createView}
                 // The "..." sits on the view-name line rather than in a toolbar
                 // of its own -- with nothing else to put there, that toolbar was

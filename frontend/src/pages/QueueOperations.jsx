@@ -565,7 +565,7 @@ const QueueOperations = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="queues"
-                        total={`${filteredQueues.length} of ${queues.length} queues`}
+                        total={`${chrome.shownCount} of ${queues.length} queues`}
                         onCreate={chrome.createView}
                     />
 

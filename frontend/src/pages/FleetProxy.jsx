@@ -391,7 +391,7 @@ const FleetProxy = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="servers"
-                        total={loading ? null : `${rows.length} server${rows.length === 1 ? '' : 's'}`}
+                        total={loading ? null : `${chrome.shownCount} of ${rows.length} server${rows.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
                     />
                     <ListToolbar
