@@ -282,11 +282,33 @@ def list_servers():
 
     servers = query.order_by(Server.name).all()
 
-    # Add connection status
+    # Latest metrics per server, under the SAME 'metrics' key the detail
+    # endpoint uses (see get_server_status below) — the servers list renders
+    # CPU/Memory/Disk gauges from it, and without it every one of those cells
+    # fell back to the "no data" dash on a live panel.
+    #
+    # Batched deliberately: `server.metrics` is lazy='dynamic', so doing this
+    # per row inside the loop would be one extra SELECT per server. Newest row
+    # per server = highest id, because the id autoincrements on insert — that
+    # also avoids the tie a max(timestamp) join would hit for same-second rows.
+    metrics_by_server = {}
+    if servers:
+        server_ids = [s.id for s in servers]
+        newest = (
+            db.session.query(db.func.max(ServerMetrics.id))
+            .filter(ServerMetrics.server_id.in_(server_ids))
+            .group_by(ServerMetrics.server_id)
+        )
+        for row in ServerMetrics.query.filter(ServerMetrics.id.in_(newest)).all():
+            metrics_by_server[row.server_id] = row.to_dict()
+
     result = []
     for server in servers:
         server_dict = server.to_dict()
         server_dict['is_connected'] = agent_registry.is_agent_connected(server.id)
+        metrics = metrics_by_server.get(server.id)
+        if metrics:
+            server_dict['metrics'] = metrics
         result.append(server_dict)
 
     return jsonify(result)
