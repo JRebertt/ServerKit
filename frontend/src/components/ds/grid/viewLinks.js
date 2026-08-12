@@ -25,10 +25,107 @@ export const slugify = (value) => (
     (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 140)
 );
 
+// ---------------------------------------------------------------- readable
+// Ad-hoc state travels as PLAIN, EDITABLE query params, not an opaque blob:
+//
+//   /domains?sort=sslDays:asc&hide=registrar&f=ssl:any:none,expiring&match=any
+//
+// You can widen a threshold or drop a rule in the address bar and hit enter.
+// An encoded blob makes the URL a black box you can only regenerate from the
+// UI, which is the opposite of why a link is useful.
+//
+// Reserved keys are `sort`, `cols`, `hide`, `groupby`, `match`, `f` (repeatable)
+// — `groupby` rather than `group` because pages already own a `group` param.
+// Every other key in the state is a page-owned primitive (status, search,
+// filter, …) and keeps its own name.
+const RESERVED = new Set(['sort', 'cols', 'hide', 'groupby', 'match', 'f', VIEW_PARAM, STATE_PARAM]);
+
+const encodeRule = (r) => {
+    const value = Array.isArray(r.value) ? r.value.join(',') : String(r.value ?? '');
+    return `${r.field}:${r.op}:${value}`;
+};
+
+const decodeRule = (raw, index) => {
+    // field:op:value  — split on the FIRST two colons only, so a value may
+    // legitimately contain one (a timestamp, say).
+    const first = raw.indexOf(':');
+    const second = raw.indexOf(':', first + 1);
+    if (first < 1 || second < 0) return null;
+    const field = raw.slice(0, first);
+    const op = raw.slice(first + 1, second);
+    const rest = raw.slice(second + 1);
+    const multi = op === 'any' || op === 'none';
+    const numeric = op === 'lt' || op === 'gt' || op === 'eq';
+    let value;
+    if (multi) value = rest ? rest.split(',').filter(Boolean) : [];
+    else if (numeric) value = Number(rest);
+    else if (op === 'is' && (rest === 'true' || rest === 'false')) value = rest === 'true';
+    else value = rest;
+    if (numeric && Number.isNaN(value)) return null;
+    return { id: `u${index}`, field, op, value };
+};
+
+/** State -> readable URLSearchParams. */
+export function stateToParams(state = {}) {
+    const params = new URLSearchParams();
+    const {
+        sorts, hiddenKeys, columnOrder, groupBy, columnFilters, ...rest
+    } = state;
+
+    if (sorts?.length) params.set('sort', sorts.map((s) => `${s.key}:${s.direction}`).join(','));
+    if (columnOrder?.length) params.set('cols', columnOrder.join(','));
+    if (hiddenKeys?.length) params.set('hide', hiddenKeys.join(','));
+    if (groupBy) params.set('groupby', groupBy);
+    if (columnFilters?.rules?.length) {
+        if (columnFilters.match && columnFilters.match !== 'all') params.set('match', columnFilters.match);
+        columnFilters.rules.forEach((r) => params.append('f', encodeRule(r)));
+    }
+    // Page-owned primitives keep their own names, so ?status=online reads as
+    // what it is. Objects are skipped: they belong in a saved view, not a URL.
+    Object.entries(rest).forEach(([key, value]) => {
+        if (RESERVED.has(key) || value == null || value === '') return;
+        if (typeof value === 'object') return;
+        params.set(key, String(value));
+    });
+    return params;
+}
+
+/** Readable URLSearchParams -> state. Tolerant: junk is dropped, not fatal. */
+export function paramsToState(params) {
+    const state = {};
+    let touched = false;
+
+    const sort = params.get('sort');
+    if (sort) {
+        const sorts = sort.split(',').map((part) => {
+            const [key, dir] = part.split(':');
+            return key ? { key, direction: dir === 'desc' ? 'desc' : 'asc' } : null;
+        }).filter(Boolean);
+        if (sorts.length) { state.sorts = sorts; touched = true; }
+    }
+    const cols = params.get('cols');
+    if (cols) { state.columnOrder = cols.split(',').filter(Boolean); touched = true; }
+    const hide = params.get('hide');
+    if (hide) { state.hiddenKeys = hide.split(',').filter(Boolean); touched = true; }
+    if (params.has('groupby')) { state.groupBy = params.get('groupby') || null; touched = true; }
+
+    const rules = params.getAll('f').map(decodeRule).filter(Boolean);
+    if (rules.length) {
+        state.columnFilters = { match: params.get('match') === 'any' ? 'any' : 'all', rules };
+        touched = true;
+    }
+
+    for (const [key, value] of params.entries()) {
+        if (RESERVED.has(key)) continue;
+        state[key] = value;
+        touched = true;
+    }
+    return touched ? state : null;
+}
+
 // ---------------------------------------------------------------- encoding
-// base64url over JSON. Not encryption and not meant to be opaque — just a
-// URL-safe envelope, so a link survives being pasted into chat clients that
-// mangle raw braces and quotes.
+// Kept for links shared before the readable format existed — decode still
+// accepts ?v=<base64url>, nothing generates it any more.
 export function encodeState(state) {
     try {
         const json = JSON.stringify(state);
@@ -60,16 +157,25 @@ export function decodeState(encoded) {
 /** What a URL is asking for: {kind:'saved'|'builtin'|'state'|null, …}. */
 export function readViewParams(search) {
     const params = new URLSearchParams(search);
+
+    // A saved-view handle wins: it is the more specific request, and it can be
+    // combined with readable params to mean "that view, tweaked".
+    const handle = params.get(VIEW_PARAM);
+    if (handle) {
+        const base = handle.startsWith(BUILTIN_PREFIX)
+            ? { kind: 'builtin', slug: handle.slice(BUILTIN_PREFIX.length) }
+            : { kind: 'saved', slug: handle };
+        return { ...base, overrides: paramsToState(params) };
+    }
+
+    const readable = paramsToState(params);
+    if (readable) return { kind: 'state', state: readable };
+
+    // Legacy: links shared before the readable format existed.
     const encoded = params.get(STATE_PARAM);
     if (encoded) {
         const state = decodeState(encoded);
         if (state) return { kind: 'state', state };
-    }
-    const handle = params.get(VIEW_PARAM);
-    if (handle) {
-        return handle.startsWith(BUILTIN_PREFIX)
-            ? { kind: 'builtin', slug: handle.slice(BUILTIN_PREFIX.length) }
-            : { kind: 'saved', slug: handle };
     }
     return { kind: null };
 }
@@ -106,8 +212,9 @@ export function copyableLink({ pathname, view, isDirty, state, origin }) {
     const base = `${origin ?? window.location.origin}${pathname}`;
     const handle = !isDirty && handleFor(view);
     if (handle) return `${base}?${VIEW_PARAM}=${encodeURIComponent(handle)}`;
-    const encoded = encodeState(state);
-    return encoded ? `${base}?${STATE_PARAM}=${encoded}` : base;
+    const params = stateToParams(state);
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
 }
 
 /** Replace the view params on a URL without disturbing the rest of the query. */

@@ -44,7 +44,15 @@ export function useViewLink({ views, apply, capture, enabled = true }) {
             builtinViews: views?.builtinViews || [],
             userViews: views?.userViews || [],
         });
-        if (match) views.applyView(match);
+        if (match) {
+            // ?view=<slug> plus readable params means "that view, tweaked" —
+            // apply the view first, then layer the overrides on top.
+            views.applyView(match);
+            if (request.overrides) {
+                const merged = { ...(match.state || {}), ...request.overrides };
+                setTimeout(() => apply(merged), 0);
+            }
+        }
         appliedFromUrl.current = true;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, loading, location.search]);
