@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
-    Pill, SegControl, SearchField, DataTable, Drawer,
+    Pill, SearchField, DataTable, Drawer,
     DataTableFooter, ListToolbar,
 } from '@/components/ds';
 import {
@@ -54,17 +54,22 @@ const describeSchedule = (job) => (
     job.schedule_human || SCHEDULE_LABELS[job.schedule] || job.schedule
 );
 
-// Built-in saved views. State shape: { filter, search, sorts, hiddenKeys } —
-// `filter` values are the SegControl options below, `sorts` use real column keys.
+// Built-in saved views.
+// `status` values are the labels jobState() produces: Healthy, Failed, Paused,
+// No runs yet, Untracked. There is no separate segment filter any more — the
+// Status column's own menu is the one place jobs are narrowed by state.
+const RULES = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
 const BUILTIN_VIEWS = [
-    { name: 'Paused', state: { filter: 'paused', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'Recently run', state: { filter: 'all', search: '', sorts: [{ key: 'last_run', direction: 'desc' }], hiddenKeys: [] } },
+    { name: 'Paused', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('Paused') } },
+    { name: 'Active', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('Healthy', 'No runs yet', 'Untracked') } },
+    { name: 'Recently run', state: { search: '', sorts: [{ key: 'last_run', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
     {
         // What broke, most recent failure first.
         name: 'Failing now',
         state: {
-            filter: 'failed', search: '', hiddenKeys: ['next_run'],
+            search: '', hiddenKeys: ['next_run'], columnFilters: RULES('Failed'),
             sorts: [{ key: 'last_run', direction: 'desc' }],
         },
     },
@@ -73,14 +78,14 @@ const BUILTIN_VIEWS = [
         // that look healthy only because nothing has checked them.
         name: 'Stale schedules',
         state: {
-            filter: 'active', search: '', hiddenKeys: [],
+            search: '', hiddenKeys: [], columnFilters: RULES('Healthy'),
             sorts: [{ key: 'last_run', direction: 'asc' }],
         },
     },
     {
         name: 'Health roll-call',
         state: {
-            filter: 'all', search: '', hiddenKeys: ['schedule'],
+            search: '', hiddenKeys: ['schedule'], columnFilters: NO_RULES,
             sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
         },
     },
@@ -144,7 +149,6 @@ const CronJobs = () => {
     const [error, setError] = useState(null);
 
     // List filters (client-side, over already-loaded jobs)
-    const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
 
     // Table sort + column visibility (persisted, mirrored by the toolbar menus)
@@ -156,9 +160,8 @@ const CronJobs = () => {
     // Shared list chrome: view picker + filter chips + filter drawer + tools,
     // driven off this page's existing sorts/hiddenKeys state. Same hook every
     // other list page uses, so /cron looks and behaves like /domains.
-    const extraViewState = useMemo(() => ({ filter, search }), [filter, search]);
+    const extraViewState = useMemo(() => ({ search }), [search]);
     const applyExtraViewState = useCallback((state) => {
-        if (state.filter !== undefined) setFilter(state.filter);
         if (state.search !== undefined) setSearch(state.search);
     }, []);
 
@@ -279,24 +282,10 @@ const CronJobs = () => {
     const pausedCount = jobs.length - enabledCount;
 
     const q = search.trim().toLowerCase();
-    const shown = jobs.filter((job) => {
-        const state = jobState(job);
-        const matchesFilter = filter === 'all'
-            || (filter === 'failed' ? state.key === 'failed'
-                : filter === 'paused' ? state.key === 'paused'
-                    : state.key === 'active');
-        const matchesQuery = !q
-            || (job.name || '').toLowerCase().includes(q)
-            || (job.command || '').toLowerCase().includes(q);
-        return matchesFilter && matchesQuery;
-    });
+    const shown = jobs.filter((job) => !q
+        || (job.name || '').toLowerCase().includes(q)
+        || (job.command || '').toLowerCase().includes(q));
 
-    const filterOptions = [
-        { value: 'all', label: 'All', count: jobs.length },
-        { value: 'active', label: 'Active', count: enabledCount - failedCount },
-        { value: 'failed', label: 'Failed', count: failedCount },
-        { value: 'paused', label: 'Paused', count: pausedCount },
-    ];
 
     const serviceNote = status?.available === false
         ? 'Cron service unavailable'
@@ -361,6 +350,11 @@ const CronJobs = () => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            type: 'enum',
+            groupable: true,
+            // The header menu filters and groups on the LABEL, which is what the
+            // pill shows — so a preset reads the same way the row does.
+            value: (job) => jobState(job).label,
             sortValue: (job) => jobState(job).label,
             render: (job) => {
                 const state = jobState(job);
@@ -477,7 +471,6 @@ const CronJobs = () => {
                         onCreate={chrome.createView}
                     />
                     <ListToolbar
-                        filters={<SegControl value={filter} onChange={setFilter} options={filterOptions} />}
                         count={serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
                         tools={(
                             <>
