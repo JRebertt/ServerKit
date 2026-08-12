@@ -15,16 +15,80 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import FleetAlertsPanel from '../components/monitoring/FleetAlertsPanel';
-import { Drawer, KpiBand, ListToolbar, MetricCard, Pill, SegControl } from '@/components/ds';
+import { DataTable, DataTableFooter, Drawer, Pill, SearchField } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { IMPACT_TONE, INCIDENT_STATES } from '../components/monitoring/monitorShared';
 
-const FILTERS = [
-    { value: 'active', label: 'Active' },
-    { value: 'resolved', label: 'Resolved' },
-    { value: 'all', label: 'All' },
+// Built-in views. This page used to carry BOTH old affordances at once — a KPI
+// band whose tiles set a filter, and an Active/Resolved/All segment row — while
+// having no column menu, no search and no saved views at all. Every bucket
+// either of them offered is a rule here now.
+//
+// `resolved` is the axis both sources share: an incident is resolved when its
+// status says so, a host alert when it is history rather than firing.
+const NO_RULES = { match: 'all', rules: [] };
+const RESOLVED_IS = (value) => ({
+    match: 'all',
+    rules: [{ id: 'rs', field: 'resolved', op: 'is', value }],
+});
+
+const BUILTIN_VIEWS = [
+    {
+        // The page's reason to exist: what is wrong RIGHT NOW.
+        name: 'Active',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [],
+            columnFilters: RESOLVED_IS(false), page: { search: '' },
+        },
+    },
+    {
+        name: 'Resolved',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [],
+            columnFilters: RESOLVED_IS(true), page: { search: '' },
+        },
+    },
+    {
+        // What the "Open incidents" tile counted — and note it is NOT the same
+        // as Active: it deliberately excludes host alerts, which is why the
+        // tile's number never matched the segment's row count.
+        name: 'Open incidents',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: ['kind'],
+            columnFilters: {
+                match: 'all',
+                rules: [
+                    { id: 'oi1', field: 'kind', op: 'any', value: ['incident'] },
+                    { id: 'oi2', field: 'resolved', op: 'is', value: false },
+                ],
+            },
+            page: { search: '' },
+        },
+    },
+    {
+        // The host side of the same question, for when a threshold is flapping.
+        name: 'Host alerts',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: ['kind'],
+            columnFilters: { match: 'all', rules: [{ id: 'ha', field: 'kind', op: 'any', value: ['alert'] }] },
+            page: { search: '' },
+        },
+    },
+    {
+        name: 'Everything, newest first',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [],
+            columnFilters: NO_RULES, page: { search: '' },
+        },
+    },
 ];
 
 const STATE_TONE = {
@@ -50,7 +114,7 @@ function formatValue(value) {
 
 export default function Incidents() {
     const toast = useToast();
-    const [filter, setFilter] = useState('active');
+    const [search, setSearch] = useState('');
     const [incidents, setIncidents] = useState([]);
     const [activeAlerts, setActiveAlerts] = useState([]);
     const [alertHistory, setAlertHistory] = useState([]);
@@ -60,6 +124,13 @@ export default function Incidents() {
     const [note, setNote] = useState('');
     const [checking, setChecking] = useState(false);
     const [hasFleet, setHasFleet] = useState(false);
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: [{ key: 'when', direction: 'desc' }],
+        storageKey: 'serverkit-table-incidents-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-incidents-cols',
+    });
 
     const load = useCallback(async () => {
         try {
@@ -108,8 +179,13 @@ export default function Incidents() {
             <Button variant="outline" size="sm" onClick={load}>
                 <RefreshCw size={14} /> Refresh
             </Button>
+            <SearchField
+                value={search}
+                onSearch={setSearch}
+                placeholder="Search incidents and alerts…"
+            />
         </>
-    ), [checking, load]);
+    ), [checking, load, search]);
 
     const monitorsById = useMemo(
         () => Object.fromEntries(monitors.map((m) => [m.id, m])),
@@ -164,11 +240,20 @@ export default function Incidents() {
             .sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
     }, [incidents, activeAlerts, alertHistory, monitorsById]);
 
-    const shown = items.filter((item) => (
-        filter === 'all' || (filter === 'active' ? !item.resolved : item.resolved)
-    ));
+    // Search only. The active/resolved split used to live here as a segment
+    // filter; it is a column rule now, applied inside the table.
+    const shown = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return items;
+        return items.filter((item) => (
+            [item.title, item.subject, item.state].some((v) => String(v || '').toLowerCase().includes(q))
+        ));
+    }, [items, search]);
 
-    const activeCount = items.filter((i) => !i.resolved).length;
+    // TRUE aggregates — neither is a count of the rows this page renders, so
+    // neither can be a preset. `openIncidents` counts the raw incidents array
+    // (excluding host alerts) and `activeAlerts` is its own source. They ride
+    // the view bar's meta line rather than a full-width band.
     const openIncidents = incidents.filter((i) => i.status !== 'resolved').length;
 
     const onPostUpdate = async (state) => {
@@ -187,6 +272,109 @@ export default function Incidents() {
         }
     };
 
+    // Column values are the RAW strings the rules filter on; the cells render
+    // the same values, so a preset reads the way the row does.
+    const columns = useMemo(() => [
+        {
+            key: 'title',
+            header: 'What happened',
+            sortable: true,
+            hideable: false,
+            type: 'text',
+            value: (item) => item.title || '',
+            render: (item) => (
+                <div className="sk-cell-name">
+                    <span className={`incident-row__sev incident-row__sev--${item.tone}`} />
+                    <span>
+                        <div>{item.title}</div>
+                        <div className="sk-cell-sub">
+                            {item.kind === 'alert' && item.raw.type
+                                ? `${item.raw.type} ${formatValue(item.raw.value)} / ${item.raw.threshold}`
+                                : item.subject}
+                        </div>
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'state',
+            header: 'State',
+            sortable: true,
+            type: 'enum',
+            value: (item) => item.state || '',
+            render: (item) => <Pill kind={item.tone}>{item.state}</Pill>,
+        },
+        {
+            key: 'subject',
+            header: 'Subject',
+            sortable: true,
+            type: 'enum',
+            value: (item) => item.subject || '',
+        },
+        {
+            // The axis both sources share, and what Active/Resolved filter on.
+            key: 'resolved',
+            header: 'Resolved',
+            sortable: true,
+            type: 'bool',
+            value: (item) => !!item.resolved,
+            render: (item) => (item.resolved ? 'yes' : 'no'),
+        },
+        {
+            // Monitor outage vs host threshold alert — the distinction the
+            // "Open incidents" tile silently relied on.
+            key: 'kind',
+            header: 'Source',
+            sortable: true,
+            type: 'enum',
+            value: (item) => item.kind || '',
+            render: (item) => (item.kind === 'alert' ? 'host alert' : 'incident'),
+        },
+        {
+            key: 'impact',
+            header: 'Impact',
+            sortable: true,
+            type: 'enum',
+            value: (item) => item.impact || '—',
+        },
+        {
+            key: 'when',
+            header: 'When',
+            sortable: true,
+            type: 'date',
+            value: (item) => item.when || null,
+            sortValue: (item) => (item.when ? new Date(item.when).getTime() : null),
+            cellClassName: 'sk-cell-mono',
+            render: (item) => formatWhen(item.when),
+        },
+        {
+            key: 'open',
+            header: '',
+            sortable: false,
+            hideable: false,
+            render: () => <ChevronRight size={16} className="incident-row__chev" />,
+        },
+    ], []);
+
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
+
+    const chrome = useTableChrome({
+        columns,
+        rows: shown,
+        viewPageKey: 'incidents',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'incidents',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner incidents-page">
@@ -201,63 +389,54 @@ export default function Incidents() {
 
     return (
         <div className="sk-tabgroup__inner incidents-page">
-            <KpiBand>
-                <MetricCard
-                    label="Active" value={activeCount} tone={activeCount ? 'red' : 'green'} compact
-                    icon={<AlertTriangle size={17} />} onClick={() => setFilter('active')}
-                />
-                <MetricCard
-                    label="Open incidents" value={openIncidents} tone="amber" compact
-                    icon={<Radar size={17} />}
-                />
-                <MetricCard
-                    label="Host alerts firing" value={activeAlerts.length} tone="cyan" compact
-                    icon={<Siren size={17} />}
-                />
-                <MetricCard
-                    label="Resolved (recent)" value={items.filter((i) => i.resolved).length} tone="green" compact
-                    icon={<CheckCircle2 size={17} />} onClick={() => setFilter('resolved')}
-                />
-            </KpiBand>
-
-            <ListToolbar
-                filters={<SegControl value={filter} onChange={setFilter} options={FILTERS} />}
-                count={<>{shown.length} shown · monitor outages and host threshold alerts</>}
+            {/* The two numbers that are NOT filters ride the meta line: neither
+                counts the rows below it. A full-width band for them would be
+                four tiles of which two only ever restated a segment. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="incidents"
+                total={`${shown.length} of ${items.length} · ${openIncidents} open · ${activeAlerts.length} host alerts firing`}
+                onCreate={chrome.createView}
+                actions={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                    </>
+                )}
             />
 
-            {shown.length === 0 ? (
+            <GridChips {...chrome.chipProps} />
+
+            {items.length === 0 ? (
                 <EmptyState
                     icon={CheckCircle2}
-                    title={filter === 'active' ? 'Nothing is wrong right now' : 'Nothing here'}
-                    description={filter === 'active'
-                        ? 'No monitor is down and no host is over its limit.'
-                        : `No ${filter} incidents or alerts recorded.`}
+                    title="Nothing is wrong right now"
+                    description="No monitor is down and no host is over its limit."
                 />
             ) : (
-                <div className="incidents-list">
-                    {shown.map((item) => (
-                        <button
-                            key={item.key}
-                            type="button"
-                            className="incident-row"
-                            onClick={() => setSelected(item)}
-                        >
-                            <span className={`incident-row__sev incident-row__sev--${item.tone}`} />
-                            <span className="incident-row__body">
-                                <span className="incident-row__title">
-                                    {item.title}
-                                    <Pill kind={item.tone}>{item.state}</Pill>
-                                </span>
-                                <span className="incident-row__sub">
-                                    {item.subject} · {formatWhen(item.when)}
-                                    {item.kind === 'alert' && item.raw.type
-                                        ? ` · ${item.raw.type} ${formatValue(item.raw.value)} / ${item.raw.threshold}`
-                                        : ''}
-                                </span>
-                            </span>
-                            <ChevronRight size={16} className="incident-row__chev" />
-                        </button>
-                    ))}
+                <div className="mon-card">
+                    <DataTable
+                        {...chrome.tableProps}
+                        tableClassName="sk-dtable incidents-table"
+                        columns={chrome.columns}
+                        data={shown}
+                        keyField="key"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        onRowClick={setSelected}
+                        emptyTitle="No incidents match this view."
+                        emptyMessage=""
+                        footer={(
+                            <DataTableFooter
+                                shown={shown.length}
+                                total={items.length}
+                                noun="incident"
+                            />
+                        )}
+                    />
                 </div>
             )}
 
@@ -353,6 +532,8 @@ export default function Incidents() {
                     </div>
                 )}
             </Drawer>
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 }
