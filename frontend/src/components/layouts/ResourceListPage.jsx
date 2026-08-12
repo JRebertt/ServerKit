@@ -25,7 +25,6 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 //     columns={columns} keyField="id"    // columns opt into sorting with `sortable: true`
 //     onRowClick={app => navigate(...)} rowClassName={rowClassName}
 //     storageKey="serverkit-list-services"   // optional: persist sort/columns/page-size
-//     filters={[{ value, label, count }]} activeFilter={statusFilter} onFilterChange={setStatusFilter}
 //     searchTerm={searchTerm} onSearchChange={setSearchTerm} searchPlaceholder="Search services…"
 //     selectedCount={selectedIds.size} onClearSelection={clear} bulkActions={<>…</>}
 //     emptyIcon={Layers} emptyTitle="…" emptyDescription="…" emptyAction={<Button…/>}
@@ -48,8 +47,10 @@ export default function ResourceListPage({
     // Optional localStorage namespace for sort / column / page-size choices.
     storageKey,
     // Saved views: pass the page's view key (e.g. 'services') plus any built-in
-    // views to grow a Views menu in the toolbar. A view state is
-    // { filter, search, sorts, hiddenKeys, pageSize } — all keys optional.
+    // views to grow the heading view picker. A view state is the shared
+    // envelope — { sorts, hiddenKeys, columnOrder, groupBy, columnFilters,
+    // page } — where this wrapper's `page` bag is { filter, search, pageSize }.
+    // See components/ds/grid/viewState.js.
     viewPageKey,
     builtinViews = [],
     // Plural label used by the view picker, footer and export filename.
@@ -58,6 +59,14 @@ export default function ResourceListPage({
     // state (e.g. a one-time credentials banner)
     header,
     // toolbar
+    // DEPRECATED — the status segment row. No core page passes these any more:
+    // a fixed bucket row is a second, weaker way to narrow rows next to the
+    // column's own menu, which combines, shows live per-value counts and can be
+    // saved into a view. Express it as a `columnFilters` rule instead.
+    //
+    // Still accepted because this component is SDK surface (plugins/sdk exports
+    // it, which pins its props as contract), so an extension may still be
+    // passing them. Remove on the next SDK major.
     filters,
     activeFilter,
     onFilterChange,

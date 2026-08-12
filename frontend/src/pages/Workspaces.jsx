@@ -15,15 +15,34 @@ import { Textarea } from '@/components/ui/textarea';
 // Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
 const ACTIVE_KEY = 'active_workspace_id';
 
-// Preset views. Only three: `servers` and `users` are quota CEILINGS, not
-// usage, so there is no column to express "near capacity" against.
+// Preset views. `servers` and `users` are quota CEILINGS, not usage, so there
+// is no column to express "near capacity" against.
+//
+// `status` values are the RAW ws.status the column's `value` accessor returns.
+// The old "Inactive" segment meant `!== 'active'`, not literally 'inactive', so
+// it translates to `is none of [active]` rather than `is any of [inactive]` —
+// otherwise workspaces in any other state would silently drop out of the view.
+// There is no separate status segment any more: the Status column's own menu is
+// the one place workspaces are narrowed by state.
+const NOT_ACTIVE = { id: 'st', field: 'status', op: 'none', value: ['active'] };
+const NO_RULES = { match: 'all', rules: [] };
+
 const WORKSPACE_VIEWS = [
-    { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'Inactive', state: { filter: 'inactive', search: '', sorts: [], hiddenKeys: [] } },
+    {
+        name: 'Active',
+        state: {
+            search: '', sorts: [], hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value: ['active'] }] },
+        },
+    },
+    {
+        name: 'Inactive',
+        state: { search: '', sorts: [], hiddenKeys: [], columnFilters: { match: 'all', rules: [NOT_ACTIVE] } },
+    },
     {
         name: 'Most members',
         state: {
-            filter: 'all', search: '', hiddenKeys: [],
+            search: '', hiddenKeys: [], columnFilters: NO_RULES,
             sorts: [{ key: 'members', direction: 'desc' }],
         },
     },
@@ -31,7 +50,7 @@ const WORKSPACE_VIEWS = [
         // Created and then never staffed — candidates to archive.
         name: 'Empty workspaces',
         state: {
-            filter: 'all', search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
             sorts: [{ key: 'name', direction: 'asc' }],
             columnFilters: {
                 match: 'all',
@@ -43,11 +62,11 @@ const WORKSPACE_VIEWS = [
         // Deactivated but people are still attached — access that outlived the workspace.
         name: 'Archived but still staffed',
         state: {
-            filter: 'inactive', search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
             sorts: [{ key: 'members', direction: 'desc' }],
             columnFilters: {
                 match: 'all',
-                rules: [{ id: 'as1', field: 'members', op: 'gt', value: 0 }],
+                rules: [NOT_ACTIVE, { id: 'as1', field: 'members', op: 'gt', value: 0 }],
             },
         },
     },
@@ -67,7 +86,6 @@ const Workspaces = () => {
     const navigate = useNavigate();
     const [workspaces, setWorkspaces] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('all'); // all | active | inactive
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -117,15 +135,10 @@ const Workspaces = () => {
     };
 
     const q = search.trim().toLowerCase();
-    const shownWorkspaces = workspaces.filter(ws => {
-        const matchesStatus = statusFilter === 'all'
-            || (statusFilter === 'active' ? ws.status === 'active' : ws.status !== 'active');
-        const matchesSearch = q === '' || [ws.name, ws.slug, ws.description]
-            .some(v => v && String(v).toLowerCase().includes(q));
-        return matchesStatus && matchesSearch;
-    });
-
-    const activeCount = workspaces.filter(ws => ws.status === 'active').length;
+    const shownWorkspaces = workspaces.filter(ws => (
+        q === '' || [ws.name, ws.slug, ws.description]
+            .some(v => v && String(v).toLowerCase().includes(q))
+    ));
 
     const toggleOne = (id, checked) => {
         setSelectedIds(prev => {
@@ -173,6 +186,14 @@ const Workspaces = () => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            type: 'enum',
+            // `value` is the FILTER value, `sortValue` is the ORDERING key, and
+            // here they are different things — so the column has to say so.
+            // Without an explicit `value` the rule engine falls back to
+            // sortValue, sees 0/1, types the column `num`, and offers "is under
+            // / is over" instead of a pick-list; a `status is any of [active]`
+            // rule would then match nothing at all.
+            value: (ws) => ws.status || 'unknown',
             // Matches the pill: the active workspace (and active status) first.
             sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
             groupable: true,
@@ -212,13 +233,6 @@ const Workspaces = () => {
             selectedIds={selectedIds}
             onToggleSelect={toggleOne}
             onSelectAll={(checked) => setSelectedIds(checked ? new Set(shownWorkspaces.map(ws => ws.id)) : new Set())}
-            filters={[
-                { value: 'all', label: 'All', count: workspaces.length },
-                { value: 'active', label: 'Active', count: activeCount },
-                { value: 'inactive', label: 'Inactive', count: workspaces.length - activeCount },
-            ]}
-            activeFilter={statusFilter}
-            onFilterChange={setStatusFilter}
             searchTerm={search}
             onSearchChange={setSearch}
             searchPlaceholder="Search workspaces…"

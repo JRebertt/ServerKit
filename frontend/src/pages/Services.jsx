@@ -33,13 +33,30 @@ const NO_ENV = '__no_env__';
 // Preset views: the questions people open this page to answer. Each is a
 // snapshot of the same chrome state a personal view saves, so any of them can
 // be tweaked and re-saved under a new name.
+//
+// `status` values are the RAW statuses the column's `value` accessor returns
+// (running · deploying · building · stopped · failed) — NOT the pill labels,
+// which are prettified by getStatusConfig(). There is no separate status
+// segment any more: the Status column's own menu is the one place services are
+// narrowed by state, and it carries live per-value counts the segment never had.
+const RULES = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
 const SERVICE_VIEWS = [
-    { name: 'Running', state: { filter: 'running', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'Stopped', state: { filter: 'stopped', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Running', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('running') } },
+    {
+        // The old segment meant "not running", so it also swallowed failed,
+        // deploying and building. Keep that meaning rather than narrowing it.
+        name: 'Stopped',
+        state: {
+            search: '', sorts: [], hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'st', field: 'status', op: 'none', value: ['running'] }] },
+        },
+    },
     {
         name: 'Recently deployed',
         state: {
-            filter: 'all', search: '', hiddenKeys: [],
+            search: '', hiddenKeys: [], columnFilters: NO_RULES,
             sorts: [{ key: 'last_deploy', direction: 'desc' }],
         },
     },
@@ -47,7 +64,7 @@ const SERVICE_VIEWS = [
         // Anything not cleanly live — the triage list during an incident.
         name: 'Broken or unknown',
         state: {
-            filter: 'all', search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            search: '', hiddenKeys: ['bandwidth'], groupBy: null,
             sorts: [{ key: 'status', direction: 'desc' }, { key: 'name', direction: 'asc' }],
             columnFilters: {
                 match: 'any',
@@ -59,16 +76,16 @@ const SERVICE_VIEWS = [
         // Live, but nobody has shipped to it in a long time.
         name: 'Stale live services',
         state: {
-            filter: 'running', search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: null,
+            search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: null,
             sorts: [{ key: 'last_deploy', direction: 'asc' }],
-            columnFilters: { match: 'all', rules: [] },
+            columnFilters: RULES('running'),
         },
     },
     {
         // Deployed by hand or by upload — the ones with no git history to roll back to.
         name: 'Not git-deployed',
         state: {
-            filter: 'all', search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            search: '', hiddenKeys: ['bandwidth'], groupBy: null,
             sorts: [{ key: 'name', direction: 'asc' }],
             columnFilters: {
                 match: 'all',
@@ -79,9 +96,9 @@ const SERVICE_VIEWS = [
     {
         name: 'By project',
         state: {
-            filter: 'all', search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: 'project',
+            search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: 'project',
             sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
-            columnFilters: { match: 'all', rules: [] },
+            columnFilters: NO_RULES,
         },
     },
 ];
@@ -92,7 +109,6 @@ const Services = () => {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
     const [actionLoading, setActionLoading] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [bulkLoading, setBulkLoading] = useState(false);
@@ -157,17 +173,11 @@ const Services = () => {
     const filteredApps = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         return apps
-            .filter(app => {
-                if (statusFilter !== 'all' && (statusFilter === 'running' ? app.status !== 'running' : app.status === 'running')) return false;
-                if (q && !app.name.toLowerCase().includes(q)) return false;
-                return true;
-            })
+            .filter(app => !q || app.name.toLowerCase().includes(q))
             .sort((a, b) => {
                 return (STATUS_SORT_ORDER[a.status] ?? 5) - (STATUS_SORT_ORDER[b.status] ?? 5) || a.name.localeCompare(b.name);
             });
-    }, [apps, searchTerm, statusFilter]);
-
-    const runningCount = useMemo(() => apps.filter(a => a.status === 'running').length, [apps]);
+    }, [apps, searchTerm]);
 
     useTopbarActions(() =>
         <>
@@ -384,13 +394,6 @@ const Services = () => {
             selectedIds={selectedIds}
             onToggleSelect={toggleOne}
             onSelectAll={(checked) => setSelectedIds(checked ? new Set(filteredApps.map(a => a.id)) : new Set())}
-            filters={[
-                { value: 'all', label: 'All', count: apps.length },
-                { value: 'running', label: 'Running', count: runningCount },
-                { value: 'stopped', label: 'Stopped', count: apps.length - runningCount },
-            ]}
-            activeFilter={statusFilter}
-            onFilterChange={setStatusFilter}
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             bulkActions={

@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField, SegControl,
+    DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -30,17 +30,21 @@ const STATUS_KIND = {
     pending: 'gray',
 };
 
-const STATUS_FILTERS = ['all', 'online', 'offline', 'connecting', 'pending'];
-
-// Built-in saved views. States only use real SegControl values
-// (STATUS_FILTERS), group values ('all') and column keys (SERVER_COLUMNS).
+// Built-in saved views. States only use real column keys (SERVER_COLUMNS) —
+// there is no separate status segment or group select any more; the Status and
+// Group columns' own menus are the one place the fleet is narrowed, and they
+// carry live per-value counts neither control had.
+//
 // NOTE for anyone adding a metric preset: only ever use `gt` on cpu/memory/disk.
 // Their sortValue is null for a non-live row, and a `lt` rule would match every
 // offline and pending server (see the null guard in ds/grid/fields.js).
+const STATUS = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
 const SERVER_BUILTIN_VIEWS = [
-    { name: 'Online', state: { status: 'online', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'Offline', state: { status: 'offline', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
-    { name: 'By CPU', state: { status: 'all', group: 'all', search: '', sorts: [{ key: 'cpu', direction: 'desc' }], hiddenKeys: [] } },
+    { name: 'Online', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: STATUS('online') } },
+    { name: 'Offline', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: STATUS('offline') } },
+    { name: 'By CPU', state: { search: '', sorts: [{ key: 'cpu', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
     {
         // Machines that HAVE an agent but stopped answering, longest silence
         // first. `pending` is excluded — that means nobody ever installed one.
@@ -48,7 +52,7 @@ const SERVER_BUILTIN_VIEWS = [
         // would render an em-dash.
         name: 'Not reporting',
         state: {
-            status: 'all', group: 'all', search: '', groupBy: null,
+            search: '', groupBy: null,
             sorts: [{ key: 'lastSeen', direction: 'asc' }],
             hiddenKeys: ['cpu', 'memory', 'disk'],
             columnFilters: {
@@ -60,9 +64,15 @@ const SERVER_BUILTIN_VIEWS = [
     {
         // Saturated on EITHER axis — a box swapping at 95% memory with calm CPU
         // is the one that falls over, so match:any rather than all.
+        //
+        // No `status is online` rule here, deliberately: `match` is per VIEW,
+        // not per rule, so adding one to an `any` list would OR it in and widen
+        // the view to every online server. It is not needed — the metrics are
+        // null on a non-live row and `gt` rejects null, so both rules already
+        // only ever match a reporting machine.
         name: 'Under load',
         state: {
-            status: 'online', group: 'all', search: '', groupBy: null, hiddenKeys: [],
+            search: '', groupBy: null, hiddenKeys: [],
             sorts: [{ key: 'cpu', direction: 'desc' }],
             columnFilters: {
                 match: 'any',
@@ -77,23 +87,31 @@ const SERVER_BUILTIN_VIEWS = [
         // The one fleet metric that never recovers on its own.
         name: 'Disk pressure',
         state: {
-            status: 'online', group: 'all', search: '', groupBy: null,
+            search: '', groupBy: null,
             sorts: [{ key: 'disk', direction: 'desc' }],
             hiddenKeys: ['agent', 'cpu', 'memory'],
             columnFilters: {
                 match: 'all',
-                rules: [{ id: 'dp1', field: 'disk', op: 'gt', value: 85 }],
+                rules: [
+                    { id: 'dp0', field: 'status', op: 'any', value: ['online'] },
+                    { id: 'dp1', field: 'disk', op: 'gt', value: 85 },
+                ],
             },
         },
     },
     {
         // Fleet commands target a group_id, so an ungrouped server is silently
         // skipped by every bulk action. This view is the worklist that fixes it.
+        // 'Ungrouped' is the Group column's own label for a null group_name,
+        // not a sentinel — see the `value` accessor on that column.
         name: 'Ungrouped',
         state: {
-            status: 'all', group: 'ungrouped', search: '', groupBy: null, hiddenKeys: [],
+            search: '', groupBy: null, hiddenKeys: [],
             sorts: [{ key: 'name', direction: 'asc' }],
-            columnFilters: { match: 'all', rules: [] },
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ug1', field: 'group', op: 'any', value: ['Ungrouped'] }],
+            },
         },
     },
 ];
@@ -172,9 +190,29 @@ const SERVER_COLUMNS = [
         render: (server) => server.agent_version || 'not installed',
     },
     {
+        key: 'group',
+        header: 'Group',
+        sortable: true,
+        type: 'enum',
+        // An ungrouped server needs a real LABEL, not null: the enum engine
+        // compares String(value), so a null would only ever be matchable as the
+        // literal string 'null'. This label is what the "Ungrouped" preset
+        // filters on, and what the column menu lists.
+        value: (server) => server.group_name || 'Ungrouped',
+        groupable: true,
+        render: (server) => (
+            server.group_name || <span className="servers-row__nodata">Ungrouped</span>
+        ),
+    },
+    {
         key: 'status',
         header: 'Status',
         sortable: true,
+        type: 'enum',
+        // Explicit, rather than leaning on the sortValue fallback: this pins
+        // the null -> 'pending' coercion as the FILTER value too, so a server
+        // that never reported does not stringify to 'null' in a rule.
+        value: (server) => server.status || 'pending',
         sortValue: (server) => server.status || 'pending',
         groupable: true,
         groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
@@ -217,8 +255,6 @@ const Servers = () => {
     // Quick-create deep link: /servers?focus=create:server opens the add modal.
     useFocusParam('create', () => setShowAddModal(true));
     const [showGroupModal, setShowGroupModal] = useState(false);
-    const [selectedGroup, setSelectedGroup] = useState('all');
-    const [selectedStatus, setSelectedStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [bulkBusy, setBulkBusy] = useState(false);
@@ -245,18 +281,12 @@ const Servers = () => {
         }
     };
 
-    // Page-owned view state (the status segment, the group select, search);
-    // useTableChrome owns the rest — sorts, hidden columns, grouping, column
-    // rules and order — and gives back the shared list chrome.
-    const viewPageState = useMemo(() => ({
-        status: selectedStatus,
-        group: selectedGroup,
-        search: searchTerm,
-    }), [selectedStatus, selectedGroup, searchTerm]);
+    // Page-owned view state — search is all that is left. Status and group used
+    // to live here too, as a segment row and a select; both are column rules
+    // now, which useTableChrome captures itself.
+    const viewPageState = useMemo(() => ({ search: searchTerm }), [searchTerm]);
 
     const applyViewPageState = useCallback((saved) => {
-        if (saved.status !== undefined) setSelectedStatus(saved.status);
-        if (saved.group !== undefined) setSelectedGroup(saved.group);
         if (saved.search !== undefined) setSearchTerm(saved.search);
     }, []);
 
@@ -282,24 +312,15 @@ const Servers = () => {
     }, [loadData]);
 
     const filteredServers = servers.filter((server) => {
-        const matchesGroup = selectedGroup === 'all'
-            || (selectedGroup === 'ungrouped' && !server.group_id)
-            || String(server.group_id) === String(selectedGroup);
-        const matchesStatus = selectedStatus === 'all' || server.status === selectedStatus;
         const q = searchTerm.trim().toLowerCase();
-        const matchesSearch = !q
+        return !q
             || server.name?.toLowerCase().includes(q)
             || server.hostname?.toLowerCase().includes(q)
             || server.ip_address?.toLowerCase().includes(q)
             || server.group_name?.toLowerCase().includes(q);
-        return matchesGroup && matchesStatus && matchesSearch;
     });
 
     const online = servers.filter((s) => s.status === 'online').length;
-    const statusCounts = servers.reduce((acc, server) => {
-        acc[server.status] = (acc[server.status] || 0) + 1;
-        return acc;
-    }, {});
 
     // The tab-group top bar owns this page's controls, search included.
     useTopbarActions(() => (
@@ -354,18 +375,6 @@ const Servers = () => {
                 onCreate={chrome.createView}
             />
             <ListToolbar
-                filters={(
-                    <SegControl
-                        value={selectedStatus}
-                        onChange={setSelectedStatus}
-                        options={STATUS_FILTERS.map((key) => ({
-                            value: key,
-                            label: key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1),
-                            count: key === 'all' ? servers.length : (statusCounts[key] || 0),
-                        }))}
-                        aria-label="Filter by status"
-                    />
-                )}
                 count={(
                     <>
                         {filteredServers.length} of {servers.length} server{servers.length === 1 ? '' : 's'}
@@ -382,20 +391,7 @@ const Servers = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
                     </>
                 )}
-            >
-                {groups.length > 0 && (
-                    <select
-                        className="sk-listhead__select"
-                        value={selectedGroup}
-                        onChange={(e) => setSelectedGroup(e.target.value)}
-                        aria-label="Filter by group"
-                    >
-                        <option value="all">All groups</option>
-                        {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                        <option value="ungrouped">Ungrouped</option>
-                    </select>
-                )}
-            </ListToolbar>
+            />
 
             <GridChips {...chrome.chipProps} />
 
@@ -405,7 +401,7 @@ const Servers = () => {
                     title={servers.length === 0 ? 'No servers yet' : 'No servers match these filters'}
                     description={servers.length === 0
                         ? 'Pair an agent and the machine shows up here with its CPU, memory and disk alongside every other box you run.'
-                        : 'Adjust the status, group or search to see your servers.'}
+                        : 'Adjust the search or clear the column filters to see your servers.'}
                     action={servers.length === 0 ? (
                         <Button onClick={() => setShowAddModal(true)}>
                             <Plus size={16} /> Add your first server
@@ -414,9 +410,8 @@ const Servers = () => {
                         <Button
                             variant="outline"
                             onClick={() => {
-                                setSelectedGroup('all');
-                                setSelectedStatus('all');
                                 setSearchTerm('');
+                                chrome.api.resetToView();
                             }}
                         >
                             Clear filters
