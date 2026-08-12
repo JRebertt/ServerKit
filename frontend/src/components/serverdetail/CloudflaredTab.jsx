@@ -5,6 +5,10 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, DataTableFooter, Pill } from '../ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
@@ -25,6 +29,62 @@ import {
 // using that cert. /status surfaces both "binary present" and
 // "cert present" so we can show "log in first" before users hit
 // CRUD actions and get confusing errors back.
+// Built-in saved views. A tunnel row is { id, name, created_at?, connections[] }
+// — cloudflared reports no status field of its own, so "is this thing carrying
+// anything" IS the connection count, and the `state` column below is the only
+// honest way to name it. Rules match that column's `value`, which is the same
+// word the Pill renders.
+const NO_RULES = { match: 'all', rules: [] };
+const STATE_IS = (value) => ({
+    match: 'all',
+    rules: [{ id: 'cf1', field: 'state', op: 'any', value: [value] }],
+});
+
+const TUNNEL_VIEWS = [
+    {
+        // Everything, alphabetically — the landing view and the "nothing is
+        // filtered" answer.
+        name: 'All tunnels',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Tunnels with at least one edge connection: what is actually serving
+        // traffic right now, busiest first.
+        name: 'Connected',
+        state: {
+            sorts: [{ key: 'connections', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: STATE_IS('connected'),
+        },
+    },
+    {
+        // The cleanup list. A named tunnel with no connector attached is a
+        // hostname that resolves to nothing — either the connector died or the
+        // tunnel was created and never wired up.
+        name: 'Idle',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: STATE_IS('idle'),
+        },
+    },
+    {
+        // "Which one did I just make?" — the question this tab's own Create
+        // button leaves you with. Tunnels whose created_at the agent could not
+        // read sort last: nulls always sink.
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+        },
+    },
+];
+
 const CloudflaredTab = ({ serverId, serverStatus }) => {
     const toast = useToast();
     const { confirm: confirmCf } = useConfirm();
@@ -201,51 +261,79 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
         setLogin(null);
     }
 
-    if (serverStatus !== 'online') {
-        return (
-            <div className="offline-notice">
-                <OfflineIcon />
-                <h4>Server Offline</h4>
-                <p>Tunnel management requires the server to be online.</p>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading tunnels" />;
-    }
-
-    // Status banner — three distinct states the UI cares about:
-    //   1. binary missing      → "install cloudflared"
-    //   2. binary, no cert     → "log in once"
-    //   3. binary + cert       → ready to manage tunnels
-    const notInstalled = status?.available === false;
-    const notAuthed = status?.available && status?.authenticated === false;
-
     // Tunnels table columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace so the .cron-tab__* / .data-table SCSS
     // keeps applying.
+    //
+    // Declared above the offline/loading guards: the chrome below is a hook, so
+    // it cannot sit behind an early return.
     const tunnelColumns = [
         {
             key: 'name',
             header: 'Name',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (t) => t.name || '',
             sortValue: (t) => t.name || '',
             render: (t) => <span className="cron-tab__name">{t.name}</span>,
         },
         {
             key: 'id',
             header: 'ID',
+            // The cell shows the first 8 chars, but a rule reads the whole
+            // UUID: pasting one out of a cloudflared log should find its row.
+            type: 'text',
+            value: (t) => t.id || '',
             cellClassName: 'mono',
             render: (t) => `${(t.id || '').substring(0, 8)}…`,
+        },
+        {
+            // Its own column rather than a pill tacked onto Connections:
+            // "is this tunnel carrying anything" is the question this table
+            // exists to answer, and cloudflared reports no status field to read
+            // it from — the connector count IS the status. Declared enum, not
+            // inferred: two tunnels in the same state fail the cardinality test
+            // and would fall back to text, which turns the pick-list into a
+            // typed fragment and both views above into no-ops.
+            key: 'state',
+            header: 'State',
+            sortable: true,
+            type: 'enum',
+            enumOrder: ['connected', 'idle'],
+            value: (t) => (t.connections?.length ? 'connected' : 'idle'),
+            sortValue: (t) => (t.connections?.length ? 'connected' : 'idle'),
+            render: (t) => (
+                <Pill kind={t.connections?.length ? 'green' : 'gray'}>
+                    {t.connections?.length ? 'connected' : 'idle'}
+                </Pill>
+            ),
         },
         {
             key: 'connections',
             header: 'Connections',
             sortable: true,
+            type: 'num',
+            value: (t) => t.connections?.length ?? 0,
             sortValue: (t) => t.connections?.length ?? 0,
             render: (t) => t.connections?.length || 0,
+        },
+        {
+            // `created_at` is omitempty on the agent's Tunnel struct, so a row
+            // may legitimately carry none — hence the em dash. Declared date
+            // rather than inferred from the epoch `sortValue`, or the menu
+            // would offer "is under 1754…" instead of a date picker.
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            type: 'date',
+            value: (t) => t.created_at || null,
+            sortValue: (t) => {
+                const time = Date.parse(t.created_at);
+                return Number.isNaN(time) ? null : time;
+            },
+            cellClassName: 'mono',
+            render: (t) => (t.created_at ? new Date(t.created_at).toLocaleString() : '—'),
         },
         {
             key: 'actions',
@@ -275,6 +363,43 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
         },
     ];
 
+    // Scoped to this tab, not to the server as a page: one tab is mounted at a
+    // time, so a picker at the page heading would sit above whichever tab
+    // happened to be open. No `urlScope` — the tunnels table is the only one on
+    // this tab, so its links keep the plain ?view= names.
+    const chrome = useTableChrome({
+        columns: tunnelColumns,
+        rows: tunnels,
+        viewPageKey: 'serverdetail-tunnels',
+        builtinViews: TUNNEL_VIEWS,
+        noun: 'tunnels',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    if (serverStatus !== 'online') {
+        return (
+            <div className="offline-notice">
+                <OfflineIcon />
+                <h4>Server Offline</h4>
+                <p>Tunnel management requires the server to be online.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return <EmptyState loading loadingVariant="table" title="Loading tunnels" />;
+    }
+
+    // Status banner — three distinct states the UI cares about:
+    //   1. binary missing      → "install cloudflared"
+    //   2. binary, no cert     → "log in once"
+    //   3. binary + cert       → ready to manage tunnels
+    const notInstalled = status?.available === false;
+    const notAuthed = status?.available && status?.authenticated === false;
+
     return (
         <div className="cloudflared-tab">
             <div className="cron-tab__header">
@@ -286,7 +411,8 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     ) : (
                         <Pill kind="green">cloudflared ready{status?.version ? ` (${status.version})` : ''}</Pill>
                     )}
-                    <span className="cron-tab__count">{tunnels.length} tunnel{tunnels.length === 1 ? '' : 's'}</span>
+                    {/* The tunnel count moved to the view bar below, where it
+                        can say how many of them the active view is showing. */}
                 </div>
                 <div className="cron-tab__actions">
                     <Button variant="outline" onClick={loadTunnels} disabled={notInstalled}>Refresh</Button>
@@ -334,25 +460,54 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         description="No tunnels on this server. Use Create Tunnel to make one."
                     />
                 ) : (
-                    <DataTable
-                        columns={tunnelColumns}
-                        data={tunnels}
-                        keyField={(t) => t.id || t.name}
-                        sorts={sorts}
-                        onSortsChange={setSorts}
-                        hiddenKeys={hiddenKeys}
-                        onHiddenKeysChange={setHiddenKeys}
-                        tableClassName="data-table"
-                        footer={(
-                            <DataTableFooter
-                                shown={tunnels.length}
-                                total={tunnels.length}
-                                noun="tunnel"
-                            />
-                        )}
-                    />
+                    <>
+                        {/* One row of chrome: the view name is the heading, and
+                            the filter button and "⋮" ride it rather than a
+                            second bar that would hold nothing else. */}
+                        <GridViewPicker
+                            views={chrome.views}
+                            label="tunnels"
+                            total={`${chrome.shownCount} of ${tunnels.length} tunnels`}
+                            onCreate={chrome.createView}
+                            actions={(
+                                <>
+                                    <GridFilterButton
+                                        count={chrome.filterCount}
+                                        onClick={() => chrome.setDrawerOpen(true)}
+                                    />
+                                    <GridToolsMenu {...chrome.toolsProps} onRefresh={loadTunnels} />
+                                </>
+                            )}
+                        />
+
+                        <GridChips {...chrome.chipProps} />
+
+                        <DataTable
+                            columns={chrome.columns}
+                            data={tunnels}
+                            keyField={(t) => t.id || t.name}
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            {...chrome.tableProps}
+                            tableClassName="data-table"
+                            emptyTitle="No tunnels match this view."
+                            emptyMessage=""
+                            footer={(
+                                <DataTableFooter
+                                    // DataTable applies the column rules itself,
+                                    // so the shown count comes from the chrome —
+                                    // `tunnels` is only ever the whole list.
+                                    shown={chrome.shownCount}
+                                    total={tunnels.length}
+                                    noun="tunnel"
+                                />
+                            )}
+                        />
+                    </>
                 )
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal
                 open={showCreateModal}

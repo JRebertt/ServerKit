@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DataTable, DataTableFooter, Pill } from '../ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
@@ -26,6 +30,52 @@ import {
     PlayIcon,
     TrashIcon,
 } from './serverDetailShared';
+
+// Built-in saved views. A remote cron entry is only
+// { id, schedule, command, enabled, name?, description? } — the agent parses
+// the host crontab and there is no run history behind it — so enabled/disabled
+// is the one axis worth slicing, and it is exactly the axis the row already
+// renders as a pill. Every rule below matches the `status` column's `value`,
+// which is the same lowercase string the Pill shows.
+const NO_RULES = { match: 'all', rules: [] };
+const ENABLED_IS = (value) => ({
+    match: 'all',
+    rules: [{ id: 'cr1', field: 'status', op: 'any', value: [value] }],
+});
+
+const CRON_VIEWS = [
+    {
+        // The whole crontab in the order cron itself would read it — the
+        // landing view, and the one that says "nothing is filtered".
+        name: 'All jobs',
+        state: {
+            sorts: [{ key: 'schedule', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // What will actually fire. A disabled entry is still a line in the
+        // crontab (commented out), so "what runs on this box" is a question
+        // the unfiltered table cannot answer at a glance.
+        name: 'Enabled',
+        state: {
+            sorts: [{ key: 'schedule', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: ENABLED_IS('enabled'),
+        },
+    },
+    {
+        // The other half: entries someone parked rather than removed. Usually
+        // short, and worth reading before adding a job that duplicates one.
+        name: 'Disabled',
+        state: {
+            sorts: [{ key: 'schedule', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: ENABLED_IS('disabled'),
+        },
+    },
+];
 
 const CronTab = ({ serverId, serverStatus }) => {
     const toast = useToast();
@@ -135,29 +185,22 @@ const CronTab = ({ serverId, serverStatus }) => {
         }
     }
 
-    if (serverStatus !== 'online') {
-        return (
-            <div className="offline-notice">
-                <OfflineIcon />
-                <h4>Server Offline</h4>
-                <p>Cron management requires the server to be online.</p>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return <EmptyState loading title="Loading cron jobs" />;
-    }
-
     // Jobs table columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace so the .cron-tab / .data-table SCSS
     // keeps applying (.cron-tab__name, .cron-tab__command, .mono).
+    //
+    // Declared above the offline/loading guards: the chrome below is a hook, so
+    // it cannot sit behind an early return.
     const cronColumns = [
         {
             key: 'schedule',
             header: 'Schedule',
             sortable: true,
             hideable: false,
+            // A cron expression is a fragment you type ('0 3'), not a value you
+            // pick from a list — five fields make almost every row distinct.
+            type: 'text',
+            value: (job) => job.schedule || '',
             sortValue: (job) => job.schedule || '',
             render: (job) => (
                 <>
@@ -172,6 +215,10 @@ const CronTab = ({ serverId, serverStatus }) => {
             key: 'command',
             header: 'Command',
             sortable: true,
+            // Paths and flags: high cardinality, so contains/starts-with is the
+            // useful control here too.
+            type: 'text',
+            value: (job) => job.command || '',
             sortValue: (job) => job.command || '',
             render: (job) => (
                 <>
@@ -184,6 +231,13 @@ const CronTab = ({ serverId, serverStatus }) => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            // Declared, not inferred: a crontab with two entries fails the enum
+            // cardinality test and would fall back to text, which turns the
+            // pick-list into a typed fragment and both views above into no-ops.
+            // `value` is what the rules read — the same word the Pill renders.
+            type: 'enum',
+            enumOrder: ['enabled', 'disabled'],
+            value: (job) => (job.enabled ? 'enabled' : 'disabled'),
             sortValue: (job) => (job.enabled ? 'enabled' : 'disabled'),
             render: (job) => (
                 <Pill kind={job.enabled ? 'green' : 'gray'}>
@@ -219,6 +273,36 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
     ];
 
+    // Scoped to this tab, not to the server as a page: one tab is mounted at a
+    // time, so a picker at the page heading would sit above whichever tab
+    // happened to be open. No `urlScope` — the jobs table is the only one on
+    // this tab, so its links keep the plain ?view= names.
+    const chrome = useTableChrome({
+        columns: cronColumns,
+        rows: jobs,
+        viewPageKey: 'serverdetail-cron',
+        builtinViews: CRON_VIEWS,
+        noun: 'jobs',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    if (serverStatus !== 'online') {
+        return (
+            <div className="offline-notice">
+                <OfflineIcon />
+                <h4>Server Offline</h4>
+                <p>Cron management requires the server to be online.</p>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return <EmptyState loading title="Loading cron jobs" />;
+    }
+
     return (
         <div className="cron-tab">
             <div className="cron-tab__header">
@@ -230,7 +314,8 @@ const CronTab = ({ serverId, serverStatus }) => {
                     ) : (
                         <Pill kind="green">cron daemon active{status?.daemon ? ` (${status.daemon})` : ''}</Pill>
                     )}
-                    <span className="cron-tab__count">{jobs.length} job{jobs.length === 1 ? '' : 's'}</span>
+                    {/* The job count moved to the view bar below, where it can
+                        say how many of them the active view is showing. */}
                 </div>
                 <div className="cron-tab__actions">
                     <Button variant="outline" onClick={loadJobs}>Refresh</Button>
@@ -251,25 +336,54 @@ const CronTab = ({ serverId, serverStatus }) => {
                     description="No scheduled jobs on this server. Use Add Job to schedule one."
                 />
             ) : (
-                <DataTable
-                    columns={cronColumns}
-                    data={jobs}
-                    keyField="id"
-                    sorts={sorts}
-                    onSortsChange={setSorts}
-                    hiddenKeys={hiddenKeys}
-                    onHiddenKeysChange={setHiddenKeys}
-                    rowClassName={(job) => (!job.enabled ? 'row-disabled' : '')}
-                    tableClassName="data-table"
-                    footer={(
-                        <DataTableFooter
-                            shown={jobs.length}
-                            total={jobs.length}
-                            noun="job"
-                        />
-                    )}
-                />
+                <>
+                    {/* One row of chrome: the view name is the heading, and the
+                        filter button and "⋮" ride it rather than a second bar
+                        that would hold nothing else. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="jobs"
+                        total={`${chrome.shownCount} of ${jobs.length} jobs`}
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadJobs} />
+                            </>
+                        )}
+                    />
+
+                    <GridChips {...chrome.chipProps} />
+
+                    <DataTable
+                        columns={chrome.columns}
+                        data={jobs}
+                        keyField="id"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
+                        rowClassName={(job) => (!job.enabled ? 'row-disabled' : '')}
+                        tableClassName="data-table"
+                        emptyTitle="No jobs match this view."
+                        emptyMessage=""
+                        footer={(
+                            <DataTableFooter
+                                // DataTable applies the column rules itself, so
+                                // the shown count comes from the chrome — `jobs`
+                                // is only ever the whole crontab.
+                                shown={chrome.shownCount}
+                                total={jobs.length}
+                                noun="job"
+                            />
+                        )}
+                    />
+                </>
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal
                 open={showAddModal}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import useTabParam from '../hooks/useTabParam';
 import { Upload, Check, AlertTriangle, Archive, Clock, Database, Package, FolderArchive, HardDrive, History, Cloud, RefreshCw, Trash2, Plus, FileArchive, DollarSign } from 'lucide-react';
 import api from '../services/api';
@@ -12,9 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    Pill, SearchField, SegControl, DataTable, SortChipBar, DataTableFooter,
-    ListToolbar,
+    Pill, SearchField, SegControl, DataTable, DataTableFooter,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import BackupsOverview from '../components/backups/BackupsOverview';
 import SchedulesTable from '../components/backups/SchedulesTable';
 import StorageDestinations from '../components/backups/StorageDestinations';
@@ -28,6 +31,91 @@ const VALID_TABS = ['overview', 'schedules', 'snapshots', 'storage', 'settings']
 const TAB_ALIASES = { backups: 'snapshots' };
 
 const PROVIDER_LABELS = { local: 'Local only', s3: 'S3-Compatible', b2: 'Backblaze B2' };
+
+// Where a snapshot actually lives, as the one word the Storage pill prints.
+// The filter rules read the same map, so a preset that says 'Local' means the
+// rows whose cell says Local — never the raw `remote_status` behind it.
+const REMOTE_STATUS_LABEL = { synced: 'Synced', 'remote-only': 'Remote' };
+const remoteStatusLabel = (status) => REMOTE_STATUS_LABEL[status] || 'Local';
+
+// Built-in views for the snapshot archive. Every rule matches against a
+// column's `value` accessor, so 'application' below is the raw type the Type
+// tag prints and 'Local' is the word the Storage pill prints.
+//
+// The first four replace the All/Applications/Databases/Files segment row that
+// used to sit above the table. A segment that buckets rows IS a column rule,
+// and as a view each bucket can also carry the sort and the columns it wants
+// instead of only narrowing the list.
+const NO_RULES = { match: 'all', rules: [] };
+
+const SNAPSHOT_VIEWS = [
+    {
+        // The archive's natural read: what was captured most recently.
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+            page: { search: '' },
+        },
+    },
+    {
+        // Site snapshots. Type is hidden — every row under this view is one,
+        // so the column would be the same tag repeated down the page.
+        name: 'Applications',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: ['type'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'bs1', field: 'type', op: 'any', value: ['application'] }],
+            },
+            page: { search: '' },
+        },
+    },
+    {
+        // Dump files, newest first — the ones a restore actually reaches for.
+        name: 'Databases',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: ['type'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'bs2', field: 'type', op: 'any', value: ['database'] }],
+            },
+            page: { search: '' },
+        },
+    },
+    {
+        // A files snapshot is a list of paths, so it has no site to name and
+        // Site/Service would be a column of em-dashes.
+        name: 'Files',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: ['type', 'site'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'bs3', field: 'type', op: 'any', value: ['files'] }],
+            },
+            page: { search: '' },
+        },
+    },
+    {
+        // The risk list: snapshots that exist ONLY on this box, biggest first.
+        // If the disk goes they go with it, and the biggest are the ones worth
+        // copying off. Storage is hidden because every row here says Local.
+        name: 'Local only',
+        state: {
+            sorts: [{ key: 'size', direction: 'desc' }],
+            hiddenKeys: ['storage'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'bs4', field: 'storage', op: 'any', value: ['Local'] }],
+            },
+            page: { search: '' },
+        },
+    },
+];
 
 const Backups = () => {
     const toast = useToast();
@@ -43,7 +131,6 @@ const Backups = () => {
     const [error, setError] = useState(null);
     const [rawTab, setActiveTab] = useTabParam('/backups', VALID_TABS);
     const activeTab = TAB_ALIASES[rawTab] || rawTab;
-    const [filterType, setFilterType] = useState('all');
     const [search, setSearch] = useState('');
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-backups-sort' });
     const {
@@ -397,26 +484,45 @@ const Backups = () => {
         }
     };
 
+    // The pill text comes from the same map the filter rules do, so the word in
+    // the cell and the word in a rule can never drift apart.
     const getRemoteStatusPill = (status) => {
+        const label = remoteStatusLabel(status);
         switch (status) {
             case 'synced':
-                return <Pill kind="green" dot={false}><Cloud size={11} /> Synced</Pill>;
+                return <Pill kind="green" dot={false}><Cloud size={11} /> {label}</Pill>;
             case 'remote-only':
-                return <Pill kind="cyan" dot={false}><Cloud size={11} /> Remote</Pill>;
+                return <Pill kind="cyan" dot={false}><Cloud size={11} /> {label}</Pill>;
             default:
-                return <Pill kind="gray" dot={false}><HardDrive size={11} /> Local</Pill>;
+                return <Pill kind="gray" dot={false}><HardDrive size={11} /> {label}</Pill>;
         }
     };
+
+    // $/month to keep one snapshot at the local rate — the same number the Cost
+    // cell prints, so the column's value and its cell can never disagree.
+    const monthlyCost = (backup) => (
+        ((backup.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0)
+    );
 
     // DataTable columns for the snapshot archive. Cell markup and classNames
     // are identical to the hand-rolled table they replace, so _backups.scss
     // keeps applying (.bk-name, .bk-ico, .bk-when, .bk-actions).
+    //
+    // Two accessors per column on purpose: `value` is what the column menu, the
+    // filter rules and the export read (ds/grid/fields.js), `sortValue` is what
+    // DataTable's sorter reads — it does NOT fall back to `value`, so a
+    // sortable column needs both. `type` is declared rather than inferred
+    // wherever a built-in view filters the column: inference is a guess made
+    // from the rows that happen to be loaded, and a preset written against the
+    // wrong guess silently matches nothing.
     const snapshotColumns = [
         {
             key: 'name',
             header: 'Name',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (b) => b.name || b.app_name || '',
             sortValue: (b) => b.name || b.app_name || '',
             render: (backup) => (
                 <div className="sk-cell-name bk-name">
@@ -430,23 +536,43 @@ const Backups = () => {
             ),
         },
         {
+            // The three buckets the old segment row offered. They are column
+            // rules now, and this column's own menu carries the pick-list.
+            // No `enumOrder`: the options are built from the rows that are
+            // actually loaded, so the menu never offers a bucket that would
+            // come back empty — which is exactly what the old "Databases (0)"
+            // segment did on a box that only backs up files.
             key: 'type',
             header: 'Type',
             sortable: true,
+            type: 'enum',
+            groupable: true,
+            value: (b) => b.type || '',
+            groupValue: (b) => b.type || '',
             sortValue: (b) => b.type || '',
             render: (backup) => <span className="sk-tag">{backup.type}</span>,
         },
         {
+            // Text, not a pick-list: retention keeps many snapshots per site,
+            // so this column has as many distinct values as the operator has
+            // sites. You type a fragment of a name rather than scroll a list.
             key: 'site',
             header: 'Site/Service',
             sortable: true,
+            type: 'text',
+            value: (b) => b.app_name || b.name?.split('_')[0] || '',
             sortValue: (b) => b.app_name || b.name?.split('_')[0] || null,
             render: (backup) => backup.app_name || backup.name?.split('_')[0] || '—',
         },
         {
+            // Raw bytes: rules compare numbers while the cell prints the human
+            // string. Filtering on the rendered "464 MB" would compare text,
+            // and "over 100" would then match 99 GB.
             key: 'size',
             header: 'Size',
             sortable: true,
+            type: 'num',
+            value: (b) => b.size || 0,
             sortValue: (b) => b.size || 0,
             cellClassName: 'sk-cell-mono',
             render: (backup) => formatBytes(backup.size, { defaultValue: '0 B' }),
@@ -455,13 +581,26 @@ const Backups = () => {
             key: 'storage',
             header: 'Storage',
             sortable: true,
-            sortValue: (b) => b.remote_status || 'local',
+            type: 'enum',
+            groupable: true,
+            // The LABEL, not the raw `remote_status`, so the 'Local only' view
+            // reads the way its rows do. Sorting the label also puts the
+            // at-risk local-only copies together instead of alphabetising
+            // 'remote-only' between 'local' and 'synced'.
+            value: (b) => remoteStatusLabel(b.remote_status),
+            groupValue: (b) => remoteStatusLabel(b.remote_status),
+            sortValue: (b) => remoteStatusLabel(b.remote_status),
             render: (backup) => getRemoteStatusPill(backup.remote_status),
         },
         {
+            // Declared, not inferred: the sorter wants epoch ms, and letting
+            // that number type the column would offer "is under 1754…" instead
+            // of a date picker — and make every date rule match nothing.
             key: 'created',
             header: 'Created',
             sortable: true,
+            type: 'date',
+            value: (b) => b.timestamp || null,
             sortValue: (b) => (b.timestamp ? new Date(b.timestamp).getTime() : null),
             cellClassName: 'bk-when',
             render: (backup) => formatTimestamp(backup.timestamp),
@@ -470,9 +609,11 @@ const Backups = () => {
             key: 'cost',
             header: 'Cost',
             sortable: true,
-            sortValue: (b) => ((b.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0),
+            type: 'num',
+            value: monthlyCost,
+            sortValue: monthlyCost,
             cellClassName: 'sk-cell-mono',
-            render: (backup) => formatMoney(((backup.size || 0) / (1024 ** 3)) * (costSummary?.cost_rates?.local || 0)),
+            render: (backup) => formatMoney(monthlyCost(backup)),
         },
         {
             key: 'actions',
@@ -523,8 +664,8 @@ const Backups = () => {
         },
     ];
 
-    // Search narrows first so the segment counts always describe what a click
-    // on that segment would actually show.
+    // Search only. The type split used to live here as a segment filter; it is
+    // a column rule now, applied inside <DataTable> on top of this list.
     const searchedBackups = (() => {
         const q = search.trim().toLowerCase();
         if (!q) return backups;
@@ -534,9 +675,29 @@ const Backups = () => {
             || (b.type || '').toLowerCase().includes(q)
         ));
     })();
-    const filteredBackups = filterType === 'all'
-        ? searchedBackups
-        : searchedBackups.filter(b => b.type === filterType);
+
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
+
+    // The snapshot archive is the only saved-view surface on this route — the
+    // schedules table lives in its own component with its own sort state, and
+    // the remaining tabs are forms — so there is no second chrome to fight over
+    // `?view=` and no `urlScope` to hand out.
+    const chrome = useTableChrome({
+        columns: snapshotColumns,
+        rows: searchedBackups,
+        viewPageKey: 'backups-snapshots',
+        builtinViews: SNAPSHOT_VIEWS,
+        noun: 'snapshots',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
 
     // One primary action per section, the way the mock does it: Schedules
     // offers "New schedule", everything else offers "Back up now". A Create
@@ -598,29 +759,34 @@ const Backups = () => {
 
             {activeTab === 'snapshots' && (
                 <>
-                    {/* Search lives in the top bar with every other list page;
-                        the segments carry the counts. */}
-                    <ListToolbar
-                        filters={(
-                            <SegControl
-                                value={filterType}
-                                onChange={setFilterType}
-                                options={[
-                                    { value: 'all', label: 'All', count: searchedBackups.length },
-                                    { value: 'application', label: 'Applications', count: searchedBackups.filter(b => b.type === 'application').length },
-                                    { value: 'database', label: 'Databases', count: searchedBackups.filter(b => b.type === 'database').length },
-                                    { value: 'files', label: 'Files', count: searchedBackups.filter(b => b.type === 'files').length },
-                                ]}
-                            />
-                        )}
-                        tools={(
-                            <Button size="sm" variant="outline" onClick={loadData}>
-                                <RefreshCw size={14} />
-                                Refresh
-                            </Button>
+                    {/* One row of chrome: the view name IS the heading, it
+                        carries the count, and the filter button and "⋮" ride
+                        the same line. Search stays in the top bar with every
+                        other list page, and Refresh moved into the "⋮" — a
+                        whole toolbar holding one button was a second header.
+
+                        The count is `chrome.shownCount`, not the length of the
+                        array handed to the table: the column rules are applied
+                        inside <DataTable>, so counting the input array here
+                        would read "12 of 12" above a table showing 3. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="snapshots"
+                        total={`${chrome.shownCount} of ${backups.length} snapshot${backups.length === 1 ? '' : 's'}`}
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                            </>
                         )}
                     />
-                    <SortChipBar columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
+
+                    <GridChips {...chrome.chipProps} />
+
                     {backups.length === 0 ? (
                         <EmptyState
                             icon={FileArchive}
@@ -628,27 +794,28 @@ const Backups = () => {
                             description="No backups found. Create your first backup to get started."
                             action={<Button onClick={() => setShowBackupModal(true)}>Create Backup</Button>}
                         />
-                    ) : filteredBackups.length === 0 ? (
+                    ) : searchedBackups.length === 0 ? (
+                        /* Only the SEARCH can empty the list here — a column
+                           rule that matches nothing keeps the table on screen
+                           with its own "clear filters" row, because the control
+                           that undoes it lives in the header menu. */
                         <EmptyState
                             icon={FileArchive}
-                            title={search.trim()
-                                ? `No snapshots match “${search.trim()}”.`
-                                : 'No snapshots match the current filter.'}
+                            title={`No snapshots match “${search.trim()}”.`}
                         />
                     ) : (
                         <div className="bk-card">
                             <DataTable
-                                columns={snapshotColumns}
-                                data={filteredBackups}
+                                {...chrome.tableProps}
+                                columns={chrome.columns}
+                                data={searchedBackups}
                                 keyField="path"
                                 sorts={sorts}
                                 onSortsChange={setSorts}
-                                hiddenKeys={hiddenKeys}
-                                onHiddenKeysChange={setHiddenKeys}
                                 tableClassName="bk-table"
                                 footer={(
                                     <DataTableFooter
-                                        shown={filteredBackups.length}
+                                        shown={chrome.shownCount}
                                         total={backups.length}
                                         noun="snapshot"
                                     />
@@ -656,6 +823,8 @@ const Backups = () => {
                             />
                         </div>
                     )}
+
+                    <GridFilterDrawer {...chrome.drawerProps} />
                 </>
             )}
 

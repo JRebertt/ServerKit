@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,7 +15,127 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { KpiBand, MetricCard } from '@/components/ds';
+import { DataTable, KpiBand, MetricCard, Pill } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+
+// Two surfaces, two treatments — on purpose.
+//
+// The Library is a catalogue you shop: half a dozen fixed blueprints you read
+// the description of and pick one, so it stays a card grid.
+//
+// Your own templates are an inventory you administer, and the card was a table
+// row wearing a box — six labelled scalars and two buttons, no image, no
+// hierarchy — while hiding the two fields that decide anything: whether the
+// template is allowed to rewrite a server on its own, and when it last changed.
+// The questions actually asked here ("which of these am I running?", "which
+// one is unassigned?", "which can edit a box without asking?") are sorts and
+// filters, so that half is a table with the shared grid chrome.
+const CATEGORY_LABELS = {
+    general: 'General', web: 'Web Server', database: 'Database', mail: 'Mail Server', custom: 'Custom',
+};
+
+const categoryLabel = (tmpl) => CATEGORY_LABELS[tmpl.category] || tmpl.category || 'General';
+
+// Auto-remediation is three states, not two booleans, and the difference is
+// the whole risk story: Manual never touches a server, "on approval" waits for
+// a human, "unattended" rewrites the box by itself. Collapsed into one enum so
+// it is a single sortable, filterable column rather than two yes/no ones that
+// only mean something read together.
+const REMEDIATION_MANUAL = 'Manual';
+const REMEDIATION_APPROVAL = 'Auto, on approval';
+const REMEDIATION_UNATTENDED = 'Auto, unattended';
+
+const remediationLabel = (tmpl) => {
+    if (!tmpl.auto_remediate) return REMEDIATION_MANUAL;
+    return tmpl.remediation_approval_required ? REMEDIATION_APPROVAL : REMEDIATION_UNATTENDED;
+};
+
+const REMEDIATION_KIND = {
+    [REMEDIATION_MANUAL]: 'gray',
+    [REMEDIATION_APPROVAL]: 'cyan',
+    // Amber rather than green: a template that edits servers without asking is
+    // the one setting on this page worth spotting from across the room.
+    [REMEDIATION_UNATTENDED]: 'amber',
+};
+
+function formatUpdated(value) {
+    if (!value) return 'Never';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Never';
+    return date.toLocaleString();
+}
+
+// Built-in saved views. Every rule matches a column's `value` accessor, so the
+// strings below are the LABELS the cells render — never a raw backend field.
+// `auto_remediate` is a boolean nobody would recognise in a filter chip.
+const NO_RULES = { match: 'all', rules: [] };
+
+const BUILTIN_VIEWS = [
+    {
+        // "Which templates am I actually running?" The card grid could not
+        // answer it: the assignment count was a line of grey text and nothing
+        // sorted on it. Widest coverage first.
+        name: 'In use',
+        state: {
+            sorts: [{ key: 'servers', direction: 'desc' }],
+            hiddenKeys: ['version'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'st-used', field: 'servers', op: 'gt', value: 0 }],
+            },
+        },
+    },
+    {
+        // The other half: written, then never applied. Newest edit first,
+        // because a template you touched last week and never assigned is the
+        // one you meant to finish.
+        name: 'Not assigned yet',
+        state: {
+            sorts: [{ key: 'updated', direction: 'desc' }],
+            hiddenKeys: ['version'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'st-free', field: 'servers', op: 'eq', value: 0 }],
+            },
+        },
+    },
+    {
+        // The safety review. Both auto states are listed rather than filtering
+        // "is none of Manual", so a fourth remediation label added later has to
+        // be considered here instead of silently joining this view.
+        name: 'Auto-remediating',
+        state: {
+            sorts: [{ key: 'servers', direction: 'desc' }],
+            hiddenKeys: ['version'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{
+                    id: 'st-auto',
+                    field: 'remediation',
+                    op: 'any',
+                    value: [REMEDIATION_APPROVAL, REMEDIATION_UNATTENDED],
+                }],
+            },
+        },
+    },
+    {
+        // No rules at all: everything you own, bucketed the way the category
+        // badge already implied, with every column showing.
+        name: 'By category',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: 'category',
+            columnFilters: NO_RULES,
+        },
+    },
+];
 
 const ServerTemplates = () => {
     const toast = useToast();
@@ -25,11 +147,24 @@ const ServerTemplates = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
-    const [selectedDetail, setSelectedDetail] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [servers, setServers] = useState([]);
     // null until the first load decides; see loadData.
     const [activeTab, setActiveTab] = useState(null);
+
+    // Table sort + column visibility for the Templates tab, persisted and
+    // handed to the chrome. `version` starts hidden nowhere — it is small and
+    // the card showed it — but three of the four presets drop it, since an
+    // auto-incrementing integer says nothing about coverage or risk.
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: [{ key: 'servers', direction: 'desc' }],
+        storageKey: 'serverkit-table-server-templates-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-server-templates-cols',
+    });
+    // Not persisted separately: a grouping worth keeping is a saved view now.
+    const [groupBy, setGroupBy] = useState(null);
 
     const [form, setForm] = useState({
         name: '', description: '', category: 'general',
@@ -131,10 +266,6 @@ const ServerTemplates = () => {
         }
     };
 
-    const categoryLabels = {
-        general: 'General', web: 'Web Server', database: 'Database', mail: 'Mail Server', custom: 'Custom'
-    };
-
     // Publish the admin "Create Template" action to the shared tab-group top bar.
     useTopbarActions(() =>
         user?.is_admin ? (
@@ -142,6 +273,172 @@ const ServerTemplates = () => {
         ) : null,
         [user?.is_admin]
     );
+
+    // Two accessors per column where they differ: `value` is what the column
+    // menu, the filter rules, the grouping and the export read, `sortValue` is
+    // what DataTable's sorter reads. Every filterable column declares an
+    // explicit `type` too — a `sortValue` returning epoch milliseconds would
+    // otherwise type "Updated" as a number and offer "is under 1754…" instead
+    // of a date, making every date rule match nothing.
+    const columns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Template',
+            sortable: true,
+            hideable: false,
+            type: 'text',
+            value: (tmpl) => tmpl.name || '',
+            render: (tmpl) => {
+                // The description and the inherited parent share the sub-line
+                // the way the card stacked them — both are context for the
+                // name, and neither is worth a column of its own (nothing in
+                // this UI can set a parent, so that column would be empty).
+                const sub = [
+                    tmpl.description,
+                    tmpl.parent_name ? `inherits ${tmpl.parent_name}` : null,
+                ].filter(Boolean).join(' · ');
+                return (
+                    <div className="sk-cell-name">
+                        <span>
+                            <div>{tmpl.name}</div>
+                            {sub && <div className="sk-cell-sub">{sub}</div>}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'category',
+            header: 'Category',
+            sortable: true,
+            type: 'enum',
+            groupable: true,
+            // Filter, group and sort on the LABEL the badge shows, so a preset
+            // reads the way the row does ('Web Server', not 'web'). `groupValue`
+            // is spelled out because DataTable's grouping otherwise falls back
+            // to row[key] — and the raw row key holds the backend enum.
+            value: categoryLabel,
+            groupValue: categoryLabel,
+            sortValue: categoryLabel,
+            // Badge, not Pill: the library cards label this exact field with a
+            // Badge, and the same datum should not change shape between tabs.
+            render: (tmpl) => <Badge variant="outline">{categoryLabel(tmpl)}</Badge>,
+        },
+        {
+            key: 'servers',
+            header: 'Servers',
+            sortable: true,
+            type: 'num',
+            // A template with no assignments reads 0 rather than a dash, so the
+            // "Not assigned yet" preset's `eq 0` has something honest to match.
+            value: (tmpl) => tmpl.assignment_count ?? 0,
+            sortValue: (tmpl) => tmpl.assignment_count ?? 0,
+        },
+        {
+            key: 'remediation',
+            header: 'Remediation',
+            sortable: true,
+            type: 'enum',
+            groupable: true,
+            value: remediationLabel,
+            groupValue: remediationLabel,
+            sortValue: remediationLabel,
+            render: (tmpl) => {
+                const label = remediationLabel(tmpl);
+                return <Pill kind={REMEDIATION_KIND[label] || 'gray'} dot={false}>{label}</Pill>;
+            },
+        },
+        {
+            key: 'version',
+            header: 'Version',
+            sortable: true,
+            type: 'num',
+            value: (tmpl) => tmpl.version ?? 1,
+            sortValue: (tmpl) => tmpl.version ?? 1,
+            cellClassName: 'sk-cell-mono',
+            render: (tmpl) => `v${tmpl.version ?? 1}`,
+        },
+        // The three spec counts the card showed as chips. Separate columns
+        // because they are separate questions — "declares no firewall rules"
+        // is a real gap, and inside one merged cell it could not be sorted.
+        {
+            key: 'packages',
+            header: 'Packages',
+            sortable: true,
+            type: 'num',
+            value: (tmpl) => tmpl.packages?.length ?? 0,
+            sortValue: (tmpl) => tmpl.packages?.length ?? 0,
+        },
+        {
+            key: 'services',
+            header: 'Services',
+            sortable: true,
+            type: 'num',
+            value: (tmpl) => tmpl.services?.length ?? 0,
+            sortValue: (tmpl) => tmpl.services?.length ?? 0,
+        },
+        {
+            key: 'firewall',
+            header: 'Firewall',
+            sortable: true,
+            type: 'num',
+            value: (tmpl) => tmpl.firewall_rules?.length ?? 0,
+            sortValue: (tmpl) => tmpl.firewall_rules?.length ?? 0,
+        },
+        {
+            key: 'updated',
+            header: 'Updated',
+            sortable: true,
+            type: 'date',
+            value: (tmpl) => tmpl.updated_at || null,
+            sortValue: (tmpl) => {
+                const time = Date.parse(tmpl.updated_at);
+                return Number.isNaN(time) ? null : time;
+            },
+            cellClassName: 'sk-cell-mono',
+            render: (tmpl) => formatUpdated(tmpl.updated_at),
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            render: (tmpl) => (
+                <div className="flex gap-2">
+                    <Button
+                        size="sm"
+                        onClick={() => { setSelectedTemplate(tmpl); setShowAssignModal(true); }}
+                    >
+                        Assign
+                    </Button>
+                    {user?.is_admin && (
+                        <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(tmpl)}>
+                            Delete
+                        </Button>
+                    )}
+                </div>
+            ),
+        },
+    ], [user?.is_admin]);
+
+    // No `pageState`: the list is this endpoint's whole response, with no
+    // search and no server-side filter of its own, so there is nothing
+    // page-private for a view to carry. The Library/Templates tab is
+    // deliberately NOT in it either — that is navigation, and a saved view
+    // should not be able to move you to a different tab.
+    const chrome = useTableChrome({
+        columns,
+        rows: templates,
+        viewPageKey: 'server-templates',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'templates',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy,
+    });
 
     // How many servers the compliance figures actually cover.
     const measuredServers = compliance
@@ -152,6 +449,10 @@ const ServerTemplates = () => {
 
     return (
         <div className="sk-tabgroup__inner server-templates-page">
+            {/* Stays a band: these tiles count ASSIGNMENTS — a different entity
+                from the templates in the table below — and "Unknown" is the
+                remainder of the other two, not a predicate. Neither number is
+                a row count, so neither could become a column rule. */}
             {compliance && (
                 <div className="compliance-bar">
                     <KpiBand dense>
@@ -186,47 +487,61 @@ const ServerTemplates = () => {
                 </TabsList>
 
                 <TabsContent value="templates">
-                    <div className="templates-grid">
-                        {templates.map(tmpl => (
-                            <div key={tmpl.id} className="template-card card" onClick={() => setSelectedDetail(selectedDetail?.id === tmpl.id ? null : tmpl)}>
-                                <div className="template-card__header">
-                                    <h3>{tmpl.name}</h3>
-                                    <Badge variant="outline">{categoryLabels[tmpl.category] || tmpl.category}</Badge>
-                                </div>
-                                {tmpl.description && <p className="template-card__desc">{tmpl.description}</p>}
-                                <div className="template-card__meta">
-                                    <span>v{tmpl.version}</span>
-                                    <span>{tmpl.assignment_count} server{tmpl.assignment_count !== 1 ? 's' : ''}</span>
-                                    {tmpl.parent_name && <span>Inherits: {tmpl.parent_name}</span>}
-                                </div>
-                                <div className="template-card__spec">
-                                    {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
-                                    {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
-                                    {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
-                                </div>
-                                <div className="template-card__actions" onClick={e => e.stopPropagation()}>
-                                    <Button size="sm" onClick={() => { setSelectedTemplate(tmpl); setShowAssignModal(true); }}>
-                                        Assign
-                                    </Button>
-                                    {user?.is_admin && (
-                                        <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(tmpl)}>Delete</Button>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                        {templates.length === 0 && (
-                            <EmptyState
-                                icon={LayoutTemplate}
-                                title="No templates yet"
-                                description="Start from a ready-made library template, or create one from scratch."
-                                action={(
-                                    <Button size="sm" onClick={() => setActiveTab('library')}>
-                                        Browse the library
-                                    </Button>
+                    {templates.length === 0 ? (
+                        <EmptyState
+                            icon={LayoutTemplate}
+                            title="No templates yet"
+                            description="Start from a ready-made library template, or create one from scratch."
+                            action={(
+                                <Button size="sm" onClick={() => setActiveTab('library')}>
+                                    Browse the library
+                                </Button>
+                            )}
+                        />
+                    ) : (
+                        <>
+                            {/* One row of chrome: the view name carries the
+                                count, and the filter button and "⋮" ride the
+                                same line rather than a second, otherwise empty
+                                toolbar. `shownCount` is the count AFTER the
+                                column rules, which are applied inside the
+                                table — `templates.length` here would read "4
+                                of 4" while the table showed 2. */}
+                            <GridViewPicker
+                                views={chrome.views}
+                                label="templates"
+                                total={`${chrome.shownCount} of ${templates.length} template${templates.length === 1 ? '' : 's'}`}
+                                onCreate={chrome.createView}
+                                actions={(
+                                    <>
+                                        {/* This page has no server-side filter
+                                            drawer, so the grid one is the only
+                                            filter affordance here. */}
+                                        <GridFilterButton
+                                            count={chrome.filterCount}
+                                            onClick={() => chrome.setDrawerOpen(true)}
+                                        />
+                                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                                    </>
                                 )}
                             />
-                        )}
-                    </div>
+
+                            <GridChips {...chrome.chipProps} />
+
+                            <DataTable
+                                {...chrome.tableProps}
+                                columns={chrome.columns}
+                                data={templates}
+                                keyField="id"
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                groupBy={groupBy}
+                                onGroupByChange={setGroupBy}
+                            />
+
+                            <GridFilterDrawer {...chrome.drawerProps} />
+                        </>
+                    )}
                 </TabsContent>
 
                 <TabsContent value="library">
@@ -235,7 +550,7 @@ const ServerTemplates = () => {
                             <div key={key} className="template-card card">
                                 <div className="template-card__header">
                                     <h3>{tmpl.name}</h3>
-                                    <Badge variant="outline">{categoryLabels[tmpl.category] || tmpl.category}</Badge>
+                                    <Badge variant="outline">{CATEGORY_LABELS[tmpl.category] || tmpl.category}</Badge>
                                 </div>
                                 <p className="template-card__desc">{tmpl.description}</p>
                                 <div className="template-card__spec">
@@ -277,7 +592,7 @@ const ServerTemplates = () => {
                 <div className="form-group">
                     <label>Category</label>
                     <select className="form-select" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
-                        {Object.entries(categoryLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                 </div>
                 <div className="form-group">

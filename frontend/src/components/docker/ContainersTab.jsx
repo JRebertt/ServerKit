@@ -6,7 +6,11 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
-import { Drawer, DataTable, DataTableFooter } from '@/components/ds';
+import { Drawer, DataTable, DataTableFooter, Pill } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
@@ -53,6 +57,121 @@ export const RunContainerButton = () => {
     );
 };
 
+// Docker reports health inside the `docker ps` STATUS STRING — "Up 3 hours
+// (healthy)", "Up 2 minutes (health: starting)", "Up 6 days (unhealthy)" —
+// there is no health field on the list endpoint (see
+// docker_service.list_containers). Deriving it here is what turns "is anything
+// failing its healthcheck" into a column, and therefore into a saved view,
+// instead of something you squint at in the muted status line. 'None' is a real
+// answer, not a gap: it means no HEALTHCHECK is declared, so nothing is
+// watching that container at all.
+const HEALTH_LABELS = ['Unhealthy', 'Starting', 'None', 'Healthy'];
+const HEALTH_RANK = { Unhealthy: 0, Starting: 1, None: 2, Healthy: 3 };
+const HEALTH_TONE = { Unhealthy: 'red', Starting: 'amber', None: 'gray', Healthy: 'green' };
+
+const containerHealth = (container) => {
+    const status = getContainerStatus(container).toLowerCase();
+    // Negative case first. '(unhealthy)' does not contain '(healthy)' — the
+    // paren is what keeps them apart — but testing in this order means the
+    // check never depends on noticing that again.
+    if (status.includes('(unhealthy)')) return 'Unhealthy';
+    if (status.includes('health: starting')) return 'Starting';
+    if (status.includes('(healthy)')) return 'Healthy';
+    return 'None';
+};
+
+// Built-in views. The All / Running / Stopped chip row that used to sit in the
+// toolbar was three column rules wearing a segmented control; every bucket it
+// offered is a preset here.
+//
+// Every preset carries `showAll: true`. The list endpoint is asked for
+// running-only containers when "Include stopped" is off, so a view about
+// stopped containers would otherwise be a preset that can only ever match zero
+// rows — the rows it wants were never fetched. The chrome applies the `page`
+// bag before the rules, so switching to one of these refetches first.
+const NO_RULES = { match: 'all', rules: [] };
+const PAGE_ALL = { showAll: true, search: '' };
+
+const BUILTIN_VIEWS = [
+    {
+        // The everyday list: what is actually up right now.
+        name: 'Running',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'dc1', field: 'status', op: 'any', value: ['Running'] }],
+            },
+            page: PAGE_ALL,
+        },
+    },
+    {
+        // "is none of Running" rather than a list of Exited/Created, so paused,
+        // restarting and dead land here too instead of falling through both
+        // buckets the way they did under the old chip row. Newest first: the
+        // container that just failed to start is the one you came here for.
+        // Resources is hidden — a stopped container has no reading, so the
+        // column would be a wall of empty bars.
+        name: 'Not running',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: ['resources'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'dc2', field: 'status', op: 'none', value: ['Running'] }],
+            },
+            page: PAGE_ALL,
+        },
+    },
+    {
+        // Running containers whose healthcheck is not passing — failing, still
+        // starting, or absent entirely. "is none of Healthy" covers all three
+        // in one rule, and the Running clause is what keeps every stopped
+        // container (which reports no health by definition) out of it.
+        // Sorted by the health rank, so genuinely unhealthy tops the list.
+        name: 'Unhealthy or unwatched',
+        state: {
+            sorts: [{ key: 'health', direction: 'asc' }],
+            hiddenKeys: ['created'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [
+                    { id: 'dc3', field: 'status', op: 'any', value: ['Running'] },
+                    { id: 'dc4', field: 'health', op: 'none', value: ['Healthy'] },
+                ],
+            },
+            page: PAGE_ALL,
+        },
+    },
+    {
+        // No rules at all: everything, bucketed by the image it runs. This is
+        // how you spot the three containers still on last month's tag.
+        name: 'By image',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: 'image',
+            columnFilters: NO_RULES,
+            page: PAGE_ALL,
+        },
+    },
+    {
+        // The way back out of any of the above.
+        name: 'Everything, newest first',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: NO_RULES,
+            page: PAGE_ALL,
+        },
+    },
+];
+
 // Containers Tab
 const ContainersTab = ({ onStatsChange }) => {
     const toast = useToast();
@@ -66,7 +185,6 @@ const ContainersTab = ({ onStatsChange }) => {
     const [logsContainer, setLogsContainer] = useState(null);
     const [execContainer, setExecContainer] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
     // Native DataTable header sorting (the old <select> + direction button is
     // gone). Default keeps the previous behavior: running containers first.
     const { sorts, setSorts } = useTableSort({
@@ -76,6 +194,8 @@ const ContainersTab = ({ onStatsChange }) => {
     const {
         hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-docker-containers-cols' });
+    // Not persisted on its own: a grouping worth keeping is a saved view.
+    const [groupBy, setGroupBy] = useState(null);
     const statsRequestSeq = useRef(0);
 
     useEffect(() => {
@@ -242,37 +362,48 @@ const ContainersTab = ({ onStatsChange }) => {
         return { cpu, memory, available: true };
     }
 
-    const counts = useMemo(() => {
-        const c = { all: containers.length, running: 0, stopped: 0 };
-        containers.forEach(x => { if (isContainerRunning(x)) c.running++; else c.stopped++; });
-        return c;
-    }, [containers]);
-
+    // Search only. The running/stopped split used to live here as a chip
+    // filter; it is a column rule now, applied inside the table.
     const filteredContainers = useMemo(() => {
         const search = searchTerm.toLowerCase();
-        return containers.filter(c => {
-            if (statusFilter === 'running' && !isContainerRunning(c)) return false;
-            if (statusFilter === 'stopped' && isContainerRunning(c)) return false;
-            if (!search) return true;
-            return getContainerName(c).toLowerCase().includes(search) ||
-                   getContainerId(c).toLowerCase().includes(search) ||
-                   getContainerImage(c).toLowerCase().includes(search);
-        });
-    }, [containers, statusFilter, searchTerm]);
+        if (!search) return containers;
+        return containers.filter(c => (
+            getContainerName(c).toLowerCase().includes(search) ||
+            getContainerId(c).toLowerCase().includes(search) ||
+            getContainerImage(c).toLowerCase().includes(search)
+        ));
+    }, [containers, searchTerm]);
 
     const selectedStats = selectedContainer
         ? parseStats(containerStats[getContainerId(selectedContainer)])
         : { cpu: 0, memory: 0, available: false };
 
+    // CPU% is the headline number behind the Resources column. A container with
+    // no reading yet is null, NOT 0, so it sorts last and no numeric rule
+    // claims it — see the missing-value guard on lt/gt in ds/grid/fields.js.
+    const cpuPercent = (container) => {
+        const stats = parseStats(containerStats[getContainerId(container)]);
+        return stats.available ? stats.cpu : null;
+    };
+
     // DataTable columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace, so _docker.scss keeps applying
     // (.dx-manager-table, .dx-name-stack, .dx-status-pill, .dx-row-actions...).
+    //
+    // Two accessors per column on purpose: `value` is what the column menu, the
+    // filter rules and the export read (ds/grid/fields.js), `sortValue` is what
+    // DataTable's sorter reads. Declaring only one gets the other from the
+    // wrong place — and where `sortValue` is a rank NUMBER (Status, Health)
+    // that would type the column `num` and make every string rule below match
+    // exactly nothing.
     const columns = [
         {
             key: 'name',
             header: 'Name',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (container) => getContainerName(container),
             sortValue: (container) => getContainerName(container),
             render: (container) => {
                 const isRunning = isContainerRunning(container);
@@ -302,6 +433,13 @@ const ContainersTab = ({ onStatsChange }) => {
             key: 'image',
             header: 'Image',
             sortable: true,
+            type: 'text',
+            // Grouping is the whole point of the "By image" view. `groupValue`
+            // has to be spelled out as well: DataTable's grouper falls back to
+            // row[key], and the remote agent spells the field `Image`.
+            groupable: true,
+            value: (container) => getContainerImage(container),
+            groupValue: (container) => getContainerImage(container),
             sortValue: (container) => getContainerImage(container),
             render: (container) => (
                 <span className="dx-code-pill" title={getContainerImage(container)}>
@@ -313,6 +451,13 @@ const ContainersTab = ({ onStatsChange }) => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            // The pill's own text IS the filterable value, so a preset that
+            // says 'Running' reads exactly the way the row does. No enumOrder:
+            // the label falls through to the raw state for anything past
+            // running/exited/created, and a fixed list would hide 'paused' or
+            // 'dead' from the pick-list on the one host that has them.
+            type: 'enum',
+            value: (container) => getContainerStatusLabel(container),
             // Running first on asc, matching the old default sort.
             sortValue: (container) => (isContainerRunning(container) ? 0 : 1),
             render: (container) => (
@@ -325,9 +470,33 @@ const ContainersTab = ({ onStatsChange }) => {
             ),
         },
         {
+            key: 'health',
+            header: 'Health',
+            sortable: true,
+            type: 'enum',
+            // A closed set of four labels this file produces, so the pick-list
+            // can be ordered by severity instead of alphabetically.
+            enumOrder: HEALTH_LABELS,
+            value: containerHealth,
+            sortValue: (container) => HEALTH_RANK[containerHealth(container)],
+            render: (container) => {
+                const health = containerHealth(container);
+                // Spelled out rather than shown as 'None': the absence of a
+                // healthcheck is a fact about the image, not a missing reading.
+                if (health === 'None') return <span className="dx-muted-line">No healthcheck</span>;
+                return <Pill kind={HEALTH_TONE[health]} dot={false}>{health}</Pill>;
+            },
+        },
+        {
             key: 'ports',
             header: 'Ports',
             sortable: false,
+            // Filterable even though it is not sortable: "which containers are
+            // published to the host" is a `contains ->` away. The accessor has
+            // to be formatPorts — the raw field is a string on the local
+            // transport and an array of objects on the remote one.
+            type: 'text',
+            value: (container) => formatPorts(container.ports).join(', '),
             render: (container) => {
                 const ports = formatPorts(container.ports);
                 return (
@@ -344,11 +513,14 @@ const ContainersTab = ({ onStatsChange }) => {
             key: 'resources',
             header: 'Resources',
             sortable: true,
-            // CPU% is the headline number; containers without stats sort last.
-            sortValue: (container) => {
-                const stats = parseStats(containerStats[getContainerId(container)]);
-                return stats.available ? stats.cpu : null;
-            },
+            // Declared, not inferred: on a host where everything is stopped no
+            // row has a reading at all, and an all-null sample infers no type —
+            // the column would offer filtering on a busy host and not on an
+            // idle one.
+            type: 'num',
+            unit: '%',
+            value: cpuPercent,
+            sortValue: cpuPercent,
             render: (container) => (
                 <ContainerResourceBars
                     stats={parseStats(containerStats[getContainerId(container)])}
@@ -360,6 +532,12 @@ const ContainersTab = ({ onStatsChange }) => {
             key: 'created',
             header: 'Created',
             sortable: true,
+            // Declared: `sortValue` is epoch ms, and letting that number type
+            // the column would offer "is under 1754…" instead of a date picker.
+            // The raw value is docker's CreatedAt ("2026-08-12 09:12:33 -0400
+            // EDT"), which both Date.parse and the rule engine read.
+            type: 'date',
+            value: (container) => container.created || container.CreatedAt || null,
             sortValue: (container) => {
                 const parsed = Date.parse(container.created || container.CreatedAt || '');
                 return Number.isNaN(parsed) ? null : parsed;
@@ -417,6 +595,34 @@ const ContainersTab = ({ onStatsChange }) => {
         },
     ];
 
+    // The page-private half of a saved view. `showAll` belongs in it because it
+    // is not a filter over the rows on screen — it changes the REQUEST
+    // (`docker ps` vs `docker ps -a`), so a view that wants stopped containers
+    // has to be able to ask for them.
+    const viewPageState = useMemo(() => ({ showAll, search: searchTerm }), [showAll, searchTerm]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.showAll !== undefined) setShowAll(!!saved.showAll);
+        if (saved.search !== undefined) setSearchTerm(saved.search);
+    }, []);
+
+    // The only table on the /docker route (the other tabs render lists of their
+    // own resources, not a second grid over these rows), so no urlScope.
+    const chrome = useTableChrome({
+        columns,
+        rows: filteredContainers,
+        viewPageKey: 'docker-containers',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'containers',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
     if (loading) {
         return (
             <div className="dx-tab-pane">
@@ -427,33 +633,42 @@ const ContainersTab = ({ onStatsChange }) => {
 
     return (
         <div className="dx-tab-pane dx-containers-pane">
-            <div className="dx-tab-toolbar">
-                <div className="dx-filter-chips">
-                    {[
-                        { id: 'all', label: 'All', count: counts.all },
-                        { id: 'running', label: 'Running', count: counts.running },
-                        { id: 'stopped', label: 'Stopped', count: counts.stopped },
-                    ].map(c => (
-                        <button type="button"
-                            key={c.id}
-                            className={`filter-chip ${statusFilter === c.id ? 'active' : ''}`}
-                            onClick={() => setStatusFilter(c.id)}
-                            disabled={c.id !== 'all' && c.count === 0}
-                        >
-                            <span>{c.label}</span>
-                            <span className="filter-chip-count">{c.count}</span>
-                        </button>
-                    ))}
-                </div>
-                <div className="dx-tab-toolbar-right">
-                    <label className="dx-toggle">
-                        <input
-                            type="checkbox"
-                            checked={showAll}
-                            onChange={(e) => setShowAll(e.target.checked)}
+            {/* The view name is this pane's heading, and the table's own
+                controls ride the same line. `shownCount` is the count that
+                matches the body: `filteredContainers` has only been through the
+                search, the column rules are applied inside DataTable. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="containers"
+                total={`${chrome.shownCount} of ${containers.length} containers`}
+                onCreate={chrome.createView}
+                actions={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
                         />
-                        <span>Include stopped</span>
-                    </label>
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadContainers} />
+                    </>
+                )}
+            />
+
+            <GridChips {...chrome.chipProps} />
+
+            {/* What is left of the toolbar is the page's own: the fetch scope
+                and the search it runs before the table sees a row. The
+                All/Running/Stopped chips that used to sit here were column
+                rules in disguise and are built-in views now. */}
+            <div className="dx-tab-toolbar">
+                <label className="dx-toggle">
+                    <input
+                        type="checkbox"
+                        checked={showAll}
+                        onChange={(e) => setShowAll(e.target.checked)}
+                    />
+                    <span>Include stopped</span>
+                </label>
+                <div className="dx-tab-toolbar-right">
                     <div className="dx-search-field">
                         <Search size={13} className="lv-search-field-icon" />
                         <input
@@ -481,25 +696,29 @@ const ContainersTab = ({ onStatsChange }) => {
                 </div>
             </div>
 
+            {/* Only the SEARCH can empty the pane outright. A column rule that
+                matches nothing keeps the table mounted — the header menu that
+                undoes it lives in the header. */}
             {filteredContainers.length === 0 ? (
                 <EmptyState
                     icon={Box}
                     title={containers.length === 0 ? 'No containers' : 'No matching containers'}
                     description={containers.length === 0
                         ? 'Run your first container to see it here.'
-                        : 'No containers match the current filters.'}
+                        : 'No containers match the current search.'}
                 />
             ) : (
                 <div className="dx-manager-layout">
                     <section className="dx-resource-list">
                         <DataTable
-                            columns={columns}
+                            {...chrome.tableProps}
+                            columns={chrome.columns}
                             data={filteredContainers}
                             keyField={(container) => getContainerId(container)}
                             sorts={sorts}
                             onSortsChange={setSorts}
-                            hiddenKeys={hiddenKeys}
-                            onHiddenKeysChange={setHiddenKeys}
+                            groupBy={groupBy}
+                            onGroupByChange={setGroupBy}
                             onRowClick={(container) => setSelectedContainer(container)}
                             rowClassName={(container) => (
                                 `${isContainerRunning(container) ? 'is-running' : 'is-stopped'} ${getContainerId(selectedContainer) === getContainerId(container) ? 'is-selected' : ''}`
@@ -508,7 +727,7 @@ const ContainersTab = ({ onStatsChange }) => {
                             tableClassName="dx-manager-table"
                             footer={(
                                 <DataTableFooter
-                                    shown={filteredContainers.length}
+                                    shown={chrome.shownCount}
                                     total={containers.length}
                                     noun="container"
                                 />
@@ -542,6 +761,11 @@ const ContainersTab = ({ onStatsChange }) => {
                     onClose={() => setExecContainer(null)}
                 />
             )}
+
+            {/* The pane's only filter affordance beyond the per-column menus:
+                there is no server-side filter drawer here, just the fetch-scope
+                checkbox and the search. */}
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };
