@@ -347,6 +347,7 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     font-size: 13px;
 
     thead th {
+        position: relative;
         text-align: left;
         font-family: var(--mono);
         font-size: 10.5px;
@@ -356,6 +357,42 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         font-weight: 600;
         padding: 11px 16px;
         border-bottom: 1px solid var(--border);
+
+        // Header cells that carry a "⋮" reserve its lane, so the label never
+        // reflows when the button appears on hover.
+        &.has-menu { padding-right: 28px; }
+        &.is-filtered { color: var(--accent-bright); }
+        &:hover .sk-colmenu-btn { opacity: 1; }
+        &.is-filtered .sk-colmenu-btn { opacity: 1; color: var(--accent-bright); }
+    }
+
+    // Top-lit header, matching the DataGrid surface, so the two table
+    // implementations read as one component.
+    thead { background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+
+    &__filter-mark { color: var(--accent-bright); flex-shrink: 0; }
+
+    // Filtered-to-nothing: the header stays, because the control that undoes it
+    // lives in the header menu.
+    &__nomatch td {
+        padding: 34px 16px !important;
+        text-align: center;
+        color: var(--text-faint);
+        font-size: 12.5px;
+
+        button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: var(--surface-2);
+            color: var(--text-dim);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+
+            &:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
+        }
     }
     tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
     tbody tr { transition: background 0.12s; }
@@ -1053,12 +1090,19 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         gap: 8px;
         flex-shrink: 0;
 
-        // House rule: the search box is ALWAYS the right-most control in the
-        // top bar, whatever order a page happens to publish its actions in.
-        // Enforced here rather than by convention at each call site, so it
-        // cannot drift and new pages get it for free. (Flex order defaults to
-        // 0, so lifting only the search field is enough.)
+        // House rule: the top bar has FIXED SLOTS, not a publication order.
+        // Whatever order a page happens to render its actions in, they land in
+        // the same places on every page:
+        //
+        //     [ page actions ] [ search ] [ filter · overflow ]
+        //
+        // Enforced here rather than by convention at each call site so it
+        // cannot drift and new pages get it for free. The point is muscle
+        // memory: the search box must sit in the same pixels on /domains as on
+        // /services, and must not move when a page gains or loses a button.
+        > * { order: 0; }
         > .sk-searchfield { order: 1; }
+        > .sk-gridicon { order: 2; }
     }
 
     // Routed sub-nav (the ex-sidebar sub-items). The nav is the flex-fill

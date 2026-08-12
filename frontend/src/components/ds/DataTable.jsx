@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronUp, ChevronDown, ChevronRight, Filter } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils';
 import { applyTableSorts, nextSorts, useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
+import ColumnMenu from './grid/ColumnMenu';
+import { applyFilters, isDecorative, withInferredTypes } from './grid/fields';
 
 /**
  * Declarative data table built on top of the shadcn/ui Table primitives.
@@ -68,9 +70,20 @@ export function DataTable({
     onSortsChange,
     // Controlled column visibility (optional).
     hiddenKeys: controlledHiddenKeys,
+    onHiddenKeysChange,
     // Grouping (optional; controlled via groupBy + onGroupByChange).
     groupBy: controlledGroupBy,
     onGroupByChange,
+    // Per-column header menu (sort · group · filter · move · hide). On by
+    // default: it is the table's own affordance, not a page feature.
+    columnMenu = true,
+    // Column filter rules. Uncontrolled by default — pass both to mirror the
+    // rules in a chip bar or a filter drawer.
+    filters: controlledFilters,
+    onFiltersChange,
+    // Column order (visible order). Uncontrolled by default.
+    columnOrder: controlledOrder,
+    onColumnOrderChange,
     // Selection (optional, controlled).
     selectable = false,
     selectedKeys,
@@ -100,23 +113,99 @@ export function DataTable({
             ? (key, additive) => onSortsChange(nextSorts(sorts, key, additive))
             : internal.toggleSort
     ), [onSortsChange, sorts, internal.toggleSort]);
+    const setSorts = onSortsChange ?? internal.setSorts;
+
+    // The header menu picks a DIRECTION rather than cycling, so it replaces the
+    // whole sort stack. Shift+click on the header is still how you stack levels.
+    const setSortDirection = useCallback(
+        (key, direction) => setSorts([{ key, direction }]),
+        [setSorts],
+    );
+
+    const [openMenu, setOpenMenu] = useState(null);
 
     const internalCols = useColumnVisibility({
         storageKey: storageKey ? `${storageKey}-cols` : undefined,
     });
     const hiddenKeys = controlledHiddenKeys ?? internalCols.hiddenKeys;
+    const setHiddenKeys = onHiddenKeysChange
+        ?? (controlledHiddenKeys ? null : internalCols.setHiddenKeys);
 
     const [internalGroupBy, setInternalGroupBy] = useState(null);
     const groupBy = controlledGroupBy !== undefined ? controlledGroupBy : internalGroupBy;
+    const setGroupBy = onGroupByChange ?? setInternalGroupBy;
+
+    // ---- column filters (header menu) --------------------------------------
+    // Types are inferred from the data for every column that doesn't declare
+    // one, so the ~50 tables written before the field model existed get
+    // filtering without touching a single call site.
+    const typedColumns = useMemo(
+        () => (columnMenu ? withInferredTypes(columns, data) : columns),
+        [columns, data, columnMenu],
+    );
+
+    const [internalFilters, setInternalFilters] = useState({ match: 'all', rules: [] });
+    const filters = controlledFilters ?? internalFilters;
+    const setFilters = onFiltersChange ?? setInternalFilters;
+
+    // Every setter below is called with an explicit VALUE, never an updater
+    // function: half of them may be a controlled `onXChange` prop from a page,
+    // which is a plain `(next) => void` and would receive the function itself.
+    const putRule = useCallback((key, rule) => {
+        setFilters({
+            ...filters,
+            rules: [...filters.rules.filter((r) => r.field !== key), ...(rule ? [rule] : [])],
+        });
+    }, [setFilters, filters]);
+
+    // ---- column order (header menu: move left / right) ---------------------
+    const [internalOrder, setInternalOrder] = useState(null);
+    const order = controlledOrder ?? internalOrder;
+    const setOrder = onColumnOrderChange ?? setInternalOrder;
+
+    const orderedColumns = useMemo(() => {
+        if (!order?.length) return typedColumns;
+        const byKey = new Map(typedColumns.map((c) => [c.key, c]));
+        const moved = order.map((k) => byKey.get(k)).filter(Boolean);
+        // Columns absent from a stale saved order keep their declared position.
+        const rest = typedColumns.filter((c) => !order.includes(c.key));
+        return [...moved, ...rest];
+    }, [typedColumns, order]);
 
     const visibleColumns = useMemo(
-        () => columns.filter((c) => !hiddenKeys.includes(c.key)),
-        [columns, hiddenKeys],
+        () => orderedColumns.filter((c) => !hiddenKeys.includes(c.key)),
+        [orderedColumns, hiddenKeys],
+    );
+
+    const moveColumn = useCallback((key, delta) => {
+        const keys = visibleColumns.map((c) => c.key);
+        const from = keys.indexOf(key);
+        const to = from + delta;
+        if (from < 0 || to < 0 || to >= keys.length) return;
+        keys.splice(to, 0, ...keys.splice(from, 1));
+        setOrder(keys);
+    }, [visibleColumns, setOrder]);
+
+    const hideColumn = useCallback((key) => {
+        if (!hiddenKeys.includes(key)) setHiddenKeys?.([...hiddenKeys, key]);
+        putRule(key, null);
+        if (groupBy === key) setGroupBy?.(null);
+    }, [setHiddenKeys, hiddenKeys, putRule, setGroupBy, groupBy]);
+
+    // Group BY a column (header menu). Distinct from `toggleGroup` below, which
+    // collapses/expands one already-rendered group row.
+    const toggleGroupBy = useCallback((key) => {
+        setGroupBy?.(groupBy === key ? null : key);
+    }, [setGroupBy, groupBy]);
+
+    const filteredData = useMemo(
+        () => (filters?.rules?.length ? applyFilters(data, filters, typedColumns) : data),
+        [data, filters, typedColumns],
     );
 
     const sortedData = useMemo(
-        () => (sortable ? applyTableSorts(data, sorts, columns) : data),
-        [data, sorts, sortable, columns],
+        () => (sortable ? applyTableSorts(filteredData, sorts, columns) : filteredData),
+        [filteredData, sorts, sortable, columns],
     );
 
     // ---- grouping ----------------------------------------------------------
@@ -288,10 +377,12 @@ export function DataTable({
                                 />
                             </TableHead>
                         )}
-                        {visibleColumns.map((column) => {
+                        {visibleColumns.map((column, columnIndex) => {
                             const sortIndex = sorts.findIndex((s) => s.key === column.key);
                             const isSorted = sortIndex !== -1;
                             const canSort = sortable && column.sortable;
+                            const rule = filters.rules.find((r) => r.field === column.key) || null;
+                            const showMenu = columnMenu && !isDecorative(column);
                             return (
                                 <TableHead
                                     key={column.key}
@@ -299,6 +390,8 @@ export function DataTable({
                                         column.className,
                                         canSort && 'is-sortable',
                                         isSorted && 'is-sorted',
+                                        rule && 'is-filtered',
+                                        showMenu && 'has-menu',
                                     )}
                                     style={column.width ? { width: column.width } : undefined}
                                     onClick={(event) => handleHeaderClick(event, column)}
@@ -327,14 +420,49 @@ export function DataTable({
                                                 )}
                                             </span>
                                         )}
+                                        {rule && <Filter size={11} className="sk-dtable__filter-mark" />}
                                     </span>
+                                    {showMenu && (
+                                        <ColumnMenu
+                                            column={column}
+                                            rows={data}
+                                            sortDir={isSorted ? sorts[sortIndex].direction : null}
+                                            grouped={groupBy === column.key}
+                                            rule={rule}
+                                            canMoveLeft={columnIndex > 0}
+                                            canMoveRight={columnIndex < visibleColumns.length - 1}
+                                            canHide={!!setHiddenKeys && column.hideable !== false}
+                                            onSort={canSort ? setSortDirection : undefined}
+                                            onToggleGroup={column.groupable ? toggleGroupBy : undefined}
+                                            onPutRule={putRule}
+                                            onMove={moveColumn}
+                                            onHide={hideColumn}
+                                            open={openMenu === column.key}
+                                            onOpenChange={(open) => setOpenMenu(open ? column.key : null)}
+                                        />
+                                    )}
                                 </TableHead>
                             );
                         })}
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {groups
+                    {/* Filtered to nothing is NOT the empty state: the header
+                        has to stay on screen, because the control that undoes
+                        it lives in the header menu. */}
+                    {sortedData.length === 0 && data.length > 0 ? (
+                        <TableRow className="sk-dtable__nomatch">
+                            <TableCell colSpan={columnCount}>
+                                <span>No rows match the active column filters.</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFilters({ match: filters.match, rules: [] })}
+                                >
+                                    Clear filters
+                                </button>
+                            </TableCell>
+                        </TableRow>
+                    ) : groups
                         ? groups.map((group) => {
                             const isCollapsed = collapsedGroups.has(group.key);
                             const label = groupColumn.groupLabel
