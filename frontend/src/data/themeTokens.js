@@ -20,7 +20,7 @@
 // Authors write these ~37 names; the alias table below fans each out to the
 // legacy names so all ~60 theme-sensitive stylesheet variables get painted.
 export const TOKEN_GROUPS = {
-    surfaces: ['--bg-body', '--bg-sidebar', '--surface', '--surface-2', '--surface-3', '--surface-hover'],
+    surfaces: ['--bg-body', '--bg-sidebar', '--surface-0', '--surface', '--surface-2', '--surface-3', '--surface-hover'],
     borders: ['--border', '--border-soft', '--border-strong'],
     text: ['--text', '--text-dim', '--text-faint', '--text-ghost'],
     semantic: ['--green', '--green-bg', '--amber', '--amber-bg', '--red', '--red-bg', '--cyan', '--cyan-bg', '--violet', '--violet-bg'],
