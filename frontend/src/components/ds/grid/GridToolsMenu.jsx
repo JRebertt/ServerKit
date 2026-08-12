@@ -9,8 +9,11 @@ import { byKey, exportRows } from './fields';
 // One button instead of four keeps the top bar the same shape on every page,
 // which is the whole point of putting search there.
 export function GridToolsMenu({
-    cfg, columns, rows, selectedRows, viewName, noun = 'rows',
+    cfg, columns, rows, selectedRows = [], viewName, noun = 'rows',
     onRefresh, onReset, onDensity, onExported,
+    // Off for hosts whose table auto-sizes its rows (<DataTable>) — showing a
+    // density toggle that changes nothing is worse than not showing one.
+    showDensity = true,
 }) {
     const [open, setOpen] = useState(false);
     const [pane, setPane] = useState('root');   // root | export
@@ -59,19 +62,23 @@ export function GridToolsMenu({
                                 <RefreshCw size={13} />Refresh data
                             </button>
                         )}
-                        <div className="sk-gridmenu__sep" />
-                        <div className="sk-gridmenu__head">Row density</div>
-                        {[['cozy', 'Cozy', Rows2], ['compact', 'Compact', Rows3]].map(([value, text, Icon]) => (
-                            <button
-                                key={value}
-                                type="button"
-                                className={cn('sk-gridmenu__opt', cfg.density === value && 'is-on')}
-                                onClick={() => onDensity(value)}
-                            >
-                                <span className="sk-gridmenu__box"><Check size={11} /></span>
-                                <Icon size={13} />{text}
-                            </button>
-                        ))}
+                        {showDensity && (
+                            <>
+                                <div className="sk-gridmenu__sep" />
+                                <div className="sk-gridmenu__head">Row density</div>
+                                {[['cozy', 'Cozy', Rows2], ['compact', 'Compact', Rows3]].map(([value, text, Icon]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={cn('sk-gridmenu__opt', cfg.density === value && 'is-on')}
+                                        onClick={() => onDensity(value)}
+                                    >
+                                        <span className="sk-gridmenu__box"><Check size={11} /></span>
+                                        <Icon size={13} />{text}
+                                    </button>
+                                ))}
+                            </>
+                        )}
                         <div className="sk-gridmenu__sep" />
                         <button
                             type="button"

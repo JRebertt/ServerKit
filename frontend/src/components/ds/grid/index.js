@@ -17,8 +17,10 @@ export { GridFilterDrawer } from './GridFilterDrawer';
 export { GridFilterButton } from './GridFilterButton';
 export { useGridConfig, makeGridConfig, GRID_DEFAULTS } from './useGridConfig';
 export { useGridRows } from './useGridRows';
+export { useTableChrome } from './useTableChrome';
 export {
     OPS, FIELD_TYPES, opLabel, ruleId, columnLabel, fieldValue,
     applyFilters, applySort, groupRows, ruleText, exportRows,
     isFilterable, isGroupable, isSortable, isHideable, optionsFor, valueCounts,
+    inferColumnType, withInferredTypes, isDecorative,
 } from './fields';

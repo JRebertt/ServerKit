@@ -13,7 +13,14 @@ import {
 // looking at": FILTERS decides which rows, FIELDS decides which columns (and in
 // what order, at what density, with which detail line). The header menu is the
 // fast path for one column; this is the whole picture at once.
-export function GridFilterDrawer({ open, onOpenChange, columns, rows, cfg, grid, noun = 'rows' }) {
+export function GridFilterDrawer({
+    open, onOpenChange, columns, rows, cfg, grid, noun = 'rows',
+    // Hosts whose table auto-sizes its columns and has no sub-detail line
+    // (i.e. <DataTable> rather than <DataGrid>) switch these off — a control
+    // that cannot change anything is worse than a missing one.
+    showRowDetail = true,
+    showDensity = true,
+}) {
     const [tab, setTab] = useState('filters');
     const [dragging, setDragging] = useState(null);
 
@@ -149,7 +156,11 @@ export function GridFilterDrawer({ open, onOpenChange, columns, rows, cfg, grid,
 
                         {rules.map((rule, i) => {
                             const column = map.get(rule.field);
-                            if (!column) return null;
+                            // A rule can outlive its column's filterability — a
+                            // saved view from before a column changed shape, or
+                            // a column whose data went empty. Skip it rather
+                            // than look up OPS[undefined] and crash the drawer.
+                            if (!column || !isFilterable(column)) return null;
                             return (
                                 <div key={rule.id}>
                                     {i > 0 && (
@@ -244,7 +255,10 @@ export function GridFilterDrawer({ open, onOpenChange, columns, rows, cfg, grid,
                             })}
                         </div>
 
+                        {(showRowDetail || showDensity) && (
                         <div className="sk-gridsec">
+                            {showRowDetail && (
+                            <>
                             <div className="sk-gridsec__head"><div className="sk-gridsec__t">Row detail</div></div>
                             <p className="sk-gridsec__hint">Extra fields printed under the first column.</p>
                             <div className="sk-gridsec__tags">
@@ -264,8 +278,12 @@ export function GridFilterDrawer({ open, onOpenChange, columns, rows, cfg, grid,
                                     );
                                 })}
                             </div>
+                            </>
+                            )}
 
-                            <div className="sk-gridsec__head" style={{ marginTop: 18 }}>
+                            {showDensity && (
+                            <>
+                            <div className="sk-gridsec__head" style={showRowDetail ? { marginTop: 18 } : undefined}>
                                 <div className="sk-gridsec__t">Density</div>
                             </div>
                             <div className="sk-gridseg sk-gridseg--wide">
@@ -280,7 +298,10 @@ export function GridFilterDrawer({ open, onOpenChange, columns, rows, cfg, grid,
                                     </button>
                                 ))}
                             </div>
+                            </>
+                            )}
                         </div>
+                        )}
                     </>
                 )}
             </div>
