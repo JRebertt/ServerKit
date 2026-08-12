@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,11 +13,14 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
     Pill, SegControl, SearchField, DataTable, Drawer,
-    SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar,
+    DataTableFooter, ListToolbar,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { useTableViews } from '@/hooks/useTableViews';
 import SchedulePicker from '../components/SchedulePicker';
 import PageLayout from '../layouts/PageLayout';
 
@@ -57,6 +60,30 @@ const BUILTIN_VIEWS = [
     { name: 'Paused', state: { filter: 'paused', search: '', sorts: [], hiddenKeys: [] } },
     { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
     { name: 'Recently run', state: { filter: 'all', search: '', sorts: [{ key: 'last_run', direction: 'desc' }], hiddenKeys: [] } },
+    {
+        // What broke, most recent failure first.
+        name: 'Failing now',
+        state: {
+            filter: 'failed', search: '', hiddenKeys: ['next_run'],
+            sorts: [{ key: 'last_run', direction: 'desc' }],
+        },
+    },
+    {
+        // Scheduled and enabled, but the oldest last-run in the list — the jobs
+        // that look healthy only because nothing has checked them.
+        name: 'Stale schedules',
+        state: {
+            filter: 'active', search: '', hiddenKeys: [],
+            sorts: [{ key: 'last_run', direction: 'asc' }],
+        },
+    },
+    {
+        name: 'Health roll-call',
+        state: {
+            filter: 'all', search: '', hiddenKeys: ['schedule'],
+            sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
+        },
+    },
 ];
 
 // The browser's zone, not the host's — times are ISO strings rendered client
@@ -126,22 +153,14 @@ const CronJobs = () => {
         storageKey: 'serverkit-table-cronjobs-cols',
     });
 
-    // Saved views: capture/apply adapt the hook to this page's table state.
-    const captureViewState = useCallback(() => ({
-        filter, search, sorts, hiddenKeys,
-    }), [filter, search, sorts, hiddenKeys]);
-    const applyViewState = useCallback((state) => {
+    // Shared list chrome: view picker + filter chips + filter drawer + tools,
+    // driven off this page's existing sorts/hiddenKeys state. Same hook every
+    // other list page uses, so /cron looks and behaves like /domains.
+    const extraViewState = useMemo(() => ({ filter, search }), [filter, search]);
+    const applyExtraViewState = useCallback((state) => {
         if (state.filter !== undefined) setFilter(state.filter);
         if (state.search !== undefined) setSearch(state.search);
-        if (Array.isArray(state.sorts)) setSorts(state.sorts);
-        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
-    }, [setSorts, setHiddenKeys]);
-    const tableViews = useTableViews({
-        page: 'cronjobs',
-        builtinViews: BUILTIN_VIEWS,
-        capture: captureViewState,
-        apply: applyViewState,
-    });
+    }, []);
 
     // Drawer + modal states
     const [drawerJob, setDrawerJob] = useState(null);
@@ -389,6 +408,20 @@ const CronJobs = () => {
         },
     ];
 
+    const chrome = useTableChrome({
+        columns: jobColumns,
+        rows: shown,
+        viewPageKey: 'cronjobs',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'jobs',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        extraState: extraViewState,
+        applyExtra: applyExtraViewState,
+    });
+
     return (
         <PageLayout
             className="cron-page"
@@ -437,28 +470,27 @@ const CronJobs = () => {
                 <div className="cron-body">
                     {/* No KPI strip: every number it carried is already on the
                         segment you'd click to act on it (mirrors /domains). */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="jobs"
+                        total={`${shown.length} of ${jobs.length} jobs`}
+                        onCreate={chrome.createView}
+                    />
                     <ListToolbar
-                        title="All jobs"
                         filters={<SegControl value={filter} onChange={setFilter} options={filterOptions} />}
-                        count={(
-                            <>
-                                {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
-                                {shown.length} of {jobs.length} jobs
-                            </>
-                        )}
+                        count={serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
                         tools={(
                             <>
-                                <ViewMenu views={tableViews} />
-                                <SortMenu columns={jobColumns} sorts={sorts} onChange={setSorts} />
-                                <ColumnsMenu
-                                    columns={jobColumns}
-                                    hiddenKeys={hiddenKeys}
-                                    onToggle={toggleColumn}
-                                    onShowAll={showAllColumns}
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
                                 />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
                             </>
                         )}
                     />
+
+                    <GridChips {...chrome.chipProps} />
 
                     {shown.length === 0 ? (
                         <div className="cron-empty">
@@ -470,10 +502,10 @@ const CronJobs = () => {
                                 tableClassName="sk-dtable cron-table"
                                 data={shown}
                                 keyField="id"
-                                columns={jobColumns}
+                                columns={chrome.columns}
                                 sorts={sorts}
                                 onSortsChange={setSorts}
-                                hiddenKeys={hiddenKeys}
+                                {...chrome.tableProps}
                                 onRowClick={setDrawerJob}
                                 rowClassName={(job) => (job.enabled ? undefined : 'is-disabled')}
                                 footer={(
@@ -543,6 +575,7 @@ const CronJobs = () => {
                     <Button variant="outline" onClick={() => setRunOutput(null)}>Close</Button>
                 </div>
             </Modal>
+            <GridFilterDrawer {...chrome.drawerProps} />
         </PageLayout>
     );
 };
