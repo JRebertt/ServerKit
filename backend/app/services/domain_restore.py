@@ -9,7 +9,7 @@ import logging
 
 from app import db
 from app.models import Application, Domain
-from app.services.nginx_service import NginxService
+from app.services.site_domain_service import SiteDomainService
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ def pre_restore_domain(domain):
 def on_restore_domain(domain):
     """Re-serve the domain: rewrite the app's vhost from its LIVE domains.
 
-    Mirrors what delete_domain does in reverse — same NginxService.create_site
-    call over the same live-domain set, which now includes this one again.
+    Mirrors what delete_domain does in reverse, over the same live-domain set
+    -- which now includes this one again.
     """
     app = Application.query.get(domain.application_id)
     if app is None:
@@ -59,31 +59,29 @@ def on_restore_domain(domain):
             domain.is_primary = False
             db.session.commit()
 
-    # Only Docker apps get a generated vhost (see delete_domain / create_domain);
-    # anything else has no nginx state to put back.
-    if app.app_type != 'docker' or not app.port:
-        return
-
-    domains = [d.name for d in
-               Domain.query_active().filter_by(application_id=app.id).all()]
-    if not domains:
-        return
-
-    result = NginxService.create_site(
-        name=app.name,
-        app_type='docker',
-        domains=domains,
-        root_path=app.root_path or '',
-        port=app.port,
-    )
-    if not result or not result.get('success'):
+    # Rewrite through SiteDomainService, NOT a bare NginxService.create_site.
+    # Three reasons, all of which were bugs in the first cut of this hook:
+    #
+    #  1. ENABLE. When the deleted domain was the app's LAST one, delete_domain
+    #     ran disable_site() + delete_site() — the sites-enabled symlink is gone,
+    #     not just the server_name. create_site alone rewrites the file and
+    #     leaves it unserved. write_app_vhost calls enable_site.
+    #  2. SSL / CACHE. app_vhost_kwargs re-attaches a covering wildcard cert and
+    #     the micro-cache flag. A raw create_site drops both, so a restored site
+    #     would silently fall back to plain HTTP.
+    #  3. EVERY APP TYPE. delete_domain only touches nginx for docker apps, so
+    #     php/static/flask/wordpress vhosts still list the deleted domain. The
+    #     rewrite is idempotent, so running it for them repairs that asymmetry
+    #     instead of preserving it.
+    result = SiteDomainService.write_app_vhost(app)
+    warning = (result or {}).get('warning')
+    if warning:
         # Surfaced to the caller as a restore warning: the row IS back, it just
         # is not being served yet.
-        raise RuntimeError((result or {}).get('error') or 'nginx config could not be written')
-    NginxService.reload()
+        raise RuntimeError(warning)
 
     # NOTE: the certificate is deliberately NOT re-issued. ssl_enabled may still
     # be True with cert files that expired or were cleaned up while the domain
     # sat in the bin, and silently talking to Let's Encrypt during a restore is
-    # not something a "put it back" button should do. The domain returns on
-    # HTTP; re-enable SSL explicitly.
+    # not something a "put it back" button should do. A covering wildcard is
+    # re-attached above; a per-domain cert is re-enabled explicitly.

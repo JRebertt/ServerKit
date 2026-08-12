@@ -60,8 +60,8 @@ def test_restore_is_idempotent(app, app_with_domain, monkeypatch):
     # Domain now has an on_restore hook that rewrites the vhost; stub the nginx
     # side so this test stays about restore semantics.
     from app.services import domain_restore
-    monkeypatch.setattr(domain_restore.NginxService, 'create_site', lambda **kw: {'success': True})
-    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': {}, 'warning': None}))
 
     with app.app_context():
         Domain.query.get(app_with_domain['domain_id']).soft_delete()
@@ -167,9 +167,8 @@ def test_restoring_a_domain_rewrites_the_vhost(app, app_with_domain, monkeypatch
     from app.services import domain_restore
 
     calls = []
-    monkeypatch.setattr(domain_restore.NginxService, 'create_site',
-                        lambda **kw: calls.append(kw) or {'success': True})
-    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: calls.append(a) or {'nginx': {}, 'warning': None}))
 
     with app.app_context():
         Domain.query.get(app_with_domain['domain_id']).soft_delete()
@@ -178,7 +177,7 @@ def test_restoring_a_domain_rewrites_the_vhost(app, app_with_domain, monkeypatch
         item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
         assert err is None and item is not None
         assert len(calls) == 1
-        assert 'shop.example.com' in calls[0]['domains']
+        assert calls[0].id == app_with_domain['app_id']
 
 
 def test_restore_is_refused_when_the_name_was_taken_again(app, app_with_domain):
@@ -211,8 +210,8 @@ def test_restore_is_refused_when_the_app_is_gone(app, app_with_domain):
 
 def test_restored_domain_does_not_become_a_second_primary(app, app_with_domain, monkeypatch):
     from app.services import domain_restore
-    monkeypatch.setattr(domain_restore.NginxService, 'create_site', lambda **kw: {'success': True})
-    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': {}, 'warning': None}))
 
     with app.app_context():
         first = Domain.query.get(app_with_domain['domain_id'])
@@ -230,8 +229,8 @@ def test_restored_domain_does_not_become_a_second_primary(app, app_with_domain, 
 
 def test_a_failing_vhost_rewrite_warns_but_keeps_the_restore(app, app_with_domain, monkeypatch):
     from app.services import domain_restore
-    monkeypatch.setattr(domain_restore.NginxService, 'create_site',
-                        lambda **kw: {'success': False, 'error': 'nginx -t failed'})
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': None, 'warning': 'nginx -t failed'}))
 
     with app.app_context():
         Domain.query.get(app_with_domain['domain_id']).soft_delete()
@@ -242,3 +241,37 @@ def test_a_failing_vhost_rewrite_warns_but_keeps_the_restore(app, app_with_domai
         assert item is not None
         assert 'nginx -t failed' in err
         assert Domain.query.get(app_with_domain['domain_id']).deleted_at is None
+
+
+def test_restoring_the_last_domain_re_enables_the_site(app, app_with_domain, monkeypatch):
+    """The bug this hook shipped with.
+
+    When the deleted domain was the app's LAST one, delete_domain ran
+    disable_site() + delete_site() — the sites-enabled symlink is gone, not just
+    the server_name. A bare NginxService.create_site rewrites the file and
+    leaves it UNSERVED. Restore has to go through SiteDomainService.write_app_vhost,
+    which calls enable_site as well.
+    """
+    from app.services import domain_restore
+    from app.services.nginx_service import NginxService
+
+    seen = {'create': 0, 'enable': 0}
+    monkeypatch.setattr(NginxService, 'create_site',
+                        classmethod(lambda cls, **kw: seen.__setitem__('create', seen['create'] + 1) or {'success': True}))
+    monkeypatch.setattr(NginxService, 'enable_site',
+                        classmethod(lambda cls, name: seen.__setitem__('enable', seen['enable'] + 1) or {'success': True}))
+
+    assert domain_restore is not None        # hook module must be importable
+
+    with app.app_context():
+        # the app's ONLY domain — this is the disable_site + delete_site branch
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+        assert Domain.query_active().filter_by(
+            application_id=app_with_domain['app_id']).count() == 0
+
+        _, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None
+
+    assert seen['create'] >= 1, 'vhost was never written'
+    assert seen['enable'] >= 1, 'vhost written but never enabled — the site stays unserved'
