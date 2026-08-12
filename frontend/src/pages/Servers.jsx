@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Folder, Plus, RefreshCw, Server as ServerLucideIcon, X } from 'lucide-react';
 import api from '../services/api';
@@ -8,12 +8,15 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, Drawer, Gauge, GroupMenu, ListToolbar, Pill, SearchField, SegControl, SortChipBar, SortMenu, ViewMenu,
+    DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField, SegControl,
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { useTableViews } from '@/hooks/useTableViews';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import useFocusParam from '@/hooks/useFocusParam';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
 
@@ -31,10 +34,68 @@ const STATUS_FILTERS = ['all', 'online', 'offline', 'connecting', 'pending'];
 
 // Built-in saved views. States only use real SegControl values
 // (STATUS_FILTERS), group values ('all') and column keys (SERVER_COLUMNS).
+// NOTE for anyone adding a metric preset: only ever use `gt` on cpu/memory/disk.
+// Their sortValue is null for a non-live row, and a `lt` rule would match every
+// offline and pending server (see the null guard in ds/grid/fields.js).
 const SERVER_BUILTIN_VIEWS = [
     { name: 'Online', state: { status: 'online', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
     { name: 'Offline', state: { status: 'offline', group: 'all', search: '', sorts: [], hiddenKeys: [] } },
     { name: 'By CPU', state: { status: 'all', group: 'all', search: '', sorts: [{ key: 'cpu', direction: 'desc' }], hiddenKeys: [] } },
+    {
+        // Machines that HAVE an agent but stopped answering, longest silence
+        // first. `pending` is excluded — that means nobody ever installed one.
+        // CPU/Memory/Disk are hidden because no row here is live, so all three
+        // would render an em-dash.
+        name: 'Not reporting',
+        state: {
+            status: 'all', group: 'all', search: '', groupBy: null,
+            sorts: [{ key: 'lastSeen', direction: 'asc' }],
+            hiddenKeys: ['cpu', 'memory', 'disk'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'nr1', field: 'status', op: 'any', value: ['offline', 'connecting'] }],
+            },
+        },
+    },
+    {
+        // Saturated on EITHER axis — a box swapping at 95% memory with calm CPU
+        // is the one that falls over, so match:any rather than all.
+        name: 'Under load',
+        state: {
+            status: 'online', group: 'all', search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'cpu', direction: 'desc' }],
+            columnFilters: {
+                match: 'any',
+                rules: [
+                    { id: 'ul1', field: 'cpu', op: 'gt', value: 85 },
+                    { id: 'ul2', field: 'memory', op: 'gt', value: 90 },
+                ],
+            },
+        },
+    },
+    {
+        // The one fleet metric that never recovers on its own.
+        name: 'Disk pressure',
+        state: {
+            status: 'online', group: 'all', search: '', groupBy: null,
+            sorts: [{ key: 'disk', direction: 'desc' }],
+            hiddenKeys: ['agent', 'cpu', 'memory'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'dp1', field: 'disk', op: 'gt', value: 85 }],
+            },
+        },
+    },
+    {
+        // Fleet commands target a group_id, so an ungrouped server is silently
+        // skipped by every bulk action. This view is the worklist that fixes it.
+        name: 'Ungrouped',
+        state: {
+            status: 'all', group: 'ungrouped', search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: { match: 'all', rules: [] },
+        },
+    },
 ];
 
 const formatLastSeen = (timestamp) => {
@@ -163,7 +224,7 @@ const Servers = () => {
     const [bulkBusy, setBulkBusy] = useState(false);
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-servers-sort' });
     const {
-        hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-servers-cols' });
     const [groupBy, setGroupBy] = useState(() => {
         try {
@@ -184,33 +245,20 @@ const Servers = () => {
         }
     };
 
-    // Saved views: capture/apply the table chrome state (status filter, group
-    // filter, search, sort levels, hidden columns). Every key is guarded so a
-    // partial view state only touches what it sets.
-    const captureView = useCallback(() => ({
+    // Page-owned view state (the status segment, the group select, search);
+    // useTableChrome owns the rest — sorts, hidden columns, grouping, column
+    // rules and order — and gives back the shared list chrome.
+    const extraViewState = useMemo(() => ({
         status: selectedStatus,
         group: selectedGroup,
         search: searchTerm,
-        sorts,
-        hiddenKeys,
-        groupBy,
-    }), [selectedStatus, selectedGroup, searchTerm, sorts, hiddenKeys, groupBy]);
+    }), [selectedStatus, selectedGroup, searchTerm]);
 
-    const applyView = useCallback((state) => {
+    const applyExtraViewState = useCallback((state) => {
         if (state.status !== undefined) setSelectedStatus(state.status);
         if (state.group !== undefined) setSelectedGroup(state.group);
         if (state.search !== undefined) setSearchTerm(state.search);
-        if (Array.isArray(state.sorts)) setSorts(state.sorts);
-        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
-        if (state.groupBy !== undefined) changeGroupBy(state.groupBy);
-    }, [setSorts, setHiddenKeys]);
-
-    const tableViews = useTableViews({
-        page: 'servers',
-        builtinViews: SERVER_BUILTIN_VIEWS,
-        capture: captureView,
-        apply: applyView,
-    });
+    }, []);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -273,6 +321,22 @@ const Servers = () => {
         </>
     ), [searchTerm, loading]);
 
+    const chrome = useTableChrome({
+        columns: SERVER_COLUMNS,
+        rows: filteredServers,
+        viewPageKey: 'servers',
+        builtinViews: SERVER_BUILTIN_VIEWS,
+        noun: 'servers',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy: changeGroupBy,
+        extraState: extraViewState,
+        applyExtra: applyExtraViewState,
+    });
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner servers-page">
@@ -283,6 +347,12 @@ const Servers = () => {
 
     return (
         <div className="sk-tabgroup__inner servers-page">
+            <GridViewPicker
+                views={chrome.views}
+                label="servers"
+                total={`${filteredServers.length} of ${servers.length} servers`}
+                onCreate={chrome.createView}
+            />
             <ListToolbar
                 filters={(
                     <SegControl
@@ -305,15 +375,11 @@ const Servers = () => {
                 )}
                 tools={(
                     <>
-                        <ViewMenu views={tableViews} />
-                        <GroupMenu columns={SERVER_COLUMNS} groupBy={groupBy} onChange={changeGroupBy} />
-                        <SortMenu columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={SERVER_COLUMNS}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
                         />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
                     </>
                 )}
             >
@@ -331,7 +397,7 @@ const Servers = () => {
                 )}
             </ListToolbar>
 
-            <SortChipBar columns={SERVER_COLUMNS} sorts={sorts} onChange={setSorts} />
+            <GridChips {...chrome.chipProps} />
 
             {filteredServers.length === 0 ? (
                 <EmptyState
@@ -359,12 +425,12 @@ const Servers = () => {
                 />
             ) : (
                 <DataTable
-                    columns={SERVER_COLUMNS}
+                    columns={chrome.columns}
                     data={filteredServers}
                     keyField="id"
                     sorts={sorts}
                     onSortsChange={setSorts}
-                    hiddenKeys={hiddenKeys}
+                    {...chrome.tableProps}
                     groupBy={groupBy}
                     onGroupByChange={changeGroupBy}
                     selectable
@@ -392,6 +458,8 @@ const Servers = () => {
                     )}
                 />
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             {/* Bulk edit: assign the selected servers to a group. */}
             {selectedIds.size > 0 && (
