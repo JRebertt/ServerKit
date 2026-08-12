@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreVertical, Download, RefreshCw, History, Check, Rows2, Rows3 } from 'lucide-react';
+import { MoreVertical, Download, RefreshCw, History, Check, Link2, Rows2, Rows3 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { byKey, exportRows } from './fields';
@@ -10,7 +10,7 @@ import { byKey, exportRows } from './fields';
 // which is the whole point of putting search there.
 export function GridToolsMenu({
     cfg, columns, rows, selectedRows = [], viewName, noun = 'rows',
-    onRefresh, onReset, onDensity, onExported,
+    onRefresh, onReset, onDensity, onExported, onCopyLink,
     // Off for hosts whose table auto-sizes its rows (<DataTable>) — showing a
     // density toggle that changes nothing is worse than not showing one.
     showDensity = true,
@@ -18,6 +18,7 @@ export function GridToolsMenu({
     const [open, setOpen] = useState(false);
     const [pane, setPane] = useState('root');   // root | export
     const [scope, setScope] = useState('view');
+    const [copied, setCopied] = useState(null);
     const [allCols, setAllCols] = useState(false);
 
     const map = byKey(columns);
@@ -50,6 +51,22 @@ export function GridToolsMenu({
             <PopoverContent align="end" sideOffset={6} className="ui-popover-panel sk-gridmenu">
                 {pane === 'root' ? (
                     <>
+                        {onCopyLink && (
+                            <button
+                                type="button"
+                                className="sk-gridmenu__opt"
+                                onClick={async () => {
+                                    const res = await onCopyLink();
+                                    setCopied(res?.copied ? 'ok' : 'fail');
+                                    setTimeout(() => setCopied(null), 1800);
+                                }}
+                            >
+                                {copied === 'ok' ? <Check size={13} /> : <Link2 size={13} />}
+                                {copied === 'ok' ? 'Link copied'
+                                    : copied === 'fail' ? 'Copy failed — check permissions'
+                                        : 'Copy link to this view'}
+                            </button>
+                        )}
                         <button type="button" className="sk-gridmenu__opt" onClick={() => setPane('export')}>
                             <Download size={13} />Export…
                         </button>

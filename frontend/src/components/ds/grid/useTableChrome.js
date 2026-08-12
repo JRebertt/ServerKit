@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import useTableViews from '@/hooks/useTableViews';
+import useViewLink from './useViewLink';
 import { OPS, emptyValueFor, isFilterable, ruleId, withInferredTypes } from './fields';
 
 const NO_FILTERS = { match: 'all', rules: [] };
@@ -130,6 +131,11 @@ export function useTableChrome({
 
     const views = useTableViews({ page: viewPageKey, builtinViews, capture, apply });
 
+    // ?view=<slug> / ?v=<encoded> <-> the active view, both directions. Applying
+    // a link goes through the SAME `apply` the picker uses, so a shared link and
+    // a click can never drift apart.
+    const { copyLink } = useViewLink({ views, apply, capture, enabled: !!viewPageKey });
+
     const createView = useCallback((name, fromCurrent) => {
         if (!fromCurrent) api.resetToView();
         return views.saveView(name);
@@ -145,6 +151,7 @@ export function useTableChrome({
         drawerOpen,
         setDrawerOpen,
         createView,
+        copyLink,
 
         // spread straight onto the matching components
         tableProps: {
@@ -180,6 +187,7 @@ export function useTableChrome({
             viewName: views.activeView?.name || noun,
             noun,
             onReset: api.resetToView,
+            onCopyLink: copyLink,
             showDensity: false,
         },
     };

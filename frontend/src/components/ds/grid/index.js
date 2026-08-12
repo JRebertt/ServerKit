@@ -18,6 +18,11 @@ export { GridFilterButton } from './GridFilterButton';
 export { useGridConfig, makeGridConfig, GRID_DEFAULTS } from './useGridConfig';
 export { useGridRows } from './useGridRows';
 export { useTableChrome } from './useTableChrome';
+export { useViewLink } from './useViewLink';
+export {
+    encodeState, decodeState, readViewParams, resolveView, copyableLink,
+    handleFor, slugify as slugifyViewName, VIEW_PARAM, STATE_PARAM,
+} from './viewLinks';
 export {
     OPS, FIELD_TYPES, opLabel, ruleId, columnLabel, fieldValue,
     applyFilters, applySort, groupRows, ruleText, exportRows,
