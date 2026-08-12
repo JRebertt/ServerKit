@@ -7,8 +7,66 @@ import LoginLinksSection from './LoginLinksSection';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, DataTableFooter } from '@/components/ds';
+import { DataTable, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import useSettingFocus from '../../hooks/useSettingFocus';
+
+// The label the Status cell shows, in one place: the built-in view below
+// filters on it, and a rule matches a column's `value`, not the row's
+// `is_active` boolean.
+const statusLabel = (user) => (user.is_active ? 'Active' : 'Disabled');
+
+// Built-in saved views. Every rule matches a column's `value` accessor, so the
+// strings here are the LABELS the cells render ('Disabled', 'admin') rather
+// than whatever the API happens to call the field.
+const USER_VIEWS = [
+    {
+        // Who can do anything on this panel. It is the first question of an
+        // access review and the one a flat alphabetical list buries as soon as
+        // the team is bigger than a screen.
+        name: 'Admins',
+        state: {
+            sorts: [{ key: 'user', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'uv1', field: 'role', op: 'any', value: ['admin'] }],
+            },
+        },
+    },
+    {
+        // Offboarding check: a disabled account keeps its role and its history,
+        // so it is still worth looking at. Most recently created first, because
+        // the one you just switched off is the one you are verifying.
+        name: 'Disabled accounts',
+        state: {
+            sorts: [{ key: 'created', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'uv2', field: 'status', op: 'any', value: ['Disabled'] }],
+            },
+        },
+    },
+    {
+        // No rules: the whole team, bucketed by privilege. The group headers
+        // carry the per-role counts, which is what "who has what" is asking.
+        name: 'By role',
+        state: {
+            sorts: [{ key: 'user', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: 'role',
+            columnFilters: { match: 'all', rules: [] },
+        },
+    },
+];
 
 const UsersTab = () => {
     const register = useSettingFocus();
@@ -19,6 +77,18 @@ const UsersTab = () => {
     const [editingUser, setEditingUser] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const { user: currentUser } = useAuth();
+
+    // Lifted out of <DataTable> so a saved view can capture them. The storage
+    // keys are the ones DataTable derived from storageKey="serverkit-table-
+    // settings-users", so everyone's persisted sort and hidden columns survive.
+    const { sorts, setSorts } = useTableSort({
+        storageKey: 'serverkit-table-settings-users-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-settings-users-cols',
+    });
+    // Not persisted on its own: a grouping worth keeping is a saved view.
+    const [groupBy, setGroupBy] = useState(null);
 
     useEffect(() => {
         loadUsers();
@@ -100,24 +170,25 @@ const UsersTab = () => {
         });
     }
 
-    if (loading) {
-        return (
-            <div className="users-tab">
-                <div className="loading-state">Loading users...</div>
-            </div>
-        );
-    }
-
     // Columns for the shared DataTable. Cell markup and classNames are
     // identical to the hand-rolled table they replace, so _users.scss keeps
     // applying (.user-info, .user-avatar, .status-badge, .date-cell,
     // .actions-cell, tr.inactive).
+    //
+    // `type` + `value` are declared on every column a built-in view touches.
+    // Inference reads `sortValue` when a column has no `value`, and both ways
+    // it lands on the wrong type here: Created's epoch number would type that
+    // column numeric, and three distinct roles across three users is over the
+    // enum cardinality ratio, so Role would degrade to free text. Either way
+    // the preset's rule would match zero rows.
     const columns = [
         {
             key: 'user',
             header: 'User',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (user) => user.username || '',
             sortValue: (user) => user.username || '',
             cellClassName: 'user-info',
             render: (user) => (
@@ -141,6 +212,13 @@ const UsersTab = () => {
             key: 'role',
             header: 'Role',
             sortable: true,
+            type: 'enum',
+            groupable: true,
+            // All three accessors spelled out so the "By role" view groups,
+            // filters and sorts on the same string. Grouping otherwise falls
+            // back to row[key], which only works here by luck of naming.
+            value: (user) => user.role || '',
+            groupValue: (user) => user.role || '',
             sortValue: (user) => user.role || '',
             render: (user) => (
                 <Badge variant={getRoleBadgeVariant(user.role)}>
@@ -151,15 +229,24 @@ const UsersTab = () => {
         {
             key: 'status',
             header: 'Status',
+            type: 'enum',
+            value: statusLabel,
             render: (user) => (
                 <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                    {user.is_active ? 'Active' : 'Disabled'}
+                    {statusLabel(user)}
                 </span>
             ),
         },
         {
+            // Sortable and typed rather than render-only: "when did this person
+            // last sign in" is the access-review question, and without an
+            // accessor the column had nothing behind it to sort or filter on.
             key: 'lastLogin',
             header: 'Last Login',
+            sortable: true,
+            type: 'date',
+            value: (user) => user.last_login_at || null,
+            sortValue: (user) => (user.last_login_at ? new Date(user.last_login_at).getTime() : null),
             cellClassName: 'date-cell',
             render: (user) => formatDate(user.last_login_at),
         },
@@ -167,6 +254,11 @@ const UsersTab = () => {
             key: 'created',
             header: 'Created',
             sortable: true,
+            // Declared, not inferred: the sorter wants epoch ms, and letting
+            // that number type the column would offer "is under 1754…" instead
+            // of a date picker.
+            type: 'date',
+            value: (user) => user.created_at || null,
             sortValue: (user) => (user.created_at ? new Date(user.created_at).getTime() : null),
             cellClassName: 'date-cell',
             render: (user) => formatDate(user.created_at),
@@ -230,13 +322,58 @@ const UsersTab = () => {
         },
     ];
 
+    // This tab renders TWO tables — the users list and, below it, the whole of
+    // <InvitationsTab /> — so both chrome instances need their own URL
+    // namespace. Unscoped they would read and write the same `?view=`/`?sort=`
+    // and each would arrive as the other's.
+    //
+    // No `pageState`: the list is /users' whole response, with no search or
+    // server-side filter of its own, so there is nothing page-private to carry.
+    const chrome = useTableChrome({
+        columns,
+        rows: users,
+        viewPageKey: 'settings-users',
+        urlScope: 'users',
+        builtinViews: USER_VIEWS,
+        noun: 'users',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy,
+    });
+
+    if (loading) {
+        return (
+            <div className="users-tab">
+                <div className="loading-state">Loading users...</div>
+            </div>
+        );
+    }
+
     return (
         <div className="users-tab">
-            <div className="tab-header">
-                <div className="tab-header-content">
-                    <h3>User Management</h3>
-                    <p>Manage user accounts and permissions</p>
-                </div>
+            {/* The view name IS the heading — the old "User Management" h3 said
+                what the tab strip already said, and stacking it above the
+                picker would have been two titles for one table. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="users"
+                total={`${users.length} user${users.length === 1 ? '' : 's'}`}
+                onCreate={chrome.createView}
+            />
+            <ListToolbar
+                tools={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadUsers} />
+                    </>
+                )}
+            >
                 <Button variant="default" onClick={handleAddUser}>
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                         <line x1="12" y1="5" x2="12" y2="19"/>
@@ -244,25 +381,24 @@ const UsersTab = () => {
                     </svg>
                     Add User
                 </Button>
-            </div>
+            </ListToolbar>
+
+            <GridChips {...chrome.chipProps} />
 
             {error && <div className="error-message">{error}</div>}
 
             <div {...register('users-management', 'users-table-container')}>
                 <DataTable
-                    columns={columns}
+                    columns={chrome.columns}
                     data={users}
                     keyField="id"
-                    storageKey="serverkit-table-settings-users"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    {...chrome.tableProps}
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
                     rowClassName={(user) => (!user.is_active ? 'inactive' : '')}
                     tableClassName="users-table"
-                    footer={(
-                        <DataTableFooter
-                            shown={users.length}
-                            total={users.length}
-                            noun="user"
-                        />
-                    )}
                 />
             </div>
 
@@ -292,6 +428,8 @@ const UsersTab = () => {
             <LoginLinksSection users={users} currentUserId={currentUser?.id} />
 
             <InvitationsTab />
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };

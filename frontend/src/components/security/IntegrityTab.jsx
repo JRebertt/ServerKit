@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { DataTable, DataTableFooter } from '@/components/ds';
+import { DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 // Scoped file-integrity monitoring: baseline-and-diff over the paths
 // ServerKit manages (nginx configs, serverkit-owned systemd units, and
@@ -18,6 +24,10 @@ const SCOPE_META = {
         hint: 'serverkit-* units in /etc/systemd/system',
     },
 };
+
+// Matches the service's own listing cap — a check that touched thousands of
+// files reports counts, not a scrollback.
+const MAX_LISTED_CHANGES = 200;
 
 function formatAge(iso) {
     if (!iso) return null;
@@ -36,6 +46,119 @@ function scopeLabel(scope) {
     return scope.app_name ? `App: ${scope.app_name}` : `App #${scope.app_id}`;
 }
 
+// A check result is three separate lists; the table is one. `tone` rides along
+// so each cell keeps the colour the hand-rolled table gave it.
+function toChangeRows(check) {
+    if (!check || !check.total_changes) return [];
+    return [
+        ...(check.added || []).map((p) => ({ kind: 'added', tone: 'green', path: p, what: null })),
+        ...(check.removed || []).map((p) => ({ kind: 'removed', tone: 'red', path: p, what: null })),
+        ...(check.modified || []).map((m) => ({
+            kind: 'modified', tone: 'amber', path: m.path, what: m.what,
+        })),
+    ];
+}
+
+// Cell markup/classNames identical to the hand-rolled table they replace. Two
+// accessors per column on purpose: `value` is what the column menu, the filter
+// rules and the export read, `sortValue` is what DataTable's sorter reads — it
+// has no fallback to `value`, so a sortable column needs both.
+const CHANGE_COLUMNS = [
+    {
+        key: 'change',
+        header: 'Change',
+        sortable: true,
+        // Declared, not inferred: a check that turned up a single change gives
+        // the inferrer one sample, which fails its "values repeat" test and
+        // types the column `text` — and then every preset that picks a kind
+        // matches zero rows on exactly the tables that are easiest to read.
+        type: 'enum',
+        enumOrder: ['added', 'removed', 'modified'],
+        value: (row) => row.kind,
+        sortValue: (row) => row.kind,
+        render: (row) => <span className={`sec-state sec-state--${row.tone}`}>{row.kind}</span>,
+    },
+    {
+        key: 'path',
+        header: 'Path',
+        sortable: true,
+        type: 'text',
+        value: (row) => row.path,
+        sortValue: (row) => row.path,
+        cellClassName: 'sk-cell-mono sec-path',
+        render: (row) => row.path,
+    },
+    {
+        key: 'what',
+        header: 'What changed',
+        // The service reports exactly hash | size | mode, in that order, and
+        // only for modified rows. Joined into one string so a rule can ask for
+        // "the bytes moved" (contains hash) or "only the bits moved"
+        // (is mode); added/removed rows carry nothing and read ''.
+        type: 'text',
+        value: (row) => (row.what || []).join(', '),
+        render: (row) => (
+            row.what ? (
+                <span className="sec-what">
+                    {row.what.map((w) => (
+                        <span key={w} className="sec-state sec-state--gray">{w}</span>
+                    ))}
+                </span>
+            ) : (
+                <span className="sec-dash">—</span>
+            )
+        ),
+    },
+];
+
+// Built-in saved views. A check result is a pile of diffs of three very
+// different kinds, and the whole job of reading one is separating "something
+// touched the box" from "a deploy chmod'd a file".
+const INTEGRITY_VIEWS = [
+    {
+        // Nothing ServerKit does adds a file to sites-enabled or drops a unit
+        // in /etc/systemd/system without going through the panel, so a file
+        // appearing or vanishing is the loudest signal on this table.
+        name: 'Added or removed',
+        state: {
+            sorts: [{ key: 'path', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fi1', field: 'change', op: 'any', value: ['added', 'removed'] }],
+            },
+        },
+    },
+    {
+        // The bytes moved. A size- or mode-only diff is not tampering; a
+        // changed sha256 on a managed config is the thing you came here for.
+        name: 'Content changed',
+        state: {
+            sorts: [{ key: 'path', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fi2', field: 'what', op: 'contains', value: 'hash' }],
+            },
+        },
+    },
+    {
+        // Permission bits moved and the content did not — nearly always a
+        // chmod from a deploy or a hand-run command, so it triages apart from
+        // the content diffs. `is` rather than `contains`: a row whose hash
+        // moved as well belongs in the view above, not here.
+        name: 'Permissions only',
+        state: {
+            sorts: [{ key: 'path', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fi3', field: 'what', op: 'is', value: 'mode' }],
+            },
+        },
+    },
+];
+
 const IntegrityTab = () => {
     const [status, setStatus] = useState(null);
     const [apps, setApps] = useState([]);
@@ -43,6 +166,16 @@ const IntegrityTab = () => {
     const [savingOptins, setSavingOptins] = useState(false);
     const [message, setMessage] = useState(null);
     const [expanded, setExpanded] = useState(null); // scope whose changes table is open
+
+    // Lifted out of <DataTable storageKey> so the chrome can capture and
+    // restore them. The keys keep DataTable's own `-sort` / `-cols` suffixes so
+    // a sort or a hidden column persisted by an earlier build still loads.
+    const { sorts, setSorts } = useTableSort({
+        storageKey: 'serverkit-table-integrity-changes-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-integrity-changes-cols',
+    });
 
     const load = useCallback(async () => {
         try {
@@ -106,74 +239,50 @@ const IntegrityTab = () => {
     const scopes = status?.scopes || [];
     const optins = status?.app_optins || [];
 
-    function renderChanges(scope) {
-        const check = scope.last_check;
-        if (!check || check.total_changes === 0 || expanded !== scope.scope) return null;
-        const rows = [
-            ...(check.added || []).map((p) => ({ kind: 'added', tone: 'green', path: p, what: null })),
-            ...(check.removed || []).map((p) => ({ kind: 'removed', tone: 'red', path: p, what: null })),
-            ...(check.modified || []).map((m) => ({
-                kind: 'modified', tone: 'amber', path: m.path, what: m.what,
-            })),
-        ];
-        const shown = rows.slice(0, 200);
-        // Cell markup/classNames identical to the hand-rolled table they
-        // replace. The old "… and N more" truncation row is now the standard
-        // DataTableFooter count ("Shown 200 of N changes").
-        const columns = [
-            {
-                key: 'change',
-                header: 'Change',
-                sortable: true,
-                sortValue: (row) => row.kind,
-                render: (row) => <span className={`sec-state sec-state--${row.tone}`}>{row.kind}</span>,
-            },
-            {
-                key: 'path',
-                header: 'Path',
-                sortable: true,
-                sortValue: (row) => row.path,
-                cellClassName: 'sk-cell-mono sec-path',
-                render: (row) => row.path,
-            },
-            {
-                key: 'what',
-                header: 'What changed',
-                render: (row) => (
-                    row.what ? (
-                        <span className="sec-what">
-                            {row.what.map((w) => (
-                                <span key={w} className="sec-state sec-state--gray">{w}</span>
-                            ))}
-                        </span>
-                    ) : (
-                        <span className="sec-dash">—</span>
-                    )
-                ),
-            },
-        ];
-        return (
-            <DataTable
-                columns={columns}
-                data={shown}
-                keyField={(row) => `${row.kind}:${row.path}`}
-                storageKey="serverkit-table-integrity-changes"
-                footer={(
-                    <DataTableFooter
-                        shown={shown.length}
-                        total={rows.length}
-                        noun="change"
-                    />
-                )}
-            />
-        );
-    }
+    // `expanded` holds ONE scope key, so at most one changes table is mounted —
+    // which is why this tab has a single chrome instance and passes no
+    // urlScope: there is no second table to fight it over ?view= / ?sort=.
+    const openScope = scopes.find((s) => s.scope === expanded) || null;
+    const changeRows = useMemo(() => toChangeRows(openScope?.last_check), [openScope]);
+    const shownRows = useMemo(
+        () => changeRows.slice(0, MAX_LISTED_CHANGES),
+        [changeRows],
+    );
+
+    // No `pageState`: a check result is whatever the last run produced, and the
+    // tab owns no search or filter of its own, so there is nothing
+    // page-private for a saved view to carry.
+    const chrome = useTableChrome({
+        columns: CHANGE_COLUMNS,
+        rows: shownRows,
+        viewPageKey: 'security-integrity',
+        builtinViews: INTEGRITY_VIEWS,
+        noun: 'changes',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    // DataTable applies the column rules itself, so the tab re-runs them to say
+    // how many rows survived them.
+    const shownCount = useMemo(
+        () => applyFilters(shownRows, chrome.cfg.filters, chrome.columns).length,
+        [shownRows, chrome.cfg.filters, chrome.columns],
+    );
+
+    const countLabel = shownCount === changeRows.length
+        ? `${changeRows.length} change${changeRows.length === 1 ? '' : 's'}`
+        : `${shownCount} of ${changeRows.length} changes`;
 
     function renderScopeCard(scope) {
         const key = scope.scope;
         const baseline = scope.baseline;
         const check = scope.last_check;
         const changed = check && check.total_changes > 0;
+        // Same guard the old renderChanges() applied: a scope with nothing to
+        // show never opens, even if it is the expanded one.
+        const isOpen = expanded === key && changeRows.length > 0;
         return (
             <div className="card sec-flush" key={key}>
                 <div className="card-header">
@@ -197,7 +306,20 @@ const IntegrityTab = () => {
                             : 'No baseline yet — create one to start tracking changes.'}
                         {check && ` · Last check ${formatAge(check.checked_at) || ''}`}
                     </p>
-                    <div className="card-actions">
+                    {/* The scope's own actions share the toolbar with the
+                        table's controls, so opening the changes list does not
+                        grow a second row of buttons. */}
+                    <ListToolbar
+                        tools={isOpen ? (
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                            </>
+                        ) : null}
+                    >
                         <Button
                             variant="outline"
                             size="sm"
@@ -233,9 +355,38 @@ const IntegrityTab = () => {
                                 </Button>
                             </>
                         )}
-                    </div>
+                    </ListToolbar>
+                    {/* The view name is the changes table's heading — the card's
+                        own h3 names the SCOPE, which is a different thing. */}
+                    {isOpen && (
+                        <>
+                            <GridViewPicker
+                                views={chrome.views}
+                                label="changes"
+                                total={countLabel}
+                                onCreate={chrome.createView}
+                            />
+                            <GridChips {...chrome.chipProps} />
+                        </>
+                    )}
                 </div>
-                {renderChanges(scope)}
+                {isOpen && (
+                    <DataTable
+                        columns={chrome.columns}
+                        data={shownRows}
+                        keyField={(row) => `${row.kind}:${row.path}`}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
+                        footer={(
+                            <DataTableFooter
+                                shown={shownCount}
+                                total={changeRows.length}
+                                noun="change"
+                            />
+                        )}
+                    />
+                )}
             </div>
         );
     }
@@ -291,6 +442,8 @@ const IntegrityTab = () => {
                     )}
                 </div>
             </div>
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };

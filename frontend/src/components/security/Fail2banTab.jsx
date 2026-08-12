@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Ban, Shield } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,10 +8,51 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DataTable, DataTableFooter, Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, ListToolbar, Pill } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+
+// Fail2ban's own default jail name since 0.9, and the one this tab's Ban modal
+// pre-selects — so it is the value a preset can actually count on being there.
+const SSH_JAIL = 'sshd';
+
+// Built-in saved views. A ban row is only { ip, jail }, so the jail is the one
+// axis worth slicing: SSH is where the internet-wide noise lands, and everything
+// else is a jail someone configured on purpose and should be reading.
+const FAIL2BAN_VIEWS = [
+    {
+        // The drive-by traffic. Usually the longest list on the page and the
+        // one you scan for a source you recognise rather than act on row by row.
+        name: 'SSH bans',
+        state: {
+            sorts: [{ key: 'ip', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'f2b1', field: 'jail', op: 'any', value: [SSH_JAIL] }],
+            },
+        },
+    },
+    {
+        // Everything the SSH view buries: web-auth, WordPress and per-app jails.
+        // A ban here means something reached an application, so it is the half
+        // worth reading first. Jail before IP, so each jail stays together.
+        name: 'App & web jail bans',
+        state: {
+            sorts: [{ key: 'jail', direction: 'asc' }, { key: 'ip', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'f2b2', field: 'jail', op: 'none', value: [SSH_JAIL] }],
+            },
+        },
+    },
+];
 
 const Fail2banTab = () => {
     const [status, setStatus] = useState(null);
@@ -110,11 +151,9 @@ const Fail2banTab = () => {
         }
     };
 
-    if (loading) {
-        return <div className="loading-sm">Loading Fail2ban status...</div>;
-    }
-
     // Cell markup/classNames identical to the hand-rolled table they replace.
+    // Declared above the loading guard now: the chrome below is a hook, so it
+    // cannot sit behind an early return.
     const banColumns = [
         {
             key: 'ip',
@@ -129,6 +168,12 @@ const Fail2banTab = () => {
             key: 'jail',
             header: 'Jail',
             sortable: true,
+            // Declared, not inferred: a host with two jails and two bans fails
+            // the enum cardinality test and would fall back to text, which
+            // turns the jail pick-list into a typed fragment and both views
+            // above into no-ops. `value` is what the rules read.
+            type: 'enum',
+            value: (ban) => ban.jail || '',
             sortValue: (ban) => ban.jail || '',
             render: (ban) => <span className="sk-tag">{ban.jail}</span>,
         },
@@ -144,6 +189,33 @@ const Fail2banTab = () => {
             ),
         },
     ];
+
+    // Scoped to this table, not to Security as a page: one tab is mounted at a
+    // time, so a picker at the page heading would sit above whichever tab
+    // happened to be open. No `urlScope` — the bans table is the only one on
+    // this tab, so its links keep the plain ?view= names.
+    const chrome = useTableChrome({
+        columns: banColumns,
+        rows: bans,
+        viewPageKey: 'security-fail2ban',
+        builtinViews: FAIL2BAN_VIEWS,
+        noun: 'bans',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    // DataTable applies the column rules itself, so the count has to be
+    // re-derived here or a view that narrows to two rows still claims the total.
+    const shownBans = useMemo(
+        () => applyFilters(bans, chrome.cfg.filters, chrome.columns),
+        [bans, chrome.cfg.filters, chrome.columns],
+    );
+
+    if (loading) {
+        return <div className="loading-sm">Loading Fail2ban status...</div>;
+    }
 
     return (
         <div className="fail2ban-tab">
@@ -231,35 +303,56 @@ const Fail2banTab = () => {
                         </div>
                     )}
 
-                    <div className="card sec-flush">
-                        <div className="card-header">
-                            <h3>Banned IPs {bans.length > 0 && <span className="sec-count">· {bans.length}</span>}</h3>
+                    {/* The view name replaces the old "Banned IPs" <h3>: it is
+                        the same heading slot, and it now says WHICH bans you
+                        are looking at rather than just that they are bans. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="bans"
+                        total={`${shownBans.length} of ${bans.length} bans`}
+                        onCreate={chrome.createView}
+                    />
+                    <ListToolbar
+                        tools={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                            </>
+                        )}
+                    />
+
+                    <GridChips {...chrome.chipProps} />
+
+                    {bans.length === 0 ? (
+                        <div className="card">
+                            <p className="text-muted">No IPs are currently banned.</p>
                         </div>
-                        {bans.length === 0 ? (
-                            <div className="card-body">
-                                <p className="text-muted">No IPs are currently banned.</p>
-                            </div>
-                        ) : (
+                    ) : (
+                        <div className="card sec-flush">
                             <DataTable
-                                columns={banColumns}
+                                columns={chrome.columns}
                                 data={bans}
                                 keyField={(ban) => `${ban.ip}-${ban.jail}`}
                                 sorts={sorts}
                                 onSortsChange={setSorts}
-                                hiddenKeys={hiddenKeys}
-                                onHiddenKeysChange={setHiddenKeys}
+                                {...chrome.tableProps}
                                 footer={(
                                     <DataTableFooter
-                                        shown={bans.length}
+                                        shown={shownBans.length}
                                         total={bans.length}
                                         noun="banned IP"
                                     />
                                 )}
                             />
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </>
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal open={showBanModal} onClose={() => setShowBanModal(false)} title="Ban IP Address">
                 <div className="form-group">

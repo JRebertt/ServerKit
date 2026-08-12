@@ -13,7 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pill } from '@/components/ds/Pill';
-import { DataTable, DataTableFooter } from '@/components/ds';
+import { DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 
 const ApiSettingsTab = () => {
@@ -30,12 +36,76 @@ const ApiSettingsTab = () => {
 };
 
 // ─── API Keys Section ──────────────────────────────────
+
+// The label the Status cell shows. A key is live only while it is active AND
+// un-revoked, so the view's rule has to read the same pair the badge does.
+const keyStatus = (key) => (key.is_active && !key.revoked_at ? 'Active' : 'Revoked');
+
+// Built-in saved views for the API keys table. Only this table gets them: the
+// webhook deliveries list and the top-endpoints summary further down are a
+// drill-down and a readout, not surfaces you come back to and narrow.
+const API_KEY_VIEWS = [
+    {
+        // What is actually live. Revoked keys are never deleted, so on an
+        // instance that has been running a while they are most of the table.
+        // Least recently used first — a live key nobody calls is one to ask
+        // about.
+        name: 'Active keys',
+        state: {
+            sorts: [{ key: 'lastUsed', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'kv1', field: 'status', op: 'any', value: ['Active'] }],
+            },
+        },
+    },
+    {
+        // The security review: which keys can call everything. `is` rather
+        // than `contains` because the value is the joined scope list, and
+        // `contains '*'` would also catch a key scoped to `domains:*`.
+        name: 'Full access',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'kv2', field: 'scopes', op: 'is', value: '*' }],
+            },
+        },
+    },
+    {
+        // The audit trail. Rotations and revocations pile up here; most
+        // recently used first, because that is the one whose blast radius you
+        // are trying to remember.
+        name: 'Revoked',
+        state: {
+            sorts: [{ key: 'lastUsed', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'kv3', field: 'status', op: 'any', value: ['Revoked'] }],
+            },
+        },
+    },
+];
+
 const ApiKeysSection = () => {
     const register = useSettingFocus();
     const [keys, setKeys] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [createdKey, setCreatedKey] = useState(null);
+
+    // Lifted out of <DataTable> so a saved view can capture them. The storage
+    // keys are the ones DataTable derived from storageKey="serverkit-table-
+    // settings-api-keys", so a persisted sort or hidden column survives.
+    const { sorts, setSorts } = useTableSort({
+        storageKey: 'serverkit-table-settings-api-keys-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-settings-api-keys-cols',
+    });
 
     const loadKeys = () => {
         setLoading(true);
@@ -75,12 +145,20 @@ const ApiKeysSection = () => {
     // identical to the hand-rolled table they replace, so _api-settings.scss
     // keeps applying (.api-settings__key-name, __key-prefix, __scopes,
     // __muted, __actions).
+    //
+    // `type` + `value` are declared on every column a built-in view reads.
+    // Two of them would otherwise be typed from the wrong thing: Last Used has
+    // a `sortValue` of epoch ms, which inference would call numeric, and
+    // Scopes and Status render from fields no accessor exposed at all, so they
+    // were not filterable in any way.
     const keyColumns = [
         {
             key: 'name',
             header: 'Name',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (key) => key.name || '',
             sortValue: (key) => key.name || '',
             cellClassName: 'api-settings__key-name',
             render: (key) => key.name,
@@ -88,11 +166,20 @@ const ApiKeysSection = () => {
         {
             key: 'key',
             header: 'Key',
+            // Searchable by prefix: that is the only part of a key that ever
+            // appears again after creation, so it is how a log line gets
+            // matched back to a row here.
+            type: 'text',
+            value: (key) => key.key_prefix || '',
             render: (key) => <code className="api-settings__key-prefix">{key.key_prefix}...</code>,
         },
         {
             key: 'scopes',
             header: 'Scopes',
+            // The joined list, so "contains domains" finds every key that can
+            // touch domains and "is *" finds exactly the full-access ones.
+            type: 'text',
+            value: (key) => (key.scopes || []).join(', '),
             render: (key) => (
                 <div className="api-settings__scopes">
                     {(!key.scopes || key.scopes.length === 0) ? (
@@ -115,12 +202,16 @@ const ApiKeysSection = () => {
         {
             key: 'tier',
             header: 'Tier',
+            type: 'enum',
+            value: (key) => key.tier || '',
             render: (key) => <Badge variant="outline">{key.tier}</Badge>,
         },
         {
             key: 'lastUsed',
             header: 'Last Used',
             sortable: true,
+            type: 'date',
+            value: (key) => key.last_used_at || null,
             sortValue: (key) => (key.last_used_at ? new Date(key.last_used_at).getTime() : null),
             cellClassName: 'api-settings__muted',
             render: (key) => (
@@ -132,8 +223,12 @@ const ApiKeysSection = () => {
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            type: 'enum',
+            value: keyStatus,
+            sortValue: keyStatus,
             render: (key) => (
-                key.is_active && !key.revoked_at ? (
+                keyStatus(key) === 'Active' ? (
                     <Badge variant="success">Active</Badge>
                 ) : (
                     <Badge variant="destructive">Revoked</Badge>
@@ -172,20 +267,52 @@ const ApiKeysSection = () => {
         },
     ];
 
+    // This tab renders three tables, so the link params are namespaced — the
+    // deliveries and top-endpoints tables below have no chrome today, but an
+    // unscoped `?view=` here would be theirs to collide with the moment one
+    // did. No `pageState`: the section has no search or filter of its own.
+    const chrome = useTableChrome({
+        columns: keyColumns,
+        rows: keys,
+        viewPageKey: 'settings-api-keys',
+        urlScope: 'keys',
+        builtinViews: API_KEY_VIEWS,
+        noun: 'keys',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
     return (
         <div {...register('api-keys', 'settings-card')}>
-            <div className="settings-card__header">
-                <div className="settings-card__header-left">
-                    <Key size={20} />
-                    <div>
-                        <h3>API Keys</h3>
-                        <p>Manage programmatic access to the ServerKit API</p>
-                    </div>
-                </div>
+            {/* The view name replaces this card's "API Keys" header: it is the
+                one card in the stack whose body is a table, and stacking a
+                title above the picker would be two names for one list. Create
+                Key moves into the toolbar and stays reachable while empty. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="keys"
+                total={loading ? null : `${keys.length} key${keys.length === 1 ? '' : 's'}`}
+                onCreate={chrome.createView}
+            />
+            <ListToolbar
+                tools={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadKeys} />
+                    </>
+                )}
+            >
                 <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
                     <Plus size={14} /> Create Key
                 </Button>
-            </div>
+            </ListToolbar>
+
+            <GridChips {...chrome.chipProps} />
 
             {loading ? (
                 <div className="settings-card__loading">Loading...</div>
@@ -198,18 +325,13 @@ const ApiKeysSection = () => {
             ) : (
                 <div className="api-settings__table-wrap">
                     <DataTable
-                        columns={keyColumns}
+                        columns={chrome.columns}
                         data={keys}
                         keyField="id"
-                        storageKey="serverkit-table-settings-api-keys"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
                         tableClassName="api-settings__table"
-                        footer={(
-                            <DataTableFooter
-                                shown={keys.length}
-                                total={keys.length}
-                                noun="key"
-                            />
-                        )}
                     />
                 </div>
             )}
@@ -221,6 +343,8 @@ const ApiKeysSection = () => {
                     createdKey={createdKey}
                 />
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };

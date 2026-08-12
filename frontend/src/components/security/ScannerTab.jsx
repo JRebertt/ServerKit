@@ -3,9 +3,13 @@ import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, DataTableFooter, Pill } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { Zap, Radar, FolderSearch, Download, Box, ShieldAlert, FileCode2, Trash2, Search } from 'lucide-react';
+import { Zap, Radar, FolderSearch, Download, Box, FileCode2, Trash2, Search } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 
 const SEVERITY_TONE = {
@@ -14,6 +18,108 @@ const SEVERITY_TONE = {
     medium: 'amber',
     low: 'gray',
 };
+
+// Urgency order for the Severity column. The severity strings sort
+// alphabetically — critical, high, low, medium — which files "low" above
+// "medium" and puts the wrong finding on top of a triage list.
+const SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+
+const NO_RULES = { match: 'all', rules: [] };
+
+// Built-in views for the findings table. Every rule matches a column's `value`
+// accessor, which for Severity and Source is the raw scanner word the cell
+// renders — never the rank the table sorts by.
+const FINDING_VIEWS = [
+    {
+        // The triage default: worst first. Sort only, and the empty rule set is
+        // spelled out so switching here clears the previous view's filters.
+        name: 'Worst first',
+        state: {
+            sorts: [{ key: 'severity', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // What you act on before closing the tab. 'medium' is deliberately out:
+        // the curated rules emit it as their default, so it is the bucket an
+        // unclassified match lands in rather than a judgement about the file.
+        name: 'Critical & high',
+        state: {
+            sorts: [{ key: 'severity', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fs1', field: 'severity', op: 'any', value: ['critical', 'high'] }],
+            },
+        },
+    },
+    {
+        // The curated web-shell pass on its own — a backdoor in a docroot, not
+        // a known-malware signature. Grouped by file through the sort, because
+        // one shell usually trips several rules and you quarantine the FILE.
+        name: 'Web-shell hits',
+        state: {
+            sorts: [{ key: 'file', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fw1', field: 'source', op: 'any', value: ['yara'] }],
+            },
+        },
+    },
+];
+
+// Built-in views for the scan-history table.
+const HISTORY_VIEWS = [
+    {
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'date', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Scans that actually found something — the audit trail you re-read
+        // after an incident. A scan with no infected list reads 0 threats, so
+        // `over 0` can only ever be a real hit.
+        name: 'Threats found',
+        state: {
+            sorts: [{ key: 'date', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'hs1', field: 'threats', op: 'gt', value: 0 }],
+            },
+        },
+    },
+    {
+        // A scan that never finished proves nothing about the directory it was
+        // pointed at — 'completed with 0 threats' and 'timed out' look equally
+        // green from a distance, and only one of them is an answer.
+        name: 'Did not finish',
+        state: {
+            sorts: [{ key: 'date', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{
+                    id: 'hf1',
+                    field: 'status',
+                    op: 'any',
+                    value: ['error', 'timeout', 'cancelled'],
+                }],
+            },
+        },
+    },
+];
 
 const ScannerTab = () => {
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
@@ -243,6 +349,8 @@ const ScannerTab = () => {
             header: 'Rule',
             sortable: true,
             hideable: false,
+            type: 'text',
+            value: (f) => f.rule || '',
             sortValue: (f) => f.rule || '',
             cellClassName: 'sk-cell-mono',
             render: (f) => <span title={f.description}>{f.rule}</span>,
@@ -251,7 +359,14 @@ const ScannerTab = () => {
             key: 'severity',
             header: 'Severity',
             sortable: true,
-            sortValue: (f) => f.severity || '',
+            type: 'enum',
+            // Both accessors spelled out: `value` is the word a rule matches,
+            // `sortValue` is the urgency rank the table orders by. A numeric
+            // sortValue on its own would type the column `num`, and every
+            // severity preset would then match exactly zero rows.
+            value: (f) => f.severity || 'unknown',
+            sortValue: (f) => SEVERITY_RANK[f.severity] ?? 9,
+            enumOrder: ['critical', 'high', 'medium', 'low'],
             render: (f) => (
                 <span className={`sec-state sec-state--${SEVERITY_TONE[f.severity] || 'gray'}`}>
                     {f.severity}
@@ -262,6 +377,8 @@ const ScannerTab = () => {
             key: 'file',
             header: 'File',
             sortable: true,
+            type: 'text',
+            value: (f) => f.file || '',
             sortValue: (f) => f.file || '',
             cellClassName: 'sk-cell-mono sec-path sec-path--red',
             render: (f) => <span title={f.file}>{f.file}</span>,
@@ -269,6 +386,11 @@ const ScannerTab = () => {
         {
             key: 'match',
             header: 'Match',
+            // The row field is `matched`, not `match`, so without an accessor
+            // the column has nothing behind it: no filter, and an export column
+            // of empty strings.
+            type: 'text',
+            value: (f) => f.matched || '',
             cellClassName: 'sk-cell-mono scan-snippet',
             render: (f) => f.matched || '—',
         },
@@ -276,7 +398,10 @@ const ScannerTab = () => {
             key: 'source',
             header: 'Source',
             sortable: true,
+            type: 'enum',
+            value: (f) => f.source || 'unknown',
             sortValue: (f) => f.source || '',
+            enumOrder: ['yara', 'clamav'],
             render: (f) => <span className="sec-state sec-state--gray">{f.source}</span>,
         },
         {
@@ -304,6 +429,11 @@ const ScannerTab = () => {
             header: 'Date',
             sortable: true,
             hideable: false,
+            // Declared, not inferred: the sorter wants epoch ms, and letting
+            // that number type the column would offer "is under 1754…" instead
+            // of a date picker — and make any date rule match nothing.
+            type: 'date',
+            value: (scan) => scan.started_at || null,
             sortValue: (scan) => {
                 const t = new Date(scan.started_at).getTime();
                 return Number.isNaN(t) ? null : t;
@@ -323,7 +453,10 @@ const ScannerTab = () => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            type: 'enum',
+            value: (scan) => scan.status || 'unknown',
             sortValue: (scan) => scan.status || '',
+            enumOrder: ['completed', 'running', 'error', 'timeout', 'cancelled'],
             render: (scan) => (
                 <Pill kind={scan.status === 'completed' ? 'green' : scan.status === 'error' ? 'red' : 'amber'}>
                     {scan.status}
@@ -334,6 +467,11 @@ const ScannerTab = () => {
             key: 'threats',
             header: 'Threats',
             sortable: true,
+            type: 'num',
+            // A scan with no infected list reads 0 rather than blank, so the
+            // "over 0" preset can only ever be a real hit — a scan that failed
+            // before it wrote a list can never look like a clean one.
+            value: (scan) => scan.infected_files?.length ?? 0,
             sortValue: (scan) => scan.infected_files?.length ?? 0,
             render: (scan) => (
                 scan.infected_files?.length > 0 ? (
@@ -344,6 +482,41 @@ const ScannerTab = () => {
             ),
         },
     ];
+
+    // Two tables on one route, so two chrome instances — each with its own view
+    // bucket AND its own `urlScope`. The link params (`view`, `sort`, `hide`,
+    // `f`…) are global names: unscoped, the findings table's sort would arrive
+    // as the history table's and each would overwrite the other's ?view=.
+    const findingsChrome = useTableChrome({
+        columns: findingColumns,
+        rows: findings,
+        viewPageKey: 'security-scanner-findings',
+        urlScope: 'findings',
+        builtinViews: FINDING_VIEWS,
+        noun: 'findings',
+        sorts: findingsSorts.sorts,
+        setSorts: findingsSorts.setSorts,
+        hiddenKeys: findingsCols.hiddenKeys,
+        setHiddenKeys: findingsCols.setHiddenKeys,
+    });
+    const historyChrome = useTableChrome({
+        columns: historyColumns,
+        rows: history,
+        viewPageKey: 'security-scan-history',
+        urlScope: 'history',
+        builtinViews: HISTORY_VIEWS,
+        noun: 'scans',
+        sorts: historySorts.sorts,
+        setSorts: historySorts.setSorts,
+        hiddenKeys: historyCols.hiddenKeys,
+        setHiddenKeys: historyCols.setHiddenKeys,
+    });
+
+    // The tables filter internally, so mirror the rules here for the counts —
+    // a header claiming "12 findings" above 3 filtered rows is the table lying
+    // about what you are looking at.
+    const shownFindings = applyFilters(findings, findingsChrome.cfg.filters, findingsChrome.columns);
+    const shownHistory = applyFilters(history, historyChrome.cfg.filters, historyChrome.columns);
 
     return (
         <div className="scanner-tab">
@@ -539,40 +712,67 @@ const ScannerTab = () => {
             {findings.length > 0 && (
                 <div className="card sec-flush scan-findings">
                     <div className="card-header">
-                        <h3 className="sec-listtitle--red">
-                            <ShieldAlert size={13} />
-                            Findings <span className="sec-count">· {findings.length}</span>
-                        </h3>
+                        {/* The view name replaces the section heading — two
+                            titles stacked would compete, and the view IS what
+                            you are looking at. The card keeps its red border,
+                            so the alarm does not depend on the words. */}
+                        <GridViewPicker
+                            views={findingsChrome.views}
+                            label="findings"
+                            total={shownFindings.length === findings.length
+                                ? `${findings.length} findings`
+                                : `${shownFindings.length} of ${findings.length} findings`}
+                            onCreate={findingsChrome.createView}
+                        />
                         <div className="sec-tableactions">
+                            <GridFilterButton
+                                count={findingsChrome.filterCount}
+                                onClick={() => findingsChrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu {...findingsChrome.toolsProps} onRefresh={loadScanStatus} />
                             <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
                         </div>
                     </div>
+                    <GridChips {...findingsChrome.chipProps} />
                     <DataTable
-                        columns={findingColumns}
+                        columns={findingsChrome.columns}
                         data={findings}
                         keyField={(f) => `${f.file}-${f.rule}-${f.source}`}
                         sorts={findingsSorts.sorts}
                         onSortsChange={findingsSorts.setSorts}
-                        hiddenKeys={findingsCols.hiddenKeys}
-                        onHiddenKeysChange={findingsCols.setHiddenKeys}
+                        {...findingsChrome.tableProps}
                         footer={(
                             <DataTableFooter
-                                shown={findings.length}
+                                shown={shownFindings.length}
                                 total={findings.length}
                                 noun="finding"
                             />
                         )}
                     />
+                    <GridFilterDrawer {...findingsChrome.drawerProps} />
                 </div>
             )}
 
             <div className="card sec-flush">
                 <div className="card-header">
-                    <h3>Scan History</h3>
+                    <GridViewPicker
+                        views={historyChrome.views}
+                        label="scans"
+                        total={shownHistory.length === history.length
+                            ? `${history.length} scans`
+                            : `${shownHistory.length} of ${history.length} scans`}
+                        onCreate={historyChrome.createView}
+                    />
                     <div className="sec-tableactions">
+                        <GridFilterButton
+                            count={historyChrome.filterCount}
+                            onClick={() => historyChrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...historyChrome.toolsProps} onRefresh={loadHistory} />
                         <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
                     </div>
                 </div>
+                <GridChips {...historyChrome.chipProps} />
                 {history.length === 0 ? (
                     <div className="card-body">
                         <EmptyState
@@ -583,22 +783,22 @@ const ScannerTab = () => {
                     </div>
                 ) : (
                     <DataTable
-                        columns={historyColumns}
+                        columns={historyChrome.columns}
                         data={history}
                         keyField={(scan) => `${scan.started_at}-${scan.directory}`}
                         sorts={historySorts.sorts}
                         onSortsChange={historySorts.setSorts}
-                        hiddenKeys={historyCols.hiddenKeys}
-                        onHiddenKeysChange={historyCols.setHiddenKeys}
+                        {...historyChrome.tableProps}
                         footer={(
                             <DataTableFooter
-                                shown={history.length}
+                                shown={shownHistory.length}
                                 total={history.length}
                                 noun="scan"
                             />
                         )}
                     />
                 )}
+                <GridFilterDrawer {...historyChrome.drawerProps} />
             </div>
         </div>
     );

@@ -5,8 +5,51 @@ import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
-import { SegControl, Pill, DataTable, DataTableFooter } from '@/components/ds';
+import { SegControl, Pill, DataTable, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import ConfirmDialog from '@/components/ConfirmDialog';
+
+// Built-in saved views. Neither one names a `kind`: the registry decides what
+// lands here, so a preset that spelled out 'domain' would be a list this file
+// otherwise never hard-codes — and it would duplicate the type SegControl
+// anyway. Both views work on whatever the server registered.
+//
+// `page.kind` is spelled out on both. The SegControl is part of the captured
+// state, so a preset that left it out would compare unequal to the live state
+// the instant it was applied and the picker would read "Unsaved" every time.
+const RECYCLEBIN_VIEWS = [
+    {
+        // Oldest deletion first — the rows closest to being reaped by the
+        // retention window, which is the only deadline this page has. The
+        // default order (newest first) puts them at the very bottom.
+        name: 'Closest to purge',
+        state: {
+            sorts: [{ key: 'deleted_at', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: { match: 'all', rules: [] },
+            page: { kind: 'all' },
+        },
+    },
+    {
+        // No rules either: everything, bucketed by what it is. The group
+        // headers carry the per-type counts, so this answers "what kind of
+        // thing have we been deleting" without touching the SegControl.
+        name: 'By type',
+        state: {
+            sorts: [{ key: 'deleted_at', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: 'kind',
+            columnFilters: { match: 'all', rules: [] },
+            page: { kind: 'all' },
+        },
+    },
+];
 
 // Everything the panel has soft-deleted, in one place. Type-agnostic on
 // purpose: `kind` comes from the server's registry, so a newly restorable model
@@ -21,6 +64,19 @@ export default function RecycleBinTab() {
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState(null);
     const [purgeTarget, setPurgeTarget] = useState(null);
+
+    // Lifted out of <DataTable> so a saved view can capture them. The storage
+    // keys are the ones DataTable derived from storageKey="serverkit-table-
+    // recyclebin", so a persisted sort or hidden column survives.
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: [{ key: 'deleted_at', direction: 'desc' }],
+        storageKey: 'serverkit-table-recyclebin-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-recyclebin-cols',
+    });
+    // Not persisted on its own: a grouping worth keeping is a saved view.
+    const [groupBy, setGroupBy] = useState(null);
 
     const load = useCallback(async () => {
         try {
@@ -109,7 +165,11 @@ export default function RecycleBinTab() {
             sortable: true,
             type: 'enum',
             groupable: true,
+            // `groupValue` spelled out because grouping otherwise falls back to
+            // row[key] — the raw registry slug ('saved_view'), where every
+            // other surface here reads the noun ('saved view').
             value: (r) => r.noun,
+            groupValue: (r) => r.noun,
             render: (r) => <Pill kind="gray">{r.noun}</Pill>,
         },
         {
@@ -167,6 +227,29 @@ export default function RecycleBinTab() {
         },
     ], [busyId, isAdmin, retentionDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Single table on this tab, so no `urlScope` — the shareable link keeps
+    // the plain `?view=` every other single-table page produces.
+    //
+    // The type SegControl goes in `pageState`, so saving a view remembers
+    // which type you had picked. A preset that omits `kind` must land back on
+    // 'all': the envelope's page bag is `{}` there, and `undefined` would
+    // leave the SegControl with no selected option.
+    const chrome = useTableChrome({
+        columns,
+        rows: shown,
+        viewPageKey: 'settings-recyclebin',
+        builtinViews: RECYCLEBIN_VIEWS,
+        noun: 'items',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy,
+        pageState: { kind },
+        applyPage: (p) => setKind(p.kind || 'all'),
+    });
+
     return (
         <div className="settings-section recyclebin">
             <div className="settings-section__head">
@@ -193,27 +276,55 @@ export default function RecycleBinTab() {
                 />
             ) : (
                 <>
-                    <div className="recyclebin__toolbar">
-                        <SegControl value={kind} onChange={setKind} options={filters} />
-                        <span className="recyclebin__retention">
-                            <Clock size={13} /> kept {retentionDays} days
-                        </span>
-                    </div>
+                    {/* The section's h2 above stays put — it heads the
+                        retention explanation as much as the table, so the
+                        picker sits with the table it actually belongs to. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="items"
+                        total={`${shown.length} of ${items.length} item${items.length === 1 ? '' : 's'}`}
+                        onCreate={chrome.createView}
+                    />
+                    {/* The retention note goes in the count slot: it is meta,
+                        not a tool, and that also spares
+                        `.recyclebin__retention`'s margin-left:auto from a flex
+                        row it was never written for. */}
+                    <ListToolbar
+                        filters={<SegControl value={kind} onChange={setKind} options={filters} />}
+                        count={(
+                            <span className="recyclebin__retention">
+                                <Clock size={13} /> kept {retentionDays} days
+                            </span>
+                        )}
+                        tools={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                            </>
+                        )}
+                    />
+
+                    <GridChips {...chrome.chipProps} />
 
                     <DataTable
-                        columns={columns}
+                        columns={chrome.columns}
                         data={shown}
                         keyField={rowKey}
-                        defaultSorts={[{ key: 'deleted_at', direction: 'desc' }]}
-                        storageKey="serverkit-table-recyclebin"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
+                        groupBy={groupBy}
+                        onGroupByChange={setGroupBy}
                         emptyTitle="Nothing of this type"
                         emptyMessage="Try another type."
-                        footer={(
-                            <DataTableFooter shown={shown.length} total={items.length} noun="record" />
-                        )}
                     />
                 </>
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <ConfirmDialog
                 isOpen={!!purgeTarget}

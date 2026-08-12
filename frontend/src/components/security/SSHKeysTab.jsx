@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { KeyRound } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,9 +8,55 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { DataTable, DataTableFooter } from '@/components/ds';
+import { DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+
+// What the Comment cell renders when a key carries none. It has to be a real
+// value, not '': `ruleIsArmed` drops any rule whose value is empty, so
+// "comment is ''" would silently filter nothing at all. Filtering on the same
+// dash the cell shows keeps the rule and the row telling the same story.
+const NO_COMMENT = '—';
+
+// The modern default. Everything else in authorized_keys — ssh-rsa, ssh-dss,
+// the ecdsa-sha2-* family — is a key someone generated years ago.
+const MODERN_KEY_TYPE = 'ssh-ed25519';
+
+// Built-in saved views. Both are hygiene worklists rather than slices: an
+// authorized_keys file you can fully account for shows nothing under either,
+// which is exactly the answer they exist to give.
+const SSH_KEY_VIEWS = [
+    {
+        // A key you cannot attribute to a person is a key you cannot safely
+        // remove — and the one most likely to outlive whoever added it.
+        name: 'Unlabelled keys',
+        state: {
+            sorts: [{ key: 'type', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'sk1', field: 'comment', op: 'is', value: NO_COMMENT }],
+            },
+        },
+    },
+    {
+        // The rotation list, stated as "not ed25519" rather than as a list of
+        // legacy names, so a type we have never seen still shows up here.
+        name: 'Legacy key types',
+        state: {
+            sorts: [{ key: 'type', direction: 'asc' }, { key: 'comment', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'sk2', field: 'type', op: 'none', value: [MODERN_KEY_TYPE] }],
+            },
+        },
+    },
+];
 
 const SSHKeysTab = () => {
     const [keys, setKeys] = useState([]);
@@ -80,6 +126,12 @@ const SSHKeysTab = () => {
             key: 'type',
             header: 'Type',
             sortable: true,
+            // Declared, not inferred: two keys of two types fail the enum
+            // cardinality test and would fall back to text, which turns the
+            // pick-list into a typed fragment and "Legacy key types" into a
+            // no-op. `value` is what the rules read.
+            type: 'enum',
+            value: (key) => key.type || '',
             sortValue: (key) => key.type || '',
             render: (key) => <span className="sk-tag">{key.type}</span>,
         },
@@ -96,8 +148,15 @@ const SSHKeysTab = () => {
             key: 'comment',
             header: 'Comment',
             sortable: true,
+            // Text, never enum: on a box with three unlabelled keys the
+            // inference would see one repeated value and offer a checklist.
+            // `value` substitutes the dash the cell shows so the unlabelled
+            // rows are addressable; `sortValue` keeps returning '' so the
+            // ordering users already have persisted does not shift.
+            type: 'text',
+            value: (key) => key.comment || NO_COMMENT,
             sortValue: (key) => key.comment || '',
-            render: (key) => key.comment || <span className="sec-dash">—</span>,
+            render: (key) => key.comment || <span className="sec-dash">{NO_COMMENT}</span>,
         },
         {
             key: 'actions',
@@ -112,55 +171,100 @@ const SSHKeysTab = () => {
         },
     ];
 
+    // Scoped to this table, not to Security as a page: one tab is mounted at a
+    // time, so a picker at the page heading would sit above whichever tab
+    // happened to be open. No `urlScope` — the keys table is the only one on
+    // this tab, so its links keep the plain ?view= names.
+    const chrome = useTableChrome({
+        columns,
+        rows: keys,
+        viewPageKey: 'security-ssh-keys',
+        builtinViews: SSH_KEY_VIEWS,
+        noun: 'keys',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    // DataTable applies the column rules itself, so the count has to be
+    // re-derived here or a view that narrows to one key still claims the total.
+    const shownKeys = useMemo(
+        () => applyFilters(keys, chrome.cfg.filters, chrome.columns),
+        [keys, chrome.cfg.filters, chrome.columns],
+    );
+
     return (
         <div className="ssh-keys-tab">
-            <div className="card sec-flush">
-                <div className="card-header">
-                    <h3>SSH Authorized Keys {!loading && keys.length > 0 && <span className="sec-count">· {keys.length}</span>}</h3>
-                    <div className="card-actions">
-                        <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
-                            Add Key
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={loadKeys}>
-                            Refresh
-                        </Button>
-                    </div>
-                </div>
-                {loading ? (
-                    <div className="card-body">
-                        <div className="loading-sm">Loading...</div>
-                    </div>
-                ) : keys.length === 0 ? (
-                    <div className="card-body">
-                        <EmptyState
-                            icon={KeyRound}
-                            title="No SSH keys configured for root user."
-                            action={(
-                                <Button variant="default" onClick={() => setShowAddModal(true)}>
-                                    Add SSH Key
-                                </Button>
-                            )}
+            {/* The view name replaces the old "SSH Authorized Keys" <h3>: one
+                heading, and it now names the slice you are looking at. Add Key
+                and Refresh stay put — they are actions, not filters. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="keys"
+                // Null while the read is in flight: an empty `keys` means "not
+                // known yet", and "0 of 0 keys" would be a claim.
+                total={loading ? null : `${shownKeys.length} of ${keys.length} keys`}
+                onCreate={chrome.createView}
+            />
+            <ListToolbar
+                tools={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
                         />
-                    </div>
-                ) : (
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadKeys} />
+                    </>
+                )}
+            >
+                <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
+                    Add Key
+                </Button>
+                <Button variant="outline" size="sm" onClick={loadKeys}>
+                    Refresh
+                </Button>
+            </ListToolbar>
+
+            <GridChips {...chrome.chipProps} />
+
+            {loading ? (
+                <div className="card">
+                    <div className="loading-sm">Loading...</div>
+                </div>
+            ) : keys.length === 0 ? (
+                <div className="card">
+                    <EmptyState
+                        icon={KeyRound}
+                        title="No SSH keys configured for root user."
+                        action={(
+                            <Button variant="default" onClick={() => setShowAddModal(true)}>
+                                Add SSH Key
+                            </Button>
+                        )}
+                    />
+                </div>
+            ) : (
+                <div className="card sec-flush">
                     <DataTable
-                        columns={columns}
+                        columns={chrome.columns}
                         data={keys}
                         keyField="id"
                         sorts={sorts}
                         onSortsChange={setSorts}
-                        hiddenKeys={hiddenKeys}
-                        onHiddenKeysChange={setHiddenKeys}
+                        {...chrome.tableProps}
                         footer={(
                             <DataTableFooter
-                                shown={keys.length}
+                                shown={shownKeys.length}
                                 total={keys.length}
                                 noun="key"
                             />
                         )}
                     />
-                )}
-            </div>
+                </div>
+            )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add SSH Public Key" size="lg">
                 <div className="form-group">

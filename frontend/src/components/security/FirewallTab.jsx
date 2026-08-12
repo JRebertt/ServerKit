@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { DataTable, DataTableFooter, Pill, SegControl } from '@/components/ds';
+import { DataTable, DataTableFooter, ListToolbar, Pill, SegControl } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Ban, Shield } from 'lucide-react';
@@ -19,6 +23,65 @@ const RULE_TYPE_TONES = {
     service: 'cyan',
     rich: 'violet',
 };
+
+// UFW and firewalld describe the same rule differently: firewalld splits a port
+// rule into `port` + `protocol`, while UFW hands back one printed target
+// ('8080/tcp') and no protocol field at all. Reading both here is what lets a
+// saved view mean the same thing whichever firewall the host runs — and stops
+// the Protocol column reading '-' on every UFW box.
+const ruleTarget = (rule) => rule.service || rule.port || rule.rule || '';
+const ruleProtocol = (rule) => (
+    rule.protocol || /\/(tcp|udp)\b/i.exec(String(ruleTarget(rule)))?.[1] || ''
+).toLowerCase();
+
+// Built-in saved views. Every rule matches a column's `value` accessor, so the
+// strings below are what the Protocol cell actually shows: 'tcp' / 'udp' for a
+// port opening on either firewall, and '' for a rule that opens no port at all.
+// The three partition the table on that one axis, because "what is reachable"
+// and "what is blocked or named" are the two questions this list answers.
+const FIREWALL_VIEWS = [
+    {
+        // The port surface, in target order: what this host answers on. A
+        // firewalld *service* rule (ssh, http) carries no protocol of its own,
+        // so it is deliberately absent here — it lands under the third view.
+        name: 'Port openings',
+        state: {
+            sorts: [{ key: 'target', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fw1', field: 'protocol', op: 'any', value: ['tcp', 'udp'] }],
+            },
+        },
+    },
+    {
+        // Short by design. UDP gets opened for DNS, WireGuard or QUIC and
+        // almost never by accident, so any row appearing here is worth reading.
+        name: 'UDP openings',
+        state: {
+            sorts: [{ key: 'target', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fw2', field: 'protocol', op: 'any', value: ['udp'] }],
+            },
+        },
+    },
+    {
+        // The half the two port views hide: firewalld services and rich
+        // drop/reject rules, UFW app profiles and address-scoped rules. An IP
+        // block lives here, so this is the list to read after an incident.
+        name: 'Service & rich rules',
+        state: {
+            sorts: [{ key: 'type', direction: 'asc' }, { key: 'target', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'fw3', field: 'protocol', op: 'none', value: ['tcp', 'udp'] }],
+            },
+        },
+    },
+];
 
 const FirewallTab = () => {
     const [status, setStatus] = useState(null);
@@ -268,7 +331,7 @@ const FirewallTab = () => {
             key: 'target',
             header: 'Target',
             sortable: true,
-            sortValue: (rule) => rule.service || rule.port || rule.rule || '',
+            sortValue: ruleTarget,
             cellClassName: 'sk-cell-mono',
             render: (rule) => (
                 <>
@@ -282,9 +345,16 @@ const FirewallTab = () => {
             key: 'protocol',
             header: 'Protocol',
             sortable: true,
-            sortValue: (rule) => rule.protocol || '',
+            // Declared, not inferred: with only tcp/udp in play a short rule
+            // list fails the enum cardinality test and falls back to text,
+            // which turns the pick-list into a typed fragment and every view
+            // above into a no-op. `value` is what the rules read; `sortValue`
+            // is what the sorter reads, and they must agree.
+            type: 'enum',
+            value: ruleProtocol,
+            sortValue: ruleProtocol,
             cellClassName: 'sk-cell-mono sec-proto',
-            render: (rule) => rule.protocol || '-',
+            render: (rule) => ruleProtocol(rule) || '-',
         },
         {
             key: 'actions',
@@ -300,6 +370,34 @@ const FirewallTab = () => {
             ),
         },
     ];
+
+    // Saved views are scoped to THIS table, not to Security as a page: only one
+    // of the 13 tabs is mounted at a time, so a picker at the page heading would
+    // sit above whichever tab happened to be open. No `urlScope` either — the
+    // rules table is the only one on this tab, so its shareable links keep the
+    // plain ?view= names every single-table page produces.
+    //
+    // No `pageState`: the sub-tab strip below is navigation, not a filter, and a
+    // view that switched you to another sub-tab would hide the table it names.
+    const chrome = useTableChrome({
+        columns: ruleColumns,
+        rows: rules,
+        viewPageKey: 'security-firewall',
+        builtinViews: FIREWALL_VIEWS,
+        noun: 'rules',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    // The count has to be the count you can SEE. DataTable applies the column
+    // rules itself, so without re-applying them here a view that narrows to two
+    // rows would still claim the full total.
+    const shownRules = useMemo(
+        () => applyFilters(rules, chrome.cfg.filters, chrome.columns),
+        [rules, chrome.cfg.filters, chrome.columns],
+    );
 
     if (loading) {
         return <div className="loading-sm">Loading firewall status...</div>;
@@ -406,36 +504,56 @@ const FirewallTab = () => {
                     )}
 
                     {activeSubTab === 'rules' && (
-                        <div className="card sec-flush">
-                            <div className="card-header">
-                                <h3>Firewall Rules</h3>
-                                <div className="sec-tableactions">
-                                    <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
-                                </div>
-                            </div>
+                        <>
+                            {/* The view name IS this section's heading — the old
+                                "Firewall Rules" <h3> would title the same table
+                                twice, and the segment above already says Rules. */}
+                            <GridViewPicker
+                                views={chrome.views}
+                                label="rules"
+                                total={`${shownRules.length} of ${rules.length} rules`}
+                                onCreate={chrome.createView}
+                            />
+                            <ListToolbar
+                                tools={(
+                                    <>
+                                        <GridFilterButton
+                                            count={chrome.filterCount}
+                                            onClick={() => chrome.setDrawerOpen(true)}
+                                        />
+                                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                                    </>
+                                )}
+                            >
+                                <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
+                            </ListToolbar>
+
+                            <GridChips {...chrome.chipProps} />
+
                             {rules.length === 0 ? (
-                                <div className="card-body">
+                                <div className="card">
                                     <p className="text-muted">No rules configured</p>
                                 </div>
                             ) : (
-                                <DataTable
-                                    columns={ruleColumns}
-                                    data={rules}
-                                    keyField={(rule) => `${rule.type}-${rule.service || rule.port || rule.rule}-${rule.protocol || ''}`}
-                                    sorts={sorts}
-                                    onSortsChange={setSorts}
-                                    hiddenKeys={hiddenKeys}
-                                    onHiddenKeysChange={setHiddenKeys}
-                                    footer={(
-                                        <DataTableFooter
-                                            shown={rules.length}
-                                            total={rules.length}
-                                            noun="rule"
-                                        />
-                                    )}
-                                />
+                                <div className="card sec-flush">
+                                    <DataTable
+                                        columns={chrome.columns}
+                                        data={rules}
+                                        keyField={(rule) => `${rule.type}-${rule.service || rule.port || rule.rule}-${rule.protocol || ''}`}
+                                        sorts={sorts}
+                                        onSortsChange={setSorts}
+                                        {...chrome.tableProps}
+                                        footer={(
+                                            <DataTableFooter
+                                                shown={shownRules.length}
+                                                total={rules.length}
+                                                noun="rule"
+                                            />
+                                        )}
+                                    />
+                                </div>
                             )}
-                        </div>
+                        </>
                     )}
 
                     {activeSubTab === 'blocked' && (
@@ -539,6 +657,8 @@ const FirewallTab = () => {
                     </div>
                 </div>
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             {/* Block IP Modal */}
             <Modal open={showBlockIPModal} onClose={() => setShowBlockIPModal(false)} title="Block IP Address">
