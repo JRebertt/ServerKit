@@ -27,8 +27,17 @@ _REGISTRY = {}
 DEFAULT_RETENTION_DAYS = 30
 
 
-def register(kind, model, *, label, description=None, on_restore=None, noun=None):
-    """Make a soft-deletable model visible to the Recycle Bin."""
+def register(kind, model, *, label, description=None, on_restore=None,
+             pre_restore=None, noun=None):
+    """Make a soft-deletable model visible to the Recycle Bin.
+
+    `pre_restore(row)` runs BEFORE the tombstone is cleared and returns an error
+    string to refuse the restore. It exists because a partial unique index makes
+    "restorable" a moving target: deleting a domain frees its name, so something
+    live may hold it by the time you press Restore. Clearing the tombstone then
+    violates the index and raises IntegrityError at commit — a 500 for what is
+    really a normal, explainable conflict.
+    """
     if not hasattr(model, 'deleted_at'):
         raise TypeError(f'{model.__name__} does not use SoftDeleteMixin')
     _REGISTRY[kind] = {
@@ -36,6 +45,7 @@ def register(kind, model, *, label, description=None, on_restore=None, noun=None
         'label': label,
         'description': description,
         'on_restore': on_restore,
+        'pre_restore': pre_restore,
         'noun': noun or kind.replace('_', ' '),
     }
 
@@ -87,6 +97,10 @@ def restore(kind, record_id):
         return None, 'not found'
     if row.deleted_at is None:
         return _serialize(kind, entry, row), None      # already active; idempotent
+    if entry['pre_restore']:
+        blocked = entry['pre_restore'](row)
+        if blocked:
+            return None, blocked
     row.restore()
     db.session.commit()
     if entry['on_restore']:
@@ -134,12 +148,15 @@ def register_builtin_types():
     """Wire the models that ship with the panel. Called from create_app."""
     from app.models.domain import Domain
     from app.models.saved_view import SavedView
+    from app.services.domain_restore import on_restore_domain, pre_restore_domain
 
     register(
         'domain', Domain, noun='domain',
         label=lambda d: d.name,
         description=lambda d: (f'linked to app #{d.application_id}'
                                if d.application_id else None),
+        pre_restore=pre_restore_domain,
+        on_restore=on_restore_domain,
     )
     register(
         'saved_view', SavedView, noun='saved view',

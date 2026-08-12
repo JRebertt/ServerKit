@@ -56,7 +56,13 @@ def test_a_deleted_name_can_be_reused(app, app_with_domain):
         assert Domain.query.filter_by(name='shop.example.com').count() == 2
 
 
-def test_restore_is_idempotent(app, app_with_domain):
+def test_restore_is_idempotent(app, app_with_domain, monkeypatch):
+    # Domain now has an on_restore hook that rewrites the vhost; stub the nginx
+    # side so this test stays about restore semantics.
+    from app.services import domain_restore
+    monkeypatch.setattr(domain_restore.NginxService, 'create_site', lambda **kw: {'success': True})
+    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+
     with app.app_context():
         Domain.query.get(app_with_domain['domain_id']).soft_delete()
         db.session.commit()
@@ -151,3 +157,88 @@ def test_a_deleted_view_frees_its_name_and_slug(app):
         assert err is None
         assert again['slug'] == 'triage'            # not 'triage-2'
         assert saved_view_service.get_by_slug(1, 'domains', 'triage')['id'] == again['id']
+
+
+# ---- domain restore hooks ---------------------------------------------------
+
+def test_restoring_a_domain_rewrites_the_vhost(app, app_with_domain, monkeypatch):
+    """Deleting tore the domain out of the app's vhost; restoring must put it
+    back, or the record is 'restored' while still not being served."""
+    from app.services import domain_restore
+
+    calls = []
+    monkeypatch.setattr(domain_restore.NginxService, 'create_site',
+                        lambda **kw: calls.append(kw) or {'success': True})
+    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None and item is not None
+        assert len(calls) == 1
+        assert 'shop.example.com' in calls[0]['domains']
+
+
+def test_restore_is_refused_when_the_name_was_taken_again(app, app_with_domain):
+    """Deleting frees the name (the unique index covers live rows only), so the
+    conflict is reachable — and must be a readable refusal, not an
+    IntegrityError at commit."""
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+        db.session.add(Domain(name='shop.example.com',
+                              application_id=app_with_domain['app_id']))
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert item is None
+        assert 'added again' in err
+        # still tombstoned — a refused restore must not half-apply
+        assert Domain.query.get(app_with_domain['domain_id']).deleted_at is not None
+
+
+def test_restore_is_refused_when_the_app_is_gone(app, app_with_domain):
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.query(Application).filter_by(id=app_with_domain['app_id']).delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert item is None and 'no longer exists' in err
+
+
+def test_restored_domain_does_not_become_a_second_primary(app, app_with_domain, monkeypatch):
+    from app.services import domain_restore
+    monkeypatch.setattr(domain_restore.NginxService, 'create_site', lambda **kw: {'success': True})
+    monkeypatch.setattr(domain_restore.NginxService, 'reload', lambda: True)
+
+    with app.app_context():
+        first = Domain.query.get(app_with_domain['domain_id'])
+        first.is_primary = True
+        first.soft_delete()
+        db.session.add(Domain(name='new-primary.example.com', is_primary=True,
+                              application_id=app_with_domain['app_id']))
+        db.session.commit()
+
+        recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        primaries = Domain.query_active().filter_by(
+            application_id=app_with_domain['app_id'], is_primary=True).count()
+        assert primaries == 1
+
+
+def test_a_failing_vhost_rewrite_warns_but_keeps_the_restore(app, app_with_domain, monkeypatch):
+    from app.services import domain_restore
+    monkeypatch.setattr(domain_restore.NginxService, 'create_site',
+                        lambda **kw: {'success': False, 'error': 'nginx -t failed'})
+
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        # The row IS back; only the side effect failed. Say so, don't roll back.
+        assert item is not None
+        assert 'nginx -t failed' in err
+        assert Domain.query.get(app_with_domain['domain_id']).deleted_at is None
