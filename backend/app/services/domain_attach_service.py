@@ -68,15 +68,21 @@ class DomainAttachService:
 
         # 1) Idempotent Domain row (create if missing, honor make_primary).
         try:
-            domain = Domain.query.filter_by(name=host, application_id=app.id).first()
+            # query_active: finding a TOMBSTONE here made attach report success
+            # while never creating a live row -- the domain was never published,
+            # and the code below then mutated a recycle-bin record.
+            domain = Domain.query_active().filter_by(name=host, application_id=app.id).first()
             created = domain is None
             if make_primary:
-                Domain.query.filter_by(application_id=app.id, is_primary=True).update(
+                Domain.query_active().filter_by(application_id=app.id, is_primary=True).update(
                     {'is_primary': False})
             if domain is None:
                 # Guard against the host being claimed by a *different* app —
                 # `name` is globally unique, so we can't silently steal it.
-                clash = Domain.query.filter_by(name=host).first()
+                # query_active: a tombstone must not count as a clash. Migration
+                # 083 made the unique index partial precisely so deleting a domain
+                # frees its name; checking tombstones here re-imposes the burn.
+                clash = Domain.query_active().filter_by(name=host).first()
                 if clash and clash.application_id != app.id:
                     return {'success': False,
                             'error': f'{host} is already attached to another app'}

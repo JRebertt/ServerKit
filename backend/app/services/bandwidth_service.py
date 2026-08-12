@@ -143,7 +143,7 @@ class BandwidthService:
         # domain (lowercased) -> app_id, for attributing vhost-split lines.
         domain_app = {
             d.name.lower(): d.application_id
-            for d in Domain.query.all() if d.name
+            for d in Domain.query_active().all() if d.name
         }
 
         # domain -> {'app_id': ..., 'bytes': ..., 'requests': ...}

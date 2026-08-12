@@ -264,7 +264,10 @@ class DoctorService:
         Application)."""
         try:
             from app.models.domain import Domain
-            rows = Domain.query.filter(Domain.application_id.isnot(None)).all()
+            # query_active: tombstones became permanent red 'does not resolve'
+            # rows, and this same set is the allowlist for one-click DNS repair --
+            # so Repair would create a record for a deleted domain.
+            rows = Domain.query_active().filter(Domain.application_id.isnot(None)).all()
         except Exception:  # noqa: BLE001
             return []
         return [d.name for d in rows if d.name]

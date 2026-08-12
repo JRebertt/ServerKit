@@ -106,6 +106,12 @@ class Application(db.Model):
 
     # Relationships
     # Use 'subquery' to eagerly load domains in a single query, avoiding N+1
+    # NOTE: this collection includes SOFT-DELETED domains. It is deliberately
+    # NOT filtered with a primaryjoin: combined with delete-orphan, a tombstoned
+    # child would fall out of the collection and SQLAlchemy would HARD-delete it
+    # on the next flush — soft delete would destroy the very row the recycle bin
+    # exists to keep. Read `live_domains` anywhere you mean "domains this app
+    # actually serves".
     domains = db.relationship('Domain', backref='application', lazy='subquery', cascade='all, delete-orphan')
     linked_app = db.relationship('Application', remote_side=[id], backref='linked_from', foreign_keys=[linked_app_id])
     server = db.relationship('Server', backref=db.backref('applications', lazy='dynamic'))
@@ -114,6 +120,16 @@ class Application(db.Model):
     # backref/cascade — these only exist so an app row can show where it lives.
     project = db.relationship('Project', foreign_keys=[project_id], viewonly=True)
     environment = db.relationship('Environment', foreign_keys=[environment_id], viewonly=True)
+
+    @property
+    def live_domains(self):
+        """The domains this app actually serves — tombstones excluded.
+
+        `self.domains` still holds soft-deleted rows (see the relationship note
+        above), so anything that answers "what is published / what should nginx
+        or DNS or a manifest see" must read this instead.
+        """
+        return [d for d in self.domains if getattr(d, 'deleted_at', None) is None]
 
     def to_dict(self, include_linked=False):
         import json
@@ -164,7 +180,7 @@ class Application(db.Model):
             'project_name': self.project.name if self.project else None,
             'environment_name': self.environment.name if self.environment else None,
             'server_name': self.server.name if self.server else 'Local server',
-            'domains': [d.to_dict() for d in self.domains]
+            'domains': [d.to_dict() for d in self.live_domains]
         }
 
         # Lightweight image-scan badge (latest scan only)

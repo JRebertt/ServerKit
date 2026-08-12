@@ -123,7 +123,7 @@ def get_domains():
 def get_domain(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -289,7 +289,7 @@ def give_subdomain():
 def update_domain(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -323,7 +323,7 @@ def update_domain(domain_id):
 def delete_domain(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -364,7 +364,7 @@ def delete_domain(domain_id):
 def enable_ssl(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -416,7 +416,7 @@ def enable_ssl(domain_id):
 def disable_ssl(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -439,7 +439,7 @@ def disable_ssl(domain_id):
 def renew_ssl(domain_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
 
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
@@ -468,7 +468,7 @@ def verify_domain(domain_id):
     """Verify domain DNS configuration."""
     import socket
 
-    domain = Domain.query.get(domain_id)
+    domain = Domain.query_active().filter_by(id=domain_id).first()
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
 
@@ -529,7 +529,9 @@ def regenerate_nginx_config(app_id):
         return jsonify({'error': 'Application does not have a port configured'}), 400
 
     # Get all domains for this app
-    domains = [d.name for d in Domain.query.filter_by(application_id=app_id).all()]
+    # query_active: a tombstone here would be written back into server_name,
+    # undoing the teardown that DELETE /domains/<id> just performed.
+    domains = [d.name for d in Domain.query_active().filter_by(application_id=app_id).all()]
 
     if not domains:
         return jsonify({'error': 'No domains configured for this application'}), 400
@@ -601,7 +603,7 @@ def diagnose_app_routing(app_id):
     }
 
     # Get domains
-    domains = Domain.query.filter_by(application_id=app_id).all()
+    domains = Domain.query_active().filter_by(application_id=app_id).all()
     diagnosis['domains'] = [d.to_dict() for d in domains]
 
     # Nginx diagnosis
@@ -681,9 +683,9 @@ def test_app_routing(app_id):
         return jsonify({'error': 'Application has no port configured'}), 400
 
     # Get primary domain or first domain
-    domain = Domain.query.filter_by(application_id=app_id, is_primary=True).first()
+    domain = Domain.query_active().filter_by(application_id=app_id, is_primary=True).first()
     if not domain:
-        domain = Domain.query.filter_by(application_id=app_id).first()
+        domain = Domain.query_active().filter_by(application_id=app_id).first()
 
     domain_name = domain.name if domain else None
 

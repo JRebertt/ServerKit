@@ -80,7 +80,9 @@ class SetupReconcileService:
 
         candidates = []
         seen = set()
-        for domain in Domain.query.order_by(Domain.name.asc()).all():
+        # query_active: a tombstone here made DNS backfill CREATE a real A record
+        # at the provider for a domain the user had deleted.
+        for domain in Domain.query_active().order_by(Domain.name.asc()).all():
             host = (domain.name or '').strip().lower()
             if cls._skip_dns_host(host):
                 continue
@@ -264,7 +266,11 @@ class SetupReconcileService:
         from app.models.domain import Domain
         from app.services.site_domain_service import SiteDomainService
 
-        domain = Domain.query.filter_by(
+        # query_active: delete_domain does not reassign is_primary, so the only
+        # is_primary row can be a TOMBSTONE -- and this drives a WP-CLI
+        # search-replace across the whole database. Pointing it at a deleted host
+        # takes the live site down.
+        domain = Domain.query_active().filter_by(
             application_id=app.id, is_primary=True).first()
         if not domain or not domain.name:
             return None

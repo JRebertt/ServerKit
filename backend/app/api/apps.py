@@ -2003,7 +2003,7 @@ def get_app_related(app_id):
         from app.models.domain import Domain
         related['domains'] = [
             {'id': d.id, 'name': d.name, 'ssl_enabled': bool(getattr(d, 'ssl_enabled', False))}
-            for d in Domain.query.filter_by(application_id=app.id).all()
+            for d in Domain.query_active().filter_by(application_id=app.id).all()
         ]
     except Exception:
         current_app.logger.warning('related: domains failed', exc_info=True)

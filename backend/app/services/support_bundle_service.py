@@ -101,7 +101,7 @@ def _collect_counts():
     from app.jobs.models import Job
     return {
         'applications': Application.query.count(),
-        'domains': Domain.query.count(),
+        'domains': Domain.query_active().count(),
         'servers': Server.query.count(),
         'users': User.query.count(),
         'jobs': Job.query.count(),
