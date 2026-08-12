@@ -98,7 +98,11 @@ export function inferColumnType(column, rows) {
         if (v != null && v !== '') sample.push(v);
         if (sample.length >= 60) break;
     }
-    if (!sample.length) return 'text';
+    // Nothing readable behind this column — it renders from fields the
+    // accessor never exposes (a `render`-only column whose `key` is not a real
+    // row property). Offering a filter here would be a control that silently
+    // matches nothing, so the column gets a menu without a Filter section.
+    if (!sample.length) return null;
 
     if (sample.every((v) => typeof v === 'boolean')) return 'bool';
     if (sample.every((v) => typeof v === 'number' && Number.isFinite(v))) return 'num';
@@ -162,9 +166,20 @@ export function ruleMatches(row, rule, columns) {
                 : asText(value) === asText(rule.value);
         case 'any': return !rule.value?.length || rule.value.includes(String(value));
         case 'none': return !rule.value?.length || !rule.value.includes(String(value));
-        case 'lt': return Number(value) < Number(rule.value);
-        case 'gt': return Number(value) > Number(rule.value);
-        case 'eq': return Number(value) === Number(rule.value);
+        // A missing number is NOT zero. Number(null) === 0, so an unguarded
+        // `lt` matched every row whose metric was absent — "CPU under 20%"
+        // would have returned every offline server in the fleet. No value means
+        // the row cannot satisfy a numeric comparison, in either direction.
+        case 'lt':
+        case 'gt':
+        case 'eq': {
+            if (value == null || value === '') return false;
+            const n = Number(value);
+            if (Number.isNaN(n)) return false;
+            if (rule.op === 'lt') return n < Number(rule.value);
+            if (rule.op === 'gt') return n > Number(rule.value);
+            return n === Number(rule.value);
+        }
         case 'before': {
             const a = asTime(value); const b = asTime(rule.value);
             return a != null && b != null && a < b;
