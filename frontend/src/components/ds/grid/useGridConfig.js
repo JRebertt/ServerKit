@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import useTableViews from '@/hooks/useTableViews';
-import useViewLink from './useViewLink';
+import useGridViews from './useGridViews';
+import { cfgToEnvelope, envelopeToCfg } from './viewState';
 import { emptyValueFor, isFilterable, OPS, ruleId } from './fields';
 
 // The whole of a grid's chrome is ONE serialisable object, so a saved view is
@@ -64,15 +64,32 @@ export function useGridConfig({ page, columns, initial, builtinViews = [] }) {
 
     const [cfg, setCfg] = useState(base);
 
-    const capture = useCallback(() => cfg, [cfg]);
-    const apply = useCallback((state) => setCfg(makeGridConfig(state || {})), []);
+    // `cfg` is DataGrid's own representation and stays that way — it is what
+    // makes "move column left" a one-line splice. Saved views, though, are the
+    // SHARED envelope, so a Domains view is the same JSON as a Cron view and
+    // one shareable-link format covers both. The two are bridged here, in the
+    // one place, rather than by teaching either side about the other.
+    const allKeys = useMemo(() => columns.map((c) => c.key), [columns]);
 
-    const views = useTableViews({ page, builtinViews, capture, apply });
+    const capture = useCallback(() => cfgToEnvelope(cfg, allKeys), [cfg, allKeys]);
+    const apply = useCallback(
+        (state) => setCfg(makeGridConfig(envelopeToCfg(state, allKeys))),
+        [allKeys],
+    );
 
-    // ?view=<slug> / readable params <-> the active view. Same hook the legacy
-    // chrome uses, so a DataGrid page and a DataTable page produce and accept
-    // the same links.
-    const { copyLink } = useViewLink({ views, apply, capture, enabled: !!page });
+    // Saving a view with "start from current" cleared means the page's natural
+    // config, not the active view's — so this resets to `base`, not through
+    // `resetToView` below (which re-applies the active view, and would also be
+    // a dependency cycle: it needs `views`, which needs this).
+    const resetToBase = useCallback(() => setCfg(clone(base)), [base]);
+
+    const { views, copyLink, createView } = useGridViews({
+        page,
+        builtinViews,
+        capture,
+        apply,
+        resetToView: resetToBase,
+    });
 
     // ---- narrow setters the menus talk to ------------------------------
     const patch = useCallback((next) => setCfg((prev) => ({ ...prev, ...next })), []);
@@ -186,6 +203,7 @@ export function useGridConfig({ page, columns, initial, builtinViews = [] }) {
         setCfg,
         views,
         copyLink,
+        createView,
         base,
         setSort,
         toggleGroup,

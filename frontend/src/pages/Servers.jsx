@@ -248,16 +248,16 @@ const Servers = () => {
     // Page-owned view state (the status segment, the group select, search);
     // useTableChrome owns the rest — sorts, hidden columns, grouping, column
     // rules and order — and gives back the shared list chrome.
-    const extraViewState = useMemo(() => ({
+    const viewPageState = useMemo(() => ({
         status: selectedStatus,
         group: selectedGroup,
         search: searchTerm,
     }), [selectedStatus, selectedGroup, searchTerm]);
 
-    const applyExtraViewState = useCallback((state) => {
-        if (state.status !== undefined) setSelectedStatus(state.status);
-        if (state.group !== undefined) setSelectedGroup(state.group);
-        if (state.search !== undefined) setSearchTerm(state.search);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.status !== undefined) setSelectedStatus(saved.status);
+        if (saved.group !== undefined) setSelectedGroup(saved.group);
+        if (saved.search !== undefined) setSearchTerm(saved.search);
     }, []);
 
     const loadData = useCallback(async () => {
@@ -333,8 +333,8 @@ const Servers = () => {
         setHiddenKeys,
         groupBy,
         setGroupBy: changeGroupBy,
-        extraState: extraViewState,
-        applyExtra: applyExtraViewState,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
     });
 
     if (loading) {

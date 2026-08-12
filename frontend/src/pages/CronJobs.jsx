@@ -160,9 +160,9 @@ const CronJobs = () => {
     // Shared list chrome: view picker + filter chips + filter drawer + tools,
     // driven off this page's existing sorts/hiddenKeys state. Same hook every
     // other list page uses, so /cron looks and behaves like /domains.
-    const extraViewState = useMemo(() => ({ search }), [search]);
-    const applyExtraViewState = useCallback((state) => {
-        if (state.search !== undefined) setSearch(state.search);
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
     }, []);
 
     // Drawer + modal states
@@ -412,8 +412,8 @@ const CronJobs = () => {
         setSorts,
         hiddenKeys,
         setHiddenKeys,
-        extraState: extraViewState,
-        applyExtra: applyExtraViewState,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
     });
 
     return (

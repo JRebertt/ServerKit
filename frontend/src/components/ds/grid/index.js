@@ -19,6 +19,14 @@ export { useGridConfig, makeGridConfig, GRID_DEFAULTS } from './useGridConfig';
 export { useGridRows } from './useGridRows';
 export { useTableChrome } from './useTableChrome';
 export { useViewLink } from './useViewLink';
+// The saved-view envelope: ONE state shape for every list page. `useGridViews`
+// is the only thing that should touch `useTableViews` — pages go through
+// `useTableChrome` (DataTable) or `useGridConfig` (DataGrid).
+export { useGridViews } from './useGridViews';
+export {
+    toEnvelope, emptyViewState, sameViewState, cfgToEnvelope, envelopeToCfg,
+    COMMON_KEYS, NO_COLUMN_FILTERS,
+} from './viewState';
 export {
     encodeState, decodeState, readViewParams, resolveView, copyableLink,
     handleFor, slugify as slugifyViewName, VIEW_PARAM, STATE_PARAM,
