@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import useGridViews from './useGridViews';
-import { cfgToEnvelope, envelopeToCfg } from './viewState';
+import { cfgToEnvelope, envelopeToCfg, isLegacyCfg } from './viewState';
 import { emptyValueFor, isFilterable, OPS, ruleId } from './fields';
 
 // The whole of a grid's chrome is ONE serialisable object, so a saved view is
@@ -83,11 +83,22 @@ export function useGridConfig({ page, columns, initial, builtinViews = [] }) {
     // a dependency cycle: it needs `views`, which needs this).
     const resetToBase = useCallback(() => setCfg(clone(base)), [base]);
 
+    // This page's built-in presets, and every view saved before the envelope
+    // existed, are raw cfg objects. Convert them on the way IN — left alone,
+    // `cols`/`sort`/`filters` look like unknown keys and get filed into the
+    // per-page bag, which drops every rule the preset declared and leaves a
+    // view that renders its name and filters nothing.
+    const migrate = useCallback(
+        (state) => (isLegacyCfg(state) ? cfgToEnvelope(state, allKeys) : state),
+        [allKeys],
+    );
+
     const { views, copyLink, createView } = useGridViews({
         page,
         builtinViews,
         capture,
         apply,
+        migrate,
         resetToView: resetToBase,
     });
 

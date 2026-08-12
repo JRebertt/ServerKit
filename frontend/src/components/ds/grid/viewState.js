@@ -129,6 +129,14 @@ export function sameViewState(a, b, { rename } = {}) {
 // Domains view and a Cron view are the same JSON and a link from one page's
 // chrome means the same thing on the other's.
 
+// A view saved (or authored) as a raw DataGrid cfg rather than an envelope:
+// `cols` is a cfg-only key and `sorts` is envelope-only, so the pair is
+// unambiguous. Detecting this matters — run such a state through `toEnvelope`
+// directly and `cols`/`sort`/`filters` all get filed into `page` as unknown
+// keys, which silently drops every rule the preset declared.
+export const isLegacyCfg = (state) => !!state && typeof state === 'object'
+    && Array.isArray(state.cols) && !Array.isArray(state.sorts);
+
 export function cfgToEnvelope(cfg, allKeys = []) {
     const cols = Array.isArray(cfg?.cols) ? cfg.cols : [];
     return {
@@ -149,9 +157,7 @@ export function cfgToEnvelope(cfg, allKeys = []) {
  */
 export function envelopeToCfg(state, allKeys = [], fallback = {}) {
     // A view saved by an older build is the raw cfg itself.
-    const isLegacyCfg = state && typeof state === 'object'
-        && Array.isArray(state.cols) && !Array.isArray(state.sorts);
-    if (isLegacyCfg) {
+    if (isLegacyCfg(state)) {
         return {
             cols: state.cols,
             sort: state.sort || { key: null, dir: 'asc' },

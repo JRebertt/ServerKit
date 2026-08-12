@@ -24,7 +24,14 @@ import { emptyViewState, sameViewState, toEnvelope } from './viewState';
  * normalised to the envelope here, so a page never has to think about the
  * shape a previous release happened to persist.
  */
-export function useGridViews({ page, builtinViews = [], capture, apply, rename, resetToView }) {
+export function useGridViews({
+    page, builtinViews = [], capture, apply, rename, resetToView,
+    // Optional pre-pass run on any INBOUND state (a built-in preset, a saved
+    // view, a shared link) before it is normalised. A host whose older states
+    // used a private shape converts it here — without this, `toEnvelope` files
+    // those unknown top-level keys into `page` and the state's rules vanish.
+    migrate,
+}) {
     // `rename` is almost always an inline literal. Freeze the first one rather
     // than rebuilding every callback below on each render — the map is a
     // per-page constant, and a changing identity here would reach `apply`,
@@ -36,11 +43,16 @@ export function useGridViews({ page, builtinViews = [], capture, apply, rename, 
     // page can adopt it without rewriting its built-ins in the same commit.
     // Keyed on names for the same reason useTableViews is: an inline
     // `builtinViews={[…]}` literal is a new array identity every render.
+    const normalize = useCallback(
+        (state) => toEnvelope(migrate ? migrate(state) : state, { rename: renameMap }),
+        [migrate, renameMap],
+    );
+
     const builtinKey = builtinViews.map((v) => v.name).join(' ');
     const migratedBuiltins = useMemo(
-        () => builtinViews.map((v) => ({ ...v, state: toEnvelope(v.state, { rename: renameMap }) })),
+        () => builtinViews.map((v) => ({ ...v, state: normalize(v.state) })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [builtinKey, renameMap],
+        [builtinKey, normalize],
     );
 
     const captureEnvelope = useCallback(
@@ -48,14 +60,11 @@ export function useGridViews({ page, builtinViews = [], capture, apply, rename, 
         [capture, renameMap],
     );
 
-    const applyEnvelope = useCallback(
-        (state) => apply?.(toEnvelope(state, { rename: renameMap })),
-        [apply, renameMap],
-    );
+    const applyEnvelope = useCallback((state) => apply?.(normalize(state)), [apply, normalize]);
 
     const isSame = useCallback(
-        (a, b) => sameViewState(a, b, { rename: renameMap }),
-        [renameMap],
+        (a, b) => sameViewState(normalize(a), normalize(b), { rename: renameMap }),
+        [normalize, renameMap],
     );
 
     const views = useTableViews({
