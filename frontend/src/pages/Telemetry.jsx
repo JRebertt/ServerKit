@@ -27,8 +27,7 @@ import {
     Pill, SearchField, countActiveFilters,
 } from '@/components/ds';
 import {
-    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
-    GridToolsMenu, GridFilterDrawer,
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
 } from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -380,17 +379,12 @@ export default function Telemetry() {
                 label="events"
                 total={`${events.length} loaded · ${stats?.total || 0} in the last 24h`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
-                    <>
-                        <GridFilterButton
-                            count={chrome.filterCount}
-                            onClick={() => chrome.setDrawerOpen(true)}
-                        />
-                        <GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />
-                    </>
-                )}
+                // The "..." sits on the view-name line rather than in a toolbar
+                // of its own -- with nothing else to put there, that toolbar was
+                // an empty bar holding one icon. And there is ONE filter button
+                // on this page: the top bar's, which opens the SERVER query
+                // drawer (eight keys, applied to the query, not the loaded 50).
+                actions={<GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />}
             />
 
             <GridChips {...chrome.chipProps} />
@@ -518,8 +512,6 @@ export default function Telemetry() {
                     />
                 </div>
             </FilterDrawer>
-
-            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Drawer
                 open={Boolean(selectedEvent)}

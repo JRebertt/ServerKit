@@ -18,12 +18,11 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import {
-    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, ListToolbar,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer,
     Pill, SearchField, Sparkline, countActiveFilters,
 } from '@/components/ds';
 import {
-    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
-    GridToolsMenu, GridFilterDrawer,
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
 } from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -469,17 +468,13 @@ export default function Monitors() {
                     </>
                 )}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
-                    <>
-                        <GridFilterButton
-                            count={chrome.filterCount}
-                            onClick={() => chrome.setDrawerOpen(true)}
-                        />
-                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                    </>
-                )}
+                // The "⋮" sits on the view-name line. There is exactly ONE
+                // filter button on this page and it is the top bar's, which
+                // opens the SERVER query drawer; a second one here opened a
+                // second drawer that narrowed the same list a weaker way, which
+                // is the duplicate affordance this whole round removes. Column
+                // rules come from each column's own menu and show in the chips.
+                actions={<GridToolsMenu {...chrome.toolsProps} onRefresh={load} />}
             />
 
             <GridChips {...chrome.chipProps} />
@@ -527,7 +522,6 @@ export default function Monitors() {
                 title="Filter monitors"
             />
 
-            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Drawer
                 open={formOpen}

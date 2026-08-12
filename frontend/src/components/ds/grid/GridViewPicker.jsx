@@ -12,7 +12,10 @@ import { cn } from '@/lib/utils';
 // Built-in views ship in code; "My views" are the user's own, persisted through
 // /api/v1/views by useTableViews. A modified view shows an asterisk plus an
 // inline Save / Reset strip, so tweaking a built-in never silently destroys it.
-export function GridViewPicker({ views, counts, onCreate, label = 'items', total }) {
+// `actions` is the table's own controls — the filter button and the "⋮". They
+// belong on the SAME line as the view name: a page whose toolbar has nothing
+// else in it was rendering an empty second bar just to hold two icons.
+export function GridViewPicker({ views, counts, onCreate, label = 'items', total, actions }) {
     const [open, setOpen] = useState(false);
     const [menuFor, setMenuFor] = useState(null);
     const [creating, setCreating] = useState(false);
@@ -165,6 +168,8 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', total
                     </button>
                 </div>
             )}
+
+            {actions && <div className="sk-viewbar__actions">{actions}</div>}
         </div>
     );
 }

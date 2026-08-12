@@ -58,6 +58,17 @@
         white-space: nowrap;
     }
 
+    // The table's own controls (filter, "⋮") sit on the SAME line as the view
+    // name. They used to go in a ListToolbar underneath, which on a page with
+    // nothing else to put there rendered a 32px-tall empty bar holding two
+    // right-aligned icons — one row of chrome pretending to be two.
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
     // Amber, not red: unsaved tweaks are a state, not an error.
     &__dirty {
         display: flex;

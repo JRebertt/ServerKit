@@ -19,8 +19,7 @@ import {
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
 } from '@/components/ds';
 import {
-    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
-    GridToolsMenu, GridFilterDrawer,
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
 } from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../components/EmptyState';
@@ -504,15 +503,11 @@ export default function Jobs() {
                                     <b>{byStatus.failed ?? 0} failed</b>
                                 </>
                             )}
-                            tools={(
-                                <>
-                                    <GridFilterButton
-                                        count={chrome.filterCount}
-                                        onClick={() => chrome.setDrawerOpen(true)}
-                                    />
-                                    <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                                </>
-                            )}
+                            // ONE filter button on this page, and it is the top
+                            // bar's: it opens the SERVER query drawer, which sees
+                            // rows this client never loaded. A second one here
+                            // opened a weaker drawer over the loaded page only.
+                            tools={<GridToolsMenu {...chrome.toolsProps} onRefresh={load} />}
                         />
 
                         <GridChips {...chrome.chipProps} />
@@ -565,7 +560,6 @@ export default function Jobs() {
             {/* The column-rule drawer. Distinct from the FilterDrawer above it:
                 that one rewrites the API query, this one narrows the rows the
                 query already returned. */}
-            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 }
