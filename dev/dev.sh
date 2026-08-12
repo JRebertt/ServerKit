@@ -563,7 +563,15 @@ print_dev_summary() {
 
     echo
     echo -e "${CYAN}${title}${NC}"
-    echo "  Open app: $FRONTEND_URL"
+    # Under WSL the FRONTEND_URL host is the WSL interface IP (reachable from
+    # Windows even when localhost forwarding dies), but localhost is the one
+    # people expect — print both and let either work.
+    if is_wsl && [[ "$FRONTEND_URL" != *"://localhost"* && "$FRONTEND_URL" != *"://127."* ]]; then
+        echo "  Open app: http://localhost:$FRONTEND_ACTUAL_PORT"
+        echo "  (fallback: $FRONTEND_URL)"
+    else
+        echo "  Open app: $FRONTEND_URL"
+    fi
     echo "  Backend:  $BACKEND_URL"
     echo "  Health:   $API_URL/system/health"
     echo "  API env:  VITE_API_URL=$API_URL"

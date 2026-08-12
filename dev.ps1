@@ -133,6 +133,9 @@ function Stop-WindowsListenersOnPort {
         [string]$Label
     )
 
+    # Parity with dev.sh: SERVERKIT_KILL_PORTS=0 opts out of port cleanup.
+    if ($env:SERVERKIT_KILL_PORTS -eq '0') { return }
+
     $listeners = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
         Select-Object -ExpandProperty OwningProcess -Unique |
         Where-Object { $_ -and $_ -ne 0 -and $_ -ne $PID })
