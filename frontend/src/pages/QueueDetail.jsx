@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -19,8 +19,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortChipBar, SortMenu,
+    DataTable, DataTableFooter, MetricCard, Pill, SortChipBar,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
@@ -44,6 +48,68 @@ const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_lette
 
 const POLL_INTERVAL = 3000;
 
+// Built-in saved views.
+//
+// These views are shared by EVERY queue this route renders, so nothing here may
+// name a queue or a group — each one is a statement about messages.
+//
+// The status presets drive the page's own `statusFilter` (the `page` bag)
+// rather than a column rule. /messages is filtered SERVER side and capped at
+// 100 rows, so a client-side rule could only narrow the page that already
+// loaded; asking the server for `dead_letter` is the only way to see a dead
+// letter that sits past row 100 of a busy queue.
+const PAGE = (statusFilter) => ({ statusFilter });
+const NO_RULES = { match: 'all', rules: [] };
+
+const BUILTIN_VIEWS = [
+    {
+        // Head of line first — the oldest pending message is the one holding
+        // up everything behind it.
+        name: 'Waiting',
+        state: {
+            page: PAGE('pending'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'asc' }],
+        },
+    },
+    {
+        // Leased to a consumer. Oldest first: a message that has been in
+        // flight for a long time is a consumer that died holding the lease.
+        name: 'In flight',
+        state: {
+            page: PAGE('in_flight'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'asc' }],
+        },
+    },
+    {
+        // Erroring but still inside max_attempts. Most-attempted first, which
+        // is the order they will give up in.
+        name: 'Failed',
+        state: {
+            page: PAGE('failed'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'attempts', direction: 'desc' }],
+        },
+    },
+    {
+        // Retries exhausted: the requeue worklist.
+        name: 'Dead letter',
+        state: {
+            page: PAGE('dead_letter'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'desc' }],
+        },
+    },
+    {
+        // A first-time delivery leaves attempts at 1, so `> 1` is exactly the
+        // set that needed redelivering — a flaky consumer shows up here across
+        // every status, including the messages that eventually completed.
+        name: 'Retried',
+        state: {
+            page: PAGE('all'), hiddenKeys: [],
+            sorts: [{ key: 'attempts', direction: 'desc' }],
+            columnFilters: { match: 'all', rules: [{ id: 'retry', field: 'attempts', op: 'gt', value: 1 }] },
+        },
+    },
+];
+
 const QueueDetail = () => {
     const { groupSlug, queueSlug } = useParams();
     const navigate = useNavigate();
@@ -60,8 +126,15 @@ const QueueDetail = () => {
     const [sendForm, setSendForm] = useState({ payload: '{}', priority: 0, delay_ms: 0 });
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-queue-messages-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-queue-messages-cols' });
+
+    // The one narrowing control this page owns, as the envelope's `page` bag.
+    // It is a SERVER filter — restoring it refetches rather than re-slicing.
+    const viewPageState = useMemo(() => ({ statusFilter }), [statusFilter]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.statusFilter !== undefined) setStatusFilter(saved.statusFilter);
+    }, []);
 
     const pollRef = useRef(null);
 
@@ -172,6 +245,13 @@ const QueueDetail = () => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            // `value` is not optional here. The rule engine falls back to
+            // sortValue when a column has none, and this sortValue is a
+            // lifecycle RANK — a status rule would then compare 'failed'
+            // against 3 and match nothing at all.
+            type: 'enum',
+            value: (msg) => msg.status,
+            enumOrder: STATUS_ORDER,
             // Lifecycle order, not alphabet.
             sortValue: (msg) => STATUS_ORDER.indexOf(msg.status),
             render: (msg) => <Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill>,
@@ -180,12 +260,22 @@ const QueueDetail = () => {
             key: 'payload',
             header: 'Payload',
             sortable: false,
+            // The raw payload is an object, and `contains` over one stringifies
+            // to '[object Object]' for every row. Match the text the cell
+            // actually shows instead, so "payload contains order_id" works.
+            type: 'text',
+            value: (msg) => JSON.stringify(msg.payload),
             render: (msg) => <code className="queue-payload-preview">{JSON.stringify(msg.payload).slice(0, 80)}</code>,
         },
         {
             key: 'attempts',
             header: 'Attempts',
             sortable: true,
+            // Declared rather than inferred: the "Retried" preset compares
+            // against this, and an inference that saw only zeroes on a fresh
+            // queue would type the column and then the rule differently.
+            type: 'num',
+            value: (msg) => msg.attempts,
             sortValue: (msg) => msg.attempts,
             render: (msg) => <>{msg.attempts} / {msg.max_attempts}</>,
         },
@@ -193,6 +283,10 @@ const QueueDetail = () => {
             key: 'created',
             header: 'Created',
             sortable: true,
+            // Same split as elsewhere: epoch ms sorts, the ISO string filters.
+            // Without `value` the column menu would offer "is under 1755…".
+            type: 'date',
+            value: (msg) => msg.created_at,
             sortValue: (msg) => new Date(msg.created_at).getTime(),
             render: (msg) => new Date(msg.created_at).toLocaleString(),
         },
@@ -217,6 +311,22 @@ const QueueDetail = () => {
             ),
         }] : []),
     ];
+
+    // Shared list chrome: view picker + filter chips + filter drawer + tools.
+    // Declared before the loading return so the hook order is stable.
+    const chrome = useTableChrome({
+        columns,
+        rows: messages,
+        viewPageKey: 'queue-messages',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'messages',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
 
     if (loading) {
         return (
@@ -273,6 +383,16 @@ const QueueDetail = () => {
 
             <div className={`queue-detail-body ${selectedMessage ? 'has-panel' : ''}`}>
                 <div className="queue-detail-main">
+                    {/* The view name heads the message list. The queue's own
+                        name stays in the detail header above — a view here is
+                        about the messages, and is shared by every queue. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="messages"
+                        total={`${messages.length} loaded`}
+                        onCreate={chrome.createView}
+                    />
+
                     <div className="queue-messages-toolbar">
                         <div className="queue-messages-selects">
                             <select
@@ -289,15 +409,21 @@ const QueueDetail = () => {
                                 <strong>{messages.length}</strong>
                                 <span>{messages.length === 1 ? 'message' : 'messages'}</span>
                             </span>
-                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={columns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
+                            {/* Sort and hide live in each column's own "⋮" menu
+                                now. What stays here is what has no per-column
+                                equivalent: the multi-rule drawer and export. */}
+                            <GridFilterButton
+                                count={chrome.filterCount}
+                                onClick={() => chrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu
+                                {...chrome.toolsProps}
+                                onRefresh={() => { loadMeta(); loadMessages(statusFilter); }}
                             />
                         </div>
                     </div>
+
+                    <GridChips {...chrome.chipProps} />
 
                     <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 
@@ -311,12 +437,12 @@ const QueueDetail = () => {
                         />
                     ) : (
                         <DataTable
-                            columns={columns}
+                            columns={chrome.columns}
                             data={messages}
                             keyField="id"
                             sorts={sorts}
                             onSortsChange={setSorts}
-                            hiddenKeys={hiddenKeys}
+                            {...chrome.tableProps}
                             onRowClick={(msg) => setSelectedMessage(msg)}
                             rowClassName={(msg) => (selectedMessage?.id === msg.id ? 'is-selected' : '')}
                             className="queue-table-wrap"
@@ -390,6 +516,8 @@ const QueueDetail = () => {
                             </div>
                         </form>
             </Modal>
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };

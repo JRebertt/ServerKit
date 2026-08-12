@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,17 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTableSort } from '../hooks/useTableSort';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
-import { useTableViews } from '../hooks/useTableViews';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 
 const VALID_TABS = ['overview', 'domains', 'accounts', 'relay', 'spam', 'webmail', 'queue'];
+
+// A sort-only preset still has to say so: `apply` clears the live rules from
+// whatever was selected before, and an absent `columnFilters` would leave the
+// previous view's filters silently in place.
+const NO_RULES = { match: 'all', rules: [] };
 
 // DNS record checks surfaced as presence pills. `state` is one of
 // 'ok' | 'missing' | 'unknown' and maps to a DS Pill colour + dot.
@@ -379,6 +387,55 @@ function DomainsTab({ domains, onChange }) {
 }
 
 // ---------- Accounts ----------
+
+// Percent of an account's own quota in use, so a 200 MB mailbox on a 250 MB
+// quota outranks a 2 GB one on 20 GB. null — not 0 — when no quota is set:
+// an unlimited mailbox can never be "nearly full", and the rule engine drops
+// nulls from every numeric comparison rather than reading them as empty.
+function quotaPercent(account) {
+    const total = account?.quota_mb ?? 0;
+    if (!total) return null;
+    return Math.round(((account.quota_used_mb ?? 0) / total) * 100);
+}
+
+// Built-in saved views for the accounts table.
+//
+// The rules match on what the State column's `value` accessor returns (the
+// label the pill shows), NOT on the 1/0 its sortValue produces — filtering a
+// string against a numeric rank is the one mistake that makes a preset match
+// zero rows while looking perfectly correct.
+const ACCOUNT_VIEWS = [
+    { name: 'Active first', state: { search: '', sorts: [{ key: 'state', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    { name: 'Largest quota', state: { search: '', sorts: [{ key: 'quota', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    {
+        // A disabled mailbox still exists and still holds its mail — it just
+        // cannot authenticate. This is the list you audit after an offboarding.
+        name: 'Disabled',
+        state: {
+            search: '', hiddenKeys: [],
+            sorts: [{ key: 'email', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ac1', field: 'state', op: 'any', value: ['Disabled'] }],
+            },
+        },
+    },
+    {
+        // Mailboxes about to start rejecting deliveries. Same 85% threshold the
+        // fleet uses for disk pressure, and `gt` on a null keeps the unlimited
+        // mailboxes out instead of ranking them as 0%.
+        name: 'Nearly full',
+        state: {
+            search: '', hiddenKeys: [],
+            sorts: [{ key: 'used', direction: 'desc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ac2', field: 'used', op: 'gt', value: 85 }],
+            },
+        },
+    },
+];
+
 function AccountsTab({ domains }) {
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -388,32 +445,17 @@ function AccountsTab({ domains }) {
     const [search, setSearch] = useState('');
     const [form, setForm] = useState({ username: '', password: '', quota_mb: 1024 });
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-accounts-sort' });
-    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-accounts-cols' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-email-accounts-cols' });
 
-    // Saved views: capture/apply the table chrome state (search, sort levels,
-    // hidden columns). There is no status filter here — state only enters via
-    // sorting, so the built-in views are sort presets.
-    const captureView = useCallback(() => ({
-        search,
-        sorts,
-        hiddenKeys,
-    }), [search, sorts, hiddenKeys]);
-
-    const applyViewState = useCallback((state) => {
-        if (state.search !== undefined) setSearch(state.search);
-        if (Array.isArray(state.sorts)) setSorts(state.sorts);
-        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
-    }, [setSorts, setHiddenKeys]);
-
-    const tableViews = useTableViews({
-        page: 'email-accounts',
-        builtinViews: [
-            { name: 'Active first', state: { search: '', sorts: [{ key: 'state', direction: 'desc' }], hiddenKeys: [] } },
-            { name: 'Largest quota', state: { search: '', sorts: [{ key: 'quota', direction: 'desc' }], hiddenKeys: [] } },
-        ],
-        capture: captureView,
-        apply: applyViewState,
-    });
+    // The only view state this tab owns privately. Everything else — sorts,
+    // hidden columns, column order, the column rules — is the shared envelope
+    // useTableChrome captures for us. The selected domain deliberately stays
+    // OUT of it: it is which list you are looking at, not how you are looking
+    // at it, and a saved view that silently jumped domains would be a trap.
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
 
     const load = useCallback(async () => {
         if (!domainId) { setAccounts([]); return; }
@@ -479,13 +521,35 @@ function AccountsTab({ domains }) {
             key: 'quota',
             header: 'Quota',
             sortable: true,
+            type: 'num',
+            unit: ' MB',
+            // The allocation, which is what "Largest quota" orders by. How full
+            // it is lives in its own column below.
+            value: (a) => a.quota_mb ?? 0,
             sortValue: (a) => a.quota_mb ?? 0,
             render: (a) => `${a.quota_used_mb ?? 0} / ${a.quota_mb ?? 0} MB`,
+        },
+        {
+            key: 'used',
+            header: 'Used',
+            sortable: true,
+            type: 'num',
+            unit: '%',
+            value: quotaPercent,
+            sortValue: quotaPercent,
+            render: (a) => {
+                const pct = quotaPercent(a);
+                return pct == null ? '—' : `${pct}%`;
+            },
         },
         {
             key: 'state',
             header: 'State',
             sortable: true,
+            // Filter on the label the pill shows; keep the 1/0 sortValue so
+            // "Active first" still puts active first when the column sorts desc.
+            type: 'enum',
+            value: (a) => (a.is_active ? 'Active' : 'Disabled'),
             sortValue: (a) => (a.is_active ? 1 : 0),
             render: (a) => <Pill kind={a.is_active ? 'green' : 'gray'}>{a.is_active ? 'Active' : 'Disabled'}</Pill>,
         },
@@ -505,6 +569,22 @@ function AccountsTab({ domains }) {
         },
     ];
 
+    // Each tab is its own route, so only one picker is ever mounted — this
+    // chrome is scoped to the accounts table alone and keeps its own page key.
+    const chrome = useTableChrome({
+        columns: accountColumns,
+        rows: filtered,
+        viewPageKey: 'email-accounts',
+        builtinViews: ACCOUNT_VIEWS,
+        noun: 'accounts',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
     if (domains.length === 0) {
         return (
             <div className="sk-email__empty">
@@ -516,18 +596,21 @@ function AccountsTab({ domains }) {
 
     return (
         <section className="sk-email__section">
+            <GridViewPicker
+                views={chrome.views}
+                label="accounts"
+                total={`${filtered.length} of ${accounts.length} accounts`}
+                onCreate={chrome.createView}
+            />
             <ListToolbar
                 className="sk-email__filters"
                 tools={(
                     <>
-                        <ViewMenu views={tableViews} />
-                        <SortMenu columns={accountColumns} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={accountColumns}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
                         />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
                     </>
                 )}
             >
@@ -548,6 +631,8 @@ function AccountsTab({ domains }) {
                     />
                 </label>
             </ListToolbar>
+
+            <GridChips {...chrome.chipProps} />
 
             <form className="sk-email__add" onSubmit={create}>
                 <Input
@@ -574,17 +659,19 @@ function AccountsTab({ domains }) {
             </form>
 
             <DataTable
-                columns={accountColumns}
+                columns={chrome.columns}
                 data={filtered}
                 keyField="id"
                 sorts={sorts}
                 onSortsChange={setSorts}
-                hiddenKeys={hiddenKeys}
+                {...chrome.tableProps}
                 loading={loading}
                 footer={<DataTableFooter shown={filtered.length} total={accounts.length} noun="account" />}
                 emptyTitle={accounts.length === 0 ? 'No accounts in this domain.' : 'No accounts match this search.'}
                 emptyMessage=""
             />
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </section>
     );
 }
@@ -777,38 +864,46 @@ function WebmailTab() {
 }
 
 // ---------- Mail queue ----------
+
+// Built-in saved views for the queue.
+//
+// The queue payload is `mailq` output — a queue id, a byte size, a sender and
+// its recipients. There is no status field, so nothing here pretends there is
+// one: the only rule-based preset filters on `size`, which is a real integer on
+// every row (see PostfixService.get_queue).
+const QUEUE_VIEWS = [
+    { name: 'Largest first', state: { search: '', sorts: [{ key: 'size', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    { name: 'By sender', state: { search: '', sorts: [{ key: 'sender', direction: 'asc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    {
+        // What a backed-up queue is usually full of. 100 KB is the line between
+        // a plain message (a few KB) and one carrying an attachment; Postfix's
+        // own message_size_limit is 25 MB, so this is well inside real traffic.
+        name: 'Large messages',
+        state: {
+            search: '', hiddenKeys: [],
+            sorts: [{ key: 'size', direction: 'desc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'q1', field: 'size', op: 'gt', value: 102400 }],
+            },
+        },
+    },
+];
+
 function QueueTab() {
     const toast = useToast();
     const [queue, setQueue] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-email-queue-sort' });
-    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({ storageKey: 'serverkit-table-email-queue-cols' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-email-queue-cols' });
 
-    // Saved views: capture/apply the table chrome state (search, sort levels,
-    // hidden columns). No time column exists in the queue payload, so the
-    // built-in views are sort presets over the real columns.
-    const captureView = useCallback(() => ({
-        search,
-        sorts,
-        hiddenKeys,
-    }), [search, sorts, hiddenKeys]);
-
-    const applyViewState = useCallback((state) => {
-        if (state.search !== undefined) setSearch(state.search);
-        if (Array.isArray(state.sorts)) setSorts(state.sorts);
-        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
-    }, [setSorts, setHiddenKeys]);
-
-    const tableViews = useTableViews({
-        page: 'email-queue',
-        builtinViews: [
-            { name: 'Largest first', state: { search: '', sorts: [{ key: 'size', direction: 'desc' }], hiddenKeys: [] } },
-            { name: 'By sender', state: { search: '', sorts: [{ key: 'sender', direction: 'asc' }], hiddenKeys: [] } },
-        ],
-        capture: captureView,
-        apply: applyViewState,
-    });
+    // Search is all this tab owns privately; the rest of the view state is the
+    // shared envelope useTableChrome captures.
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -863,7 +958,19 @@ function QueueTab() {
         },
         { key: 'sender', header: 'Sender', sortable: true, sortValue: (item) => item.sender || null, render: (item) => item.sender || '-' },
         { key: 'recipient', header: 'Recipient', sortable: true, sortValue: (item) => item.recipient || null, render: (item) => item.recipient || '-' },
-        { key: 'size', header: 'Size', sortable: true, sortValue: (item) => item.size ?? null, render: (item) => item.size || '-' },
+        {
+            key: 'size',
+            header: 'Size',
+            sortable: true,
+            // Bytes, straight off mailq. Typed explicitly because a preset
+            // filters on it — inference would land on 'num' here anyway, but
+            // only for as long as every loaded row happens to carry a size.
+            type: 'num',
+            unit: ' bytes',
+            value: (item) => item.size ?? null,
+            sortValue: (item) => item.size ?? null,
+            render: (item) => item.size || '-',
+        },
         {
             key: 'actions',
             header: '',
@@ -880,20 +987,37 @@ function QueueTab() {
         },
     ];
 
+    const chrome = useTableChrome({
+        columns: queueColumns,
+        rows: filtered,
+        viewPageKey: 'email-queue',
+        builtinViews: QUEUE_VIEWS,
+        noun: 'messages',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
     return (
         <section className="sk-email__section">
+            <GridViewPicker
+                views={chrome.views}
+                label="messages"
+                total={`${filtered.length} of ${queue.length} messages`}
+                onCreate={chrome.createView}
+            />
             <ListToolbar
                 className="sk-email__filters"
                 tools={(
                     <>
-                        <ViewMenu views={tableViews} />
-                        <SortMenu columns={queueColumns} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={queueColumns}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
                         />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
                         <div className="sk-email__actions">
                             <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
                             <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
@@ -913,18 +1037,22 @@ function QueueTab() {
                 </label>
             </ListToolbar>
 
+            <GridChips {...chrome.chipProps} />
+
             <DataTable
-                columns={queueColumns}
+                columns={chrome.columns}
                 data={filtered}
                 keyField={(item) => item.id || item.queue_id}
                 sorts={sorts}
                 onSortsChange={setSorts}
-                hiddenKeys={hiddenKeys}
+                {...chrome.tableProps}
                 loading={loading}
                 footer={<DataTableFooter shown={filtered.length} total={queue.length} noun="message" />}
                 emptyTitle={queue.length === 0 ? 'The mail queue is empty.' : 'No messages match this search.'}
                 emptyMessage=""
             />
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </section>
     );
 }

@@ -1,7 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Send, RefreshCw, Inbox } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Send, Inbox } from 'lucide-react';
 import api from '../services/api';
-import { MetricCard, KpiBand, FilterDrawer, FilterButton, DataTable, DataTableFooter } from '@/components/ds';
+import {
+    FilterDrawer, FilterButton, DataTable, DataTableFooter, ListToolbar,
+} from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import PageLayout from '../layouts/PageLayout';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
@@ -13,6 +21,59 @@ import EmailProviders from '../components/EmailProviders';
 const STATUSES = ['all', 'pending', 'sent', 'failed', 'skipped'];
 const CHANNELS = ['all', 'inapp', 'email', 'discord', 'slack', 'telegram', 'webhook'];
 const POLL_MS = 5000;
+
+// Built-in saved views.
+//
+// This list is SERVER-filtered and SERVER-paginated: GET /admin/deliveries
+// takes `status` and `channel` and returns only the newest page of matches
+// (50 by default), while `stats` is a group-by over every row in the table.
+// A client-side column rule can therefore only narrow the page already loaded
+// — it can never reach the rows the server left behind. So every status preset
+// drives the SERVER filter through the `page` bag instead, which is what makes
+// a preset's row set the same set the old "Sent / Pending / Failed" tiles were
+// counting rather than a per-page shadow of it.
+//
+// Both `status` and `channel` are spelled out on every preset even when one is
+// 'all': `capture()` always emits both, so a preset that omits one can never
+// compare equal to the live state and the view would read as permanently
+// unsaved.
+const SERVER = (status, channel = 'all') => ({
+    sorts: [],
+    hiddenKeys: [],
+    columnFilters: { match: 'all', rules: [] },
+    page: { status, channel },
+});
+
+const DELIVERY_BUILTIN_VIEWS = [
+    // What broke. The server already returns newest-first, so no sort is needed
+    // to put the most recent failure at the top.
+    { name: 'Failed', state: SERVER('failed') },
+    // Still in the queue — nothing has been handed to a channel yet.
+    { name: 'Pending', state: SERVER('pending') },
+    { name: 'Sent', state: SERVER('sent') },
+    // Deliberately not sent, almost always because the recipient has the
+    // channel enabled but no target on file (no email address, no chat id).
+    // A misconfiguration bucket, not a failure one.
+    { name: 'Skipped', state: SERVER('skipped') },
+    {
+        // The only preset that has to be a client rule: the server's channel
+        // filter is equality, so "everything except in-app" has no server-side
+        // equivalent. It narrows the loaded page rather than the whole table,
+        // which is the right trade here — in-app rows are the bulk of the log
+        // (one per admin per notification) and drown out the channels that can
+        // actually fail on the wire.
+        name: 'External channels',
+        state: {
+            sorts: [],
+            hiddenKeys: [],
+            page: { status: 'all', channel: 'all' },
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ex1', field: 'channel', op: 'none', value: ['inapp'] }],
+            },
+        },
+    },
+];
 
 export default function DeliveryLog() {
     const { isAdmin } = useAuth();
@@ -57,34 +118,51 @@ export default function DeliveryLog() {
         }
     };
 
-    if (!isAdmin) {
-        return (
-            <PageLayout icon={<Send size={18} />} title="Notification Delivery Log">
-                <div className="sk-dlog"><EmptyState title="Admins only." /></div>
-            </PageLayout>
-        );
-    }
+    // Table sort + column visibility, now controlled so the saved views can
+    // capture and restore them (they were DataTable-internal before).
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-delivery-log-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-delivery-log-cols',
+    });
 
-    const byStatus = stats?.by_status || {};
+    // The page's own half of a view: the two SERVER query params. Changing
+    // either re-runs `load`, which is exactly what a status preset needs.
+    const viewPageState = useMemo(() => ({ status, channel }), [status, channel]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.status !== undefined) setStatus(saved.status);
+        if (saved.channel !== undefined) setChannel(saved.channel);
+    }, []);
 
     // DataTable columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace, so _notification-center.scss keeps
     // applying (.sk-dlog__table, .sk-dlog__status, .sk-dlog__target, ...).
-    // Runs uncontrolled (storageKey only): the page's own controls live in the
-    // shared topbar + FilterDrawer, not in an in-page toolbar row.
+    //
+    // `sortValue` stays on every column because useTableSort reads it (and only
+    // it) — `value` is the grid's accessor, used by the header menus, the chips
+    // and the filter rules.
     const columns = [
         {
             key: 'status',
             header: 'Status',
             sortable: true,
+            type: 'enum',
+            // Explicit rather than leaning on the sortValue fallback: without it
+            // the type inference is free to read this column as plain text, and
+            // then an `is any of` rule from a preset or the header menu matches
+            // nothing at all.
+            value: (d) => d.status || '',
             sortValue: (d) => d.status || '',
+            groupable: true,
             render: (d) => <span className={`sk-dlog__status is-${d.status}`}>{d.status}</span>,
         },
         {
             key: 'channel',
             header: 'Channel',
             sortable: true,
+            type: 'enum',
+            value: (d) => d.channel || '',
             sortValue: (d) => d.channel || '',
+            groupable: true,
             render: (d) => d.channel,
         },
         {
@@ -118,6 +196,11 @@ export default function DeliveryLog() {
             key: 'when',
             header: 'When',
             sortable: true,
+            // `date`, declared: the sortValue below is epoch milliseconds, and
+            // left to infer, the header menu would offer "is under 1723…" on a
+            // column whose cells read "3m ago".
+            type: 'date',
+            value: (d) => d.created_at || null,
             sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
             cellClassName: 'sk-dlog__when',
             render: (d) => timeAgo(d.created_at),
@@ -135,33 +218,83 @@ export default function DeliveryLog() {
         },
     ];
 
+    const chrome = useTableChrome({
+        columns,
+        rows: deliveries,
+        viewPageKey: 'delivery-log',
+        builtinViews: DELIVERY_BUILTIN_VIEWS,
+        noun: 'deliveries',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
+    if (!isAdmin) {
+        return (
+            <PageLayout icon={<Send size={18} />} title="Notification Delivery Log">
+                <div className="sk-dlog"><EmptyState title="Admins only." /></div>
+            </PageLayout>
+        );
+    }
+
+    const serverFilterCount = (status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0);
+
     return (
         <PageLayout
             icon={<Send size={18} />}
             title="Notification Delivery Log"
             meta="Outbound deliveries across all channels"
             actions={(
-                <>
-                    <FilterButton
-                        count={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
-                        onClick={() => setFiltersOpen(true)}
-                    />
-                    <Button variant="outline" size="sm" onClick={load}>
-                        <RefreshCw size={14} /> Refresh
-                    </Button>
-                </>
+                // Labelled "Server filters" to keep it apart from the toolbar's
+                // filter icon: this one re-queries the whole table, that one
+                // narrows the rows already on screen.
+                <FilterButton
+                    label="Server filters"
+                    count={serverFilterCount}
+                    onClick={() => setFiltersOpen(true)}
+                />
             )}
         >
             <div className="sk-dlog">
                 <EmailProviders />
 
-                <KpiBand>
-                    <MetricCard label="Total" value={stats?.total ?? 0} tone="accent" />
-                    <MetricCard label="Sent" value={byStatus.sent ?? 0} tone="green" />
-                    <MetricCard label="Pending" value={byStatus.pending ?? 0} tone="amber" />
-                    <MetricCard label="Failed" value={byStatus.failed ?? 0} tone="red" />
-                </KpiBand>
+                {/* The KPI band is gone: Sent / Pending / Failed are the first
+                    three built-in views, and "Total" — the one number that was a
+                    true whole-table aggregate rather than a count of the loaded
+                    page — is the second half of the meta line below. */}
+                <GridViewPicker
+                    views={chrome.views}
+                    label="deliveries"
+                    total={`${deliveries.length} of ${stats?.total ?? deliveries.length} deliveries`}
+                    onCreate={chrome.createView}
+                />
+                <ListToolbar
+                    // The chips below only ever show CLIENT rules, so the server
+                    // query the whole list was fetched under needs saying here —
+                    // otherwise a status preset silently changes what is loaded
+                    // with nothing on screen to explain it.
+                    count={(
+                        <>
+                            {status === 'all' ? 'all statuses' : status}
+                            <i>&middot;</i>
+                            {channel === 'all' ? 'all channels' : channel}
+                        </>
+                    )}
+                    tools={(
+                        <>
+                            <GridFilterButton
+                                count={chrome.filterCount}
+                                onClick={() => chrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                        </>
+                    )}
+                />
 
+                <GridChips {...chrome.chipProps} />
 
                 {loading && deliveries.length === 0 ? (
                     <EmptyState loading loadingVariant="table" title="Loading…" />
@@ -169,7 +302,7 @@ export default function DeliveryLog() {
                     <EmptyState
                         icon={Inbox}
                         title="No deliveries match these filters."
-                        action={(status !== 'all' || channel !== 'all') ? (
+                        action={serverFilterCount > 0 ? (
                             <Button variant="outline" onClick={() => { setStatus('all'); setChannel('all'); }}>
                                 Clear filters
                             </Button>
@@ -177,10 +310,12 @@ export default function DeliveryLog() {
                     />
                 ) : (
                     <DataTable
-                        columns={columns}
+                        columns={chrome.columns}
                         data={deliveries}
                         keyField="id"
-                        storageKey="serverkit-table-delivery-log"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
                         className="sk-dlog__table-wrap"
                         tableClassName="sk-dlog__table"
                         footer={(
@@ -198,7 +333,7 @@ export default function DeliveryLog() {
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
                 title="Filter deliveries"
-                activeCount={(status !== 'all' ? 1 : 0) + (channel !== 'all' ? 1 : 0)}
+                activeCount={serverFilterCount}
                 groups={[
                     { key: 'status', label: 'Status', type: 'single',
                       options: STATUSES.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
@@ -214,6 +349,8 @@ export default function DeliveryLog() {
                     setChannel(next.channel || 'all');
                 }}
             />
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </PageLayout>
     );
 }

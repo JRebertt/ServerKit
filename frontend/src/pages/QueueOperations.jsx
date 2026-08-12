@@ -23,8 +23,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortChipBar, SortMenu,
+    DataTable, DataTableFooter, MetricCard, Pill, SortChipBar,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatCompact, formatFull } from '../utils/formatNumber';
@@ -49,6 +53,57 @@ const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_lette
 
 const POLL_INTERVAL = 3000;
 
+// Built-in saved views.
+//
+// The per-status presets go through the rail's OWN Message Status filter (the
+// `page` bag) instead of a column rule: a queue carries five separate counts
+// that all render inside the single Messages cell, and one column can only
+// expose one number to the rule engine — `total`. "Has a dead-lettered
+// message" is therefore only expressible as page state.
+//
+// Every preset also resets the group to All. `selectedGroup` decides which
+// group's queues are FETCHED, so a preset that left it alone would show a
+// different set depending on what happened to be selected when it was clicked.
+const PAGE = (messageFilter) => ({ selectedGroup: '', messageFilter, searchTerm: '' });
+const NO_RULES = { match: 'all', rules: [] };
+const BY_SIZE = [{ key: 'messages', direction: 'desc' }];
+
+const BUILTIN_VIEWS = [
+    {
+        // Queues holding work nobody has picked up yet, biggest first.
+        name: 'Backlog',
+        state: { page: PAGE('pending'), sorts: BY_SIZE, hiddenKeys: [], columnFilters: NO_RULES },
+    },
+    {
+        // A consumer is erroring here, but these messages still have retries.
+        name: 'Failing',
+        state: { page: PAGE('failed'), sorts: BY_SIZE, hiddenKeys: ['created'], columnFilters: NO_RULES },
+    },
+    {
+        // Retries exhausted — nothing moves these without a manual requeue.
+        name: 'Dead letter',
+        state: { page: PAGE('dead_letter'), sorts: BY_SIZE, hiddenKeys: ['created'], columnFilters: NO_RULES },
+    },
+    {
+        // Where the traffic actually is, across every status.
+        name: 'Busiest',
+        state: {
+            page: PAGE('all'), sorts: BY_SIZE, hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'busy', field: 'messages', op: 'gt', value: 0 }] },
+        },
+    },
+    {
+        // Declared but never written to: the queues to wire up or delete.
+        // Newest first, because a queue created minutes ago being empty is
+        // expected and one created months ago being empty is the finding.
+        name: 'Never used',
+        state: {
+            page: PAGE('all'), sorts: [{ key: 'created', direction: 'desc' }], hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'unused', field: 'messages', op: 'eq', value: 0 }] },
+        },
+    },
+];
+
 const QueueOperations = () => {
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -72,8 +127,21 @@ const QueueOperations = () => {
     const [sendForm, setSendForm] = useState({ payload: '{}', priority: 0, delay_ms: 0 });
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-queue-ops-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-queue-ops-cols' });
+
+    // The three narrowing controls this page owns, as the envelope's `page`
+    // bag. Group and status are what the rail clicks set, so a saved view
+    // restores the rail to the state it was captured in.
+    const viewPageState = useMemo(
+        () => ({ selectedGroup, messageFilter, searchTerm }),
+        [selectedGroup, messageFilter, searchTerm],
+    );
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.selectedGroup !== undefined) setSelectedGroup(saved.selectedGroup);
+        if (saved.messageFilter !== undefined) setMessageFilter(saved.messageFilter);
+        if (saved.searchTerm !== undefined) setSearchTerm(saved.searchTerm);
+    }, []);
 
     const pollRef = useRef(null);
     const navigate = useNavigate();
@@ -302,6 +370,12 @@ const QueueOperations = () => {
             key: 'messages',
             header: 'Messages',
             sortable: true,
+            // The cell renders five per-status pills, but a rule can only ever
+            // mean one number — the total. Declared explicitly so the "Busiest"
+            // and "Never used" presets compare against it rather than against
+            // whatever the type inference makes of the pill markup.
+            type: 'num',
+            value: (queue) => queue.stats?.total ?? 0,
             sortValue: (queue) => queue.stats?.total ?? 0,
             render: (queue) => (
                 <div className="queue-row-counts" onClick={e => e.stopPropagation()}>
@@ -320,6 +394,12 @@ const QueueOperations = () => {
             key: 'created',
             header: 'Created',
             sortable: true,
+            // The sort wants epoch ms, but that number is also what the filter
+            // would infer from — leaving the column menu offering "is under
+            // 1755…". `value` hands the rule engine the ISO string instead, so
+            // the menu offers before/after with a date picker.
+            type: 'date',
+            value: (queue) => queue.created_at,
             sortValue: (queue) => new Date(queue.created_at).getTime(),
             render: (queue) => new Date(queue.created_at).toLocaleString(),
         },
@@ -349,6 +429,23 @@ const QueueOperations = () => {
             ),
         },
     ];
+
+    // Shared list chrome: view picker + filter chips + filter drawer + tools,
+    // driven off this page's existing sorts/hiddenKeys state. Declared before
+    // the loading return so the hook order never changes between renders.
+    const chrome = useTableChrome({
+        columns,
+        rows: filteredQueues,
+        viewPageKey: 'queue-operations',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'queues',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
 
     if (loading) {
         return (
@@ -463,6 +560,15 @@ const QueueOperations = () => {
                         </div>
                     </div>
 
+                    {/* The view name is the page's heading for the list, above
+                        the bar that narrows it. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="queues"
+                        total={`${filteredQueues.length} of ${queues.length} queues`}
+                        onCreate={chrome.createView}
+                    />
+
                     <div className="queue-command-bar">
                         <div className="queue-toolbar">
                             <label className="search-box">
@@ -482,12 +588,17 @@ const QueueOperations = () => {
                                 <option value="">All groups</option>
                                 {groups.map(g => <option key={g.id} value={g.slug}>{g.name}</option>)}
                             </select>
-                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={columns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
+                            {/* Sort and hide moved into each column's own "⋮"
+                                menu, next to the column they act on. What is
+                                left here is the pair that has no per-column
+                                equivalent: the multi-rule drawer and export. */}
+                            <GridFilterButton
+                                count={chrome.filterCount}
+                                onClick={() => chrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu
+                                {...chrome.toolsProps}
+                                onRefresh={() => { loadData(); loadQueues(selectedGroup); }}
                             />
                         </div>
                         <div className="queue-results-summary">
@@ -508,6 +619,8 @@ const QueueOperations = () => {
                             )}
                         </div>
                     </div>
+
+                    <GridChips {...chrome.chipProps} />
 
                     <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 
@@ -534,12 +647,12 @@ const QueueOperations = () => {
                         />
                     ) : (
                         <DataTable
-                            columns={columns}
+                            columns={chrome.columns}
                             data={filteredQueues}
                             keyField="id"
                             sorts={sorts}
                             onSortsChange={setSorts}
-                            hiddenKeys={hiddenKeys}
+                            {...chrome.tableProps}
                             onRowClick={(queue) => openQueue(queue)}
                             className="queue-table-wrap"
                             tableClassName="queue-table"
@@ -649,6 +762,8 @@ const QueueOperations = () => {
                         </form>
                         )}
             </Modal>
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };
