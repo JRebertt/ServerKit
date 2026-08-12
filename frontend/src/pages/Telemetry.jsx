@@ -62,10 +62,35 @@ const EMPTY_FILTERS = {
 // Built-in saved views. State shape: { filters, sorts, hiddenKeys } —
 // `filters` is the FilterDrawer's value (merged over EMPTY_FILTERS on apply),
 // `sorts` use real column keys.
+// `filters` here is this page's SERVER-side query object (EMPTY_FILTERS shape:
+// source / event_type / severity / resource_type / …), sent straight to the API
+// — not the per-column {match, rules} object.
 const BUILTIN_VIEWS = [
     { name: 'Errors', state: { filters: { severity: 'error' } } },
     { name: 'Warnings', state: { filters: { severity: 'warning' } } },
     { name: 'Newest first', state: { sorts: [{ key: 'timestamp', direction: 'desc' }] } },
+    {
+        name: 'Critical only',
+        state: { filters: { severity: 'critical' }, sorts: [{ key: 'timestamp', direction: 'desc' }] },
+    },
+    {
+        name: 'Deploy failures',
+        state: {
+            filters: { source: 'deployment', severity: 'error' },
+            sorts: [{ key: 'timestamp', direction: 'desc' }],
+        },
+    },
+    {
+        name: 'Backup failures',
+        state: {
+            filters: { source: 'backup', severity: 'error' },
+            sorts: [{ key: 'timestamp', direction: 'desc' }],
+        },
+    },
+    {
+        name: 'Audit trail',
+        state: { filters: { source: 'audit' }, sorts: [{ key: 'timestamp', direction: 'desc' }] },
+    },
 ];
 
 export default function Telemetry() {

@@ -38,9 +38,49 @@ const POLL_MS = 5000;
 // is the FilterDrawer's value (status/kind, '' = all), `sorts` use real column
 // keys. A Scheduled/Activity view is NOT expressible here: that switch lives in
 // the URL-driven SegControl, and the drawer's kind options come from the API.
+// `filters` here is this page's SERVER-side query pair {status, kind} ('' = all)
+// — not the per-column {match, rules} object. Writing rule objects into it would
+// blank both server filters and filter nothing.
 const BUILTIN_VIEWS = [
     { name: 'Failed', state: { filters: { status: 'failed', kind: '' } } },
     { name: 'Newest first', state: { sorts: [{ key: 'when', direction: 'desc' }] } },
+    {
+        // Started and never finished — oldest first, because the one that has
+        // been "running" longest is the one that is actually wedged.
+        name: 'Stuck in flight',
+        state: {
+            filters: { status: 'running', kind: '' }, hiddenKeys: [],
+            sorts: [{ key: 'when', direction: 'asc' }],
+        },
+    },
+    {
+        name: 'Backlog',
+        state: {
+            filters: { status: 'pending', kind: '' }, hiddenKeys: ['progress'],
+            sorts: [{ key: 'when', direction: 'asc' }],
+        },
+    },
+    {
+        name: 'Failures by kind',
+        state: {
+            filters: { status: 'failed', kind: '' }, hiddenKeys: ['owner'],
+            sorts: [{ key: 'kind', direction: 'asc' }, { key: 'when', direction: 'desc' }],
+        },
+    },
+    {
+        name: 'Backup runs',
+        state: {
+            filters: { status: '', kind: 'backup.policy.run' }, hiddenKeys: ['kind'],
+            sorts: [{ key: 'when', direction: 'desc' }],
+        },
+    },
+    {
+        name: 'App deploys',
+        state: {
+            filters: { status: '', kind: 'deploy.app' }, hiddenKeys: ['kind', 'owner'],
+            sorts: [{ key: 'when', direction: 'desc' }],
+        },
+    },
 ];
 
 // Map a job status to a DS Pill colour.

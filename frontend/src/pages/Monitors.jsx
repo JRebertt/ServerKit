@@ -87,6 +87,39 @@ const BUILTIN_VIEWS = [
     { name: 'Down', state: { search: '', filters: { status: 'major_outage', type: '' }, sorts: [], hiddenKeys: [] } },
     { name: 'Degraded', state: { search: '', filters: { status: 'degraded', type: '' }, sorts: [], hiddenKeys: [] } },
     { name: 'Slowest', state: { search: '', filters: { status: '', type: '' }, sorts: [{ key: 'response', direction: 'desc' }], hiddenKeys: [] } },
+    {
+        // Least reliable over the month, slowest first among ties — the review
+        // list, as opposed to "what is broken right now".
+        name: 'Worst uptime (30d)',
+        state: {
+            search: '', filters: { status: '', type: '' }, hiddenKeys: ['next_check_at'],
+            sorts: [{ key: 'uptime_30d', direction: 'asc' }, { key: 'response', direction: 'desc' }],
+        },
+    },
+    {
+        // Paused checks are silent by design; this is how you notice one has
+        // been silent for longer than anybody intended.
+        name: 'Paused — still silenced',
+        state: {
+            search: '', filters: { status: 'paused', type: '' },
+            hiddenKeys: ['last_check_at', 'next_check_at'],
+            sorts: [{ key: 'name', direction: 'asc' }],
+        },
+    },
+    {
+        name: 'Slow web checks',
+        state: {
+            search: '', filters: { status: '', type: 'http' }, hiddenKeys: ['check_type'],
+            sorts: [{ key: 'response', direction: 'desc' }],
+        },
+    },
+    {
+        name: 'In maintenance',
+        state: {
+            search: '', filters: { status: 'maintenance', type: '' }, hiddenKeys: ['next_check_at'],
+            sorts: [{ key: 'name', direction: 'asc' }],
+        },
+    },
 ];
 
 export default function Monitors() {
