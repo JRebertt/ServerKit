@@ -196,6 +196,11 @@ class DeploymentService:
 
             db.session.commit()
 
+            # A deploy replaces containers; the cached aggregate is now about
+            # containers that no longer exist. Force the next read to re-collect.
+            from app.services import container_status_service
+            container_status_service.invalidate(app_id)
+
             # Generate diff with previous deployment
             cls._generate_diff(deployment)
 
@@ -447,6 +452,10 @@ class DeploymentService:
             app.last_deployed_at = datetime.utcnow()
 
             db.session.commit()
+
+            # Same reasoning as deploy: containers were replaced.
+            from app.services import container_status_service
+            container_status_service.invalidate(app_id)
 
             if log_callback:
                 log_callback(f"Rollback successful! Now running v{target.version} code as v{version}")

@@ -6,6 +6,13 @@ deterministic status using a fixed priority hierarchy. The aggregation
 unit-tested in isolation; the ``get_*_status`` helpers wire it to real Docker
 data and a short-TTL cache.
 
+Collection is a SINGLE `docker ps` for the whole host, indexed back onto apps by
+compose labels (see "Bulk collection" below) and shared between callers by a
+short-TTL snapshot — not one `docker compose ps` per app plus one
+`docker inspect` per container, which is what made ``/status/apps`` cost ~120
+process spawns per request. Anything that changes container state must call
+``invalidate()``.
+
 Status vocabulary (the aggregated enum):
 
     running:healthy    every container running, health checks (if any) passing
@@ -30,6 +37,11 @@ happy path; ``exited`` is a calm, fully-stopped state; ``unknown`` is the floor.
 """
 
 import logging
+import os
+import re
+import threading
+import time
+from typing import Any, Dict, Iterable, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +70,20 @@ STATUS_PRECEDENCE = [
 # hammering the Docker CLI on every render / list load.
 _CACHE_PREFIX = 'container_status'
 _CACHE_TTL = 8  # seconds
+
+# TTL for the shared host-wide `docker ps` snapshot (see _get_container_index).
+# Deliberately SHORTER than the 5s socket-broadcast tick so the emitter never
+# reuses the previous tick's collection — the snapshot only ever collapses a
+# burst of near-simultaneous callers (the HTTP route + the emitter + a page
+# that renders 30 status pills), never a whole polling interval.
+_SNAPSHOT_TTL = 3.0  # seconds
+
+# The snapshot lives in module memory rather than CacheService on purpose: the
+# panel runs a single worker process (see CLAUDE.md / docs/ARCHITECTURE.md), it
+# must be droppable synchronously by invalidate(), and round-tripping the whole
+# container list through JSON would undo part of what we just saved.
+_snapshot_lock = threading.Lock()
+_snapshot: Dict[str, Any] = {'expires': 0.0, 'index': None}
 
 
 def _normalize_state(raw):
@@ -198,61 +224,351 @@ def aggregate_status(container_states):
     }
 
 
-def _container_health(container_id):
-    """Best-effort health string from docker inspect, or None.
+# ---- Bulk collection -------------------------------------------------------
+#
+# The naive shape of this module was: one `docker compose ps` subprocess per
+# app, plus one `docker inspect` per running container to read its health. At
+# ~30 apps x ~3 containers that is ~120 process spawns for a SINGLE /status/apps
+# request, repeated on a timer by the socket emitter. Both of those costs are
+# avoidable:
+#
+#   * `docker ps` already knows about every container on the host, and compose
+#     stamps each one with project/service/working_dir labels — so one call can
+#     be indexed back onto the apps that own the containers.
+#   * `docker ps`'s STATUS column already carries the health-check result
+#     ("Up 2 minutes (unhealthy)"), which is the only thing the per-container
+#     `docker inspect` was being spawned for.
+#
+# Net: ~120 spawns -> 1 per collection pass, shared between callers by a
+# short-TTL snapshot.
 
-    Reads ``State.Health.Status`` which ``get_container_state`` doesn't expose.
-    Defensive: any failure → None (treated as 'no health check').
+# 'Up 2 minutes (healthy)' / '(unhealthy)' / '(health: starting)'.
+_HEALTH_SUFFIX_RE = re.compile(r'\((?:health:\s*)?(healthy|unhealthy|starting)\)', re.IGNORECASE)
+
+# Compose derives a project name from the directory name by lowercasing and
+# dropping everything outside [a-z0-9_-] (then trimming leading separators).
+_PROJECT_NAME_STRIP_RE = re.compile(r'[^a-z0-9_-]')
+
+
+def _health_from_status(status: Optional[str]) -> Optional[str]:
+    """Pull the health-check result out of a `docker ps` STATUS string.
+
+    Returns None when the container has no health check, which
+    ``_normalize_health`` reads as 'none' — same as a failed inspect did.
     """
-    from app.services.docker_service import DockerService
+    if not status:
+        return None
+    match = _HEALTH_SUFFIX_RE.search(str(status))
+    return match.group(1).lower() if match else None
+
+
+def _norm_path(path: Optional[str]) -> Optional[str]:
+    """Normalize a filesystem path for equality comparison.
+
+    Compose records ``project.working_dir`` as an absolute path; the panel
+    stores ``root_path``. They can differ only by trailing slash, ``..`` or a
+    symlink, so normalize both sides the same way before comparing.
+    """
+    if not path:
+        return None
     try:
-        info = DockerService.get_container(container_id)
-        if not info:
-            return None
-        health = (info.get('State') or {}).get('Health') or {}
-        return health.get('Status')
+        return os.path.normcase(os.path.normpath(str(path).strip()))
     except Exception:
         return None
 
 
-def _gather_app_container_states(app):
-    """Collect per-container {name, service, state, health} dicts for an app.
-
-    Wraps the Docker CLI calls in try/except so a Docker outage degrades to an
-    empty list (→ 'unknown') rather than raising.
-    """
-    from app.services.docker_service import DockerService
-    states = []
+def _real_path(path: Optional[str]) -> Optional[str]:
+    """``_norm_path`` after symlink resolution, or None if it doesn't resolve."""
+    if not path:
+        return None
     try:
-        containers = DockerService.get_all_app_containers(app) or []
-    except Exception as e:
-        logger.warning('Failed to list containers for app %s: %s',
-                       getattr(app, 'id', '?'), e)
-        return states
+        resolved = os.path.normcase(os.path.realpath(str(path).strip()))
+    except Exception:
+        return None
+    return resolved or None
 
-    for c in containers:
-        cid = c.get('id') or c.get('name')
-        # The container list already carries a state; enrich with health only
-        # when the container looks like it's running (cheap inspect avoidance).
-        health = None
-        if _normalize_state(c.get('state')) == 'running' and cid:
-            health = _container_health(cid)
+
+def _compose_project_name(root_path: Optional[str]) -> Optional[str]:
+    """The project name compose would derive from ``root_path``'s basename."""
+    if not root_path:
+        return None
+    base = os.path.basename(os.path.normpath(str(root_path).strip()))
+    if not base:
+        return None
+    return _PROJECT_NAME_STRIP_RE.sub('', base.lower()).lstrip('_-') or None
+
+
+class _ContainerIndex:
+    """One host-wide `docker ps` result, indexed by every key an app can match.
+
+    An Application identifies its containers three ways, in descending order of
+    trust:
+
+      1. its compose project directory (``root_path``) — matched against the
+         ``com.docker.compose.project.working_dir`` label, which compose sets
+         regardless of a custom ``COMPOSE_PROJECT_NAME``;
+      2. the compose project NAME derived from that directory — the fallback
+         when the working_dir label is absent (older compose) or the project
+         was brought up from a different path;
+      3. an explicit ``container_id`` for non-compose, single-container apps.
+
+    Anything that matches nothing yields an empty list, which aggregates to
+    'unknown' — exactly what an empty `docker compose ps` produced before.
+    """
+
+    __slots__ = ('by_dir', 'by_project', 'by_id', 'count')
+
+    def __init__(self, containers: Iterable[Dict[str, Any]]):
+        self.by_dir: Dict[str, List[Dict[str, Any]]] = {}
+        self.by_project: Dict[str, List[Dict[str, Any]]] = {}
+        self.by_id: Dict[str, Dict[str, Any]] = {}
+        self.count = 0
+
+        for c in containers or []:
+            self.count += 1
+            for key in self._dir_keys(c):
+                self.by_dir.setdefault(key, []).append(c)
+
+            project = (c.get('project') or '').strip().lower()
+            if project:
+                self.by_project.setdefault(project, []).append(c)
+
+            cid = (c.get('id') or '').strip()
+            name = (c.get('name') or '').strip().lstrip('/')
+            if cid:
+                self.by_id[cid] = c
+                # Apps often store a short id; index the 12-char prefix too.
+                self.by_id.setdefault(cid[:12], c)
+            if name:
+                self.by_id.setdefault(name, c)
+
+    @staticmethod
+    def _dir_keys(container: Dict[str, Any]) -> List[str]:
+        """Directory keys a container can be found under (normalized + real)."""
+        keys = []
+        candidates = [container.get('working_dir')]
+        # config_files is a comma-separated list of compose file paths; their
+        # directory is the project dir when working_dir wasn't stamped.
+        for cf in (container.get('config_files') or '').split(','):
+            cf = cf.strip()
+            if cf:
+                candidates.append(os.path.dirname(cf))
+        for candidate in candidates:
+            for key in (_norm_path(candidate), _real_path(candidate)):
+                if key and key not in keys:
+                    keys.append(key)
+        return keys
+
+    def for_app(self, app) -> List[Dict[str, Any]]:
+        """Containers belonging to ``app``, in the trust order documented above."""
+        root_path = getattr(app, 'root_path', None)
+        for key in (_norm_path(root_path), _real_path(root_path)):
+            if key and key in self.by_dir:
+                return self.by_dir[key]
+
+        project = _compose_project_name(root_path)
+        if project and project in self.by_project:
+            return self.by_project[project]
+
+        container_id = (getattr(app, 'container_id', None) or '').strip()
+        if container_id and container_id in self.by_id:
+            return [self.by_id[container_id]]
+
+        return []
+
+
+def _collect_container_index() -> _ContainerIndex:
+    """Run the ONE `docker ps` and index it. Never raises."""
+    from app.services.docker_service import DockerService
+    try:
+        containers = DockerService.list_compose_containers() or []
+    except Exception as e:
+        logger.warning('Bulk container collection failed: %s', e)
+        containers = []
+    return _ContainerIndex(containers)
+
+
+def _get_container_index(use_cache: bool = True) -> _ContainerIndex:
+    """The shared host-wide container snapshot, collected at most once per TTL.
+
+    This is what makes the HTTP route and the socket emitter share a single
+    collection pass instead of each triggering their own.
+    """
+    if not use_cache:
+        return _collect_container_index()
+
+    now = time.monotonic()
+    with _snapshot_lock:
+        if _snapshot['index'] is not None and _snapshot['expires'] > now:
+            return _snapshot['index']
+
+    # Collected outside the lock: a slow/hung docker must not serialize every
+    # caller behind it. A rare duplicate collection is cheaper than a stall.
+    index = _collect_container_index()
+    with _snapshot_lock:
+        _snapshot['index'] = index
+        _snapshot['expires'] = time.monotonic() + _SNAPSHOT_TTL
+    return index
+
+
+def invalidate(application_id=None) -> None:
+    """Drop cached status so the next read re-collects from Docker.
+
+    MUST be called by anything that changes container state (start / stop /
+    restart / deploy). A cached status that survives an explicit user action is
+    worse than a slow one: the UI would show the pre-action state and look
+    broken. Passing ``application_id`` also clears that app's cached result;
+    the host snapshot is always dropped because one app's compose up/down
+    changes rows other apps are read from.
+    """
+    with _snapshot_lock:
+        _snapshot['index'] = None
+        _snapshot['expires'] = 0.0
+
+    from app.services.cache_service import CacheService
+    try:
+        if application_id is None:
+            CacheService.delete_pattern(f'{_CACHE_PREFIX}:*')
+        else:
+            CacheService.delete(f'{_CACHE_PREFIX}:app:{application_id}')
+    except Exception:  # cache is best-effort; the snapshot drop already landed
+        pass
+
+
+def _states_from_index_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """`docker ps` rows -> the {id,name,service,state,health} shape."""
+    states = []
+    for c in rows or []:
+        state = (c.get('state') or '').strip()
+        if not state:
+            # Very old daemons don't expose a State column in `docker ps`; the
+            # STATUS text ("Up 2 minutes", "Exited (0) ...") still tells us.
+            status_text = (c.get('status') or '').strip().lower()
+            if status_text.startswith('up'):
+                state = 'running'
+            elif status_text:
+                state = status_text.split()[0]
         states.append({
-            'id': cid,
-            'name': c.get('name'),
-            'service': c.get('service'),
-            'state': c.get('state'),
-            'health': health,
+            'id': c.get('id') or c.get('name'),
+            'name': (c.get('name') or '').lstrip('/') or None,
+            'service': c.get('service') or None,
+            'state': state or None,
+            'health': _health_from_status(c.get('status')),
         })
     return states
 
 
-def get_app_status(application_id, use_cache=True):
+def _gather_remote_app_container_states(app) -> List[Dict[str, Any]]:
+    """Container states for an app that lives on a remote (agent) server.
+
+    Remote hosts are NOT part of the local `docker ps` snapshot, so they go
+    through ``RemoteDockerService``. Gated on the agent actually being
+    connected: ``send_command`` blocks up to 30s waiting for a reply, and this
+    runs inside the 5s status-broadcast loop, so an offline server must cost
+    nothing rather than stall every other app's status.
+    """
+    from app.services.agent_registry import agent_registry
+    from app.services.remote_docker_service import RemoteDockerService
+
+    try:
+        if not agent_registry.get_agent(app.server_id):
+            return []
+    except Exception:
+        return []
+
+    target = os.path.join(app.root_path, app.compose_file or 'docker-compose.yml') \
+        if getattr(app, 'root_path', None) else None
+    if not target:
+        return []
+
+    try:
+        result = RemoteDockerService.compose_ps(app.server_id, target) or {}
+    except Exception as e:
+        logger.warning('Remote status for app %s failed: %s', getattr(app, 'id', '?'), e)
+        return []
+    if not result.get('success'):
+        return []
+
+    states = []
+    for c in (result.get('data') or []):
+        status = c.get('Status') or c.get('status')
+        states.append({
+            'id': c.get('ID') or c.get('id') or c.get('Name') or c.get('name'),
+            'name': c.get('Name') or c.get('name') or c.get('Names'),
+            'service': c.get('Service') or c.get('service'),
+            'state': c.get('State') or c.get('state'),
+            'health': _health_from_status(status) or (c.get('Health') or c.get('health')),
+        })
+    return states
+
+
+def _gather_app_container_states(app, index: Optional[_ContainerIndex] = None):
+    """Collect per-container {name, service, state, health} dicts for an app.
+
+    Local apps are answered from the shared host-wide snapshot (zero additional
+    subprocesses); remote apps go through the agent. Wrapped in try/except so a
+    Docker outage degrades to an empty list (→ 'unknown') rather than raising.
+    """
+    if getattr(app, 'server_id', None):
+        return _gather_remote_app_container_states(app)
+
+    if index is None:
+        index = _get_container_index()
+
+    try:
+        rows = index.for_app(app)
+    except Exception as e:
+        logger.warning('Failed to resolve containers for app %s: %s',
+                       getattr(app, 'id', '?'), e)
+        return []
+
+    if rows:
+        return _states_from_index_rows(rows)
+
+    # Nothing in the snapshot. For a compose app that is the honest answer
+    # (`docker compose ps` would print nothing either). But an app pinned to a
+    # bare container_id that the snapshot didn't carry — e.g. a stopped
+    # container, which `docker ps` hides — still deserves its old inspect path.
+    container_id = (getattr(app, 'container_id', None) or '').strip()
+    if container_id and not getattr(app, 'root_path', None):
+        return _gather_single_container_state(container_id)
+    return []
+
+
+def _gather_single_container_state(container_id: str) -> List[Dict[str, Any]]:
+    """Fallback for one explicitly-identified container.
+
+    ONE `docker inspect` — state and health both come out of the same payload,
+    where the old code spent two spawns (``get_container_state`` and the health
+    lookup each ran their own inspect of the same container).
+    """
+    from app.services.docker_service import DockerService
+    try:
+        info = DockerService.get_container(container_id)
+    except Exception as e:
+        logger.warning('Failed to read container %s state: %s', container_id, e)
+        return []
+    if not info:
+        return []
+    state = info.get('State') or {}
+    return [{
+        'id': container_id,
+        'name': (info.get('Name') or container_id).lstrip('/'),
+        'service': 'main',
+        'state': state.get('Status'),
+        'health': (state.get('Health') or {}).get('Status'),
+    }]
+
+
+def get_app_status(application_id, use_cache=True, index: Optional[_ContainerIndex] = None):
     """Aggregated status for a single Application.
 
-    Loads the app, gathers its containers via DockerService, aggregates, and
-    caches the result for a short TTL. Fully defensive: a missing app or a
-    Docker outage returns a well-formed 'unknown' result rather than raising.
+    Loads the app, gathers its containers, aggregates, and caches the result for
+    a short TTL. Fully defensive: a missing app or a Docker outage returns a
+    well-formed 'unknown' result rather than raising.
+
+    ``index`` lets a bulk caller (``list_app_statuses``) hand in the host-wide
+    snapshot it already collected, so N apps cost one collection pass in total.
 
     Returns:
         dict: aggregate_status() output plus 'app_id' and 'kind'.
@@ -286,7 +602,12 @@ def get_app_status(application_id, use_cache=True):
         result['reasons'] = ['application not found']
         return result
 
-    states = _gather_app_container_states(app)
+    # use_cache=False means "give me the truth right now" — it has to bypass the
+    # shared snapshot too, or an 8s-stale answer would just come from 3s-stale
+    # data instead of Docker.
+    if index is None:
+        index = _get_container_index(use_cache=use_cache)
+    states = _gather_app_container_states(app, index=index)
     agg = aggregate_status(states)
     result.update(agg)
     result['app_id'] = application_id
@@ -335,15 +656,14 @@ def get_database_status(database_id, container_id=None, use_cache=True):
         return result
 
     try:
-        from app.services.docker_service import DockerService
-        state = DockerService.get_container_state(container_id)
-        health = _container_health(container_id)
-        agg = aggregate_status([{
-            'id': container_id,
-            'name': container_id,
-            'state': (state or {}).get('state'),
-            'health': health,
-        }])
+        # One inspect, not two: state and health live in the same payload.
+        states = _gather_single_container_state(container_id)
+        if not states:
+            # An unresolvable container still counts as one unknown member —
+            # same output the two-inspect version produced on a failed lookup.
+            states = [{'id': container_id, 'name': container_id,
+                       'state': None, 'health': None}]
+        agg = aggregate_status(states)
         result.update(agg)
         result['database_id'] = database_id
         result['kind'] = 'database'
@@ -357,6 +677,11 @@ def list_app_statuses():
 
     Returns a list of {app_id, status, total, healthy} suitable for the list
     endpoint and the socket change-detection snapshot. Never raises.
+
+    Cost: ONE `docker ps` for every local app on the host (shared with any other
+    caller inside the snapshot TTL), plus one agent round-trip per *online*
+    remote server's apps. The previous shape was one `docker compose ps` per app
+    plus one `docker inspect` per running container.
     """
     summaries = []
     try:
@@ -366,8 +691,11 @@ def list_app_statuses():
         logger.warning('Failed to list applications for status: %s', e)
         return summaries
 
+    # Collect once, up front, and pass it down — the whole point of the round.
+    index = _get_container_index()
+
     for app in apps:
-        full = get_app_status(app.id)
+        full = get_app_status(app.id, index=index)
         summaries.append({
             'app_id': app.id,
             'status': full.get('status', STATUS_UNKNOWN),

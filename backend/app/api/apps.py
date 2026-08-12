@@ -21,6 +21,7 @@ from app.services.source_connection_service import SourceConnectionService
 from app.services.remote_docker_service import RemoteDockerService
 from app.services.container_registry_service import ContainerRegistryService
 from app.services.image_update_service import ImageUpdateService
+from app.services import container_status_service
 from app.services.container_sleep_service import ContainerSleepService
 from app.services.container_scale_service import ContainerScaleService
 from app.services.unit_compose_service import UnitComposeService
@@ -1551,6 +1552,9 @@ def start_app(app_id):
 
     app.status = 'running'
     db.session.commit()
+    # The cached aggregate now describes the pre-start world. Drop it: a status
+    # pill that survives the action that changed it reads as a broken panel.
+    container_status_service.invalidate(app_id)
 
     return jsonify({
         'message': 'Application started',
@@ -1600,6 +1604,9 @@ def apply_image_update(app_id):
     app.status = 'running'
     app.last_deployed_at = datetime.utcnow()
     db.session.commit()
+    # Containers were recreated — their ids changed, so any cached aggregate is
+    # describing containers that no longer exist.
+    container_status_service.invalidate(app_id)
 
     # Refresh the update badge now that we're on the new image.
     ImageUpdateService.check_application(app_id)
@@ -1970,6 +1977,7 @@ def stop_app(app_id):
 
     app.status = 'stopped'
     db.session.commit()
+    container_status_service.invalidate(app_id)
 
     return jsonify({
         'message': 'Application stopped',
@@ -2008,6 +2016,7 @@ def restart_app(app_id):
 
     app.status = 'running'
     db.session.commit()
+    container_status_service.invalidate(app_id)
 
     return jsonify({
         'message': 'Application restarted',

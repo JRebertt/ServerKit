@@ -147,6 +147,76 @@ class DockerService:
             logger.error(f"Failed to list containers: {e}")
             return []
 
+    # One `docker ps` row, tab-delimited. Tabs are used instead of
+    # `--format '{{json .}}'` because the JSON form flattens every label into a
+    # single comma-joined `Labels` string — and compose's
+    # `project.config_files` label is itself comma-separated, so that string
+    # cannot be parsed back unambiguously. `{{.Label "k"}}` pulls each label
+    # out on its own; none of these values can contain a tab.
+    _PS_LABEL_FIELDS = (
+        ('id', '{{.ID}}'),
+        ('name', '{{.Names}}'),
+        ('state', '{{.State}}'),
+        ('status', '{{.Status}}'),
+        ('project', '{{.Label "com.docker.compose.project"}}'),
+        ('service', '{{.Label "com.docker.compose.service"}}'),
+        ('working_dir', '{{.Label "com.docker.compose.project.working_dir"}}'),
+        ('config_files', '{{.Label "com.docker.compose.project.config_files"}}'),
+    )
+
+    @classmethod
+    def list_compose_containers(cls, all_containers=False):
+        """Every container on this host in ONE `docker ps`, with compose labels.
+
+        This exists so a caller that needs the state of N compose projects can
+        pay for a single process spawn instead of one `docker compose ps` per
+        project (plus one `docker inspect` per container). ``status`` carries
+        the health suffix docker prints — ``Up 2 minutes (healthy)`` — which is
+        the same information ``docker inspect`` would give under
+        ``State.Health.Status``, so the inspect calls are not needed either.
+
+        Args:
+            all_containers: include stopped containers. Defaults to False so the
+                result matches what ``docker compose ps`` (no ``--all``) would
+                have listed.
+
+        Returns:
+            list[dict]: {id, name, state, status, project, service,
+                         working_dir, config_files}. Empty on any failure —
+                         callers treat that as "Docker unavailable".
+        """
+        keys = [k for k, _ in cls._PS_LABEL_FIELDS]
+        fmt = '\t'.join(tpl for _, tpl in cls._PS_LABEL_FIELDS)
+        cmd = ['docker', 'ps', '--no-trunc', '--format', fmt]
+        if all_containers:
+            cmd.insert(2, '-a')
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                logger.warning('docker ps (bulk) failed: %s', result.stderr.strip())
+                return []
+        except Exception as e:
+            logger.error(f"Failed to bulk-list containers: {e}")
+            return []
+
+        containers = []
+        for line in (result.stdout or '').splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('\t')
+            # Trailing empty labels can be dropped by the template engine; pad
+            # rather than skip so a container with no compose labels still
+            # contributes its id/name/state.
+            parts += [''] * (len(keys) - len(parts))
+            row = dict(zip(keys, (p.strip() for p in parts[:len(keys)])))
+            # docker renders a missing label as '<no value>' in some versions.
+            for k in ('project', 'service', 'working_dir', 'config_files'):
+                if row.get(k) == '<no value>':
+                    row[k] = ''
+            containers.append(row)
+        return containers
+
     @staticmethod
     def get_container(container_id):
         """Get detailed container information."""
