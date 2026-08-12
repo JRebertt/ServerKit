@@ -20,8 +20,8 @@ import EmptyState from '../components/EmptyState';
 import UptimeBars from '../components/monitoring/UptimeBars';
 import { monitorStateOf } from '../components/monitoring/monitorShared';
 import {
-    AreaChart, ColumnsMenu, DataTable, DataTableFooter, KpiBand, MetricCard,
-    Pill, SegControl, SortMenu,
+    AreaChart, DataTable, DataTableFooter, KpiBand, MetricCard,
+    Pill, SegControl,
 } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
@@ -84,7 +84,7 @@ export default function MonitorDetail() {
     // Sort/column state for the check log lives above the early returns so the
     // hook order never changes; storageKey keeps the choices across visits.
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitor-checks-sort' });
-    const { hiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
         storageKey: 'serverkit-table-monitor-checks-cols',
     });
 
@@ -448,13 +448,6 @@ export default function MonitorDetail() {
                             {frozen && newSinceFreeze > 0 && (
                                 <Pill kind="cyan">{newSinceFreeze} new</Pill>
                             )}
-                            <SortMenu columns={checkColumns} sorts={sorts} onChange={setSorts} />
-                            <ColumnsMenu
-                                columns={checkColumns}
-                                hiddenKeys={hiddenKeys}
-                                onToggle={toggleColumn}
-                                onShowAll={showAllColumns}
-                            />
                             <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
                                 {frozen ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Hold</>}
                             </Button>
@@ -467,6 +460,7 @@ export default function MonitorDetail() {
                         sorts={sorts}
                         onSortsChange={setSorts}
                         hiddenKeys={hiddenKeys}
+                        onHiddenKeysChange={setHiddenKeys}
                         rowClassName={(c) => (c.status === 'up' ? undefined : 'is-bad')}
                         emptyState={(
                             <EmptyState

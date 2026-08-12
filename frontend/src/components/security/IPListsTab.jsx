@@ -6,7 +6,7 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
@@ -142,13 +142,6 @@ const IPListsTab = () => {
                     {title} <span className="sec-count">· {items.length}</span>
                 </h3>
                 <div className="sec-tableactions">
-                    <SortMenu columns={columns} sorts={sortState.sorts} onChange={sortState.setSorts} />
-                    <ColumnsMenu
-                        columns={columns}
-                        hiddenKeys={colState.hiddenKeys}
-                        onToggle={colState.toggleColumn}
-                        onShowAll={colState.showAllColumns}
-                    />
                     <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
                         Add IP
                     </Button>
@@ -166,6 +159,7 @@ const IPListsTab = () => {
                     sorts={sortState.sorts}
                     onSortsChange={sortState.setSorts}
                     hiddenKeys={colState.hiddenKeys}
+                    onHiddenKeysChange={colState.setHiddenKeys}
                     footer={(
                         <DataTableFooter
                             shown={items.length}

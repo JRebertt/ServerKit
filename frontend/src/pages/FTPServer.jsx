@@ -6,7 +6,7 @@ import {
 import useTabParam from '../hooks/useTabParam';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { api } from '../services/api';
-import { ColumnsMenu, DataTable, DataTableFooter, MetricCard, Pill, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter, MetricCard, Pill } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useToast } from '../contexts/ToastContext';
@@ -44,16 +44,14 @@ function FTPServer() {
     });
     const {
         hiddenKeys: userHiddenKeys,
-        toggleColumn: toggleUserColumn,
-        showAllColumns: showAllUserColumns,
+        setHiddenKeys: setUserHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-ftp-users-cols' });
     const { sorts: connSorts, setSorts: setConnSorts } = useTableSort({
         storageKey: 'serverkit-table-ftp-connections-sort',
     });
     const {
         hiddenKeys: connHiddenKeys,
-        toggleColumn: toggleConnColumn,
-        showAllColumns: showAllConnColumns,
+        setHiddenKeys: setConnHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-ftp-connections-cols' });
 
     useEffect(() => {
@@ -574,13 +572,6 @@ function FTPServer() {
                                 <div className="section-header">
                                     <h3>FTP Users</h3>
                                     <div className="section-header__actions">
-                                        <SortMenu columns={userColumns} sorts={userSorts} onChange={setUserSorts} />
-                                        <ColumnsMenu
-                                            columns={userColumns}
-                                            hiddenKeys={userHiddenKeys}
-                                            onToggle={toggleUserColumn}
-                                            onShowAll={showAllUserColumns}
-                                        />
                                         <Button onClick={() => setShowUserModal(true)}>
                                             Add User
                                         </Button>
@@ -600,6 +591,7 @@ function FTPServer() {
                                         sorts={userSorts}
                                         onSortsChange={setUserSorts}
                                         hiddenKeys={userHiddenKeys}
+                                        onHiddenKeysChange={setUserHiddenKeys}
                                         className="users-table"
                                         footer={(
                                             <DataTableFooter
@@ -618,13 +610,6 @@ function FTPServer() {
                                 <div className="section-header">
                                     <h3>Active Connections</h3>
                                     <div className="section-header__actions">
-                                        <SortMenu columns={connectionColumns} sorts={connSorts} onChange={setConnSorts} />
-                                        <ColumnsMenu
-                                            columns={connectionColumns}
-                                            hiddenKeys={connHiddenKeys}
-                                            onToggle={toggleConnColumn}
-                                            onShowAll={showAllConnColumns}
-                                        />
                                         <Button variant="outline" onClick={loadConnections}>
                                             <RefreshCw size={14} />
                                             Refresh
@@ -641,6 +626,7 @@ function FTPServer() {
                                         sorts={connSorts}
                                         onSortsChange={setConnSorts}
                                         hiddenKeys={connHiddenKeys}
+                                        onHiddenKeysChange={setConnHiddenKeys}
                                         className="connections-table"
                                         footer={(
                                             <DataTableFooter

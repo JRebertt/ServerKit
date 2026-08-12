@@ -5,7 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { METRIC_LABELS } from './fleetMetrics';
@@ -60,7 +60,7 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
 
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fleet-thresholds-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-fleet-thresholds-cols' });
 
     // Columns for the shared DataTable; cell markup is identical to the
@@ -127,13 +127,6 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
                     <span className="mon-panel-sub">Limits applied to paired servers by their agents</span>
                 </div>
                 <div>
-                    <SortMenu columns={thresholdColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={thresholdColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
                     <Button size="sm" variant={adding ? 'outline' : 'default'} onClick={() => setAdding((v) => !v)}>
                         <Plus size={14} /> {adding ? 'Cancel' : 'Add rule'}
                     </Button>
@@ -204,6 +197,7 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
                     sorts={sorts}
                     onSortsChange={setSorts}
                     hiddenKeys={hiddenKeys}
+                    onHiddenKeysChange={setHiddenKeys}
                     className="mon-table-scroll"
                     footer={(
                         <DataTableFooter

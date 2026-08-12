@@ -8,7 +8,7 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
@@ -26,7 +26,7 @@ const Fail2banTab = () => {
     const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fail2ban-bans-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-fail2ban-bans-cols' });
 
     useEffect(() => {
@@ -234,15 +234,6 @@ const Fail2banTab = () => {
                     <div className="card sec-flush">
                         <div className="card-header">
                             <h3>Banned IPs {bans.length > 0 && <span className="sec-count">· {bans.length}</span>}</h3>
-                            <div className="sec-tableactions">
-                                <SortMenu columns={banColumns} sorts={sorts} onChange={setSorts} />
-                                <ColumnsMenu
-                                    columns={banColumns}
-                                    hiddenKeys={hiddenKeys}
-                                    onToggle={toggleColumn}
-                                    onShowAll={showAllColumns}
-                                />
-                            </div>
                         </div>
                         {bans.length === 0 ? (
                             <div className="card-body">
@@ -256,6 +247,7 @@ const Fail2banTab = () => {
                                 sorts={sorts}
                                 onSortsChange={setSorts}
                                 hiddenKeys={hiddenKeys}
+                                onHiddenKeysChange={setHiddenKeys}
                                 footer={(
                                     <DataTableFooter
                                         shown={bans.length}

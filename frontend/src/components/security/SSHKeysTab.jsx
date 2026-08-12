@@ -8,7 +8,7 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
@@ -22,7 +22,7 @@ const SSHKeysTab = () => {
     const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ssh-keys-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-ssh-keys-cols' });
 
     useEffect(() => {
@@ -118,13 +118,6 @@ const SSHKeysTab = () => {
                 <div className="card-header">
                     <h3>SSH Authorized Keys {!loading && keys.length > 0 && <span className="sec-count">· {keys.length}</span>}</h3>
                     <div className="card-actions">
-                        <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={columns}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
-                        />
                         <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
                             Add Key
                         </Button>
@@ -157,6 +150,7 @@ const SSHKeysTab = () => {
                         sorts={sorts}
                         onSortsChange={setSorts}
                         hiddenKeys={hiddenKeys}
+                        onHiddenKeysChange={setHiddenKeys}
                         footer={(
                             <DataTableFooter
                                 shown={keys.length}

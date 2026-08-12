@@ -7,7 +7,7 @@ import { DangerZone } from '../components/DangerZone';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
-    Pill, MetricCard, SegControl, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter,
+    Pill, MetricCard, SegControl, Drawer, DataTable, DataTableFooter,
     ListToolbar,
 } from '../components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -283,11 +283,11 @@ function Git({ basePath = '/git' }) {
 
     const { sorts: repoSorts, setSorts: setRepoSorts } = useTableSort({ storageKey: 'serverkit-table-git-repos-sort' });
     const {
-        hiddenKeys: repoHiddenKeys, toggleColumn: toggleRepoColumn, showAllColumns: showAllRepoColumns,
+        hiddenKeys: repoHiddenKeys, setHiddenKeys: setRepoHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-git-repos-cols' });
     const { sorts: webhookSorts, setSorts: setWebhookSorts } = useTableSort({ storageKey: 'serverkit-table-git-webhooks-sort' });
     const {
-        hiddenKeys: webhookHiddenKeys, toggleColumn: toggleWebhookColumn, showAllColumns: showAllWebhookColumns,
+        hiddenKeys: webhookHiddenKeys, setHiddenKeys: setWebhookHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-git-webhooks-cols' });
 
     const toast = useToast();
@@ -866,17 +866,6 @@ function Git({ basePath = '/git' }) {
                             ]}
                         />
                     )}
-                    tools={(
-                        <>
-                            <SortMenu columns={REPO_COLUMNS} sorts={repoSorts} onChange={setRepoSorts} />
-                            <ColumnsMenu
-                                columns={REPO_COLUMNS}
-                                hiddenKeys={repoHiddenKeys}
-                                onToggle={toggleRepoColumn}
-                                onShowAll={showAllRepoColumns}
-                            />
-                        </>
-                    )}
                 />
                 {filteredRepos.length === 0 ? (
                     <EmptyState icon={FolderGit2} title="No repositories match this filter." />
@@ -889,6 +878,7 @@ function Git({ basePath = '/git' }) {
                             sorts={repoSorts}
                             onSortsChange={setRepoSorts}
                             hiddenKeys={repoHiddenKeys}
+                            onHiddenKeysChange={setRepoHiddenKeys}
                             onRowClick={openRepoDrawer}
                             tableClassName="git-repos-table"
                             footer={(
@@ -962,17 +952,6 @@ function Git({ basePath = '/git' }) {
                             ]}
                         />
                     )}
-                    tools={(
-                        <>
-                            <SortMenu columns={WEBHOOK_COLUMNS} sorts={webhookSorts} onChange={setWebhookSorts} />
-                            <ColumnsMenu
-                                columns={WEBHOOK_COLUMNS}
-                                hiddenKeys={webhookHiddenKeys}
-                                onToggle={toggleWebhookColumn}
-                                onShowAll={showAllWebhookColumns}
-                            />
-                        </>
-                    )}
                 />
                 {filteredWebhooks.length === 0 ? (
                     <EmptyState icon={Webhook} title="No webhooks match this filter." />
@@ -985,6 +964,7 @@ function Git({ basePath = '/git' }) {
                             sorts={webhookSorts}
                             onSortsChange={setWebhookSorts}
                             hiddenKeys={webhookHiddenKeys}
+                            onHiddenKeysChange={setWebhookHiddenKeys}
                             onRowClick={setDrawerWebhook}
                             rowClassName={(webhook) => (!webhook.is_active ? 'is-disabled' : '')}
                             tableClassName="git-webhooks-table"

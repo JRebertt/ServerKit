@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill, ColumnsMenu, DataTable, DataTableFooter, ListToolbar, SortMenu } from '../ds';
+import { Pill, DataTable, DataTableFooter, ListToolbar } from '../ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import Modal from '../Modal';
@@ -38,7 +38,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
     const [logsFor, setLogsFor] = useState(null); // { unit, entries, raw }
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-services-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-sd-services-cols' });
 
     const loadUnits = useCallback(async () => {
@@ -188,13 +188,6 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                         >
                             Reload daemon
                         </Button>
-                        <SortMenu columns={unitColumns} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={unitColumns}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
-                        />
                     </div>
                 )}
             >
@@ -230,6 +223,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                     sorts={sorts}
                     onSortsChange={setSorts}
                     hiddenKeys={hiddenKeys}
+                    onHiddenKeysChange={setHiddenKeys}
                     tableClassName="server-services__table"
                     footer={(
                         <DataTableFooter

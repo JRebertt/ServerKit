@@ -3,7 +3,7 @@ import { CheckCircle, Eye } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SegControl, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill, SegControl } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { METRIC_LABELS } from './fleetMetrics';
@@ -49,7 +49,7 @@ export default function FleetAlertsPanel({ scope, refreshKey = 0 }) {
 
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fleet-alerts-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-fleet-alerts-cols' });
 
     // Columns for the shared DataTable; cell markup is identical to the
@@ -154,13 +154,6 @@ export default function FleetAlertsPanel({ scope, refreshKey = 0 }) {
                 <h3>Fleet alerts</h3>
                 <div>
                     <SegControl value={filter} onChange={setFilter} options={ALERT_FILTERS} />
-                    <SortMenu columns={alertColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={alertColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
                 </div>
             </div>
 
@@ -172,6 +165,7 @@ export default function FleetAlertsPanel({ scope, refreshKey = 0 }) {
                     sorts={sorts}
                     onSortsChange={setSorts}
                     hiddenKeys={hiddenKeys}
+                    onHiddenKeysChange={setHiddenKeys}
                     className="mon-table-scroll"
                     footer={(
                         <DataTableFooter

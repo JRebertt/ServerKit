@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    Pill, SearchField, SegControl, DataTable, SortMenu, ColumnsMenu, SortChipBar, DataTableFooter,
+    Pill, SearchField, SegControl, DataTable, SortChipBar, DataTableFooter,
     ListToolbar,
 } from '@/components/ds';
 import BackupsOverview from '../components/backups/BackupsOverview';
@@ -47,7 +47,7 @@ const Backups = () => {
     const [search, setSearch] = useState('');
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-backups-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-backups-cols' });
 
     // Modal states
@@ -614,19 +614,10 @@ const Backups = () => {
                             />
                         )}
                         tools={(
-                            <>
-                                <SortMenu columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
-                                <ColumnsMenu
-                                    columns={snapshotColumns}
-                                    hiddenKeys={hiddenKeys}
-                                    onToggle={toggleColumn}
-                                    onShowAll={showAllColumns}
-                                />
-                                <Button size="sm" variant="outline" onClick={loadData}>
-                                    <RefreshCw size={14} />
-                                    Refresh
-                                </Button>
-                            </>
+                            <Button size="sm" variant="outline" onClick={loadData}>
+                                <RefreshCw size={14} />
+                                Refresh
+                            </Button>
                         )}
                     />
                     <SortChipBar columns={snapshotColumns} sorts={sorts} onChange={setSorts} />
@@ -653,6 +644,7 @@ const Backups = () => {
                                 sorts={sorts}
                                 onSortsChange={setSorts}
                                 hiddenKeys={hiddenKeys}
+                                onHiddenKeysChange={setHiddenKeys}
                                 tableClassName="bk-table"
                                 footer={(
                                     <DataTableFooter

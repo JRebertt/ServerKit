@@ -6,7 +6,7 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
-import { Drawer, DataTable, DataTableFooter, SortMenu, ColumnsMenu } from '@/components/ds';
+import { Drawer, DataTable, DataTableFooter } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
@@ -74,7 +74,7 @@ const ContainersTab = ({ onStatsChange }) => {
         storageKey: 'serverkit-table-docker-containers-sort',
     });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-docker-containers-cols' });
     const statsRequestSeq = useRef(0);
 
@@ -446,13 +446,6 @@ const ContainersTab = ({ onStatsChange }) => {
                     ))}
                 </div>
                 <div className="dx-tab-toolbar-right">
-                    <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={columns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
                     <label className="dx-toggle">
                         <input
                             type="checkbox"
@@ -506,6 +499,7 @@ const ContainersTab = ({ onStatsChange }) => {
                             sorts={sorts}
                             onSortsChange={setSorts}
                             hiddenKeys={hiddenKeys}
+                            onHiddenKeysChange={setHiddenKeys}
                             onRowClick={(container) => setSelectedContainer(container)}
                             rowClassName={(container) => (
                                 `${isContainerRunning(container) ? 'is-running' : 'is-stopped'} ${getContainerId(selectedContainer) === getContainerId(container) ? 'is-selected' : ''}`

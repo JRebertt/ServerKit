@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SegControl, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill, SegControl } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Ban, Shield } from 'lucide-react';
@@ -39,7 +39,7 @@ const FirewallTab = () => {
     const { confirm } = useConfirm();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-firewall-rules-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-firewall-rules-cols' });
 
     const commonPorts = [
@@ -410,13 +410,6 @@ const FirewallTab = () => {
                             <div className="card-header">
                                 <h3>Firewall Rules</h3>
                                 <div className="sec-tableactions">
-                                    <SortMenu columns={ruleColumns} sorts={sorts} onChange={setSorts} />
-                                    <ColumnsMenu
-                                        columns={ruleColumns}
-                                        hiddenKeys={hiddenKeys}
-                                        onToggle={toggleColumn}
-                                        onShowAll={showAllColumns}
-                                    />
                                     <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
                                 </div>
                             </div>
@@ -432,6 +425,7 @@ const FirewallTab = () => {
                                     sorts={sorts}
                                     onSortsChange={setSorts}
                                     hiddenKeys={hiddenKeys}
+                                    onHiddenKeysChange={setHiddenKeys}
                                     footer={(
                                         <DataTableFooter
                                             shown={rules.length}

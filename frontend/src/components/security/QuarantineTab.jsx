@@ -3,7 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { ColumnsMenu, DataTable, DataTableFooter, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatBytes } from '@/utils/formatBytes';
@@ -14,7 +14,7 @@ const QuarantineTab = () => {
     const [message, setMessage] = useState(null);
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-quarantine-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-quarantine-cols' });
 
     useEffect(() => {
@@ -139,13 +139,6 @@ const QuarantineTab = () => {
                 <div className="card-header">
                     <h3>Quarantined Files {!loading && files.length > 0 && <span className="sec-count">· {files.length}</span>}</h3>
                     <div className="sec-tableactions">
-                        <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                        <ColumnsMenu
-                            columns={columns}
-                            hiddenKeys={hiddenKeys}
-                            onToggle={toggleColumn}
-                            onShowAll={showAllColumns}
-                        />
                         <Button variant="outline" size="sm" onClick={loadFiles}>Refresh</Button>
                     </div>
                 </div>
@@ -169,6 +162,7 @@ const QuarantineTab = () => {
                         sorts={sorts}
                         onSortsChange={setSorts}
                         hiddenKeys={hiddenKeys}
+                        onHiddenKeysChange={setHiddenKeys}
                         footer={(
                             <DataTableFooter
                                 shown={files.length}

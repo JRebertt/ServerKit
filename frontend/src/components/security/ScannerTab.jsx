@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Zap, Radar, FolderSearch, Download, Box, ShieldAlert, FileCode2, Trash2, Search } from 'lucide-react';
@@ -544,13 +544,6 @@ const ScannerTab = () => {
                             Findings <span className="sec-count">· {findings.length}</span>
                         </h3>
                         <div className="sec-tableactions">
-                            <SortMenu columns={findingColumns} sorts={findingsSorts.sorts} onChange={findingsSorts.setSorts} />
-                            <ColumnsMenu
-                                columns={findingColumns}
-                                hiddenKeys={findingsCols.hiddenKeys}
-                                onToggle={findingsCols.toggleColumn}
-                                onShowAll={findingsCols.showAllColumns}
-                            />
                             <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
                         </div>
                     </div>
@@ -561,6 +554,7 @@ const ScannerTab = () => {
                         sorts={findingsSorts.sorts}
                         onSortsChange={findingsSorts.setSorts}
                         hiddenKeys={findingsCols.hiddenKeys}
+                        onHiddenKeysChange={findingsCols.setHiddenKeys}
                         footer={(
                             <DataTableFooter
                                 shown={findings.length}
@@ -576,13 +570,6 @@ const ScannerTab = () => {
                 <div className="card-header">
                     <h3>Scan History</h3>
                     <div className="sec-tableactions">
-                        <SortMenu columns={historyColumns} sorts={historySorts.sorts} onChange={historySorts.setSorts} />
-                        <ColumnsMenu
-                            columns={historyColumns}
-                            hiddenKeys={historyCols.hiddenKeys}
-                            onToggle={historyCols.toggleColumn}
-                            onShowAll={historyCols.showAllColumns}
-                        />
                         <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
                     </div>
                 </div>
@@ -602,6 +589,7 @@ const ScannerTab = () => {
                         sorts={historySorts.sorts}
                         onSortsChange={historySorts.setSorts}
                         hiddenKeys={historyCols.hiddenKeys}
+                        onHiddenKeysChange={historyCols.setHiddenKeys}
                         footer={(
                             <DataTableFooter
                                 shown={history.length}

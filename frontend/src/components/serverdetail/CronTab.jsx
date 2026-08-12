@@ -5,7 +5,7 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '../ds';
+import { DataTable, DataTableFooter, Pill } from '../ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
@@ -44,7 +44,7 @@ const CronTab = ({ serverId, serverStatus }) => {
     });
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-cron-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-sd-cron-cols' });
 
     const loadJobs = useCallback(async () => {
@@ -237,13 +237,6 @@ const CronTab = ({ serverId, serverStatus }) => {
                     <Button onClick={() => setShowAddModal(true)} disabled={status?.available === false}>
                         Add Job
                     </Button>
-                    <SortMenu columns={cronColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={cronColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
                 </div>
             </div>
 
@@ -265,6 +258,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                     sorts={sorts}
                     onSortsChange={setSorts}
                     hiddenKeys={hiddenKeys}
+                    onHiddenKeysChange={setHiddenKeys}
                     rowClassName={(job) => (!job.enabled ? 'row-disabled' : '')}
                     tableClassName="data-table"
                     footer={(

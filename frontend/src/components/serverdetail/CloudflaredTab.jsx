@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ColumnsMenu, DataTable, DataTableFooter, Pill, SortMenu } from '../ds';
+import { DataTable, DataTableFooter, Pill } from '../ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
@@ -47,7 +47,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
 
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-cloudflared-sort' });
     const {
-        hiddenKeys, toggleColumn, showAllColumns,
+        hiddenKeys, setHiddenKeys,
     } = useColumnVisibility({ storageKey: 'serverkit-table-sd-cloudflared-cols' });
 
     const loadStatus = useCallback(async () => {
@@ -293,13 +293,6 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     <Button onClick={() => setShowCreateModal(true)} disabled={notInstalled || notAuthed}>
                         Create Tunnel
                     </Button>
-                    <SortMenu columns={tunnelColumns} sorts={sorts} onChange={setSorts} />
-                    <ColumnsMenu
-                        columns={tunnelColumns}
-                        hiddenKeys={hiddenKeys}
-                        onToggle={toggleColumn}
-                        onShowAll={showAllColumns}
-                    />
                 </div>
             </div>
 
@@ -348,6 +341,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         sorts={sorts}
                         onSortsChange={setSorts}
                         hiddenKeys={hiddenKeys}
+                        onHiddenKeysChange={setHiddenKeys}
                         tableClassName="data-table"
                         footer={(
                             <DataTableFooter
