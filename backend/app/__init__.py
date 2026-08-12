@@ -58,6 +58,29 @@ def create_app(config_name=None):
     jwt.init_app(app)
     limiter.init_app(app)
 
+    # SQLite concurrency tuning: the queue-bus consumers, job system and
+    # metrics collector share one database file with request handling, and in
+    # the default journal mode any writer locks the WHOLE file — readers
+    # included — producing sporadic "database is locked" errors under load.
+    # WAL lets readers coexist with a writer, a generous busy timeout absorbs
+    # the remaining writer-writer contention, and synchronous=NORMAL is the
+    # safe pairing for WAL. (journal_mode persists in the database file; the
+    # per-connection pragmas re-assert it for fresh files.)
+    if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite') and not app.config.get('TESTING'):
+        # (Skipped under TESTING: tests/conftest.py owns connection pragmas
+        # for the test process — journal_mode=MEMORY et al. — and two
+        # listeners fighting over journal_mode on the same file deadlocks.)
+        from sqlalchemy import event
+
+        with app.app_context():
+            @event.listens_for(db.engine, 'connect')
+            def _sqlite_tune(dbapi_connection, _record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute('PRAGMA journal_mode=WAL')
+                cursor.execute('PRAGMA busy_timeout=30000')
+                cursor.execute('PRAGMA synchronous=NORMAL')
+                cursor.close()
+
     # Build CORS origins. Start with static config/env, then append the
     # persisted canonical domain from system settings so pointing an A record
     # at the panel works without restarting to edit .env.
