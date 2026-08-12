@@ -12,7 +12,9 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, Response, current_app, redirect
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from sqlalchemy.orm import joinedload
 from app import db, limiter
+from app.api._query import apply_query, QueryParseError
 from app.models import User
 from app.models.server import Server, ServerGroup, ServerMetrics, ServerCommand, AgentSession, AgentVersion, AgentRollout
 from app.services.agent_registry import agent_registry
@@ -280,7 +282,24 @@ def list_servers():
     if tag:
         query = query.filter(Server.tags.contains([tag]))
 
-    servers = query.order_by(Server.name).all()
+    # $select / $filter / $orderby / $skip / $top, all optional. No paging meta
+    # is emitted here: this route answers with a bare JSON array, and wrapping
+    # it in an envelope would break every existing caller.
+    try:
+        narrowed = apply_query(query, Server, request, select_extra=Server.DERIVED_FIELDS)
+    except QueryParseError as exc:
+        return jsonify({'error': str(exc)}), 400
+    query = narrowed.query
+    fields = narrowed.fields
+
+    # `group_name` is a relationship load per row; hoist it when it is wanted.
+    if fields is None or 'group_name' in fields:
+        query = query.options(joinedload(Server.group))
+
+    # An explicit $orderby wins; otherwise keep the by-name default the list UI
+    # has always relied on.
+    servers = (query.all() if request.args.get('$orderby')
+               else query.order_by(Server.name).all())
 
     # Latest metrics per server, under the SAME 'metrics' key the detail
     # endpoint uses (see get_server_status below) — the servers list renders
@@ -304,7 +323,7 @@ def list_servers():
 
     result = []
     for server in servers:
-        server_dict = server.to_dict()
+        server_dict = server.to_dict(fields=fields)
         server_dict['is_connected'] = agent_registry.is_agent_connected(server.id)
         metrics = metrics_by_server.get(server.id)
         if metrics:

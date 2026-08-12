@@ -184,3 +184,39 @@ def test_to_dict_can_opt_into_one_derived_field(app, sample_app):
     with app.app_context():
         data = sample_app.to_dict(fields={'id', 'name', 'image_scan'})
         assert set(data) == {'id', 'name', 'image_scan'}
+
+
+# --------------------------------------------- Server: the same narrowing
+
+def test_server_to_dict_is_unchanged_by_default(app):
+    from app import db
+    from app.models.server import Server
+    with app.app_context():
+        row = Server(id='probe-srv', name='probe')
+        db.session.add(row)
+        db.session.commit()
+        data = row.to_dict()
+        assert 'onboarding_progress' in data
+        assert 'group_name' in data
+
+
+def test_server_to_dict_skips_the_expensive_derived_fields(app):
+    """onboarding_progress alone is ~29% of a server row and is read by exactly
+    one screen; group_name is a relationship load."""
+    from app import db
+    from app.models.server import Server
+    with app.app_context():
+        row = Server(id='probe-srv2', name='probe2')
+        db.session.add(row)
+        db.session.commit()
+        data = row.to_dict(fields={'id', 'name'})
+        assert set(data) == {'id', 'name'}
+        assert 'onboarding_progress' not in data
+        assert 'group_name' not in data
+
+
+def test_server_select_accepts_its_derived_fields(app):
+    from app.models.server import Server
+    with app.app_context():
+        fields = parse_select('name,group_name', Server, extra=Server.DERIVED_FIELDS)
+        assert fields == {'name', 'group_name', 'id'}

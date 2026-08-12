@@ -436,7 +436,20 @@ class Server(db.Model):
         except (TypeError, ValueError):
             return []
 
-    def to_dict(self, include_metrics=False):
+    # Emitted by to_dict but not mapped columns: each costs a relationship load
+    # or a JSON walk, so `$select` has to know they exist in order to decline
+    # them. Kept next to to_dict so the two cannot drift.
+    DERIVED_FIELDS = ('group_name', 'onboarding_progress', 'latest_metrics')
+
+    def to_dict(self, include_metrics=False, fields=None):
+        """Serialize the server.
+
+        `fields` (normally from ``$select``) narrows the payload AND skips the
+        derived work. `onboarding_progress` alone is ~29% of a row and is read
+        by exactly one screen; `group_name` is a relationship load. A list that
+        only needs {id, name} should pay for neither.
+        """
+        want = fields.__contains__ if fields is not None else (lambda _key: True)
         result = {
             'id': self.id,
             'name': self.name,
@@ -444,14 +457,12 @@ class Server(db.Model):
             'hostname': self.hostname,
             'ip_address': self.ip_address,
             'group_id': self.group_id,
-            'group_name': self.group.name if self.group else None,
             'workspace_id': self.workspace_id,
             'tags': self.tags or [],
             'status': self.status,
             'last_seen': self.last_seen.isoformat() if self.last_seen else None,
             'last_error': self.last_error,
             'onboarding_state': self.onboarding_state,
-            'onboarding_progress': self._onboarding_progress_list(),
             'onboarding_updated_at': self.onboarding_updated_at.isoformat() if self.onboarding_updated_at else None,
             'agent_version': self.agent_version,
             'agent_id': self.agent_id,
@@ -473,8 +484,17 @@ class Server(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
-        if include_metrics:
-            # Get latest metrics
+        if fields is not None:
+            result = {key: value for key, value in result.items() if key in fields}
+
+        # The derived three, each skippable.
+        if want('group_name'):
+            result['group_name'] = self.group.name if self.group else None
+        if want('onboarding_progress'):
+            result['onboarding_progress'] = self._onboarding_progress_list()
+        if include_metrics and want('latest_metrics'):
+            # `metrics` is lazy='dynamic', so this is a query per server — the
+            # list route batches it instead and never passes include_metrics.
             latest = self.metrics.order_by(ServerMetrics.timestamp.desc()).first()
             if latest:
                 result['latest_metrics'] = latest.to_dict()
