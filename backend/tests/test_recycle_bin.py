@@ -289,3 +289,68 @@ def test_restoring_a_view_is_refused_when_the_name_was_reused(app):
         assert item is None
         assert 'already have' in err
         assert SavedView.query.get(first['id']).deleted_at is not None
+
+
+# ---- the restore notice ----------------------------------------------------
+
+def test_restoring_an_https_domain_says_it_came_back_on_http(app, app_with_domain, monkeypatch):
+    """on_restore_domain deliberately does not re-issue a certificate, so an
+    ssl_enabled domain returns over plain HTTP. Silently is the problem: the
+    row still reads ssl_enabled, so nothing tells the person who restored it."""
+    from app.services import domain_restore
+
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': {}, 'warning': None}))
+    # No wildcard covers it, so nothing is serving HTTPS for this name.
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'covering_base',
+                        classmethod(lambda cls, name: None))
+
+    with app.app_context():
+        domain = Domain.query.get(app_with_domain['domain_id'])
+        domain.ssl_enabled = True
+        domain.soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        # The restore SUCCEEDED — the notice must not land in the error slot.
+        assert err is None
+        assert 'HTTP' in item['notice']
+        assert 'certificate was not re-issued' in item['notice']
+
+
+def test_no_notice_when_a_wildcard_already_covers_the_domain(app, app_with_domain, monkeypatch):
+    """app_vhost_kwargs re-attaches a covering wildcard, so HTTPS really is back
+    and warning about it would be noise."""
+    from app.services import domain_restore
+
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': {}, 'warning': None}))
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'covering_base',
+                        classmethod(lambda cls, name: 'example.com'))
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'https_enabled',
+                        classmethod(lambda cls, base: True))
+
+    with app.app_context():
+        domain = Domain.query.get(app_with_domain['domain_id'])
+        domain.ssl_enabled = True
+        domain.soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None
+        assert 'notice' not in item
+
+
+def test_a_plain_http_domain_restores_without_a_notice(app, app_with_domain, monkeypatch):
+    from app.services import domain_restore
+
+    monkeypatch.setattr(domain_restore.SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, a: {'nginx': {}, 'warning': None}))
+
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None
+        assert 'notice' not in item

@@ -85,3 +85,15 @@ def on_restore_domain(domain):
     # sat in the bin, and silently talking to Let's Encrypt during a restore is
     # not something a "put it back" button should do. A covering wildcard is
     # re-attached above; a per-domain cert is re-enabled explicitly.
+    #
+    # But SAY so. Without this the domain comes back on plain HTTP while its row
+    # still reads ssl_enabled, and nothing tells the person who restored it —
+    # they find out when a browser does. Returning a string makes it a notice on
+    # the restore toast, not an error: the restore itself succeeded.
+    if domain.ssl_enabled:
+        cover = SiteDomainService.covering_base(domain.name)
+        if not (cover and SiteDomainService.https_enabled(cover)):
+            return (f'“{domain.name}” is being served again, but over HTTP — its '
+                    f'certificate was not re-issued. Re-enable SSL for the domain '
+                    f'when you are ready to request one.')
+    return None

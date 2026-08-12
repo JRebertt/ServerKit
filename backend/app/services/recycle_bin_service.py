@@ -103,14 +103,21 @@ def restore(kind, record_id):
             return None, blocked
     row.restore()
     db.session.commit()
+    item = _serialize(kind, entry, row)
     if entry['on_restore']:
         try:
-            entry['on_restore'](row)
+            # A hook may RETURN a string: something the user should know about a
+            # restore that otherwise worked (a domain coming back without its
+            # certificate, say). That is a notice, not a failure — it rides on
+            # the item so the caller can tell it apart from the error slot.
+            notice = entry['on_restore'](row)
+            if notice:
+                item['notice'] = str(notice)
         except Exception as exc:                        # noqa: BLE001
             # The row IS back; the side effect is what failed. Say so rather
             # than rolling back a restore the user asked for.
-            return _serialize(kind, entry, row), f'restored, but re-applying config failed: {exc}'
-    return _serialize(kind, entry, row), None
+            return item, f'restored, but re-applying config failed: {exc}'
+    return item, None
 
 
 def purge(kind, record_id):

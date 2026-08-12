@@ -44,8 +44,11 @@ export default function RecycleBinTab() {
         setBusyId(rowKey(row));
         try {
             const res = await api.restoreRecord(row.kind, row.id);
-            // The row can be back while a side effect failed — report which.
+            // Three outcomes, not two: the side effect FAILED (warning), it
+            // succeeded but left something the user should know (notice — a
+            // domain that came back without its certificate), or it just worked.
             if (res?.warning) toast.error(res.warning);
+            else if (res?.item?.notice) toast.warning(res.item.notice);
             else toast.success(`Restored ${row.noun} “${row.label}”`);
             await load();
         } catch (err) {
