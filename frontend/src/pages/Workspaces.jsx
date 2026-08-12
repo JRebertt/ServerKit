@@ -15,6 +15,44 @@ import { Textarea } from '@/components/ui/textarea';
 // Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
 const ACTIVE_KEY = 'active_workspace_id';
 
+// Preset views. Only three: `servers` and `users` are quota CEILINGS, not
+// usage, so there is no column to express "near capacity" against.
+const WORKSPACE_VIEWS = [
+    { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Inactive', state: { filter: 'inactive', search: '', sorts: [], hiddenKeys: [] } },
+    {
+        name: 'Most members',
+        state: {
+            filter: 'all', search: '', hiddenKeys: [],
+            sorts: [{ key: 'members', direction: 'desc' }],
+        },
+    },
+    {
+        // Created and then never staffed — candidates to archive.
+        name: 'Empty workspaces',
+        state: {
+            filter: 'all', search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ew1', field: 'members', op: 'eq', value: 0 }],
+            },
+        },
+    },
+    {
+        // Deactivated but people are still attached — access that outlived the workspace.
+        name: 'Archived but still staffed',
+        state: {
+            filter: 'inactive', search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            sorts: [{ key: 'members', direction: 'desc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'as1', field: 'members', op: 'gt', value: 0 }],
+            },
+        },
+    },
+];
+
 // "since Jun 2026" card meta from the workspace's real created_at.
 const formatSince = (iso) => {
     if (!iso) return null;
@@ -163,11 +201,8 @@ const Workspaces = () => {
             loadingTitle="Loading workspaces"
             storageKey="serverkit-list-workspaces"
             viewPageKey="workspaces"
-            builtinViews={[
-                { name: 'Active', state: { filter: 'active', search: '', sorts: [], hiddenKeys: [] } },
-                { name: 'Inactive', state: { filter: 'inactive', search: '', sorts: [], hiddenKeys: [] } },
-                { name: 'Most members', state: { filter: 'all', search: '', sorts: [{ key: 'members', direction: 'desc' }], hiddenKeys: [] } },
-            ]}
+            noun="workspaces"
+            builtinViews={WORKSPACE_VIEWS}
             totalCount={workspaces.length}
             items={shownWorkspaces}
             columns={columns}

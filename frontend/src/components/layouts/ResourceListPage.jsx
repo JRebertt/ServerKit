@@ -1,12 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SegControl, SortMenu, SortChipBar, ColumnsMenu, GroupMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
+import { SegControl, DataTableFooter, ListToolbar } from '@/components/ds';
+import {
+    GridViewPicker, GridChips, GridFilterButton, GridToolsMenu, GridFilterDrawer,
+    withInferredTypes,
+} from '@/components/ds/grid';
 import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTableViews } from '@/hooks/useTableViews';
+
+const NO_FILTERS = { match: 'all', rules: [] };
 
 // Shared chrome for resource list pages (Services, Servers, …): the status
 // filter + search toolbar, sort & column menus, the DataTable with a standard
@@ -49,6 +55,8 @@ export default function ResourceListPage({
     // { filter, search, sorts, hiddenKeys, pageSize } — all keys optional.
     viewPageKey,
     builtinViews = [],
+    // Plural label used by the view picker, footer and export filename.
+    noun = 'rows',
     // optional content rendered inside the wrapper, above the toolbar/empty
     // state (e.g. a one-time credentials banner)
     header,
@@ -149,6 +157,26 @@ export default function ResourceListPage({
         }
     };
 
+    // Per-column filter rules + column order, owned here rather than by
+    // DataTable, so they can be captured into a saved view and mirrored in the
+    // chip bar and the drawer. DataTable stays the renderer.
+    const [columnFilters, setColumnFilters] = useState(NO_FILTERS);
+    const [columnOrder, setColumnOrder] = useState(null);
+    const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+    const putColumnRule = useCallback((key, rule) => {
+        setColumnFilters((prev) => ({
+            ...prev,
+            rules: [...prev.rules.filter((r) => r.field !== key), ...(rule ? [rule] : [])],
+        }));
+    }, []);
+    const removeRule = useCallback(
+        (id) => setColumnFilters((prev) => ({ ...prev, rules: prev.rules.filter((r) => r.id !== id) })),
+        [],
+    );
+    const clearRules = useCallback(() => setColumnFilters((prev) => ({ ...prev, rules: [] })), []);
+    const setMatch = useCallback((match) => setColumnFilters((prev) => ({ ...prev, match })), []);
+
     const changeView = (next) => {
         setView(next);
         if (!viewStorageKey) return;
@@ -164,6 +192,62 @@ export default function ResourceListPage({
         [items, pageSize],
     );
 
+    // ---- adapter: present this page's state as a DataGrid cfg/api pair ------
+    // The grid chrome (view picker, chip bar, filter drawer, tools menu) is
+    // written against ONE serialisable cfg. This page predates that and keeps
+    // sorts[]/hiddenKeys/groupBy instead. Rather than fork the chrome — which
+    // is exactly the per-page duplication this layout exists to stop — adapt
+    // the state here, once, and every list page built on this wrapper gets the
+    // same chrome for free.
+    // Types are inferred HERE, once, so the chip bar, the drawer and the table
+    // all reason about the same column list. Inferring separately inside
+    // DataTable would leave the drawer looking up OPS[undefined] for a rule the
+    // header menu had just created.
+    const typedColumns = useMemo(() => withInferredTypes(columns, items), [columns, items]);
+
+    const orderedColumns = useMemo(() => {
+        if (!columnOrder?.length) return typedColumns;
+        const byKey = new Map(typedColumns.map((c) => [c.key, c]));
+        const moved = columnOrder.map((k) => byKey.get(k)).filter(Boolean);
+        return [...moved, ...typedColumns.filter((c) => !columnOrder.includes(c.key))];
+    }, [typedColumns, columnOrder]);
+
+    const gridCfg = useMemo(() => ({
+        cols: orderedColumns.filter((c) => !hiddenKeys.includes(c.key)).map((c) => c.key),
+        sort: sorts[0] ? { key: sorts[0].key, dir: sorts[0].direction } : { key: null, dir: 'asc' },
+        group: groupBy,
+        filters: columnFilters,
+        // DataTable auto-sizes its columns and has no sub-detail line, so the
+        // drawer's density / row-detail panes are switched off below rather
+        // than shown as controls that do nothing.
+        density: 'cozy',
+        sub: [],
+    }), [orderedColumns, hiddenKeys, sorts, groupBy, columnFilters]);
+
+    const gridApi = useMemo(() => ({
+        setRules: (rules) => setColumnFilters((prev) => ({ ...prev, rules })),
+        setMatch,
+        addRule: (cols) => {
+            const first = cols.find((c) => c.type && c.filterable !== false);
+            if (!first) return;
+            setColumnFilters((prev) => ({
+                ...prev,
+                rules: [...prev.rules, {
+                    id: `r${prev.rules.length}${Math.random().toString(36).slice(2, 6)}`,
+                    field: first.key,
+                    op: first.type === 'enum' ? 'any' : first.type === 'bool' ? 'is' : first.type === 'num' ? 'lt' : 'contains',
+                    value: first.type === 'enum' ? [] : first.type === 'bool' ? true : '',
+                }],
+            }));
+        },
+        removeRule,
+        setColumnOrder,
+        toggleColumn: (key) => toggleColumn(key),
+        setSub: () => {},
+        setDensity: () => {},
+        resetToView: () => { clearRules(); showAllColumns(); setColumnOrder(null); },
+    }), [setMatch, removeRule, toggleColumn, clearRules, showAllColumns]);
+
     // Saved views: capture/apply the full table chrome state (status filter,
     // search, sort levels, hidden columns, page size). The filter and search
     // values themselves are owned by the page — apply() routes through its
@@ -175,7 +259,12 @@ export default function ResourceListPage({
         hiddenKeys,
         pageSize,
         groupBy,
-    }), [activeFilter, searchTerm, sorts, hiddenKeys, pageSize, groupBy]);
+        // `columnFilters`, not `filters`: `filters` is already this component's
+        // prop name for the SegControl options, and other pages capture a
+        // `filters` key of their own with a different shape.
+        columnFilters,
+        columnOrder,
+    }), [activeFilter, searchTerm, sorts, hiddenKeys, pageSize, groupBy, columnFilters, columnOrder]);
 
     const applyView = useCallback((state) => {
         if (state.filter !== undefined) onFilterChange?.(state.filter);
@@ -184,6 +273,10 @@ export default function ResourceListPage({
         if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
         if (state.pageSize !== undefined) changePageSize(state.pageSize);
         if (state.groupBy !== undefined) changeGroupBy(state.groupBy);
+        // A preset that sets no rules must CLEAR the live ones, or switching
+        // views leaves the previous view's filters silently applied.
+        setColumnFilters(state.columnFilters ?? NO_FILTERS);
+        setColumnOrder(state.columnOrder ?? null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [onFilterChange, onSearchChange, setSorts, setHiddenKeys]);
 
@@ -227,6 +320,22 @@ export default function ResourceListPage({
                 />
             ) : (
                 <div className="wp-list">
+                    {/* The saved view names what you are looking at, so it is the
+                        page's heading rather than another toolbar button. Sort,
+                        Group and Columns are gone from the toolbar entirely —
+                        they live in each column's own "⋮" now, next to the
+                        column they act on. */}
+                    {viewPageKey && view === 'list' && (
+                        <GridViewPicker
+                            views={tableViews}
+                            label={noun}
+                            total={`${items.length} of ${resolvedTotal} ${noun}`}
+                            onCreate={(name, fromCurrent) => {
+                                if (!fromCurrent) gridApi.resetToView();
+                                tableViews.saveView(name);
+                            }}
+                        />
+                    )}
                     <ListToolbar
                         filters={filters && (
                             <SegControl
@@ -239,16 +348,21 @@ export default function ResourceListPage({
                             <>
                                 {view === 'list' && (
                                     <>
-                                        {viewPageKey && <ViewMenu views={tableViews} />}
-                                        <GroupMenu columns={columns} groupBy={groupBy} onChange={changeGroupBy} />
-                                        {sortable && (
-                                            <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
-                                        )}
-                                        <ColumnsMenu
-                                            columns={columns}
-                                            hiddenKeys={hiddenKeys}
-                                            onToggle={toggleColumn}
-                                            onShowAll={showAllColumns}
+                                        <GridFilterButton
+                                            count={columnFilters.rules.length}
+                                            onClick={() => setFilterDrawerOpen(true)}
+                                        />
+                                        <GridToolsMenu
+                                            cfg={gridCfg}
+                                            columns={orderedColumns}
+                                            rows={items}
+                                            selectedRows={selectable && selectedIds
+                                                ? items.filter((i) => selectedIds.has(i[keyField]))
+                                                : []}
+                                            viewName={tableViews.activeView?.name || noun}
+                                            noun={noun}
+                                            onReset={gridApi.resetToView}
+                                            showDensity={false}
                                         />
                                     </>
                                 )}
@@ -288,7 +402,13 @@ export default function ResourceListPage({
                     </ListToolbar>
 
                     {view === 'list' && (
-                        <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
+                        <GridChips
+                            cfg={gridCfg}
+                            columns={orderedColumns}
+                            onRemove={removeRule}
+                            onClear={clearRules}
+                            onMatchChange={setMatch}
+                        />
                     )}
 
                     {items.length === 0 ? (
@@ -312,15 +432,20 @@ export default function ResourceListPage({
                     ) : (
                         <div className="wp-list__card">
                             <DataTable
-                                columns={columns}
+                                columns={orderedColumns}
                                 data={pagedItems}
                                 keyField={keyField}
                                 sortable={sortable}
                                 sorts={sorts}
                                 onSortsChange={setSorts}
                                 hiddenKeys={hiddenKeys}
+                                onHiddenKeysChange={setHiddenKeys}
                                 groupBy={groupBy}
                                 onGroupByChange={changeGroupBy}
+                                filters={columnFilters}
+                                onFiltersChange={setColumnFilters}
+                                columnOrder={columnOrder}
+                                onColumnOrderChange={setColumnOrder}
                                 selectable={selectable}
                                 selectedKeys={selectable && selectedIds ? [...selectedIds] : undefined}
                                 onToggleRow={selectable ? onToggleSelect : undefined}
@@ -332,7 +457,7 @@ export default function ResourceListPage({
                                     <DataTableFooter
                                         shown={pagedItems.length}
                                         total={items.length}
-                                        noun="row"
+                                        noun={noun.replace(/s$/, '')}
                                         pageSize={pageSize}
                                         onPageSizeChange={changePageSize}
                                     />
@@ -361,6 +486,18 @@ export default function ResourceListPage({
                     )}
                 </div>
             )}
+            <GridFilterDrawer
+                open={filterDrawerOpen}
+                onOpenChange={setFilterDrawerOpen}
+                columns={orderedColumns}
+                rows={items}
+                cfg={gridCfg}
+                grid={gridApi}
+                noun={noun}
+                showRowDetail={false}
+                showDensity={false}
+            />
+
             {children}
         </div>
     );

@@ -30,6 +30,62 @@ const STATUS_SORT_ORDER = { running: 0, deploying: 1, building: 2, stopped: 3, f
 const UNASSIGN = '__unassign__';
 const NO_ENV = '__no_env__';
 
+// Preset views: the questions people open this page to answer. Each is a
+// snapshot of the same chrome state a personal view saves, so any of them can
+// be tweaked and re-saved under a new name.
+const SERVICE_VIEWS = [
+    { name: 'Running', state: { filter: 'running', search: '', sorts: [], hiddenKeys: [] } },
+    { name: 'Stopped', state: { filter: 'stopped', search: '', sorts: [], hiddenKeys: [] } },
+    {
+        name: 'Recently deployed',
+        state: {
+            filter: 'all', search: '', hiddenKeys: [],
+            sorts: [{ key: 'last_deploy', direction: 'desc' }],
+        },
+    },
+    {
+        // Anything not cleanly live — the triage list during an incident.
+        name: 'Broken or unknown',
+        state: {
+            filter: 'all', search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            sorts: [{ key: 'status', direction: 'desc' }, { key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'any',
+                rules: [{ id: 'bk1', field: 'status', op: 'any', value: ['failed', 'stopped'] }],
+            },
+        },
+    },
+    {
+        // Live, but nobody has shipped to it in a long time.
+        name: 'Stale live services',
+        state: {
+            filter: 'running', search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: null,
+            sorts: [{ key: 'last_deploy', direction: 'asc' }],
+            columnFilters: { match: 'all', rules: [] },
+        },
+    },
+    {
+        // Deployed by hand or by upload — the ones with no git history to roll back to.
+        name: 'Not git-deployed',
+        state: {
+            filter: 'all', search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'sr1', field: 'source', op: 'any', value: ['manual', 'upload'] }],
+            },
+        },
+    },
+    {
+        name: 'By project',
+        state: {
+            filter: 'all', search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: 'project',
+            sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
+            columnFilters: { match: 'all', rules: [] },
+        },
+    },
+];
+
 const Services = () => {
     const navigate = useNavigate();
     const toast = useToast();
@@ -254,6 +310,13 @@ const Services = () => {
             key: 'status',
             header: 'Status',
             sortable: true,
+            type: 'enum',
+            // `value` is the FILTER/GROUP value, `sortValue` is the ORDERING key —
+            // they differ here, and the column has to say so. Without an explicit
+            // `value` the filter engine falls back to sortValue and compares
+            // against the severity NUMBER, so a "status is running" rule would
+            // silently match nothing.
+            value: (app) => app.status,
             // Same severity order as the page's default ordering, not alphabet.
             sortValue: (app) => STATUS_SORT_ORDER[app.status] ?? 5,
             groupable: true,
@@ -310,11 +373,8 @@ const Services = () => {
             loadingTitle="Loading services..."
             storageKey="serverkit-list-services"
             viewPageKey="services"
-            builtinViews={[
-                { name: 'Running', state: { filter: 'running', search: '', sorts: [], hiddenKeys: [] } },
-                { name: 'Stopped', state: { filter: 'stopped', search: '', sorts: [], hiddenKeys: [] } },
-                { name: 'Recently deployed', state: { filter: 'all', search: '', sorts: [{ key: 'last_deploy', direction: 'desc' }], hiddenKeys: [] } },
-            ]}
+            noun="services"
+            builtinViews={SERVICE_VIEWS}
             totalCount={apps.length}
             items={filteredApps}
             columns={columns}
