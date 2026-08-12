@@ -59,8 +59,15 @@ $sk-ai-z: 1100;
 // app-wide signal; the :has() rule is a fallback in case that implementation
 // detail changes. Hiding (not nudging) is right: the modal's overlay owns the
 // interaction, so a floating assistant on top of it is only ever in the way.
+//
+// The fallback selector must name the MODAL SURFACES, not `[role='dialog']`:
+// Radix gives Popover.Content role="dialog" too, so matching the bare role made
+// every toolbar menu (Sort, Columns, Views, Filter, the topbar "More" overflow)
+// blink the bubble out and back — which read as "the button did something to
+// the AI, and nothing else".
 body[data-scroll-locked] .sk-ai-bubble,
-body:has([role='dialog'][data-state='open']) .sk-ai-bubble {
+body:has(.ui-dialog-content[data-state='open']) .sk-ai-bubble,
+body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
     display: none;
 
     @media (max-width: 768px) {
