@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
     Globe, Plus, ShieldCheck, RefreshCw, Trash2, ExternalLink,
@@ -16,10 +16,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
-import { SegControl, SearchField, Pill, Drawer, DataTable, SortMenu, ColumnsMenu, DataTableFooter, ViewMenu, ListToolbar } from '@/components/ds';
-import { useTableSort } from '@/hooks/useTableSort';
-import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { useTableViews } from '@/hooks/useTableViews';
+import { SearchField, Pill, Drawer } from '@/components/ds';
+import {
+    DataGrid, GridViewPicker, GridChips, GridBulkBar, GridFooter,
+    GridToolsMenu, GridFilterDrawer, GridFilterButton,
+    useGridConfig, useGridRows, exportRows,
+} from '@/components/ds/grid';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import useFocusParam from '@/hooks/useFocusParam';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
@@ -28,13 +30,93 @@ import DomainDnsPanel from '../components/domains/DomainDnsPanel';
 import PluginSlot from '../components/PluginSlot';
 import { formatExpiry } from '../utils/expiry';
 
-// Built-in saved views for the Views menu. States only use real SegControl
-// values ('all' | 'ssl' | 'issues') and column keys from `domainColumns`.
-const DOMAIN_BUILTIN_VIEWS = [
-    // Registration expiry (the 'expiry' column), soonest first.
-    { name: 'Expiring soon', state: { filter: 'all', sorts: [{ key: 'expiry', direction: 'asc' }] } },
-    // The 'issues' segment is exactly app-linked domains with no certificate.
-    { name: 'No SSL', state: { filter: 'issues' } },
+const DAY = 86400000;
+const norm = (s) => (s || '').toLowerCase().replace(/\.$/, '');
+const daysUntil = (iso) => {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isNaN(t) ? null : Math.round((t - Date.now()) / DAY);
+};
+
+// ── SSL state helpers ────────────────────────────────────────
+// Module scope, not component scope: they are pure functions of a row, and the
+// column list memoises on them.
+const sslDays = (d) => {
+    if (!d.ssl_enabled || !d.ssl_expires_at) return null;
+    const ms = new Date(d.ssl_expires_at).getTime() - Date.now();
+    return Number.isNaN(ms) ? null : Math.max(0, Math.round(ms / DAY));
+};
+const sslState = (d) => {
+    if (d.source === 'provider') return 'n/a';
+    if (!d.ssl_enabled) return 'none';
+    const days = sslDays(d);
+    return days != null && days < 30 ? 'expiring' : 'valid';
+};
+const sslPill = (d) => {
+    const state = sslState(d);
+    const days = sslDays(d);
+    if (state === 'valid') return <Pill kind="green">{days != null ? `Valid · ${days}d` : 'Valid'}</Pill>;
+    if (state === 'expiring') return <Pill kind="amber">Expires {days}d</Pill>;
+    if (state === 'n/a') return <span className="dom-dash">—</span>;
+    return <Pill kind="gray">No SSL</Pill>;
+};
+const rowStatus = (d) => (d.source === 'provider'
+    ? (d.cfStatus || 'active')
+    : (d.ssl_enabled ? 'active' : 'unconfigured'));
+
+// Which columns the top-bar search scans. Module scope so the grid's memo
+// chain keeps a stable identity across renders.
+const SEARCH_FIELDS = ['name', 'site', 'provider', 'registrar'];
+
+// Built-in views: the questions people actually open this page to answer. They
+// are saved-view presets, not a separate filter mechanism — clicking one loads
+// its config into the same grid state a personal view would, so you can tweak
+// one and "Save as…" it without leaving the page.
+const BUILTIN_VIEWS = [
+    {
+        name: 'Needs attention',
+        state: {
+            cols: ['name', 'ssl', 'sslDays', 'expDays', 'autoRenew', 'status'],
+            sort: { key: 'sslDays', dir: 'asc' },
+            filters: {
+                match: 'any',
+                rules: [
+                    { id: 'a1', field: 'ssl', op: 'any', value: ['none', 'expiring'] },
+                    { id: 'a2', field: 'status', op: 'any', value: ['unconfigured'] },
+                ],
+            },
+            sub: ['registrar'],
+            density: 'cozy',
+            group: null,
+        },
+    },
+    {
+        name: 'SSL expiring',
+        state: {
+            cols: ['name', 'ssl', 'sslDays', 'site', 'provider'],
+            sort: { key: 'sslDays', dir: 'asc' },
+            filters: { match: 'all', rules: [{ id: 's1', field: 'sslDays', op: 'lt', value: 30 }] },
+            sub: [], density: 'cozy', group: null,
+        },
+    },
+    {
+        name: 'Renewals ≤ 60d',
+        state: {
+            cols: ['name', 'expiry', 'expDays', 'autoRenew', 'registrar'],
+            sort: { key: 'expDays', dir: 'asc' },
+            filters: { match: 'all', rules: [{ id: 'r1', field: 'expDays', op: 'lt', value: 60 }] },
+            sub: [], density: 'cozy', group: null,
+        },
+    },
+    {
+        name: 'Unlinked',
+        state: {
+            cols: ['name', 'provider', 'registrar', 'expiry', 'status'],
+            sort: { key: 'name', dir: 'asc' },
+            filters: { match: 'all', rules: [{ id: 'u1', field: 'site', op: 'any', value: ['—'] }] },
+            sub: [], density: 'cozy', group: null,
+        },
+    },
 ];
 
 const Domains = () => {
@@ -46,45 +128,18 @@ const Domains = () => {
     const [portfolioErrors, setPortfolioErrors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
-
-    // Table sort + column visibility (persisted, mirrored by the toolbar menus)
-    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-domains-sort' });
-    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
-        storageKey: 'serverkit-table-domains-cols',
-    });
     const [drawerDomain, setDrawerDomain] = useState(null);
     const [regInfo, setRegInfo] = useState(null);            // lazy registration lookup for the open drawer
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // Saved views: capture/apply the table chrome state (segment filter,
-    // search, sort levels, hidden columns). Every apply key is guarded so
-    // partial states (e.g. a builtin that only sets a filter) work.
-    const captureView = useCallback(() => ({
-        filter,
-        search,
-        sorts,
-        hiddenKeys,
-    }), [filter, search, sorts, hiddenKeys]);
-
-    const applyView = useCallback((state) => {
-        if (state.filter !== undefined) setFilter(state.filter);
-        if (state.search !== undefined) setSearch(state.search);
-        if (Array.isArray(state.sorts)) setSorts(state.sorts);
-        if (Array.isArray(state.hiddenKeys)) setHiddenKeys(state.hiddenKeys);
-    }, [setSorts, setHiddenKeys]);
-
-    const tableViews = useTableViews({
-        page: 'domains',
-        builtinViews: DOMAIN_BUILTIN_VIEWS,
-        capture: captureView,
-        apply: applyView,
-    });
+    const [picked, setPicked] = useState([]);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
 
     // Modal states
     const [showAddModal, setShowAddModal] = useState(false);
-    // Quick-create deep link: /domains?focus=create:domain opens the add modal.
     useFocusParam('create', () => setShowAddModal(true));
     const [showSslModal, setShowSslModal] = useState(false);
     const [selectedDomain, setSelectedDomain] = useState(null);
@@ -96,14 +151,12 @@ const Domains = () => {
     const [sslEmail, setSslEmail] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useEffect(() => { loadData(); }, []);
 
     // Lazily resolve registration (expiry/registrar) for the open provider domain:
     // use the provider value if present, else fall back to a one-off RDAP lookup.
     useEffect(() => {
-        if (!drawerDomain || drawerDomain.source === 'app') { setRegInfo(null); return; }
+        if (!drawerDomain || drawerDomain.source === 'app') { setRegInfo(null); return undefined; }
         if (drawerDomain.expires_at) {
             setRegInfo({
                 expires_at: drawerDomain.expires_at,
@@ -111,7 +164,7 @@ const Domains = () => {
                 registrar: drawerDomain.registrar,
                 source: drawerDomain.registrar ? 'cache' : 'provider',
             });
-            return;
+            return undefined;
         }
         let cancelled = false;
         setRegInfo({ loading: true });
@@ -157,7 +210,7 @@ const Domains = () => {
             setActionLoading(true);
             await api.createDomain({
                 name: domainName,
-                application_id: parseInt(selectedAppId),
+                application_id: parseInt(selectedAppId, 10),
                 is_primary: isPrimary,
             });
             setShowAddModal(false);
@@ -224,121 +277,258 @@ const Domains = () => {
     async function handleVerifyDomain(domain) {
         try {
             const result = await api.verifyDomain(domain.id);
-            if (result.verified) {
-                toast.success(`Domain verified! IP: ${result.ip_address}`);
-            } else {
-                toast.error(`Domain verification failed: ${result.error}`);
-            }
+            if (result.verified) toast.success(`Domain verified! IP: ${result.ip_address}`);
+            else toast.error(`Domain verification failed: ${result.error}`);
         } catch (err) {
             setError(err.message);
         }
     }
 
-    function getAppName(appId) {
-        const app = apps.find(a => a.id === appId);
-        return app ? app.name : 'Unknown';
-    }
-
-    // ── SSL state helpers ────────────────────────────────────
-    function sslDays(d) {
-        if (!d.ssl_enabled || !d.ssl_expires_at) return null;
-        const ms = new Date(d.ssl_expires_at).getTime() - Date.now();
-        if (Number.isNaN(ms)) return null;
-        return Math.max(0, Math.round(ms / 86400000));
-    }
-    function sslState(d) {
-        if (!d.ssl_enabled) return 'none';
-        const days = sslDays(d);
-        return days != null && days < 30 ? 'expiring' : 'valid';
-    }
-    function sslPill(d) {
-        const st = sslState(d);
-        const days = sslDays(d);
-        if (st === 'valid') return <Pill kind="green">{days != null ? `Valid · ${days}d` : 'Valid'}</Pill>;
-        if (st === 'expiring') return <Pill kind="amber">Expires {days}d</Pill>;
-        return <Pill kind="gray">No SSL</Pill>;
-    }
+    const appName = useCallback(
+        (id) => apps.find((a) => a.id === id)?.name || 'Unknown',
+        [apps],
+    );
 
     // One unified list: ServerKit's app-linked domains + every zone in a connected
     // DNS provider. A domain that is both keeps its app row and gains the provider
     // badge, expiry, and quick actions; provider-only zones become their own rows.
-    const norm = (s) => (s || '').toLowerCase().replace(/\.$/, '');
-    const providerByDomain = new Map(portfolio.map((z) => [norm(z.domain), z]));
-    const appNames = new Set(domains.map((d) => norm(d.name)));
-    const mergedRows = [
-        ...domains.map((d) => {
-            const p = providerByDomain.get(norm(d.name));
-            return {
-                ...d,
-                key: `app:${d.id}`,
-                source: 'app',
-                provider: p?.provider || null,
-                config_id: p?.config_id ?? null,
-                config_name: p?.config_name ?? null,
-                provider_zone_id: p?.provider_zone_id ?? null,
-                adopted: p?.adopted ?? false,
-                zone_id: p?.zone_id ?? null,
-                expires_at: p?.expires_at ?? null,
-                auto_renew: p?.auto_renew ?? null,
-                registrar: p?.registrar ?? null,
-            };
-        }),
-        ...portfolio
-            .filter((z) => !appNames.has(norm(z.domain)))
-            .map((z) => ({
-                key: `prov:${z.provider}:${z.domain}`,
-                source: 'provider',
-                name: z.domain,
-                provider: z.provider,
-                config_id: z.config_id,
-                config_name: z.config_name,
-                provider_zone_id: z.provider_zone_id,
-                adopted: z.adopted,
-                zone_id: z.zone_id,
-                cfStatus: z.status,
-                expires_at: z.expires_at,
-                auto_renew: z.auto_renew,
-                registrar: z.registrar,
-                application_id: null,
-                ssl_enabled: false,
-                is_primary: false,
-            })),
-    ].sort((a, b) => a.name.localeCompare(b.name));
+    const rows = useMemo(() => {
+        const providerByDomain = new Map(portfolio.map((z) => [norm(z.domain), z]));
+        const appNames = new Set(domains.map((d) => norm(d.name)));
+        return [
+            ...domains.map((d) => {
+                const p = providerByDomain.get(norm(d.name));
+                return {
+                    ...d,
+                    key: `app:${d.id}`,
+                    source: 'app',
+                    provider: p?.provider || null,
+                    config_id: p?.config_id ?? null,
+                    config_name: p?.config_name ?? null,
+                    provider_zone_id: p?.provider_zone_id ?? null,
+                    adopted: p?.adopted ?? false,
+                    zone_id: p?.zone_id ?? null,
+                    expires_at: p?.expires_at ?? null,
+                    auto_renew: p?.auto_renew ?? null,
+                    registrar: p?.registrar ?? null,
+                };
+            }),
+            ...portfolio
+                .filter((z) => !appNames.has(norm(z.domain)))
+                .map((z) => ({
+                    key: `prov:${z.provider}:${z.domain}`,
+                    source: 'provider',
+                    name: z.domain,
+                    provider: z.provider,
+                    config_id: z.config_id,
+                    config_name: z.config_name,
+                    provider_zone_id: z.provider_zone_id,
+                    adopted: z.adopted,
+                    zone_id: z.zone_id,
+                    cfStatus: z.status,
+                    expires_at: z.expires_at,
+                    auto_renew: z.auto_renew,
+                    registrar: z.registrar,
+                    application_id: null,
+                    ssl_enabled: false,
+                    is_primary: false,
+                })),
+        ].sort((a, b) => a.name.localeCompare(b.name));
+    }, [domains, portfolio]);
 
-    // Search narrows the set the filter counts are taken from, so each number
-    // always describes what a click on that segment would actually show.
-    const query = search.trim().toLowerCase();
-    const searched = query
-        ? mergedRows.filter(d => (
-            norm(d.name).includes(query)
-            || (d.registrar || '').toLowerCase().includes(query)
-            || (d.config_name || d.provider || '').toLowerCase().includes(query)
-            || (d.application_id ? getAppName(d.application_id) : '').toLowerCase().includes(query)
-        ))
-        : mergedRows;
+    // ── columns ───────────────────────────────────────────────
+    // `type` picks the operator set and the filter UI in the header menu;
+    // `width` is a CSS grid track. Only fields the API actually returns are
+    // listed — there is no DNSSEC or record-count column because nothing in
+    // /domains or /dns/portfolio carries them.
+    const columns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Domain',
+            type: 'text',
+            width: 'minmax(250px,1.8fr)',
+            locked: true,
+            value: (d) => d.name,
+            render: (d) => (
+                <>
+                    {d.name}
+                    {d.is_primary && <span className="dom-primary">Primary</span>}
+                    {d.source === 'provider' && d.adopted && <span className="dom-managed">Managed</span>}
+                </>
+            ),
+        },
+        {
+            key: 'site',
+            header: 'Linked site',
+            type: 'enum',
+            width: 'minmax(140px,1fr)',
+            value: (d) => (d.application_id ? appName(d.application_id) : '—'),
+            render: (d) => (d.application_id
+                ? <span className="sk-tag">{appName(d.application_id)}</span>
+                : <span className="dom-dash">unlinked</span>),
+        },
+        {
+            key: 'provider',
+            header: 'DNS provider',
+            type: 'enum',
+            width: '150px',
+            defaultVisible: false,
+            value: (d) => d.config_name || d.provider || '—',
+        },
+        {
+            key: 'registrar',
+            header: 'Registrar',
+            type: 'enum',
+            width: '150px',
+            defaultVisible: false,
+            value: (d) => d.registrar || '—',
+        },
+        {
+            key: 'ssl',
+            header: 'SSL',
+            type: 'enum',
+            width: '160px',
+            enumOrder: ['valid', 'expiring', 'none', 'n/a'],
+            value: sslState,
+            render: sslPill,
+        },
+        {
+            key: 'sslDays',
+            header: 'SSL expiry',
+            type: 'num',
+            width: '155px',
+            unit: 'd',
+            defaultVisible: false,
+            quick: [
+                { op: 'lt', value: 15, label: 'under 15' },
+                { op: 'lt', value: 30, label: 'under 30' },
+            ],
+            // -1 keeps "no certificate" sorting as the most urgent thing, which
+            // is what someone sorting by SSL expiry is looking for.
+            value: (d) => (sslDays(d) == null ? -1 : sslDays(d)),
+            render: (d) => {
+                const days = sslDays(d);
+                if (days == null) return <span className="dom-dash">—</span>;
+                const pct = Math.max(4, Math.min(100, (days / 90) * 100));
+                const tone = days < 15 ? 'var(--red)' : days < 40 ? 'var(--amber)' : 'var(--green)';
+                return (
+                    <div className="dom-meter">
+                        <span style={{ color: tone }}>{days}d</span>
+                        <span className="dom-meter__bar">
+                            <i style={{ width: `${pct}%`, background: tone }} />
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'expiry',
+            header: 'Registration',
+            type: 'date',
+            width: '165px',
+            value: (d) => d.expires_at || null,
+            render: (d) => {
+                const exp = formatExpiry(d.expires_at);
+                if (!exp) return <span className="dom-dash">—</span>;
+                return (
+                    <div>
+                        <div className={`dom-expiry dom-expiry--${exp.tone}`}>{exp.absolute}</div>
+                        <div className="dom-expiry__rel">{exp.relative}</div>
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'expDays',
+            header: 'Renews in',
+            type: 'num',
+            width: '135px',
+            unit: 'd',
+            align: 'right',
+            defaultVisible: false,
+            quick: [
+                { op: 'lt', value: 30, label: 'under 30' },
+                { op: 'lt', value: 60, label: 'under 60' },
+            ],
+            value: (d) => daysUntil(d.expires_at),
+            render: (d) => {
+                const days = daysUntil(d.expires_at);
+                if (days == null) return <span className="dom-dash">—</span>;
+                return <span style={days < 40 ? { color: 'var(--amber)' } : undefined}>{days}d</span>;
+            },
+        },
+        {
+            key: 'autoRenew',
+            header: 'Auto-renew',
+            type: 'bool',
+            width: '142px',
+            value: (d) => d.auto_renew,
+            render: (d) => (d.auto_renew == null
+                ? <span className="dom-dash">—</span>
+                : d.auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            type: 'enum',
+            width: '135px',
+            value: rowStatus,
+            render: (d) => {
+                const state = rowStatus(d);
+                return <Pill kind={state === 'active' ? 'green' : 'amber'}>{state}</Pill>;
+            },
+        },
+    ], [appName]);
 
-    // The segmented control carries the numbers the KPI strip used to: an
-    // "Expiring SSL (2)" segment says the same thing as a tile, and is the
-    // control you'd click next anyway.
-    const isExpiring = (d) => sslState(d) === 'expiring';
-    const needsAttention = (d) => d.source !== 'provider' && !d.ssl_enabled;
-    const filterOptions = [
-        { value: 'all', label: 'All', count: searched.length },
-        { value: 'ssl', label: 'Expiring SSL', count: searched.filter(isExpiring).length },
-        { value: 'issues', label: 'Attention', count: searched.filter(needsAttention).length },
-    ];
+    const grid = useGridConfig({
+        page: 'domains',
+        columns,
+        builtinViews: BUILTIN_VIEWS,
+        initial: {
+            cols: ['name', 'site', 'ssl', 'expiry', 'autoRenew', 'status'],
+            sort: { key: 'name', dir: 'asc' },
+            sub: ['registrar'],
+        },
+    });
+    const { cfg } = grid;
 
-    const shown = searched.filter(d => (
-        filter === 'ssl' ? isExpiring(d)
-            : filter === 'issues' ? needsAttention(d) : true
-    ));
+    const view = useGridRows({
+        rows,
+        columns,
+        cfg,
+        search,
+        searchFields: SEARCH_FIELDS,
+        page,
+        perPage,
+    });
+
+    // Any change to what is being shown resets to page 1 — otherwise a filter
+    // that shrinks the set below the current page leaves you on a blank page.
+    const filterSig = JSON.stringify(cfg.filters);
+    useEffect(() => { setPage(1); }, [filterSig, search, perPage, cfg.group]);
+
+    // ⌘F / Ctrl+F opens the filter drawer; "/" focuses the top-bar search.
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                setFilterOpen(true);
+            }
+            if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) {
+                e.preventDefault();
+                document.querySelector('.sk-topbar .sk-searchfield__input')?.focus();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
     // Deep-link: /domains?open=<domain> opens that domain's drawer once data has
     // loaded — keeps links sensible now that this is the single DNS surface.
     useEffect(() => {
         const want = searchParams.get('open');
         if (!want || loading || drawerDomain) return;
-        const row = mergedRows.find((d) => norm(d.name) === norm(want));
+        const row = rows.find((d) => norm(d.name) === norm(want));
         if (row) {
             setDrawerDomain(row);
             const next = new URLSearchParams(searchParams);
@@ -347,101 +537,54 @@ const Domains = () => {
         }
     }, [loading, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const domainColumns = [
-        {
-            key: 'name',
-            header: 'Domain',
-            sortable: true,
-            hideable: false,
-            sortValue: (d) => norm(d.name),
-            render: (d) => (
-                <div className="sk-cell-name">
-                    <span className="dom-fav">
-                        {d.provider
-                            ? <ProviderBrandIcon provider={d.provider} size={15} />
-                            : <Globe size={15} />}
-                    </span>
-                    <span>
-                        {d.name}
-                        {d.is_primary && <span className="dom-primary">Primary</span>}
-                        {d.source === 'provider' && d.adopted && <span className="dom-managed">Managed</span>}
-                    </span>
-                </div>
-            ),
-        },
-        {
-            key: 'site',
-            header: 'Linked site',
-            sortable: true,
-            sortValue: (d) => (d.application_id ? getAppName(d.application_id) : null),
-            render: (d) => (
-                d.application_id
-                    ? <span className="sk-tag">{getAppName(d.application_id)}</span>
-                    : <span className="dom-dash">—</span>
-            ),
-        },
-        {
-            key: 'expiry',
-            header: 'Expires',
-            sortable: true,
-            sortValue: (d) => {
-                if (!d.expires_at) return null;
-                const t = new Date(d.expires_at).getTime();
-                return Number.isNaN(t) ? null : t;
-            },
-            render: (d) => {
-                const exp = formatExpiry(d.expires_at);
-                if (!exp) return <span className="dom-dash">—</span>;
-                return (
-                    <span className={`dom-expiry dom-expiry--${exp.tone}`} title={exp.relative}>
-                        {exp.absolute}
-                    </span>
-                );
-            },
-        },
-        {
-            key: 'ssl',
-            header: 'SSL',
-            sortable: true,
-            sortValue: (d) => sslState(d),
-            render: (d) => d.source === 'provider' ? <span className="dom-dash">—</span> : sslPill(d),
-        },
-        {
-            key: 'autoRenew',
-            header: 'Auto-renew',
-            sortable: true,
-            sortValue: (d) => (d.auto_renew == null ? null : d.auto_renew ? 1 : 0),
-            render: (d) => (
-                d.auto_renew == null
-                    ? <span className="dom-dash">—</span>
-                    : d.auto_renew ? <Pill kind="green">on</Pill> : <Pill kind="gray">off</Pill>
-            ),
-        },
-        {
-            key: 'chevron',
-            header: '',
-            width: 30,
-            hideable: false,
-            render: () => <ChevronRight size={16} className="dom-chev" />,
-        },
-    ];
+    const pickedRows = useMemo(
+        () => view.filtered.filter((d) => picked.includes(d.key)),
+        [view.filtered, picked],
+    );
 
-    useTopbarActions(() =>
+    const toggleRow = useCallback((key, on) => {
+        setPicked((prev) => (on ? [...new Set([...prev, key])] : prev.filter((k) => k !== key)));
+    }, []);
+    const toggleAll = useCallback((on, keys) => {
+        setPicked((prev) => (on ? [...new Set([...prev, ...keys])] : prev.filter((k) => !keys.includes(k))));
+    }, []);
+
+    const createView = (name, fromCurrent) => {
+        if (!fromCurrent) grid.setCfg(grid.base);
+        grid.views.saveView(name)
+            .then(() => toast.success(`View “${name}” saved`))
+            .catch(() => toast.error('Could not save the view'));
+    };
+
+    // ── top bar ──────────────────────────────────────────────
+    // Fixed shape on every page: page actions, then search, then the filter
+    // icon, then the overflow "⋮". The search box must not move when a page
+    // adds or removes an action, so it sits AFTER the actions and before the
+    // two fixed-width icon buttons.
+    useTopbarActions(() => (
         <>
-            <Button variant="outline" size="sm" onClick={loadData}>
-                <RefreshCw size={15} /> Check DNS
-            </Button>
             <Button size="sm" onClick={() => setShowAddModal(true)}>
                 <Plus size={15} /> Add domain
             </Button>
-            <SearchField
-                value={search}
-                onSearch={setSearch}
-                placeholder="Search domains…"
+            <Button variant="outline" size="sm" onClick={loadData}>
+                <RefreshCw size={15} /> Check DNS
+            </Button>
+            <SearchField value={search} onSearch={setSearch} placeholder="Search domains…" />
+            <GridFilterButton count={cfg.filters.rules.length} onClick={() => setFilterOpen(true)} />
+            <GridToolsMenu
+                cfg={cfg}
+                columns={columns}
+                rows={view.filtered}
+                selectedRows={pickedRows}
+                viewName={grid.views.activeView?.name || 'domains'}
+                noun="domains"
+                onRefresh={loadData}
+                onReset={grid.resetToView}
+                onDensity={grid.setDensity}
+                onExported={(n, fields, format) => toast.success(`${n} rows · ${fields} fields · ${format.toUpperCase()}`)}
             />
-        </>,
-        [search],
-    );
+        </>
+    ), [search, cfg, columns, view.filtered, pickedRows, grid.views.activeView]);
 
     return (
         <div className="sk-tabgroup__inner domains-page">
@@ -456,7 +599,7 @@ const Domains = () => {
 
             {loading ? (
                 <EmptyState loading loadingVariant="table" title="Loading domains..." />
-            ) : mergedRows.length === 0 ? (
+            ) : rows.length === 0 ? (
                 <EmptyState
                     icon={Globe}
                     title="No domains yet"
@@ -465,29 +608,40 @@ const Domains = () => {
                 />
             ) : (
                 <div className="domains-body">
-                    {/* No KPI strip: every number it carried is already on the
-                        segment you would click to act on it. */}
-                    <ListToolbar
-                        filters={(
-                            <SegControl
-                                value={filter}
-                                onChange={setFilter}
-                                options={filterOptions}
-                            />
-                        )}
-                        tools={(
-                            <>
-                                <ViewMenu views={tableViews} />
-                                <SortMenu columns={domainColumns} sorts={sorts} onChange={setSorts} />
-                                <ColumnsMenu
-                                    columns={domainColumns}
-                                    hiddenKeys={hiddenKeys}
-                                    onToggle={toggleColumn}
-                                    onShowAll={showAllColumns}
-                                />
-                            </>
-                        )}
+                    <GridViewPicker
+                        views={grid.views}
+                        label="domains"
+                        total={`${view.total} of ${rows.length} domains`}
+                        onCreate={createView}
                     />
+
+                    <GridChips
+                        cfg={cfg}
+                        columns={columns}
+                        onRemove={grid.removeRule}
+                        onClear={grid.clearRules}
+                        onMatchChange={grid.setMatch}
+                    />
+
+                    <GridBulkBar count={picked.length} noun="domain" onClear={() => setPicked([])}>
+                        <button type="button" onClick={loadData}>
+                            <RefreshCw size={13} /> Check DNS
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const n = exportRows(
+                                    pickedRows,
+                                    cfg.cols.map((k) => columns.find((c) => c.key === k)).filter(Boolean),
+                                    'csv',
+                                    'domains',
+                                );
+                                toast.success(`${n} rows · CSV`);
+                            }}
+                        >
+                            <ExternalLink size={13} /> Export CSV
+                        </button>
+                    </GridBulkBar>
 
                     {portfolioErrors.length > 0 && (
                         <div className="dom-portfolio-note">
@@ -501,39 +655,61 @@ const Domains = () => {
                         </div>
                     )}
 
-                    {shown.length === 0 ? (
-                        <EmptyState
-                            icon={Globe}
-                            title={query ? `No domains match “${search.trim()}”.` : 'No domains match this filter.'}
-                            action={(
-                                <Button variant="outline" onClick={() => { setSearch(''); setFilter('all'); }}>
-                                    Clear filters
-                                </Button>
-                            )}
-                        />
-                    ) : (
-                        <div className="dom-card">
-                            <DataTable
-                                tableClassName="sk-dtable"
-                                data={shown}
-                                keyField="key"
-                                columns={domainColumns}
-                                sorts={sorts}
-                                onSortsChange={setSorts}
-                                hiddenKeys={hiddenKeys}
-                                onRowClick={setDrawerDomain}
-                                footer={(
-                                    <DataTableFooter
-                                        shown={shown.length}
-                                        total={mergedRows.length}
-                                        noun="domain"
-                                    />
+                    <DataGrid
+                        columns={columns}
+                        groups={view.groups}
+                        allRows={rows}
+                        cfg={cfg}
+                        grid={grid}
+                        keyField="key"
+                        selectable
+                        selectedKeys={picked}
+                        onToggleRow={toggleRow}
+                        onToggleAll={toggleAll}
+                        onRowClick={setDrawerDomain}
+                        rowLeading={(d) => (d.provider
+                            ? <ProviderBrandIcon provider={d.provider} size={15} />
+                            : <Globe size={15} />)}
+                        rowActions={() => <ChevronRight size={15} className="dom-chev" />}
+                        empty={(
+                            <EmptyState
+                                icon={Globe}
+                                title={search ? `No domains match “${search.trim()}”.` : 'No domains match this view.'}
+                                action={(
+                                    <Button variant="outline" onClick={() => { setSearch(''); grid.clearRules(); }}>
+                                        Clear filters
+                                    </Button>
                                 )}
                             />
-                        </div>
-                    )}
+                        )}
+                        footer={(
+                            <GridFooter
+                                from={view.from}
+                                to={view.to}
+                                total={view.total}
+                                noun="domains"
+                                cfg={cfg}
+                                columns={columns}
+                                page={view.page}
+                                pageCount={view.pageCount}
+                                perPage={perPage}
+                                onPage={setPage}
+                                onPerPage={setPerPage}
+                            />
+                        )}
+                    />
                 </div>
             )}
+
+            <GridFilterDrawer
+                open={filterOpen}
+                onOpenChange={setFilterOpen}
+                columns={columns}
+                rows={rows}
+                cfg={cfg}
+                grid={grid}
+                noun="domains"
+            />
 
             {/* ── Detail drawer ──────────────────────────────── */}
             <Drawer
@@ -544,7 +720,7 @@ const Domains = () => {
                 title={drawerDomain?.name || ''}
                 subtitle={drawerDomain
                     ? (drawerDomain.source === 'app'
-                        ? `${drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'unlinked'} · ${sslState(drawerDomain)}`
+                        ? `${drawerDomain.application_id ? appName(drawerDomain.application_id) : 'unlinked'} · ${sslState(drawerDomain)}`
                         : `${drawerDomain.config_name || drawerDomain.provider || 'DNS'} zone${drawerDomain.cfStatus ? ` · ${drawerDomain.cfStatus}` : ''}`)
                     : ''}
                 width={1100}
@@ -595,7 +771,7 @@ const Domains = () => {
                                     </div>
                                     <div className="sk-spec-card">
                                         <div className="sk-spec-card__label">Linked site</div>
-                                        <div className="sk-spec-card__value">{drawerDomain.application_id ? getAppName(drawerDomain.application_id) : 'Unlinked'}</div>
+                                        <div className="sk-spec-card__value">{drawerDomain.application_id ? appName(drawerDomain.application_id) : 'Unlinked'}</div>
                                         <div className="sk-spec-card__sub">{drawerDomain.is_primary ? 'Primary domain' : 'Alias'}</div>
                                     </div>
                                     <div className="sk-spec-card">
