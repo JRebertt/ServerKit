@@ -37,6 +37,8 @@ __pycache__/
 /backend/pip-log.txt
 /backend/pip-delete-this-directory.txt
 /backend/dev-data/
+# Runtime state written by cron_service.py into the shipped data dir.
+/backend/app/data/cron_jobs.json
 /venv/
 
 # Go / Agent
