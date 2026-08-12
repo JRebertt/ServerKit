@@ -26,6 +26,10 @@ import { emptyViewState, sameViewState, toEnvelope } from './viewState';
  */
 export function useGridViews({
     page, builtinViews = [], capture, apply, rename, resetToView,
+    // URL namespace for the shareable-link params. Required when a route
+    // renders MORE THAN ONE table — without it both write `?view=`/`?sort=`
+    // and each clobbers the other. Empty = today's unprefixed names.
+    urlScope = '',
     // Optional pre-pass run on any INBOUND state (a built-in preset, a saved
     // view, a shared link) before it is normalised. A host whose older states
     // used a private shape converts it here — without this, `toEnvelope` files
@@ -83,6 +87,7 @@ export function useGridViews({
         apply: applyEnvelope,
         capture: captureEnvelope,
         enabled: !!page,
+        scope: urlScope,
     });
 
     // "Save current view…" with the checkbox cleared means a CLEAN view, not

@@ -48,6 +48,10 @@ export function useTableChrome({
     // Legacy top-level view keys -> their name inside `page`, for pages that
     // persisted a key before the envelope existed. e.g. { filters: 'serverFilters' }.
     rename,
+    // URL namespace for shareable links. Pass one whenever a ROUTE renders more
+    // than one table — a tab with an allowlist AND a blocklist, say — or the two
+    // chrome instances fight over `?view=`/`?sort=` and swap each other's state.
+    urlScope,
 }) {
     const [filters, setFilters] = useState(NO_FILTERS);
     const [columnOrder, setColumnOrder] = useState(null);
@@ -141,6 +145,7 @@ export function useTableChrome({
         capture,
         apply,
         rename,
+        urlScope,
         resetToView: api.resetToView,
     });
 

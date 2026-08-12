@@ -29,7 +29,8 @@ export {
 } from './viewState';
 export {
     encodeState, decodeState, readViewParams, resolveView, copyableLink,
-    handleFor, slugify as slugifyViewName, VIEW_PARAM, STATE_PARAM,
+    handleFor, slugify as slugifyViewName, scopedKey, stateToParams, paramsToState,
+    VIEW_PARAM, STATE_PARAM,
 } from './viewLinks';
 export {
     OPS, FIELD_TYPES, opLabel, ruleId, columnLabel, fieldValue,

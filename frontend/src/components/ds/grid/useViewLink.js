@@ -17,7 +17,7 @@ import {
  * `apply` is the same adapter the view picker uses, so a link and a click go
  * through one code path.
  */
-export function useViewLink({ views, apply, capture, enabled = true }) {
+export function useViewLink({ views, apply, capture, enabled = true, scope = '' }) {
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const appliedFromUrl = useRef(false);
@@ -29,7 +29,7 @@ export function useViewLink({ views, apply, capture, enabled = true }) {
     // ---- inbound ---------------------------------------------------------
     useEffect(() => {
         if (!enabled || appliedFromUrl.current) return;
-        const request = readViewParams(location.search);
+        const request = readViewParams(location.search, scope);
         if (!request.kind) { appliedFromUrl.current = true; return; }
 
         if (request.kind === 'state') {
@@ -65,7 +65,7 @@ export function useViewLink({ views, apply, capture, enabled = true }) {
         lastHandle.current = handle;
         // replace, not push: flipping through views should not fill the back
         // button with table states.
-        setSearchParams(withViewParam(location.search, handle), { replace: true });
+        setSearchParams(withViewParam(location.search, handle, scope), { replace: true });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, activeView]);
 
@@ -75,6 +75,7 @@ export function useViewLink({ views, apply, capture, enabled = true }) {
             view: activeView,
             isDirty: views?.isDirty,
             state: capture ? capture() : {},
+            scope,
         });
         try {
             await navigator.clipboard.writeText(url);
@@ -82,7 +83,7 @@ export function useViewLink({ views, apply, capture, enabled = true }) {
         } catch {
             return { url, copied: false };   // clipboard blocked: hand back the URL
         }
-    }, [location.pathname, activeView, views?.isDirty, capture]);
+    }, [location.pathname, activeView, views?.isDirty, capture, scope]);
 
     return { copyLink, searchParams };
 }
