@@ -527,7 +527,12 @@ class SiteDomainService:
         """
         from app.models.domain import Domain
 
-        domains = [d.name for d in Domain.query.filter_by(application_id=app.id).all()]
+        # query_active, not query: Domain is soft-deleted now, so a plain query
+        # returns tombstones and this renderer would write a deleted domain
+        # straight back into server_name — the vhost would keep serving a domain
+        # the user removed, and drift detection (which renders through this same
+        # function) would report the correct config as drifted.
+        domains = [d.name for d in Domain.query_active().filter_by(application_id=app.id).all()]
         if not domains:
             return None, None
 

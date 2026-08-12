@@ -14,6 +14,23 @@ from app.services.resource_grant_service import ResourceGrantService
 domains_bp = Blueprint('domains', __name__)
 
 
+def _publish_app_vhost(app):
+    """(Re)write and enable an app's vhost from its LIVE domains.
+
+    One seam for both add and remove, so the two can never disagree about what
+    the served config should look like. Returns the shape these routes already
+    put under the response's ``nginx`` key; never raises.
+    """
+    from app.services.site_domain_service import SiteDomainService
+
+    result = SiteDomainService.write_app_vhost(app) or {}
+    nginx = result.get('nginx')
+    warning = result.get('warning')
+    if warning:
+        nginx = dict(nginx or {}, warning=warning)
+    return nginx
+
+
 def validate_and_sanitize_domain(domain_name: str) -> tuple:
     """Validate and sanitize a domain name for nginx server_name.
 
@@ -186,26 +203,16 @@ def create_domain():
     db.session.add(domain)
     db.session.commit()
 
-    # Auto-create nginx config for Docker apps
-    nginx_result = None
-    if app.app_type == 'docker' and app.port:
-        # Get all domains for this app to include in nginx config
-        all_domains = [d.name for d in Domain.query_active().filter_by(application_id=application_id).all()]
-
-        # Create nginx site config
-        nginx_result = NginxService.create_site(
-            name=app.name,
-            app_type='docker',
-            domains=all_domains,
-            root_path=app.root_path or '',
-            port=app.port
-        )
-
-        # Enable the site if creation was successful
-        if nginx_result.get('success'):
-            enable_result = NginxService.enable_site(app.name)
-            if not enable_result.get('success'):
-                nginx_result['warning'] = f"Site created but not enabled: {enable_result.get('error')}"
+    # Publish through SiteDomainService rather than a bare create_site.
+    #
+    # create_site takes ssl_cert/ssl_key/micro_cache as arguments and this call
+    # passed none of them, so the regenerated vhost came out HTTP-only and
+    # cache-less: adding a domain to a site covered by a base wildcard cert
+    # silently knocked the WHOLE site back to plain HTTP, and dropped its
+    # micro-cache directives. app_vhost_kwargs re-resolves both, picks the right
+    # template for the app type (php/static/flask/django too, not just docker),
+    # and enables the site.
+    nginx_result = _publish_app_vhost(app)
 
     response = {
         'message': 'Domain created successfully',
@@ -332,27 +339,19 @@ def delete_domain(domain_id):
     domain.soft_delete(user_id=current_user_id)
     db.session.commit()
 
-    # Update nginx config for Docker apps
+    # Re-publish without the removed domain. Same seam as create_domain, for the
+    # same reason: the old bare create_site here dropped the wildcard cert and
+    # the micro-cache from the vhost, so removing ONE domain quietly took the
+    # site's other domains off HTTPS. It also only ran for docker apps, leaving
+    # php/static/flask vhosts still advertising the deleted name.
     nginx_result = None
-    if app.app_type == 'docker' and app.port:
-        remaining_domains = [d.name for d in
-                             Domain.query_active().filter_by(application_id=application_id).all()]
-
-        if remaining_domains:
-            # Update nginx config with remaining domains
-            nginx_result = NginxService.create_site(
-                name=app.name,
-                app_type='docker',
-                domains=remaining_domains,
-                root_path=app.root_path or '',
-                port=app.port
-            )
-            if nginx_result.get('success'):
-                NginxService.reload()
-        else:
-            # No domains left, disable and delete the site
-            NginxService.disable_site(app.name)
-            nginx_result = NginxService.delete_site(app.name)
+    remaining = Domain.query_active().filter_by(application_id=application_id).count()
+    if remaining:
+        nginx_result = _publish_app_vhost(app)
+    elif app.app_type == 'docker' and app.port:
+        # Nothing left to serve: take the site down entirely.
+        NginxService.disable_site(app.name)
+        nginx_result = NginxService.delete_site(app.name)
 
     return jsonify({
         'message': 'Domain deleted successfully',
