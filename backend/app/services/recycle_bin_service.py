@@ -1,0 +1,148 @@
+"""The Recycle Bin: one place that lists, restores and purges soft-deleted
+records across every model that opted into SoftDeleteMixin.
+
+A model registers itself with a label function and (optionally) a restore hook,
+so the bin can present "domain · shop.example.com, deleted 2 days ago by admin"
+without knowing anything about domains. Adding a new type is one register()
+call — the API, the listing and the restore flow do not change.
+
+    register('domain', Domain, label=lambda d: d.name,
+             description=lambda d: f'app #{d.application_id}',
+             on_restore=nginx_service.rewrite_site)
+
+RESTORE IS NOT ALWAYS FREE. Soft-deleting a record does not undo the side
+effects that went with it — a deleted domain still had its nginx vhost and its
+certificate torn down. `on_restore` is where a type re-does that work; a type
+without one restores the ROW only, which is the honest default.
+"""
+from datetime import datetime, timedelta
+
+from app import db
+
+# name -> {model, label, description, on_restore, verb}
+_REGISTRY = {}
+
+# How long a tombstone survives before `purge_expired` may reap it. Long enough
+# that "I deleted the wrong thing last week" is still recoverable.
+DEFAULT_RETENTION_DAYS = 30
+
+
+def register(kind, model, *, label, description=None, on_restore=None, noun=None):
+    """Make a soft-deletable model visible to the Recycle Bin."""
+    if not hasattr(model, 'deleted_at'):
+        raise TypeError(f'{model.__name__} does not use SoftDeleteMixin')
+    _REGISTRY[kind] = {
+        'model': model,
+        'label': label,
+        'description': description,
+        'on_restore': on_restore,
+        'noun': noun or kind.replace('_', ' '),
+    }
+
+
+def registered_kinds():
+    return sorted(_REGISTRY.keys())
+
+
+def _entry(kind):
+    entry = _REGISTRY.get(kind)
+    if not entry:
+        raise KeyError(kind)
+    return entry
+
+
+def _serialize(kind, entry, row):
+    return {
+        'kind': kind,
+        'noun': entry['noun'],
+        'id': row.id,
+        'label': entry['label'](row),
+        'description': entry['description'](row) if entry['description'] else None,
+        'deleted_at': row.deleted_at.isoformat() if row.deleted_at else None,
+        'deleted_by_id': row.deleted_by_id,
+        'restorable': True,
+    }
+
+
+def list_deleted(kind=None, limit=200):
+    """Everything currently in the bin, newest deletion first."""
+    kinds = [kind] if kind else registered_kinds()
+    items = []
+    for k in kinds:
+        entry = _REGISTRY.get(k)
+        if not entry:
+            continue
+        rows = (entry['model'].query_deleted()
+                .order_by(entry['model'].deleted_at.desc())
+                .limit(limit).all())
+        items.extend(_serialize(k, entry, r) for r in rows)
+    items.sort(key=lambda i: i['deleted_at'] or '', reverse=True)
+    return items[:limit]
+
+
+def restore(kind, record_id):
+    entry = _entry(kind)
+    row = entry['model'].query.filter_by(id=record_id).first()
+    if row is None:
+        return None, 'not found'
+    if row.deleted_at is None:
+        return _serialize(kind, entry, row), None      # already active; idempotent
+    row.restore()
+    db.session.commit()
+    if entry['on_restore']:
+        try:
+            entry['on_restore'](row)
+        except Exception as exc:                        # noqa: BLE001
+            # The row IS back; the side effect is what failed. Say so rather
+            # than rolling back a restore the user asked for.
+            return _serialize(kind, entry, row), f'restored, but re-applying config failed: {exc}'
+    return _serialize(kind, entry, row), None
+
+
+def purge(kind, record_id):
+    """Delete for real. The only irreversible action in this module."""
+    entry = _entry(kind)
+    row = entry['model'].query.filter_by(id=record_id).first()
+    if row is None:
+        return False, 'not found'
+    if row.deleted_at is None:
+        return False, 'record is not in the recycle bin'
+    db.session.delete(row)
+    db.session.commit()
+    return True, None
+
+
+def purge_expired(retention_days=DEFAULT_RETENTION_DAYS):
+    """Reap tombstones older than the retention window. Returns a per-kind count."""
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    counts = {}
+    for kind, entry in _REGISTRY.items():
+        rows = entry['model'].query.filter(
+            entry['model'].deleted_at.isnot(None),
+            entry['model'].deleted_at < cutoff,
+        ).all()
+        for row in rows:
+            db.session.delete(row)
+        if rows:
+            counts[kind] = len(rows)
+    if counts:
+        db.session.commit()
+    return counts
+
+
+def register_builtin_types():
+    """Wire the models that ship with the panel. Called from create_app."""
+    from app.models.domain import Domain
+    from app.models.saved_view import SavedView
+
+    register(
+        'domain', Domain, noun='domain',
+        label=lambda d: d.name,
+        description=lambda d: (f'linked to app #{d.application_id}'
+                               if d.application_id else None),
+    )
+    register(
+        'saved_view', SavedView, noun='saved view',
+        label=lambda v: v.name,
+        description=lambda v: f'{v.page} view',
+    )

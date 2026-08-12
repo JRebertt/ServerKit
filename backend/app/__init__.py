@@ -504,6 +504,13 @@ def create_app(config_name=None):
     from app.api.views import views_bp
     app.register_blueprint(views_bp, url_prefix='/api/v1/views')
 
+    from app.api.recycle_bin import recycle_bin_bp
+    app.register_blueprint(recycle_bin_bp, url_prefix='/api/v1/recycle-bin')
+    # Teach the bin which models it can restore. Import-time registration keeps
+    # the API type-agnostic: adding a soft-deletable model touches only this list.
+    from app.services import recycle_bin_service
+    recycle_bin_service.register_builtin_types()
+
     # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
     from app.api.dashboards import dashboards_bp
     app.register_blueprint(dashboards_bp, url_prefix='/api/v1/dashboards')

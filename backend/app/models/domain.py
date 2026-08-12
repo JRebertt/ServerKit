@@ -1,12 +1,18 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import SoftDeleteMixin
 
 
-class Domain(db.Model):
+class Domain(SoftDeleteMixin, db.Model):
     __tablename__ = 'domains'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    # NOT unique=True any more. A deleted domain keeps its tombstone, and a
+    # table-level UNIQUE would then refuse to let you re-add the same name --
+    # deleting a domain would permanently burn it. Migration 083 replaces the
+    # constraint with a PARTIAL unique index over rows where deleted_at IS NULL,
+    # so live names stay unique and tombstones stay out of the way.
+    name = db.Column(db.String(255), nullable=False, index=True)
     is_primary = db.Column(db.Boolean, default=False)
 
     # SSL
@@ -33,7 +39,8 @@ class Domain(db.Model):
             'ssl_auto_renew': self.ssl_auto_renew,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'application_id': self.application_id
+            'application_id': self.application_id,
+            **self.soft_delete_dict(),
         }
 
     def __repr__(self):

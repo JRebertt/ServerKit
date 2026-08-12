@@ -93,7 +93,7 @@ def get_domains():
         Application.query, Application, user,
         workspace_id=ws_id, owner_attr='user_id', grant_resource_type='application')
     app_ids = [row[0] for row in app_q.with_entities(Application.id).all()]
-    domains = (Domain.query.filter(Domain.application_id.in_(app_ids)).all()
+    domains = (Domain.query_active().filter(Domain.application_id.in_(app_ids)).all()
                if app_ids else [])
 
     return jsonify({
@@ -143,7 +143,7 @@ def create_domain():
     name = sanitized_name
 
     # Check if domain already exists
-    if Domain.query.filter_by(name=name).first():
+    if Domain.query_active().filter_by(name=name).first():
         return jsonify({'error': 'Domain already exists'}), 409
 
     # Check if application exists and user has access
@@ -173,7 +173,7 @@ def create_domain():
     is_primary = data.get('is_primary', False)
     if is_primary:
         # Unset any existing primary domain for this app
-        Domain.query.filter_by(application_id=application_id, is_primary=True).update({'is_primary': False})
+        Domain.query_active().filter_by(application_id=application_id, is_primary=True).update({'is_primary': False}, synchronize_session=False)
 
     domain = Domain(
         name=name,
@@ -190,7 +190,7 @@ def create_domain():
     nginx_result = None
     if app.app_type == 'docker' and app.port:
         # Get all domains for this app to include in nginx config
-        all_domains = [d.name for d in Domain.query.filter_by(application_id=application_id).all()]
+        all_domains = [d.name for d in Domain.query_active().filter_by(application_id=application_id).all()]
 
         # Create nginx site config
         nginx_result = NginxService.create_site(
@@ -295,7 +295,7 @@ def update_domain(domain_id):
 
     if 'is_primary' in data and data['is_primary']:
         # Unset any existing primary domain for this app
-        Domain.query.filter_by(application_id=domain.application_id, is_primary=True).update({'is_primary': False})
+        Domain.query_active().filter_by(application_id=domain.application_id, is_primary=True).update({'is_primary': False}, synchronize_session=False)
         domain.is_primary = True
 
     if 'ssl_enabled' in data:
@@ -326,13 +326,17 @@ def delete_domain(domain_id):
         return jsonify({'error': 'Access denied'}), 403
 
     application_id = domain.application_id
-    db.session.delete(domain)
+    # Soft delete: the vhost teardown below still happens, but the record keeps
+    # a tombstone so the Recycle Bin can hand it back. Purging for real is a
+    # separate, admin-only action.
+    domain.soft_delete(user_id=current_user_id)
     db.session.commit()
 
     # Update nginx config for Docker apps
     nginx_result = None
     if app.app_type == 'docker' and app.port:
-        remaining_domains = [d.name for d in Domain.query.filter_by(application_id=application_id).all()]
+        remaining_domains = [d.name for d in
+                             Domain.query_active().filter_by(application_id=application_id).all()]
 
         if remaining_domains:
             # Update nginx config with remaining domains

@@ -1,0 +1,153 @@
+"""Soft delete + Recycle Bin.
+
+Deleting is the one action in a control panel that repeating cannot undo, so
+records a person destroys by hand now leave a tombstone and the bin hands them
+back. These tests pin the parts that are easy to get subtly wrong: that the
+tombstone stays out of every read path, that a deleted name can be REUSED (the
+partial unique index), and that purge is the only thing that really destroys.
+"""
+import pytest
+
+from app import db
+from app.models import Application, Domain
+from app.models.saved_view import SavedView
+from app.services import recycle_bin_service, saved_view_service
+
+
+@pytest.fixture
+def app_with_domain(app):
+    with app.app_context():
+        application = Application(name='shop', app_type='docker', port=8001, user_id=1)
+        db.session.add(application)
+        db.session.flush()
+        domain = Domain(name='shop.example.com', application_id=application.id)
+        db.session.add(domain)
+        db.session.commit()
+        yield {'app_id': application.id, 'domain_id': domain.id}
+
+
+# ---- the mixin -------------------------------------------------------------
+
+def test_soft_delete_keeps_the_row_but_hides_it(app, app_with_domain):
+    with app.app_context():
+        domain = Domain.query.get(app_with_domain['domain_id'])
+        domain.soft_delete(user_id=7)
+        db.session.commit()
+
+        assert Domain.query.get(app_with_domain['domain_id']) is not None
+        assert Domain.query_active().filter_by(name='shop.example.com').first() is None
+        assert Domain.query_deleted().count() == 1
+        assert domain.is_active is False
+        assert domain.deleted_by_id == 7
+
+
+def test_a_deleted_name_can_be_reused(app, app_with_domain):
+    """The partial unique index is the whole point: a plain UNIQUE would make
+    deleting a domain permanently burn its name."""
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+
+        again = Domain(name='shop.example.com', application_id=app_with_domain['app_id'])
+        db.session.add(again)
+        db.session.commit()          # must not raise IntegrityError
+
+        assert Domain.query_active().filter_by(name='shop.example.com').count() == 1
+        assert Domain.query.filter_by(name='shop.example.com').count() == 2
+
+
+def test_restore_is_idempotent(app, app_with_domain):
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None and item['label'] == 'shop.example.com'
+        # restoring an already-live record is a no-op, not an error
+        item, err = recycle_bin_service.restore('domain', app_with_domain['domain_id'])
+        assert err is None
+        assert Domain.query_active().count() == 1
+
+
+# ---- the bin ---------------------------------------------------------------
+
+def test_bin_lists_across_types_newest_first(app, app_with_domain):
+    with app.app_context():
+        Domain.query.get(app_with_domain['domain_id']).soft_delete()
+        view = SavedView(user_id=1, page='domains', name='Mine', slug='mine', state={})
+        db.session.add(view)
+        db.session.commit()
+        view.soft_delete()
+        db.session.commit()
+
+        items = recycle_bin_service.list_deleted()
+        kinds = {i['kind'] for i in items}
+        assert kinds == {'domain', 'saved_view'}
+        stamps = [i['deleted_at'] for i in items]
+        assert stamps == sorted(stamps, reverse=True)
+
+
+def test_purge_is_the_only_destructive_path(app, app_with_domain):
+    with app.app_context():
+        domain_id = app_with_domain['domain_id']
+        # not in the bin yet -> refuse
+        ok, err = recycle_bin_service.purge('domain', domain_id)
+        assert ok is False and 'not in the recycle bin' in err
+
+        Domain.query.get(domain_id).soft_delete()
+        db.session.commit()
+        ok, err = recycle_bin_service.purge('domain', domain_id)
+        assert ok is True and err is None
+        assert Domain.query.get(domain_id) is None
+
+
+def test_purge_expired_respects_the_retention_window(app, app_with_domain):
+    from datetime import datetime, timedelta
+    with app.app_context():
+        domain = Domain.query.get(app_with_domain['domain_id'])
+        domain.soft_delete()
+        domain.deleted_at = datetime.utcnow() - timedelta(days=45)
+        db.session.commit()
+
+        assert recycle_bin_service.purge_expired(retention_days=90) == {}
+        assert recycle_bin_service.purge_expired(retention_days=30) == {'domain': 1}
+
+
+def test_unknown_kind_raises(app):
+    with app.app_context():
+        with pytest.raises(KeyError):
+            recycle_bin_service.restore('nope', 1)
+
+
+# ---- saved views ------------------------------------------------------------
+
+def test_deleting_a_view_sends_it_to_the_bin(app):
+    with app.app_context():
+        view, err = saved_view_service.create_view(1, 'domains', 'SSL expiring', {'sorts': []})
+        assert err is None
+        saved_view_service.delete_view(1, view['id'])
+
+        assert saved_view_service.list_views(1, 'domains') == []
+        assert any(i['kind'] == 'saved_view' for i in recycle_bin_service.list_deleted())
+
+
+def test_view_slug_is_derived_and_deduped(app):
+    with app.app_context():
+        a, _ = saved_view_service.create_view(1, 'domains', 'SSL expiring', {})
+        b, _ = saved_view_service.create_view(1, 'services', 'SSL expiring', {})
+        assert a['slug'] == 'ssl-expiring'
+        assert b['slug'] == 'ssl-expiring'          # different page, no clash
+
+        assert saved_view_service.get_by_slug(1, 'domains', 'ssl-expiring')['id'] == a['id']
+        assert saved_view_service.get_by_slug(1, 'domains', 'nope') is None
+
+
+def test_a_deleted_view_frees_its_name_and_slug(app):
+    with app.app_context():
+        first, _ = saved_view_service.create_view(1, 'domains', 'Triage', {})
+        saved_view_service.delete_view(1, first['id'])
+
+        again, err = saved_view_service.create_view(1, 'domains', 'Triage', {})
+        assert err is None
+        assert again['slug'] == 'triage'            # not 'triage-2'
+        assert saved_view_service.get_by_slug(1, 'domains', 'triage')['id'] == again['id']
