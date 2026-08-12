@@ -131,8 +131,33 @@ class Application(db.Model):
         """
         return [d for d in self.domains if getattr(d, 'deleted_at', None) is None]
 
-    def to_dict(self, include_linked=False):
+    # Fields to_dict() can emit that are NOT mapped columns. Each one costs a
+    # query (or a collection walk) to produce, so `$select` has to know they
+    # exist in order to let a caller decline them. Kept next to to_dict so the
+    # two cannot drift.
+    DERIVED_FIELDS = (
+        'project_name', 'environment_name', 'server_name', 'domains',
+        'image_scan', 'image_update', 'sleep', 'linked_app', 'has_linked_app',
+        'ingress_plane', 'ingress_proxy_eligible',
+    )
+
+    def to_dict(self, include_linked=False, fields=None):
+        """Serialize the app.
+
+        `fields` (a set, normally from ``$select``) is not only a payload
+        narrowing — it decides which DERIVED fields get computed, and those are
+        where the cost is. ``image_scan`` and ``image_update`` read
+        ``lazy='dynamic'`` relationships, so they issue a query EACH, per row,
+        and no amount of eager loading can hoist them; ``sleep``, ``server``,
+        ``project`` and ``environment`` are lazy scalars. Unnarrowed, drawing a
+        100-app list costs roughly 300 extra queries. A caller that asks for
+        ``$select=id,name`` now costs none of them.
+
+        `fields=None` keeps the full legacy payload, so every existing caller
+        is unaffected.
+        """
         import json
+        want = fields.__contains__ if fields is not None else (lambda _key: True)
         result = {
             'id': self.id,
             'name': self.name,
@@ -155,8 +180,6 @@ class Application(db.Model):
             'compose_file': self.compose_file,
             'systemd_unit': self.systemd_unit,
             'managed_by': self.managed_by,
-            'ingress_plane': self.ingress_plane or _default_ingress_plane(self.app_type, self.managed_by),
-            'ingress_proxy_eligible': _proxy_eligible(self.app_type, self.managed_by),
             'version': self.version,
             'upload_path': self.upload_path,
             'private_slug': self.private_slug,
@@ -165,7 +188,6 @@ class Application(db.Model):
             'environment_type': self.environment_type,
             'linked_app_id': self.linked_app_id,
             'shared_config': json.loads(self.shared_config) if self.shared_config else None,
-            'has_linked_app': self.linked_app_id is not None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'last_deployed_at': self.last_deployed_at.isoformat() if self.last_deployed_at else None,
@@ -174,49 +196,62 @@ class Application(db.Model):
             'workspace_id': self.workspace_id,
             'project_id': self.project_id,
             'environment_id': self.environment_id,
-            # Derived display names for the project/environment this app lives in
-            # (null when unassigned). Resolved via the viewonly relationships above
-            # and guarded for None so unassigned apps keep working.
-            'project_name': self.project.name if self.project else None,
-            'environment_name': self.environment.name if self.environment else None,
-            'server_name': self.server.name if self.server else 'Local server',
-            'domains': [d.to_dict() for d in self.live_domains]
         }
 
-        # Lightweight image-scan badge (latest scan only)
-        latest_scan = self.image_scans.first()
-        if latest_scan:
+        # Narrow the plain columns. These are already loaded on the instance, so
+        # dropping them saves payload, not queries — the queries are below.
+        if fields is not None:
+            result = {key: value for key, value in result.items() if key in fields}
+
+        # Pure derivations off already-loaded columns — cheap, but still elided
+        # when unasked so `$select` means one thing everywhere.
+        if want('ingress_plane'):
+            result['ingress_plane'] = self.ingress_plane or _default_ingress_plane(self.app_type, self.managed_by)
+        if want('ingress_proxy_eligible'):
+            result['ingress_proxy_eligible'] = _proxy_eligible(self.app_type, self.managed_by)
+        if want('has_linked_app'):
+            result['has_linked_app'] = self.linked_app_id is not None
+
+        # Derived display names for the project/environment/server this app
+        # lives in (null when unassigned). Each is a lazy relationship load.
+        if want('project_name'):
+            result['project_name'] = self.project.name if self.project else None
+        if want('environment_name'):
+            result['environment_name'] = self.environment.name if self.environment else None
+        if want('server_name'):
+            result['server_name'] = self.server.name if self.server else 'Local server'
+        if want('domains'):
+            result['domains'] = [d.to_dict() for d in self.live_domains]
+
+        # Lightweight image-scan badge (latest scan only).
+        if want('image_scan'):
+            latest_scan = self.image_scans.first()
             result['image_scan'] = {
                 'status': latest_scan.status,
                 'highest_severity': latest_scan.highest_severity,
                 'severity_counts': latest_scan.get_counts(),
                 'scanned_at': latest_scan.completed_at.isoformat() if latest_scan.completed_at else None,
-            }
-        else:
-            result['image_scan'] = None
+            } if latest_scan else None
 
-        # Lightweight image-update badge (latest digest check only)
-        latest_update = self.image_update_checks.first()
-        if latest_update:
+        # Lightweight image-update badge (latest digest check only).
+        if want('image_update'):
+            latest_update = self.image_update_checks.first()
             result['image_update'] = {
                 'status': latest_update.status,
                 'update_available': latest_update.update_available,
                 'checked_at': latest_update.checked_at.isoformat() if latest_update.checked_at else None,
-            }
-        else:
-            result['image_update'] = None
+            } if latest_update else None
 
-        # Lightweight auto-sleep badge
-        sleep_policy = self.sleep_policy
-        if sleep_policy:
+        # Lightweight auto-sleep badge.
+        if want('sleep'):
+            sleep_policy = self.sleep_policy
             result['sleep'] = {
                 'enabled': sleep_policy.enabled,
                 'asleep': sleep_policy.asleep,
                 'idle_timeout_minutes': sleep_policy.idle_timeout_minutes,
-            }
-        else:
-            result['sleep'] = None
-        if include_linked and self.linked_app:
+            } if sleep_policy else None
+
+        if include_linked and want('linked_app') and self.linked_app:
             result['linked_app'] = {
                 'id': self.linked_app.id,
                 'name': self.linked_app.name,

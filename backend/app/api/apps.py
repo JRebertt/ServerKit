@@ -8,7 +8,9 @@ import shutil
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy.orm import joinedload
 from app import db
+from app.api._query import apply_query, QueryParseError
 from app.models import Application, User
 from app.utils.slug import slugify
 from app.services.build_service import BuildService
@@ -436,15 +438,49 @@ def get_apps():
     if environment_filter:
         query = query.filter_by(environment_type=environment_filter)
 
+    # $select / $filter / $orderby / $skip / $top. All optional: with none of
+    # them present this is a no-op and the response is byte-identical to before.
+    try:
+        narrowed = apply_query(query, Application, request,
+                               select_extra=Application.DERIVED_FIELDS)
+    except QueryParseError as exc:
+        return jsonify({'error': str(exc)}), 400
+    query = narrowed.query
+    fields = narrowed.fields
+
+    # Eager-load the scalar relationships to_dict resolves names through, but
+    # ONLY when this request actually asked for those names — a joinedload for a
+    # field nobody selected is a wider row for nothing. `image_scans` and
+    # `image_update_checks` are deliberately absent: they are lazy='dynamic',
+    # so the attribute IS a Query and no loader option can hoist it. Declining
+    # them via $select is the only way to avoid their per-row cost.
+    eager = []
+    if fields is None or 'server_name' in fields:
+        eager.append(joinedload(Application.server))
+    if fields is None or 'project_name' in fields:
+        eager.append(joinedload(Application.project))
+    if fields is None or 'environment_name' in fields:
+        eager.append(joinedload(Application.environment))
+    if include_linked and (fields is None or 'linked_app' in fields):
+        eager.append(joinedload(Application.linked_app))
+    if eager:
+        query = query.options(*eager)
+
     apps = query.all()
     deploy_configs = GitService.get_config().get('apps', {})
 
-    return jsonify({
+    payload = {
         'apps': [
-            _attach_deploy_config(app.to_dict(include_linked=include_linked), deploy_configs)
+            _attach_deploy_config(
+                app.to_dict(include_linked=include_linked, fields=fields), deploy_configs)
             for app in apps
         ]
-    }), 200
+    }
+    # Paging metadata only appears once a caller pages, so the existing
+    # response shape is untouched for everyone who does not.
+    if narrowed.total is not None:
+        payload['meta'] = narrowed.as_meta()
+    return jsonify(payload), 200
 
 
 @apps_bp.route('/<int:app_id>/workspace', methods=['PUT'])
