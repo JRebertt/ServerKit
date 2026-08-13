@@ -1389,6 +1389,209 @@ build_frontend() {
 }
 
 # ---------------------------------------------------------------------------
+# SSH port discovery — the safety interlock in front of default-deny.
+#
+# Turning on a default-deny firewall without allowing the port sshd actually
+# answers on locks the operator out of their own server, over the very SSH
+# session running this installer. So: never guess. Ask, in descending order of
+# authority, and treat "no answer" as a hard stop rather than "probably 22".
+#
+#   1. `sshd -T` — the EFFECTIVE config. It resolves Include directives, so it
+#      sees a port declared in /etc/ssh/sshd_config.d/*.conf that a naive grep
+#      of sshd_config alone would miss (Ubuntu 22.04+ ships exactly that shape).
+#   2. sshd_config + its drop-ins, parsed here. Covers boxes where `sshd -T`
+#      refuses to run (missing host keys in a fresh image, non-root, ...).
+#   3. Whatever sshd is listening on right now, per `ss`. Catches a running
+#      daemon whose config on disk has drifted from what it was started with.
+#
+# A config file that names no Port at all means sshd's compiled-in default, so
+# that case — and ONLY that case — resolves to 22. If not one of the three
+# sources produced anything, the function returns non-zero and the caller must
+# not enable a firewall: an exposed box is recoverable, a locked-out one
+# usually is not.
+#
+# Echoes one port per line. SSHD_CONFIG_ROOT overrides /etc/ssh for tests.
+# ---------------------------------------------------------------------------
+detect_ssh_ports() {
+    local etc="${SSHD_CONFIG_ROOT:-/etc/ssh}"
+    local main="$etc/sshd_config"
+    local raw="" ports="" p have_source=0
+
+    if command -v sshd >/dev/null 2>&1; then
+        raw="$(sshd -T 2>/dev/null | awk 'tolower($1) == "port" { print $2 }')" || raw=""
+        [ -n "$raw" ] && have_source=1
+    fi
+
+    if [ -z "$raw" ] && [ -f "$main" ]; then
+        have_source=1
+        # Strip comments first so a commented-out "#Port 22" never counts.
+        #
+        # The `|| true` around cat is load-bearing, not defensive noise: most
+        # boxes have no sshd_config.d/*.conf, the unmatched glob makes cat exit
+        # non-zero, and under the installer's `set -o pipefail` that failure
+        # would wipe a perfectly good answer — falling through to the "22"
+        # default below on a box whose sshd is on 2222, and locking the
+        # operator out. Exactly the failure this function exists to prevent.
+        raw="$( { cat "$main" "$etc"/sshd_config.d/*.conf 2>/dev/null || true; } \
+                | sed -e 's/#.*//' \
+                | awk 'tolower($1) == "port" { print $2 }' )" || raw=""
+    fi
+
+    if [ -z "$raw" ] && command -v ss >/dev/null 2>&1; then
+        raw="$(ss -H -tlnp 2>/dev/null | awk '/"sshd"/ { n = split($4, a, ":"); print a[n] }')" || raw=""
+        [ -n "$raw" ] && have_source=1
+    fi
+
+    # A config that exists but names no Port means the built-in default.
+    if [ -z "$raw" ] && [ "$have_source" = "1" ]; then
+        raw="22"
+    fi
+
+    # Keep only plausible port numbers, de-duplicated, order preserved.
+    for p in $raw; do
+        case "$p" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        [ "$p" -ge 1 ] && [ "$p" -le 65535 ] || continue
+        case " $ports " in
+            *" $p "*) continue ;;
+        esac
+        ports="$ports $p"
+    done
+    ports="${ports# }"
+
+    [ -n "$ports" ] || return 1
+    for p in $ports; do printf '%s\n' "$p"; done
+}
+
+# Run a firewall command, or print it under FW_DRY_RUN. Same contract as
+# scripts/lib/firewall.sh's _fw_run, kept local so the bootstrap below never
+# depends on a private of that lib.
+fw_bootstrap_run() {
+    if [ "${FW_DRY_RUN:-0}" = "1" ]; then
+        printf '  [firewall] would run: %s\n' "$*"
+        return 0
+    fi
+    # Best-effort, like the lib's _fw_run callers: a rule that fails to apply
+    # must never abort a `set -e` install. bootstrap_firewall's closing
+    # `ufw status` check is what actually decides whether this worked.
+    "$@" >/dev/null 2>&1 || true
+}
+
+# ---------------------------------------------------------------------------
+# Firewall bootstrap: put a default-deny firewall on a box that has none.
+#
+# The installer used to open 80/443 on whatever firewall it found and shrug
+# ("assuming ports 80/443 are already open") when there wasn't one — which is
+# the state of a stock Ubuntu/Debian VPS. That box then runs ServerKit with
+# every port a deploy maps onto the host (8001-8999, plus database containers)
+# facing the internet.
+#
+# Refuses to act, in this order, when:
+#   * SERVERKIT_SKIP_FIREWALL=1        — operator said no; never argue.
+#   * OS_FAMILY is not debian          — UFW is Debian/Ubuntu. RHEL-family boxes
+#                                        already boot with firewalld ACTIVE, so
+#                                        configure_firewall's open step covers
+#                                        them. A firewalld default-deny bootstrap
+#                                        for the boxes where it is *inactive* is
+#                                        a deliberate follow-up: zones/services
+#                                        are different enough that copying this
+#                                        logic across would be wrong.
+#   * a firewall is already active     — it is the operator's. Opening ports on
+#                                        it is fine (next phase); rewriting its
+#                                        default policy is not.
+#   * inside a container               — the host owns netfilter; ufw either
+#                                        fails outright (no NET_ADMIN) or, worse,
+#                                        half-applies.
+#   * we bootstrapped on a previous run and it is off now — the operator turned
+#                                        it off on purpose. A re-run must not
+#                                        undo that.
+#   * the SSH port is unknown          — see detect_ssh_ports. Hard stop.
+# ---------------------------------------------------------------------------
+FIREWALL_BOOTSTRAP_KEY="firewall_bootstrapped"
+
+bootstrap_firewall() {
+    if [ "${SERVERKIT_SKIP_FIREWALL:-0}" = "1" ]; then
+        good "Skipping firewall setup (SERVERKIT_SKIP_FIREWALL=1)."
+        return 0
+    fi
+    if [ "${OS_FAMILY:-}" != "debian" ]; then
+        return 0
+    fi
+    if [ "$(firewall_detect)" != "none" ]; then
+        return 0
+    fi
+
+    local ctr
+    ctr="$(detect_container)"
+    if [ -n "$ctr" ]; then
+        warn "Running inside $ctr — leaving the firewall to the host."
+        return 0
+    fi
+
+    if command -v state_get >/dev/null 2>&1 \
+       && [ "$(state_get "$FIREWALL_BOOTSTRAP_KEY" 2>/dev/null || true)" = "1" ]; then
+        good "A previous install set up the firewall and it is off now — leaving it alone."
+        return 0
+    fi
+
+    # ---- the interlock. Nothing below runs without a known SSH port. -------
+    local ssh_ports
+    if ! ssh_ports="$(detect_ssh_ports)"; then
+        warn "Could not determine which port sshd listens on — NOT enabling a firewall."
+        warn "Refusing to risk locking you out. Declare 'Port <n>' in /etc/ssh/sshd_config and re-run,"
+        warn "or set up UFW yourself: ufw allow <ssh>/tcp && ufw allow 80,443/tcp && ufw enable"
+        return 0
+    fi
+
+    if ! command -v ufw >/dev/null 2>&1; then
+        step "Installing UFW..."
+        pkg_add ufw
+    fi
+    if ! command -v ufw >/dev/null 2>&1; then
+        warn "UFW is unavailable — this box is left without a firewall."
+        return 0
+    fi
+
+    # Order IS the safety property: every allow rule lands BEFORE the
+    # default-deny policy, and the policy before the firewall is switched on.
+    # `ufw allow` is idempotent ("Skipping adding existing rule"), so a re-run
+    # never duplicates anything.
+    local port
+    for port in $ssh_ports; do
+        step "Allowing SSH on ${port}/tcp..."
+        fw_bootstrap_run ufw allow "${port}/tcp"
+    done
+    fw_bootstrap_run ufw allow 80/tcp
+    fw_bootstrap_run ufw allow 443/tcp
+    # A panel published on a non-standard port needs that port too, or the
+    # operator loses the UI the instant default-deny lands.
+    case "${PANEL_PORT:-80}" in
+        80|443) : ;;
+        *) fw_bootstrap_run ufw allow "${PANEL_PORT}/tcp" ;;
+    esac
+
+    fw_bootstrap_run ufw default deny incoming
+    fw_bootstrap_run ufw default allow outgoing
+    fw_bootstrap_run ufw --force enable
+
+    if [ "${FW_DRY_RUN:-0}" = "1" ]; then
+        good "Firewall bootstrap (dry run) complete."
+        return 0
+    fi
+
+    if ufw status 2>/dev/null | grep -q 'Status: active'; then
+        good "UFW enabled: default-deny inbound; SSH ($(printf '%s' "$ssh_ports" | tr '\n' ' ')), 80 and 443 allowed."
+        if command -v state_set >/dev/null 2>&1; then
+            state_set "$FIREWALL_BOOTSTRAP_KEY" 1 || true
+        fi
+    else
+        warn "UFW did not come up active — this box is still unfirewalled."
+    fi
+    return 0
+}
+
+# ---------------------------------------------------------------------------
 # Firewall: open 80/443 so the panel is reachable from the outside, and record
 # exactly what we opened in /etc/serverkit/install-state.json so uninstall can
 # undo only those rules. Fresh RHEL-family boxes run firewalld by default, which
@@ -1402,6 +1605,10 @@ configure_firewall() {
         return 0
     fi
     load_serverkit_lib state.sh || true
+
+    # Stock Debian/Ubuntu ships no firewall at all; put one there before the
+    # "no active firewall detected" branch below just shrugs at it.
+    bootstrap_firewall
 
     local backend
     backend="$(firewall_detect)"
@@ -1470,18 +1677,74 @@ svc_start() {
     return 0
 }
 
+# Write the SSH brute-force jail as a jail.d drop-in.
+#
+# sshd is the one service every box exposes and it is under a password spray
+# within minutes of getting a public IP, so this is the jail that matters on a
+# fresh VPS. Two things make it correct rather than decorative:
+#
+#   * it watches the SAME port(s) detect_ssh_ports found for the firewall — a
+#     jail pinned to :22 on a box whose sshd moved to :2222 bans nobody;
+#   * it declares `backend = systemd` when there is no syslog file to tail
+#     (Ubuntu 24.04+ and RHEL are journald-only). Without that the jail refuses
+#     to start with "Have not found any log file for sshd jail" and fail2ban
+#     looks installed while protecting nothing.
+#
+# The filename deliberately does NOT start with "serverkit-": that prefix is
+# Fail2banJailService's ownership namespace for per-site jails, and this file is
+# the installer's. It sorts after Debian's defaults-debian.conf, so jail.d
+# ordering makes ours the winner. Regenerated on every run (idempotent).
+write_sshd_jail() {
+    local jail_dir ports backend_line=""
+    jail_dir="${FAIL2BAN_JAIL_DIR:-/etc/fail2ban/jail.d}"
+
+    if ! ports="$(detect_ssh_ports)"; then
+        warn "Could not determine the SSH port — leaving fail2ban's sshd jail at its defaults."
+        return 0
+    fi
+    ports="$(printf '%s' "$ports" | tr '\n' ',' | sed 's/,$//')"
+
+    if [ ! -f /var/log/auth.log ] && [ ! -f /var/log/secure ] && svc_has_systemd; then
+        backend_line="backend  = systemd"
+    fi
+
+    mkdir -p "$jail_dir" 2>/dev/null || true
+    if ! cat > "$jail_dir/sshd-serverkit.conf" <<F2B_EOF
+# ServerKit-managed fail2ban jail: SSH brute force.
+# Generated by install.sh - regenerated on every install, do not edit by hand.
+[sshd]
+enabled  = true
+port     = ${ports}
+${backend_line}
+maxretry = 5
+findtime = 600
+bantime  = 3600
+F2B_EOF
+    then
+        warn "Could not write the fail2ban sshd jail to $jail_dir."
+        return 0
+    fi
+    good "fail2ban sshd jail watching port(s): ${ports}."
+}
+
 provision_hardening() {
-    # What makes "full" more than "standard".
+    # What "standard" and "full" each put on the box.
     #
     # The panel ships two features that quietly do nothing unless a daemon it
-    # never installs is present: fail2ban_jail_service manages jails but no
-    # profile installed fail2ban, and configure_nginx only warns "Install
-    # certbot and run..." when certbot is missing. Standard leaves both to the
-    # operator; full is the profile that says "put the whole thing on".
+    # never installs is present: fail2ban_jail_service manages jails, and
+    # configure_nginx only warns "Install certbot and run..." when certbot is
+    # missing.
+    #
+    # fail2ban is standard-and-up: the small VPS is EXACTLY the box that gets
+    # SSH-brute-forced, and leaving it to "full" meant the typical install got
+    # neither a firewall nor a jail. certbot stays a "full" extra — HTTPS is
+    # optional by decree, so it is a choice, not a baseline.
     #
     # Every step is warn-and-continue (pkg_add's contract) — a hardening extra
     # that fails to install must never abort an otherwise good install.
-    [ "$PROFILE" = "full" ] || return 0
+    case "$PROFILE" in
+        minimal) return 0 ;;
+    esac
 
     phase "Hardening"
 
@@ -1492,12 +1755,16 @@ provision_hardening() {
         pkg_add fail2ban
     fi
     if command -v fail2ban-server &>/dev/null; then
+        write_sshd_jail
         svc_enable fail2ban
         svc_start fail2ban
         good "fail2ban enabled — manage jails from Security in the panel."
     else
         warn "fail2ban unavailable; the panel's jail management will stay inert."
     fi
+
+    # Everything below is what makes "full" more than "standard".
+    [ "$PROFILE" = "full" ] || return 0
 
     # Certbot only matters when this install is actually attempting HTTPS.
     if [ "$SERVERKIT_SKIP_SSL" = "1" ]; then

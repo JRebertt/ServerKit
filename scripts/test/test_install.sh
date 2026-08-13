@@ -1294,14 +1294,29 @@ fi
 # "full" has to earn its name — it was byte-identical to "standard" until
 # provision_hardening existed, so the card promised things nothing installed.
 pkgt="$WORK/t31pkg"; mkdir -p "$pkgt"
-out="$( set -Eeuo pipefail; PROFILE=standard; OS_FAMILY=debian; PKG_MGR=apt
+out="$( set -Eeuo pipefail; PROFILE=minimal; OS_FAMILY=debian; PKG_MGR=apt
         SERVERKIT_SKIP_SSL=0
         pkg_add() { printf 'PKGADD:%s\n' "$*"; }
         provision_hardening 2>&1 )"
 if [ -z "$out" ]; then
-    ok "provision_hardening is a no-op on the standard profile"
+    ok "provision_hardening is a no-op on the minimal profile"
 else
-    bad "provision_hardening ran on standard: [$out]"
+    bad "provision_hardening ran on minimal: [$out]"
+fi
+
+# fail2ban is standard-and-up (plan 73 item 8): the small VPS is exactly the box
+# that gets SSH-brute-forced, so leaving it to "full" meant the typical install
+# got no jail at all. certbot stays a "full" extra — HTTPS is optional.
+out="$( set -Eeuo pipefail; PROFILE=standard; OS_FAMILY=debian; PKG_MGR=apt
+        SERVERKIT_SKIP_SSL=0
+        pkg_add() { printf 'PKGADD:%s\n' "$*"; }
+        svc_enable() { :; }; svc_start() { :; }
+        provision_hardening 2>&1 )"
+if printf '%s' "$out" | grep -q 'PKGADD:fail2ban' && \
+   ! printf '%s' "$out" | grep -q 'PKGADD:certbot'; then
+    ok "provision_hardening installs fail2ban (not certbot) on the standard profile"
+else
+    bad "standard profile hardening is wrong: [$(printf '%s' "$out" | tr '\n' ' ')]"
 fi
 
 out="$( set -Eeuo pipefail; PROFILE=full; OS_FAMILY=debian; PKG_MGR=apt
@@ -1461,6 +1476,238 @@ if [ "$out" = "EARLY_RETURN" ]; then
     ok "sourcing still returns before main()"
 else
     bad "the source guard no longer short-circuits a source: out=[$out]"
+fi
+
+# --------------------------------------------------------------------------
+# T42 — plan 73 item 8: a stock Debian/Ubuntu box gets a real firewall, and the
+# SSH port is discovered BEFORE default-deny is switched on.
+#
+# This is the single most dangerous thing the installer does: enabling
+# default-deny without allowing the port sshd actually answers on locks the
+# operator out over the very session running the install. Every case below is a
+# lockout-safety assertion.
+#
+# `sshd` and `ss` are stubbed to fail throughout so detection is forced down to
+# the config-file parser and the fixtures decide the answer — otherwise the
+# result would depend on whether the CI runner happens to run sshd.
+# --------------------------------------------------------------------------
+t42="$WORK/t42"; mkdir -p "$t42/bin" "$t42/ssh/sshd_config.d" "$t42/state"
+make_stub_exit "$t42/bin" 1 sshd ss
+
+# -- detection: a drop-in Port wins over a commented-out one in the main file.
+printf '#Port 22\nPermitRootLogin no\n'  > "$t42/ssh/sshd_config"
+printf 'Port 2222\n'                     > "$t42/ssh/sshd_config.d/99-port.conf"
+res="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        SSHD_CONFIG_ROOT="$t42/ssh" detect_ssh_ports | tr '\n' ' ' )"
+if [ "$res" = "2222 " ]; then
+    ok "detect_ssh_ports reads sshd_config.d drop-ins and ignores commented Ports"
+else
+    bad "detect_ssh_ports got [$res], expected the drop-in's 2222"
+fi
+
+# -- detection: several Port lines all come back, de-duplicated.
+printf 'Port 22\nPort 2222\nPort 22\n' > "$t42/ssh/sshd_config"
+: > "$t42/ssh/sshd_config.d/99-port.conf"
+res="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        SSHD_CONFIG_ROOT="$t42/ssh" detect_ssh_ports | tr '\n' ' ' )"
+if [ "$res" = "22 2222 " ]; then
+    ok "detect_ssh_ports returns every declared port, de-duplicated"
+else
+    bad "detect_ssh_ports got [$res], expected [22 2222 ]"
+fi
+
+# -- detection: NO sshd_config.d directory at all — the common shape, and the
+#    one that bit hardest. The unmatched glob makes `cat` exit non-zero; under
+#    the installer's `set -o pipefail` that wiped the parsed answer and the
+#    function fell through to its "22" default. On a box whose sshd is on 2222
+#    that means UFW allows the wrong port and locks the operator out. Pinning
+#    it here because the failure only ever shows up on a real server.
+t42b="$WORK/t42b"; mkdir -p "$t42b/ssh"
+printf 'Port 2222\n' > "$t42b/ssh/sshd_config"
+res="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        SSHD_CONFIG_ROOT="$t42b/ssh" detect_ssh_ports | tr '\n' ' ' )"
+if [ "$res" = "2222 " ]; then
+    ok "detect_ssh_ports reads sshd_config with no drop-in dir (pipefail regression)"
+else
+    bad "detect_ssh_ports got [$res] with no sshd_config.d — expected 2222, LOCKOUT RISK"
+fi
+
+# -- detection: a config that names no Port means sshd's built-in default.
+printf 'PermitRootLogin no\n' > "$t42/ssh/sshd_config"
+res="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        SSHD_CONFIG_ROOT="$t42/ssh" detect_ssh_ports | tr '\n' ' ' )"
+if [ "$res" = "22 " ]; then
+    ok "detect_ssh_ports falls back to 22 when the config names no Port"
+else
+    bad "detect_ssh_ports got [$res] for a Port-less config, expected 22"
+fi
+
+# -- detection: nothing to go on at all → NON-ZERO. This is the fail-safe the
+#    bootstrap keys off; if it ever starts guessing, the guard is gone.
+if ( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+     SSHD_CONFIG_ROOT="$t42/nonexistent" detect_ssh_ports >/dev/null 2>&1 ); then
+    bad "detect_ssh_ports invented an SSH port with no config, no sshd and no ss"
+else
+    ok "detect_ssh_ports fails loudly when no source can name a port"
+fi
+
+# -- bootstrap: the happy path. Allow rules for SSH/80/443 must all be issued
+#    BEFORE `ufw default deny incoming`, and default-deny before `ufw enable`.
+printf 'Port 2222\n' > "$t42/ssh/sshd_config"
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; PANEL_PORT=80; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        command -v ufw >/dev/null 2>&1 || ufw() { :; }
+        bootstrap_firewall 2>&1 )"
+allow_ssh_ln="$(printf '%s\n' "$out" | grep -n 'ufw allow 2222/tcp'   | head -1 | cut -d: -f1)"
+allow_80_ln="$( printf '%s\n' "$out" | grep -n 'ufw allow 80/tcp'     | head -1 | cut -d: -f1)"
+allow_443_ln="$(printf '%s\n' "$out" | grep -n 'ufw allow 443/tcp'    | head -1 | cut -d: -f1)"
+deny_ln="$(     printf '%s\n' "$out" | grep -n 'ufw default deny incoming' | head -1 | cut -d: -f1)"
+enable_ln="$(   printf '%s\n' "$out" | grep -n 'ufw --force enable'   | head -1 | cut -d: -f1)"
+if [ -n "$allow_ssh_ln" ] && [ -n "$allow_80_ln" ] && [ -n "$allow_443_ln" ] \
+   && [ -n "$deny_ln" ] && [ -n "$enable_ln" ] \
+   && [ "$allow_ssh_ln" -lt "$deny_ln" ] && [ "$allow_80_ln" -lt "$deny_ln" ] \
+   && [ "$allow_443_ln" -lt "$deny_ln" ] && [ "$deny_ln" -lt "$enable_ln" ]; then
+    ok "bootstrap_firewall allows SSH/80/443 before default-deny, and denies before enabling"
+else
+    bad "bootstrap_firewall rule ordering is unsafe: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- bootstrap: the interlock. No discoverable SSH port ⇒ NOTHING is enabled.
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SSHD_CONFIG_ROOT="$t42/nonexistent"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        command -v ufw >/dev/null 2>&1 || ufw() { :; }
+        bootstrap_firewall 2>&1 )"
+if ! printf '%s' "$out" | grep -q 'ufw --force enable' \
+   && ! printf '%s' "$out" | grep -q 'default deny' \
+   && printf '%s' "$out" | grep -qi 'NOT enabling'; then
+    ok "bootstrap_firewall refuses to enable a firewall when the SSH port is unknown"
+else
+    bad "bootstrap_firewall enabled default-deny without knowing the SSH port: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- bootstrap: a non-standard PANEL_PORT is allowed too, or default-deny takes
+#    the panel UI down with it.
+printf 'Port 22\n' > "$t42/ssh/sshd_config"
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; PANEL_PORT=8443; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        command -v ufw >/dev/null 2>&1 || ufw() { :; }
+        bootstrap_firewall 2>&1 )"
+if printf '%s' "$out" | grep -q 'ufw allow 8443/tcp'; then
+    ok "bootstrap_firewall opens a non-standard PANEL_PORT before default-deny"
+else
+    bad "bootstrap_firewall would lock the panel out on PANEL_PORT=8443: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- bootstrap: an ALREADY-ACTIVE firewall is the operator's. Open ports on it
+#    (configure_firewall's job), never rewrite its default policy.
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=firewalld
+        SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        bootstrap_firewall 2>&1 )"
+if [ -z "$out" ]; then
+    ok "bootstrap_firewall leaves an already-active firewall's policy alone"
+else
+    bad "bootstrap_firewall touched an existing firewall: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- bootstrap: non-Debian is a no-op (UFW is Debian/Ubuntu; RHEL boots with
+#    firewalld active and is handled by configure_firewall's open step).
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=rhel; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        bootstrap_firewall 2>&1 )"
+if [ -z "$out" ]; then
+    ok "bootstrap_firewall is a no-op outside the Debian family"
+else
+    bad "bootstrap_firewall tried to install UFW on a non-Debian box: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- bootstrap: SERVERKIT_SKIP_FIREWALL=1 and containers are both hands-off.
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SERVERKIT_SKIP_FIREWALL=1; SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        bootstrap_firewall 2>&1 )"
+out2="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+         OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+         SSHD_CONFIG_ROOT="$t42/ssh"
+         detect_container() { printf 'lxc'; }
+         pkg_add() { :; }
+         source "$LIB_DIR/firewall.sh"
+         bootstrap_firewall 2>&1 )"
+if ! printf '%s' "$out" | grep -q 'ufw' && ! printf '%s' "$out2" | grep -q 'ufw allow'; then
+    ok "bootstrap_firewall honours SERVERKIT_SKIP_FIREWALL and skips containers"
+else
+    bad "bootstrap_firewall ignored an opt-out: [$out] [$out2]"
+fi
+
+# -- the re-run guard: we bootstrapped once, the operator switched the firewall
+#    off, a later install must NOT switch it back on.
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=none
+        SSHD_CONFIG_ROOT="$t42/ssh"
+        detect_container() { printf ''; }
+        pkg_add() { :; }
+        source "$LIB_DIR/firewall.sh"
+        state_get() { [ "$1" = "firewall_bootstrapped" ] && printf '1' || printf ''; }
+        bootstrap_firewall 2>&1 )"
+if ! printf '%s' "$out" | grep -q 'ufw --force enable'; then
+    ok "bootstrap_firewall does not re-enable a firewall the operator turned off"
+else
+    bad "bootstrap_firewall re-enabled a deliberately disabled firewall: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- the sshd jail watches the port sshd actually uses, not a hardcoded 22.
+printf 'Port 2222\n' > "$t42/ssh/sshd_config"
+jail_dir="$t42/jail.d"
+out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+        SSHD_CONFIG_ROOT="$t42/ssh"; FAIL2BAN_JAIL_DIR="$jail_dir"
+        write_sshd_jail 2>&1 )"
+if [ -f "$jail_dir/sshd-serverkit.conf" ] \
+   && grep -q '^\[sshd\]'        "$jail_dir/sshd-serverkit.conf" \
+   && grep -q '^enabled  = true' "$jail_dir/sshd-serverkit.conf" \
+   && grep -q '^port     = 2222' "$jail_dir/sshd-serverkit.conf"; then
+    ok "write_sshd_jail enables the sshd jail on the detected SSH port"
+else
+    bad "write_sshd_jail wrote the wrong jail: [$(cat "$jail_dir/sshd-serverkit.conf" 2>/dev/null | tr '\n' ' ')] [$out]"
+fi
+
+# Re-running must not append or duplicate — the file is regenerated whole.
+( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
+  SSHD_CONFIG_ROOT="$t42/ssh"; FAIL2BAN_JAIL_DIR="$jail_dir"
+  write_sshd_jail >/dev/null 2>&1 )
+if [ "$(grep -c '^\[sshd\]' "$jail_dir/sshd-serverkit.conf")" = "1" ]; then
+    ok "write_sshd_jail is idempotent across re-runs"
+else
+    bad "write_sshd_jail duplicated the jail stanza on a re-run"
+fi
+
+# -- static guard: the interlock must stay wired. bootstrap_firewall has to call
+#    detect_ssh_ports, and the `ufw --force enable` line must live after it.
+if awk '/^bootstrap_firewall\(\)/,/^}/' "$INSTALL_SH" | grep -q 'detect_ssh_ports'; then
+    ok "bootstrap_firewall still consults detect_ssh_ports before enabling anything"
+else
+    bad "bootstrap_firewall no longer detects the SSH port — LOCKOUT RISK"
 fi
 
 # --------------------------------------------------------------------------

@@ -192,6 +192,169 @@ def test_canonical_domain_warn_when_unset(app):
 
 
 # --------------------------------------------------------------------------- #
+# Host hardening — firewall (critical) + fail2ban (recommended), plan 73 item 8
+#
+# These items only exist on a Linux host this panel was installed onto (see
+# SetupHealthService._manages_host_firewall). Everything below drives that gate
+# explicitly so the assertions don't depend on the machine running the suite.
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture
+def managed_host(monkeypatch):
+    """Pretend this panel owns a real Linux host's firewall."""
+    from app.services.setup_health_service import SetupHealthService as S
+    monkeypatch.setattr(S, '_manages_host_firewall', classmethod(lambda cls: True))
+
+
+def fake_firewall(monkeypatch, **status):
+    from app.services.firewall_service import FirewallService
+    monkeypatch.setattr(FirewallService, 'get_status',
+                        classmethod(lambda cls: status))
+
+
+def fake_fail2ban(monkeypatch, **status):
+    from app.services.security_service import SecurityService
+    monkeypatch.setattr(SecurityService, 'get_fail2ban_status',
+                        classmethod(lambda cls: status))
+
+
+def test_firewall_item_absent_on_an_unmanaged_host(app):
+    """No /etc/serverkit (dev checkout, CI runner) or a container → the items
+    drop out entirely rather than reporting a fake 'ok' that would inflate the
+    score or a fake 'fail' the operator cannot act on."""
+    keys = items_by_key(SetupHealthService.evaluate())
+    assert 'setup.firewall' not in keys
+    assert 'setup.fail2ban' not in keys
+
+
+def test_firewall_critical_when_nothing_is_active(app, managed_host, monkeypatch):
+    """The proving assertion: a firewall-less box is flagged CRITICAL."""
+    fake_firewall(monkeypatch, any_installed=False, any_active=False,
+                  active_firewall=None)
+    fake_fail2ban(monkeypatch, installed=False)
+    c = items_by_key(SetupHealthService.evaluate())['setup.firewall']
+    assert c['status'] == 'fail'
+    assert c['severity'] == 'critical'
+    assert c['fix'] == {'kind': 'link', 'to': '/security/firewall'}
+
+
+def test_firewall_ok_when_a_firewall_is_active(app, managed_host, monkeypatch):
+    fake_firewall(monkeypatch, any_installed=True, any_active=True,
+                  active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=False)
+    c = items_by_key(SetupHealthService.evaluate())['setup.firewall']
+    assert c['status'] == 'ok'
+    assert 'ufw' in c['detail']
+
+
+def test_firewall_installed_but_inactive_is_still_critical(app, managed_host, monkeypatch):
+    # Installed-and-off filters exactly as much traffic as not installed at all.
+    fake_firewall(monkeypatch, any_installed=True, any_active=False,
+                  active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=False)
+    c = items_by_key(SetupHealthService.evaluate())['setup.firewall']
+    assert c['status'] == 'fail'
+    assert c['severity'] == 'critical'
+
+
+def test_firewall_probe_failure_drops_the_item(app, managed_host, monkeypatch):
+    from app.services.firewall_service import FirewallService
+
+    def boom(cls):
+        raise OSError('sudo: command not found')
+
+    monkeypatch.setattr(FirewallService, 'get_status', classmethod(boom))
+    fake_fail2ban(monkeypatch, installed=False)
+    # A probe that cannot answer must never take the whole sweep down, and must
+    # never report a firewall it did not observe.
+    keys = items_by_key(SetupHealthService.evaluate())
+    assert 'setup.firewall' not in keys
+
+
+def test_fail2ban_absent_is_recommended_not_critical(app, managed_host, monkeypatch):
+    """The panel already throttles its own logins per-IP, so a missing fail2ban
+    is defence-in-depth, not silent breakage."""
+    fake_firewall(monkeypatch, any_active=True, active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=False, service_running=False, jails=[])
+    c = items_by_key(SetupHealthService.evaluate())['setup.fail2ban']
+    assert c['status'] == 'warn'
+    assert c['severity'] == 'recommended'
+    assert c['fix'] == {'kind': 'link', 'to': '/security/fail2ban'}
+
+
+def test_fail2ban_installed_but_stopped_warns(app, managed_host, monkeypatch):
+    fake_firewall(monkeypatch, any_active=True, active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=True, service_running=False, jails=[])
+    c = items_by_key(SetupHealthService.evaluate())['setup.fail2ban']
+    assert c['status'] == 'warn'
+
+
+def test_fail2ban_running_without_an_ssh_jail_warns(app, managed_host, monkeypatch):
+    # Running with only a per-site WordPress jail leaves sshd unprotected —
+    # which is the jail the installer now writes.
+    fake_firewall(monkeypatch, any_active=True, active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=True, service_running=True,
+                  jails=['serverkit-blog'])
+    c = items_by_key(SetupHealthService.evaluate())['setup.fail2ban']
+    assert c['status'] == 'warn'
+    assert 'SSH' in c['detail']
+
+
+def test_fail2ban_ok_with_the_sshd_jail(app, managed_host, monkeypatch):
+    fake_firewall(monkeypatch, any_active=True, active_firewall='ufw')
+    fake_fail2ban(monkeypatch, installed=True, service_running=True,
+                  jails=['sshd', 'serverkit-blog'])
+    c = items_by_key(SetupHealthService.evaluate())['setup.fail2ban']
+    assert c['status'] == 'ok'
+
+
+def test_hardening_items_are_snoozable(app, managed_host, monkeypatch):
+    """A box whose firewall lives at the provider edge must be able to mute the
+    critical — otherwise the weekly nag becomes permanent noise. Snoozing needs
+    the key registered in _ITEM_SCOPES."""
+    fake_firewall(monkeypatch, any_active=False, active_firewall=None)
+    fake_fail2ban(monkeypatch, installed=False)
+    assert SetupHealthService.snooze('setup.firewall', days=30).get('success')
+    assert SetupHealthService.snooze('setup.fail2ban', days=30).get('success')
+    result = SetupHealthService.evaluate()
+    assert items_by_key(result)['setup.firewall']['snoozed'] is True
+    assert result['summary']['critical_open'] == 0
+
+
+def test_firewall_critical_shows_up_in_the_fingerprint(app, managed_host, monkeypatch):
+    """The nag has to be able to see it — a critical that never reaches the
+    fingerprint never notifies anyone."""
+    fake_firewall(monkeypatch, any_active=False, active_firewall=None)
+    fake_fail2ban(monkeypatch, installed=False)
+    assert 'setup.firewall' in SetupHealthService.fingerprint()
+
+
+def test_manages_host_firewall_gate_is_conservative(app, monkeypatch):
+    """The gate itself: Linux + install marker + not a container, all three."""
+    import app.services.setup_health_service as m
+    S = m.SetupHealthService
+    monkeypatch.setattr(m.sys, 'platform', 'linux')
+    monkeypatch.setattr(m.os.path, 'isdir', lambda p: p == m.HOST_CONFIG_DIR)
+
+    monkeypatch.setattr(S, '_in_container', staticmethod(lambda: False))
+    assert S._manages_host_firewall() is True
+
+    # A container guest does not own the host's netfilter.
+    monkeypatch.setattr(S, '_in_container', staticmethod(lambda: True))
+    assert S._manages_host_firewall() is False
+
+    # Neither does a dev checkout on Windows/macOS.
+    monkeypatch.setattr(S, '_in_container', staticmethod(lambda: False))
+    monkeypatch.setattr(m.sys, 'platform', 'win32')
+    assert S._manages_host_firewall() is False
+
+    # …nor a Linux box install.sh never touched.
+    monkeypatch.setattr(m.sys, 'platform', 'linux')
+    monkeypatch.setattr(m.os.path, 'isdir', lambda p: False)
+    assert S._manages_host_firewall() is False
+
+
+# --------------------------------------------------------------------------- #
 # Severity mapping — HTTPS is NEVER critical (SSL optional by decree)
 # --------------------------------------------------------------------------- #
 

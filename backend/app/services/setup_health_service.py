@@ -10,8 +10,10 @@ personal "secure your account" nudge.
 Severity is graded by Decision 2's *silent-breakage* rule: an item is
 ``critical`` only when leaving it undone silently breaks something the operator
 already set in motion (e.g. per-site DNS mode with no provider/IP — sites won't
-resolve). Everything else is ``recommended``. **HTTPS/TLS items are never
-critical** — SSL is optional by decree.
+resolve; no host firewall — every container port a deploy maps onto the host is
+world-reachable and nothing in the UI says so). Everything else is
+``recommended``. **HTTPS/TLS items are never critical** — SSL is optional by
+decree.
 
 Scope is ``panel`` (a whole-instance setting, admin-only) or ``user`` (a personal
 item like account 2FA). Panel snoozes live in a SettingsService map; personal
@@ -52,10 +54,19 @@ _ITEM_SCOPES = {
     'setup.email_delivery': 'panel',
     'setup.backup_policy': 'panel',
     'setup.backup_offsite': 'panel',
+    'setup.firewall': 'panel',
+    'setup.fail2ban': 'panel',
     'setup.canonical_domain': 'panel',
     'setup.wildcard_cert': 'panel',
     'setup.account_security': 'user',
 }
+
+# Where install.sh puts this host's panel config (install.sh CONFIG_DIR). Its
+# presence is the marker for "ServerKit was installed onto THIS host", which is
+# what makes the host-firewall items applicable at all — see
+# SetupHealthService._manages_host_firewall(). Module-level so tests can point
+# it somewhere harmless.
+HOST_CONFIG_DIR = '/etc/serverkit'
 
 
 def _link(to):
@@ -230,6 +241,12 @@ class SetupHealthService:
         # --- offsite backup ---
         items.append(cls._backup_offsite_item())
 
+        # --- host hardening (only on a host this panel actually owns) ---
+        for probe in (cls._firewall_item, cls._fail2ban_item):
+            probed = probe()
+            if probed is not None:
+                items.append(probed)
+
         # --- canonical panel domain ---
         canonical = (cls._get('canonical_domain', '') or '').strip()
         if canonical:
@@ -322,6 +339,138 @@ class SetupHealthService:
             'Backups are kept on this server only. Configure S3/B2 offsite '
             'storage so a backup survives losing the box.', RECOMMENDED,
             _link('/settings/storage'))
+
+    # ------------------------------------------------------------------ #
+    # Host hardening (firewall + fail2ban)
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _in_container():
+        """True when the panel is running inside a container.
+
+        Mirrors install.sh's ``detect_container``. Inside a container the HOST
+        owns netfilter, not this guest, so "no firewall here" says nothing
+        about the box's exposure — reporting it would be a false alarm on every
+        docker-compose deployment.
+        """
+        if os.path.exists('/.dockerenv'):
+            return True
+        probes = (
+            ('/proc/1/cgroup', ('docker', 'containerd', 'lxc', 'kubepods')),
+            ('/proc/1/environ', ('container=',)),
+        )
+        for path, needles in probes:
+            try:
+                with open(path, 'rb') as fh:
+                    blob = fh.read().decode('utf-8', 'replace').lower()
+            except OSError:
+                continue
+            if any(n in blob for n in needles):
+                return True
+        return False
+
+    @classmethod
+    def _manages_host_firewall(cls):
+        """Whether the firewall / fail2ban items apply to this install at all.
+
+        They only mean something on a Linux box that ServerKit was *installed
+        onto* and whose inbound traffic this panel is responsible for:
+
+        * **non-Linux** — a dev checkout on Windows/macOS. There is no host to
+          judge (the wildcard-cert item guards itself the same way).
+        * **containerised** — the host, not this guest, owns the firewall.
+        * **no /etc/serverkit** — install.sh never ran here (dev checkout, CI
+          runner, an unrelated machine), so a missing UFW is not this install's
+          omission and the operator has nothing to act on.
+
+        Failing the test drops the items entirely rather than reporting them
+        ``ok``: an item nobody can act on is noise, and a fake ``ok`` would
+        inflate the setup score.
+        """
+        if not sys.platform.startswith('linux'):
+            return False
+        if not os.path.isdir(HOST_CONFIG_DIR):
+            return False
+        return not cls._in_container()
+
+    @classmethod
+    def _firewall_item(cls):
+        """Host firewall — the one setup item that is critical for *security*.
+
+        Critical under the module's silent-breakage rule: ServerKit publishes
+        managed apps by mapping container ports onto the host (8001-8999) and
+        will happily stand up database containers on their stock ports. With no
+        firewall those are reachable from the internet the moment they start.
+        The operator set that in motion by deploying, nothing in the UI says the
+        port is public, and the failure mode is a compromise rather than an
+        error message — silent breakage, exactly what ``critical`` means here.
+
+        (Not an HTTPS/TLS item, so the SSL-optional decree does not apply.)
+        """
+        if not cls._manages_host_firewall():
+            return None
+        try:
+            from app.services.firewall_service import FirewallService
+            status = FirewallService.get_status() or {}
+        except Exception:  # noqa: BLE001 — a probe must never break the sweep
+            return None
+
+        if status.get('any_active'):
+            name = status.get('active_firewall') or 'a firewall'
+            return _item(
+                'setup.firewall', 'Host firewall', 'ok',
+                f'Inbound traffic is filtered by {name}.', RECOMMENDED,
+                _link('/security/firewall'))
+        return _item(
+            'setup.firewall', 'Host firewall', 'fail',
+            'No firewall is active on this server, so every port a managed app '
+            'or database container maps onto the host is reachable from the '
+            'internet. Turn on UFW (or firewalld) with default-deny inbound, '
+            'allowing only SSH, 80 and 443. Snooze this item if your firewall '
+            'lives at the provider edge instead.',
+            CRITICAL, _link('/security/firewall'))
+
+    @classmethod
+    def _fail2ban_item(cls):
+        """Brute-force protection.
+
+        Recommended, not critical: the panel already throttles its own logins
+        per-IP (``AUTH_IP_MAX_ATTEMPTS``), so a missing fail2ban thins out
+        defence in depth rather than silently breaking something the operator
+        started — which is the bar ``critical`` has to clear in this registry.
+        """
+        if not cls._manages_host_firewall():
+            return None
+        try:
+            from app.services.security_service import SecurityService
+            status = SecurityService.get_fail2ban_status() or {}
+        except Exception:  # noqa: BLE001
+            return None
+
+        if not status.get('installed'):
+            return _item(
+                'setup.fail2ban', 'Brute-force protection', 'warn',
+                'fail2ban is not installed, so repeated SSH login failures are '
+                'never banned at the host level and the panel\'s jail '
+                'management stays inert.', RECOMMENDED,
+                _link('/security/fail2ban'))
+        if not status.get('service_running'):
+            return _item(
+                'setup.fail2ban', 'Brute-force protection', 'warn',
+                'fail2ban is installed but not running, so none of its jails '
+                'are banning anything.', RECOMMENDED, _link('/security/fail2ban'))
+
+        jails = status.get('jails') or []
+        if not any('ssh' in str(j).lower() for j in jails):
+            return _item(
+                'setup.fail2ban', 'Brute-force protection', 'warn',
+                'fail2ban is running but no SSH jail is enabled — password '
+                'spraying against sshd goes unthrottled.', RECOMMENDED,
+                _link('/security/fail2ban'))
+        return _item(
+            'setup.fail2ban', 'Brute-force protection', 'ok',
+            'fail2ban is running with an SSH jail.', RECOMMENDED,
+            _link('/security/fail2ban'))
 
     @classmethod
     def _wildcard_cert_item(cls, base, mode):
