@@ -188,11 +188,12 @@ class TestBuiltins:
         # 14 builtin.* schedules (incl. job-retention, the monitor sweep, the
         # security-feed check and the recycle-bin retention sweep) +
         # login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host doctor
-        # sweep (plan 26) + the setup-health nag (plan 22).
-        assert ScheduledJob.query.count() == 21
+        # sweep AND the fleet doctor sweep (plan 26) + the setup-health nag
+        # (plan 22).
+        assert ScheduledJob.query.count() == 22
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 21
+        assert ScheduledJob.query.count() == 22
 
 
 class TestApi:

@@ -457,6 +457,17 @@ def seed_builtin_schedules():
         DOCTOR_SCHEDULE_NAME, DOCTOR_JOB_KIND,
         interval_seconds=86400, startup_delay_seconds=600,
     )
+    # Daily fleet-wide health sweep — handler registered by
+    # FleetDoctorService.register_jobs() at boot. Same daily cadence as the host
+    # doctor above but deliberately staggered 30 minutes behind it: the fleet
+    # sweep fans out over the single-worker agent gateway, so it must not
+    # contend with the local sweep (or the boot-time agent reconnect storm).
+    from app.services.fleet_doctor_service import (
+        FLEET_DOCTOR_JOB_KIND, FLEET_DOCTOR_SCHEDULE_NAME)
+    ScheduledJobService.ensure(
+        FLEET_DOCTOR_SCHEDULE_NAME, FLEET_DOCTOR_JOB_KIND,
+        interval_seconds=86400, startup_delay_seconds=2400,
+    )
     # Weekly setup-health nag (plan 22) — handler registered by
     # SetupHealthService.register_jobs() at boot.
     from app.services.setup_health_service import NAG_JOB_KIND, NAG_SCHEDULE_NAME
