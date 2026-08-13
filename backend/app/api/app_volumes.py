@@ -17,7 +17,7 @@ app_volumes_bp = Blueprint('app_volumes', __name__)
 def _load_app_for(app_id, *, write):
     """Resolve (user, app) with the right ACL, or an (error_response, status)."""
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, None, (jsonify({'error': 'Application not found'}), 404)
     allowed = (ResourceGrantService.can_edit_app(user, app) if write

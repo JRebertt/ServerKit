@@ -39,7 +39,9 @@ class DeploymentService:
     def create_deployment(cls, app_id: int, user_id: int = None,
                          trigger: str = 'manual', version_tag: str = None) -> Dict:
         """Create a new deployment record."""
-        app = Application.query.get(app_id)
+        # query_active: a deploy builds, writes files and restarts containers —
+        # a tombstoned app must fail here rather than be redeployed.
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -100,7 +102,7 @@ class DeploymentService:
         deployment_id = result['deployment']['id']
         deployment = Deployment.query.get(deployment_id)
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         build_config = BuildService.get_app_build_config(app_id)
 
         try:
@@ -364,7 +366,8 @@ class DeploymentService:
 
         If target_version is not specified, rolls back to the previous successful deployment.
         """
-        app = Application.query.get(app_id)
+        # query_active: a rollback re-deploys code and restarts the app.
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -526,7 +529,11 @@ class DeploymentService:
             if not previous or not deployment.commit_hash or not previous.commit_hash:
                 return
 
-            app = Application.query.get(deployment.app_id)
+            # Deployment rows outlive the app; a tombstone's root_path may be
+            # gone (purge removes it), so don't shell out to git for one.
+            app = Application.query_active().filter_by(id=deployment.app_id).first()
+            if not app:
+                return
             app_path = app.root_path
 
             # Get git diff

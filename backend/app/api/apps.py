@@ -203,7 +203,7 @@ def link_apps(app_id):
     """Link two apps as prod/dev pair sharing database resources."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -225,7 +225,7 @@ def link_apps(app_id):
     if as_environment not in valid_environments:
         return jsonify({'error': f'Invalid environment. Must be one of: {", ".join(valid_environments)}'}), 400
 
-    target_app = Application.query.get(target_app_id)
+    target_app = Application.query_active().filter_by(id=target_app_id).first()
     if not target_app:
         return jsonify({'error': 'Target application not found'}), 404
 
@@ -302,7 +302,7 @@ def get_linked_apps(app_id):
     """Get apps linked to this app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -349,7 +349,7 @@ def unlink_apps(app_id):
     """Unlink apps and reset environment types."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -360,6 +360,10 @@ def unlink_apps(app_id):
     if not app.linked_app_id:
         return jsonify({'error': 'App is not linked to any other app'}), 400
 
+    # Deliberately NOT query_active: this is the reciprocal half of a link the
+    # caller is severing, not "an app to operate on". If the partner is already
+    # in the recycle bin its back-pointer still has to be cleared, or it would
+    # restore holding a link to an app that no longer links back.
     target_app = Application.query.get(app.linked_app_id)
 
     # Reset both apps
@@ -386,7 +390,7 @@ def update_environment(app_id):
     """Update environment type for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -432,7 +436,10 @@ def get_apps():
     from app.services.workspace_service import WorkspaceService
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
-    query = WorkspaceService.scope_query(Application.query, Application, user,
+    # query_active() is the base the whole chain narrows: scope_query and
+    # apply_query only ever add filters, so scoping here keeps deleted apps out
+    # of the list (and out of $filter/$top/total) without touching either.
+    query = WorkspaceService.scope_query(Application.query_active(), Application, user,
                                          workspace_id=ws_id, owner_attr='user_id',
                                          grant_resource_type='application')
 
@@ -493,7 +500,7 @@ def set_app_workspace(app_id):
     from app.models.workspace import Workspace
     from app.services.workspace_service import WorkspaceService
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     # Use user.id (int) for comparisons — get_jwt_identity() is the stringified token id.
@@ -562,7 +569,7 @@ def move_apps_to_project():
     updated = []
     skipped = []
     for app_id in app_ids:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             skipped.append(app_id)
             continue
@@ -678,7 +685,7 @@ def _can_edit_app(user, app):
 @jwt_required()
 def get_app(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -699,7 +706,7 @@ def get_compose_services(app_id):
     non-compose apps or when the base compose can't be read.
     """
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_access_app(user, app):
@@ -717,7 +724,7 @@ def list_app_grants(app_id):
     """List who has been granted access to this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if user.role != 'admin' and app.user_id != user.id:
@@ -732,7 +739,7 @@ def grant_app_access(app_id):
     """Grant a user access to this app (owner-or-admin). Body: {user_id, role?}."""
     from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if user.role != 'admin' and app.user_id != user.id:
@@ -760,7 +767,7 @@ def revoke_app_access(app_id, grant_id):
     """Revoke a grant on this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if user.role != 'admin' and app.user_id != user.id:
@@ -832,6 +839,9 @@ def create_app_from_repository():
     else:
         return jsonify({'error': 'port must be a number'}), 400
 
+    # NOT query_active: a tombstone keeps reserving its name (and, below, its
+    # directory under APPS_DIR). Letting a new app take the name of one sitting
+    # in the recycle bin would make the restore collide.
     if Application.query.filter_by(name=name, server_id=None).first():
         return jsonify({'error': f'An application named "{name}" already exists'}), 400
 
@@ -992,6 +1002,9 @@ def create_app_from_repository():
         db.session.rollback()
         if app.id:
             GitService.remove_deployment(app.id)
+            # Unwinding a create that failed, not deleting an app someone made:
+            # a hard delete (no query_active, no tombstone) is what belongs
+            # here — a half-created service must not land in the recycle bin.
             existing_app = Application.query.get(app.id)
             if existing_app:
                 db.session.delete(existing_app)
@@ -1113,6 +1126,8 @@ def create_manual_app():
             return jsonify({'error': 'docker-compose.yml not found and no compose_file provided'}), 400
         compose_file = 'docker-compose.yml'
 
+    # NOT query_active: a tombstone keeps reserving its name so a restore can't
+    # collide with an app created in the meantime.
     if Application.query.filter_by(name=name).first():
         return jsonify({'error': f'An application named "{name}" already exists'}), 400
 
@@ -1185,8 +1200,15 @@ def upload_app_archive():
     if ws_id is None:
         ws_id = WorkspaceService.ensure_default_workspace().id
 
-    existing = Application.query.filter_by(name=name).first()
-    is_update = existing is not None and existing.source == 'upload'
+    # The name lookup serves two purposes and a tombstone answers them
+    # differently. It still RESERVES the name (so the unfiltered fallback), but
+    # it is never the row an upload updates in place: that path extracts a new
+    # version over the app's storage and compose_up's it, which would resurrect
+    # an app the user deleted. Ask for the live row first so a tombstone can
+    # never shadow it; a tombstone-only hit falls through to "already exists".
+    existing = (Application.query_active().filter_by(name=name).first()
+                or Application.query.filter_by(name=name).first())
+    is_update = existing is not None and existing.is_active and existing.source == 'upload'
 
     temp_dir = os.path.join(paths.SERVERKIT_CACHE_DIR, 'uploads')
     os.makedirs(temp_dir, exist_ok=True)
@@ -1299,7 +1321,7 @@ def get_app_versions(app_id):
     """List versions for an uploaded app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1325,7 +1347,7 @@ def rollback_app_version(app_id):
     """Roll an uploaded app back to a previous version."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1375,7 +1397,7 @@ def rollback_app_version(app_id):
 def update_app(app_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1425,12 +1447,26 @@ def update_app(app_id):
 @apps_bp.route('/<int:app_id>', methods=['DELETE'])
 @jwt_required()
 def delete_app(app_id):
-    import shutil
-    from app.services.nginx_service import NginxService
+    """Soft-delete an app: stop it serving, keep the record and the data.
+
+    What used to happen here — compose_down(volumes=True) and rmtree of the
+    uploaded source — has moved to the PURGE hook. Doing it here while keeping
+    a tombstone would put a Restore button next to a row whose data had already
+    been destroyed. The reversible half (containers down, vhost removed,
+    firewall closed, cron suspended) still happens now; see
+    services/application_restore.py.
+
+    `?purge=true` is the escape hatch for "I do not want this in the bin",
+    and it runs the irreversible half immediately.
+    """
+    from app.services import application_restore, recycle_bin_service
 
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    # query_active: deleting something already in the bin is a 404, not a
+    # second delete that would re-stamp deleted_at and restart the retention
+    # clock on a row the user cannot even see on this page.
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1438,70 +1474,28 @@ def delete_app(app_id):
     if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
 
-    cleanup_results = {
-        'docker': None,
-        'folder': None,
-        'nginx': None
-    }
+    purge_now = str(request.args.get('purge', '')).lower() in ('1', 'true', 'yes')
 
-    # Appliance tier (plan 35): close any public firewall ports this app opened
-    # so a delete leaves no orphaned holes in the firewall.
-    try:
-        from app.services.app_port_service import AppPortService
-        declared_ports = AppPortService.get_ports(app)
-        if declared_ports:
-            cleanup_results['firewall'] = AppPortService.close_firewall(declared_ports)
-    except Exception as e:
-        cleanup_results['firewall'] = {'error': str(e)}
+    cleanup_results = application_restore.suspend_application(app, user_id=current_user_id)
 
-    # For Docker apps, stop and remove containers (and, by default, volumes).
-    #
-    # Database engines are the exception: destroying the data volume is the one
-    # irreversible part of an uninstall, so an app installed from a template
-    # carrying an `engine:` block KEEPS its volumes unless the caller explicitly
-    # asks for `?remove_data=true`. Everything else keeps the historic
-    # volumes=True default. `?remove_data=` (or `?volumes=`) overrides either way.
-    remove_data = _remove_data_flag(app)
-    if app.app_type == 'docker' and app.root_path:
-        try:
-            # Stop and remove containers, networks, and (optionally) volumes
-            result = DockerService.compose_down(
-                app.root_path,
-                volumes=remove_data,
-                remove_orphans=True,
-                compose_file=_local_compose_file(app)
-            )
-            cleanup_results['docker'] = result
-            cleanup_results['data_volumes_removed'] = remove_data
-        except Exception as e:
-            cleanup_results['docker'] = {'error': str(e)}
-
-        # Delete the app folder only for ServerKit-managed uploads.
-        # Manual apps point at existing paths that must not be removed.
-        try:
-            if app.source == 'upload' and app.root_path and app.root_path.startswith(paths.APPS_DIR):
-                app_storage = get_app_storage_dir(app.name)
-                if os.path.exists(app_storage):
-                    shutil.rmtree(app_storage)
-                    cleanup_results['folder'] = {'success': True}
-        except Exception as e:
-            cleanup_results['folder'] = {'error': str(e)}
-
-    # Remove nginx site config
-    try:
-        NginxService.disable_site(app.name)
-        NginxService.delete_site(app.name)
-        cleanup_results['nginx'] = {'success': True}
-    except Exception as e:
-        cleanup_results['nginx'] = {'error': str(e)}
-
-    # Delete from database
-    db.session.delete(app)
-    db.session.commit()
+    if purge_now:
+        # Carry the caller's data intent into the purge hook. Without this a
+        # `?purge=true&remove_data=false` -- and every database-engine uninstall,
+        # which defaults to preserving its volumes -- would lose the data the
+        # flag exists to protect.
+        app._purge_remove_data = _remove_data_flag(app)
+        ok, warning = recycle_bin_service.purge('application', app.id)
+        return jsonify({
+            'message': 'Application deleted permanently',
+            'purged': ok,
+            'cleanup': cleanup_results,
+            'warning': warning,
+        }), 200
 
     return jsonify({
-        'message': 'Application deleted successfully',
-        'cleanup': cleanup_results
+        'message': 'Application moved to the recycle bin',
+        'recycle_bin': True,
+        'cleanup': cleanup_results,
     }), 200
 
 
@@ -1510,7 +1504,7 @@ def delete_app(app_id):
 def start_app(app_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1568,7 +1562,7 @@ def apply_image_update(app_id):
     """Pull the newest image for a compose-managed app and recreate it."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1621,7 +1615,7 @@ def apply_image_update(app_id):
 @jwt_required()
 def get_sleep_policy(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_access_app(user, app):
@@ -1633,7 +1627,7 @@ def get_sleep_policy(app_id):
 @jwt_required()
 def update_sleep_policy(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1648,7 +1642,7 @@ def update_sleep_policy(app_id):
 @jwt_required()
 def sleep_app(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1663,7 +1657,7 @@ def sleep_app(app_id):
 @jwt_required()
 def wake_app(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1721,7 +1715,7 @@ def _parse_docker_stats(stats):
 def get_app_resources(app_id):
     """The app's configured CPU/memory limits plus best-effort live usage."""
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_access_app(user, app):
@@ -1754,7 +1748,7 @@ def update_app_resources(app_id):
     saved and take effect on the next restart/redeploy.
     """
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1811,7 +1805,7 @@ def set_micro_cache(app_id):
     takes effect on first publish.
     """
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1860,7 +1854,7 @@ def purge_micro_cache(app_id):
     is near-harmless, and no nginx reload is needed.
     """
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1881,7 +1875,7 @@ def purge_micro_cache(app_id):
 @jwt_required()
 def get_scale_policy(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_access_app(user, app):
@@ -1893,7 +1887,7 @@ def get_scale_policy(app_id):
 @jwt_required()
 def update_scale_policy(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1907,7 +1901,7 @@ def update_scale_policy(app_id):
 @jwt_required()
 def scale_app(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1925,7 +1919,7 @@ def scale_app(app_id):
 @jwt_required()
 def evaluate_scale(app_id):
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_edit_app(user, app):
@@ -1951,7 +1945,7 @@ def scale_sweep():
 def stop_app(app_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1990,7 +1984,7 @@ def stop_app(app_id):
 def restart_app(app_id):
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2036,7 +2030,7 @@ def get_app_related(app_id):
     whole card.
     """
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if not _can_access_app(user, app):
@@ -2089,7 +2083,7 @@ def get_app_logs(app_id):
     """Get logs for a specific application."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2146,7 +2140,7 @@ def get_container_logs(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2251,7 +2245,7 @@ def get_app_containers(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2274,7 +2268,7 @@ def get_app_status(app_id):
     """Get real-time status for a Docker application."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2367,7 +2361,7 @@ def get_app_status(app_id):
 def _load_app_for_backup(app_id, edit=False):
     """Load an app the current user may access (or edit). Returns (app, error)."""
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)
     allowed = _can_edit_app(user, app) if edit else _can_access_app(user, app)

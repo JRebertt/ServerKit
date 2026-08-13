@@ -66,7 +66,8 @@ class ContainerSleepService:
 
     @classmethod
     def sleep_app(cls, application_id):
-        app = Application.query.get(application_id)
+        # query_active: this stops containers — never touch a tombstoned app.
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         result = cls._stop(app)
@@ -81,7 +82,9 @@ class ContainerSleepService:
 
     @classmethod
     def wake_app(cls, application_id):
-        app = Application.query.get(application_id)
+        # query_active: waking a deleted app would restart the very containers
+        # the delete tore down.
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         result = cls._start(app)
@@ -102,7 +105,12 @@ class ContainerSleepService:
         now = datetime.utcnow()
         slept = []
         policies = ContainerSleepPolicy.query.filter_by(enabled=True, asleep=False).all()
+        # Policies outlive a soft-deleted app; without this the scheduler keeps
+        # running compose_down against a deleted app forever.
+        dead = Application.deleted_ids()
         for policy in policies:
+            if policy.application_id in dead:
+                continue
             if not policy.last_activity_at:
                 continue   # no activity baseline yet — never sleep blind
             if now - policy.last_activity_at < timedelta(minutes=policy.idle_timeout_minutes):

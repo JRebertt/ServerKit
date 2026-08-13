@@ -999,7 +999,9 @@ class BackupService:
 
             elif backup_type == 'application':
                 from app.models import Application
-                app = Application.query.filter_by(name=target).first()
+                # Name-keyed and fires every 30s: a tombstone sharing the name
+                # would shadow the live app and the wrong one gets backed up.
+                app = Application.query_active().filter_by(name=target).first()
                 if app:
                     result = cls.backup_application(app.name, app.root_path, correlation_id=correlation_id)
                 else:

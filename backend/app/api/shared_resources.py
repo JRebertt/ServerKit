@@ -74,10 +74,11 @@ def _resolve_app(resource_type, resource_id):
     except (TypeError, ValueError):
         return None
     if resource_type == 'application':
-        return Application.query.get(rid)
+        return Application.query_active().filter_by(id=rid).first()
     if resource_type == 'wordpress':
         site = WordPressSite.query.get(rid)
-        return Application.query.get(site.application_id) if site else None
+        return (Application.query_active().filter_by(id=site.application_id).first()
+                if site else None)
     return None
 
 

@@ -108,7 +108,10 @@ class FileIntegrityService:
         else:
             app_id = int(_APP_SCOPE_RE.match(scope).group(1))
             from app.models.application import Application
-            application = Application.query.get(app_id)
+            # query_active: this root is what the sweep walks, hashes and
+            # notifies on. A baseline outlives the app, so a deleted one must
+            # fail to resolve rather than hand back a docroot purge removed.
+            application = Application.query_active().filter_by(id=app_id).first()
             if not application:
                 raise FileIntegrityScopeError(f'Application {app_id} not found')
             roots = [application.root_path] if application.root_path else []
@@ -394,6 +397,9 @@ class FileIntegrityService:
         if optins:
             try:
                 from app.models.application import Application
+                # Deliberately NOT query_active: this is only a label map, so a
+                # stale opt-in still renders its name. Liveness is enforced in
+                # _scope_roots, which leaves the scope unavailable.
                 for application in Application.query.filter(Application.id.in_(optins)).all():
                     app_names[application.id] = application.name
             except Exception:

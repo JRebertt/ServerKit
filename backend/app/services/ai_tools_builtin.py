@@ -60,7 +60,9 @@ def list_applications() -> list:
         A list of apps with name, status, type, and port.
     """
     from app.models.application import Application
-    return [a.to_dict() for a in Application.query.all()]
+    # The assistant answers questions about what is RUNNING; a deleted app in
+    # its context would be reported as though it still existed.
+    return [a.to_dict() for a in Application.query_active().all()]
 
 
 def list_servers() -> list:

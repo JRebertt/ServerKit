@@ -361,6 +361,9 @@ class PreviewService:
             app = None
             try:
                 from app.models import Application
+                # Deliberately NOT query_active: this is the teardown path, and
+                # a deleted app's previews still have to be torn down. Scoping
+                # it here would leak the WordPress preview instance.
                 app = Application.query.get(preview.application_id)
             except Exception:
                 pass
@@ -402,7 +405,9 @@ class PreviewService:
 
         try:
             from app.models import Application
-            app = Application.query.get(application_id)
+            # query_active: syncing provisions preview infra (domains,
+            # containers) — never for a deleted app.
+            app = Application.query_active().filter_by(id=application_id).first()
             if not app:
                 return {'error': 'application not found'}
 
@@ -474,7 +479,9 @@ class PreviewService:
     def _job_create(cls, job):
         from app.models import Application
         payload = job.get_payload() or {}
-        app = Application.query.get(payload.get('application_id'))
+        # query_active: a queued preview job can outlive its app.
+        app = Application.query_active().filter_by(
+            id=payload.get('application_id')).first()
         if not app:
             return {'error': 'application not found'}
         return cls.create_preview(app, payload.get('pr') or payload)

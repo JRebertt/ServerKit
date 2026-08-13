@@ -26,7 +26,7 @@ def _get_app_or_404(app_id, write=False):
     """Resolve the app and enforce per-app access (plan 29 #9). ``write`` requires
     can_edit_app (owner/admin/editor); otherwise can_access_app. A caller without
     the needed tier gets a 403 (the resource itself exists)."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)
     user = get_current_user()

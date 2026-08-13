@@ -603,7 +603,11 @@ def cleanup_all_apps():
     results = []
 
     # Get all apps from database
-    docker_apps = Application.query.filter_by(app_type='docker').all()
+    # query_active: this loop runs compose_down(volumes=True), rmtree(root_path)
+    # and a HARD db.session.delete. Over tombstones it would destroy the data a
+    # soft delete deliberately kept and empty the Recycle Bin as a side effect of
+    # a Docker cleanup. Purging a deleted app is the bin's job, not this one's.
+    docker_apps = Application.query_active().filter_by(app_type='docker').all()
 
     for app in docker_apps:
         app_result = {'name': app.name, 'success': True, 'steps': []}

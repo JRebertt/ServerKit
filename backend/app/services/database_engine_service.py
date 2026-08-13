@@ -98,7 +98,7 @@ def engine_catalog() -> List[Dict]:
     from app.models import Application
 
     counts: Dict[str, List[int]] = {}
-    for app in Application.query.all():
+    for app in Application.query_active().all():
         template_id = app_template_id(app)
         if template_id:
             counts.setdefault(template_id, []).append(app.id)
@@ -129,7 +129,7 @@ def installed_engines(live_status: bool = True) -> List[Dict]:
     from app.models import Application
 
     results = []
-    for app in Application.query.order_by(Application.created_at.asc()).all():
+    for app in Application.query_active().order_by(Application.created_at.asc()).all():
         template_id = app_template_id(app)
         if not template_id:
             continue
@@ -202,6 +202,8 @@ def default_instance_name(template_id: str) -> str:
     from app.models import Application
 
     base = _slug(template_id) or 'engine'
+    # Deliberately unfiltered: a soft-deleted app must KEEP reserving its name,
+    # or a new instance takes it and restoring from the recycle bin collides.
     taken = {a.name for a in Application.query.all()}
     if base not in taken:
         return base

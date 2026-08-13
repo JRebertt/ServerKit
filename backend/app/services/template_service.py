@@ -1090,6 +1090,8 @@ class TemplateService:
         used_ports = set()
         try:
             from app.models import Application
+            # Deliberately unfiltered: a soft-deleted app must KEEP reserving its
+            # port, or a new app takes it and restoring from the recycle bin collides.
             apps = Application.query.filter(Application.port.isnot(None)).all()
             for app in apps:
                 if app.port:
@@ -2240,7 +2242,7 @@ class TemplateService:
         if not installed:
             return {'success': False, 'error': 'App not installed from template'}
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -2381,8 +2383,8 @@ class TemplateService:
         """
         from app.models import Application
 
-        source_app = Application.query.get(source_app_id)
-        target_app = Application.query.get(target_app_id)
+        source_app = Application.query_active().filter_by(id=source_app_id).first()
+        target_app = Application.query_active().filter_by(id=target_app_id).first()
 
         if not source_app or not target_app:
             return {'success': False, 'error': 'App not found'}

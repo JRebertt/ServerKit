@@ -178,17 +178,21 @@ class TestBuiltins:
         assert 'builtin.security_feed' in kinds
         assert 'builtin.job_retention' in kinds
         assert 'builtin.monitor_check' in kinds
-        assert len([k for k in kinds if k.startswith('builtin.')]) == 13
+        # Reclaims the disk a soft delete no longer frees: an Application
+        # tombstone holds its data volumes and source tree until purge, and
+        # nothing else calls purge_expired on a schedule.
+        assert 'builtin.recycle_retention' in kinds
+        assert len([k for k in kinds if k.startswith('builtin.')]) == 14
 
         builtin_handlers.seed_builtin_schedules()
-        # 13 builtin.* schedules (incl. job-retention, the monitor sweep and the
-        # security-feed check) +
+        # 14 builtin.* schedules (incl. job-retention, the monitor sweep, the
+        # security-feed check and the recycle-bin retention sweep) +
         # login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host doctor
         # sweep (plan 26) + the setup-health nag (plan 22).
-        assert ScheduledJob.query.count() == 20
+        assert ScheduledJob.query.count() == 21
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 20
+        assert ScheduledJob.query.count() == 21
 
 
 class TestApi:

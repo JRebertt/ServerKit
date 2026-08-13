@@ -108,13 +108,15 @@ class EnvReferenceResolver:
         if managed is not None:
             return cls._db_property(managed, prop)
 
-        # app sibling (Application by name within the project)
+        # app sibling (Application by name within the project). Name-keyed, so a
+        # tombstone sharing the name would shadow the live app and the wrong
+        # app's host/port/secrets would get baked into a live container's env.
         from app.models.application import Application
         sibling = None
         if project_id is not None:
-            sibling = Application.query.filter_by(project_id=project_id, name=service_name).first()
+            sibling = Application.query_active().filter_by(project_id=project_id, name=service_name).first()
         if sibling is None:
-            sibling = Application.query.filter_by(name=service_name).first()
+            sibling = Application.query_active().filter_by(name=service_name).first()
         if sibling is not None:
             return cls._app_property(sibling, service_name, prop)
 

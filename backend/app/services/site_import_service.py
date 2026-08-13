@@ -463,6 +463,9 @@ class SiteImportService:
         raw_name = (options.get('app_name') or primary.get('domain')
                     or analysis.get('account_user') or f'imported-{imp.id}')
         name = slugify(raw_name)[:100] or f'imported-{imp.id}'
+        # Unfiltered on purpose: a tombstoned app keeps reserving its name and
+        # its APPS_DIR/<name> directory until purge, so reusing the name here
+        # would collide with the files a restore expects to find.
         if Application.query.filter_by(name=name).first():
             name = f'{name}-{imp.id}'
 
@@ -507,7 +510,8 @@ class SiteImportService:
             return ctx['app']
         from app.models import Application
         app_id = ctx['result'].get('app_id') or imp.get_result().get('app_id')
-        application = Application.query.get(app_id) if app_id else None
+        application = (Application.query_active().filter_by(id=app_id).first()
+                       if app_id else None)
         if not application:
             raise SiteImportError('Imported application row not found — '
                                   "retry from step 'create_app'")

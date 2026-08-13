@@ -20,7 +20,7 @@ def get_deploy_config(app_id):
     """Get deployment configuration for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -43,7 +43,7 @@ def get_deploy_config(app_id):
 @admin_required
 def configure_deployment(app_id):
     """Configure Git deployment for an app."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
@@ -82,7 +82,7 @@ def trigger_deploy(app_id):
     """Trigger a deployment."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -102,7 +102,7 @@ def pull_changes(app_id):
     """Pull latest changes without running deploy scripts."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -122,7 +122,7 @@ def get_git_status(app_id):
     """Get Git status for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -140,7 +140,7 @@ def get_commit_info(app_id):
     """Get current commit info for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -165,7 +165,7 @@ def get_deployment_history():
     limit = request.args.get('limit', 50, type=int)
 
     if app_id:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:
@@ -215,7 +215,7 @@ def get_branches(app_id):
     """Get list of remote branches for an app's repository."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -250,7 +250,7 @@ def get_webhook_logs():
     limit = request.args.get('limit', 50, type=int)
 
     if app_id:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:

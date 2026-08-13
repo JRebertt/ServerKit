@@ -29,7 +29,7 @@ def get_build_config(app_id):
     """Get build configuration for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -49,7 +49,7 @@ def get_build_config(app_id):
 @admin_required
 def configure_build(app_id):
     """Configure build settings for an app."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
@@ -95,7 +95,7 @@ def detect_build_method(app_id):
     """Auto-detect build method for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -113,7 +113,7 @@ def get_nixpacks_plan(app_id):
     """Get Nixpacks build plan for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -133,7 +133,7 @@ def trigger_build(app_id):
     """Trigger a build for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -154,7 +154,7 @@ def get_build_logs(app_id):
     """Get build log history for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -173,7 +173,7 @@ def get_build_log_detail(app_id, timestamp):
     """Get detailed build log including output."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -210,7 +210,7 @@ def deploy_app(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -253,7 +253,7 @@ def get_deployments(app_id):
     """Get deployment history for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -284,7 +284,9 @@ def get_deployment(deployment_id):
     if not deployment:
         return jsonify({'error': 'Deployment not found'}), 404
 
-    app = Application.query.get(deployment.app_id)
+    app = Application.query_active().filter_by(id=deployment.app_id).first()
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
     if not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
@@ -303,7 +305,9 @@ def get_deployment_diff(deployment_id):
     if not deployment:
         return jsonify({'error': 'Deployment not found'}), 404
 
-    app = Application.query.get(deployment.app_id)
+    app = Application.query_active().filter_by(id=deployment.app_id).first()
+    if not app:
+        return jsonify({'error': 'Application not found'}), 404
     if not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
 
@@ -321,7 +325,7 @@ def rollback(app_id):
     """Rollback to a previous deployment."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -347,7 +351,7 @@ def get_current_deployment(app_id):
     """Get the currently live deployment."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404

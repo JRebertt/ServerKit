@@ -7,13 +7,36 @@ from app import db
 # FK targets resolvable regardless of import order.
 from app.models import project as _project  # noqa: F401
 from app.models import environment as _environment  # noqa: F401
+from app.models.mixins import SoftDeleteMixin
 from app.utils.ingress import (
     default_ingress_plane as _default_ingress_plane,
     proxy_eligible as _proxy_eligible,
 )
 
 
-class Application(db.Model):
+class Application(SoftDeleteMixin, db.Model):
+    """A managed app.
+
+    SOFT DELETED (plan 70). `Application.query` therefore returns TOMBSTONES —
+    read `query_active()` anywhere you mean "an app that still exists". That
+    distinction is not cosmetic here: this model drives nginx vhosts, container
+    lifecycles, DNS, backups and outbound registry calls, and the equivalent
+    oversight on `Domain` produced a WordPress search-replace to a dead host and
+    real ACME orders.
+
+    Two rules specific to this model:
+
+    * **Sibling tables are the sharp edge.** `ContainerSleepPolicy`,
+      `BackupPolicy`, `DeploymentJob` and `WafPolicy` are enumerated on a
+      SCHEDULE and resolve the app afterwards, so they never appear in a search
+      for `Application.query`. Each of those sweeps joins on liveness; see
+      `deleted_app_ids()`.
+    * **A soft delete keeps the files.** Stopping containers and unpublishing
+      the vhost is reversible, so it happens on delete; removing data volumes
+      and the uploaded source is not, so it waits for purge. See
+      `application_restore.on_purge_application`.
+    """
+
     __tablename__ = 'applications'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -75,7 +98,12 @@ class Application(db.Model):
     upload_path = db.Column(db.String(500), nullable=True)
 
     # Private URL feature
-    private_slug = db.Column(db.String(50), unique=True, nullable=True, index=True)
+    # NOT `unique=True`: the uniqueness is a PARTIAL index predicated on
+    # `deleted_at IS NULL` (migration 084), so a tombstone releases its slug and
+    # deleting an app does not burn `/p/<slug>` forever. Same shape as
+    # Domain.name. A column-level unique here would re-impose the burn on any
+    # database built from the models.
+    private_slug = db.Column(db.String(50), nullable=True, index=True)
     private_url_enabled = db.Column(db.Boolean, default=False)
 
     # Opt-in nginx micro-cache (task #21): short-TTL page cache emitted into
@@ -120,6 +148,24 @@ class Application(db.Model):
     # backref/cascade — these only exist so an app row can show where it lives.
     project = db.relationship('Project', foreign_keys=[project_id], viewonly=True)
     environment = db.relationship('Environment', foreign_keys=[environment_id], viewonly=True)
+
+    @classmethod
+    def deleted_ids(cls):
+        """Ids of every tombstoned app, as a set.
+
+        For the sweeps that DO NOT start from Application — `ContainerSleepPolicy`,
+        `BackupPolicy`, `DeploymentJob`, `WafPolicy` — which enumerate their own
+        table on a schedule and resolve `application_id` afterwards. Those never
+        appear in a search for `Application.query`, which is exactly how they
+        would keep acting on a deleted app: waking its containers, running its
+        backups, executing its queued deploys.
+
+        A set, not a join: each of those sweeps is already written as "select my
+        rows, then loop", and a set membership test drops into that loop without
+        restructuring the query. The table is small enough that the cost is
+        nothing next to the docker/restic work the loop is about to do.
+        """
+        return {row.id for row in cls.query_deleted().with_entities(cls.id).all()}
 
     @property
     def live_domains(self):

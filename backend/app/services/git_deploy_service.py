@@ -38,7 +38,9 @@ class GitDeployService:
         from app.models import Application, GitWebhook, GitDeployment
         from app.services.docker_service import DockerService
 
-        app = Application.query.get(app_id)
+        # query_active: a webhook can still fire for a deleted app — this pulls
+        # code and rebuilds/restarts containers, so a tombstone must not deploy.
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -176,7 +178,7 @@ class GitDeployService:
         from app.models import Application, GitDeployment
         from app.services.docker_service import DockerService
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -313,7 +315,7 @@ class GitDeployService:
         """Trigger a manual deployment."""
         from app.models import Application, GitWebhook
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 

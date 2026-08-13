@@ -1,0 +1,265 @@
+"""A deleted application must stop being an application.
+
+Making Application soft-deletable silently changed the meaning of every
+existing `Application.query`: before, it could only return live rows. Domain
+went through this and TEN read paths were wrong, four with effects outside the
+panel. Application has 13x the call sites and drives more: container
+lifecycles, nginx, backups, registry pulls, the OS crontab.
+
+These pin the behaviours where a leaked tombstone is a real, externally-visible
+bug rather than a cosmetic one, plus the promise that makes the tombstone worth
+keeping at all: that a restore gives you a working app back.
+"""
+import os
+
+import pytest
+
+from app import db
+from app.models import Application, Domain
+from app.services import application_restore, recycle_bin_service
+from app.services.cron_service import CronService
+
+
+@pytest.fixture
+def live_app(app):
+    with app.app_context():
+        row = Application(name='shop', app_type='docker', port=8001, user_id=1,
+                          root_path='/srv/apps/shop', source='upload',
+                          private_slug='shop', private_url_enabled=True)
+        db.session.add(row)
+        db.session.commit()
+        yield row
+
+
+@pytest.fixture
+def dead_app(app, live_app):
+    with app.app_context():
+        row = Application.query.get(live_app.id)
+        row.soft_delete(user_id=1)
+        db.session.commit()
+        yield row
+
+
+# ---------------------------------------------------------------- the basics
+
+def test_soft_delete_keeps_the_row_but_query_active_hides_it(app, dead_app):
+    with app.app_context():
+        assert Application.query.get(dead_app.id) is not None
+        assert Application.query_active().filter_by(id=dead_app.id).first() is None
+
+
+def test_a_tombstone_is_offered_by_the_recycle_bin(app, dead_app):
+    with app.app_context():
+        kinds = [i['kind'] for i in recycle_bin_service.list_deleted()]
+        assert 'application' in kinds
+
+
+def test_deleted_ids_is_what_the_sibling_sweeps_read(app, dead_app, live_app):
+    """ContainerSleepPolicy/BackupPolicy/DeploymentJob enumerate their OWN table
+    and resolve application_id afterwards, so they never appear in a search for
+    Application.query. This set is how those loops skip a deleted app."""
+    with app.app_context():
+        dead = Application.deleted_ids()
+        assert dead_app.id in dead
+
+
+# ------------------------------------------------- the promise of a tombstone
+
+def test_a_deleted_app_frees_its_private_slug(app, dead_app):
+    """The partial unique index is what lets the slug be reused; without it the
+    delete would burn `/p/<slug>` forever and 'you can get it back' would be a
+    lie about the URL."""
+    with app.app_context():
+        twin = Application(name='shop2', app_type='docker', port=8002, user_id=1,
+                           private_slug='shop')
+        db.session.add(twin)
+        db.session.commit()          # must not raise
+        assert twin.id != dead_app.id
+
+
+def test_restore_is_refused_when_the_slug_was_taken_again(app, dead_app):
+    """Reachable precisely BECAUSE the delete frees the slug — so it has to be
+    a readable refusal, not an IntegrityError at commit."""
+    with app.app_context():
+        db.session.add(Application(name='shop2', app_type='docker', port=8002,
+                                   user_id=1, private_slug='shop'))
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('application', dead_app.id)
+        assert item is None
+        assert 'private URL' in err
+        # A refused restore must not half-apply.
+        assert Application.query.get(dead_app.id).deleted_at is not None
+
+
+def test_restore_is_refused_when_the_name_was_reused(app, dead_app, monkeypatch):
+    """Two live apps with one name means one vhost filename for two apps, and
+    whichever writes last wins."""
+    monkeypatch.setattr(os.path, 'exists', lambda _p: True)
+    with app.app_context():
+        db.session.add(Application(name='shop', app_type='docker', port=8002, user_id=1))
+        db.session.commit()
+
+        item, err = recycle_bin_service.restore('application', dead_app.id)
+        assert item is None
+        assert 'created again' in err
+
+
+def test_restore_is_refused_when_the_files_are_gone(app, dead_app):
+    """Restoring the record without its files gives an app with nothing to
+    serve — say so instead of handing back a broken row."""
+    with app.app_context():
+        item, err = recycle_bin_service.restore('application', dead_app.id)
+        assert item is None
+        assert 'files are gone' in err
+
+
+# ------------------------------------------------------- delete vs purge line
+
+def test_soft_delete_never_removes_volumes(app, live_app, monkeypatch):
+    """THE line that makes the tombstone honest. compose_down(volumes=True) on
+    the delete path would destroy the data the Restore button is promising."""
+    calls = []
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: calls.append(kw) or {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'suspend_for_application',
+                        classmethod(lambda cls, _id: 0))
+
+    with app.app_context():
+        row = Application.query.get(live_app.id)
+        application_restore.suspend_application(row, user_id=1)
+
+    assert calls, 'compose_down should still run — the app must stop serving'
+    assert all(kw.get('volumes') is False for kw in calls), \
+        'a soft delete must keep the volumes; they go at purge'
+
+
+def test_purge_is_what_removes_the_volumes(app, dead_app, monkeypatch):
+    calls = []
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: calls.append(kw) or {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'clear_application',
+                        classmethod(lambda cls, _id: 0))
+
+    with app.app_context():
+        ok, warning = recycle_bin_service.purge('application', dead_app.id)
+        assert ok
+        # Assert NO warning, not just success. _run_purge_hook swallows anything
+        # the hook raises so a failed cleanup cannot block the purge -- which
+        # means a plain `assert ok` passes even when the cleanup did nothing at
+        # all. A bad import inside the hook hid exactly that during development:
+        # volumes never reclaimed, source never removed, purge still "fine".
+        assert warning is None, warning
+        assert Application.query.get(dead_app.id) is None
+
+    assert calls and calls[0].get('volumes') is True
+
+
+def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch):
+    """Database engines default to preserving their volumes — losing the data is
+    the only irreversible part of that uninstall."""
+    calls = []
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: calls.append(kw) or {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'clear_application',
+                        classmethod(lambda cls, _id: 0))
+
+    with app.app_context():
+        row = Application.query.get(dead_app.id)
+        row._purge_remove_data = False
+        application_restore.on_purge_application(row)
+
+    assert calls and calls[0].get('volumes') is False
+
+
+def test_a_failing_purge_hook_still_purges(app, dead_app):
+    """The caller has said twice that they want the row gone; a directory that
+    will not delete is not a reason to keep the record."""
+    # Re-register with a throwing hook, and put the real registration back in a
+    # finally. _REGISTRY is module-level global state that outlives monkeypatch,
+    # so leaving a broken hook in it silently breaks every LATER test in the
+    # session -- which is exactly what happened: a purge test two files away
+    # started failing only when this one ran first.
+    def _boom(_row):
+        raise RuntimeError('disk busy')
+
+    recycle_bin_service.register(
+        'application', Application, noun='application',
+        label=lambda a: a.name, on_purge=_boom,
+    )
+    try:
+        with app.app_context():
+            ok, warning = recycle_bin_service.purge('application', dead_app.id)
+            assert ok
+            assert 'cleanup failed' in warning
+            assert Application.query.get(dead_app.id) is None
+    finally:
+        recycle_bin_service.register_builtin_types()
+
+
+# -------------------------------------------------------------------- cron
+
+def test_soft_delete_suspends_only_the_jobs_that_were_enabled(app, monkeypatch):
+    """The OS crontab does not know the app is in the bin, so the jobs have to
+    be actively disabled — and ONLY the ones that were on, or a restore would
+    re-enable jobs the user had deliberately turned off."""
+    store = {'jobs': {
+        'a': {'application_id': 7, 'enabled': True, 'command': 'x', 'schedule': '* * * * *'},
+        'b': {'application_id': 7, 'enabled': False, 'command': 'y', 'schedule': '* * * * *'},
+        'c': {'application_id': 9, 'enabled': True, 'command': 'z', 'schedule': '* * * * *'},
+    }}
+    monkeypatch.setattr(CronService, '_load_jobs_metadata', classmethod(lambda cls: store))
+    monkeypatch.setattr(CronService, '_save_jobs_metadata', classmethod(lambda cls, d: None))
+    monkeypatch.setattr(CronService, 'is_linux', classmethod(lambda cls: False))
+
+    assert CronService.suspend_for_application(7) == 1
+    assert store['jobs']['a']['suspended_by_app'] is True
+    assert store['jobs']['b'].get('suspended_by_app') is not True   # was already off
+    assert store['jobs']['c'].get('suspended_by_app') is not True   # different app
+
+
+def test_restore_resumes_exactly_what_the_delete_suspended(app, monkeypatch):
+    store = {'jobs': {
+        'a': {'application_id': 7, 'enabled': False, 'suspended_by_app': True,
+              'command': 'x', 'schedule': '* * * * *'},
+        'b': {'application_id': 7, 'enabled': False, 'command': 'y', 'schedule': '* * * * *'},
+    }}
+    monkeypatch.setattr(CronService, '_load_jobs_metadata', classmethod(lambda cls: store))
+    monkeypatch.setattr(CronService, '_save_jobs_metadata', classmethod(lambda cls, d: None))
+    monkeypatch.setattr(CronService, 'is_linux', classmethod(lambda cls: False))
+
+    assert CronService.resume_for_application(7) == 1
+    assert store['jobs']['a']['enabled'] is True
+    assert store['jobs']['a']['suspended_by_app'] is False
+    assert store['jobs']['b']['enabled'] is False   # never ours to re-enable
+
+
+def test_clear_application_is_purge_only_and_lossy(app, monkeypatch):
+    """It nulls the link without recording it, which is why the soft-delete path
+    must NOT use it — nothing could put the association back."""
+    store = {'jobs': {'a': {'application_id': 7, 'enabled': True}}}
+    monkeypatch.setattr(CronService, '_load_jobs_metadata', classmethod(lambda cls: store))
+    monkeypatch.setattr(CronService, '_save_jobs_metadata', classmethod(lambda cls, d: None))
+
+    assert CronService.clear_application(7) == 1
+    assert store['jobs']['a']['application_id'] is None
+
+
+# ----------------------------------------------------------- domains cascade
+
+def test_a_tombstoned_app_keeps_its_domains(app, live_app):
+    """delete-orphan on `domains` hard-deletes a child that falls out of the
+    collection. A soft delete is an UPDATE, so nothing should cascade — the
+    domains must survive for the restore to have anything to publish."""
+    with app.app_context():
+        db.session.add(Domain(name='shop.example.com', application_id=live_app.id))
+        db.session.commit()
+
+        row = Application.query.get(live_app.id)
+        row.soft_delete()
+        db.session.commit()
+
+        assert Domain.query.filter_by(application_id=live_app.id).count() == 1

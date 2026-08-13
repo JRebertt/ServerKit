@@ -593,7 +593,7 @@ def get_app_status(application_id, use_cache=True, index: Optional[_ContainerInd
 
     try:
         from app.models import Application
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
     except Exception as e:
         logger.warning('Failed to load application %s: %s', application_id, e)
         app = None
@@ -686,7 +686,9 @@ def list_app_statuses():
     summaries = []
     try:
         from app.models import Application
-        apps = Application.query.all()
+        # query_active: a tombstone has no containers left, so it would emit a
+        # permanently-'unknown' row the socket snapshot could never clear.
+        apps = Application.query_active().all()
     except Exception as e:
         logger.warning('Failed to list applications for status: %s', e)
         return summaries

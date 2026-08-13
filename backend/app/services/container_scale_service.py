@@ -86,7 +86,8 @@ class ContainerScaleService:
 
     @classmethod
     def scale_to(cls, application_id, replicas):
-        app = Application.query.get(application_id)
+        # query_active: this runs `docker compose up --scale` — never on a tombstone.
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         policy = cls.get_or_create_policy(application_id)
@@ -101,7 +102,7 @@ class ContainerScaleService:
 
     @classmethod
     def evaluate(cls, application_id):
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         policy = cls.get_or_create_policy(application_id)
@@ -140,7 +141,12 @@ class ContainerScaleService:
     def sweep(cls):
         """Evaluate every enabled policy. Meant to run periodically."""
         scaled = []
+        # Scale policies outlive a soft-deleted app; skip them rather than
+        # spawning docker/compose probes for an app that no longer exists.
+        dead = Application.deleted_ids()
         for policy in ContainerScalePolicy.query.filter_by(enabled=True).all():
+            if policy.application_id in dead:
+                continue
             result = cls.evaluate(policy.application_id)
             if result.get('action') in ('scaled_up', 'scaled_down'):
                 scaled.append({'application_id': policy.application_id,

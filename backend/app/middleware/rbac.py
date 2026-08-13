@@ -240,7 +240,10 @@ def require_app_member(min_role='viewer', arg='app_id'):
             if not user.is_active:
                 return jsonify({'error': 'Account is deactivated'}), 403
             from app.models.application import Application
-            application = Application.query.get(kwargs.get(arg))
+            # query_active: this decorator is a route guard, and every route
+            # behind it ACTS on the app. A tombstone must 404 here rather than
+            # be handed to the view in g.current_application.
+            application = Application.query_active().filter_by(id=kwargs.get(arg)).first()
             if application is None:
                 return jsonify({'error': 'Not found'}), 404
             tier = app_access_tier(user, application)

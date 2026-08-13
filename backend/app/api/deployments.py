@@ -22,7 +22,7 @@ deployments_bp = Blueprint('deployments', __name__)
 def _access(app_id):
     from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(get_jwt_identity())
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)
     if not ResourceGrantService.can_access_app(user, app):

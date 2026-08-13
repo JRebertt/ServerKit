@@ -60,7 +60,9 @@ class WebhookService:
 
         # Validate app_id if provided
         if app_id:
-            app = Application.query.get(app_id)
+            # query_active(): binding a webhook to a tombstoned app would let a
+            # push fire deploys and outbound callbacks for a deleted app.
+            app = Application.query_active().filter_by(id=app_id).first()
             if not app:
                 return {'success': False, 'error': 'Application not found'}
 
@@ -474,8 +476,14 @@ class WebhookService:
             actions = ['synced']
             deployment_result = None
 
-            # Trigger deployment if configured
-            if webhook.deploy_on_push and webhook.app_id:
+            # Trigger deployment if configured. The liveness check is here and
+            # not only at bind time: a push must not rebuild and restart the
+            # containers of an app that was deleted after the webhook was saved.
+            from app.models import Application
+            deploy_app = (Application.query_active()
+                          .filter_by(id=webhook.app_id).first()
+                          if webhook.app_id else None)
+            if webhook.deploy_on_push and deploy_app:
                 deployment_result = GitDeployService.deploy(
                     app_id=webhook.app_id,
                     webhook_id=webhook.id,

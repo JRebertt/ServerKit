@@ -82,7 +82,9 @@ class ComposeEnvService:
         """The managed Application whose root_path is this project dir, if any."""
         try:
             from app.models.application import Application
-            return Application.query.filter_by(root_path=project_path).first()
+            # Path-keyed: a tombstone whose root_path a new app reused would
+            # shadow the live app and the overlay would be written for the wrong one.
+            return Application.query_active().filter_by(root_path=project_path).first()
         except Exception as e:  # pragma: no cover - DB guard
             logger.debug('compose overlay app lookup failed for %s: %s', project_path, e)
             return None

@@ -25,6 +25,9 @@ def _webhook_visible_to(user, webhook):
     (owner/admin/grant/workspace member — plan 29 #11)."""
     if not getattr(webhook, 'app_id', None):
         return True
+    # Deliberately unfiltered: this gate falls through to "panel-wide visible"
+    # when the app can't be resolved, so hiding tombstones here would WIDEN
+    # access — deleting an app would publish its webhook to every viewer.
     app = Application.query.get(webhook.app_id)
     if app is None:
         return True
@@ -451,7 +454,7 @@ def get_deployment(deployment_id):
     if deployment is None:
         return jsonify({'success': False, 'error': 'Deployment not found'}), 404
 
-    app = Application.query.get(deployment.app_id)
+    app = Application.query_active().filter_by(id=deployment.app_id).first()
     if app is None or app_access_tier(get_current_user(), app) is None:
         return jsonify({'success': False, 'error': 'Access denied'}), 403
 

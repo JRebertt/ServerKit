@@ -28,7 +28,7 @@ DEFAULT_RETENTION_DAYS = 30
 
 
 def register(kind, model, *, label, description=None, on_restore=None,
-             pre_restore=None, noun=None):
+             pre_restore=None, on_purge=None, noun=None):
     """Make a soft-deletable model visible to the Recycle Bin.
 
     `pre_restore(row)` runs BEFORE the tombstone is cleared and returns an error
@@ -37,6 +37,17 @@ def register(kind, model, *, label, description=None, on_restore=None,
     live may hold it by the time you press Restore. Clearing the tombstone then
     violates the index and raises IntegrityError at commit — a 500 for what is
     really a normal, explainable conflict.
+
+    `on_purge(row)` runs just BEFORE the row is destroyed for good, and is where
+    a type puts the work that cannot be undone. Deleting an application stops
+    its containers and unpublishes it — reversible — but removing its data
+    volumes and its uploaded source is not, so that half waits here. Without
+    this hook the bin would be offering to restore a row whose files the delete
+    had already destroyed, which is a promise it cannot keep.
+
+    An exception from `on_purge` must NOT block the purge: the caller asked for
+    the row to go, and a failure to reclaim a directory is not a reason to keep
+    a record they have said twice they do not want.
     """
     if not hasattr(model, 'deleted_at'):
         raise TypeError(f'{model.__name__} does not use SoftDeleteMixin')
@@ -46,6 +57,7 @@ def register(kind, model, *, label, description=None, on_restore=None,
         'description': description,
         'on_restore': on_restore,
         'pre_restore': pre_restore,
+        'on_purge': on_purge,
         'noun': noun or kind.replace('_', ' '),
     }
 
@@ -120,6 +132,22 @@ def restore(kind, record_id):
     return item, None
 
 
+def _run_purge_hook(entry, row):
+    """The type's irreversible cleanup, best-effort.
+
+    Never allowed to block the purge: the caller has now said twice that they
+    want the row gone, and failing to reclaim a directory is not a reason to
+    keep a record against their wishes. Returns a warning string, or None.
+    """
+    if not entry.get('on_purge'):
+        return None
+    try:
+        entry['on_purge'](row)
+        return None
+    except Exception as exc:                            # noqa: BLE001
+        return f'purged, but cleanup failed: {exc}'
+
+
 def purge(kind, record_id):
     """Delete for real. The only irreversible action in this module."""
     entry = _entry(kind)
@@ -128,9 +156,10 @@ def purge(kind, record_id):
         return False, 'not found'
     if row.deleted_at is None:
         return False, 'record is not in the recycle bin'
+    warning = _run_purge_hook(entry, row)
     db.session.delete(row)
     db.session.commit()
-    return True, None
+    return True, warning
 
 
 def purge_expired(retention_days=DEFAULT_RETENTION_DAYS):
@@ -143,6 +172,11 @@ def purge_expired(retention_days=DEFAULT_RETENTION_DAYS):
             entry['model'].deleted_at < cutoff,
         ).all()
         for row in rows:
+            # The retention sweep is the OTHER way a row reaches the end of its
+            # life, so it owes the same cleanup an explicit purge does — without
+            # it, a directory is reclaimed only when someone happens to click
+            # Purge, and never for the 30-day expiry path.
+            _run_purge_hook(entry, row)
             db.session.delete(row)
         if rows:
             counts[kind] = len(rows)
@@ -153,9 +187,25 @@ def purge_expired(retention_days=DEFAULT_RETENTION_DAYS):
 
 def register_builtin_types():
     """Wire the models that ship with the panel. Called from create_app."""
+    from app.models.application import Application
     from app.models.domain import Domain
     from app.models.saved_view import SavedView
+    from app.services.application_restore import (
+        on_purge_application, on_restore_application, pre_restore_application,
+    )
     from app.services.domain_restore import on_restore_domain, pre_restore_domain
+
+    # Applications carry the only on_purge in the registry: a delete stops the
+    # app, a PURGE destroys its volumes and uploaded source. See
+    # application_restore for why that split is what makes the tombstone honest.
+    register(
+        'application', Application, noun='application',
+        label=lambda a: a.name,
+        description=lambda a: (f'{a.app_type} · {a.root_path}' if a.root_path else a.app_type),
+        pre_restore=pre_restore_application,
+        on_restore=on_restore_application,
+        on_purge=on_purge_application,
+    )
 
     register(
         'domain', Domain, noun='domain',

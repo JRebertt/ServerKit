@@ -25,7 +25,7 @@ def check_app_access(app_id, user_id, write=False):
     read-only). Returns ``(user, app, None, None)`` on success or
     ``(None, None, error_response, status)`` on failure."""
     user = User.query.get(user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return None, None, jsonify({'error': 'Application not found'}), 404

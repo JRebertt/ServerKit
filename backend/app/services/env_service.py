@@ -61,7 +61,7 @@ class EnvService:
         as sensitive. Shared resolution is best-effort: if it fails, the app's
         local env vars are still returned so a deploy is never blocked.
         """
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {}
 
@@ -122,7 +122,7 @@ class EnvService:
         valid, error = EnvService.validate_key(key)
         if not valid:
             return None, False, error
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return None, False, 'Application not found'
 
@@ -163,7 +163,7 @@ class EnvService:
         Returns ``{service_name: {key: value}}`` (decrypted). Best-effort — shared
         resolution failures fall back to local vars and never block a deploy.
         """
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app or not service_names:
             return {}
 
@@ -231,7 +231,7 @@ class EnvService:
         norm_target = None if target_service in ('', _UNSET) else target_service
 
         # Check if application exists
-        app = Application.query.get(application_id)
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return None, False, "Application not found"
 

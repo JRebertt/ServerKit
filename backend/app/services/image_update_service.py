@@ -49,7 +49,9 @@ class ImageUpdateService:
 
     @classmethod
     def check_application(cls, application_id):
-        app = Application.query.get(application_id)
+        # query_active: this runs `docker manifest inspect` against the registry
+        # (and a `docker login` when a private registry is bound).
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         image_ref = app.docker_image
