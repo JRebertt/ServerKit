@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { DataTable, KpiBand, MetricCard, Pill } from '@/components/ds';
+import { DataTable, Pill } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -61,6 +61,32 @@ const REMEDIATION_KIND = {
     [REMEDIATION_UNATTENDED]: 'amber',
 };
 
+// Compliance used to be three fleet-wide tiles above the table. They said how
+// many ASSIGNMENTS had drifted but never which template was responsible, which
+// is the only version of the question you can act on — so the same three states
+// are now a per-row column, and the tiles' colours moved onto the pill.
+const COMPLIANCE_COMPLIANT = 'Compliant';
+const COMPLIANCE_DRIFTED = 'Drifted';
+const COMPLIANCE_UNKNOWN = 'Unknown';
+const COMPLIANCE_NONE = 'Not assigned';
+
+const complianceLabel = (tmpl) => {
+    const assigned = tmpl.assignment_count ?? 0;
+    if (assigned === 0) return COMPLIANCE_NONE;
+    // One drifted server makes the template drifted: a partial pass is not a
+    // pass, and the row exists to send you somewhere.
+    if ((tmpl.drifted_count ?? 0) > 0) return COMPLIANCE_DRIFTED;
+    if ((tmpl.compliant_count ?? 0) === assigned) return COMPLIANCE_COMPLIANT;
+    return COMPLIANCE_UNKNOWN;
+};
+
+const COMPLIANCE_KIND = {
+    [COMPLIANCE_COMPLIANT]: 'green',
+    [COMPLIANCE_DRIFTED]: 'red',
+    [COMPLIANCE_UNKNOWN]: 'amber',
+    [COMPLIANCE_NONE]: 'gray',
+};
+
 function formatUpdated(value) {
     if (!value) return 'Never';
     const date = new Date(value);
@@ -86,6 +112,45 @@ const BUILTIN_VIEWS = [
             columnFilters: {
                 match: 'all',
                 rules: [{ id: 'st-used', field: 'servers', op: 'gt', value: 0 }],
+            },
+        },
+    },
+    {
+        // The two views that replace the old KPI tiles. Widest blast radius
+        // first — a drifted template on twelve servers outranks one on one.
+        name: 'Drifted',
+        state: {
+            sorts: [{ key: 'servers', direction: 'desc' }],
+            hiddenKeys: ['version'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{
+                    id: 'st-drift',
+                    field: 'compliance',
+                    op: 'any',
+                    value: [COMPLIANCE_DRIFTED],
+                }],
+            },
+        },
+    },
+    {
+        // Deliberately excludes 'Unknown': a template whose servers were never
+        // checked is not passing, it is unmeasured, and folding the two
+        // together is how the old progress bar claimed 100%.
+        name: 'Compliant',
+        state: {
+            sorts: [{ key: 'servers', direction: 'desc' }],
+            hiddenKeys: ['version'],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{
+                    id: 'st-ok',
+                    field: 'compliance',
+                    op: 'any',
+                    value: [COMPLIANCE_COMPLIANT],
+                }],
             },
         },
     },
@@ -142,7 +207,6 @@ const ServerTemplates = () => {
     const { user } = useAuth();
     const [templates, setTemplates] = useState([]);
     const [library, setLibrary] = useState({});
-    const [compliance, setCompliance] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -154,8 +218,8 @@ const ServerTemplates = () => {
 
     // Table sort + column visibility for the Templates tab, persisted and
     // handed to the chrome. `version` starts hidden nowhere — it is small and
-    // the card showed it — but three of the four presets drop it, since an
-    // auto-incrementing integer says nothing about coverage or risk.
+    // the card showed it — but every preset bar "By category" drops it, since
+    // an auto-incrementing integer says nothing about coverage or risk.
     const { sorts, setSorts } = useTableSort({
         defaultSorts: [{ key: 'servers', direction: 'desc' }],
         storageKey: 'serverkit-table-server-templates-sort',
@@ -174,15 +238,13 @@ const ServerTemplates = () => {
 
     const loadData = useCallback(async () => {
         try {
-            const [tData, lData, cData] = await Promise.all([
+            const [tData, lData] = await Promise.all([
                 api.getServerTemplates(),
                 api.getServerTemplateLibrary(),
-                api.getTemplateCompliance(),
             ]);
             const mine = tData.templates || [];
             setTemplates(mine);
             setLibrary(lData.templates || {});
-            setCompliance(cData);
             // Pick the opening tab from the data, once. `?? ` so a reload
             // (after creating or deleting one) never yanks the tab out from
             // under whoever is reading it.
@@ -333,6 +395,24 @@ const ServerTemplates = () => {
             // "Not assigned yet" preset's `eq 0` has something honest to match.
             value: (tmpl) => tmpl.assignment_count ?? 0,
             sortValue: (tmpl) => tmpl.assignment_count ?? 0,
+            // `value` only feeds sorting and the filter rules. Without a
+            // `render` DataTable falls back to row['servers'], which is not a
+            // key on the payload — the cell rendered blank.
+            render: (tmpl) => tmpl.assignment_count ?? 0,
+        },
+        {
+            key: 'compliance',
+            header: 'Compliance',
+            sortable: true,
+            type: 'enum',
+            groupable: true,
+            value: complianceLabel,
+            groupValue: complianceLabel,
+            sortValue: complianceLabel,
+            render: (tmpl) => {
+                const label = complianceLabel(tmpl);
+                return <Pill kind={COMPLIANCE_KIND[label] || 'gray'} dot={false}>{label}</Pill>;
+            },
         },
         {
             key: 'remediation',
@@ -368,6 +448,7 @@ const ServerTemplates = () => {
             type: 'num',
             value: (tmpl) => tmpl.packages?.length ?? 0,
             sortValue: (tmpl) => tmpl.packages?.length ?? 0,
+            render: (tmpl) => tmpl.packages?.length ?? 0,
         },
         {
             key: 'services',
@@ -376,6 +457,11 @@ const ServerTemplates = () => {
             type: 'num',
             value: (tmpl) => tmpl.services?.length ?? 0,
             sortValue: (tmpl) => tmpl.services?.length ?? 0,
+            // Without this the fallback printed row['services'] — a list of
+            // {name, enabled, running} OBJECTS, which React refuses to render
+            // ("Objects are not valid as a React child"), taking the whole tab
+            // down for any template that declares a service.
+            render: (tmpl) => tmpl.services?.length ?? 0,
         },
         {
             key: 'firewall',
@@ -384,6 +470,7 @@ const ServerTemplates = () => {
             type: 'num',
             value: (tmpl) => tmpl.firewall_rules?.length ?? 0,
             sortValue: (tmpl) => tmpl.firewall_rules?.length ?? 0,
+            render: (tmpl) => tmpl.firewall_rules?.length ?? 0,
         },
         {
             key: 'updated',
@@ -440,18 +527,13 @@ const ServerTemplates = () => {
         setGroupBy,
     });
 
-    // How many servers the compliance figures actually cover.
-    const measuredServers = compliance
-        ? (compliance.compliant || 0) + (compliance.drifted || 0) + (compliance.unknown || 0)
-        : 0;
-
     // Filter + "⋮" ride the group's top bar, so the view row is the view name
     // alone. Gated on the tab that owns the table: the Library is a card
     // catalogue these do not act on, and the drawer the filter button opens is
     // rendered inside the Templates tab, so hoisting it unconditionally would
     // leave a button whose panel does not exist.
     const gridIsOnScreen = activeTab === 'templates' && templates.length > 0;
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <>
             <GridFilterButton
                 count={chrome.filterCount}
@@ -466,31 +548,6 @@ const ServerTemplates = () => {
     return (
         <div className="sk-tabgroup__inner server-templates-page">
             {topbarChrome}
-            {/* Stays a band: these tiles count ASSIGNMENTS — a different entity
-                from the templates in the table below — and "Unknown" is the
-                remainder of the other two, not a predicate. Neither number is
-                a row count, so neither could become a column rule. */}
-            {compliance && (
-                <div className="compliance-bar">
-                    <KpiBand dense>
-                        <MetricCard label="Compliant" value={compliance.compliant} tone="green" compact />
-                        <MetricCard label="Drifted" value={compliance.drifted} tone="red" compact />
-                        <MetricCard label="Unknown" value={compliance.unknown} tone="amber" compact />
-                    </KpiBand>
-                    {measuredServers > 0 ? (
-                        <div className="compliance-bar__progress" title={`${Math.round(compliance.compliance_pct || 0)}% compliant`}>
-                            <div className="progress-fill" style={{ width: `${compliance.compliance_pct || 0}%` }} />
-                        </div>
-                    ) : (
-                        // A full green bar above three zeroes read as "100%
-                        // compliant" when in fact nothing had been measured.
-                        <p className="compliance-bar__empty">
-                            No servers are assigned to a template yet, so there is nothing to compare against.
-                        </p>
-                    )}
-                </div>
-            )}
-
             {/* Library leads, because on a fresh panel Templates has nothing in
                 it — landing there showed an empty page as the first impression.
                 The default follows the data rather than being fixed: once you
@@ -521,7 +578,9 @@ const ServerTemplates = () => {
                                 views={chrome.views}
                                 label="templates"
                                 onCreate={chrome.createView}
-                            />
+                            
+                actions={chromeActions}
+            />
 
                             <GridChips {...chrome.chipProps} />
 

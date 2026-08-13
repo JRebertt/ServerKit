@@ -392,7 +392,7 @@ export default function Jobs() {
     // SERVER query drawer, which sees rows this client never loaded, and a
     // second one would open a weaker drawer over the loaded page only. Gated on
     // the Activity tab because the chrome describes that table, not Scheduled.
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />, { enabled: isAdmin && !scheduledView },
     );
 
@@ -489,7 +489,9 @@ export default function Jobs() {
                             views={chrome.views}
                             label="jobs"
                             onCreate={chrome.createView}
-                        />
+                        
+                actions={chromeActions}
+            />
 
                         <GridChips {...chrome.chipProps} />
 

@@ -433,87 +433,26 @@ h3.svc-eyebrow {
 }
 
 // ============================================
-// EVENTS TAB — dense feed-style timeline
+// EVENTS TAB — the merged activity table
 // ============================================
 .events-tab {
-    &__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: $space-4;
-    }
-
-    // The timeline is one card; events are dense rows inside it
-    &__timeline {
+    // The Event cell stacks the message over its meta line, so the ellipsis on
+    // the message needs a min-width:0 flex parent to bite against.
+    &__cell {
         display: flex;
         flex-direction: column;
-        background: var(--surface);
-        border: 1px solid var(--border-soft);
-        border-radius: var(--radius);
-        overflow: hidden;
-    }
-
-    &__event {
-        display: flex;
-        gap: $space-4;
-        padding: $space-3 $space-4;
-        background: transparent;
-        cursor: pointer;
-        transition: background $transition-fast;
-
-        & + & {
-            border-top: 1px solid var(--border-soft);
-        }
-
-        &:hover {
-            background: var(--surface-2);
-        }
-
-        &--expanded {
-            background: var(--surface-2);
-        }
-
-        // Compact rows (config/audit entries) aren't expandable — no pointer,
-        // no hover affordance, tighter text.
-        &--compact {
-            cursor: default;
-
-            &:hover { background: transparent; }
-        }
-    }
-
-    &__event-status {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-top: 6px;
-        flex-shrink: 0;
-        background: var(--text-ghost);
-
-        &--green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-        &--red   { background: var(--red); }
-        &--amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-        &--cyan  { background: var(--cyan); }
-        &--gray  { background: var(--text-faint); }
-    }
-
-    &__event-body {
-        flex: 1;
         min-width: 0;
     }
 
-    &__event-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: $space-3;
+    // Config and audit rows carry everything they have in the row itself —
+    // only a deploy opens a drawer, so only a deploy gets a pointer.
+    .sk-dtable tbody tr.is-static {
+        cursor: default;
     }
 
-    &__event-commit {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-        min-width: 0;
+    // A cell with genuinely nothing behind it (an audit entry has no outcome).
+    &__none {
+        color: var(--text-faint);
     }
 
     &__event-sha {
@@ -535,23 +474,14 @@ h3.svc-eyebrow {
         text-overflow: ellipsis;
     }
 
-    &__event-meta {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-        margin-top: $space-1;
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--text-faint);
-    }
-
+    // The build log, now shown in the deploy drawer rather than in an expanded
+    // row. Flat BEM, so it styles the same block wherever it is portalled to.
     &__event-logs {
-        margin-top: $space-3;
         padding: $space-3;
         background: var(--bg-code);
         border: 1px solid var(--border-soft);
         border-radius: $radius-md;
-        max-height: 300px;
+        max-height: 60vh;
         overflow-y: auto;
 
         pre {
@@ -561,23 +491,6 @@ h3.svc-eyebrow {
             color: var(--text-code);
             white-space: pre-wrap;
             word-break: break-all;
-        }
-    }
-
-    &__empty {
-        // Flex-center so the icon centers too — svgs are display:block (Tailwind
-        // preflight), so text-align:center alone left-aligns the glyph.
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: $space-2;
-        padding: $space-12 $space-8;
-        color: $text-tertiary;
-
-        h3 {
-            color: $text-secondary;
-            margin: 0;
         }
     }
 }

@@ -729,7 +729,7 @@ const Backups = () => {
     // The chrome acts on the snapshot table, so it is only published while that
     // section is on screen — the other tabs are forms and a KPI band, with
     // nothing to filter, sort or export.
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <>
             <GridFilterButton
                 count={chrome.filterCount}
@@ -781,7 +781,9 @@ const Backups = () => {
                         views={chrome.views}
                         label="snapshots"
                         onCreate={chrome.createView}
-                    />
+                    
+                actions={chromeActions}
+            />
 
                     <GridChips {...chrome.chipProps} />
 

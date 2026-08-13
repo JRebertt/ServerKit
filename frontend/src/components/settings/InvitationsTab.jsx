@@ -3,7 +3,7 @@ import api from '../../services/api';
 import InviteModal from './InviteModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, ListToolbar } from '@/components/ds';
+import { DataTable } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -280,6 +280,18 @@ const InvitationsTab = () => {
                 onCreate={chrome.createView}
                 actions={(
                     <>
+                        {/* Same shape as the users table above it — the two sit
+                            on one screen, so the primary action has to land in
+                            the same place on both lines. */}
+                        <Button variant="default" size="sm" onClick={() => setShowInviteModal(true)}>
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="8.5" cy="7" r="4"/>
+                                <line x1="20" y1="8" x2="20" y2="14"/>
+                                <line x1="23" y1="11" x2="17" y2="11"/>
+                            </svg>
+                            Invite User
+                        </Button>
                         <GridFilterButton
                             count={chrome.filterCount}
                             onClick={() => chrome.setDrawerOpen(true)}
@@ -288,17 +300,6 @@ const InvitationsTab = () => {
                     </>
                 )}
             />
-            <ListToolbar>
-                <Button variant="default" size="sm" onClick={() => setShowInviteModal(true)}>
-                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="8.5" cy="7" r="4"/>
-                        <line x1="20" y1="8" x2="20" y2="14"/>
-                        <line x1="23" y1="11" x2="17" y2="11"/>
-                    </svg>
-                    Invite User
-                </Button>
-            </ListToolbar>
 
             <GridChips {...chrome.chipProps} />
 

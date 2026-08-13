@@ -117,6 +117,17 @@ export function sameViewState(a, b, { rename } = {}) {
             rules: side.columnFilters.rules.map((r) => canon(r, true)),
         };
     }
+    // Compare only the `page` keys the page still captures. The bag is the one
+    // place a page may invent a key, so it is also the one place a key can be
+    // RETIRED — when a page stops capturing (say) a bucket it has replaced with
+    // a column rule, every view a user saved while it existed would otherwise
+    // never compare equal again, leaving "Unsaved" pinned on forever with
+    // nothing the user can do to clear it. A key the live state no longer knows
+    // about is not a difference the user made.
+    const liveKeys = new Set(Object.keys(left.page || {}));
+    right.page = Object.fromEntries(
+        Object.entries(right.page || {}).filter(([k]) => liveKeys.has(k)),
+    );
     return JSON.stringify(canon(left)) === JSON.stringify(canon(right));
 }
 

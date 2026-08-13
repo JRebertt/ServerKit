@@ -437,6 +437,14 @@
     }
 
     .incident-row__chev { flex-shrink: 0; color: var(--text-faint); }
+
+    // Ack / Resolve share the trailing cell with the chevron, so a fleet alert
+    // stays actionable without earning a column that is empty on every other row.
+    .incident-row__acts {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 }
 
 // Incident drawer body

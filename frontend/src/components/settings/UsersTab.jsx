@@ -7,7 +7,7 @@ import LoginLinksSection from './LoginLinksSection';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, ListToolbar } from '@/components/ds';
+import { DataTable } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -363,6 +363,17 @@ const UsersTab = () => {
                 onCreate={chrome.createView}
                 actions={(
                     <>
+                        {/* Add User rides the chrome line rather than a bar of
+                            its own: that bar held one button, and a table gets
+                            ONE row of chrome. Primary action first, then the
+                            icons that act on what you are looking at. */}
+                        <Button variant="default" size="sm" onClick={handleAddUser}>
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            Add User
+                        </Button>
                         <GridFilterButton
                             count={chrome.filterCount}
                             onClick={() => chrome.setDrawerOpen(true)}
@@ -371,15 +382,6 @@ const UsersTab = () => {
                     </>
                 )}
             />
-            <ListToolbar>
-                <Button variant="default" onClick={handleAddUser}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    Add User
-                </Button>
-            </ListToolbar>
 
             <GridChips {...chrome.chipProps} />
 

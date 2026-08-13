@@ -5,7 +5,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
-import { SegControl, Pill, DataTable, ListToolbar } from '@/components/ds';
+import { Pill, DataTable, DataTableFooter } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -16,12 +16,10 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 
 // Built-in saved views. Neither one names a `kind`: the registry decides what
 // lands here, so a preset that spelled out 'domain' would be a list this file
-// otherwise never hard-codes — and it would duplicate the type SegControl
-// anyway. Both views work on whatever the server registered.
-//
-// `page.kind` is spelled out on both. The SegControl is part of the captured
-// state, so a preset that left it out would compare unequal to the live state
-// the instant it was applied and the picker would read "Unsaved" every time.
+// otherwise never hard-codes, and it would go stale the day a new model becomes
+// restorable. Narrowing to one type is the Type column's own menu — it offers
+// exactly the values present, with live counts, and combines with everything
+// else. These two answer the questions no column menu can.
 const RECYCLEBIN_VIEWS = [
     {
         // Oldest deletion first — the rows closest to being reaped by the
@@ -33,20 +31,18 @@ const RECYCLEBIN_VIEWS = [
             hiddenKeys: [],
             groupBy: null,
             columnFilters: { match: 'all', rules: [] },
-            page: { kind: 'all' },
         },
     },
     {
-        // No rules either: everything, bucketed by what it is. The group
-        // headers carry the per-type counts, so this answers "what kind of
-        // thing have we been deleting" without touching the SegControl.
+        // No rules: everything, bucketed by what it is. The group headers carry
+        // the per-type counts, so this answers "what kind of thing have we been
+        // deleting" without a fixed row of chips to keep in sync.
         name: 'By type',
         state: {
             sorts: [{ key: 'deleted_at', direction: 'desc' }],
             hiddenKeys: [],
             groupBy: 'kind',
             columnFilters: { match: 'all', rules: [] },
-            page: { kind: 'all' },
         },
     },
 ];
@@ -58,9 +54,7 @@ export default function RecycleBinTab() {
     const toast = useToast();
     const { isAdmin } = useAuth();
     const [items, setItems] = useState([]);
-    const [kinds, setKinds] = useState([]);
     const [retentionDays, setRetentionDays] = useState(30);
-    const [kind, setKind] = useState('all');
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState(null);
     const [purgeTarget, setPurgeTarget] = useState(null);
@@ -83,7 +77,6 @@ export default function RecycleBinTab() {
             setLoading(true);
             const data = await api.getRecycleBin();
             setItems(data.items || []);
-            setKinds(data.kinds || []);
             setRetentionDays(data.retention_days ?? 30);
         } catch (err) {
             toast.error(err.message || 'Could not load the recycle bin');
@@ -127,20 +120,6 @@ export default function RecycleBinTab() {
             setPurgeTarget(null);
         }
     };
-
-    const shown = useMemo(
-        () => (kind === 'all' ? items : items.filter((i) => i.kind === kind)),
-        [items, kind],
-    );
-
-    const filters = useMemo(() => [
-        { value: 'all', label: 'All', count: items.length },
-        ...kinds.map((k) => ({
-            value: k,
-            label: `${k.replace(/_/g, ' ')}s`,
-            count: items.filter((i) => i.kind === k).length,
-        })),
-    ], [items, kinds]);
 
     const columns = useMemo(() => [
         {
@@ -228,15 +207,12 @@ export default function RecycleBinTab() {
     ], [busyId, isAdmin, retentionDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Single table on this tab, so no `urlScope` — the shareable link keeps
-    // the plain `?view=` every other single-table page produces.
-    //
-    // The type SegControl goes in `pageState`, so saving a view remembers
-    // which type you had picked. A preset that omits `kind` must land back on
-    // 'all': the envelope's page bag is `{}` there, and `undefined` would
-    // leave the SegControl with no selected option.
+    // the plain `?view=` every other single-table page produces. No `pageState`
+    // either: everything this page can narrow by now lives in the envelope's
+    // shared keys, so a view saved here is the same shape as anywhere else.
     const chrome = useTableChrome({
         columns,
-        rows: shown,
+        rows: items,
         viewPageKey: 'settings-recyclebin',
         builtinViews: RECYCLEBIN_VIEWS,
         noun: 'items',
@@ -246,8 +222,6 @@ export default function RecycleBinTab() {
         setHiddenKeys,
         groupBy,
         setGroupBy,
-        pageState: { kind },
-        applyPage: (p) => setKind(p.kind || 'all'),
     });
 
     return (
@@ -293,26 +267,25 @@ export default function RecycleBinTab() {
                             </>
                         )}
                     />
-                    {/* The toolbar survives only for the type quick-filter. The
-                        retention window is already spelled out in the hint
-                        above, so repeating it here bought nothing. */}
-                    <ListToolbar
-                        filters={<SegControl value={kind} onChange={setKind} options={filters} />}
-                    />
 
                     <GridChips {...chrome.chipProps} />
 
                     <DataTable
                         columns={chrome.columns}
-                        data={shown}
+                        data={items}
                         keyField={rowKey}
                         sorts={sorts}
                         onSortsChange={setSorts}
                         {...chrome.tableProps}
                         groupBy={groupBy}
                         onGroupByChange={setGroupBy}
-                        emptyTitle="Nothing of this type"
-                        emptyMessage="Try another type."
+                        footer={(
+                            <DataTableFooter
+                                shown={chrome.shownCount}
+                                total={items.length}
+                                noun="item"
+                            />
+                        )}
                     />
                 </>
             )}

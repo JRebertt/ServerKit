@@ -449,7 +449,7 @@ export default function Monitors() {
     // page has exactly ONE filter button and it is the top bar's, which opens
     // the SERVER query drawer. Column rules come from each column's own header
     // menu and show up in the chips.
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />,
     );
 
@@ -469,6 +469,8 @@ export default function Monitors() {
                 views={chrome.views}
                 label="monitors"
                 onCreate={chrome.createView}
+            
+                actions={chromeActions}
             />
 
             <GridChips {...chrome.chipProps} />

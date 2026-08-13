@@ -1,157 +1,47 @@
 // ============================================
 // SSL CERTIFICATES PAGE
 // ============================================
+//
+// The page is a ResourceListPage now, so the table chrome comes from the shared
+// `.wp-list` scaffold and only the cell-level tone rules live here. The old
+// stat-card row and certificate cards are gone: a KPI restating "3 expiring"
+// above a table that can show exactly those three is a second, weaker copy of
+// the "Expiring soon" view.
 
-// Status bar — a row of stat cards (Certbot / Certificates / Expiring Soon).
-// These classes used to be borrowed from _domains.scss, but were dropped when the
-// Domains page moved to MetricCard — so they're defined here now. Without them the
-// status items collapsed into an unstyled vertical stack at the top-left.
-.ssl-status-bar {
+// Leading icon in the Domain cell.
+.ssl-row__ico {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: $space-4;
-    margin-bottom: $space-5;
-
-    @media (max-width: $breakpoint-md) { grid-template-columns: 1fr; }
-}
-
-.ssl-status-item {
-    @include flex-start();
-    gap: $space-3;
-    padding: $space-4;
-    background: var(--surface);
-    border: 1px solid $border-subtle;
-    border-radius: $radius-lg;
-}
-
-.ssl-status-icon {
-    @include icon-box();
-    background: var(--surface-2);
-    color: $text-tertiary;
-
-    &.active { background: $success-bg; color: $success; }
-    &.inactive { background: var(--surface-2); color: $text-tertiary; }
-    &.warning { background: $warning-bg; color: $warning; }
-}
-
-.ssl-status-info {
-    min-width: 0;
-
-    h4 {
-        margin: 0 0 2px;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-semibold;
-        color: $text-primary;
-    }
-
-    span {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
-    }
-}
-
-// Certificate list
-.ssl-cert-list {
-    @include flex-column-gap($space-3);
-}
-
-.ssl-cert-item {
-    @include list-item-base();
-    gap: $space-4;
-
-    @media (max-width: $breakpoint-md) {
-        flex-wrap: wrap;
-    }
-}
-
-.ssl-cert-item-info {
-    @include flex-start();
-    gap: $space-4;
-    flex: 1;
-    min-width: 0;
-}
-
-.ssl-cert-item-icon {
-    @include icon-box();
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: $radius-md;
     background: $success-bg;
-    border-radius: $radius-lg;
     color: $success;
 
-    &.expiring {
-        background: $warning-bg;
-        color: $warning;
-    }
+    // Same four states the Status column reports, so the row does not say
+    // "healthy" on its left and "expired" on its right.
+    &.is-expiring { background: $warning-bg; color: $warning; }
+    &.is-expired { background: $danger-bg; color: $danger; }
+    &.is-unknown { background: $bg-tertiary; color: $text-tertiary; }
 }
 
-.ssl-cert-item-details {
-    min-width: 0;
+// Expiry, coloured by urgency (tones come from formatExpiry).
+.ssl-expiry {
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
 
-    h3 {
-        font-size: $font-size-base;
-        font-weight: $font-weight-semibold;
-        color: $text-primary;
-        margin-bottom: $space-1;
-    }
+    &--green { color: $success; }
+    &--amber { color: $warning; }
+    &--red { color: $danger; }
 }
 
-.ssl-cert-item-meta {
-    @include flex-start();
-    gap: $space-4;
-    font-size: $font-size-sm;
+.ssl-dash {
     color: $text-tertiary;
-    flex-wrap: wrap;
-
-    span {
-        @include flex-start();
-        gap: $space-1;
-
-        &.valid {
-            color: $success;
-        }
-
-        &.expiring {
-            color: $warning;
-        }
-    }
 }
 
-.ssl-cert-item-status {
-    flex-shrink: 0;
-}
-
-.ssl-cert-item-actions {
-    display: flex;
-    gap: $space-2;
-    flex-shrink: 0;
-}
-
-// Warning banner for expiring certs
-.ssl-warning-banner {
-    @include flex-start();
-    gap: $space-3;
-    padding: $space-4 $space-5;
-    background: $warning-bg;
-    border: 1px solid $warning-border;
-    border-radius: $radius-xl;
-    margin-top: $space-6;
-    color: $warning;
-
-    div {
-        flex: 1;
-        font-size: $font-size-sm;
-        color: $text-secondary;
-
-        strong {
-            color: $warning;
-        }
-    }
-
-    .btn {
-        flex-shrink: 0;
-    }
-}
-
-// Spinning icon for renewal
+// Spinning icon — used well beyond this page (Servers, Deployments, backups…),
+// so it stays global despite living in a page partial.
 .spin {
     animation: ssl-spin 1s linear infinite;
 }
@@ -159,16 +49,4 @@
 @keyframes ssl-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-}
-
-// Skeleton loading
-.skeleton-box {
-    background: $bg-hover;
-    border-radius: $radius-md;
-    animation: ssl-skeleton-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes ssl-skeleton-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
 }

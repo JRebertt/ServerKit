@@ -115,6 +115,12 @@ class ServerTemplate(db.Model):
         return parent_spec
 
     def to_dict(self):
+        # Compliance is recorded per ASSIGNMENT, but the question asked of a
+        # template list is "which template is drifting?" — so each row carries
+        # its own tally. Pulling the statuses in one go costs the same single
+        # query the bare assignment count used to.
+        statuses = [s for (s,) in self.assignments.with_entities(
+            ServerTemplateAssignment.status)]
         return {
             'id': self.id,
             'name': self.name,
@@ -131,7 +137,9 @@ class ServerTemplate(db.Model):
             'sysctl_params': self.sysctl_params,
             'auto_remediate': self.auto_remediate,
             'remediation_approval_required': self.remediation_approval_required,
-            'assignment_count': self.assignments.count(),
+            'assignment_count': len(statuses),
+            'compliant_count': statuses.count(ServerTemplateAssignment.STATUS_COMPLIANT),
+            'drifted_count': statuses.count(ServerTemplateAssignment.STATUS_DRIFTED),
             'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,

@@ -360,7 +360,7 @@ const Servers = () => {
     // not in a toolbar under the view name. That toolbar was also repeating the
     // row count the view row already showed, with an "N online" tacked on that
     // no filter, sort or view ever referred to.
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <>
             <GridFilterButton
                 count={chrome.filterCount}
@@ -385,6 +385,8 @@ const Servers = () => {
                 views={chrome.views}
                 label="servers"
                 onCreate={chrome.createView}
+            
+                actions={chromeActions}
             />
 
             <GridChips {...chrome.chipProps} />

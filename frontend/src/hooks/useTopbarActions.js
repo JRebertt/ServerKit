@@ -68,6 +68,14 @@ export function useTopbarChrome(chrome, { enabled = true } = {}) {
     return {
         hosted,
         portal: hosted && slot ? createPortal(node, slot) : null,
+        // Pass straight to GridViewPicker's `actions`. Deriving it here rather
+        // than leaving each caller to write `hosted ? null : node` is the point:
+        // every one of the eight pages that hoists its chrome destructured only
+        // `portal` and forgot the fallback, so outside a tab group the filter
+        // button and "⋮" would not have gone inline — they would have gone
+        // nowhere. Null when the top bar took it, and null when `enabled` is
+        // false, which means "this table is not on screen, render nothing".
+        actions: hosted || !enabled ? null : node,
     };
 }
 

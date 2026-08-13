@@ -379,7 +379,7 @@ const FleetProxy = () => {
 
     // Filter + "⋮" ride in the shared Servers top bar. The toolbar they used to
     // sit in held nothing else but a re-count of the table underneath it.
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <>
             <GridFilterButton
                 count={chrome.filterCount}
@@ -403,7 +403,9 @@ const FleetProxy = () => {
                         views={chrome.views}
                         label="servers"
                         onCreate={chrome.createView}
-                    />
+                    
+                actions={chromeActions}
+            />
 
                     <GridChips {...chrome.chipProps} />
 

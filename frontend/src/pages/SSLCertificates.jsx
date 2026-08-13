@@ -1,23 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-    ShieldCheck, ShieldOff, RefreshCw, Plus, Trash2,
-    Lock, Clock, Globe, CheckCircle, AlertTriangle,
-    Settings, Download, Upload
+    ShieldCheck, RefreshCw, Plus, Lock, MoreVertical,
+    Settings, Download, Upload,
 } from 'lucide-react';
 import api from '../services/api';
 import Modal from '@/components/Modal';
-import { Pill } from '@/components/ds';
+import { Pill, SearchField } from '@/components/ds';
+import ResourceListPage from '../components/layouts/ResourceListPage';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Skeleton } from '@/components/Skeleton';
-import SkeletonBoundary from '@/components/SkeletonBoundary';
-import { useSelfCapturedBones } from '@/hooks/useSelfCapturedBones';
+import {
+    DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { formatExpiry } from '../utils/expiry';
+
+const DAY = 86400000;
+
+// The same horizon the backend's `openssl x509 -checkend 2592000` uses, so the
+// Status column and /ssl/status can never disagree about what "expiring" means.
+const EXPIRING_DAYS = 30;
+
+const STATE_KIND = {
+    valid: 'green',
+    expiring: 'amber',
+    expired: 'red',
+    unknown: 'gray',
+};
+
+// Neither expiry string the API returns is ISO-8601: certbot prints
+// "2024-03-15 12:00:00+00:00" and the custom-cert walker strftimes
+// "%Y-%m-%d %H:%M:%S%z" ("+0000"). Normalise once, here, or every Date the
+// column builds is browser-dependent.
+function certExpiryIso(raw) {
+    if (!raw) return null;
+    const iso = String(raw).trim().replace(' ', 'T').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+    return Number.isNaN(new Date(iso).getTime()) ? null : iso;
+}
+
+// A certbot cert carries no issuer field — certbot is only ever pointed at its
+// default ACME server, so the CA is known. An uploaded cert does carry one, as
+// an RFC 4514 string ("CN=…,O=…"), of which only the common name is readable.
+function issuerLabel(cert) {
+    if (!cert.issuer) return "Let's Encrypt";
+    const cn = /(?:^|,)\s*CN=([^,]+)/.exec(cert.issuer)?.[1]
+        || /(?:^|,)\s*O=([^,]+)/.exec(cert.issuer)?.[1];
+    return (cn || cert.issuer).replace(/\\,/g, ',').trim();
+}
+
+const STATE = (...value) => ({ match: 'all', rules: [{ id: 'ss', field: 'state', op: 'any', value }] });
+
+// Built-in saved views — the three questions this page gets opened to answer.
+// They are presets over the Status column's own rules, so each one shows a live
+// count, combines with a search and can be tweaked and saved as your own.
+const SSL_BUILTIN_VIEWS = [
+    {
+        // The one that matters: what will break if nobody touches it this month.
+        name: 'Expiring soon',
+        state: {
+            search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'expiresAt', direction: 'asc' }],
+            columnFilters: STATE('expiring'),
+        },
+    },
+    {
+        name: 'Valid',
+        state: {
+            search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'expiresAt', direction: 'desc' }],
+            columnFilters: STATE('valid'),
+        },
+    },
+    {
+        // A cert certbot reports as INVALID and one whose expiry we could not
+        // read at all are the same operational fact — the domain is serving
+        // nothing usable — so they share a worklist instead of each getting one.
+        name: 'Failed or missing',
+        state: {
+            search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: STATE('expired', 'unknown'),
+        },
+    },
+];
 
 const SSLCertificates = () => {
     const toast = useToast();
@@ -26,13 +95,7 @@ const SSLCertificates = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [renewingDomain, setRenewingDomain] = useState(null);
-
-    // Runtime self-capture: after the real page renders, snapshot its layout so a
-    // later load replays a pixel-accurate skeleton (falls back to sslSkeleton on
-    // first-ever visit). See useSelfCapturedBones / plan 50 phase 3.
-    const { ref: pageRef, bones: capturedBones } = useSelfCapturedBones('ssl', {
-        ready: !loading && !!status,
-    });
+    const [search, setSearch] = useState('');
 
     // Modal states
     const [showObtainModal, setShowObtainModal] = useState(false);
@@ -224,12 +287,175 @@ const SSLCertificates = () => {
         }
     }
 
-    const certificates = status?.certificates || [];
-    const expiringSoon = status?.expiring_soon || [];
     const certbotInstalled = status?.certbot_installed ?? false;
 
-    useTopbarActions(() =>
+    // Every derived field lands on the row itself rather than in a column
+    // accessor: the table renders `row[key]` when a column has no `render`, and
+    // a filter rule that reads one thing while the cell shows another is how a
+    // view ends up matching rows the eye says it shouldn't.
+    const certificates = useMemo(() => {
+        // The backend flags "expiring" by running openssl against
+        // /etc/letsencrypt/live, so an uploaded cert is never in that list —
+        // the date-derived horizon below is what covers those.
+        const flagged = new Set(status?.expiring_soon || []);
+        return (status?.certificates || []).map((cert) => {
+            const source = cert.source || 'certbot';
+            const expiresAt = certExpiryIso(cert.expiry);
+            const days = expiresAt == null
+                ? null
+                : Math.round((new Date(expiresAt).getTime() - Date.now()) / DAY);
+
+            let state;
+            if (cert.expiry_valid === false || (days != null && days < 0)) state = 'expired';
+            else if (days == null) state = 'unknown';
+            else if (days <= EXPIRING_DAYS || flagged.has(cert.name)) state = 'expiring';
+            else state = 'valid';
+
+            return {
+                ...cert,
+                // certbot and the custom-cert dir can both hold a `example.com`,
+                // so the name alone is not a key.
+                id: `${source}:${cert.name}`,
+                source,
+                expiresAt,
+                state,
+                issuedBy: issuerLabel(cert),
+                // certbot re-issues from its own renewal config; an uploaded
+                // cert has none anywhere, so that one is on the operator.
+                renewal: source === 'certbot' ? 'certbot' : 'manual',
+            };
+        });
+    }, [status]);
+
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return certificates;
+        return certificates.filter((c) => (
+            c.name?.toLowerCase().includes(q)
+            || c.issuedBy?.toLowerCase().includes(q)
+            || (c.domains || []).some((d) => d.toLowerCase().includes(q))
+        ));
+    }, [certificates, search]);
+
+    const columns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Domain',
+            sortable: true,
+            hideable: false,
+            value: (c) => c.name,
+            render: (c) => {
+                const extra = (c.domains || []).filter((d) => d !== c.name);
+                const sub = [c.badge, extra.join(', ')].filter(Boolean).join(' · ');
+                return (
+                    <div className="sk-cell-name">
+                        {/* The tile carries the state too. A fixed green shield
+                            next to an expired certificate is the row telling
+                            you the opposite of what its Status cell says. */}
+                        <span className={`ssl-row__ico is-${c.state}`}><ShieldCheck size={15} /></span>
+                        <span>
+                            <div>{c.name}</div>
+                            {sub && <div className="sk-cell-sub">{sub}</div>}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'issuedBy',
+            header: 'Issuer',
+            type: 'enum',
+            sortable: true,
+            width: 200,
+        },
+        {
+            key: 'state',
+            header: 'Status',
+            type: 'enum',
+            sortable: true,
+            groupable: true,
+            width: 130,
+            enumOrder: ['valid', 'expiring', 'expired', 'unknown'],
+            render: (c) => <Pill kind={STATE_KIND[c.state]}>{c.state}</Pill>,
+        },
+        {
+            key: 'expiresAt',
+            header: 'Expires',
+            type: 'date',
+            sortable: true,
+            width: 165,
+            render: (c) => {
+                const exp = formatExpiry(c.expiresAt);
+                if (!exp) return <span className="ssl-dash">—</span>;
+                // The relative form is what you judge a cert by; the exact
+                // moment is one hover away for when you need to plan around it.
+                return (
+                    <span
+                        className={`ssl-expiry ssl-expiry--${exp.tone}`}
+                        title={new Date(c.expiresAt).toLocaleString()}
+                    >
+                        {exp.relative}
+                    </span>
+                );
+            },
+        },
+        {
+            key: 'renewal',
+            header: 'Auto-renew',
+            type: 'enum',
+            sortable: true,
+            width: 145,
+            enumOrder: ['certbot', 'manual'],
+            render: (c) => (c.renewal === 'certbot'
+                ? <Pill kind="green" title="Reissued by certbot — set the timer up with Auto-Renew">certbot</Pill>
+                : <Pill kind="gray" title="Uploaded by hand — re-upload it before it expires">manual</Pill>),
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            width: 56,
+            className: 'text-right',
+            render: (c) => {
+                const renewing = renewingDomain === c.name;
+                return (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" disabled={renewing || actionLoading}>
+                                {renewing ? <RefreshCw size={14} className="spin" /> : <MoreVertical size={14} />}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleRenewCertificate(c.name)}>
+                                Renew now
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleRevokeCertificate(c.name)}
+                            >
+                                Revoke &amp; delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                );
+            },
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], [renewingDomain, actionLoading]);
+
+    // Install Certbot only shows when it is missing — the certbot-only actions
+    // next to it are disabled in that state, so the bar always offers the one
+    // thing that can be done. Search goes last: the fixed bar order is
+    // [page actions] [search] [filter] [⋮], and the table hoists the last two.
+    useTopbarActions(() => (
         <>
+            {!certbotInstalled && (
+                <Button size="sm" onClick={handleInstallCertbot} disabled={actionLoading}>
+                    <Download size={15} />
+                    Install Certbot
+                </Button>
+            )}
             <Button
                 variant="outline"
                 size="sm"
@@ -258,189 +484,45 @@ const SSLCertificates = () => {
                 <Plus size={15} />
                 New Certificate
             </Button>
-        </>,
-        [actionLoading, certbotInstalled, certificates.length],
-    );
-
-    const sslSkeleton = (
-        <>
-            <div className="ssl-status-bar">
-                {[1, 2, 3].map(i => (
-                    <div key={i} className="ssl-status-item">
-                        <Skeleton variant="avatar" />
-                        <div className="skeleton-stack">
-                            <Skeleton variant="title" width="55%" />
-                            <Skeleton variant="line" width="35%" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="ssl-cert-list">
-                {[1, 2].map(i => (
-                    <div key={i} className="ssl-cert-item">
-                        <div className="ssl-cert-item-info">
-                            <Skeleton variant="avatar" />
-                            <div className="skeleton-stack">
-                                <Skeleton variant="title" width={200} />
-                                <Skeleton variant="line" width={280} />
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <SearchField value={search} onSearch={setSearch} placeholder="Search certificates…" />
         </>
-    );
+    ), [actionLoading, certbotInstalled, certificates.length, search]);
 
     return (
         <>
-        <SkeletonBoundary
-            ref={pageRef}
-            className="sk-tabgroup__inner ssl-page"
-            loading={loading}
-            skeleton={sslSkeleton}
-            bones={capturedBones}
-        >
-            {(!loading || status) && (<>
-            {/* Status Cards */}
-            <div className="ssl-status-bar">
-                <div className="ssl-status-item">
-                    <div className={`ssl-status-icon ${certbotInstalled ? 'active' : 'inactive'}`}>
-                        {certbotInstalled ? <ShieldCheck size={24} /> : <ShieldOff size={24} />}
-                    </div>
-                    <div className="ssl-status-info">
-                        <h4>Certbot</h4>
-                        <span>{certbotInstalled ? 'Installed' : 'Not Installed'}</span>
-                    </div>
-                    {!certbotInstalled && (
-                        <Button
-                            size="sm"
-                            onClick={handleInstallCertbot}
-                            disabled={actionLoading}
-                            className="ml-auto"
-                        >
-                            <Download size={14} />
-                            Install
-                        </Button>
-                    )}
-                </div>
-                <div className="ssl-status-item">
-                    <div className="ssl-status-icon active">
-                        <Lock size={24} />
-                    </div>
-                    <div className="ssl-status-info">
-                        <h4>Certificates</h4>
-                        <span>{status?.total_certificates || 0} active</span>
-                    </div>
-                </div>
-                <div className="ssl-status-item">
-                    <div className={`ssl-status-icon ${expiringSoon.length > 0 ? 'warning' : 'active'}`}>
-                        {expiringSoon.length > 0 ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}
-                    </div>
-                    <div className="ssl-status-info">
-                        <h4>Expiring Soon</h4>
-                        <span>
-                            {expiringSoon.length > 0
-                                ? `${expiringSoon.length} certificate${expiringSoon.length > 1 ? 's' : ''}`
-                                : 'All healthy'
-                            }
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Certificates List */}
-            {certificates.length === 0 ? (
-                <EmptyState
-                    size="lg"
-                    icon={Lock}
-                    title="No SSL certificates"
-                    description="Obtain your first Let's Encrypt certificate to secure your domains."
-                    action={certbotInstalled ? (
-                        <Button onClick={() => setShowObtainModal(true)}>
-                            <Plus size={16} />
-                            New Certificate
-                        </Button>
-                    ) : (
-                        <Button onClick={handleInstallCertbot} disabled={actionLoading}>
-                            <Download size={16} />
-                            Install Certbot First
-                        </Button>
-                    )}
-                />
-            ) : (
-                <div className="ssl-cert-list">
-                    {certificates.map((cert, index) => (
-                        <div key={index} className="ssl-cert-item">
-                            <div className="ssl-cert-item-info">
-                                <div className={`ssl-cert-item-icon ${cert.expiry_valid ? '' : 'expiring'}`}>
-                                    <ShieldCheck size={20} />
-                                </div>
-                                <div className="ssl-cert-item-details">
-                                    <h3>{cert.name}</h3>
-                                    <div className="ssl-cert-item-meta">
-                                        <span>
-                                            <Globe size={12} />
-                                            {cert.domains?.join(', ') || cert.name}
-                                        </span>
-                                        {cert.expiry && (
-                                            <span className={cert.expiry_valid ? 'valid' : 'expiring'}>
-                                                <Clock size={12} />
-                                                Expires: {cert.expiry}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="ssl-cert-item-status">
-                                {cert.expiry_valid
-                                    ? <Pill kind="green">Valid</Pill>
-                                    : <Pill kind="amber">Expiring</Pill>}
-                            </div>
-                            <div className="ssl-cert-item-actions">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRenewCertificate(cert.name)}
-                                    disabled={renewingDomain === cert.name || actionLoading}
-                                >
-                                    <RefreshCw size={14} className={renewingDomain === cert.name ? 'spin' : ''} />
-                                    {renewingDomain === cert.name ? 'Renewing...' : 'Renew'}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRevokeCertificate(cert.name)}
-                                    disabled={actionLoading}
-                                >
-                                    <Trash2 size={14} />
-                                    Revoke
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Expiring Soon Warning */}
-            {expiringSoon.length > 0 && (
-                <div className="ssl-warning-banner">
-                    <AlertTriangle size={18} />
-                    <div>
-                        <strong>Certificates expiring soon:</strong>{' '}
-                        {expiringSoon.join(', ')}
-                    </div>
-                    <Button
-                        size="sm"
-                        onClick={handleRenewAll}
-                        disabled={actionLoading}
-                    >
-                        <RefreshCw size={14} />
-                        Renew All
+            <ResourceListPage
+                className="ssl-page"
+                loading={loading}
+                loadingTitle="Loading certificates…"
+                storageKey="serverkit-list-ssl"
+                viewPageKey="ssl"
+                noun="certificates"
+                builtinViews={SSL_BUILTIN_VIEWS}
+                totalCount={certificates.length}
+                items={rows}
+                columns={columns}
+                keyField="id"
+                searchTerm={search}
+                onSearchChange={setSearch}
+                searchInTopbar
+                emptyIcon={Lock}
+                emptyTitle="No SSL certificates"
+                emptyDescription="Obtain your first Let's Encrypt certificate to secure your domains."
+                emptyAction={certbotInstalled ? (
+                    <Button onClick={() => setShowObtainModal(true)}>
+                        <Plus size={16} />
+                        New Certificate
                     </Button>
-                </div>
-            )}
-            </>)}
-        </SkeletonBoundary>
+                ) : (
+                    <Button onClick={handleInstallCertbot} disabled={actionLoading}>
+                        <Download size={16} />
+                        Install Certbot First
+                    </Button>
+                )}
+                filteredEmptyIcon={Lock}
+                filteredEmptyTitle="No certificates found"
+                filteredEmptyDescription="Try adjusting your search or filters."
+            />
 
             {/* Obtain Certificate Modal */}
             <Modal open={showObtainModal} onClose={() => setShowObtainModal(false)} title="Obtain SSL Certificate">

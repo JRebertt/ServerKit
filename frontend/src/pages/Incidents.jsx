@@ -1,20 +1,20 @@
 // Incidents — one place for "something is wrong right now".
 //
-// This absorbed the old Alerts tab. A CPU threshold crossing on a host and a
-// monitor going down are the same question asked of two different subjects, and
-// splitting them across two tabs is what made alerting look like it only ever
-// described the panel's own machine. Host threshold alerting is unchanged —
-// same endpoints, same ack/check actions — it just renders in this timeline
-// alongside monitor outages.
+// This absorbed the old Alerts tab, and then the Fleet Alerts panel that used
+// to sit directly under this table with a second table and an
+// Active/Acknowledged/Resolved segment row of its own. A CPU threshold crossing
+// on a host and a monitor going down are the same question asked of two
+// different subjects; a threshold crossing on a PAIRED host is that same
+// question a third time. All three are rows here, told apart by the Source
+// column, and every bucket the segment offered is a saved view below.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    AlertTriangle, CheckCircle2, ChevronRight, Radar, RefreshCw, Siren,
+    AlertTriangle, CheckCircle2, ChevronRight, Eye, Radar, RefreshCw, Siren,
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
-import FleetAlertsPanel from '../components/monitoring/FleetAlertsPanel';
 import { DataTable, DataTableFooter, Drawer, Pill, SearchField } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -25,15 +25,18 @@ import { Input } from '@/components/ui/input';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { METRIC_LABELS } from '../components/monitoring/fleetMetrics';
 import { IMPACT_TONE, INCIDENT_STATES } from '../components/monitoring/monitorShared';
 
-// Built-in views. This page used to carry BOTH old affordances at once — a KPI
-// band whose tiles set a filter, and an Active/Resolved/All segment row — while
-// having no column menu, no search and no saved views at all. Every bucket
-// either of them offered is a rule here now.
+// Built-in views. This page used to carry THREE old affordances at once — a KPI
+// band whose tiles set a filter, an Active/Resolved/All segment row, and the
+// fleet panel's own Active/Acknowledged/Resolved segment — while having no
+// column menu, no search and no saved views at all. Every bucket any of them
+// offered is a rule here now.
 //
-// `resolved` is the axis both sources share: an incident is resolved when its
-// status says so, a host alert when it is history rather than firing.
+// `resolved` is the axis all three sources share: an incident is resolved when
+// its status says so, a host alert when it is history rather than firing, a
+// fleet alert when someone closed it out.
 const NO_RULES = { match: 'all', rules: [] };
 const RESOLVED_IS = (value) => ({
     match: 'all',
@@ -47,6 +50,21 @@ const BUILTIN_VIEWS = [
         state: {
             sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [],
             columnFilters: RESOLVED_IS(false), page: { search: '' },
+        },
+    },
+    {
+        // The fleet segment's middle bucket, and the only one Active/Resolved
+        // could not already express. Acking does not fix anything, so these
+        // rows stay in Active too — the segment's exclusive tabs are what made
+        // an acknowledged alert look handled.
+        name: 'Acknowledged',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: ['kind'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ak', field: 'state', op: 'any', value: ['acknowledged'] }],
+            },
+            page: { search: '' },
         },
     },
     {
@@ -100,6 +118,9 @@ const STATE_TONE = {
 
 const SEVERITY_TONE = { critical: 'red', warning: 'amber', info: 'cyan' };
 
+// The fleet alert lifecycle, tinted exactly as the deleted panel tinted it.
+const ALERT_STATUS_TONE = { active: 'red', acknowledged: 'amber', resolved: 'green' };
+
 function formatWhen(iso) {
     if (!iso) return 'unknown';
     const date = new Date(iso);
@@ -118,12 +139,12 @@ export default function Incidents() {
     const [incidents, setIncidents] = useState([]);
     const [activeAlerts, setActiveAlerts] = useState([]);
     const [alertHistory, setAlertHistory] = useState([]);
+    const [fleetAlerts, setFleetAlerts] = useState([]);
     const [monitors, setMonitors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [note, setNote] = useState('');
     const [checking, setChecking] = useState(false);
-    const [hasFleet, setHasFleet] = useState(false);
     const { sorts, setSorts } = useTableSort({
         defaultSorts: [{ key: 'when', direction: 'desc' }],
         storageKey: 'serverkit-table-incidents-sort',
@@ -134,20 +155,20 @@ export default function Incidents() {
 
     const load = useCallback(async () => {
         try {
-            const [incidentsRes, statusRes, historyRes, monitorsRes, serversRes] = await Promise.all([
+            const [incidentsRes, statusRes, historyRes, monitorsRes, fleetRes] = await Promise.all([
                 api.getIncidents({ state: 'all', limit: 200 }).catch(() => null),
                 api.getMonitoringStatus().catch(() => null),
                 api.getAlertHistory(50).catch(() => null),
                 api.getMonitors().catch(() => null),
-                api.getServers().catch(() => null),
+                // Every status, deliberately: the Active/Acknowledged/Resolved
+                // split is a saved view now, not a server-side query.
+                api.getFleetAlerts({ limit: 200 }).catch(() => null),
             ]);
             setIncidents(incidentsRes?.incidents || []);
             setActiveAlerts(statusRes?.active_alerts || []);
             setAlertHistory(historyRes?.alerts || []);
             setMonitors(monitorsRes?.monitors || []);
-            // The fleet panel is only meaningful once there are paired servers.
-            const servers = Array.isArray(serversRes) ? serversRes : (serversRes?.servers || []);
-            setHasFleet(servers.length > 0);
+            setFleetAlerts(Array.isArray(fleetRes) ? fleetRes : []);
         } catch {
             // Keep the last good list rather than blanking the page.
         } finally {
@@ -192,32 +213,46 @@ export default function Incidents() {
         [monitors],
     );
 
-    // One list, two sources. Host alerts have no lifecycle of their own — they
+    // One list, four sources. Host alerts have no lifecycle of their own — they
     // are either firing or historical — so they map onto the same active/resolved
-    // axis the incidents use.
+    // axis the incidents use. Every row normalises `metric`/`value`/`threshold`
+    // and a one-line `detail`, so the cells and the drawer read the merged item
+    // rather than reaching back into whichever payload it came from.
     const items = useMemo(() => {
-        const fromIncidents = incidents.map((incident) => ({
-            kind: 'incident',
-            key: `incident-${incident.id}`,
-            id: incident.id,
-            title: incident.title,
-            subject: monitorsById[incident.component_id]?.name || 'Service',
-            state: incident.status,
-            tone: STATE_TONE[incident.status] || 'gray',
-            impact: incident.impact,
-            when: incident.created_at,
-            resolved: incident.status === 'resolved',
-            raw: incident,
-        }));
+        const fromIncidents = incidents.map((incident) => {
+            const subject = monitorsById[incident.component_id]?.name || 'Service';
+            return {
+                kind: 'incident',
+                key: `incident-${incident.id}`,
+                id: incident.id,
+                title: incident.title,
+                subject,
+                detail: subject,
+                state: incident.status,
+                tone: STATE_TONE[incident.status] || 'gray',
+                impact: incident.impact,
+                when: incident.created_at,
+                resolved: incident.status === 'resolved',
+                raw: incident,
+            };
+        });
+
+        const hostDetail = (alert) => (alert.type
+            ? `${alert.type} ${formatValue(alert.value)} / ${alert.threshold}`
+            : 'This server');
 
         const fromActive = activeAlerts.map((alert, index) => ({
             kind: 'alert',
             key: `active-${alert.type}-${index}`,
             title: alert.message,
             subject: 'This server',
+            detail: hostDetail(alert),
             state: 'firing',
             tone: 'red',
             impact: alert.severity,
+            metric: alert.type,
+            value: alert.value,
+            threshold: alert.threshold,
             when: alert.timestamp,
             resolved: false,
             raw: alert,
@@ -228,17 +263,49 @@ export default function Incidents() {
             key: `history-${alert.timestamp || index}-${index}`,
             title: alert.message,
             subject: 'This server',
+            detail: hostDetail(alert),
             state: alert.severity,
             tone: SEVERITY_TONE[alert.severity] || 'gray',
             impact: alert.severity,
+            metric: alert.type,
+            value: alert.value,
+            threshold: alert.threshold,
             when: alert.timestamp,
             resolved: true,
             raw: alert,
         }));
 
-        return [...fromActive, ...fromIncidents, ...fromHistory]
+        // A threshold crossing on a PAIRED host — the rows the Fleet Alerts
+        // panel used to own, mapped onto these columns: server -> subject,
+        // metric/value/threshold -> what happened, severity -> impact,
+        // status -> state. `alertId` is what marks a row as actionable; the two
+        // sources above describe the panel's own box and have no server-side
+        // lifecycle to ack or resolve.
+        const fromFleet = fleetAlerts.map((alert) => {
+            const metric = METRIC_LABELS[alert.metric] || alert.metric;
+            const subject = alert.server_name || 'Unknown server';
+            return {
+                kind: 'alert',
+                key: `fleet-${alert.id}`,
+                alertId: alert.id,
+                title: `${metric} over limit on ${subject}`,
+                subject,
+                detail: `${metric} ${formatValue(alert.value)} / ${alert.threshold}`,
+                state: alert.status,
+                tone: ALERT_STATUS_TONE[alert.status] || 'gray',
+                impact: alert.severity,
+                metric,
+                value: alert.value,
+                threshold: alert.threshold,
+                when: alert.created_at,
+                resolved: alert.status === 'resolved',
+                raw: alert,
+            };
+        });
+
+        return [...fromActive, ...fromFleet, ...fromIncidents, ...fromHistory]
             .sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
-    }, [incidents, activeAlerts, alertHistory, monitorsById]);
+    }, [incidents, activeAlerts, alertHistory, fleetAlerts, monitorsById]);
 
     // Search only. The active/resolved split used to live here as a segment
     // filter; it is a column rule now, applied inside the table.
@@ -249,6 +316,20 @@ export default function Incidents() {
             [item.title, item.subject, item.state].some((v) => String(v || '').toLowerCase().includes(q))
         ));
     }, [items, search]);
+
+    // Ack / Resolve, carried over from the deleted panel. Reloading rather than
+    // patching the row in place keeps the alert's status honest even when the
+    // scheduler resolved it a second earlier.
+    const onAlertAction = useCallback(async (item, action) => {
+        try {
+            await (action === 'ack'
+                ? api.acknowledgeFleetAlert(item.alertId)
+                : api.resolveFleetAlert(item.alertId));
+            await load();
+        } catch {
+            toast.error(`Failed to ${action === 'ack' ? 'acknowledge' : 'resolve'} alert`);
+        }
+    }, [load, toast]);
 
     const onPostUpdate = async (state) => {
         if (!selected || selected.kind !== 'incident') return;
@@ -281,11 +362,7 @@ export default function Incidents() {
                     <span className={`incident-row__sev incident-row__sev--${item.tone}`} />
                     <span>
                         <div>{item.title}</div>
-                        <div className="sk-cell-sub">
-                            {item.kind === 'alert' && item.raw.type
-                                ? `${item.raw.type} ${formatValue(item.raw.value)} / ${item.raw.threshold}`
-                                : item.subject}
-                        </div>
+                        <div className="sk-cell-sub">{item.detail}</div>
                     </span>
                 </div>
             ),
@@ -306,7 +383,7 @@ export default function Incidents() {
             value: (item) => item.subject || '',
         },
         {
-            // The axis both sources share, and what Active/Resolved filter on.
+            // The axis every source shares, and what Active/Resolved filter on.
             key: 'resolved',
             header: 'Resolved',
             sortable: true,
@@ -342,13 +419,45 @@ export default function Incidents() {
             render: (item) => formatWhen(item.when),
         },
         {
+            // Ack / Resolve ride in the trailing cell rather than a column of
+            // their own: only a fleet alert carries a lifecycle to act on, so
+            // every other row would show an empty column forever.
             key: 'open',
             header: '',
             sortable: false,
             hideable: false,
-            render: () => <ChevronRight size={16} className="incident-row__chev" />,
+            cellClassName: 'mon-row-actions',
+            render: (item) => (
+                <>
+                    {item.alertId && !item.resolved && (
+                        <span
+                            className="incident-row__acts"
+                            role="presentation"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {item.state === 'active' && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => onAlertAction(item, 'ack')}
+                                >
+                                    <Eye size={14} /> Ack
+                                </Button>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onAlertAction(item, 'resolve')}
+                            >
+                                <CheckCircle2 size={14} /> Resolve
+                            </Button>
+                        </span>
+                    )}
+                    <ChevronRight size={16} className="incident-row__chev" />
+                </>
+            ),
         },
-    ], []);
+    ], [onAlertAction]);
 
     const viewPageState = useMemo(() => ({ search }), [search]);
     const applyViewPageState = useCallback((saved) => {
@@ -369,15 +478,16 @@ export default function Incidents() {
         applyPage: applyViewPageState,
     });
 
-    const { portal: topbarChrome } = useTopbarChrome(
+    const tableChrome = (
         <>
             <GridFilterButton
                 count={chrome.filterCount}
                 onClick={() => chrome.setDrawerOpen(true)}
             />
             <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-        </>,
+        </>
     );
+    const { hosted, portal: topbarChrome } = useTopbarChrome(tableChrome);
 
     if (loading) {
         return (
@@ -398,6 +508,7 @@ export default function Incidents() {
                 views={chrome.views}
                 label="incidents"
                 onCreate={chrome.createView}
+                actions={hosted ? null : tableChrome}
             />
 
             <GridChips {...chrome.chipProps} />
@@ -423,7 +534,7 @@ export default function Incidents() {
                         emptyMessage=""
                         footer={(
                             <DataTableFooter
-                                shown={shown.length}
+                                shown={chrome.shownCount}
                                 total={items.length}
                                 noun="incident"
                             />
@@ -431,11 +542,6 @@ export default function Incidents() {
                     />
                 </div>
             )}
-
-            {/* Per-server threshold alerts across the fleet: their own system
-                with its own ack/resolve lifecycle, so they keep their own panel
-                rather than being flattened into the timeline above. */}
-            {hasFleet && <FleetAlertsPanel />}
 
             <Drawer
                 open={Boolean(selected)}
@@ -513,9 +619,9 @@ export default function Incidents() {
                             </Pill>
                         </div>
                         <dl className="mon-inforows">
-                            <div><dt>Metric</dt><dd>{selected.raw.type || '—'}</dd></div>
-                            <div><dt>Reading</dt><dd>{formatValue(selected.raw.value)}</dd></div>
-                            <div><dt>Limit</dt><dd>{selected.raw.threshold ?? '—'}</dd></div>
+                            <div><dt>Metric</dt><dd>{selected.metric || '—'}</dd></div>
+                            <div><dt>Reading</dt><dd>{formatValue(selected.value)}</dd></div>
+                            <div><dt>Limit</dt><dd>{selected.threshold ?? '—'}</dd></div>
                             <div><dt>When</dt><dd>{formatWhen(selected.when)}</dd></div>
                         </dl>
                         <p className="mon-panel-hint">

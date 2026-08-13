@@ -358,7 +358,7 @@ export default function Telemetry() {
     // view row as just the view name. It is NOT joined by a grid filter button:
     // this page's one filter button is the top bar's, which opens the SERVER
     // query drawer (eight keys, applied to the query rather than the loaded 50).
-    const { portal: topbarChrome } = useTopbarChrome(
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />,
     );
 
@@ -373,6 +373,8 @@ export default function Telemetry() {
                 views={chrome.views}
                 label="events"
                 onCreate={chrome.createView}
+            
+                actions={chromeActions}
             />
 
             <GridChips {...chrome.chipProps} />
