@@ -142,6 +142,33 @@ export async function updatePluginConfig(pluginId, config) {
     });
 }
 
+// Declared vs actually-observed permission use for one installed extension
+// (plan 55, admin-only):
+//   { slug, permissions: [ { permission, declared, observable, used, uses,
+//                            first_used_at, last_used_at, denied? } ],
+//     unused_observable, undeclared_attempts, observable_count,
+//     declaration_only_count }
+//
+// `observable` is the load-bearing field. It is true only for capabilities whose
+// every use has to pass through the SDK gate (today just `agent.command:<action>`);
+// for the declaration-only ones (docker, shell, filesystem, network, db) the panel
+// owns no gate, so `used: false` there means "no evidence either way" and must
+// never be rendered as "unused". Rows with `declared: false` were refused at the
+// gate — attempts, not uses.
+export async function getPluginPermissions(pluginId) {
+    return this.request(`/plugins/${pluginId}/permissions`);
+}
+
+// Python dependencies an install declined to pip-install for one extension
+// (plan 55, admin-only):
+//   { slug, pending, pip_enabled, env_var, path, content, packages, truncated }
+// `pending: true` means the packages were NOT installed and the requirements
+// file is sitting next to the extension. Read-only — there is no install route
+// behind this by design.
+export async function getPluginRequirements(pluginId) {
+    return this.request(`/plugins/${pluginId}/requirements`);
+}
+
 // Returns available updates for installed plugins:
 //   { updates: [ { slug, plugin_id, installed_version, available_version,
 //                  update_available, compatible, source } ] }
