@@ -58,6 +58,29 @@ def create_app(config_name=None):
     jwt.init_app(app)
     limiter.init_app(app)
 
+    # SQLite concurrency tuning: the queue-bus consumers, job system and
+    # metrics collector share one database file with request handling, and in
+    # the default journal mode any writer locks the WHOLE file — readers
+    # included — producing sporadic "database is locked" errors under load.
+    # WAL lets readers coexist with a writer, a generous busy timeout absorbs
+    # the remaining writer-writer contention, and synchronous=NORMAL is the
+    # safe pairing for WAL. (journal_mode persists in the database file; the
+    # per-connection pragmas re-assert it for fresh files.)
+    if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite') and not app.config.get('TESTING'):
+        # (Skipped under TESTING: tests/conftest.py owns connection pragmas
+        # for the test process — journal_mode=MEMORY et al. — and two
+        # listeners fighting over journal_mode on the same file deadlocks.)
+        from sqlalchemy import event
+
+        with app.app_context():
+            @event.listens_for(db.engine, 'connect')
+            def _sqlite_tune(dbapi_connection, _record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute('PRAGMA journal_mode=WAL')
+                cursor.execute('PRAGMA busy_timeout=30000')
+                cursor.execute('PRAGMA synchronous=NORMAL')
+                cursor.close()
+
     # Build CORS origins. Start with static config/env, then append the
     # persisted canonical domain from system settings so pointing an A record
     # at the panel works without restarting to edit .env.
@@ -81,7 +104,14 @@ def create_app(config_name=None):
         origins=cors_origins,
         supports_credentials=True,
         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
-        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        # Every panel request carries an Authorization header, which makes it a
+        # non-simple cross-origin request: without Access-Control-Max-Age the
+        # browser re-runs a preflight OPTIONS every few seconds (Chrome's
+        # default cache is 5s), so a cross-origin panel pays two round trips per
+        # call forever. One hour is the practical ceiling — Chrome caps the
+        # value at 2h, Firefox at 24h, and both take the smaller of the two.
+        max_age=3600,
     )
 
     # Register security headers middleware
@@ -478,6 +508,15 @@ def create_app(config_name=None):
     # Register blueprints - Themes (plan 60)
     from app.api.themes import themes_bp
     app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
+    from app.api.views import views_bp
+    app.register_blueprint(views_bp, url_prefix='/api/v1/views')
+
+    from app.api.recycle_bin import recycle_bin_bp
+    app.register_blueprint(recycle_bin_bp, url_prefix='/api/v1/recycle-bin')
+    # Teach the bin which models it can restore. Import-time registration keeps
+    # the API type-agnostic: adding a soft-deletable model touches only this list.
+    from app.services import recycle_bin_service
+    recycle_bin_service.register_builtin_types()
 
     # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
     from app.api.dashboards import dashboards_bp

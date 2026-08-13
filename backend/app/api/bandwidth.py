@@ -33,7 +33,7 @@ def get_apps_bandwidth():
 def get_app_bandwidth(app_id):
     """Full daily series (default 90 days) + current-month total for one app,
     scoped to the app's workspace visibility (plan 29 #9 — foreign caller 404)."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     user = User.query.get(get_jwt_identity())
     if app is None or not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Not found'}), 404

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { BookOpen, Search, ExternalLink, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import PageLayout from '../layouts/PageLayout';
+import EmptyState from '../components/EmptyState';
 
 const REPO_DOCS_URL = 'https://github.com/jhd3197/ServerKit/blob/main/docs';
 
@@ -99,7 +100,7 @@ export default function Documentation() {
             )}
         >
             {empty && (
-                <div className="documentation__empty">No docs match “{query}”.</div>
+                <EmptyState icon={BookOpen} title={`No docs match “${query}”.`} />
             )}
 
             {!!rootDocs.length && (

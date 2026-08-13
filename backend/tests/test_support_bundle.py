@@ -8,6 +8,11 @@ import pytest
 
 from app.services import support_bundle_service
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 EXPECTED_MEMBERS = {
     'README.txt', 'meta.json', 'db.json', 'counts.json', 'services.json',

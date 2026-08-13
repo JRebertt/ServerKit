@@ -30,7 +30,10 @@ def _validate_application_id(raw):
         aid = int(raw)
     except (TypeError, ValueError):
         return _INVALID_APP
-    return aid if Application.query.get(aid) else _INVALID_APP
+    # query_active: a deleted app is not a legal cron target — its jobs were
+    # suspended by the delete, so attaching a new one would resurrect work for
+    # something that is in the bin.
+    return aid if Application.query_active().filter_by(id=aid).first() else _INVALID_APP
 
 
 def _attach_attribution(jobs):
@@ -48,6 +51,10 @@ def _attach_attribution(jobs):
     if not ids:
         return jobs
 
+    # Deliberately unfiltered. This is attribution only — no side effects — and
+    # the jobs of a deleted app are suspended, not removed. Naming the app they
+    # belonged to explains why they are suspended; dropping to the unattributed
+    # "System" bucket would make them look like they were never linked.
     apps = {a.id: a for a in Application.query.filter(Application.id.in_(ids)).all()}
     ws_ids = {a.workspace_id for a in apps.values() if a.workspace_id}
     workspaces = ({w.id: w for w in Workspace.query.filter(Workspace.id.in_(ws_ids)).all()}
@@ -300,6 +307,9 @@ def _notify_run_transition(job_id, transition, run):
     aid = job.get('application_id')
     if aid:
         from app.models import Application
+        # Unfiltered for the same reason as _attach_attribution: this only
+        # labels an alert, and a run reported for a deleted app is exactly the
+        # case where the operator needs to see which app it was.
         app = Application.query.get(int(aid))
         if app:
             payload['app'] = app.name

@@ -51,8 +51,11 @@ class SearchService:
         # --- service / app ---
         try:
             from app.models.application import Application
+            # Deleted apps are not findable: the recycle bin is where they
+            # live now, and this id list also scopes the domain/backup
+            # searches below.
             q = WorkspaceService.scope_query(
-                Application.query, Application, user,
+                Application.query_active(), Application, user,
                 workspace_id=ws_id, owner_attr='user_id',
                 grant_resource_type='application',
             )

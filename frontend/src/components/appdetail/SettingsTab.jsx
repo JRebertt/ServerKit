@@ -29,13 +29,13 @@ const SettingsTab = ({ app, onUpdate }) => {
             const jobs = (await api.getCronJobsForApp(app.id))?.jobs || [];
             if (jobs.length) {
                 const names = jobs.map((j) => j.name || 'Unnamed').join(', ');
-                cronNote = ` ${jobs.length} scheduled task${jobs.length > 1 ? 's' : ''} will be kept but detached from this app: ${names}.`;
+                cronNote = ` ${jobs.length} scheduled task${jobs.length > 1 ? 's' : ''} will be suspended and resumed if you restore it: ${names}.`;
             }
         } catch { /* cron visibility is best-effort — never block the delete */ }
 
-        const firstConfirm = await confirmAppSettings({ title: 'Delete Application', message: `Delete ${app.name}? This action cannot be undone.${cronNote}` });
+        const firstConfirm = await confirmAppSettings({ title: 'Delete Application', message: `Delete ${app.name}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.${cronNote}` });
         if (!firstConfirm) return;
-        const secondConfirm = await confirmAppSettings({ title: 'Confirm Deletion', message: 'Are you sure? This will permanently delete the application and all its data.' });
+        const secondConfirm = await confirmAppSettings({ title: 'Confirm Deletion', message: 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.' });
         if (!secondConfirm) return;
 
         setDeleting(true);

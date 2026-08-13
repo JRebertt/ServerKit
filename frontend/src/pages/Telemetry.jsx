@@ -10,36 +10,49 @@
 //
 // Every capability it had is kept: source / type / severity / resource / date
 // filters, correlation drill-down, test-event emit, cleanup, and pagination.
+//
+// The KPI band that rebuild introduced is gone again. Five of its six tiles
+// were filter shortcuts wearing a number — clicking one only ever set
+// `filters.severity` — so they are saved views now (see BUILTIN_VIEWS), which
+// is the same shortcut plus a name, a link and a place in the picker. The
+// sixth, "Total (24h)", was a real backend aggregate, but the view row is the
+// view name alone now and there was nowhere left to put it — so the
+// /telemetry/stats call went with it. The footer counts what is loaded.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Activity, AlertTriangle, ChevronRight, Info, Loader2, RefreshCw, Trash2,
-    XCircle,
+    Activity, ChevronRight, Info, Loader2, RefreshCw, Trash2,
 } from 'lucide-react';
 import api from '../services/api';
 import {
-    DataTable, Drawer, FilterButton, FilterDrawer, KpiBand, MetricCard, Pill,
-    SearchField, countActiveFilters,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer,
+    Pill, SearchField, countActiveFilters,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
+} from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 
 const SEVERITY_ORDER = ['critical', 'error', 'warning', 'info', 'debug'];
 
-// `tone` is a MetricCard tone (accent|green|cyan|amber|red|violet) and `pill` is
-// a Pill kind (green|amber|red|cyan|violet|gray). They overlap but are not the
-// same set — passing one token to both silently drops the Pill's background for
-// values Pill doesn't know, which is what "accent" for info was doing.
+// `pill` is a Pill kind (green|amber|red|cyan|violet|gray) — only tokens Pill
+// knows, or the badge silently renders without its background. `label` is the
+// one spelling of a severity the whole page uses: the pill, the filter drawer's
+// option list and the built-in view names all read from here.
 const SEVERITY_CONFIG = {
-    critical: { icon: XCircle, tone: 'red', pill: 'red', label: 'Critical' },
-    error: { icon: XCircle, tone: 'red', pill: 'red', label: 'Error' },
-    warning: { icon: AlertTriangle, tone: 'amber', pill: 'amber', label: 'Warning' },
-    info: { icon: Info, tone: 'cyan', pill: 'cyan', label: 'Info' },
-    debug: { icon: Activity, tone: 'violet', pill: 'gray', label: 'Debug' },
+    critical: { pill: 'red', label: 'Critical' },
+    error: { pill: 'red', label: 'Error' },
+    warning: { pill: 'amber', label: 'Warning' },
+    info: { pill: 'cyan', label: 'Info' },
+    debug: { pill: 'gray', label: 'Debug' },
 };
 
 const PAGE_SIZE = 50;
@@ -55,15 +68,54 @@ const EMPTY_FILTERS = {
     end_date: '',
 };
 
+// Built-in saved views, in the shared envelope (see ds/grid/viewState.js).
+//
+// `page.serverFilters` is this page's SERVER-side query object (EMPTY_FILTERS
+// shape: source / event_type / severity / resource_type / …), merged over
+// EMPTY_FILTERS and sent straight to the API. It is deliberately NOT
+// `columnFilters`: those are client-side column rules, which can only narrow
+// the one page of rows already loaded, while this narrows the query. That is
+// why the retired severity tiles became these presets and not column rules.
+//
+// It used to live at the TOP level of the state under the name `filters`, which
+// is the envelope's word for column rules — the collision this rename fixes.
+// Views users already saved keep working via `rename` on useTableChrome.
+const NO_RULES = { match: 'all', rules: [] };
+const NEWEST_FIRST = [{ key: 'timestamp', direction: 'desc' }];
+
+// One preset describes a COMPLETE state. `serverFilters` is spelled out even
+// when empty, so switching into a view clears the previous one's query instead
+// of silently inheriting it — same reason `columnFilters` is always explicit.
+const VIEW = (name, serverFilters, sorts = []) => ({
+    name,
+    state: { sorts, hiddenKeys: [], columnFilters: NO_RULES, page: { serverFilters } },
+});
+
+// The severity ladder is the old KPI band, in the band's own order. The three
+// that already existed keep their names verbatim — a built-in is identified by
+// name, so renaming one would orphan every shared ?view= link and anyone's
+// saved default. Info and Debug are new: their tiles had no preset before.
+const BUILTIN_VIEWS = [
+    VIEW('Critical only', { severity: 'critical' }, NEWEST_FIRST),
+    VIEW('Errors', { severity: 'error' }),
+    VIEW('Warnings', { severity: 'warning' }),
+    VIEW('Info', { severity: 'info' }),
+    VIEW('Debug', { severity: 'debug' }),
+    VIEW('Newest first', {}, NEWEST_FIRST),
+    VIEW('Deploy failures', { source: 'deployment', severity: 'error' }, NEWEST_FIRST),
+    VIEW('Backup failures', { source: 'backup', severity: 'error' }, NEWEST_FIRST),
+    VIEW('Audit trail', { source: 'audit' }, NEWEST_FIRST),
+];
+
 export default function Telemetry() {
     const { isAdmin } = useAuth();
     const { showToast } = useToast();
+    const { confirm } = useConfirm();
 
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
-    const [stats, setStats] = useState(null);
     const [sources, setSources] = useState([]);
     const [eventTypes, setEventTypes] = useState([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -71,11 +123,19 @@ export default function Telemetry() {
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [q, setQ] = useState('');
 
-    const loadStats = useCallback(async () => {
-        try {
-            setStats(await api.getTelemetryStats({ hours: 24 }));
-        } catch {
-            // stats are optional
+    // Table sort + column visibility, controlled so saved views can drive
+    // them — same localStorage keys the DataTable used when uncontrolled.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-telemetry-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-telemetry-cols' });
+
+    // The page-private half of a saved view: the FilterDrawer's server-side
+    // query, and nothing else. The load-more page and the detail drawer are
+    // deliberately out — as is `q`, which never was captured: a view that
+    // pinned the search box would fight whatever the operator is typing.
+    const viewPageState = useMemo(() => ({ serverFilters: filters }), [filters]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.serverFilters !== undefined) {
+            setFilters({ ...EMPTY_FILTERS, ...saved.serverFilters });
         }
     }, []);
 
@@ -113,10 +173,9 @@ export default function Telemetry() {
     }, [filters, q, showToast]);
 
     useEffect(() => {
-        loadStats();
         loadFilterOptions();
         fetchEvents(1, true);
-    }, [loadStats, loadFilterOptions, fetchEvents]);
+    }, [loadFilterOptions, fetchEvents]);
 
     const emitTestEvent = async () => {
         try {
@@ -129,21 +188,25 @@ export default function Telemetry() {
             });
             showToast('Test event emitted', 'success');
             fetchEvents(1, true);
-            loadStats();
         } catch (err) {
             showToast(`Failed to emit test event: ${err.message}`, 'error');
         }
     };
 
     const cleanupOldEvents = async () => {
-        if (!window.confirm('Delete telemetry events older than 90 days? This cannot be undone.')) {
+        const confirmed = await confirm({
+            title: 'Clean Up Old Events',
+            message: 'Delete telemetry events older than 90 days? This cannot be undone.',
+            confirmText: 'Delete',
+            variant: 'danger',
+        });
+        if (!confirmed) {
             return;
         }
         try {
             const data = await api.cleanupTelemetryEvents(90);
             showToast(`Deleted ${data.deleted} old events`, 'success');
             fetchEvents(1, true);
-            loadStats();
         } catch (err) {
             showToast(`Cleanup failed: ${err.message}`, 'error');
         }
@@ -173,10 +236,6 @@ export default function Telemetry() {
         </>
     ), [q, activeFilterCount, isAdmin, loading, fetchEvents]);
 
-    const setSeverityQuick = (severity) => {
-        setFilters((f) => ({ ...f, severity: f.severity === severity ? '' : severity }));
-    };
-
     const filterGroups = useMemo(() => ([
         {
             key: 'source',
@@ -202,6 +261,24 @@ export default function Telemetry() {
         {
             key: 'severity',
             header: 'Severity',
+            sortable: true,
+            type: 'enum',
+            // Sorting and filtering want DIFFERENT values here, so both are
+            // spelled out. `sortValue` is the rank, because critical-before-
+            // debug is the only useful order and alphabetical is nonsense.
+            // `value` is the raw string, because that is what a rule matches —
+            // and with only `sortValue` present, `fieldValue` falls back to it,
+            // the column infers as `num`, and a rule of `severity is any of
+            // critical` compares "critical" against 0 and matches nothing.
+            value: (event) => event.severity,
+            sortValue: (event) => {
+                const rank = SEVERITY_ORDER.indexOf(event.severity);
+                return rank === -1 ? null : rank;
+            },
+            // The grid only ever holds one page of events, so the menu would
+            // otherwise list whichever severities the last 50 rows happened to
+            // contain, alphabetically. Pin the full ladder in rank order.
+            enumOrder: SEVERITY_ORDER,
             render: (event) => {
                 const config = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
                 return <Pill kind={config.pill}>{config.label}</Pill>;
@@ -210,6 +287,8 @@ export default function Telemetry() {
         {
             key: 'message',
             header: 'Event',
+            sortable: true,
+            sortValue: (event) => event.message || event.event_type || null,
             render: (event) => (
                 <div className="telemetry-cell">
                     <div className="telemetry-cell__message">{event.message || event.event_type}</div>
@@ -248,58 +327,57 @@ export default function Telemetry() {
         {
             key: 'timestamp',
             header: 'When',
+            sortable: true,
+            sortValue: (event) => (event.timestamp ? new Date(event.timestamp).getTime() : null),
             cellClassName: 'telemetry-cell__when',
             render: (event) => new Date(event.timestamp).toLocaleString(),
         },
     ];
 
+    // Shared list chrome: view picker + chips + column-rule drawer + tools. It
+    // sits ALONGSIDE the server-side FilterDrawer above, not in place of it —
+    // a column rule sifts the 50 rows on screen, the drawer sifts the query.
+    const chrome = useTableChrome({
+        columns,
+        rows: events,
+        viewPageKey: 'telemetry',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'events',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+        // Views saved before the envelope kept this page's server-side query at
+        // the top level as `filters`, which now means column rules.
+        rename: { filters: 'serverFilters' },
+    });
+
+    // The "⋮" rides the top bar next to the page's own controls, leaving the
+    // view row as just the view name. It is NOT joined by a grid filter button:
+    // this page's one filter button is the top bar's, which opens the SERVER
+    // query drawer (eight keys, applied to the query rather than the loaded 50).
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />,
+    );
+
     const hasFilters = Boolean(q || activeFilterCount);
 
     return (
         <div className="sk-tabgroup__inner telemetry-page">
-            {/* Ordered by what an operator acts on. KpiBand keeps the first four
-                up front; info/debug are counts you rarely chase, so they ride in
-                the folded strip rather than pushing Total out of the row. */}
-            <KpiBand>
-                {['critical', 'error', 'warning'].map((severity) => {
-                    const config = SEVERITY_CONFIG[severity];
-                    const Icon = config.icon;
-                    return (
-                        <MetricCard
-                            key={severity}
-                            label={config.label}
-                            value={stats?.by_severity?.[severity] || 0}
-                            tone={config.tone}
-                            compact
-                            icon={<Icon size={17} />}
-                            onClick={() => setSeverityQuick(severity)}
-                        />
-                    );
-                })}
-                <MetricCard
-                    label="Total (24h)"
-                    value={stats?.total || 0}
-                    tone="accent"
-                    compact
-                    icon={<Activity size={17} />}
-                />
-                {['info', 'debug'].map((severity) => {
-                    const config = SEVERITY_CONFIG[severity];
-                    const Icon = config.icon;
-                    return (
-                        <MetricCard
-                            key={severity}
-                            secondary
-                            label={config.label}
-                            value={stats?.by_severity?.[severity] || 0}
-                            tone={config.tone}
-                            compact
-                            icon={<Icon size={17} />}
-                            onClick={() => setSeverityQuick(severity)}
-                        />
-                    );
-                })}
-            </KpiBand>
+            {topbarChrome}
+            {/* Outside the empty check below on purpose: a view that returns
+                no events must still be swappable for another one. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="events"
+                onCreate={chrome.createView}
+            
+                actions={chromeActions}
+            />
+
+            <GridChips {...chrome.chipProps} />
 
             {filters.correlation_id && (
                 <div className="telemetry-trace">
@@ -325,7 +403,17 @@ export default function Telemetry() {
                         : 'System activity shows up here as it happens.'}
                     action={hasFilters
                         ? (
-                            <Button variant="outline" onClick={() => { setFilters(EMPTY_FILTERS); setQ(''); }}>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setFilters(EMPTY_FILTERS);
+                                    setQ('');
+                                    // The chips sit right above this button, so
+                                    // leaving the column rules armed would read
+                                    // as "Clear filters" doing half its job.
+                                    chrome.api.resetToView();
+                                }}
+                            >
                                 Clear filters
                             </Button>
                         )
@@ -335,29 +423,37 @@ export default function Telemetry() {
                 <>
                     <DataTable
                         tableClassName="sk-dtable telemetry-table"
-                        sortable={false}
                         data={events}
                         keyField="id"
+                        columns={chrome.columns}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
                         loading={loading && events.length === 0}
                         onRowClick={setSelectedEvent}
                         rowClassName={(event) => `is-${event.severity}`}
-                        columns={columns}
+                        footer={(
+                            <DataTableFooter
+                                shown={events.length}
+                                total={null}
+                                noun="event"
+                                hasMore={hasMore}
+                                onLoadMore={() => fetchEvents(page + 1, false)}
+                                loading={loading}
+                            />
+                        )}
                     />
 
                     {loading && events.length > 0 && (
                         <div className="telemetry-loading"><Loader2 size={20} className="spin" /></div>
                     )}
-
-                    {hasMore && !loading && (
-                        <div className="telemetry-more">
-                            <Button variant="outline" onClick={() => fetchEvents(page + 1, false)}>
-                                Load more
-                            </Button>
-                        </div>
-                    )}
                 </>
             )}
 
+            {/* The query filter, opened from the top bar's FilterButton. It
+                narrows what the API returns, so it reaches every event on the
+                server — not just the page in memory. The column-rule drawer
+                below is the other tool, not a replacement for this one. */}
             <FilterDrawer
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}

@@ -9,6 +9,13 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 from app import paths
+from app.utils.git_security import (
+    git_argv,
+    git_env,
+    validate_clone_path,
+    validate_ref_name,
+    validate_repo_url,
+)
 
 
 class GitService:
@@ -104,16 +111,31 @@ class GitService:
     @classmethod
     def clone_repository(cls, app_path: str, repo_url: str, branch: str = 'main') -> Dict:
         """Clone a Git repository."""
+        # GHSA-8vx6-432p-h62q: repo_url and app_path are user-controlled on
+        # several routes. Validate both and terminate options with '--' — the
+        # terminator is load-bearing: protocol pinning alone does not stop
+        # option injection such as app_path='--upload-pack=<cmd>'.
+        url_error = validate_repo_url(repo_url)
+        if url_error:
+            return {'success': False, 'error': url_error}
+        path_error = validate_clone_path(app_path)
+        if path_error:
+            return {'success': False, 'error': path_error}
+        ref_error = validate_ref_name(branch, 'branch')
+        if ref_error:
+            return {'success': False, 'error': ref_error}
+
         try:
             # Remove existing directory if exists
             if os.path.exists(app_path):
                 return {'success': False, 'error': 'Directory already exists'}
 
-            cmd = ['git', 'clone']
+            cmd = git_argv('clone')
             if branch:
                 cmd.extend(['--branch', branch, '--single-branch'])
-            cmd.extend([repo_url, app_path])
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            cmd.extend(['--', repo_url, app_path])
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    timeout=300, env=git_env())
 
             if result.returncode == 0:
                 return {
@@ -134,10 +156,15 @@ class GitService:
         if not os.path.exists(os.path.join(app_path, '.git')):
             return {'success': False, 'error': 'Not a Git repository'}
 
+        ref_error = validate_ref_name(branch, 'branch')
+        if ref_error:
+            return {'success': False, 'error': ref_error}
+
         try:
             # Fetch first
-            fetch_cmd = ['git', '-C', app_path, 'fetch', '--all']
-            subprocess.run(fetch_cmd, capture_output=True, text=True, timeout=60)
+            fetch_cmd = git_argv('-C', app_path, 'fetch', '--all')
+            subprocess.run(fetch_cmd, capture_output=True, text=True, timeout=60,
+                           env=git_env())
 
             # Get current branch if not specified
             if not branch:
@@ -146,8 +173,9 @@ class GitService:
                 branch = result.stdout.strip() if result.returncode == 0 else 'main'
 
             # Reset to remote branch (force pull)
-            reset_cmd = ['git', '-C', app_path, 'reset', '--hard', f'origin/{branch}']
-            result = subprocess.run(reset_cmd, capture_output=True, text=True, timeout=60)
+            reset_cmd = git_argv('-C', app_path, 'reset', '--hard', f'origin/{branch}')
+            result = subprocess.run(reset_cmd, capture_output=True, text=True, timeout=60,
+                                    env=git_env())
 
             if result.returncode == 0:
                 # Get new commit info
@@ -390,9 +418,17 @@ class GitService:
     @classmethod
     def get_remote_branches_from_url(cls, repo_url: str) -> Dict:
         """Get list of branches from a remote repository URL without cloning."""
+        # GHSA-8vx6-432p-h62q: reachable by any authenticated role via
+        # POST /deploy/branches. Validate the URL (blocks ext::/file:// and
+        # option injection) and pin protocols regardless of host git version.
+        url_error = validate_repo_url(repo_url)
+        if url_error:
+            return {'success': False, 'error': url_error}
+
         try:
-            cmd = ['git', 'ls-remote', '--heads', repo_url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            cmd = git_argv('ls-remote', '--heads', '--', repo_url)
+            result = subprocess.run(cmd, capture_output=True, text=True,
+                                    timeout=30, env=git_env())
 
             if result.returncode != 0:
                 return {'success': False, 'error': result.stderr or 'Failed to fetch branches'}

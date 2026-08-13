@@ -254,7 +254,9 @@ class ConfigurationService:
     def _resolve_domains(application):
         """Resolve domain names attached to the app."""
         try:
-            return [d.name for d in (application.domains or [])]
+            # live_domains: the snapshot / serverkit.yaml records what the app
+            # actually serves, and it is replayed on restore.
+            return [d.name for d in (application.live_domains or [])]
         except Exception:  # pragma: no cover - defensive
             return []
 
@@ -393,7 +395,11 @@ class ConfigurationService:
         if not snapshot:
             return {'success': False, 'error': 'Snapshot not found'}
 
-        application = Application.query.get(snapshot.application_id)
+        # query_active(): restoring a snapshot rewrites env and redeploys, so a
+        # tombstoned app must 404 here rather than be brought back to life
+        # outside the Recycle Bin.
+        application = Application.query_active().filter_by(
+            id=snapshot.application_id).first()
         if not application:
             return {'success': False, 'error': 'Application not found'}
 

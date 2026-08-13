@@ -47,6 +47,8 @@ import * as testSandboxMethods from './testSandbox.js';
 import * as themeMethods from './themes.js';
 import * as dashboardMethods from './dashboards.js';
 import * as monitorMethods from './monitors.js';
+import * as viewMethods from './views.js';
+import * as recycleBinMethods from './recycleBin.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -101,6 +103,8 @@ class ApiService extends ApiClient {
             themeMethods,
             dashboardMethods,
             monitorMethods,
+            viewMethods,
+            recycleBinMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

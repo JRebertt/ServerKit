@@ -367,7 +367,11 @@ def cleanup_apps(delete_volumes, keep_db):
 
     app = create_app()
     with app.app_context():
-        apps = Application.query.all()
+        # Live apps only. `docker compose down -v` on a soft-deleted app would
+        # destroy the data volumes the delete deliberately KEPT for restore,
+        # leaving a restorable row with nothing behind it. Recycle-bin entries
+        # are removed by purging them, not here.
+        apps = Application.query_active().all()
 
         click.echo(f'Found {len(apps)} application(s) in database...\n')
 
@@ -516,7 +520,10 @@ def factory_reset():
         click.echo('Starting factory reset...\n')
 
         # 1. Clean up all applications from database
-        apps = Application.query.all()
+        # Only live apps have a stack to bring down; a soft-deleted app's
+        # containers are already stopped, and steps 2-4 + drop_all() below sweep
+        # up whatever it left behind anyway.
+        apps = Application.query_active().all()
         click.echo(f'Stopping {len(apps)} tracked application(s)...')
         for application in apps:
             if application.root_path and os.path.exists(application.root_path):
@@ -624,7 +631,7 @@ def list_apps(show_all, as_json):
 
     app = create_app()
     with app.app_context():
-        apps = Application.query.all()
+        apps = Application.query_active().all()
 
         if as_json:
             _echo_json({'apps': [

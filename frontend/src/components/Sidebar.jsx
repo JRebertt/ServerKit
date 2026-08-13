@@ -12,6 +12,7 @@ import { useContributions } from '../plugins/contributions';
 import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
 import useDevMode from '../hooks/useDevMode';
+import QuickCreate from './QuickCreate';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser, hasPermission } = useAuth();
@@ -99,19 +100,36 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         };
     }, [menuOpen]);
 
-    // Check if WordPress is installed
+    const { nav: pluginNav, tabs: pluginTabs } = useContributions();
+
+    // Runtime conditions are probed ONLY when a contributed nav item actually
+    // asks for one. These two probes used to fire unconditionally on every app
+    // load, and both endpoints belong to extensions — /gpu/ to serverkit-gpu,
+    // /wordpress/standalone/status to serverkit-wordpress. With the extension
+    // absent the route is not registered, so the call is a guaranteed 404 that
+    // cannot change a single rendered pixel: the only manifest declaring
+    // `requiresCondition: "gpuAvailable"` ships with the GPU extension itself,
+    // so when it is gone nothing reads the answer.
+    //
+    // They were not free. In dev the API shares the browser's 6-connection
+    // HTTP/1.1 pool with Vite's module graph, so two doomed requests hold a
+    // third of the page's connection budget for their entire lifetime.
+    const needsGpu = (pluginNav || []).some((i) => i?.requiresCondition === 'gpuAvailable');
+    const needsWp = (pluginNav || []).some((i) => i?.requiresCondition === 'wpInstalled');
+
     useEffect(() => {
+        if (!needsWp) { setWpInstalled(false); return; }
         api.getWordPressStatus()
             .then(data => setWpInstalled(!!data?.installed))
             .catch(() => setWpInstalled(false));
-    }, []);
+    }, [needsWp]);
 
-    // Hide GPU Monitor when the host has no GPU (mirrors the wpInstalled gate).
     useEffect(() => {
+        if (!needsGpu) { setGpuAvailable(false); return; }
         api.getGpuInfo()
             .then(data => setGpuAvailable(!!data?.available))
             .catch(() => setGpuAvailable(false));
-    }, []);
+    }, [needsGpu]);
 
     // Feature-module toggles (WordPress; Email is now an extension). Default to
     // enabled until the shared module state loads so items never flicker/hide.
@@ -139,8 +157,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         updateUser({ sidebar_config: config });
         api.updateCurrentUser({ sidebar_config: config }).catch(() => {});
     };
-
-    const { nav: pluginNav, tabs: pluginTabs } = useContributions();
 
     const visibleItems = useMemo(() => {
         const core = getVisibleItems(user?.sidebar_config);
@@ -211,6 +227,10 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         }
         return groups;
     }, [visibleItems]);
+
+    // First category that actually has visible items — its header row hosts the
+    // quick-create button.
+    const firstVisibleCat = SIDEBAR_CATEGORIES.find(cat => groupedItems[cat]);
 
     // Auto-expand the active parent (or parent of active sub-item), auto-close others
     useEffect(() => {
@@ -357,9 +377,16 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 {SIDEBAR_CATEGORIES.map(cat => {
                     const items = groupedItems[cat];
                     if (!items) return null;
+                    // The first category header row also carries the global
+                    // quick-create button — a small circular accent "+" (AI
+                    // chat-bubble style) next to the section label.
+                    const isFirst = cat === firstVisibleCat;
                     return (
                         <React.Fragment key={cat}>
-                            <div className="nav-category">{CATEGORY_LABELS[cat]}</div>
+                            <div className={`nav-category${isFirst ? ' nav-category--create' : ''}`}>
+                                {isFirst ? <span>{CATEGORY_LABELS[cat]}</span> : CATEGORY_LABELS[cat]}
+                                {isFirst && <QuickCreate variant="sidebar" />}
+                            </div>
                             <nav className="nav">
                                 {items.map(renderNavItem)}
                             </nav>
@@ -368,39 +395,56 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 })}
             </div>
 
-            {import.meta.env.DEV && (
+            {devMode && (
                 <>
                     <div className="nav-category nav-category--dev">Dev Tools</div>
                     <nav className="nav">
+                        {import.meta.env.DEV && (
+                            <>
+                                <NavLink
+                                    to="/app-map"
+                                    className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
+                                >
+                                    <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                                        <line x1="8" y1="2" x2="8" y2="18"/>
+                                        <line x1="16" y1="6" x2="16" y2="22"/>
+                                    </svg>
+                                    App Map
+                                </NavLink>
+                                <NavLink
+                                    to="/documentation"
+                                    className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
+                                >
+                                    <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                                    </svg>
+                                    Documentation
+                                </NavLink>
+                                <NavLink
+                                    to="/style-guide"
+                                    className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
+                                >
+                                    <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <circle cx="13.5" cy="6.5" r="2.5"/><path d="M17 2H7a5 5 0 0 0-5 5v10a5 5 0 0 0 5 5h10a5 5 0 0 0 5-5V7a5 5 0 0 0-5-5z"/><path d="M9.5 14.5l-3 3"/><path d="M14.5 9.5l3-3"/>
+                                    </svg>
+                                    Style Guide
+                                </NavLink>
+                            </>
+                        )}
+                        {/* Test Sandbox is developer tooling, not an operator
+                            surface: shown in dev builds and to admins with Site
+                            Settings → Developer mode on — same useDevMode flag
+                            the route guard reads. */}
                         <NavLink
-                            to="/app-map"
+                            to="/test-sandbox"
                             className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
                         >
                             <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-                                <line x1="8" y1="2" x2="8" y2="18"/>
-                                <line x1="16" y1="6" x2="16" y2="22"/>
+                                <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>
                             </svg>
-                            App Map
-                        </NavLink>
-                        <NavLink
-                            to="/documentation"
-                            className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
-                        >
-                            <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                            </svg>
-                            Documentation
-                        </NavLink>
-                        <NavLink
-                            to="/style-guide"
-                            className={({ isActive }) => `nav-item nav-item--dev ${isActive ? 'active' : ''}`}
-                        >
-                            <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <circle cx="13.5" cy="6.5" r="2.5"/><path d="M17 2H7a5 5 0 0 0-5 5v10a5 5 0 0 0 5 5h10a5 5 0 0 0 5-5V7a5 5 0 0 0-5-5z"/><path d="M9.5 14.5l-3 3"/><path d="M14.5 9.5l3-3"/>
-                            </svg>
-                            Style Guide
+                            Test Sandbox
                         </NavLink>
                     </nav>
                 </>

@@ -59,7 +59,8 @@ class Project(db.Model):
         if include_counts:
             from app.models.application import Application
             result['environment_count'] = self.environments.count()
-            result['app_count'] = Application.query.filter_by(project_id=self.id).count()
+            # Live apps only — a project claiming 5 while showing 3 is just wrong.
+            result['app_count'] = Application.query_active().filter_by(project_id=self.id).count()
         return result
 
     def __repr__(self):

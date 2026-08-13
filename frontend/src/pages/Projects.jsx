@@ -1,28 +1,61 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { FolderKanban, Plus, Layers, Boxes } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FolderKanban, Plus } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import EmptyState from '../components/EmptyState';
+import ResourceListPage from '../components/layouts/ResourceListPage';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import useFocusParam from '@/hooks/useFocusParam';
+import { SearchField, ServiceTile } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
+
+// Preset views. A project list is short, so these are about SHAPE rather than
+// status: which projects are actually carrying anything, and which are empty
+// shells someone made and forgot.
+const PROJECT_VIEWS = [
+    {
+        name: 'All projects',
+        state: { search: '', sorts: [], hiddenKeys: [], columnFilters: null },
+    },
+    {
+        name: 'Has services',
+        state: {
+            search: '',
+            sorts: [{ key: 'apps', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'pv1', field: 'apps', op: 'gt', value: 0 }],
+            },
+        },
+    },
+    {
+        name: 'Empty',
+        state: {
+            search: '',
+            sorts: [],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'pv2', field: 'apps', op: 'eq', value: 0 }],
+            },
+        },
+    },
+];
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
+    const [search, setSearch] = useState('');
+    // Quick-create deep link: /projects?focus=create:project opens the dialog.
+    useFocusParam('create', () => setShowCreate(true));
     const toast = useToast();
+    const navigate = useNavigate();
 
     const loadProjects = useCallback(async () => {
         setLoading(true);
@@ -42,36 +75,99 @@ const Projects = () => {
     }, [loadProjects]);
 
     useTopbarActions(() => (
-        <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New Project
-        </Button>
-    ), []);
+        <>
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+                <Plus size={16} /> New Project
+            </Button>
+            <SearchField value={search} onSearch={setSearch} placeholder="Search projects…" />
+        </>
+    ), [search]);
+
+    const rows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return projects;
+        return projects.filter((p) => (
+            p.name?.toLowerCase().includes(q)
+            || p.slug?.toLowerCase().includes(q)
+            || p.description?.toLowerCase().includes(q)
+        ));
+    }, [projects, search]);
+
+    const columns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Project',
+            sortable: true,
+            hideable: false,
+            value: (p) => p.name,
+            render: (p) => (
+                <div className="sk-cell-name">
+                    <ServiceTile name={p.name} size={30} className="wp-list__tile" aria-hidden="true" />
+                    <span>
+                        <div>{p.name}</div>
+                        <div className="sk-cell-sub">{p.slug}</div>
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            value: (p) => p.description || '',
+            render: (p) => p.description || <span className="wp-list__dash">—</span>,
+        },
+        // `value` feeds sorting and the filter rules; `render` is what the cell
+        // shows. DataTable falls back to row[key] when there is no render, and
+        // these are derived counts with no matching key on the row — so both.
+        {
+            key: 'environments',
+            header: 'Environments',
+            type: 'number',
+            sortable: true,
+            width: 140,
+            cellClassName: 'sk-cell-mono',
+            value: (p) => p.environment_count ?? 0,
+            render: (p) => p.environment_count ?? 0,
+        },
+        {
+            key: 'apps',
+            header: 'Services',
+            type: 'number',
+            sortable: true,
+            width: 120,
+            cellClassName: 'sk-cell-mono',
+            value: (p) => p.app_count ?? 0,
+            render: (p) => p.app_count ?? 0,
+        },
+    ], []);
 
     return (
-        <div className="sk-tabgroup__inner projects-page">
-            <div className="projects-page__body">
-                {loading ? (
-                    <EmptyState loading loadingVariant="cards" title="Loading projects" />
-                ) : projects.length === 0 ? (
-                    <EmptyState
-                        icon={FolderKanban}
-                        title="No projects yet"
-                        description="Group your applications into projects and environments (production, staging, development) to keep things organized."
-                        action={
-                            <Button onClick={() => setShowCreate(true)}>
-                                <Plus size={16} /> Create your first project
-                            </Button>
-                        }
-                    />
-                ) : (
-                    <div className="projects-grid">
-                        {projects.map(project => (
-                            <ProjectCard key={project.id} project={project} />
-                        ))}
-                    </div>
-                )}
-            </div>
-
+        <ResourceListPage
+            className="projects-page"
+            loading={loading}
+            loadingTitle="Loading projects…"
+            storageKey="serverkit-list-projects"
+            viewPageKey="projects"
+            noun="projects"
+            builtinViews={PROJECT_VIEWS}
+            totalCount={projects.length}
+            items={rows}
+            columns={columns}
+            keyField="id"
+            onRowClick={(p) => navigate(`/projects/${p.id}`)}
+            emptyIcon={FolderKanban}
+            emptyTitle="No projects yet"
+            emptyDescription="Group your applications into projects and environments (production, staging, development) to keep things organized."
+            emptyAction={(
+                <Button onClick={() => setShowCreate(true)}>
+                    <Plus size={16} /> Create your first project
+                </Button>
+            )}
+            filteredEmptyIcon={FolderKanban}
+            filteredEmptyTitle="No projects found"
+            filteredEmptyDescription="Try adjusting your search or filters."
+        >
             <CreateProjectDialog
                 open={showCreate}
                 onOpenChange={setShowCreate}
@@ -80,38 +176,7 @@ const Projects = () => {
                     loadProjects();
                 }}
             />
-        </div>
-    );
-};
-
-const ProjectCard = ({ project }) => {
-    const envCount = project.environment_count ?? 0;
-    const appCount = project.app_count ?? 0;
-    return (
-        <Link to={`/projects/${project.id}`} className="project-card">
-            <div className="project-card__header">
-                <span className="project-card__icon" aria-hidden="true">
-                    <FolderKanban size={18} />
-                </span>
-                <div className="project-card__titles">
-                    <h3 className="project-card__name">{project.name}</h3>
-                    <span className="project-card__slug">{project.slug}</span>
-                </div>
-            </div>
-            {project.description && (
-                <p className="project-card__description">{project.description}</p>
-            )}
-            <div className="project-card__stats">
-                <span className="project-card__stat">
-                    <Layers size={14} />
-                    {envCount} environment{envCount === 1 ? '' : 's'}
-                </span>
-                <span className="project-card__stat">
-                    <Boxes size={14} />
-                    {appCount} app{appCount === 1 ? '' : 's'}
-                </span>
-            </div>
-        </Link>
+        </ResourceListPage>
     );
 };
 
@@ -149,18 +214,14 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
     }
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-            <DialogContent>
-                <form onSubmit={handleSubmit}>
-                    <DialogHeader>
-                        <DialogTitle>New Project</DialogTitle>
-                        <DialogDescription>
-                            A project groups your applications. It starts with a default
-                            &quot;production&quot; environment you can rename or expand.
-                        </DialogDescription>
-                    </DialogHeader>
+        <Modal open={open} onClose={() => { reset(); onOpenChange(false); }} title="New Project">
+            <form onSubmit={handleSubmit}>
+                <p className="sk-modal__subtitle">
+                    A project groups your applications. It starts with a default
+                    &quot;production&quot; environment you can rename or expand.
+                </p>
 
-                    <div className="projects-form">
+                <div className="projects-form">
                         <div className="projects-form__field">
                             <Label htmlFor="project-name">Name</Label>
                             <Input
@@ -184,17 +245,16 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
                         </div>
                     </div>
 
-                    <DialogFooter>
+                    <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             Cancel
                         </Button>
                         <Button type="submit" disabled={submitting || !name.trim()}>
                             {submitting ? 'Creating…' : 'Create Project'}
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </form>
-            </DialogContent>
-        </Dialog>
+        </Modal>
     );
 };
 

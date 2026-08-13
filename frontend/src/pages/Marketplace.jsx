@@ -555,6 +555,9 @@ const Marketplace = () => {
                                 icon={Package}
                                 title="No catalog entries found"
                                 description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
+                                action={hasFilters ? (
+                                    <Button variant="outline" size="sm" onClick={resetFilters}>Clear filters</Button>
+                                ) : undefined}
                             />
                         )}
                     </section>
@@ -586,7 +589,12 @@ const Marketplace = () => {
                         <EmptyState
                             icon={PackageCheck}
                             title="No extensions installed"
-                            description="Install one from Extensions or use Install manually."
+                            description="Install one from the catalog or use Install manually."
+                            action={(
+                                <Button variant="outline" size="sm" onClick={() => navigate('/extensions')}>
+                                    Browse catalog
+                                </Button>
+                            )}
                         />
                     )}
                 </section>

@@ -25,6 +25,11 @@ from app.services.site_importers import (
 )
 from app.services.site_importers.cpanel import CpanelImporter
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 NATIVE_HASH = '*94BDCEBE19083CE2A1F959FD02F964C7AF4CFC29'
 BACKUP_NAME = 'backup-7.3.2026_12-00-00_alice'
 

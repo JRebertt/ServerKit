@@ -12,12 +12,15 @@ Supports:
 
 import os
 import re
+import copy
+import time
 import yaml
 import json
 import shutil
 import secrets
 import string
 import hashlib
+import threading
 import subprocess
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -51,6 +54,42 @@ class TemplateService:
             'enabled': True
         }
     ]
+
+    # Remote index cache.
+    #
+    # `list_all_templates()` runs on every Templates page load and used to call
+    # `fetch_remote_templates()` inline for every enabled repo, with a 30s
+    # timeout and no memoization -- so a single unreachable repo stalled the
+    # whole catalog on every render, and a reachable one was refetched for no
+    # reason. Successes are cached for _REMOTE_TTL. Failures fall back to the
+    # last good payload when there is one (a transient blip must never blank a
+    # catalog the panel has already shown) and are otherwise negatively cached
+    # for the shorter _REMOTE_ERROR_TTL, so a dead repo is retried soon but not
+    # hammered. Same TTL + last-good shape as the serverkit.ai proxy that
+    # DEFAULT_REPOS points at.
+    _REMOTE_TTL_SECONDS = 300
+    _REMOTE_ERROR_TTL_SECONDS = 60
+    _REMOTE_TIMEOUT_SECONDS = 10
+    # url -> {'templates': [...], 'expires': monotonic float, 'ok': bool}
+    _remote_cache = {}
+    _remote_cache_lock = threading.Lock()
+
+    # Parsed-template cache for the bundled catalog.
+    #
+    # With the remote fetch memoized above, the remaining cost of a Templates
+    # page load was `list_local_templates()` re-reading and re-parsing every
+    # bundled YAML on every call (118 files, ~0.4s). Entries are memoized per
+    # file and keyed on (st_mtime_ns, st_size), so a sync or an edit
+    # invalidates exactly the file that changed and nothing else -- which is
+    # why the writers need no explicit invalidation call. A deleted template
+    # disappears because the listing only returns what the directory scan
+    # finds. (Caveat: a filesystem with coarse mtime granularity could serve a
+    # stale card if a file were rewritten to the identical size within the
+    # same clock tick; ns-resolution local filesystems do not have this
+    # problem.)
+    # filepath -> {'key': (mtime_ns, size), 'entry': dict|None}
+    _local_cache = {}
+    _local_cache_lock = threading.Lock()
 
     # Repo URLs that never worked and should be healed on read rather than
     # left to rot in an operator's templates.json. `serverkit/templates` was a
@@ -218,11 +257,16 @@ class TemplateService:
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
-        """Save template configuration."""
+        """Save template configuration.
+
+        This is the single choke point for repo mutations (add/remove/enable),
+        so the remote index cache is dropped here -- a repo added now must show
+        up on the next listing, not after the TTL."""
         try:
             os.makedirs(cls.CONFIG_DIR, exist_ok=True)
             with open(cls.TEMPLATE_CONFIG, 'w') as f:
                 json.dump(config, f, indent=2)
+            cls.invalidate_remote_cache()
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -1046,6 +1090,8 @@ class TemplateService:
         used_ports = set()
         try:
             from app.models import Application
+            # Deliberately unfiltered: a soft-deleted app must KEEP reserving its
+            # port, or a new app takes it and restoring from the recycle bin collides.
             apps = Application.query.filter(Application.port.isnot(None)).all()
             for app in apps:
                 if app.port:
@@ -1128,56 +1174,131 @@ class TemplateService:
         :meth:`get_template` apply the availability gate (plan 52 D4), so an
         absent extension means hidden cards and refused installs even though
         the YAML remains bundled.
+
+        Parsing is memoized per file (see the cache block near the top of the
+        class); a repeat listing stats each file instead of re-parsing it.
         """
         templates = []
         seen_ids = set()
+        seen_paths = set()
 
         for templates_dir in [cls.TEMPLATES_DIR, cls.LOCAL_TEMPLATES_DIR]:
-            if not os.path.exists(templates_dir):
+            if not os.path.isdir(templates_dir):
                 continue
 
-            for filename in os.listdir(templates_dir):
-                if filename.endswith('.yaml') or filename.endswith('.yml'):
-                    template_id = filename.rsplit('.', 1)[0]
-                    if template_id in seen_ids:
-                        continue
-                    filepath = os.path.join(templates_dir, filename)
-                    result = cls.parse_template(filepath)
-                    if result.get('success'):
-                        template = result['template']
-                        seen_ids.add(template_id)
-                        kind = template.get('kind', 'compose')
-                        entry = {
-                            'id': template_id,
-                            'name': template.get('name'),
-                            'version': template.get('version'),
-                            'description': template.get('description'),
-                            'icon': template.get('icon'),
-                            'categories': template.get('categories', []),
-                            'kind': kind,
-                            'source': 'local',
-                            'filepath': filepath
-                        }
-                        # Repo templates surface a minimal repo summary so the
-                        # catalog grid can badge them and link to the wizard
-                        # without a second fetch.
-                        if kind == 'repo' and isinstance(template.get('repo'), dict):
-                            repo = template['repo']
-                            entry['repo'] = {
-                                'url': repo.get('url'),
-                                'branch': repo.get('branch', 'main'),
-                            }
-                        # A database engine declares itself with a top-level
-                        # `engine:` block. This listing is a fixed projection,
-                        # so without carrying the block through, the Databases
-                        # catalog could never see an engine without re-parsing
-                        # every YAML file.
-                        engine = cls.engine_metadata(template)
-                        if engine:
-                            entry['engine'] = engine
-                        templates.append(entry)
+            try:
+                with os.scandir(templates_dir) as scan:
+                    # Sorted so a same-id collision (foo.yaml vs foo.yml)
+                    # resolves the same way on every platform; os.listdir order
+                    # is filesystem-dependent.
+                    dir_entries = sorted(scan, key=lambda e: e.name)
+            except OSError:
+                continue
 
+            for dir_entry in dir_entries:
+                if not dir_entry.name.endswith(('.yaml', '.yml')):
+                    continue
+                seen_paths.add(dir_entry.path)
+
+                template_id = dir_entry.name.rsplit('.', 1)[0]
+                if template_id in seen_ids:
+                    continue
+                try:
+                    # DirEntry.stat() reuses the data the directory scan
+                    # already returned where the platform provides it, so this
+                    # is cheaper than a separate os.stat per file.
+                    info = dir_entry.stat()
+                except OSError:
+                    continue
+
+                entry = cls._local_entry(dir_entry.path, template_id,
+                                         (info.st_mtime_ns, info.st_size))
+                if entry is not None:
+                    # A file that fails to parse deliberately does NOT claim
+                    # the id, so a valid file of the same name in the fallback
+                    # directory can still supply it.
+                    seen_ids.add(template_id)
+                    templates.append(entry)
+
+        cls._prune_local_cache(seen_paths)
         return templates
+
+    @classmethod
+    def invalidate_local_cache(cls) -> None:
+        """Drop the parsed-template cache.
+
+        Ordinary writes do not need this -- the cache is keyed on
+        (mtime_ns, size), so syncing or editing a template invalidates exactly
+        that file on the next listing. Provided for tests and any out-of-band
+        mutation that could defeat mtime comparison."""
+        with cls._local_cache_lock:
+            cls._local_cache = {}
+
+    @classmethod
+    def _prune_local_cache(cls, seen_paths: set) -> None:
+        """Forget files that are no longer on disk, so a long-running panel
+        that churns templates does not grow the cache without bound."""
+        with cls._local_cache_lock:
+            stale = [p for p in cls._local_cache if p not in seen_paths]
+            for path in stale:
+                del cls._local_cache[path]
+
+    @classmethod
+    def _local_entry(cls, filepath: str, template_id: str,
+                     stat_key: tuple) -> Optional[Dict]:
+        """Catalog projection for one bundled template, memoized on ``stat_key``.
+
+        Returns None when the file does not parse -- and caches that negative
+        result too, so one malformed YAML does not cost a parse on every
+        render. Returns a deep copy so a caller mutating the result (or its
+        nested ``repo``/``engine``/``categories``) cannot corrupt the cache."""
+        with cls._local_cache_lock:
+            cached = cls._local_cache.get(filepath)
+            if cached is not None and cached['key'] == stat_key:
+                return copy.deepcopy(cached['entry'])
+
+        entry = cls._parse_local_entry(filepath, template_id)
+
+        with cls._local_cache_lock:
+            cls._local_cache[filepath] = {'key': stat_key, 'entry': entry}
+        return copy.deepcopy(entry)
+
+    @classmethod
+    def _parse_local_entry(cls, filepath: str, template_id: str) -> Optional[Dict]:
+        """Parse one template file into its catalog projection, or None."""
+        result = cls.parse_template(filepath)
+        if not result.get('success'):
+            return None
+
+        template = result['template']
+        kind = template.get('kind', 'compose')
+        entry = {
+            'id': template_id,
+            'name': template.get('name'),
+            'version': template.get('version'),
+            'description': template.get('description'),
+            'icon': template.get('icon'),
+            'categories': template.get('categories', []),
+            'kind': kind,
+            'source': 'local',
+            'filepath': filepath
+        }
+        # Repo templates surface a minimal repo summary so the catalog grid
+        # can badge them and link to the wizard without a second fetch.
+        if kind == 'repo' and isinstance(template.get('repo'), dict):
+            repo = template['repo']
+            entry['repo'] = {
+                'url': repo.get('url'),
+                'branch': repo.get('branch', 'main'),
+            }
+        # A database engine declares itself with a top-level `engine:` block.
+        # This listing is a fixed projection, so without carrying the block
+        # through, the Databases catalog could never see an engine without
+        # re-parsing every YAML file.
+        engine = cls.engine_metadata(template)
+        if engine:
+            entry['engine'] = engine
+        return entry
 
     @classmethod
     def list_engine_templates(cls) -> List[Dict]:
@@ -1239,14 +1360,67 @@ class TemplateService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
-    def fetch_remote_templates(cls, repo_url: str) -> List[Dict]:
-        """Fetch templates from a remote repository."""
-        templates = []
+    def invalidate_remote_cache(cls, repo_url: str = None) -> None:
+        """Drop cached remote indexes -- all of them, or just ``repo_url``.
 
+        Called whenever the repo list changes so a freshly added repo appears
+        immediately instead of after the TTL, and a removed one stops being
+        served from cache."""
+        with cls._remote_cache_lock:
+            if repo_url is None:
+                cls._remote_cache = {}
+            else:
+                cls._remote_cache.pop(repo_url, None)
+
+    @classmethod
+    def _cached_remote(cls, repo_url: str) -> Optional[List[Dict]]:
+        """Unexpired cache entry for ``repo_url``, or None. Returns copies so a
+        caller mutating an entry cannot corrupt the cache."""
+        with cls._remote_cache_lock:
+            entry = cls._remote_cache.get(repo_url)
+            if entry and entry['expires'] > time.monotonic():
+                return [dict(t) for t in entry['templates']]
+        return None
+
+    @classmethod
+    def _last_good_remote(cls, repo_url: str) -> Optional[List[Dict]]:
+        """Last payload this repo successfully served, regardless of expiry."""
+        with cls._remote_cache_lock:
+            entry = cls._remote_cache.get(repo_url) or {}
+            last_good = entry.get('last_good')
+            return [dict(t) for t in last_good] if last_good else None
+
+    @classmethod
+    def _store_remote(cls, repo_url: str, templates: List[Dict], ok: bool) -> None:
+        """Cache ``templates`` for ``repo_url``. A successful payload also
+        becomes the last-good; a failure carries the previous last-good
+        forward, so repeated failures keep serving it instead of decaying to
+        an empty catalog on the second one."""
+        ttl = cls._REMOTE_TTL_SECONDS if ok else cls._REMOTE_ERROR_TTL_SECONDS
+        with cls._remote_cache_lock:
+            previous = cls._remote_cache.get(repo_url) or {}
+            cls._remote_cache[repo_url] = {
+                'templates': [dict(t) for t in templates],
+                'expires': time.monotonic() + ttl,
+                'ok': ok,
+                'last_good': ([dict(t) for t in templates] if ok
+                              else previous.get('last_good')),
+            }
+
+    @classmethod
+    def fetch_remote_templates(cls, repo_url: str, force: bool = False) -> List[Dict]:
+        """Fetch a repository's template index, memoized (see the cache block
+        near the top of the class). ``force=True`` bypasses the cache, which is
+        what an explicit sync wants."""
+        if not force:
+            cached = cls._cached_remote(repo_url)
+            if cached is not None:
+                return cached
+
+        templates = []
         try:
-            # Fetch index.json from repo
             index_url = f"{repo_url}/index.json"
-            response = requests.get(index_url, timeout=30)
+            response = requests.get(index_url, timeout=cls._REMOTE_TIMEOUT_SECONDS)
             response.raise_for_status()
 
             index = response.json()
@@ -1257,22 +1431,47 @@ class TemplateService:
 
         except Exception as e:
             print(f"Failed to fetch templates from {repo_url}: {e}")
+            # Keep serving the last good index rather than blanking a catalog
+            # the operator has already seen, but still back off so a dead repo
+            # is not retried on every single page load.
+            last_good = cls._last_good_remote(repo_url)
+            cls._store_remote(repo_url, last_good or [], ok=False)
+            return last_good or []
 
-        return templates
+        cls._store_remote(repo_url, templates, ok=True)
+        return [dict(t) for t in templates]
 
     @classmethod
     def list_all_templates(cls, category: str = None, search: str = None) -> List[Dict]:
-        """List all available templates from all sources."""
-        templates = []
+        """List all available templates from all sources, deduped by id.
 
-        # Local templates
-        templates.extend(cls.list_local_templates())
+        Bundled and registry templates deliberately overlap -- the bundle is the
+        offline floor and the registry is the growth path (docs/REGISTRIES.md) --
+        so the same id legitimately arrives from both. Concatenating them listed
+        every bundled template twice. **Local wins**, matching
+        :meth:`get_template`, which already resolves local directories before
+        any repo; among repos, the first enabled one to claim an id keeps it.
+        """
+        by_id = {}
 
-        # Remote templates
+        def _claim(entry):
+            """First source to claim an id keeps it."""
+            template_id = entry.get('id')
+            if template_id and template_id not in by_id:
+                by_id[template_id] = entry
+
+        # Local templates first -- they outrank every repo.
+        for entry in cls.list_local_templates():
+            _claim(entry)
+
+        # Remote templates fill in ids the bundle does not carry.
         config = cls.get_config()
         for repo in config.get('repos', []):
             if repo.get('enabled', True):
-                templates.extend(cls.fetch_remote_templates(repo['url']))
+                for entry in cls.fetch_remote_templates(repo['url']):
+                    _claim(entry)
+
+        templates = list(by_id.values())
 
         # Filter by category
         if category:
@@ -2043,7 +2242,7 @@ class TemplateService:
         if not installed:
             return {'success': False, 'error': 'App not installed from template'}
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -2184,8 +2383,8 @@ class TemplateService:
         """
         from app.models import Application
 
-        source_app = Application.query.get(source_app_id)
-        target_app = Application.query.get(target_app_id)
+        source_app = Application.query_active().filter_by(id=source_app_id).first()
+        target_app = Application.query_active().filter_by(id=target_app_id).first()
 
         if not source_app or not target_app:
             return {'success': False, 'error': 'App not found'}

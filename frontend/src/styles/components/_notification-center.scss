@@ -226,6 +226,51 @@
     }
 }
 
+// Global quick-create ("+") base button — compact square used in the mobile
+// top bar. The sidebar uses the circular FAB variant (see layout/_sidebar.scss).
+.quick-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid $border-subtle;
+    border-radius: 9px;
+    background: $bg-card;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+    &:hover {
+        background: $bg-hover;
+        color: $text-primary;
+        border-color: $border-default;
+    }
+}
+
+// Favorite pin on detail pages — quiet ghost star, amber when pinned.
+.fav-star {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s;
+
+    &:hover { background: var(--surface-2); color: var(--text); }
+
+    &.is-on {
+        color: var(--amber);
+
+        &:hover { color: var(--amber); }
+    }
+}
+
 // In the mobile top bar the bell sits at the top, so the panel opens downward.
 .mobile-topbar__actions {
     margin-left: auto;

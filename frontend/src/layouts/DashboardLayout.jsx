@@ -9,7 +9,7 @@ import { AIProvider } from '../contexts/AIContext';
 import AIAssistant from '../components/ai/AIAssistant';
 import { ConfirmProvider } from '../contexts/ConfirmContext';
 import PluginLoader from '../plugins/PluginLoader';
-import { refreshContributions, useContributions } from '../plugins/contributions';
+import { ensureContributions, useContributions } from '../plugins/contributions';
 import useMediaQuery from '../hooks/useMediaQuery';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import api from '../services/api';
@@ -82,7 +82,7 @@ const DashboardLayout = () => {
     // (Sidebar, CommandPalette, ExtensionRoutes, PageTitleUpdater) all
     // pick up the result via useContributions().
     useEffect(() => {
-        refreshContributions();
+        ensureContributions();
     }, []);
 
     return (

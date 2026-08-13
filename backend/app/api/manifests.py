@@ -61,7 +61,7 @@ def scaffold_manifest():
     if not app_id:
         return jsonify({'error': 'app_id is required'}), 400
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
@@ -191,7 +191,8 @@ def reset_bootstrap():
     if err:
         return err
     data = request.get_json(silent=True) or {}
-    app = Application.query.get(data.get('app_id')) if data.get('app_id') else None
+    app = (Application.query_active().filter_by(id=data.get('app_id')).first()
+           if data.get('app_id') else None)
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     if (data.get('confirm') or '') != app.name:

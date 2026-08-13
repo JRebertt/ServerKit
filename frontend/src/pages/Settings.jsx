@@ -11,6 +11,7 @@ import WhiteLabelTab from '../components/settings/WhiteLabelTab';
 import NotificationsTab from '../components/settings/NotificationsTab';
 import SystemTab from '../components/settings/SystemTab';
 import UsersTab from '../components/settings/UsersTab';
+import RecycleBinTab from '../components/settings/RecycleBinTab';
 import ActivityTab from '../components/settings/ActivityTab';
 import SiteSettingsTab from '../components/settings/SiteSettingsTab';
 import SSOConfigTab from '../components/settings/SSOConfigTab';
@@ -23,18 +24,18 @@ import ModulesTab from '../components/settings/ModulesTab';
 import WebhooksTab from '../components/settings/WebhooksTab';
 import AboutTab from '../components/settings/AboutTab';
 import PluginSlot from '../components/PluginSlot';
-import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Webhook, Settings as SettingsIcon } from 'lucide-react';
+import { Activity, Code, Database, Layers, Link2, PaintBucket, Sparkles, Trash2, Webhook, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SegControl } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { useNavigate } from 'react-router-dom';
 
-const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'developer', 'about'];
+const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'recyclebin', 'developer', 'about'];
 
 // Tabs that belong to the server-wide "Administration" group (admin-only); the
 // rest are personal "My Account" settings. Drives the two-way section switch so
 // personal prefs aren't interleaved with destructive system controls.
-const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'system', 'developer'];
+const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'recyclebin', 'system', 'developer'];
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useTabParam('/settings', VALID_TABS);
@@ -200,6 +201,14 @@ const Settings = () => {
                             </Button>
                             <Button
                                 variant="ghost"
+                                className={`settings-nav-item ${activeTab === 'recyclebin' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('recyclebin')}
+                            >
+                                <Trash2 size={18} />
+                                Recycle bin
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`settings-nav-item ${activeTab === 'site' ? 'active' : ''}`}
                                 onClick={() => setActiveTab('site')}
                             >
@@ -318,6 +327,7 @@ const Settings = () => {
                     {activeTab === 'notifications' && <NotificationsTab />}
                     {activeTab === 'users' && isAdmin && <UsersTab />}
                     {activeTab === 'activity' && isAdmin && <ActivityTab />}
+                    {activeTab === 'recyclebin' && isAdmin && <RecycleBinTab />}
                     {activeTab === 'site' && isAdmin && (
                         <SiteSettingsTab
                             onDevModeChange={(v) => { setDevMode(v); refreshDevMode(); }}

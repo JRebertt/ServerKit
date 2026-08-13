@@ -102,6 +102,8 @@ class ProjectService:
         project = Project.query.get(project_id)
         if not project:
             return None
+        # Deliberately counts tombstones too: a soft-deleted app still points at
+        # this project, and hard-deleting the project would leave it unrestorable.
         if Application.query.filter_by(project_id=project_id).count() > 0:
             return 'has_apps'
         db.session.delete(project)  # cascades to environments
@@ -204,6 +206,8 @@ class ProjectService:
             return 'last'
 
         # Detach apps from the deleted environment (keep them in the project).
+        # Tombstones included on purpose — the Environment row is going away, so
+        # leaving a soft-deleted app pointing at it would dangle on restore.
         Application.query.filter_by(environment_id=environment_id).update(
             {'environment_id': None}, synchronize_session=False)
         was_default = env.is_default
@@ -247,12 +251,12 @@ class ProjectService:
 
     @staticmethod
     def list_project_apps(project_id):
-        return Application.query.filter_by(project_id=project_id).all()
+        return Application.query_active().filter_by(project_id=project_id).all()
 
     @staticmethod
     def list_environment_apps(environment_id):
-        return Application.query.filter_by(environment_id=environment_id).all()
+        return Application.query_active().filter_by(environment_id=environment_id).all()
 
     @staticmethod
     def count_project_apps(project_id):
-        return Application.query.filter_by(project_id=project_id).count()
+        return Application.query_active().filter_by(project_id=project_id).count()

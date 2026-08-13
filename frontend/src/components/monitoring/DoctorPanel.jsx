@@ -2,12 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Pill } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import { ChevronDown, ChevronRight, Stethoscope, Wrench } from 'lucide-react';
@@ -171,27 +166,29 @@ const DoctorPanel = () => {
                 )}
             </section>
 
-            <Dialog open={Boolean(confirm)} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
-                <DialogContent className="doctor-confirm">
-                    <DialogTitle>{confirm?.title}</DialogTitle>
-                    <DialogDescription>
-                        This rewrites the managed file(s) from ServerKit&apos;s configuration and
-                        reloads the affected service. Manual edits to those files will be lost.
-                    </DialogDescription>
-                    {confirm?.diff && (
-                        <pre className="doctor-diff doctor-diff--modal">{confirm.diff}</pre>
-                    )}
-                    <div className="doctor-confirm__actions">
-                        <Button variant="outline" onClick={() => setConfirm(null)} disabled={repairing}>
-                            Cancel
-                        </Button>
-                        <Button onClick={() => doRepair(confirm.items)} disabled={repairing}>
-                            <Wrench size={14} />
-                            {repairing ? 'Repairing...' : 'Repair'}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            <Modal
+                open={Boolean(confirm)}
+                onClose={() => setConfirm(null)}
+                title={confirm?.title}
+                className="doctor-confirm"
+            >
+                <p className="sk-modal__subtitle">
+                    This rewrites the managed file(s) from ServerKit&apos;s configuration and
+                    reloads the affected service. Manual edits to those files will be lost.
+                </p>
+                {confirm?.diff && (
+                    <pre className="doctor-diff doctor-diff--modal">{confirm.diff}</pre>
+                )}
+                <div className="doctor-confirm__actions">
+                    <Button variant="outline" onClick={() => setConfirm(null)} disabled={repairing}>
+                        Cancel
+                    </Button>
+                    <Button onClick={() => doRepair(confirm.items)} disabled={repairing}>
+                        <Wrench size={14} />
+                        {repairing ? 'Repairing...' : 'Repair'}
+                    </Button>
+                </div>
+            </Modal>
         </div>
     );
 };

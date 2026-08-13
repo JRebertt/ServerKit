@@ -838,7 +838,15 @@ class TestInstalledEngines:
 
 # ── uninstall: the data volume ───────────────────────────────────────────────
 class TestUninstallPreservesData:
-    """Safety rule 5, enforced on the shared app-delete route."""
+    """Safety rule 5, now enforced by the shape of the delete rather than a flag.
+
+    Application became soft-deletable (plan 70), so DELETE no longer destroys
+    anything: it stops the app and tombstones the row, and the volumes go at
+    PURGE. That makes the rule STRONGER than it was — an engine's data used to
+    be protected only because `_remove_data_flag` defaulted it off, and one
+    `?remove_data=true` was enough to lose it. Now nothing loses a volume until
+    the row is purged, and the flag only decides what a purge does.
+    """
 
     @pytest.fixture
     def compose_down_calls(self, monkeypatch):
@@ -861,19 +869,47 @@ class TestUninstallPreservesData:
         assert response.status_code == 200
         assert compose_down_calls == [{'volumes': False}]
 
-    def test_remove_data_true_removes_the_volume(self, client, auth_headers,
-                                                 tmp_path, monkeypatch,
-                                                 compose_down_calls):
+    def test_remove_data_true_alone_no_longer_destroys_anything(
+            self, client, auth_headers, tmp_path, monkeypatch, compose_down_calls):
+        """The flag is not enough on its own any more: without ?purge the row
+        goes to the bin, and a bin entry whose volumes were already destroyed
+        would be a Restore button that cannot deliver."""
         application = _make_installed_engine(tmp_path, monkeypatch)
         response = client.delete(f'/api/v1/apps/{application.id}?remove_data=true',
                                  headers=auth_headers)
         assert response.status_code == 200
-        assert compose_down_calls == [{'volumes': True}]
+        assert response.get_json().get('recycle_bin') is True
+        assert compose_down_calls == [{'volumes': False}]
 
-    def test_ordinary_apps_keep_the_historic_behavior(self, client, auth_headers,
-                                                      tmp_path, monkeypatch,
-                                                      compose_down_calls):
+    def test_purge_with_remove_data_true_removes_the_volume(
+            self, client, auth_headers, tmp_path, monkeypatch, compose_down_calls):
+        """Skipping the bin AND asking for the data gone is the one path that
+        still destroys it — two explicit signals, not one."""
+        application = _make_installed_engine(tmp_path, monkeypatch)
+        response = client.delete(
+            f'/api/v1/apps/{application.id}?purge=true&remove_data=true',
+            headers=auth_headers)
+        assert response.status_code == 200
+        # down(volumes=False) on the way to the bin, then down(volumes=True) at purge.
+        assert compose_down_calls[-1] == {'volumes': True}
+
+    def test_purging_an_engine_still_preserves_its_data_by_default(
+            self, client, auth_headers, tmp_path, monkeypatch, compose_down_calls):
+        """The engine default survives the bin: losing the data is still the one
+        irreversible part of an engine uninstall, so even a purge keeps it
+        unless asked."""
+        application = _make_installed_engine(tmp_path, monkeypatch)
+        response = client.delete(f'/api/v1/apps/{application.id}?purge=true',
+                                 headers=auth_headers)
+        assert response.status_code == 200
+        assert all(call['volumes'] is False for call in compose_down_calls)
+
+    def test_ordinary_apps_also_keep_their_volumes_until_purge(
+            self, client, auth_headers, tmp_path, monkeypatch, compose_down_calls):
+        """This is the behaviour that CHANGED. An ordinary app used to lose its
+        volumes the moment you pressed delete; now every app gets the engines'
+        old protection, because every app is recoverable for 30 days."""
         application = _make_installed_engine(tmp_path, monkeypatch,
                                              template_id='gitea', name='git')
         client.delete(f'/api/v1/apps/{application.id}', headers=auth_headers)
-        assert compose_down_calls == [{'volumes': True}]
+        assert compose_down_calls == [{'volumes': False}]

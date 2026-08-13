@@ -250,6 +250,26 @@ def run_pairing_prune():
     pairing_service.prune_expired()
 
 
+def run_recycle_bin_retention():
+    """Reap tombstones past the retention window.
+
+    Nothing called `purge_expired` on a schedule before: a deleted domain is a
+    row, and leaving rows around costs nothing anyone notices. Applications
+    changed that -- their delete now KEEPS the data volumes and the uploaded
+    source so a restore can work, and those are reclaimed by the purge hook. So
+    without this the disk a delete used to free would never come back.
+
+    Daily is the right cadence for a 30-day window; the exact hour is irrelevant
+    and a shorter period would just re-scan the same rows.
+    """
+    from app.services import recycle_bin_service
+    counts = recycle_bin_service.purge_expired()
+    if counts:
+        logger.info('Recycle bin retention: purged %s', counts)
+        return counts
+    return None
+
+
 def run_registrar_expiry():
     """Notify when a registrar domain crosses an expiry threshold."""
     from app.services.registrar_service import RegistrarService
@@ -373,6 +393,7 @@ _BUILTINS = [
     ('builtin.api_background',      run_api_background,        'api-background',     3600,  3600),
     ('builtin.pairing_prune',       run_pairing_prune,         'pairing-prune',      3600,  60),
     ('builtin.registrar_expiry',    run_registrar_expiry,      'registrar-expiry',   86400, 300),
+    ('builtin.recycle_retention',   run_recycle_bin_retention, 'recycle-retention',  86400, 900),
     ('builtin.backup_scheduler',    run_backup_scheduler,      'backup-scheduler',   30,    30),
     ('builtin.extension_updates',   run_extension_update_check, 'extension-updates', 86400, 600),
     ('builtin.security_feed',       run_security_feed_check,   'security-feed',     86400, 600),

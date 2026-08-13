@@ -11,7 +11,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
     // No run selected: render an empty Drawer so the close animation still plays.
     if (!run) {
         return (
-            <Drawer open={open} onOpenChange={(v) => !v && onClose()} title="Backup" width={560}>
+            <Drawer open={open} onOpenChange={(v) => !v && onClose()} title="Backup" width={520}>
                 <div />
             </Drawer>
         );
@@ -29,7 +29,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
             title={title}
             subtitle={run.kind}
             icon={<Archive size={18} />}
-            width={560}
+            width={520}
         >
             <div className="backup-detail-drawer">
                 <div className="backup-detail-drawer__head">

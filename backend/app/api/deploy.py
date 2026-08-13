@@ -1,8 +1,11 @@
 # Bucket: PER-APP (plan 29 #9). Deploy config reads/writes gate on the shared
 # app-access seam (can_access_app / can_edit_app); the public inbound webhook is
 # token/signature-verified (ALLOWLISTed — no per-app user session).
+import os
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app import paths
 from app.middleware.rbac import admin_required, app_access_tier
 from app.models import User, Application
 from app.services.git_service import GitService
@@ -17,7 +20,7 @@ def get_deploy_config(app_id):
     """Get deployment configuration for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -40,7 +43,7 @@ def get_deploy_config(app_id):
 @admin_required
 def configure_deployment(app_id):
     """Configure Git deployment for an app."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 
@@ -79,7 +82,7 @@ def trigger_deploy(app_id):
     """Trigger a deployment."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -99,7 +102,7 @@ def pull_changes(app_id):
     """Pull latest changes without running deploy scripts."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -119,7 +122,7 @@ def get_git_status(app_id):
     """Get Git status for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -137,7 +140,7 @@ def get_commit_info(app_id):
     """Get current commit info for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -162,7 +165,7 @@ def get_deployment_history():
     limit = request.args.get('limit', 50, type=int)
 
     if app_id:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:
@@ -189,8 +192,16 @@ def clone_repository():
     if missing:
         return jsonify({'error': f'Missing required fields: {", ".join(missing)}'}), 400
 
+    # GHSA-8vx6-432p-h62q: app_path is attacker-controlled here (unlike
+    # /apps/from-repository, which derives it server-side). Confine clones to
+    # the managed apps root, mirroring _assert_managed_app_path.
+    base_dir = os.path.abspath(paths.APPS_DIR)
+    app_path = os.path.abspath(data['app_path'])
+    if app_path == base_dir or not app_path.startswith(base_dir + os.sep):
+        return jsonify({'error': 'app_path must be inside the managed apps directory'}), 400
+
     result = GitService.clone_repository(
-        app_path=data['app_path'],
+        app_path=app_path,
         repo_url=data['repo_url'],
         branch=data.get('branch', 'main')
     )
@@ -204,7 +215,7 @@ def get_branches(app_id):
     """Get list of remote branches for an app's repository."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -239,7 +250,7 @@ def get_webhook_logs():
     limit = request.args.get('limit', 50, type=int)
 
     if app_id:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:

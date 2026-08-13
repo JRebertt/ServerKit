@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { ClipboardCheck } from 'lucide-react';
 import api from '../../services/api';
+import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ds';
 
@@ -48,12 +50,10 @@ const AuditTab = () => {
                     {error && <div className="alert alert-danger">{error}</div>}
 
                     {!audit && !loading && (
-                        <div className="empty-state">
-                            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1">
-                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                            </svg>
-                            <p>Run a security audit to check your server&apos;s configuration.</p>
-                        </div>
+                        <EmptyState
+                            icon={ClipboardCheck}
+                            title="Run a security audit to check your server's configuration."
+                        />
                     )}
 
                     {loading && (

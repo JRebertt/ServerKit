@@ -43,7 +43,7 @@ class ManifestSyncService:
     def _resync(cls, app_id: int, commit: Optional[str], trigger: str) -> Dict[str, Any]:
         from app.services.repository_manifest_service import RepositoryManifestService
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app or not app.project_id or not app.root_path:
             return {'synced': False, 'reason': 'no project/root'}
 

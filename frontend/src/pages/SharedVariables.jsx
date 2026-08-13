@@ -8,11 +8,10 @@ import SharedVariableGroups from '../components/shared/SharedVariableGroups';
 const SharedVariables = () => {
     const workspaceId = localStorage.getItem('active_workspace_id') || 'default';
 
-    return (
-        <div className="sk-tabgroup__inner shared-variables-page">
-            <SharedVariableGroups scopeType="workspace" scopeId={workspaceId} />
-        </div>
-    );
+    // No wrapper: SharedVariableGroups renders through ResourceListPage, which
+    // supplies the `sk-tabgroup__inner` box itself. Nesting a second one padded
+    // the table twice.
+    return <SharedVariableGroups scopeType="workspace" scopeId={workspaceId} />;
 };
 
 export default SharedVariables;

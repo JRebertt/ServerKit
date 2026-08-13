@@ -1027,8 +1027,10 @@ location /p/ {{
         from app.models import Application
 
         try:
-            # Query all apps with private URLs enabled
-            apps = Application.query.filter(
+            # Query all apps with private URLs enabled. query_active(): a
+            # tombstoned app's container is gone, so re-publishing its /p/<slug>
+            # would proxy to a dead port.
+            apps = Application.query_active().filter(
                 Application.private_url_enabled == True,
                 Application.private_slug.isnot(None),
                 Application.port.isnot(None)

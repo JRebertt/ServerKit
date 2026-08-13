@@ -239,7 +239,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
             title="Add a widget"
             subtitle={`${types.length} types · drag to reposition after adding`}
             icon={<LayoutGrid size={18} />}
-            width={700}
+            width={720}
             className="skw-lib"
         >
             <div className="skw-lib__filters">

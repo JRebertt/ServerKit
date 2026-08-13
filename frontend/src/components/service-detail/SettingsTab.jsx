@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
 import { DangerZone } from '../DangerZone';
 import RepoConnectForm from '../git/RepoConnectForm';
 import ProtectionPanel from '../backups/ProtectionPanel';
@@ -94,6 +95,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
     const settingsItems = settingsGroups.flatMap((g) => g.items);
     const navigate = useNavigate();
     const toast = useToast();
+    const { confirm } = useConfirm();
     // Section lives in the URL (/services/:id/settings/:section) so it's
     // shareable and survives a refresh — same as the WordPress detail page.
     const { section: sectionParam } = useParams();
@@ -128,7 +130,12 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
     }
 
     async function handleUnlink() {
-        if (!confirm(`Unlink ${app.name} from its linked application?`)) return;
+        if (!await confirm({
+            title: 'Unlink Application',
+            message: `Unlink ${app.name} from its linked application?`,
+            confirmText: 'Unlink',
+            variant: 'danger',
+        })) return;
 
         setUnlinking(true);
         try {
@@ -142,12 +149,23 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
     }
 
     async function handleDelete() {
-        if (!confirm(`Delete ${app.name}? This action cannot be undone.`)) return;
-        if (!confirm('Are you sure? This will permanently remove the service.')) return;
+        if (!await confirm({
+            title: 'Delete Service',
+            message: `Delete ${app.name}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.`,
+            confirmText: 'Delete',
+            variant: 'danger',
+        })) return;
+        if (!await confirm({
+            title: 'Delete Service',
+            message: 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.',
+            confirmText: 'Delete',
+            variant: 'danger',
+        })) return;
 
         setDeleting(true);
         try {
             await api.deleteApp(app.id);
+            toast.success(`“${app.name}” moved to the recycle bin`);
             navigate('/services');
         } catch (err) {
             toast.error('Failed to delete service');
@@ -857,7 +875,12 @@ const ManifestSection = ({ app }) => {
 
     async function handleApply() {
         if (!projectId) return;
-        if (!window.confirm('Apply the manifest to this project? This will create or update services to match serverkit.yaml.')) return;
+        if (!await confirm({
+            title: 'Apply Manifest',
+            message: 'Apply the manifest to this project? This will create or update services to match serverkit.yaml.',
+            confirmText: 'Apply',
+            variant: 'warning',
+        })) return;
         setApplying(true);
         try {
             const res = await api.applyManifest(projectId, {});

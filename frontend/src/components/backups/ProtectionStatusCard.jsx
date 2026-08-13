@@ -1,4 +1,4 @@
-import { Pill, MetricCard } from '@/components/ds';
+import { Pill, MetricCard, KpiBand } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Archive, Clock, DollarSign, HardDrive, Play, ExternalLink, Loader2 } from 'lucide-react';
@@ -117,7 +117,7 @@ const ProtectionStatusCard = ({
                     {statusAction}
                 </div>
 
-                <div className="protection-status-card__kpis">
+                <KpiBand>
                     <MetricCard
                         tone="accent"
                         icon={<Clock size={16} />}
@@ -136,7 +136,7 @@ const ProtectionStatusCard = ({
                         value={policyView.storage_used_human}
                         label="Storage used"
                     />
-                </div>
+                </KpiBand>
 
                 <div className="protection-status-card__actions">
                     <Button variant="primary" size="sm" onClick={onBackupNow} disabled={backingUp}>

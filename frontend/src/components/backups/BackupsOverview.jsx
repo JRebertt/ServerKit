@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { formatBytes } from '@/utils/formatBytes';
-import { KpiBand, MetricCard, Pill } from '@/components/ds';
+import { KpiBand, MetricCard, Pill, DataTable, DataTableFooter } from '@/components/ds';
 import EmptyState from '../EmptyState';
 
 // Daily activity cells: one column per week, one row per weekday. Half a year
@@ -93,6 +93,51 @@ function nextFire(schedule) {
     }
     return null;
 }
+
+// DataTable columns for the "Latest snapshots" digest. The hand-rolled table
+// had no thead; the shared primitive always renders one, so the cells keep
+// their exact markup (.sk-cell-name, .bk-ico, .sk-cell-sub) and the columns
+// gain the standard sk-dtable headers.
+const LATEST_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Snapshot',
+        sortable: true,
+        hideable: false,
+        sortValue: (e) => e.name || '',
+        render: (e) => {
+            const Icon = KIND_ICON[e.kind] || Archive;
+            return (
+                <div className="sk-cell-name">
+                    <span className="bk-ico"><Icon size={14} /></span>
+                    <span>
+                        <div>{e.name}</div>
+                        <div className="sk-cell-sub">{e.sub} · {relativeTime(e.at)}</div>
+                    </span>
+                </div>
+            );
+        },
+    },
+    {
+        key: 'size',
+        header: 'Size',
+        sortable: true,
+        sortValue: (e) => e.size || 0,
+        cellClassName: 'sk-cell-mono',
+        render: (e) => formatBytes(e.size, { defaultValue: '—' }),
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        sortValue: (e) => e.status || '',
+        render: (e) => (
+            <Pill kind={e.status === 'complete' ? 'green' : e.status === 'running' ? 'cyan' : 'red'}>
+                {e.status}
+            </Pill>
+        ),
+    },
+];
 
 // The Backups overview, ported from the design mock: what is protected, how
 // reliably it has been running, where the bytes live, and what happened lately.
@@ -423,32 +468,20 @@ export default function BackupsOverview({
                             description="Run a backup or enable a schedule to start building an archive."
                         />
                     ) : (
-                        <table className="sk-dtable bk-latest">
-                            <tbody>
-                                {latest.map((e) => {
-                                    const Icon = KIND_ICON[e.kind] || Archive;
-                                    return (
-                                        <tr key={e.id}>
-                                            <td>
-                                                <div className="sk-cell-name">
-                                                    <span className="bk-ico"><Icon size={14} /></span>
-                                                    <span>
-                                                        <div>{e.name}</div>
-                                                        <div className="sk-cell-sub">{e.sub} · {relativeTime(e.at)}</div>
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="sk-cell-mono">{formatBytes(e.size, { defaultValue: '—' })}</td>
-                                            <td>
-                                                <Pill kind={e.status === 'complete' ? 'green' : e.status === 'running' ? 'cyan' : 'red'}>
-                                                    {e.status}
-                                                </Pill>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={LATEST_COLUMNS}
+                            data={latest}
+                            keyField="id"
+                            storageKey="serverkit-table-backup-latest"
+                            tableClassName="bk-latest"
+                            footer={(
+                                <DataTableFooter
+                                    shown={latest.length}
+                                    total={events.length}
+                                    noun="snapshot"
+                                />
+                            )}
+                        />
                     )}
                 </section>
             </div>

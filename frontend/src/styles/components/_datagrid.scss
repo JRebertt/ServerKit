@@ -1,0 +1,1166 @@
+// ============================================================
+// DataGrid — the "table is the page" list surface.
+// components/ds/grid/*. Ported from the Domains design mock.
+//
+// The grid is NOT a <table>: the header and every row are separate CSS grids
+// that align because they all read `--sk-grid-tpl`, injected per render from
+// the visible column list. That is what makes show/hide and move-left/right a
+// pure data change with no <colgroup> to keep in sync.
+// ============================================================
+
+// ---------------------------------------------------------------- column menu
+// The "⋮" trigger. Shared by <DataGrid> (CSS grid) and <DataTable> (a real
+// <table>), so it is defined once, standalone, and positioned by whichever
+// header cell hosts it. Three stacked dots drawn with box-shadow rather than
+// an icon: it stays crisp at 3px and needs no SVG per header cell.
+.sk-colmenu-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-ghost);
+    cursor: pointer;
+    opacity: 0;
+    transition: 0.12s;
+
+    &:hover { background: var(--surface-3); color: var(--text); }
+    &:focus-visible { opacity: 1; outline: 2px solid var(--accent-dim); outline-offset: -2px; }
+    &[data-state='open'] { opacity: 1; background: var(--surface-3); color: var(--text); }
+
+    &__dots {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: currentcolor;
+        box-shadow: 0 -5px 0 currentcolor, 0 5px 0 currentcolor;
+    }
+}
+
+// ---------------------------------------------------------------- view bar
+.sk-viewbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+
+    // The table's own chrome (search, filter, "⋮") sits on the SAME line as the
+    // view name. It used to go in a ListToolbar underneath, which on a page
+    // with nothing else to put there rendered a 32px-tall empty bar holding two
+    // right-aligned icons — one row of chrome pretending to be two.
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    // Amber, not red: unsaved tweaks are a state, not an error.
+    &__dirty {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 5px 4px 11px;
+        border: 1px solid rgba(245, 185, 69, 0.28);
+        background: rgba(245, 185, 69, 0.07);
+        border-radius: 9px;
+        font-size: 12px;
+        color: var(--amber);
+        white-space: nowrap;
+
+        button {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 9px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+
+            &:hover { background: var(--surface-3); color: var(--text); }
+
+            &.is-primary {
+                background: var(--amber);
+                color: #20180a;
+                font-weight: 600;
+
+                &:hover { background: #ffc75c; }
+            }
+        }
+    }
+}
+
+.sk-viewpick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 4px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.13s;
+
+    &:hover,
+    &.is-open { background: var(--surface-2); }
+
+    &__title {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+
+    &__ast {
+        color: var(--amber);
+        font-size: 18px;
+        margin-left: -4px;
+    }
+
+    svg { color: var(--text-faint); }
+
+    &__menu { width: 19rem; }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        border-radius: 8px;
+
+        &:hover { background: var(--surface-3); }
+        &.is-on { background: var(--accent-bg); }
+        &.is-on .sk-viewpick__nm { color: var(--accent-bright); }
+    }
+
+    &__rowmain {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 9px;
+        border: none;
+        background: transparent;
+        font-size: 13px;
+        color: var(--text-dim);
+        text-align: left;
+        cursor: pointer;
+    }
+
+    &__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--accent);
+
+        &[data-builtin='true'] { background: var(--text-ghost); }
+    }
+
+    &__nm {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__star { color: var(--amber); flex-shrink: 0; }
+
+    &__n {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-ghost);
+    }
+
+    &__cog {
+        opacity: 0;
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        margin-right: 5px;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text-ghost);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: var(--text); background: var(--surface-2); }
+    }
+
+    &__row:hover &__cog,
+    &__row.is-on &__cog { opacity: 1; }
+}
+
+// ---------------------------------------------------------------- toolbar bits
+.sk-gridicon {
+    position: relative;
+    width: 34px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 9px;
+    color: var(--text-dim);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: 0.13s;
+
+    &:hover {
+        border-color: var(--border-strong);
+        color: var(--text);
+        background: var(--surface-3);
+    }
+
+    &.is-on {
+        border-color: var(--accent-dim);
+        background: var(--accent-bg);
+        color: var(--accent-bright);
+    }
+
+    &__count {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        font-family: var(--mono);
+        font-size: 9.5px;
+        background: var(--accent);
+        color: #fff;
+        border: 2px solid var(--bg-body);
+        border-radius: 20px;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        display: grid;
+        place-items: center;
+    }
+}
+
+// ---------------------------------------------------------------- filter chips
+.sk-gridchips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 13px;
+
+    &__clear {
+        font-size: 12px;
+        color: var(--text-faint);
+        padding: 5px 8px;
+        border: none;
+        border-radius: 7px;
+        background: transparent;
+        cursor: pointer;
+
+        &:hover { background: var(--surface-2); color: var(--text); }
+    }
+}
+
+.sk-gridchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px 5px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 9px;
+    font-size: 12.5px;
+    color: var(--text);
+    max-width: 360px;
+    white-space: nowrap;
+
+    &:hover { border-color: var(--border-strong); }
+
+    &__k {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+    }
+
+    &__op { color: var(--text-faint); font-size: 11.5px; }
+
+    &__v { overflow: hidden; text-overflow: ellipsis; }
+
+    &__x {
+        width: 18px;
+        height: 18px;
+        border: none;
+        border-radius: 5px;
+        background: transparent;
+        display: grid;
+        place-items: center;
+        color: var(--text-ghost);
+        cursor: pointer;
+
+        &:hover { background: var(--surface-3); color: var(--red); }
+    }
+
+    &--match {
+        background: var(--accent-bg-soft);
+        border-color: var(--accent-dim);
+        color: var(--accent-bright);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 6px 10px;
+        cursor: pointer;
+    }
+}
+
+// ---------------------------------------------------------------- bulk bar
+// The inline `.sk-gridbulk` bar lived here. GridBulkBar renders the floating
+// `.sk-bulkbar` pill now (see _design-system.scss) so a selection looks and
+// behaves the same on every table instead of being inline-at-the-top on some
+// pages and floating-at-the-bottom on others.
+// ---------------------------------------------------------------- the grid
+.sk-grid {
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    position: relative;
+
+    &__head,
+    &__row {
+        display: grid;
+        grid-template-columns: var(--sk-grid-tpl);
+        align-items: center;
+    }
+
+    &__head {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        border-bottom: 1px solid var(--border-soft);
+        // Top-lit, not a flat fill — the header reads as a lid on the surface.
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+
+    &__th {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        // 26px of right padding is the reserved lane for the "⋮" button, so the
+        // label never reflows when it appears on hover.
+        padding: 10px 26px 10px 14px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+        user-select: none;
+        min-width: 0;
+
+        &.is-sortable { cursor: pointer; }
+        &.is-sortable:hover { color: var(--text-dim); }
+        &.is-sorted { color: var(--text); }
+        &.is-filtered { color: var(--accent-bright); }
+        &.is-num { justify-content: flex-end; }
+    }
+
+    &__thlabel {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__tharrow {
+        display: grid;
+        place-items: center;
+        color: var(--accent-bright);
+    }
+
+    &__th:hover .sk-colmenu-btn { opacity: 1; }
+    &__th.is-filtered .sk-colmenu-btn { opacity: 1; color: var(--accent-bright); }
+
+    // ---- rows ----
+    &__row {
+        border-top: 1px solid var(--border-soft);
+        transition: background 0.12s;
+
+        &.is-clickable { cursor: pointer; }
+        &:hover { background: var(--surface-2); }
+        &.is-picked { background: var(--accent-bg-soft); }
+        &.is-picked:hover { background: var(--accent-bg); }
+    }
+
+    &__td {
+        padding: 11px 14px;
+        min-width: 0;
+        font-size: 13px;
+        color: var(--text-dim);
+        overflow: hidden;
+
+        &.is-num {
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+    }
+
+    // ---- first-column identity cell ----
+    &__name {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        min-width: 0;
+    }
+
+    &__avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        color: var(--text-faint);
+        transition: 0.12s;
+    }
+
+    &__row:hover &__avatar {
+        border-color: var(--accent-dim);
+        color: var(--accent-bright);
+        background: var(--accent-bg);
+    }
+
+    &__nameinner { min-width: 0; }
+
+    &__nm {
+        font-size: 13.5px;
+        font-weight: 550;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &__sub {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 2px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-ghost);
+        white-space: nowrap;
+        overflow: hidden;
+
+        b { font-weight: 500; color: var(--text-faint); margin-right: 4px; }
+    }
+
+    &__subitem {
+        display: inline-flex;
+        align-items: center;
+
+        i {
+            width: 3px;
+            height: 3px;
+            border-radius: 50%;
+            background: var(--border-strong);
+            flex-shrink: 0;
+            margin-right: 9px;
+        }
+    }
+
+    // ---- selection ----
+    &__check {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 12px !important;
+        padding-right: 0 !important;
+        cursor: pointer;
+    }
+
+    &__box {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        border: 1.5px solid var(--border-strong);
+        display: grid;
+        place-items: center;
+        color: transparent;
+        background: var(--surface);
+        transition: 0.12s;
+
+        &.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+        &.is-part { background: var(--surface-3); border-color: var(--accent-dim); color: var(--accent-bright); }
+    }
+
+    &__row:hover &__box { border-color: var(--text-ghost); }
+
+    // ---- row-end quick actions ----
+    &__rowend {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 2px;
+        padding-right: 10px !important;
+
+        button {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            display: grid;
+            place-items: center;
+            color: var(--text-ghost);
+            cursor: pointer;
+            opacity: 0;
+            transition: 0.12s;
+
+            &:hover { background: var(--surface-3); color: var(--accent-bright); }
+        }
+    }
+
+    &__row:hover &__rowend button { opacity: 1; }
+
+    // ---- group headers ----
+    &__group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 9px 16px;
+        border: none;
+        border-top: 1px solid var(--border-soft);
+        background: var(--surface-0);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        cursor: pointer;
+        position: sticky;
+        top: 41px;               // sits under the sticky header, never over it
+        z-index: 2;
+
+        &:hover { color: var(--text); }
+
+        i { flex: 1; height: 1px; background: var(--border-soft); }
+    }
+
+    &__groupcount { color: var(--text-ghost); }
+
+    &__empty { padding: 56px 20px; text-align: center; }
+
+    // ---- density ----
+    &--compact {
+        .sk-grid__td { padding: 7px 14px; }
+        .sk-grid__sub { display: none; }
+        .sk-grid__avatar { width: 22px; height: 22px; border-radius: 7px; }
+    }
+}
+
+// ---------------------------------------------------------------- footer
+.sk-gridfoot {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-soft);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-ghost);
+    flex-wrap: wrap;
+
+    &__sp { flex: 1; }
+}
+
+.sk-gridpager {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    &__label {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+    }
+
+    &__sel {
+        position: relative;
+        display: flex;
+        align-items: center;
+        margin-right: 6px;
+
+        select {
+            appearance: none;
+            padding: 4px 20px 4px 8px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+
+            &:hover { border-color: var(--border-strong); color: var(--text); }
+        }
+
+        svg {
+            position: absolute;
+            right: 5px;
+            pointer-events: none;
+            color: var(--text-ghost);
+        }
+    }
+
+    button {
+        width: 26px;
+        height: 24px;
+        display: grid;
+        place-items: center;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover:not(:disabled) {
+            border-color: var(--border-strong);
+            color: var(--text);
+            background: var(--surface-3);
+        }
+
+        &:disabled { opacity: 0.32; cursor: default; }
+    }
+
+    &__pos {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        padding: 0 4px;
+        min-width: 44px;
+        text-align: center;
+    }
+}
+
+// ---------------------------------------------------------------- menus
+// Rendered inside the shared .ui-popover-panel surface (Radix portal + collision
+// flipping), so these rules own spacing only — never position.
+.sk-gridmenu {
+    width: auto;
+    min-width: 15.5rem;
+    max-width: 20rem;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+
+    &__head {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+        padding: 5px 8px 7px;
+    }
+
+    &__note {
+        font-size: 11.5px;
+        color: var(--text-ghost);
+        padding: 2px 9px 8px;
+        line-height: 1.45;
+    }
+
+    &__sep {
+        height: 1px;
+        background: var(--border-soft);
+        margin: 6px 4px;
+    }
+
+    &__opt {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 9px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        font-size: 12.5px;
+        font-family: inherit;
+        color: var(--text-dim);
+        text-align: left;
+        cursor: pointer;
+        transition: 0.11s;
+
+        &:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+        &.is-on { color: var(--text); }
+        &.is-danger { color: var(--red); }
+        &.is-danger:hover:not(:disabled) { background: var(--red-bg); color: var(--red); }
+        &:disabled { opacity: 0.4; cursor: default; }
+
+        svg { flex-shrink: 0; }
+    }
+
+    // The check-in-the-option pattern: a toggle reads as a list row, not a form
+    // control, so multi-select filters stay scannable at a glance.
+    &__box {
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        border: 1.5px solid var(--border-strong);
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        color: transparent;
+    }
+
+    &__opt.is-on &__box {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+    }
+
+    &__cap { text-transform: capitalize; }
+
+    &__rest {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-ghost);
+    }
+
+    &__scroll { max-height: 212px; overflow-y: auto; }
+
+    &__mini {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 9px;
+        border: 1px solid var(--border);
+        background: var(--surface-3);
+        border-radius: 8px;
+        margin: 2px 4px 6px;
+
+        svg { color: var(--text-ghost); flex-shrink: 0; }
+
+        input,
+        select {
+            width: 100%;
+            min-width: 0;
+            background: none;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-size: 12.5px;
+            font-family: var(--mono);
+        }
+
+        select { color: var(--text-dim); font-family: var(--sans); cursor: pointer; }
+
+        input::placeholder { color: var(--text-ghost); font-family: var(--sans); }
+    }
+
+    &__quick {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        padding: 2px 4px 6px;
+
+        button {
+            padding: 5px 9px;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--surface-3);
+            font-size: 11.5px;
+            color: var(--text-dim);
+            cursor: pointer;
+
+            &:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
+        }
+    }
+
+    &__foot {
+        display: flex;
+        gap: 6px;
+        padding: 6px 4px 0;
+        margin-top: 4px;
+        border-top: 1px solid var(--border-soft);
+
+        button {
+            flex: 1;
+            padding: 7px;
+            border: none;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            color: var(--text-dim);
+            background: var(--surface-3);
+            cursor: pointer;
+
+            &:hover:not(:disabled) { color: var(--text); background: var(--border); }
+            &:disabled { opacity: 0.45; cursor: default; }
+
+            &.is-primary { background: var(--accent); color: #fff; }
+            &.is-primary:hover:not(:disabled) { background: var(--accent-bright); }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- drawer
+.sk-griddrawer {
+    // ds/Drawer hands children to .sk-drawer__body, which is a plain scrolling
+    // block. This drawer owns three regions of its own (tab strip, scroll area,
+    // pinned footer), so the slot has to become the flex column and give the
+    // scroll to __body — otherwise the footer floats directly under the last
+    // control with dead space beneath it.
+    .sk-drawer__body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 0;
+    }
+
+    &__tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-0);
+        flex-shrink: 0;
+
+        button {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 13px 12px;
+            border: none;
+            background: transparent;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            color: var(--text-faint);
+            cursor: pointer;
+            transition: color 0.13s;
+
+            &:hover { color: var(--text-dim); }
+            &.is-on { color: var(--text); }
+
+            &.is-on::after {
+                content: '';
+                position: absolute;
+                left: 8px;
+                right: 8px;
+                bottom: -1px;
+                height: 2px;
+                border-radius: 2px 2px 0 0;
+                background: var(--accent);
+                box-shadow: 0 -1px 12px var(--accent-glow);
+            }
+
+            .n {
+                font-family: var(--mono);
+                font-size: 10.5px;
+                color: var(--text-ghost);
+                background: var(--surface-2);
+                border: 1px solid var(--border-soft);
+                border-radius: 5px;
+                padding: 1px 5px;
+            }
+
+            &.is-on .n { color: var(--text-dim); background: var(--surface-3); border-color: var(--border); }
+        }
+    }
+
+    &__body { flex: 1; overflow-y: auto; }
+
+    &__foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        background: var(--surface-0);
+        flex-shrink: 0;
+    }
+
+    &__sp { flex: 1; }
+}
+
+.sk-gridsec {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-soft);
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 13px;
+    }
+
+    &__t {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        flex: 1;
+    }
+
+    &__add {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        font-family: inherit;
+        color: var(--accent-bright);
+        padding: 4px 8px;
+        border: none;
+        border-radius: 7px;
+        background: transparent;
+        cursor: pointer;
+
+        &:hover { background: var(--accent-bg); }
+    }
+
+    &__none {
+        padding: 14px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--text-ghost);
+    }
+
+    &__hint {
+        font-size: 12.5px;
+        color: var(--text-faint);
+        margin-bottom: 10px;
+    }
+
+    &__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+}
+
+.sk-gridmatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-bottom: 11px;
+}
+
+.sk-gridseg {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+
+    button {
+        padding: 4px 10px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        font-size: 11.5px;
+        font-weight: 500;
+        font-family: inherit;
+        color: var(--text-faint);
+        cursor: pointer;
+
+        &.is-on { background: var(--accent-bg); color: var(--accent-bright); }
+    }
+
+    &--wide { width: fit-content; }
+}
+
+.sk-gridrule {
+    display: grid;
+    grid-template-columns: 1fr 116px 26px;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 9px;
+
+    &__value { grid-column: 1 / -1; }
+
+    &__sel {
+        position: relative;
+
+        select {
+            appearance: none;
+            width: 100%;
+            padding: 8px 22px 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text);
+            font-size: 12.5px;
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+            text-overflow: ellipsis;
+
+            &:focus { border-color: var(--accent-dim); }
+        }
+
+        svg {
+            position: absolute;
+            right: 7px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--text-ghost);
+        }
+    }
+
+    input[type='text'],
+    input[type='number'],
+    input[type='date'] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 12.5px;
+        font-family: var(--mono);
+        outline: none;
+
+        &:focus { border-color: var(--accent-dim); }
+    }
+
+    &__del {
+        width: 26px;
+        height: 30px;
+        border: none;
+        border-radius: 7px;
+        background: transparent;
+        display: grid;
+        place-items: center;
+        color: var(--text-ghost);
+        cursor: pointer;
+
+        &:hover { background: var(--red-bg); color: var(--red); }
+    }
+
+    &__join {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+        padding: 1px 0 6px 2px;
+    }
+
+    &__enum { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    &__tag {
+        padding: 5px 10px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        font-size: 11.5px;
+        font-family: inherit;
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: 0.12s;
+        text-transform: capitalize;
+
+        &:hover { border-color: var(--border-strong); color: var(--text); }
+
+        &.is-on {
+            border-color: var(--accent-dim);
+            background: var(--accent-bg);
+            color: var(--accent-bright);
+        }
+    }
+}
+
+.sk-gridcol {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    transition: 0.11s;
+
+    &:hover { background: var(--surface-2); border-color: var(--border); }
+    &.is-drag { opacity: 0.35; }
+    &.is-off .sk-gridcol__nm { color: var(--text-ghost); }
+
+    &__grip { color: var(--text-ghost); display: grid; place-items: center; cursor: grab; }
+    &__nm { flex: 1; min-width: 0; }
+
+    &__lock {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+    }
+}
+
+@keyframes sk-grid-pop {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+}
+
+// ---------------------------------------------------------------- responsive
+// Below the tablet breakpoint the grid scrolls sideways rather than crushing
+// every track to unreadable width.
+@media (max-width: 900px) {
+    .sk-grid {
+        overflow-x: auto;
+
+        &__head,
+        &__row { min-width: 760px; }
+    }
+
+    .sk-viewpick__title { font-size: 17px; }
+}
+
+// ---------------------------------------------------------------- recycle bin
+// Settings > Recycle bin. Deliberately quiet: this is a safety net, not a
+// destination — the loudest thing on it should be Restore, not Delete.
+.recyclebin {
+    &__rowactions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+
+    // Purge is the one irreversible control here, so it stays a quiet icon
+    // until you reach for it.
+    &__purge {
+        color: var(--text-ghost);
+
+        &:hover:not(:disabled) { color: var(--red); background: var(--red-bg); }
+    }
+
+    // "purges in 2d" — the last chance to notice before it is gone for good.
+    .sk-cell-sub.is-urgent { color: var(--amber); }
+}

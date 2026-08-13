@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import ContributionGraph from './ContributionGraph';
+import EmptyState from '../EmptyState';
 import { Search, Filter, X, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DataTableFooter } from '@/components/ds';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import useSettingFocus from '../../hooks/useSettingFocus';
 
@@ -246,10 +248,7 @@ const ActivityTab = () => {
                         Loading logs...
                     </div>
                 ) : logs.length === 0 ? (
-                    <div className="empty-state">
-                        <Search size={40} />
-                        <p>No audit logs found</p>
-                    </div>
+                    <EmptyState icon={Search} title="No audit logs found" />
                 ) : (
                     <div className="audit-log-list" role="list">
                         {logs.map(log => (
@@ -274,28 +273,19 @@ const ActivityTab = () => {
                     </div>
                 )}
 
-                {pagination.pages > 1 && (
-                    <div className="pagination">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={pagination.page <= 1}
-                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                        >
-                            Previous
-                        </Button>
-                        <span className="pagination-info">
-                            Page {pagination.page} of {pagination.pages}
-                        </span>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={pagination.page >= pagination.pages}
-                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                        >
-                            Next
-                        </Button>
-                    </div>
+                {/* The audit feed is a flex-wrapped log-row layout, not a
+                    table, so it keeps its own markup; only the pager is
+                    standardized onto the shared DataTableFooter (paged mode).
+                    Fetch logic and pagination state are unchanged. */}
+                {!feedLoading && logs.length > 0 && (
+                    <DataTableFooter
+                        shown={logs.length}
+                        total={pagination.total}
+                        noun="log"
+                        page={pagination.page}
+                        totalPages={pagination.pages}
+                        onPageChange={(nextPage) => setPagination(prev => ({ ...prev, page: nextPage }))}
+                    />
                 )}
             </div>
         </div>

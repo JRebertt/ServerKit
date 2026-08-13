@@ -42,6 +42,8 @@ class DeploymentJobService:
         """Create a template installation job and optionally run it synchronously."""
         normalized_server_id = cls._normalize_server_id(server_id)
 
+        # Deliberately NOT query_active: a soft-deleted app keeps reserving its
+        # name, or a new install takes it and the Recycle Bin restore collides.
         existing = Application.query.filter_by(name=app_name, server_id=normalized_server_id).first()
         if existing:
             return {
@@ -309,7 +311,10 @@ class DeploymentJobService:
         the UI sees the same progress/log stream as a template install."""
         runner = DeploymentPlanRunner(job)
         try:
-            app = Application.query.get(job.app_id) if job.app_id else None
+            # Jobs outlive the app: a queued/retried deploy must not build and
+            # start containers for one that has been deleted.
+            app = (Application.query_active().filter_by(id=job.app_id).first()
+                   if job.app_id else None)
             if not app:
                 raise RuntimeError(f'Application not found for deployment job {job.id}')
 
@@ -712,6 +717,8 @@ class DeploymentJobService:
         writer drops in) before it can be reused.
         """
         try:
+            # Deliberately NOT query_active: a soft-deleted app still owns its
+            # directory until purge, so reusing it would break the restore.
             if Application.query.filter_by(root_path=app_path).first():
                 return False
             entries = os.listdir(app_path)

@@ -527,7 +527,12 @@ class SiteDomainService:
         """
         from app.models.domain import Domain
 
-        domains = [d.name for d in Domain.query.filter_by(application_id=app.id).all()]
+        # query_active, not query: Domain is soft-deleted now, so a plain query
+        # returns tombstones and this renderer would write a deleted domain
+        # straight back into server_name — the vhost would keep serving a domain
+        # the user removed, and drift detection (which renders through this same
+        # function) would report the correct config as drifted.
+        domains = [d.name for d in Domain.query_active().filter_by(application_id=app.id).all()]
         if not domains:
             return None, None
 
@@ -592,17 +597,23 @@ class SiteDomainService:
             return {'success': False, 'error': 'Set the managed-sites base domain first (Settings).'}
 
         host = f'{cls.slugify(label or app.name)}.{base}'
-        existing = Domain.query.filter_by(name=host).first()
+        # query_active: a tombstone blocked the label forever for another app,
+        # and for THIS app made the create branch skip -- give_subdomain returned
+        # success with a URL that was never published.
+        existing = Domain.query_active().filter_by(name=host).first()
         if existing and existing.application_id != app.id:
             return {'success': False, 'error': f'{host} is already used by another app.'}
 
         try:
             if not existing:
-                make_primary = Domain.query.filter_by(
+                # query_active: a tombstoned primary would make this think the
+                # app already has one, so the new domain comes back non-primary
+                # and the app is left with no live primary at all.
+                make_primary = Domain.query_active().filter_by(
                     application_id=app.id, is_primary=True).first() is None
                 if make_primary:
-                    Domain.query.filter_by(application_id=app.id, is_primary=True).update(
-                        {'is_primary': False})
+                    Domain.query_active().filter_by(application_id=app.id, is_primary=True).update(
+                        {'is_primary': False}, synchronize_session=False)
                 db.session.add(Domain(name=host, is_primary=make_primary, application_id=app.id))
                 db.session.commit()
         except Exception as e:

@@ -5,15 +5,72 @@ import { useToast } from '../contexts/ToastContext';
 import Modal from '@/components/Modal';
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import { LayoutGrid, Plus, ChevronRight } from 'lucide-react';
-import { Pill, ServiceTile } from '@/components/ds';
+import { Pill, ServiceTile, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import useFocusParam from '@/hooks/useFocusParam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 
 // Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
 const ACTIVE_KEY = 'active_workspace_id';
+
+// Preset views. `servers` and `users` are quota CEILINGS, not usage, so there
+// is no column to express "near capacity" against.
+//
+// `status` values are the RAW ws.status the column's `value` accessor returns.
+// The old "Inactive" segment meant `!== 'active'`, not literally 'inactive', so
+// it translates to `is none of [active]` rather than `is any of [inactive]` —
+// otherwise workspaces in any other state would silently drop out of the view.
+// There is no separate status segment any more: the Status column's own menu is
+// the one place workspaces are narrowed by state.
+const NOT_ACTIVE = { id: 'st', field: 'status', op: 'none', value: ['active'] };
+const NO_RULES = { match: 'all', rules: [] };
+
+const WORKSPACE_VIEWS = [
+    {
+        name: 'Active',
+        state: {
+            search: '', sorts: [], hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value: ['active'] }] },
+        },
+    },
+    {
+        name: 'Inactive',
+        state: { search: '', sorts: [], hiddenKeys: [], columnFilters: { match: 'all', rules: [NOT_ACTIVE] } },
+    },
+    {
+        name: 'Most members',
+        state: {
+            search: '', hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'members', direction: 'desc' }],
+        },
+    },
+    {
+        // Created and then never staffed — candidates to archive.
+        name: 'Empty workspaces',
+        state: {
+            search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ew1', field: 'members', op: 'eq', value: 0 }],
+            },
+        },
+    },
+    {
+        // Deactivated but people are still attached — access that outlived the workspace.
+        name: 'Archived but still staffed',
+        state: {
+            search: '', hiddenKeys: ['servers', 'users'], groupBy: null,
+            sorts: [{ key: 'members', direction: 'desc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [NOT_ACTIVE, { id: 'as1', field: 'members', op: 'gt', value: 0 }],
+            },
+        },
+    },
+];
 
 // "since Jun 2026" card meta from the workspace's real created_at.
 const formatSince = (iso) => {
@@ -29,10 +86,11 @@ const Workspaces = () => {
     const navigate = useNavigate();
     const [workspaces, setWorkspaces] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('all'); // all | active | inactive
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showCreateModal, setShowCreateModal] = useState(false);
+    // Quick-create deep link: /workspaces?focus=create:workspace opens the modal.
+    useFocusParam('create', () => setShowCreateModal(true));
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
 
     const activeId = localStorage.getItem(ACTIVE_KEY);
@@ -51,11 +109,18 @@ const Workspaces = () => {
     useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
 
     useTopbarActions(() => (
-        <Button size="sm" onClick={() => setShowCreateModal(true)}>
-            <Plus size={16} />
-            New Workspace
-        </Button>
-    ), []);
+        <>
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>
+                <Plus size={16} />
+                New Workspace
+            </Button>
+            <SearchField
+                value={search}
+                onSearch={setSearch}
+                placeholder="Search workspaces…"
+            />
+        </>
+    ), [search]);
 
     const handleCreate = async () => {
         try {
@@ -70,52 +135,28 @@ const Workspaces = () => {
     };
 
     const q = search.trim().toLowerCase();
-    const shownWorkspaces = workspaces.filter(ws => {
-        const matchesStatus = statusFilter === 'all'
-            || (statusFilter === 'active' ? ws.status === 'active' : ws.status !== 'active');
-        const matchesSearch = q === '' || [ws.name, ws.slug, ws.description]
-            .some(v => v && String(v).toLowerCase().includes(q));
-        return matchesStatus && matchesSearch;
-    });
+    const shownWorkspaces = workspaces.filter(ws => (
+        q === '' || [ws.name, ws.slug, ws.description]
+            .some(v => v && String(v).toLowerCase().includes(q))
+    ));
 
-    const activeCount = workspaces.filter(ws => ws.status === 'active').length;
+    const toggleOne = (id, checked) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    };
 
     // DataTable columns. Interactive cells stop click propagation so they don't
     // trigger the row's navigate.
     const columns = [
         {
-            key: '__select',
-            className: 'wp-list__ck',
-            cellClassName: 'wp-list__ck',
-            header: (
-                <Checkbox
-                    checked={shownWorkspaces.length > 0 && shownWorkspaces.every(ws => selectedIds.has(ws.id))}
-                    onCheckedChange={(checked) => {
-                        setSelectedIds(checked ? new Set(shownWorkspaces.map(ws => ws.id)) : new Set());
-                    }}
-                    aria-label="Select all workspaces"
-                />
-            ),
-            render: (ws) => (
-                <div onClick={e => e.stopPropagation()}>
-                    <Checkbox
-                        checked={selectedIds.has(ws.id)}
-                        onCheckedChange={(checked) => {
-                            setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (checked) next.add(ws.id);
-                                else next.delete(ws.id);
-                                return next;
-                            });
-                        }}
-                        aria-label={`Select ${ws.name || `workspace ${ws.id}`}`}
-                    />
-                </div>
-            ),
-        },
-        {
             key: 'name',
             header: 'Workspace',
+            sortable: true,
+            hideable: false,
             render: (ws) => {
                 const since = formatSince(ws.created_at);
                 return (
@@ -136,13 +177,28 @@ const Workspaces = () => {
                 );
             },
         },
-        { key: 'slug', header: 'Slug', cellClassName: 'sk-cell-mono', render: (ws) => `/${ws.slug}` },
-        { key: 'members', header: 'Members', cellClassName: 'sk-cell-mono', render: (ws) => ws.member_count ?? 0 },
-        { key: 'servers', header: 'Servers', cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
-        { key: 'users', header: 'Users', cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_users > 0 ? ws.max_users : '—') },
+        { key: 'slug', header: 'Slug', sortable: true, cellClassName: 'sk-cell-mono', render: (ws) => `/${ws.slug}` },
+        // Numeric sorts: unlimited (0/unset) sorts last.
+        { key: 'members', header: 'Members', sortable: true, sortValue: (ws) => ws.member_count ?? null, cellClassName: 'sk-cell-mono', render: (ws) => ws.member_count ?? 0 },
+        { key: 'servers', header: 'Servers', sortable: true, sortValue: (ws) => (ws.max_servers > 0 ? ws.max_servers : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
+        { key: 'users', header: 'Users', sortable: true, sortValue: (ws) => (ws.max_users > 0 ? ws.max_users : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_users > 0 ? ws.max_users : '—') },
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            type: 'enum',
+            // `value` is the FILTER value, `sortValue` is the ORDERING key, and
+            // here they are different things — so the column has to say so.
+            // Without an explicit `value` the rule engine falls back to
+            // sortValue, sees 0/1, types the column `num`, and offers "is under
+            // / is over" instead of a pick-list; a `status is any of [active]`
+            // rule would then match nothing at all.
+            value: (ws) => ws.status || 'unknown',
+            // Matches the pill: the active workspace (and active status) first.
+            sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
+            groupable: true,
+            groupValue: (ws) => ws.status,
+            groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (ws) => (
                 activeId === String(ws.id)
                     ? <Pill kind="green">active</Pill>
@@ -152,6 +208,8 @@ const Workspaces = () => {
         {
             key: '__chev',
             header: '',
+            sortable: false,
+            hideable: false,
             className: 'wp-list__action',
             render: () => <ChevronRight size={16} className="wp-list__chev" />,
         },
@@ -162,22 +220,23 @@ const Workspaces = () => {
             className="workspaces-page"
             loading={loading}
             loadingTitle="Loading workspaces"
+            storageKey="serverkit-list-workspaces"
+            viewPageKey="workspaces"
+            noun="workspaces"
+            builtinViews={WORKSPACE_VIEWS}
             totalCount={workspaces.length}
             items={shownWorkspaces}
             columns={columns}
             keyField="id"
             onRowClick={(ws) => navigate(`/workspaces/${ws.id}`)}
-            rowClassName={(ws) => (selectedIds.has(ws.id) ? 'is-selected' : '')}
-            filters={[
-                { value: 'all', label: 'All', count: workspaces.length },
-                { value: 'active', label: 'Active', count: activeCount },
-                { value: 'inactive', label: 'Inactive', count: workspaces.length - activeCount },
-            ]}
-            activeFilter={statusFilter}
-            onFilterChange={setStatusFilter}
+            selectable
+            selectedIds={selectedIds}
+            onToggleSelect={toggleOne}
+            onSelectAll={(checked) => setSelectedIds(checked ? new Set(shownWorkspaces.map(ws => ws.id)) : new Set())}
             searchTerm={search}
             onSearchChange={setSearch}
             searchPlaceholder="Search workspaces…"
+            searchInTopbar
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             emptyIcon={LayoutGrid}

@@ -15,6 +15,7 @@ import DdnsTokenCallout from './DdnsTokenCallout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField, FormRow } from '../FormField';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
@@ -241,6 +242,110 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
     const showActions = isAdmin || records.some((r) => !!hostFor(r));
     const canExport = state === 'ready' && records.length > 0 && (isAdmin || !!zoneId);
 
+    // DataTable columns. Cell markup and classNames mirror the hand-rolled table
+    // they replace, so _domains.scss keeps applying (.ddp__c-*, .ddp__content,
+    // .dns-rtype). The hover titles move from the <td> onto an inner <span>
+    // because DataTable renders the cells.
+    const columns = [
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            className: 'ddp__c-type',
+            sortValue: (r) => r.type || '',
+            render: (r) => <span className={`dns-rtype dns-rtype--${(r.type || '').toLowerCase()}`}>{r.type}</span>,
+        },
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            hideable: false,
+            className: 'ddp__c-name',
+            cellClassName: 'sk-cell-mono ddp__c-name',
+            sortValue: (r) => r.name || '',
+            render: (r) => <span title={r.name}>{r.name}</span>,
+        },
+        {
+            key: 'content',
+            header: 'Content',
+            sortable: true,
+            cellClassName: 'sk-cell-mono ddp__content',
+            sortValue: (r) => (r.priority ? `${r.priority} ${r.content || ''}` : r.content || ''),
+            render: (r) => (
+                <span title={r.content}>{r.priority ? `${r.priority} ` : ''}{r.content}</span>
+            ),
+        },
+        {
+            key: 'ttl',
+            header: 'TTL',
+            sortable: true,
+            className: 'ddp__c-ttl',
+            cellClassName: 'sk-cell-mono',
+            sortValue: (r) => (r.ttl ?? null),
+            render: (r) => (r.ttl === 1 ? 'Auto' : r.ttl),
+        },
+        ...(isCloudflare ? [{
+            key: 'proxy',
+            header: 'Proxy',
+            sortable: true,
+            className: 'ddp__c-proxy',
+            sortValue: (r) => (r.proxied ? 1 : 0),
+            render: (r) => (r.proxied
+                ? <span className="ddp__proxy ddp__proxy--on"><Cloud size={12} /> Proxied</span>
+                : <span className="ddp__proxy">DNS only</span>),
+        }] : []),
+        ...(canLive ? [{
+            key: 'source',
+            header: 'Source',
+            sortable: true,
+            className: 'ddp__c-src',
+            sortValue: (r) => (r.source === 'serverkit' ? 'ServerKit' : 'External'),
+            render: (r) => (r.source === 'serverkit'
+                ? <span className="ddp__src ddp__src--sk">ServerKit</span>
+                : <span className="ddp__src">External</span>),
+        }] : []),
+        ...(showActions ? [{
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            className: 'ddp__c-act',
+            cellClassName: 'ddp__c-act',
+            render: (r) => {
+                const host = hostFor(r);
+                const dynamicable = DYNAMIC_TYPES.includes(r.type);
+                return host ? (
+                    <span className="ddp__dynwrap">
+                        <span className="ddp__dyn" title={host.last_ip ? `Last IP ${host.last_ip}` : 'No update yet'}>
+                            <Radio size={11} /> Dynamic
+                        </span>
+                        {isAdmin && (
+                            <>
+                                <Button variant="ghost" size="sm" className="ddp__iconbtn" title="Regenerate token" onClick={() => handleRegenerate(host)}>
+                                    <RefreshCw size={13} />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="ddp__stopbtn" title="Disable Dynamic DNS" onClick={() => handleStopDynamic(host)}>
+                                    Stop
+                                </Button>
+                            </>
+                        )}
+                    </span>
+                ) : (
+                    isAdmin && dynamicable && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMakeDynamic(r)}
+                            disabled={busyKey === recordFqdn(r)}
+                        >
+                            <Radio size={13} /> {busyKey === recordFqdn(r) ? 'Enabling…' : 'Make dynamic'}
+                        </Button>
+                    )
+                );
+            },
+        }] : []),
+    ];
+
     return (
         <div className="ddp">
             <div className="ddp__head">
@@ -324,77 +429,15 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
                 records.length === 0 ? (
                     <p className="ddp__msg">No DNS records yet.</p>
                 ) : (
-                    <div className="ddp__table-wrap">
-                        <table className="sk-dtable ddp__table">
-                            <thead>
-                                <tr>
-                                    <th className="ddp__c-type">Type</th>
-                                    <th className="ddp__c-name">Name</th>
-                                    <th>Content</th>
-                                    <th className="ddp__c-ttl">TTL</th>
-                                    {isCloudflare && <th className="ddp__c-proxy">Proxy</th>}
-                                    {canLive && <th className="ddp__c-src">Source</th>}
-                                    {showActions && <th className="ddp__c-act" />}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {records.map((r) => {
-                                    const host = hostFor(r);
-                                    const dynamicable = DYNAMIC_TYPES.includes(r.type);
-                                    return (
-                                        <tr key={r.id}>
-                                            <td><span className={`dns-rtype dns-rtype--${(r.type || '').toLowerCase()}`}>{r.type}</span></td>
-                                            <td className="sk-cell-mono ddp__c-name" title={r.name}>{r.name}</td>
-                                            <td className="sk-cell-mono ddp__content" title={r.content}>{r.priority ? `${r.priority} ` : ''}{r.content}</td>
-                                            <td className="sk-cell-mono">{r.ttl === 1 ? 'Auto' : r.ttl}</td>
-                                            {isCloudflare && (
-                                                <td>{r.proxied
-                                                    ? <span className="ddp__proxy ddp__proxy--on"><Cloud size={12} /> Proxied</span>
-                                                    : <span className="ddp__proxy">DNS only</span>}</td>
-                                            )}
-                                            {canLive && (
-                                                <td>{r.source === 'serverkit'
-                                                    ? <span className="ddp__src ddp__src--sk">ServerKit</span>
-                                                    : <span className="ddp__src">External</span>}</td>
-                                            )}
-                                            {showActions && (
-                                                <td className="ddp__c-act">
-                                                    {host ? (
-                                                        <span className="ddp__dynwrap">
-                                                            <span className="ddp__dyn" title={host.last_ip ? `Last IP ${host.last_ip}` : 'No update yet'}>
-                                                                <Radio size={11} /> Dynamic
-                                                            </span>
-                                                            {isAdmin && (
-                                                                <>
-                                                                    <Button variant="ghost" size="sm" className="ddp__iconbtn" title="Regenerate token" onClick={() => handleRegenerate(host)}>
-                                                                        <RefreshCw size={13} />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="sm" className="ddp__stopbtn" title="Disable Dynamic DNS" onClick={() => handleStopDynamic(host)}>
-                                                                        Stop
-                                                                    </Button>
-                                                                </>
-                                                            )}
-                                                        </span>
-                                                    ) : (
-                                                        isAdmin && dynamicable && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleMakeDynamic(r)}
-                                                                disabled={busyKey === recordFqdn(r)}
-                                                            >
-                                                                <Radio size={13} /> {busyKey === recordFqdn(r) ? 'Enabling…' : 'Make dynamic'}
-                                                            </Button>
-                                                        )
-                                                    )}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={columns}
+                        data={records}
+                        keyField="id"
+                        storageKey="serverkit-table-domain-dns"
+                        className="ddp__table-wrap"
+                        tableClassName="ddp__table"
+                        footer={<DataTableFooter shown={records.length} total={records.length} noun="record" />}
+                    />
                 )
             )}
 

@@ -34,7 +34,7 @@ def _get_application_or_404(app_id):
     """Resolve the app and enforce read access (plan 29 #9): owner / admin / grant /
     workspace member. A caller who can't access it gets the same 404 as a missing
     app (sealed-from-open, no existence leak)."""
-    application = Application.query.get(app_id)
+    application = Application.query_active().filter_by(id=app_id).first()
     if not application:
         return None, (jsonify({'error': 'Application not found'}), 404)
     if not ResourceGrantService.can_access_app(get_current_user(), application):

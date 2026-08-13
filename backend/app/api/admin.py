@@ -1,5 +1,6 @@
 """Admin API endpoints for user management, settings, and audit logs."""
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Optional
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
@@ -593,6 +594,64 @@ def get_permission_templates():
 # Activity Dashboard Endpoints
 # ============================================
 
+def _day_key(value) -> Optional[str]:
+    """Normalize whatever the DB returned for a day bucket to 'YYYY-MM-DD'.
+
+    ``func.date()`` is the portable day-bucket expression here, but the two
+    supported backends disagree on the Python type that comes back: SQLite
+    returns the string 'YYYY-MM-DD', PostgreSQL returns a ``datetime.date``
+    (``date(ts)`` is accepted there as function-style cast syntax). Both are
+    reduced to the same string so the zero-fill below can key on it.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (datetime, date)):
+        return value.strftime('%Y-%m-%d')
+    return str(value)[:10]
+
+
+def _daily_action_counts(window_start: datetime, days: int,
+                         *extra_filters) -> List[Dict]:
+    """Per-day audit-log counts over ``days`` days starting at ``window_start``.
+
+    ONE grouped query, then the gaps are filled with zeroes in Python. The
+    previous shape issued a separate COUNT per day (90 sequential round-trips
+    per series, 180 for the two series this endpoint returns) purely to learn
+    that most of those days were empty.
+
+    The zero-fill is what keeps the response byte-identical: the series must
+    always have exactly ``days`` entries, in ascending date order, including
+    days with no rows at all.
+    """
+    window_end = window_start + timedelta(days=days)
+
+    # Bucket on the DB side. The range filter is applied once for the whole
+    # window instead of once per day.
+    day_bucket = func.date(AuditLog.created_at)
+    rows = db.session.query(
+        day_bucket.label('day'),
+        func.count(AuditLog.id),
+    ).filter(
+        AuditLog.created_at >= window_start,
+        AuditLog.created_at < window_end,
+        *extra_filters
+    ).group_by(day_bucket).all()
+
+    counts: Dict[str, int] = {}
+    for day, count in rows:
+        key = _day_key(day)
+        if key:
+            # Accumulate rather than assign: defensive against a backend that
+            # could hand back two spellings of the same calendar day.
+            counts[key] = counts.get(key, 0) + (count or 0)
+
+    series = []
+    for offset in range(days):
+        key = (window_start + timedelta(days=offset)).strftime('%Y-%m-%d')
+        series.append({'date': key, 'count': counts.get(key, 0)})
+    return series
+
+
 @admin_bp.route('/activity/summary', methods=['GET'])
 @admin_required
 def get_activity_summary():
@@ -630,47 +689,40 @@ def get_activity_summary():
         func.count(AuditLog.id).desc()
     ).limit(5).all()
 
+    # Resolve the five usernames in one query instead of one SELECT per user.
+    ranked_ids = [user_id for user_id, _ in top_users_query]
+    usernames = {}
+    if ranked_ids:
+        usernames = {
+            u.id: u.username
+            for u in User.query.filter(User.id.in_(ranked_ids)).all()
+        }
+
     top_users = []
     for user_id, count in top_users_query:
-        user = User.query.get(user_id)
-        if user:
+        # Preserve the ranked order and the "skip users that no longer exist"
+        # behaviour of the previous per-user lookup.
+        if user_id in usernames:
             top_users.append({
                 'user_id': user_id,
-                'username': user.username,
+                'username': usernames[user_id],
                 'action_count': count
             })
 
-    # Daily action counts for the past 90 days
-    daily_counts = []
+    # Daily action counts for the past 90 days. The window is the 90 days
+    # ENDING today (inclusive), so it starts 89 days back.
     days_to_fetch = 90
-    for i in range(days_to_fetch):
-        day_start = today_start - timedelta(days=(days_to_fetch - 1) - i)
-        day_end = day_start + timedelta(days=1)
-        count = db.session.query(func.count(AuditLog.id)).filter(
-            AuditLog.created_at >= day_start,
-            AuditLog.created_at < day_end
-        ).scalar() or 0
-        daily_counts.append({
-            'date': day_start.strftime('%Y-%m-%d'),
-            'count': count
-        })
+    window_start = today_start - timedelta(days=days_to_fetch - 1)
+
+    daily_counts = _daily_action_counts(window_start, days_to_fetch)
 
     # Top user activity (past 90 days)
     top_user_daily = []
     if top_users:
         top_user_id = top_users[0]['user_id']
-        for i in range(days_to_fetch):
-            day_start = today_start - timedelta(days=(days_to_fetch - 1) - i)
-            day_end = day_start + timedelta(days=1)
-            count = db.session.query(func.count(AuditLog.id)).filter(
-                AuditLog.user_id == top_user_id,
-                AuditLog.created_at >= day_start,
-                AuditLog.created_at < day_end
-            ).scalar() or 0
-            top_user_daily.append({
-                'date': day_start.strftime('%Y-%m-%d'),
-                'count': count
-            })
+        top_user_daily = _daily_action_counts(
+            window_start, days_to_fetch, AuditLog.user_id == top_user_id
+        )
 
     return jsonify({
         'active_users_today': active_today,
@@ -690,6 +742,8 @@ def get_activity_feed():
     per_page = min(request.args.get('per_page', 50, type=int), 100)
     user_id = request.args.get('user_id', type=int)
     action = request.args.get('action')
+    target_type = request.args.get('target_type')
+    target_id = request.args.get('target_id', type=int)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
@@ -698,6 +752,8 @@ def get_activity_feed():
         'per_page': per_page,
         'user_id': user_id,
         'action': action,
+        'target_type': target_type,
+        'target_id': target_id,
     }
 
     if start_date:

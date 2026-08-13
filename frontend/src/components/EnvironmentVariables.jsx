@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Copy, Download, Eye, EyeOff, History, Pencil, Plus, Trash2, Upload, Variable,
+} from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
@@ -10,6 +12,56 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import Modal from './Modal';
 import EmptyState from './EmptyState';
+import { DataTable, DataTableFooter, ListToolbar, SearchField } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+
+// What a masked value renders as. Unchanged from the list this table replaces:
+// every env var is stored as a secret, so every value is dots until the row's
+// eye (or Show All) reveals it.
+const MASK = '••••••••••••';
+
+// What the Description and Applies-to cells show when the row carries neither.
+// They have to be real values, not '': `ruleIsArmed` drops any rule whose value
+// is empty, so "description is ''" would filter nothing at all — and the
+// Undocumented view below is exactly that rule.
+const NO_DESCRIPTION = '—';
+const ALL_SERVICES = 'All services';
+
+const BY_KEY = [{ key: 'key', direction: 'asc' }];
+const NO_RULES = { match: 'all', rules: [] };
+
+// Built-in saved views. Scope is deliberately not one of them: it only exists
+// on compose apps, and the Applies-to column's own menu already offers the
+// per-service pick-list with live counts wherever it applies.
+const ENV_VIEWS = [
+    {
+        // Every variable the container will see, in the order you would read a
+        // .env file. The landing view, and the one that says "nothing is
+        // filtered".
+        name: 'All variables',
+        state: { sorts: BY_KEY, hiddenKeys: [], columnFilters: NO_RULES },
+    },
+    {
+        // A hygiene worklist rather than a slice: a variable nobody described
+        // is a variable nobody can safely delete, and it is the one most likely
+        // to outlive whoever added it. Empty on a fully documented app, which
+        // is exactly the answer it exists to give.
+        name: 'Undocumented',
+        state: {
+            sorts: BY_KEY,
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'env1', field: 'description', op: 'is', value: NO_DESCRIPTION }],
+            },
+        },
+    },
+];
 
 const EnvironmentVariables = ({ appId }) => {
     const toast = useToast();
@@ -39,7 +91,15 @@ const EnvironmentVariables = ({ appId }) => {
     const [importContent, setImportContent] = useState('');
     const [importOverwrite, setImportOverwrite] = useState(true);
     const [history, setHistory] = useState([]);
-    const [filter, setFilter] = useState('');
+    const [search, setSearch] = useState('');
+
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: BY_KEY,
+        storageKey: 'serverkit-table-svc-env-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-svc-env-cols',
+    });
 
     const fileInputRef = useRef(null);
 
@@ -251,230 +311,306 @@ const EnvironmentVariables = ({ appId }) => {
         toast.success('Copied to clipboard');
     }
 
-    // Filter env vars
-    const filteredEnvVars = filter
-        ? envVars.filter(ev =>
-            ev.key.toLowerCase().includes(filter.toLowerCase()) ||
-            (ev.description && ev.description.toLowerCase().includes(filter.toLowerCase()))
-          )
-        : envVars;
+    // The search box narrows the rows before any column rule sees them, over
+    // the two fields you actually remember: the key and what someone wrote it
+    // was for.
+    const filteredEnvVars = useMemo(() => {
+        const needle = search.trim().toLowerCase();
+        if (!needle) return envVars;
+        return envVars.filter((ev) => (
+            ev.key.toLowerCase().includes(needle)
+            || (ev.description && ev.description.toLowerCase().includes(needle))
+        ));
+    }, [envVars, search]);
+
+    // Declared above the loading guard: the chrome below is a hook, so it
+    // cannot sit behind an early return.
+    const columns = [
+        {
+            key: 'key',
+            header: 'Key',
+            sortable: true,
+            hideable: false,
+            // An identifier you type a fragment of, never pick from a list.
+            type: 'text',
+            value: (ev) => ev.key || '',
+            sortValue: (ev) => ev.key || '',
+            cellClassName: 'sk-cell-name env-cell-key',
+            render: (ev) => ev.key,
+        },
+        {
+            key: 'value',
+            header: 'Value',
+            sortable: false,
+            // Neither sortable nor filterable, and `value` answers with the
+            // mask rather than the secret: those three accessors also feed the
+            // "⋮" export and the column menu's pick-list, so a real accessor
+            // here would make the grid the one path that hands out a value the
+            // rest of the tab keeps behind an eye toggle.
+            filterable: false,
+            value: () => MASK,
+            cellClassName: 'env-cell-value',
+            render: (ev) => (editingId === ev.id ? (
+                <div className="env-edit-row">
+                    <Input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleUpdate(ev.key);
+                            if (e.key === 'Escape') cancelEditing();
+                        }}
+                    />
+                    {composeServices.length > 0 && (
+                        <select
+                            className="env-target-select__control"
+                            value={editTargetService}
+                            onChange={(e) => setEditTargetService(e.target.value)}
+                            title="Inject this variable into a single compose service"
+                        >
+                            <option value="">All services</option>
+                            {composeServices.map((svc) => (
+                                <option key={svc} value={svc}>{svc}</option>
+                            ))}
+                        </select>
+                    )}
+                    <Button size="sm" onClick={() => handleUpdate(ev.key)}>Save</Button>
+                    <Button variant="outline" size="sm" onClick={cancelEditing}>Cancel</Button>
+                </div>
+            ) : (showValues[ev.id] ? ev.value : MASK)),
+        },
+        // Only compose apps can target a single service, so on a single-service
+        // app the column would say "All services" on every row and answer
+        // nothing. But `composeServices` comes from the app's CURRENT compose
+        // file, and a variable can still carry a `target_service` from before a
+        // service was renamed or removed — hiding the column outright is how a
+        // variable that applies to exactly one service silently looks like it
+        // applies to all of them. Show it whenever either source says there is
+        // a distinction to draw.
+        ...(composeServices.length > 0 || envVars.some((ev) => ev.target_service) ? [{
+            key: 'scope',
+            header: 'Applies to',
+            sortable: true,
+            // Declared, not inferred: a compose app with two services and three
+            // variables is over the enum cardinality ratio and would degrade to
+            // free text, turning the per-service pick-list into a typed
+            // fragment.
+            type: 'enum',
+            value: (ev) => ev.target_service || ALL_SERVICES,
+            sortValue: (ev) => ev.target_service || ALL_SERVICES,
+            render: (ev) => (ev.target_service ? (
+                <span
+                    className="env-target-chip"
+                    title={`Applies only to the "${ev.target_service}" service`}
+                >
+                    &rarr; {ev.target_service}
+                </span>
+            ) : <span className="env-muted">{ALL_SERVICES}</span>),
+        }] : []),
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            // Text, never enum: on an app where nothing is documented the
+            // inference would see one repeated dash and offer a checklist.
+            // `value` substitutes the dash the cell shows so the undocumented
+            // rows are addressable by the view below; `sortValue` stays '' so
+            // they collate as empty rather than as whatever "—" sorts under.
+            type: 'text',
+            value: (ev) => ev.description || NO_DESCRIPTION,
+            sortValue: (ev) => ev.description || '',
+            render: (ev) => ev.description || <span className="env-muted">{NO_DESCRIPTION}</span>,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            className: 'actions-cell',
+            cellClassName: 'actions-cell',
+            render: (ev) => (
+                <>
+                    <button
+                        type="button"
+                        className="btn-icon"
+                        onClick={() => toggleShowValue(ev.id)}
+                        title={showValues[ev.id] ? 'Hide value' : 'Show value'}
+                    >
+                        {showValues[ev.id] ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-icon"
+                        onClick={() => copyToClipboard(ev.value)}
+                        title="Copy value"
+                    >
+                        <Copy size={16} />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-icon"
+                        onClick={() => startEditing(ev)}
+                        title="Edit"
+                    >
+                        <Pencil size={16} />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-icon btn-danger"
+                        onClick={() => handleDelete(ev.key)}
+                        title="Delete"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                </>
+            ),
+        },
+    ];
+
+    // The page-private half of a saved view: the search box narrows the rows
+    // before any column rule runs, so a view has to carry it.
+    const pageState = useMemo(() => ({ search }), [search]);
+    const applyPage = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
+
+    // Scoped to this tab, and namespaced: /services/:id renders one tab at a
+    // time but the Events tab on the same ROUTE hosts a chrome of its own, so
+    // unscoped the two would read and write the same ?view=/?sort= and each
+    // would arrive as the other's.
+    const chrome = useTableChrome({
+        columns,
+        rows: filteredEnvVars,
+        viewPageKey: 'servicedetail-environment',
+        urlScope: 'env',
+        builtinViews: ENV_VIEWS,
+        noun: 'variables',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState,
+        applyPage,
+    });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title="Loading environment variables..." />;
+        return <EmptyState loading loadingVariant="table" title="Loading environment variables..." />;
     }
 
     return (
         <div className="env-vars-container">
-            <div className="section-header">
-                <h3>Environment Variables</h3>
-                <div className="header-actions">
-                    <Button size="sm" onClick={openAddModal}>
-                        <Plus size={15} />
-                        Add Variable
-                    </Button>
-                    {envVars.length > 0 && (
-                        <Button variant="outline" size="sm" onClick={toggleShowAll} title={allVisible ? 'Hide all values' : 'Show all values'}>
-                            {allVisible ? (
-                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                    <line x1="1" y1="1" x2="23" y2="23"/>
-                                </svg>
-                            ) : (
-                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                    <circle cx="12" cy="12" r="3"/>
-                                </svg>
-                            )}
-                            {allVisible ? 'Hide All' : 'Show All'}
-                        </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                        </svg>
-                        Import
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleExport(true)}>
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        Export
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleShowHistory}>
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12 6 12 12 16 14"/>
-                        </svg>
-                        History
-                    </Button>
-                </div>
-            </div>
-
             <p className="hint">
                 Environment variables are encrypted at rest and masked by default. Changes require an app restart to take effect.
             </p>
 
-            {/* Variables — bordered panel with a titled head + count */}
-            <section className="env-panel">
-                <div className="env-panel__head">
-                    <span className="env-panel__title">
-                        Variables
-                        {envVars.length > 0 && (
-                            <span className="env-panel__count">{envVars.length}</span>
-                        )}
-                    </span>
-                    {envVars.length > 5 && (
-                        <div className="env-panel__filter">
-                            <Input
-                                type="text"
-                                value={filter}
-                                onChange={(e) => setFilter(e.target.value)}
-                                placeholder="Filter variables..."
-                            />
-                            {filter && (
-                                <button type="button" className="filter-clear" onClick={() => setFilter('')}>&times;</button>
-                            )}
-                        </div>
-                    )}
-                </div>
-                <div className="env-panel__body">
-                    {filteredEnvVars.length === 0 ? (
-                        <div className="env-empty">
-                            <p>{filter ? 'No matching variables' : 'No environment variables defined yet'}</p>
-                            {!filter && (
-                                <Button size="sm" onClick={openAddModal}>
-                                    <Plus size={15} />
-                                    Add Variable
-                                </Button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="env-list">
-                            {filteredEnvVars.map(envVar => (
-                                <div key={envVar.id} className="env-item">
-                                    <div className="env-item-header">
-                                        <span className="env-key">
-                                            {envVar.key}
-                                            {envVar.target_service && (
-                                                <span
-                                                    className="env-target-chip"
-                                                    title={`Applies only to the "${envVar.target_service}" service`}
-                                                >
-                                                    &rarr; {envVar.target_service}
-                                                </span>
-                                            )}
-                                        </span>
-                                        <div className="env-item-actions">
-                                            <button type="button"
-                                                className="btn-icon"
-                                                onClick={() => toggleShowValue(envVar.id)}
-                                                title={showValues[envVar.id] ? 'Hide value' : 'Show value'}
-                                            >
-                                                {showValues[envVar.id] ? (
-                                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                                        <line x1="1" y1="1" x2="23" y2="23"/>
-                                                    </svg>
-                                                ) : (
-                                                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                                        <circle cx="12" cy="12" r="3"/>
-                                                    </svg>
-                                                )}
-                                            </button>
-                                            <button type="button"
-                                                className="btn-icon"
-                                                onClick={() => copyToClipboard(envVar.value)}
-                                                title="Copy value"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                                </svg>
-                                            </button>
-                                            <button type="button"
-                                                className="btn-icon"
-                                                onClick={() => startEditing(envVar)}
-                                                title="Edit"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                                </svg>
-                                            </button>
-                                            <button type="button"
-                                                className="btn-icon btn-danger"
-                                                onClick={() => handleDelete(envVar.key)}
-                                                title="Delete"
-                                            >
-                                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
-                                                    <polyline points="3 6 5 6 21 6"/>
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {editingId === envVar.id ? (
-                                        <div className="env-edit-row">
-                                            <Input
-                                                type="text"
-                                                value={editValue}
-                                                onChange={(e) => setEditValue(e.target.value)}
-                                                autoFocus
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') handleUpdate(envVar.key);
-                                                    if (e.key === 'Escape') cancelEditing();
-                                                }}
-                                            />
-                                            {composeServices.length > 0 && (
-                                                <select
-                                                    className="env-target-select__control"
-                                                    value={editTargetService}
-                                                    onChange={(e) => setEditTargetService(e.target.value)}
-                                                    title="Inject this variable into a single compose service"
-                                                >
-                                                    <option value="">All services</option>
-                                                    {composeServices.map((svc) => (
-                                                        <option key={svc} value={svc}>{svc}</option>
-                                                    ))}
-                                                </select>
-                                            )}
-                                            <Button size="sm" onClick={() => handleUpdate(envVar.key)}>
-                                                Save
-                                            </Button>
-                                            <Button variant="outline" size="sm" onClick={cancelEditing}>
-                                                Cancel
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="env-value">
-                                            {showValues[envVar.id] ? envVar.value : '••••••••••••'}
-                                        </div>
-                                    )}
-
-                                    {envVar.description && (
-                                        <div className="env-description">{envVar.description}</div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Footer actions */}
-                    {envVars.length > 0 && (
-                        <div className="env-footer">
-                            <Button variant="outline" size="sm" className="env-clear-btn" onClick={handleClearAll}>
-                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                </svg>
-                                Clear All
+            {envVars.length === 0 ? (
+                <EmptyState
+                    icon={Variable}
+                    title="No environment variables"
+                    description="Add one here, or import an existing .env file."
+                    action={(
+                        <div className="env-empty-actions">
+                            <Button onClick={openAddModal}>
+                                <Plus size={15} />
+                                Add Variable
+                            </Button>
+                            <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                                <Upload size={14} />
+                                Import
                             </Button>
                         </div>
                     )}
-                </div>
-            </section>
+                />
+            ) : (
+                <>
+                    {/* One row of chrome: the view name is this tab's heading and
+                        the search, the filter and the "⋮" ride the same line.
+                        ServiceDetail owns the page top bar, so the chrome stays
+                        inline here rather than being hoisted (see
+                        useTopbarChrome). No count on it — the footer reports
+                        that, under the rows it is counting. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="variables"
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <SearchField
+                                    value={search}
+                                    onSearch={setSearch}
+                                    placeholder="Search keys or descriptions…"
+                                />
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadEnvVars} />
+                            </>
+                        )}
+                    />
+
+                    {/* What acts on the .env file itself, rather than on what you
+                        are looking at. Refresh is gone from it — it is in the "⋮". */}
+                    <ListToolbar>
+                        <Button size="sm" onClick={openAddModal}>
+                            <Plus size={15} />
+                            Add Variable
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={toggleShowAll}
+                            title={allVisible ? 'Hide all values' : 'Show all values'}
+                        >
+                            {allVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                            {allVisible ? 'Hide All' : 'Show All'}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
+                            <Upload size={14} />
+                            Import
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleExport(true)}>
+                            <Download size={14} />
+                            Export
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleShowHistory}>
+                            <History size={14} />
+                            History
+                        </Button>
+                        <Button variant="outline" size="sm" className="env-clear-btn" onClick={handleClearAll}>
+                            <Trash2 size={14} />
+                            Clear All
+                        </Button>
+                    </ListToolbar>
+
+                    <GridChips {...chrome.chipProps} />
+
+                    <DataTable
+                        columns={chrome.columns}
+                        data={filteredEnvVars}
+                        keyField="id"
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
+                        tableClassName="data-table"
+                        emptyTitle="No variables match your search."
+                        emptyMessage=""
+                        footer={(
+                            <DataTableFooter
+                                // DataTable applies the column rules itself, so
+                                // the shown count comes from the chrome —
+                                // `envVars` is only ever the whole file.
+                                shown={chrome.shownCount}
+                                total={envVars.length}
+                                noun="variable"
+                            />
+                        )}
+                    />
+                </>
+            )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             {/* Add Variable Modal */}
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Environment Variable">
@@ -584,28 +720,48 @@ const EnvironmentVariables = ({ appId }) => {
                 {history.length === 0 ? (
                     <p className="hint">No changes recorded yet.</p>
                 ) : (
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Key</th>
-                                <th>Action</th>
-                                <th>Changed At</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {history.map((h, idx) => (
-                                <tr key={idx}>
-                                    <td className="mono">{h.key}</td>
-                                    <td>
-                                        <Badge variant={h.action === 'created' ? 'success' : h.action === 'deleted' ? 'destructive' : 'warning'}>
-                                            {h.action}
-                                        </Badge>
-                                    </td>
-                                    <td>{new Date(h.changed_at).toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <DataTable
+                        columns={[
+                            {
+                                key: 'key',
+                                header: 'Key',
+                                sortable: true,
+                                hideable: false,
+                                sortValue: (h) => h.key || '',
+                                cellClassName: 'mono',
+                                render: (h) => h.key,
+                            },
+                            {
+                                key: 'action',
+                                header: 'Action',
+                                sortable: true,
+                                sortValue: (h) => h.action || '',
+                                render: (h) => (
+                                    <Badge variant={h.action === 'created' ? 'success' : h.action === 'deleted' ? 'destructive' : 'warning'}>
+                                        {h.action}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: 'changed_at',
+                                header: 'Changed At',
+                                sortable: true,
+                                sortValue: (h) => new Date(h.changed_at).getTime(),
+                                render: (h) => new Date(h.changed_at).toLocaleString(),
+                            },
+                        ]}
+                        data={history.map((h, idx) => ({ ...h, __idx: idx }))}
+                        keyField="__idx"
+                        storageKey="serverkit-table-env-history"
+                        tableClassName="table"
+                        footer={(
+                            <DataTableFooter
+                                shown={history.length}
+                                total={history.length}
+                                noun="change"
+                            />
+                        )}
+                    />
                 )}
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowHistoryModal(false)}>

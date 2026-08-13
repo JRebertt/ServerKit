@@ -5,6 +5,11 @@ import pytest
 
 from app.services.htaccess_converter import MAX_INPUT_BYTES, convert
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 def _nginx(text):
     return convert(text)['nginx']

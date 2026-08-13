@@ -229,7 +229,7 @@ class ManifestApplyService:
 
         declared_domains = resolved.get('_domains', [])
         if declared_domains:
-            live_hosts = {d.name for d in (app.domains or [])}
+            live_hosts = {d.name for d in app.live_domains}
             expected['domains'] = declared_domains
             observed['domains'] = sorted(h for h in declared_domains if h in live_hosts)
 
@@ -455,7 +455,9 @@ class ManifestApplyService:
             host = dom.get('host')
             svc_name = dom.get('service')
             app = cls._find_app(project, svc_name) if svc_name else None
-            already = bool(app) and any(d.name == host for d in (app.domains or []))
+            # live_domains, not domains: a tombstoned Domain would make this look
+            # attached and the apply would skip the vhost/DNS/cert work entirely.
+            already = bool(app) and any(d.name == host for d in app.live_domains)
             if already:
                 continue
             steps.append({
@@ -727,7 +729,7 @@ class ManifestApplyService:
             deploy_configs = GitService.get_config().get('apps', {})
         except Exception:
             return None
-        for sibling in Application.query.filter_by(project_id=project.id).all():
+        for sibling in Application.query_active().filter_by(project_id=project.id).all():
             cfg = deploy_configs.get(str(sibling.id))
             if cfg and cfg.get('repo_url'):
                 return {'repo_url': cfg['repo_url'], 'branch': cfg.get('branch') or 'main'}
@@ -966,7 +968,7 @@ class ManifestApplyService:
     @classmethod
     def _do_update_app(cls, project, env, payload, user_id):
         import json
-        app = Application.query.get(payload['app_id'])
+        app = Application.query_active().filter_by(id=payload['app_id']).first()
         if not app:
             raise RuntimeError('app not found')
         changes = payload['changes']
@@ -1035,7 +1037,8 @@ class ManifestApplyService:
     @classmethod
     def _do_ensure_volume(cls, project, env, payload, user_id):
         from app.services.volume_service import VolumeService
-        app = Application.query.get(payload.get('app_id') or cls._resolve_app_id(project, payload))
+        app = Application.query_active().filter_by(
+            id=payload.get('app_id') or cls._resolve_app_id(project, payload)).first()
         if not app:
             raise RuntimeError('app not found')
         if any(v.mount_path == payload['mount_path'] for v in (app.volumes or [])):
@@ -1052,7 +1055,8 @@ class ManifestApplyService:
     @classmethod
     def _do_bootstrap(cls, project, env, payload, user_id):
         from app.services.bootstrap_service import BootstrapService
-        app = Application.query.get(payload.get('app_id') or cls._resolve_app_id(project, payload))
+        app = Application.query_active().filter_by(
+            id=payload.get('app_id') or cls._resolve_app_id(project, payload)).first()
         if not app:
             raise RuntimeError('app not found')
         if getattr(app, 'bootstrap_done', False):
@@ -1077,7 +1081,8 @@ class ManifestApplyService:
     @classmethod
     def _do_open_port(cls, project, env, payload, user_id):
         from app.services.app_port_service import AppPortService
-        app = Application.query.get(payload.get('app_id') or cls._resolve_app_id(project, payload))
+        app = Application.query_active().filter_by(
+            id=payload.get('app_id') or cls._resolve_app_id(project, payload)).first()
         if not app:
             raise RuntimeError('app not found')
         ports = payload['ports']
@@ -1123,7 +1128,7 @@ class ManifestApplyService:
             cls._resolve_app_id(project, payload) if payload.get('service') else None)
         if not app_id:
             return {'skipped': 'no target service'}
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             raise RuntimeError('app not found for domain')
         result = DomainAttachService.attach(app, payload['host'], ssl=payload.get('ssl', 'auto'))
@@ -1300,7 +1305,10 @@ class ManifestApplyService:
     def _find_app(project: Project, name: Optional[str]) -> Optional[Application]:
         if not name:
             return None
-        return Application.query.filter_by(project_id=project.id, name=name).first()
+        # Name-keyed, and every apply step routes through here: a tombstone
+        # sharing the name would shadow the live app and the apply would attach
+        # domains / create DNS / start containers against the deleted one.
+        return Application.query_active().filter_by(project_id=project.id, name=name).first()
 
     @classmethod
     def _resolve_app_id(cls, project, payload):

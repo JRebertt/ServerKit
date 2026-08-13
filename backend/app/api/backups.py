@@ -359,7 +359,7 @@ def backup_application():
     if not app_id:
         return jsonify({'error': 'application_id is required'}), 400
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
 

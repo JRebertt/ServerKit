@@ -2,26 +2,36 @@
 //
 // Tab-group page (the Domains/Cron/Jobs pattern): the group's shared PageTopbar
 // carries SearchField + FilterDrawer + Refresh + "Add monitor" via
-// useTopbarActions, so there is no second header inside the page. Clickable KPI
-// tiles are the quick status filter; the drawer owns type + status together.
+// useTopbarActions, so there is no second header inside the page.
+//
+// Two filter surfaces live here and they are NOT the same tool: the DS
+// FilterDrawer narrows the QUERY sent to /monitors (status + type, so it sees
+// rows this client never loaded), while the grid chrome's column rules narrow
+// the rows already on screen. A saved view carries both — the server pair under
+// `page.serverFilters`, the rules under `columnFilters`.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Activity, AlertTriangle, ChevronRight, Globe, Pause, Play, Plus, Radar,
-    RefreshCw, ShieldAlert, Zap,
+    ChevronRight, Globe, Pause, Play, Plus, Radar, RefreshCw,
 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import {
-    DataTable, Drawer, FilterButton, FilterDrawer, KpiBand, MetricCard, Pill,
-    SearchField, Sparkline, countActiveFilters,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer,
+    Pill, SearchField, Sparkline, countActiveFilters,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
+} from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import useFocusParam from '@/hooks/useFocusParam';
 import { CHECK_TYPES, MONITOR_STATUS, monitorStateOf } from '../components/monitoring/monitorShared';
 
 const POLL_MS = 15000;
@@ -76,12 +86,103 @@ function formatUptime(value) {
     return `${Number(value).toFixed(2)}%`;
 }
 
+// Built-in saved views, in the shared envelope (see ds/grid/viewState.js).
+//
+// `columnFilters` are CLIENT-side rules over the rows on screen; the page's own
+// SERVER-side query pair lives in `page.serverFilters`. Both used to be called
+// `filters`, which is precisely why they cross-wired — a preset that meant
+// "ask the API for major_outage" was read as a column rule and matched nothing.
+//
+// A status rule filters on the Status column's `value`, which is the LABEL
+// monitorStateOf() renders ('Operational'), never the API code ('operational').
+const STATE = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+// The FilterDrawer's query pair at rest — a view that sets no server filter has
+// to say so, or it inherits whatever the previous view asked the API for.
+const NO_QUERY = { status: '', type: '' };
+
+const BUILTIN_VIEWS = [
+    {
+        // Was the "Operational" KPI tile: everything answering normally, i.e.
+        // the "nothing to do here" check rather than a worklist.
+        name: 'Operational',
+        state: {
+            sorts: [], hiddenKeys: [], columnFilters: STATE('Operational'),
+            page: { search: '', serverFilters: NO_QUERY },
+        },
+    },
+    {
+        // Was the "Degraded" KPI tile. That tile counted degraded +
+        // partial_outage and monitorStateOf() labels BOTH 'Degraded', so this
+        // one label rule reproduces the tile's union exactly — which the
+        // previous server-side `status: 'degraded'` preset did not, it silently
+        // dropped every partial_outage.
+        name: 'Degraded',
+        state: {
+            sorts: [], hiddenKeys: [], columnFilters: STATE('Degraded'),
+            page: { search: '', serverFilters: NO_QUERY },
+        },
+    },
+    {
+        // Stays SERVER-side: major_outage is asked of the API, so this view is
+        // not limited to the rows the current query happened to return. It is
+        // also what the "Down" tile pointed at — there is exactly one of these.
+        name: 'Down',
+        state: {
+            sorts: [], hiddenKeys: [], columnFilters: NO_RULES,
+            page: { search: '', serverFilters: { status: 'major_outage', type: '' } },
+        },
+    },
+    {
+        name: 'Slowest',
+        state: {
+            sorts: [{ key: 'response', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES,
+            page: { search: '', serverFilters: NO_QUERY },
+        },
+    },
+    {
+        // Least reliable over the month, slowest first among ties — the review
+        // list, as opposed to "what is broken right now".
+        name: 'Worst uptime (30d)',
+        state: {
+            hiddenKeys: ['next_check_at'], columnFilters: NO_RULES,
+            sorts: [{ key: 'uptime_30d', direction: 'asc' }, { key: 'response', direction: 'desc' }],
+            page: { search: '', serverFilters: NO_QUERY },
+        },
+    },
+    {
+        // Paused checks are silent by design; this is how you notice one has
+        // been silent for longer than anybody intended.
+        name: 'Paused — still silenced',
+        state: {
+            hiddenKeys: ['last_check_at', 'next_check_at'], columnFilters: NO_RULES,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            page: { search: '', serverFilters: { status: 'paused', type: '' } },
+        },
+    },
+    {
+        name: 'Slow web checks',
+        state: {
+            hiddenKeys: ['check_type'], columnFilters: NO_RULES,
+            sorts: [{ key: 'response', direction: 'desc' }],
+            page: { search: '', serverFilters: { status: '', type: 'http' } },
+        },
+    },
+    {
+        name: 'In maintenance',
+        state: {
+            hiddenKeys: ['next_check_at'], columnFilters: NO_RULES,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            page: { search: '', serverFilters: { status: 'maintenance', type: '' } },
+        },
+    },
+];
+
 export default function Monitors() {
     const navigate = useNavigate();
     const toast = useToast();
 
     const [monitors, setMonitors] = useState([]);
-    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState('');
     const [filters, setFilters] = useState({ status: '', type: '' });
@@ -96,12 +197,10 @@ export default function Monitors() {
 
     const load = useCallback(async () => {
         try {
-            const [listRes, statsRes] = await Promise.all([
-                api.getMonitors({ q: q || undefined, status: filters.status || undefined, type: filters.type || undefined }),
-                api.getMonitorStats().catch(() => null),
-            ]);
+            const listRes = await api.getMonitors({
+                q: q || undefined, status: filters.status || undefined, type: filters.type || undefined,
+            });
             setMonitors(listRes?.monitors || []);
-            setStats(statsRes?.stats || null);
         } catch {
             // Keep the last good list on screen rather than blanking the page.
         } finally {
@@ -121,9 +220,24 @@ export default function Monitors() {
     }, []);
 
     const activeFilterCount = countActiveFilters(filters);
-    const setStatusQuick = (value) => setFilters((f) => ({ ...f, status: f.status === value ? '' : value }));
+
+    // Table sort + column visibility, controlled so saved views can drive them.
+    // Same storage keys DataTable used internally, so existing choices survive.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitors-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({ storageKey: 'serverkit-table-monitors-cols' });
+
+    // The page-private half of a saved view. `serverFilters` is deliberately
+    // not called `filters`: in the envelope that name always means the column
+    // rules, and this pair is the query the API is asked for instead.
+    const viewPageState = useMemo(() => ({ search: q, serverFilters: filters }), [q, filters]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setQ(saved.search);
+        if (saved.serverFilters !== undefined) setFilters((f) => ({ ...f, ...saved.serverFilters }));
+    }, []);
 
     const openCreate = () => { setForm(emptyForm); setFormOpen(true); };
+    // Quick-create deep link: /monitoring/monitors?focus=create:monitor opens the form.
+    useFocusParam('create', openCreate);
 
     useTopbarActions(() => (
         <>
@@ -201,6 +315,9 @@ export default function Monitors() {
         {
             key: 'name',
             header: 'Monitor',
+            sortable: true,
+            hideable: false,
+            sortValue: (m) => m.name,
             render: (m) => (
                 <div className="sk-cell-name">
                     <span className="mon-ico"><Globe size={15} /></span>
@@ -214,11 +331,22 @@ export default function Monitors() {
         {
             key: 'check_type',
             header: 'Type',
+            sortable: true,
             render: (m) => <span className="mon-type">{m.check_type}</span>,
         },
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            type: 'enum',
+            // Pinned rather than left to the sortValue fallback: the column
+            // menu, the presets and the chips all read `value`, and it has to
+            // be the LABEL the pill shows — a rule written against the API code
+            // ('operational') would quietly match nothing. The label also folds
+            // degraded + partial_outage into one bucket, which is what the
+            // reader sees and therefore what a filter should mean.
+            value: (m) => monitorStateOf(m).label,
+            sortValue: (m) => monitorStateOf(m).label,
             render: (m) => {
                 const state = monitorStateOf(m);
                 return <Pill kind={state.tone}>{state.label}</Pill>;
@@ -227,6 +355,8 @@ export default function Monitors() {
         {
             key: 'response',
             header: 'Response',
+            sortable: true,
+            sortValue: (m) => m.last_response_time,
             render: (m) => {
                 if (m.last_response_time == null) return <span className="mon-muted">—</span>;
                 const slow = m.last_response_time > 300;
@@ -250,11 +380,13 @@ export default function Monitors() {
         {
             key: 'uptime_30d',
             header: 'Uptime (30d)',
+            sortable: true,
             render: (m) => <span className="mon-uptime">{formatUptime(m.uptime_30d)}</span>,
         },
         {
             key: 'last_check_at',
             header: 'Last check',
+            sortable: true,
             render: (m) => (
                 <span className="mon-muted">{m.is_paused ? 'paused' : relativeTime(m.last_check_at)}</span>
             ),
@@ -269,6 +401,7 @@ export default function Monitors() {
             header: '',
             className: 'mon-actions-col',
             cellClassName: 'mon-actions-cell',
+            hideable: false,
             render: (m) => (
                 <div className="mon-actions" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => onCheckNow(m)} title="Check now">
@@ -290,33 +423,57 @@ export default function Monitors() {
         },
     ];
 
+    // Shared list chrome: view picker + filter chips + column-rule drawer +
+    // tools, driven off this page's own sorts/hiddenKeys state.
+    const chrome = useTableChrome({
+        columns,
+        rows: monitors,
+        viewPageKey: 'monitors',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'monitors',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+        // Views saved before the envelope existed kept the server-side query at
+        // the top level under `filters`; that name now belongs to the column
+        // rules, so those views are read into the page bag instead of being
+        // mistaken for rules and dropped.
+        rename: { filters: 'serverFilters' },
+    });
+
+    // The "⋮" rides the top bar with the page's own controls, so the view row
+    // is the view name and nothing else. No grid filter button joins it: this
+    // page has exactly ONE filter button and it is the top bar's, which opens
+    // the SERVER query drawer. Column rules come from each column's own header
+    // menu and show up in the chips.
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />,
+    );
+
     const hasFilters = Boolean(q || filters.status || filters.type);
     const isHttpish = ['http', 'keyword'].includes(form.check_type);
 
     return (
         <div className="sk-tabgroup__inner monitors-page">
-            <KpiBand>
-                <MetricCard
-                    label="Operational" value={stats?.operational ?? 0} tone="green" compact
-                    icon={<Activity size={17} />}
-                    onClick={() => setStatusQuick('operational')}
-                />
-                <MetricCard
-                    label="Degraded" value={stats?.degraded ?? 0} tone="amber" compact
-                    icon={<AlertTriangle size={17} />}
-                    onClick={() => setStatusQuick('degraded')}
-                />
-                <MetricCard
-                    label="Down" value={stats?.down ?? 0} tone="red" compact
-                    icon={<ShieldAlert size={17} />}
-                    onClick={() => setStatusQuick('major_outage')}
-                />
-                <MetricCard
-                    label="Uptime (30d)"
-                    value={stats?.overall_uptime_30d != null ? `${stats.overall_uptime_30d}%` : '—'}
-                    tone="accent" icon={<Zap size={17} />}
-                />
-            </KpiBand>
+            {topbarChrome}
+            {/* No KPI band: Operational / Degraded / Down are each a saved view
+                you can act from, so the band was three numbers you had to
+                re-filter by hand. The fleet's 30-day mean went with the view
+                row's meta line — an aggregate no row on this grid can restate,
+                and now with nowhere to sit — so /monitors/stats is not fetched
+                any more either. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="monitors"
+                onCreate={chrome.createView}
+            
+                actions={chromeActions}
+            />
+
+            <GridChips {...chrome.chipProps} />
 
             {loading && monitors.length === 0 ? (
                 <EmptyState loading loadingVariant="table" title="Loading monitors" />
@@ -335,16 +492,23 @@ export default function Monitors() {
                 <div className="mon-card">
                     <DataTable
                         tableClassName="sk-dtable monitors-table"
-                        sortable={false}
+                        storageKey="serverkit-table-monitors"
                         data={monitors}
                         keyField="id"
-                        columns={columns}
+                        columns={chrome.columns}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        {...chrome.tableProps}
                         onRowClick={(m) => navigate(`/monitoring/monitors/${m.id}`)}
                         rowClassName={(m) => (m.is_paused ? 'is-disabled' : undefined)}
+                        footer={<DataTableFooter shown={monitors.length} total={monitors.length} noun="monitor" />}
                     />
                 </div>
             )}
 
+            {/* The SERVER-side pair: this one changes what /monitors is asked
+                for, so it reaches monitors the client never loaded. Kept
+                alongside the column-rule drawer below, not replaced by it. */}
             <FilterDrawer
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
@@ -353,6 +517,7 @@ export default function Monitors() {
                 onChange={setFilters}
                 title="Filter monitors"
             />
+
 
             <Drawer
                 open={formOpen}

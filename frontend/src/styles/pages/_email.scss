@@ -99,13 +99,11 @@
         .sk-email__actions { justify-content: flex-end; }
     }
 
-    // ── Filters / toolbar row (domain select + search) ──────
+    // ── Filters toolbar (domain select + search) ────────────
+    // The row layout is the shared ListToolbar (.sk-listhead); this class
+    // rides along on it to keep the eyebrow labels, select chrome and
+    // search-box sizing below.
     &__filters {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-        flex-wrap: wrap;
-
         > label {
             display: flex;
             align-items: center;

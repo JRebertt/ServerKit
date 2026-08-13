@@ -569,7 +569,9 @@ class ProxyStackService:
         grouped = {}
         try:
             from app.models.application import Application
-            apps = Application.query.filter(Application.server_id.isnot(None)).all()
+            # query_active(): a tombstoned app is not served by any proxy, so
+            # counting it here would report a mismatch nothing can resolve.
+            apps = Application.query_active().filter(Application.server_id.isnot(None)).all()
         except Exception as e:  # pragma: no cover - DB guard
             logger.warning(f"_apps_by_server query failed: {e}")
             return grouped
@@ -641,7 +643,9 @@ class ProxyStackService:
             server = Server.query.get(server_id)
             stack = ProxyStack.query.filter_by(server_id=server_id).first()
             proxy_type = (stack.proxy_type if stack else 'nginx') or 'nginx'
-            apps = Application.query.filter_by(server_id=server_id).all()
+            # query_active(): these rows are the repair allowlist — a tombstone
+            # would become a phantom mismatch no action can clear.
+            apps = Application.query_active().filter_by(server_id=server_id).all()
         except Exception as e:  # pragma: no cover - DB guard
             logger.warning(f"ingress_audit query failed: {e}")
 

@@ -794,27 +794,92 @@ class CronService:
     # ------------------------------------------------------------------ #
 
     @classmethod
+    @staticmethod
+    def _same_application(candidate, application_id) -> bool:
+        """Do these two ids name the same app? Ids arrive as int or str."""
+        if candidate in (None, ''):
+            return False
+        try:
+            return int(candidate) == int(application_id)
+        except (TypeError, ValueError):
+            return str(candidate) == str(application_id)
+
+    @classmethod
     def clear_application(cls, application_id) -> int:
         """Drop the association from every job attributed to `application_id`
-        (called when the app is deleted — jobs fall back to the System bucket
-        rather than being deleted). Returns the number of jobs changed."""
+        (called when the app is PURGED — jobs fall back to the System bucket
+        rather than being deleted). Returns the number of jobs changed.
+
+        This is lossy on purpose and therefore purge-only: it nulls the link
+        without recording what it was, so nothing could put it back. A soft
+        delete uses `suspend_for_application` instead, which is reversible.
+        """
         metadata = cls._load_jobs_metadata()
         changed = 0
         for job_data in metadata.get('jobs', {}).values():
-            aid = job_data.get('application_id')
-            if aid in (None, ''):
-                continue
-            try:
-                same = int(aid) == int(application_id)
-            except (TypeError, ValueError):
-                same = str(aid) == str(application_id)
-            if same:
+            if cls._same_application(job_data.get('application_id'), application_id):
                 job_data['application_id'] = None
+                job_data['suspended_by_app'] = False
                 job_data['updated_at'] = datetime.now().isoformat()
                 changed += 1
         if changed:
             cls._save_jobs_metadata(metadata)
         return changed
+
+    @classmethod
+    def suspend_for_application(cls, application_id) -> int:
+        """Disable an app's cron jobs when the app is soft-deleted.
+
+        This is the one piece of a soft delete that CANNOT be handled by making
+        readers liveness-aware. Everything else that acts on an app is swept
+        from a table we can join against; cron jobs are lines in the operating
+        system's crontab, and the OS does not know the app is in the bin. Left
+        alone they keep firing — running shell commands against a `root_path`
+        the purge may later remove.
+
+        Only jobs that are currently ENABLED are touched, and each one is
+        stamped `suspended_by_app`. That flag is what makes this reversible:
+        without it, restoring would re-enable jobs the user had deliberately
+        turned off long before the app was deleted.
+        """
+        metadata = cls._load_jobs_metadata()
+        targets = [
+            job_id for job_id, job_data in metadata.get('jobs', {}).items()
+            if cls._same_application(job_data.get('application_id'), application_id)
+            and job_data.get('enabled')
+        ]
+        for job_id in targets:
+            cls.toggle_job(job_id, False)
+
+        if targets:
+            # Re-read: toggle_job persists on each call, so the copy above is
+            # stale by now and writing it back would undo those saves.
+            metadata = cls._load_jobs_metadata()
+            for job_id in targets:
+                if job_id in metadata.get('jobs', {}):
+                    metadata['jobs'][job_id]['suspended_by_app'] = True
+            cls._save_jobs_metadata(metadata)
+        return len(targets)
+
+    @classmethod
+    def resume_for_application(cls, application_id) -> int:
+        """Re-enable exactly the jobs `suspend_for_application` disabled."""
+        metadata = cls._load_jobs_metadata()
+        targets = [
+            job_id for job_id, job_data in metadata.get('jobs', {}).items()
+            if cls._same_application(job_data.get('application_id'), application_id)
+            and job_data.get('suspended_by_app')
+        ]
+        for job_id in targets:
+            cls.toggle_job(job_id, True)
+
+        if targets:
+            metadata = cls._load_jobs_metadata()
+            for job_id in targets:
+                if job_id in metadata.get('jobs', {}):
+                    metadata['jobs'][job_id]['suspended_by_app'] = False
+            cls._save_jobs_metadata(metadata)
+        return len(targets)
 
     @classmethod
     def jobs_for_application(cls, application_id) -> List[Dict]:

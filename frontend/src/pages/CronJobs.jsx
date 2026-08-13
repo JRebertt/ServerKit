@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../hooks/useConfirm';
+import useFocusParam from '@/hooks/useFocusParam';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
@@ -10,7 +11,15 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Pill, SegControl, SearchField, DataTable, Drawer } from '@/components/ds';
+import {
+    Pill, SearchField, DataTable, Drawer, DataTableFooter,
+} from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import SchedulePicker from '../components/SchedulePicker';
 import PageLayout from '../layouts/PageLayout';
 
@@ -44,6 +53,43 @@ const describeSchedule = (job) => (
     job.schedule_human || SCHEDULE_LABELS[job.schedule] || job.schedule
 );
 
+// Built-in saved views.
+// `status` values are the labels jobState() produces: Healthy, Failed, Paused,
+// No runs yet, Untracked. There is no separate segment filter any more — the
+// Status column's own menu is the one place jobs are narrowed by state.
+const RULES = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
+const BUILTIN_VIEWS = [
+    { name: 'Paused', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('Paused') } },
+    { name: 'Active', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('Healthy', 'No runs yet', 'Untracked') } },
+    { name: 'Recently run', state: { search: '', sorts: [{ key: 'last_run', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    {
+        // What broke, most recent failure first.
+        name: 'Failing now',
+        state: {
+            search: '', hiddenKeys: ['next_run'], columnFilters: RULES('Failed'),
+            sorts: [{ key: 'last_run', direction: 'desc' }],
+        },
+    },
+    {
+        // Scheduled and enabled, but the oldest last-run in the list — the jobs
+        // that look healthy only because nothing has checked them.
+        name: 'Stale schedules',
+        state: {
+            search: '', hiddenKeys: [], columnFilters: RULES('Healthy'),
+            sorts: [{ key: 'last_run', direction: 'asc' }],
+        },
+    },
+    {
+        name: 'Health roll-call',
+        state: {
+            search: '', hiddenKeys: ['schedule'], columnFilters: NO_RULES,
+            sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
+        },
+    },
+];
+
 // The browser's zone, not the host's — times are ISO strings rendered client
 // side, so this is what the reader is actually seeing. Say so rather than
 // implying the schedule's own timezone.
@@ -63,6 +109,14 @@ function formatWhen(iso) {
     else rel = `${Math.round(mins / 1440)}d`;
     if (rel === 'just now') return rel;
     return ago ? `${rel} ago` : `in ${rel}`;
+}
+
+// Sort value for an ISO timestamp: epoch ms, or null (sorts last) when the
+// job/run has no usable time.
+function timeValue(iso) {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isNaN(t) ? null : t;
 }
 
 function formatDuration(seconds) {
@@ -94,8 +148,21 @@ const CronJobs = () => {
     const [error, setError] = useState(null);
 
     // List filters (client-side, over already-loaded jobs)
-    const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+
+    // Table sort + column visibility (persisted, mirrored by the toolbar menus)
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-cronjobs-sort' });
+    const { hiddenKeys, setHiddenKeys, toggleColumn, showAllColumns } = useColumnVisibility({
+        storageKey: 'serverkit-table-cronjobs-cols',
+    });
+
+    // Shared list chrome: view picker + filter chips + filter drawer + tools,
+    // driven off this page's existing sorts/hiddenKeys state. Same hook every
+    // other list page uses, so /cron looks and behaves like /domains.
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
 
     // Drawer + modal states
     const [drawerJob, setDrawerJob] = useState(null);
@@ -128,6 +195,8 @@ const CronJobs = () => {
         setEditingJob(null);
         setShowJobDrawer(true);
     };
+    // Quick-create deep link: /cron?focus=create:cron opens the job drawer.
+    useFocusParam('create', openCreateDrawer);
 
     const openEditDrawer = (job) => {
         setEditingJob(job);
@@ -139,15 +208,34 @@ const CronJobs = () => {
         setEditingJob(null);
     };
 
-    const handleDeleteJob = async (jobId) => {
+    const handleDeleteJob = async (job) => {
         const confirmed = await confirm({
             title: 'Delete Cron Job',
             message: 'Are you sure you want to delete this cron job?',
         });
         if (!confirmed) return;
         try {
-            await api.deleteCronJob(jobId);
-            toast.success('Cron job deleted');
+            await api.deleteCronJob(job.id);
+            toast.success(`Cron job "${job.name}" deleted`, {
+                duration: 8000,
+                action: {
+                    label: 'Undo',
+                    onClick: async () => {
+                        try {
+                            await api.createCronJob({
+                                name: job.name,
+                                command: job.command,
+                                schedule: job.schedule,
+                                description: job.description,
+                            });
+                            toast.success(`Cron job "${job.name}" restored`);
+                            loadData();
+                        } catch (err) {
+                            toast.error(err.message || 'Could not restore the cron job');
+                        }
+                    },
+                },
+            });
             setDrawerJob(null);
             loadData();
         } catch (err) {
@@ -193,30 +281,139 @@ const CronJobs = () => {
     const pausedCount = jobs.length - enabledCount;
 
     const q = search.trim().toLowerCase();
-    const shown = jobs.filter((job) => {
-        const state = jobState(job);
-        const matchesFilter = filter === 'all'
-            || (filter === 'failed' ? state.key === 'failed'
-                : filter === 'paused' ? state.key === 'paused'
-                    : state.key === 'active');
-        const matchesQuery = !q
-            || (job.name || '').toLowerCase().includes(q)
-            || (job.command || '').toLowerCase().includes(q);
-        return matchesFilter && matchesQuery;
-    });
+    const shown = jobs.filter((job) => !q
+        || (job.name || '').toLowerCase().includes(q)
+        || (job.command || '').toLowerCase().includes(q));
 
-    const filterOptions = [
-        { value: 'all', label: 'All', count: jobs.length },
-        { value: 'active', label: 'Active', count: enabledCount - failedCount },
-        { value: 'failed', label: 'Failed', count: failedCount },
-        { value: 'paused', label: 'Paused', count: pausedCount },
-    ];
 
     const serviceNote = status?.available === false
         ? 'Cron service unavailable'
         : status?.type === 'cron'
             ? (status?.running ? null : 'cron daemon stopped')
             : (status?.type === 'serverkit_scheduler' ? 'internal scheduler' : null);
+
+    const jobColumns = [
+        {
+            key: 'name',
+            header: 'Job',
+            sortable: true,
+            hideable: false,
+            sortValue: (job) => (job.name || 'Unnamed job').toLowerCase(),
+            render: (job) => (
+                <div className="sk-cell-name">
+                    <span className="cron-ico"><Clock size={15} /></span>
+                    <div className="cron-jobcell">
+                        <div className="cron-jobcell__name">
+                            {job.name || 'Unnamed job'}
+                        </div>
+                        <div className="sk-cell-sub cron-jobcell__cmd" title={job.command}>
+                            {job.command}
+                        </div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'schedule',
+            header: 'Schedule',
+            sortable: true,
+            sortValue: (job) => describeSchedule(job),
+            render: (job) => (
+                <>
+                    <span className="cron-sched">
+                        <Clock size={11} />{job.schedule}
+                    </span>
+                    <div className="cron-sched-readable">
+                        {describeSchedule(job)}
+                    </div>
+                </>
+            ),
+        },
+        {
+            key: 'last_run',
+            header: 'Last run',
+            sortable: true,
+            sortValue: (job) => timeValue(job.last_run),
+            cellClassName: 'cron-cell-mono',
+            render: (job) => formatWhen(job.last_run),
+        },
+        {
+            key: 'next_run',
+            header: 'Next run',
+            cellClassName: 'cron-cell-mono',
+            render: (job) => (
+                job.enabled ? formatWhen(job.next_run) : 'paused'
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            type: 'enum',
+            groupable: true,
+            // The header menu filters and groups on the LABEL, which is what the
+            // pill shows — so a preset reads the same way the row does.
+            value: (job) => jobState(job).label,
+            sortValue: (job) => jobState(job).label,
+            render: (job) => {
+                const state = jobState(job);
+                return <Pill kind={state.kind}>{state.label}</Pill>;
+            },
+        },
+        {
+            key: 'enabled',
+            header: 'On',
+            hideable: false,
+            render: (job) => (
+                <span
+                    className="cron-switch"
+                    onClick={(e) => e.stopPropagation()}
+                    role="presentation"
+                >
+                    <Switch
+                        checked={!!job.enabled}
+                        onCheckedChange={() => handleToggleJob(job.id, job.enabled)}
+                        aria-label={job.enabled ? 'Disable job' : 'Enable job'}
+                    />
+                </span>
+            ),
+        },
+        {
+            key: 'run',
+            header: '',
+            hideable: false,
+            cellClassName: 'cron-cell-actions',
+            render: (job) => (
+                <span onClick={(e) => e.stopPropagation()} role="presentation">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRunJob(job.id)}
+                        disabled={runningJobId === job.id}
+                        title="Run now"
+                    >
+                        {runningJobId === job.id
+                            ? <span className="spinner-inline" />
+                            : <Play size={14} />}
+                    </Button>
+                </span>
+            ),
+        },
+    ];
+
+    const chrome = useTableChrome({
+        columns: jobColumns,
+        rows: shown,
+        viewPageKey: 'cronjobs',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'jobs',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
 
     return (
         <PageLayout
@@ -266,16 +463,27 @@ const CronJobs = () => {
                 <div className="cron-body">
                     {/* No KPI strip: every number it carried is already on the
                         segment you'd click to act on it (mirrors /domains). */}
-                    <div className="cron-listhead">
-                        <h2 className="cron-listhead__title">All jobs</h2>
-                        <div className="cron-listhead__right">
-                            {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
-                            <span className="cron-listhead__count">
-                                {shown.length} of {jobs.length} jobs
-                            </span>
-                            <SegControl value={filter} onChange={setFilter} options={filterOptions} />
-                        </div>
-                    </div>
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="jobs"
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                {/* The daemon's health rides with the chrome
+                                    rather than in a bar of its own: it is the
+                                    reason a "next run" may never happen, so it
+                                    belongs beside the table it invalidates. */}
+                                {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                            </>
+                        )}
+                    />
+
+                    <GridChips {...chrome.chipProps} />
 
                     {shown.length === 0 ? (
                         <div className="cron-empty">
@@ -285,103 +493,21 @@ const CronJobs = () => {
                         <div className="cron-card">
                             <DataTable
                                 tableClassName="sk-dtable cron-table"
-                                sortable={false}
                                 data={shown}
                                 keyField="id"
+                                columns={chrome.columns}
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                {...chrome.tableProps}
                                 onRowClick={setDrawerJob}
                                 rowClassName={(job) => (job.enabled ? undefined : 'is-disabled')}
-                                columns={[
-                                    {
-                                        key: 'name',
-                                        header: 'Job',
-                                        render: (job) => (
-                                            <div className="sk-cell-name">
-                                                <span className="cron-ico"><Clock size={15} /></span>
-                                                <div className="cron-jobcell">
-                                                    <div className="cron-jobcell__name">
-                                                        {job.name || 'Unnamed job'}
-                                                    </div>
-                                                    <div className="sk-cell-sub cron-jobcell__cmd" title={job.command}>
-                                                        {job.command}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        key: 'schedule',
-                                        header: 'Schedule',
-                                        render: (job) => (
-                                            <>
-                                                <span className="cron-sched">
-                                                    <Clock size={11} />{job.schedule}
-                                                </span>
-                                                <div className="cron-sched-readable">
-                                                    {describeSchedule(job)}
-                                                </div>
-                                            </>
-                                        ),
-                                    },
-                                    {
-                                        key: 'last_run',
-                                        header: 'Last run',
-                                        cellClassName: 'cron-cell-mono',
-                                        render: (job) => formatWhen(job.last_run),
-                                    },
-                                    {
-                                        key: 'next_run',
-                                        header: 'Next run',
-                                        cellClassName: 'cron-cell-mono',
-                                        render: (job) => (
-                                            job.enabled ? formatWhen(job.next_run) : 'paused'
-                                        ),
-                                    },
-                                    {
-                                        key: 'status',
-                                        header: 'Status',
-                                        render: (job) => {
-                                            const state = jobState(job);
-                                            return <Pill kind={state.kind}>{state.label}</Pill>;
-                                        },
-                                    },
-                                    {
-                                        key: 'enabled',
-                                        header: 'On',
-                                        render: (job) => (
-                                            <span
-                                                className="cron-switch"
-                                                onClick={(e) => e.stopPropagation()}
-                                                role="presentation"
-                                            >
-                                                <Switch
-                                                    checked={!!job.enabled}
-                                                    onCheckedChange={() => handleToggleJob(job.id, job.enabled)}
-                                                    aria-label={job.enabled ? 'Disable job' : 'Enable job'}
-                                                />
-                                            </span>
-                                        ),
-                                    },
-                                    {
-                                        key: 'run',
-                                        header: '',
-                                        cellClassName: 'cron-cell-actions',
-                                        render: (job) => (
-                                            <span onClick={(e) => e.stopPropagation()} role="presentation">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleRunJob(job.id)}
-                                                    disabled={runningJobId === job.id}
-                                                    title="Run now"
-                                                >
-                                                    {runningJobId === job.id
-                                                        ? <span className="spinner-inline" />
-                                                        : <Play size={14} />}
-                                                </Button>
-                                            </span>
-                                        ),
-                                    },
-                                ]}
+                                footer={(
+                                    <DataTableFooter
+                                        shown={chrome.shownCount}
+                                        total={jobs.length}
+                                        noun="job"
+                                    />
+                                )}
                             />
                         </div>
                     )}
@@ -442,6 +568,7 @@ const CronJobs = () => {
                     <Button variant="outline" onClick={() => setRunOutput(null)}>Close</Button>
                 </div>
             </Modal>
+            <GridFilterDrawer {...chrome.drawerProps} />
         </PageLayout>
     );
 };
@@ -602,18 +729,22 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                             <div className="cron-drawer__table">
                                 <DataTable
                                     tableClassName="sk-dtable"
-                                    sortable={false}
+                                    storageKey="serverkit-table-cron-runs"
                                     data={runs}
                                     keyField="id"
                                     columns={[
                                         {
                                             key: 'when',
                                             header: 'When',
+                                            sortable: true,
+                                            sortValue: (r) => timeValue(r.finished_at || r.started_at),
                                             render: (r) => formatWhen(r.finished_at || r.started_at),
                                         },
                                         {
                                             key: 'duration',
                                             header: 'Duration',
+                                            sortable: true,
+                                            sortValue: (r) => r.duration_seconds,
                                             render: (r) => formatDuration(r.duration_seconds),
                                         },
                                         {
@@ -628,6 +759,8 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                         {
                                             key: 'status',
                                             header: 'Status',
+                                            sortable: true,
+                                            sortValue: (r) => r.status,
                                             render: (r) => (
                                                 <Pill kind={r.status === 'success' ? 'green' : 'red'}>
                                                     {r.status}
@@ -635,6 +768,13 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                             ),
                                         },
                                     ]}
+                                    footer={(
+                                        <DataTableFooter
+                                            shown={runs.length}
+                                            total={runs.length}
+                                            noun="run"
+                                        />
+                                    )}
                                 />
                             </div>
                         </>
@@ -661,7 +801,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                 {trackingBusy ? 'Disabling…' : 'Disable run tracking'}
                             </Button>
                         )}
-                        <Button variant="destructive" size="sm" onClick={() => onDelete(job.id)}>
+                        <Button variant="destructive" size="sm" onClick={() => onDelete(job)}>
                             <Trash2 size={14} /> Delete
                         </Button>
                     </div>
@@ -732,7 +872,7 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
             title={job ? 'Edit cron job' : 'New cron job'}
             subtitle={job ? job.name : 'Schedule a command on this server'}
             icon={<Clock size={18} />}
-            width={600}
+            width={640}
             className="cron-form-drawer"
         >
             <form className="cron-form" onSubmit={submit}>

@@ -256,7 +256,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
             subtitle={[meta.family, template.id, template.version ? `v${template.version}` : null]
                 .filter(Boolean).join(' · ')}
             icon={<EngineGlyph entry={template} size={20} />}
-            width={560}
+            width={520}
             className="dbx-drawer"
         >
             {result ? (

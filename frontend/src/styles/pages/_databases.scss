@@ -200,36 +200,17 @@ $dbx-sqlite: #3d8fd1;
         }
     }
 
+    // Holds a <SearchField>, which brings its own icon/input styling — this is
+    // only the strip it sits in.
     .dbx-tree-search {
         display: flex;
         align-items: center;
-        gap: $space-2;
         padding: $space-2 $space-3;
         border-bottom: 1px solid $border-default;
         background: $bg-elevated;
         flex-shrink: 0;
 
-        > svg { color: $text-tertiary; flex-shrink: 0; }
-        input {
-            flex: 1;
-            min-width: 0;
-            background: transparent;
-            border: none;
-            color: $text-primary;
-            font-size: $font-size-sm;
-            outline: none;
-            &::placeholder { color: $text-tertiary; }
-        }
-        button {
-            display: flex;
-            background: transparent;
-            border: none;
-            color: $text-tertiary;
-            cursor: pointer;
-            padding: 2px;
-            border-radius: $radius-sm;
-            &:hover { background: $bg-hover; color: $text-primary; }
-        }
+        .sk-searchfield { flex: 1; min-width: 0; }
     }
 
     .dbx-tree-scroll {
@@ -543,8 +524,7 @@ $dbx-sqlite: #3d8fd1;
     .dbx-console { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
     .dbx-console-toolbar,
-    .dbx-table-toolbar,
-    .dbx-backups-toolbar {
+    .dbx-table-toolbar {
         display: flex;
         align-items: center;
         gap: $space-2;
@@ -747,18 +727,6 @@ $dbx-sqlite: #3d8fd1;
 
     .dbx-results { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
-    .dbx-results-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: $space-1 $space-3;
-        background: $bg-elevated;
-        border-bottom: 1px solid $border-subtle;
-        flex-shrink: 0;
-        .dbx-results-count { font-size: $font-size-xs; color: $success; font-weight: $font-weight-medium; }
-        .dbx-results-time { font-family: $font-mono; font-size: $font-size-xs; color: $text-tertiary; }
-    }
-
     .dbx-console-hint {
         flex: 1;
         display: flex;
@@ -781,6 +749,18 @@ $dbx-sqlite: #3d8fd1;
     // ─── Table tab ────────────────────────────────────────
     .dbx-table-tab { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     .dbx-table-body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+
+    // The Structure view is a real list surface (chrome, then rows); the Data
+    // view next to it is a raw result set and keeps the bare grid.
+    .dbx-structure-pane {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: $space-3;
+    }
 
     .dbx-segmented {
         display: inline-flex;
@@ -905,20 +885,23 @@ $dbx-sqlite: #3d8fd1;
         tbody tr:hover .dbx-grid-rownum { background: $bg-tertiary; }
     }
 
-    // structure + backups tables read as normal text, not data dumps
-    .dbx-structure tbody td,
-    .dbx-backups-table tbody td { font-family: $font-main; font-size: $font-size-sm; }
-    .dbx-structure .dbx-mono,
-    .dbx-backups-table .dbx-mono { font-family: $font-mono; font-size: $font-size-xs; color: $text-secondary; }
+    // A converted table inside the workspace: the chrome above it stays put and
+    // the rows scroll under a pinned header, which is what the hand-rolled
+    // tables did with their own sticky <thead>.
+    .dbx-pane-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
 
-    .dbx-col-name {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        color: $text-primary !important;
-        font-weight: $font-weight-medium;
-        .dbx-pk { color: $color-star; flex-shrink: 0; }
+        .sk-dtable thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: $bg-elevated;
+        }
     }
+
+    .dbx-pk { color: $color-star; flex-shrink: 0; }
 
     .dbx-engine-tag {
         display: inline-block;
@@ -956,9 +939,13 @@ $dbx-sqlite: #3d8fd1;
     .dbx-structure-fallback { padding: $space-6; color: $text-secondary; font-size: $font-size-sm; }
 
     // ─── Backups tab ──────────────────────────────────────
-    .dbx-backups { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-    .dbx-backups-body { flex: 1; min-height: 0; overflow: auto; }
-    .dbx-backups-table { width: 100%; }
+    .dbx-backups {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        padding: $space-3;
+    }
 
     // ─── Status bar ───────────────────────────────────────
     .dbx-statusbar {

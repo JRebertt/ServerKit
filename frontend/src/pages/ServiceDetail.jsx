@@ -26,6 +26,8 @@ import PluginSlot from '../components/PluginSlot';
 import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings, Eye, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Pill, ServiceTile, PageTopbar } from '@/components/ds';
+import FavoriteStar from '@/components/FavoriteStar';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
 
 // statusInfo.dotClass → ds Pill kind
 const STATUS_PILL = {
@@ -239,6 +241,10 @@ const ServiceDetail = () => {
         }
     }
 
+    useRecordVisit(service && {
+        type: 'service', id: service.id, path: `/services/${service.id}`, label: service.name,
+    });
+
     if (loading) {
         return <EmptyState loading loadingVariant="detail" title="Loading service" />;
     }
@@ -274,11 +280,14 @@ const ServiceDetail = () => {
                 className="svc-detail-topbar"
                 icon={<Layers size={18} />}
                 title={(
-                    <span className="svc-crumbs">
-                        <Link to="/services">Services</Link>
-                        <span className="svc-crumbs__sep">/</span>
-                        <span className="svc-crumbs__cur">{service.name}</span>
-                    </span>
+                    <>
+                        <span className="svc-crumbs">
+                            <Link to="/services">Services</Link>
+                            <span className="svc-crumbs__sep">/</span>
+                            <span className="svc-crumbs__cur">{service.name}</span>
+                        </span>
+                        <FavoriteStar type="service" id={service.id} path={`/services/${service.id}`} label={service.name} />
+                    </>
                 )}
                 actions={(
                     <>

@@ -21,7 +21,7 @@ def _get_app_or_404(app_id, write=False):
     """Resolve the app and enforce per-app access (plan 29 #9). ``write`` requires
     can_edit_app (owner/admin/editor); otherwise can_access_app (adds workspace
     members). A caller without the needed tier gets a sealed 404 (no leak)."""
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)
     user = User.query.get(get_jwt_identity())

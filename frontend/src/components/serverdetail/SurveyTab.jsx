@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { Pill } from '../ds';
+import { DataTable, DataTableFooter, ListToolbar, Pill } from '../ds';
 import EmptyState from '../EmptyState';
 import {
     FileSearch,
@@ -159,7 +159,19 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
 
     return (
         <div className="survey-tab">
-            <div className="survey-tab__toolbar">
+            <ListToolbar
+                tools={(
+                    <div className="survey-tab__toolbar-actions">
+                        <Button variant="outline" size="sm" onClick={loadCatalog}>
+                            <FileSearch size={14} /> {showCatalog ? 'Hide' : 'What we check'}
+                        </Button>
+                        <Button size="sm" onClick={refly} disabled={flying || serverStatus !== 'online'}>
+                            <RefreshCw size={14} className={flying ? 'spin' : ''} />
+                            {flying ? 'Surveying…' : (snapshots.length ? 'Re-fly survey' : 'Run survey')}
+                        </Button>
+                    </div>
+                )}
+            >
                 <div className="survey-tab__toolbar-info">
                     {takenAt ? (
                         <span className="survey-tab__muted">Last flight {new Date(takenAt).toLocaleString()}</span>
@@ -172,16 +184,7 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
                         </Pill>
                     )}
                 </div>
-                <div className="survey-tab__toolbar-actions">
-                    <Button variant="outline" size="sm" onClick={loadCatalog}>
-                        <FileSearch size={14} /> {showCatalog ? 'Hide' : 'What we check'}
-                    </Button>
-                    <Button size="sm" onClick={refly} disabled={flying || serverStatus !== 'online'}>
-                        <RefreshCw size={14} className={flying ? 'spin' : ''} />
-                        {flying ? 'Surveying…' : (snapshots.length ? 'Re-fly survey' : 'Run survey')}
-                    </Button>
-                </div>
-            </div>
+            </ListToolbar>
 
             {serverStatus !== 'online' && !snapshots.length && (
                 <p className="survey-tab__muted">The agent is offline — reconnect it to fly a survey.</p>
@@ -394,41 +397,75 @@ function ServiceGrid({ services }) {
 }
 
 // Read-only web-server vhosts, with a "managed by" column that flags sites owned
-// by another control panel.
+// by another control panel. Cell markup and classNames are identical to the
+// hand-rolled table this replaces so the .survey-tab__table SCSS keeps applying.
+const SITE_COLUMNS = [
+    {
+        key: 'domain',
+        header: 'Domain',
+        sortable: true,
+        hideable: false,
+        sortValue: (s) => s.domain || '',
+        cellClassName: 'survey-tab__mono',
+        render: (s) => s.domain,
+    },
+    {
+        key: 'stack',
+        header: 'Stack',
+        sortable: true,
+        sortValue: (s) => s.stack || '',
+        render: (s) => s.stack,
+    },
+    {
+        key: 'docRoot',
+        header: 'Doc root',
+        sortable: true,
+        sortValue: (s) => s.doc_root || null,
+        cellClassName: 'survey-tab__mono',
+        render: (s) => s.doc_root || '—',
+    },
+    {
+        key: 'upstream',
+        header: 'Upstream',
+        sortable: true,
+        sortValue: (s) => s.upstream || null,
+        cellClassName: 'survey-tab__mono',
+        render: (s) => s.upstream || '—',
+    },
+    {
+        key: 'managedBy',
+        header: 'Managed by',
+        sortable: true,
+        sortValue: (s) => s.managed_by || '',
+        render: (s) => (
+            s.managed_by === 'other-panel'
+                ? <Pill kind="amber">other panel</Pill>
+                : <Pill kind="gray">{s.managed_by}</Pill>
+        ),
+    },
+];
+
 function SitesTable({ sites }) {
     const list = sites || [];
     if (!list.length) {
         return <p className="survey-tab__muted">No web-server vhosts detected.</p>;
     }
     return (
-        <div className="survey-tab__table-wrap">
-            <table className="survey-tab__table">
-                <thead>
-                    <tr>
-                        <th>Domain</th>
-                        <th>Stack</th>
-                        <th>Doc root</th>
-                        <th>Upstream</th>
-                        <th>Managed by</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {list.map((s, i) => (
-                        <tr key={s.domain || i}>
-                            <td className="survey-tab__mono">{s.domain}</td>
-                            <td>{s.stack}</td>
-                            <td className="survey-tab__mono">{s.doc_root || '—'}</td>
-                            <td className="survey-tab__mono">{s.upstream || '—'}</td>
-                            <td>
-                                {s.managed_by === 'other-panel'
-                                    ? <Pill kind="amber">other panel</Pill>
-                                    : <Pill kind="gray">{s.managed_by}</Pill>}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <DataTable
+            columns={SITE_COLUMNS}
+            data={list}
+            keyField={(s) => s.domain || `${s.stack}|${s.doc_root}|${s.upstream}`}
+            storageKey="serverkit-table-sd-survey-sites"
+            className="survey-tab__table-wrap"
+            tableClassName="survey-tab__table"
+            footer={(
+                <DataTableFooter
+                    shown={list.length}
+                    total={list.length}
+                    noun="site"
+                />
+            )}
+        />
     );
 }
 

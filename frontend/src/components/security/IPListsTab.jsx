@@ -1,11 +1,128 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DataTable, DataTableFooter } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+
+// Both lists have the same columns; only the accent tone and the remove
+// target differ, so one factory builds both. Two accessors per column on
+// purpose: `value` is what the column menu, the filter rules and the export
+// read (ds/grid/fields.js), `sortValue` is what DataTable orders by.
+const ipListColumns = (listType, tone, onRemove) => [
+    {
+        key: 'ip',
+        header: 'IP / CIDR',
+        sortable: true,
+        hideable: false,
+        type: 'text',
+        value: (item) => item.ip || '',
+        sortValue: (item) => item.ip || '',
+        cellClassName: `sk-cell-mono sec-ip--${tone}`,
+        render: (item) => item.ip,
+    },
+    {
+        key: 'comment',
+        header: 'Comment',
+        sortable: true,
+        type: 'text',
+        // Filters read the em dash the empty cell actually shows. That is what
+        // makes "needs a comment" expressible at all: a rule with an empty
+        // value is never armed (fields.js `ruleIsArmed`), so the obvious
+        // `comment is ""` would quietly match every row instead of none.
+        value: (item) => item.comment || '—',
+        // Ordering stays on the raw comment so undocumented entries sink to the
+        // bottom instead of clustering wherever an em dash happens to collate.
+        sortValue: (item) => item.comment || '',
+        render: (item) => item.comment || <span className="sec-dash">—</span>,
+    },
+    {
+        key: 'added',
+        header: 'Added',
+        sortable: true,
+        // Declared, not inferred: the sorter wants epoch ms, and letting that
+        // number type the column would offer "is under 1754…" instead of a date
+        // picker — and make any date rule match nothing.
+        type: 'date',
+        value: (item) => item.added_at || null,
+        sortValue: (item) => {
+            const t = new Date(item.added_at).getTime();
+            return Number.isNaN(t) ? null : t;
+        },
+        cellClassName: 'sk-cell-mono sec-faint',
+        render: (item) => new Date(item.added_at).toLocaleDateString(),
+    },
+    {
+        key: 'actions',
+        header: '',
+        sortable: false,
+        hideable: false,
+        cellClassName: 'sec-rowend',
+        render: (item) => (
+            <Button variant="destructive" size="sm" onClick={() => onRemove(item, listType)}>
+                Remove
+            </Button>
+        ),
+    },
+];
+
+// Built-in views. The two lists ask the same questions of the same columns, so
+// they share these definitions — but each list keeps its OWN saved-view bucket
+// (`viewPageKey`) and its own URL namespace (`urlScope`), so a view saved on
+// the allowlist never turns up on the blocklist.
+const NO_RULES = { match: 'all', rules: [] };
+
+const IP_LIST_VIEWS = [
+    {
+        // The hygiene worklist. An entry nobody explained is also one nobody
+        // dares remove; newest first, because those are the ones whose reason
+        // someone can still remember.
+        name: 'Needs a comment',
+        state: {
+            sorts: [{ key: 'added', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ipc1', field: 'comment', op: 'is', value: '—' }],
+            },
+        },
+    },
+    {
+        // Sort only — what changed lately. The empty rule set is spelled out so
+        // switching here CLEARS whatever the previous view was filtering.
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'added', direction: 'desc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Ranges, not hosts: one /24 is 256 addresses, so a CIDR entry carries
+        // 256x the consequence of the line above it in either list.
+        name: 'Ranges (CIDR)',
+        state: {
+            sorts: [{ key: 'ip', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ipr1', field: 'ip', op: 'contains', value: '/' }],
+            },
+        },
+    },
+];
 
 const IPListsTab = () => {
     const [lists, setLists] = useState({ allowlist: [], blocklist: [] });
@@ -14,8 +131,13 @@ const IPListsTab = () => {
     const [newIP, setNewIP] = useState('');
     const [newComment, setNewComment] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { confirm } = useConfirm();
+    // Each list is its own table with its own persisted sort/columns state.
+    const allowSorts = useTableSort({ storageKey: 'serverkit-table-ip-allowlist-sort' });
+    const allowCols = useColumnVisibility({ storageKey: 'serverkit-table-ip-allowlist-cols' });
+    const blockSorts = useTableSort({ storageKey: 'serverkit-table-ip-blocklist-sort' });
+    const blockCols = useColumnVisibility({ storageKey: 'serverkit-table-ip-blocklist-cols' });
 
     useEffect(() => {
         loadLists();
@@ -53,68 +175,126 @@ const IPListsTab = () => {
         }
     };
 
-    const handleRemove = async (ip, listType) => {
-        setConfirmDialog({
+    const handleRemove = async (item, listType) => {
+        const confirmed = await confirm({
             title: `Remove from ${listType}`,
-            message: `Are you sure you want to remove ${ip} from the ${listType}?`,
+            message: `Are you sure you want to remove ${item.ip} from the ${listType}?`,
             confirmText: 'Remove',
             variant: 'warning',
-            onConfirm: async () => {
-                try {
-                    await api.removeFromIPList(ip, listType);
-                    toast.success(`IP removed from ${listType}`);
-                    await loadLists();
-                } catch (error) {
-                    toast.error(`Failed to remove IP: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.removeFromIPList(item.ip, listType);
+            toast.success(`IP removed from ${listType}`, {
+                duration: 8000,
+                action: {
+                    label: 'Undo',
+                    onClick: async () => {
+                        try {
+                            await api.addToIPList(item.ip, listType, item.comment || '');
+                            toast.success(`IP restored to ${listType}`);
+                            await loadLists();
+                        } catch (error) {
+                            toast.error(`Could not restore IP: ${error.message}`);
+                        }
+                    },
+                },
+            });
+            await loadLists();
+        } catch (error) {
+            toast.error(`Failed to remove IP: ${error.message}`);
+        }
     };
 
-    const renderList = (title, listType, items, tone) => (
+    // Two tables on one route, so two chrome instances — called here at the top
+    // level in a fixed order, because renderList below is a plain function and
+    // a hook cannot live inside it. Each gets its own view bucket AND its own
+    // `urlScope`: the link params (`view`, `sort`, `hide`, `f`…) are global
+    // names, so unscoped the allowlist's sort would arrive as the blocklist's.
+    const allowChrome = useTableChrome({
+        columns: ipListColumns('allowlist', 'green', handleRemove),
+        rows: lists.allowlist,
+        viewPageKey: 'security-ip-allowlist',
+        urlScope: 'allowlist',
+        builtinViews: IP_LIST_VIEWS,
+        noun: 'entries',
+        sorts: allowSorts.sorts,
+        setSorts: allowSorts.setSorts,
+        hiddenKeys: allowCols.hiddenKeys,
+        setHiddenKeys: allowCols.setHiddenKeys,
+    });
+    const blockChrome = useTableChrome({
+        columns: ipListColumns('blocklist', 'red', handleRemove),
+        rows: lists.blocklist,
+        viewPageKey: 'security-ip-blocklist',
+        urlScope: 'blocklist',
+        builtinViews: IP_LIST_VIEWS,
+        noun: 'entries',
+        sorts: blockSorts.sorts,
+        setSorts: blockSorts.setSorts,
+        hiddenKeys: blockCols.hiddenKeys,
+        setHiddenKeys: blockCols.setHiddenKeys,
+    });
+
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    const renderList = (listType, items, sortState, chrome) => {
+        // DataTable applies the column rules itself, so mirror them here for
+        // the footer — a count reading "12 entries" under 3 filtered rows is
+        // the table lying about what you are looking at.
+        const shown = applyFilters(items, chrome.cfg.filters, chrome.columns);
+        return (
         <div className="card sec-flush">
             <div className="card-header">
-                <h3 className={`sec-listtitle sec-listtitle--${tone}`}>
-                    {title} <span className="sec-count">· {items.length}</span>
-                </h3>
-                <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
-                    Add IP
-                </Button>
+                {/* The view name IS the heading — there is no room for two
+                    titles in a card this narrow. `label` keeps which list this
+                    is inside that name, since the pair sits side by side and
+                    used to be told apart by this line alone. */}
+                <GridViewPicker
+                    views={chrome.views}
+                    label={`${listType} entries`}
+                    onCreate={chrome.createView}
+                    actions={(
+                        <>
+                            <GridFilterButton
+                                count={chrome.filterCount}
+                                onClick={() => chrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadLists} />
+                        </>
+                    )}
+                />
+                <div className="sec-tableactions">
+                    <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
+                        Add to {listType}
+                    </Button>
+                </div>
             </div>
+            <GridChips {...chrome.chipProps} />
             {items.length === 0 ? (
                 <div className="card-body">
                     <p className="text-muted">No IPs in {listType}.</p>
                 </div>
             ) : (
-                <table className="sk-dtable">
-                    <thead>
-                        <tr>
-                            <th>IP / CIDR</th>
-                            <th>Comment</th>
-                            <th>Added</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.map((item, index) => (
-                            <tr key={index}>
-                                <td className={`sk-cell-mono sec-ip--${tone}`}>{item.ip}</td>
-                                <td>{item.comment || <span className="sec-dash">—</span>}</td>
-                                <td className="sk-cell-mono sec-faint">{new Date(item.added_at).toLocaleDateString()}</td>
-                                <td className="sec-rowend">
-                                    <Button variant="destructive" size="sm" onClick={() => handleRemove(item.ip, listType)}>
-                                        Remove
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable
+                    columns={chrome.columns}
+                    data={items}
+                    keyField={(item) => item.ip}
+                    sorts={sortState.sorts}
+                    onSortsChange={sortState.setSorts}
+                    {...chrome.tableProps}
+                    footer={(
+                        <DataTableFooter
+                            shown={shown.length}
+                            total={items.length}
+                            noun="entry"
+                        />
+                    )}
+                />
             )}
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
-    );
+        );
+    };
 
     if (loading) {
         return <div className="loading-sm">Loading IP lists...</div>;
@@ -123,8 +303,8 @@ const IPListsTab = () => {
     return (
         <div className="ip-lists-tab">
             <div className="ip-lists-grid">
-                {renderList('Allowlist', 'allowlist', lists.allowlist, 'green')}
-                {renderList('Blocklist', 'blocklist', lists.blocklist, 'red')}
+                {renderList('allowlist', lists.allowlist, allowSorts, allowChrome)}
+                {renderList('blocklist', lists.blocklist, blockSorts, blockChrome)}
             </div>
 
             <Modal open={!!showAddModal} onClose={() => setShowAddModal(null)} title={`Add to ${showAddModal || ''}`}>
@@ -153,17 +333,6 @@ const IPListsTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };

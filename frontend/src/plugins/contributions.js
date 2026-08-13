@@ -204,6 +204,17 @@ function notify(value) {
     }
 }
 
+// Load once. Callers that just need the envelope present (the dashboard shell
+// on mount, useContributions' first subscriber) want THIS, not
+// refreshContributions — that one is a deliberate re-fetch and starts a new
+// request every time it is called, so using it to mean "make sure this is
+// loaded" fetched the same envelope twice on every app load.
+export function ensureContributions() {
+    return cachedPromise || refreshContributions();
+}
+
+// Force a re-fetch. Correct after installing, enabling or removing an
+// extension; wrong as a way to say "load this if it isn't loaded".
 export function refreshContributions() {
     cachedPromise = api.getPluginContributions()
         .then(async (data) => {
@@ -239,8 +250,8 @@ export function useContributions() {
 
     useEffect(() => {
         subscribers.add(setValue);
-        if (!cachedPromise) refreshContributions();
-        else if (cachedValue) setValue(cachedValue);
+        ensureContributions();
+        if (cachedValue) setValue(cachedValue);
         return () => subscribers.delete(setValue);
     }, []);
 

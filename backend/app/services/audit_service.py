@@ -151,7 +151,7 @@ class AuditService:
 
     @staticmethod
     def get_logs(page=1, per_page=50, action=None, user_id=None,
-                 target_type=None, start_date=None, end_date=None):
+                 target_type=None, target_id=None, start_date=None, end_date=None):
         """
         Query audit logs with filtering and pagination.
 
@@ -161,6 +161,7 @@ class AuditService:
             action: Filter by action type
             user_id: Filter by user who performed action
             target_type: Filter by target type
+            target_id: Filter by target id (paired with target_type)
             start_date: Filter logs after this date
             end_date: Filter logs before this date
 
@@ -175,6 +176,8 @@ class AuditService:
             query = query.filter(AuditLog.user_id == user_id)
         if target_type:
             query = query.filter(AuditLog.target_type == target_type)
+        if target_id:
+            query = query.filter(AuditLog.target_id == target_id)
         if start_date:
             query = query.filter(AuditLog.created_at >= start_date)
         if end_date:

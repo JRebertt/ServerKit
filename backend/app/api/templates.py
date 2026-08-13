@@ -401,6 +401,8 @@ def validate_installation():
                 errors.append(error)
 
         # Check if app name is taken
+        # Deliberately unfiltered: a tombstone keeps RESERVING its name, or a
+        # new app takes it and the restore is refused (_live_name_clash).
         if app_name:
             existing = Application.query.filter_by(name=app_name).first()
             if existing:
@@ -509,7 +511,7 @@ def check_app_update(app_id):
     """Check if an installed app has updates available."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -527,7 +529,7 @@ def check_app_update(app_id):
 def update_app(app_id):
     """Update an app to the latest template version."""
     current_user_id = get_jwt_identity()
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -542,7 +544,7 @@ def get_app_template_info(app_id):
     """Get template installation info for an app."""
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404

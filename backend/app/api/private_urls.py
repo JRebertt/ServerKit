@@ -28,7 +28,7 @@ def enable_private_url(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -90,7 +90,7 @@ def get_private_url(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -120,7 +120,7 @@ def update_private_url(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -172,7 +172,7 @@ def disable_private_url(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -209,7 +209,7 @@ def regenerate_private_url(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -260,7 +260,10 @@ def resolve_private_url(slug):
     Returns:
         JSON with app_id, app_name, port, and status
     """
-    app = Application.query.filter_by(
+    # Slug-keyed: a tombstone still holds its slug (that reservation is what
+    # keeps a restore from colliding), so an unfiltered .first() could resolve
+    # /p/<slug> to a deleted app and hand out its port.
+    app = Application.query_active().filter_by(
         private_slug=slug,
         private_url_enabled=True
     ).first()

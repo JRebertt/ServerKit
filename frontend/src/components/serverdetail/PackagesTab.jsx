@@ -5,6 +5,7 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { ListToolbar } from '../ds';
 import JobProgressModal from '../JobProgressModal';
 
 // Quick-install presets — packages most users want first when setting
@@ -141,7 +142,14 @@ const PackagesTab = ({ serverId, serverStatus }) => {
 
     return (
         <div className="server-packages">
-            <div className="server-packages__toolbar">
+            <ListToolbar
+                tools={(
+                    <div className="server-packages__actions">
+                        <Button variant="outline" onClick={handleUpdateCache}>Update cache</Button>
+                        <Button variant="outline" onClick={handleUpgradeAll}>Upgrade all</Button>
+                    </div>
+                )}
+            >
                 <form onSubmit={handleSearch} className="server-packages__search">
                     <Input
                         value={searchQuery}
@@ -152,11 +160,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
                         {searching ? 'Searching…' : 'Search'}
                     </Button>
                 </form>
-                <div className="server-packages__actions">
-                    <Button variant="outline" onClick={handleUpdateCache}>Update cache</Button>
-                    <Button variant="outline" onClick={handleUpgradeAll}>Upgrade all</Button>
-                </div>
-            </div>
+            </ListToolbar>
 
             <section className="server-packages__presets">
                 <h3>Quick install</h3>

@@ -18,7 +18,7 @@ def get_app_or_404(app_id, current_user_id):
     (user.id), which also fixes the int-vs-str identity comparison."""
     from app.services.resource_grant_service import ResourceGrantService
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return None, ({'error': 'Application not found'}, 404)

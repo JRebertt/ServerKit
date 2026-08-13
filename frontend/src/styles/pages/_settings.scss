@@ -146,6 +146,30 @@
 // Settings Content Area
 .settings-content {
     min-width: 0;
+
+    // Settings panes used to drop their table straight onto the page
+    // background, so a tab read as unfinished next to /servers or /services —
+    // those sit their grid on a panel (`.wp-list__card`). Same panel, declared
+    // once here, so a pane gets it by rendering a table rather than by
+    // remembering to wrap one. No `overflow: hidden`: the wrap's own
+    // `overflow-x: auto` already clips to the radius, and hiding the y axis
+    // would cut the sticky-header variant's scroll.
+    .sk-dtable-wrap {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+    }
+
+    // …except where the pane already put the table on a surface of its own.
+    // Two panels nested one pixel apart is the seam this rule exists to remove.
+    .settings-card,
+    .users-table-container {
+        .sk-dtable-wrap {
+            background: none;
+            border: 0;
+            border-radius: 0;
+        }
+    }
 }
 
 // Settings Section
@@ -230,26 +254,6 @@
         color: $text-secondary;
         font-size: $font-size-sm;
         margin: $space-1 0 0 0;
-    }
-}
-
-.settings-card__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: $space-3;
-    padding: $space-8 $space-4;
-    color: $text-tertiary;
-    text-align: center;
-
-    > svg {
-        opacity: 0.4;
-    }
-
-    p {
-        margin: 0;
-        font-size: $font-size-sm;
-        color: $text-tertiary;
     }
 }
 

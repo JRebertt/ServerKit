@@ -10,7 +10,6 @@ import { formatBytes } from '../utils/formatBytes';
 import { Pill, ServiceTile, EnvTag, SearchField } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -19,21 +18,90 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import RequiresDocker from '../components/RequiresDocker';
 
 const STATUS_PILL = { running: 'green', stopped: 'gray', deploying: 'amber', building: 'amber', failed: 'red' };
 
+// Severity order for status sorting — also the page's default row order.
+const STATUS_SORT_ORDER = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
+
 // Sentinels for the move-to-project Select (Radix forbids empty-string values).
 const UNASSIGN = '__unassign__';
 const NO_ENV = '__no_env__';
+
+// Preset views: the questions people open this page to answer. Each is a
+// snapshot of the same chrome state a personal view saves, so any of them can
+// be tweaked and re-saved under a new name.
+//
+// `status` values are the RAW statuses the column's `value` accessor returns
+// (running · deploying · building · stopped · failed) — NOT the pill labels,
+// which are prettified by getStatusConfig(). There is no separate status
+// segment any more: the Status column's own menu is the one place services are
+// narrowed by state, and it carries live per-value counts the segment never had.
+const RULES = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
+const SERVICE_VIEWS = [
+    { name: 'Running', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: RULES('running') } },
+    {
+        // The old segment meant "not running", so it also swallowed failed,
+        // deploying and building. Keep that meaning rather than narrowing it.
+        name: 'Stopped',
+        state: {
+            search: '', sorts: [], hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'st', field: 'status', op: 'none', value: ['running'] }] },
+        },
+    },
+    {
+        name: 'Recently deployed',
+        state: {
+            search: '', hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'last_deploy', direction: 'desc' }],
+        },
+    },
+    {
+        // Anything not cleanly live — the triage list during an incident.
+        name: 'Broken or unknown',
+        state: {
+            search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            sorts: [{ key: 'status', direction: 'desc' }, { key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'any',
+                rules: [{ id: 'bk1', field: 'status', op: 'any', value: ['failed', 'stopped'] }],
+            },
+        },
+    },
+    {
+        // Live, but nobody has shipped to it in a long time.
+        name: 'Stale live services',
+        state: {
+            search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: null,
+            sorts: [{ key: 'last_deploy', direction: 'asc' }],
+            columnFilters: RULES('running'),
+        },
+    },
+    {
+        // Deployed by hand or by upload — the ones with no git history to roll back to.
+        name: 'Not git-deployed',
+        state: {
+            search: '', hiddenKeys: ['bandwidth'], groupBy: null,
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'sr1', field: 'source', op: 'any', value: ['manual', 'upload'] }],
+            },
+        },
+    },
+    {
+        name: 'By project',
+        state: {
+            search: '', hiddenKeys: ['source', 'bandwidth'], groupBy: 'project',
+            sorts: [{ key: 'status', direction: 'asc' }, { key: 'name', direction: 'asc' }],
+            columnFilters: NO_RULES,
+        },
+    },
+];
 
 const Services = () => {
     const navigate = useNavigate();
@@ -41,7 +109,6 @@ const Services = () => {
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
     const [actionLoading, setActionLoading] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [bulkLoading, setBulkLoading] = useState(false);
@@ -106,18 +173,11 @@ const Services = () => {
     const filteredApps = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         return apps
-            .filter(app => {
-                if (statusFilter !== 'all' && (statusFilter === 'running' ? app.status !== 'running' : app.status === 'running')) return false;
-                if (q && !app.name.toLowerCase().includes(q)) return false;
-                return true;
-            })
+            .filter(app => !q || app.name.toLowerCase().includes(q))
             .sort((a, b) => {
-                const order = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
-                return (order[a.status] ?? 5) - (order[b.status] ?? 5) || a.name.localeCompare(b.name);
+                return (STATUS_SORT_ORDER[a.status] ?? 5) - (STATUS_SORT_ORDER[b.status] ?? 5) || a.name.localeCompare(b.name);
             });
-    }, [apps, searchTerm, statusFilter]);
-
-    const runningCount = useMemo(() => apps.filter(a => a.status === 'running').length, [apps]);
+    }, [apps, searchTerm]);
 
     useTopbarActions(() =>
         <>
@@ -142,8 +202,6 @@ const Services = () => {
         [searchTerm]
     );
 
-    const allSelected = filteredApps.length > 0 && filteredApps.every(a => selectedIds.has(a.id));
-
     const toggleOne = (id, checked) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -153,35 +211,14 @@ const Services = () => {
         });
     };
 
-    // DataTable columns. Interactive cells (checkbox, row actions) stop click
+    // DataTable columns. Interactive cells (row actions) stop click
     // propagation so they don't trigger the row's navigate.
     const columns = [
         {
-            key: '__select',
-            className: 'wp-list__ck',
-            cellClassName: 'wp-list__ck',
-            header: (
-                <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={(checked) => {
-                        setSelectedIds(checked ? new Set(filteredApps.map(a => a.id)) : new Set());
-                    }}
-                    aria-label="Select all services"
-                />
-            ),
-            render: (app) => (
-                <div onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                        checked={selectedIds.has(app.id)}
-                        onCheckedChange={(checked) => toggleOne(app.id, checked)}
-                        aria-label={`Select ${app.name}`}
-                    />
-                </div>
-            ),
-        },
-        {
             key: 'name',
             header: 'Service',
+            sortable: true,
+            hideable: false,
             render: (app) => {
                 const typeInfo = getServiceType(app.app_type);
                 return (
@@ -198,6 +235,12 @@ const Services = () => {
         {
             key: 'project',
             header: 'Project',
+            sortable: true,
+            // Unassigned services (no project) sort last.
+            sortValue: (app) => app.project_name || null,
+            groupable: true,
+            groupValue: (app) => app.project_name || null,
+            groupLabel: (value) => value ?? 'Unassigned',
             render: (app) => (
                 app.project_name ? (
                     <span className="services-page__project">
@@ -249,6 +292,8 @@ const Services = () => {
         {
             key: 'domain',
             header: 'Domain',
+            sortable: true,
+            sortValue: (app) => (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || null,
             cellClassName: 'sk-cell-mono',
             render: (app) => {
                 const primaryDomain = (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || '';
@@ -274,11 +319,27 @@ const Services = () => {
         {
             key: 'status',
             header: 'Status',
+            sortable: true,
+            type: 'enum',
+            // `value` is the FILTER/GROUP value, `sortValue` is the ORDERING key —
+            // they differ here, and the column has to say so. Without an explicit
+            // `value` the filter engine falls back to sortValue and compares
+            // against the severity NUMBER, so a "status is running" rule would
+            // silently match nothing.
+            value: (app) => app.status,
+            // Same severity order as the page's default ordering, not alphabet.
+            sortValue: (app) => STATUS_SORT_ORDER[app.status] ?? 5,
+            groupable: true,
+            groupValue: (app) => app.status,
+            groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (app) => <Pill kind={STATUS_PILL[app.status] || 'gray'}>{getStatusConfig(app.status).label}</Pill>,
         },
         {
             key: 'last_deploy',
             header: 'Last Deploy',
+            sortable: true,
+            // Numeric timestamp sort; never-deployed services sort last.
+            sortValue: (app) => (app.last_deploy_at ? new Date(app.last_deploy_at).getTime() : null),
             cellClassName: 'sk-cell-mono',
             render: (app) => (
                 app.last_deploy_at ? formatRelativeTime(app.last_deploy_at) : <span className="wp-list__dash">—</span>
@@ -288,6 +349,8 @@ const Services = () => {
             key: '__actions',
             header: '',
             width: 70,
+            sortable: false,
+            hideable: false,
             render: (app) => {
                 const isRunning = app.status === 'running';
                 return (
@@ -318,19 +381,19 @@ const Services = () => {
             className="services-page"
             loading={loading}
             loadingTitle="Loading services..."
+            storageKey="serverkit-list-services"
+            viewPageKey="services"
+            noun="services"
+            builtinViews={SERVICE_VIEWS}
             totalCount={apps.length}
             items={filteredApps}
             columns={columns}
             keyField="id"
             onRowClick={(app) => navigate(app.app_type === 'wordpress' ? `/wordpress/${app.id}` : `/services/${app.id}`)}
-            rowClassName={(app) => (selectedIds.has(app.id) ? 'is-selected' : '')}
-            filters={[
-                { value: 'all', label: 'All', count: apps.length },
-                { value: 'running', label: 'Running', count: runningCount },
-                { value: 'stopped', label: 'Stopped', count: apps.length - runningCount },
-            ]}
-            activeFilter={statusFilter}
-            onFilterChange={setStatusFilter}
+            selectable
+            selectedIds={selectedIds}
+            onToggleSelect={toggleOne}
+            onSelectAll={(checked) => setSelectedIds(checked ? new Set(filteredApps.map(a => a.id)) : new Set())}
             selectedCount={selectedIds.size}
             onClearSelection={() => setSelectedIds(new Set())}
             bulkActions={
@@ -355,65 +418,6 @@ const Services = () => {
             filteredEmptyIcon={Layers}
             filteredEmptyTitle="No services found"
             filteredEmptyDescription="Try adjusting your search or filter"
-            viewStorageKey="serverkit.services.view"
-            renderCard={(app) => {
-                const typeInfo = getServiceType(app.app_type);
-                const primaryDomain = (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name;
-                const isRunning = app.status === 'running';
-                const bw = bandwidth[String(app.id)];
-                return (
-                    <>
-                        <div className="services-card__top">
-                            <ServiceTile name={app.name} size={40} aria-hidden="true" />
-                            <div className="services-card__id">
-                                <div className="services-card__name">{app.name}</div>
-                                <div className="sk-cell-sub">{typeInfo.label}</div>
-                            </div>
-                            <Pill kind={STATUS_PILL[app.status] || 'gray'}>
-                                {getStatusConfig(app.status).label}
-                            </Pill>
-                        </div>
-
-                        <div className="services-card__domain">
-                            {primaryDomain || <span className="wp-list__dash">No domain</span>}
-                        </div>
-
-                        <div className="services-card__stats">
-                            <div>
-                                <span className="l">Project</span>
-                                <span className="v">{app.project_name || '—'}</span>
-                            </div>
-                            <div>
-                                <span className="l">Transfer</span>
-                                <span className="v">{bw?.month_bytes ? `${formatBytes(bw.month_bytes)}/mo` : '—'}</span>
-                            </div>
-                            <div>
-                                <span className="l">Last deploy</span>
-                                <span className="v">
-                                    {app.last_deploy_at ? formatRelativeTime(app.last_deploy_at) : '—'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="services-card__foot" onClick={(e) => e.stopPropagation()}>
-                            {isRunning ? (
-                                <>
-                                    <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title="Restart">
-                                        <RotateCw size={14} />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title="Stop">
-                                        <Square size={14} />
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title="Start">
-                                    <Play size={14} />
-                                </Button>
-                            )}
-                        </div>
-                    </>
-                );
-            }}
         >
             <MoveToProjectDialog
                 open={showMoveDialog}
@@ -498,17 +502,27 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Move to project</DialogTitle>
-                    <DialogDescription>
-                        Assign {count} selected service{count === 1 ? '' : 's'} to a project and
-                        environment, or leave them unassigned.
-                    </DialogDescription>
-                </DialogHeader>
+        <Modal
+            open={open}
+            onClose={() => onOpenChange(false)}
+            title="Move to project"
+            footer={(
+                <>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancel
+                    </Button>
+                    <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
+                        {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
+                    </Button>
+                </>
+            )}
+        >
+            <p className="sk-modal__subtitle">
+                Assign {count} selected service{count === 1 ? '' : 's'} to a project and
+                environment, or leave them unassigned.
+            </p>
 
-                <div className="services-move">
+            <div className="services-move">
                     <div className="services-move__field">
                         <Label htmlFor="move-project">Project</Label>
                         <Select value={projectValue} onValueChange={handleProjectChange} disabled={loadingProjects}>
@@ -541,17 +555,7 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
                         </div>
                     )}
                 </div>
-
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
-                        {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </Modal>
     );
 };
 

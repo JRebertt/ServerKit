@@ -1,0 +1,320 @@
+import { useState } from 'react';
+import { Filter, Layers, X, Plus, History, ChevronDown, GripVertical } from 'lucide-react';
+import { Drawer } from '../Drawer';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+import {
+    OPS, byKey, columnLabel, coerceValue, emptyValueFor, fieldValue,
+    isFilterable, isSortable, optionsFor,
+} from './fields';
+
+// Two panes behind one drawer, because they are the two halves of "what am I
+// looking at": FILTERS decides which rows, FIELDS decides which columns (and in
+// what order, at what density, with which detail line). The header menu is the
+// fast path for one column; this is the whole picture at once.
+export function GridFilterDrawer({
+    open, onOpenChange, columns, rows, cfg, grid, noun = 'rows',
+    // Hosts whose table auto-sizes its columns and has no sub-detail line
+    // (i.e. <DataTable> rather than <DataGrid>) switch these off — a control
+    // that cannot change anything is worse than a missing one.
+    showRowDetail = true,
+    showDensity = true,
+}) {
+    const [tab, setTab] = useState('filters');
+    const [dragging, setDragging] = useState(null);
+
+    const map = byKey(columns);
+    const rules = cfg.filters.rules;
+    const filterable = columns.filter(isFilterable);
+
+    const patchRule = (id, patch) => grid.setRules(
+        rules.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    );
+
+    // Visible columns first (in their real order), then the hidden ones — so
+    // dragging inside the list and toggling a switch are the same mental model.
+    const ordered = [...cfg.cols, ...columns.map((c) => c.key).filter((k) => !cfg.cols.includes(k))];
+    const allKeys = columns.map((c) => c.key);
+
+    const moveTo = (from, to) => {
+        const list = [...ordered];
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        grid.setColumnOrder(list.filter((k) => cfg.cols.includes(k)));
+    };
+
+    const valueEditor = (rule) => {
+        const column = map.get(rule.field);
+        if (!column) return null;
+        if (column.type === 'bool') {
+            return (
+                <div className="sk-gridrule__sel">
+                    <select
+                        value={String(rule.value)}
+                        onChange={(e) => patchRule(rule.id, { value: e.target.value === 'true' })}
+                        aria-label="Value"
+                    >
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                    </select>
+                    <ChevronDown size={13} />
+                </div>
+            );
+        }
+        if (column.type === 'enum') {
+            const selected = Array.isArray(rule.value) ? rule.value : [];
+            return (
+                <div className="sk-gridrule__enum">
+                    {optionsFor(rows, column).map((option) => {
+                        const on = selected.includes(option);
+                        return (
+                            <button
+                                key={option}
+                                type="button"
+                                className={cn('sk-gridrule__tag', on && 'is-on')}
+                                onClick={() => patchRule(rule.id, {
+                                    value: on ? selected.filter((v) => v !== option) : [...selected, option],
+                                })}
+                            >
+                                {option}
+                            </button>
+                        );
+                    })}
+                </div>
+            );
+        }
+        return (
+            <input
+                type={column.type === 'num' ? 'number' : column.type === 'date' ? 'date' : 'text'}
+                value={rule.value ?? ''}
+                placeholder="value"
+                aria-label="Value"
+                onChange={(e) => patchRule(rule.id, { value: coerceValue(column.type, e.target.value) })}
+            />
+        );
+    };
+
+    return (
+        <Drawer
+            open={open}
+            onOpenChange={onOpenChange}
+            title="Filters & fields"
+            subtitle={`${rules.length} condition${rules.length === 1 ? '' : 's'} · ${cfg.cols.length} fields shown`}
+            icon={<Filter size={18} />}
+            iconColor="var(--accent-bright)"
+            width={470}
+            flush
+            className="sk-griddrawer"
+        >
+            <div className="sk-griddrawer__tabs">
+                {[['filters', Filter, 'Filters', rules.length], ['fields', Layers, 'Fields', cfg.cols.length]]
+                    .map(([key, Icon, text, n]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            className={cn(tab === key && 'is-on')}
+                            onClick={() => setTab(key)}
+                        >
+                            <Icon size={14} />{text}<span className="n">{n}</span>
+                        </button>
+                    ))}
+            </div>
+
+            <div className="sk-griddrawer__body">
+                {tab === 'filters' && (
+                    <div className="sk-gridsec">
+                        <div className="sk-gridsec__head">
+                            <div className="sk-gridsec__t">Conditions</div>
+                            <button type="button" className="sk-gridsec__add" onClick={() => grid.addRule(columns)}>
+                                <Plus size={13} />Add condition
+                            </button>
+                        </div>
+
+                        <div className="sk-gridmatch">
+                            Match
+                            <div className="sk-gridseg">
+                                {['all', 'any'].map((value) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={cn(cfg.filters.match === value && 'is-on')}
+                                        onClick={() => grid.setMatch(value)}
+                                    >
+                                        {value}
+                                    </button>
+                                ))}
+                            </div>
+                            of the following
+                        </div>
+
+                        {rules.length === 0 && (
+                            <div className="sk-gridsec__none">
+                                No conditions — this view shows every {noun.replace(/s$/, '')}.
+                            </div>
+                        )}
+
+                        {rules.map((rule, i) => {
+                            const column = map.get(rule.field);
+                            // A rule can outlive its column's filterability — a
+                            // saved view from before a column changed shape, or
+                            // a column whose data went empty. Skip it rather
+                            // than look up OPS[undefined] and crash the drawer.
+                            if (!column || !isFilterable(column)) return null;
+                            return (
+                                <div key={rule.id}>
+                                    {i > 0 && (
+                                        <div className="sk-gridrule__join">
+                                            {cfg.filters.match === 'all' ? 'and' : 'or'}
+                                        </div>
+                                    )}
+                                    <div className="sk-gridrule">
+                                        <div className="sk-gridrule__sel">
+                                            <select
+                                                value={rule.field}
+                                                aria-label="Field"
+                                                onChange={(e) => {
+                                                    const next = map.get(e.target.value);
+                                                    patchRule(rule.id, {
+                                                        field: next.key,
+                                                        op: OPS[next.type][0][0],
+                                                        value: emptyValueFor(next.type),
+                                                    });
+                                                }}
+                                            >
+                                                {filterable.map((c) => (
+                                                    <option key={c.key} value={c.key}>{columnLabel(c)}</option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown size={13} />
+                                        </div>
+                                        <div className="sk-gridrule__sel">
+                                            <select
+                                                value={rule.op}
+                                                aria-label="Operator"
+                                                onChange={(e) => patchRule(rule.id, { op: e.target.value })}
+                                            >
+                                                {OPS[column.type].map(([op, text]) => (
+                                                    <option key={op} value={op}>{text}</option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown size={13} />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="sk-gridrule__del"
+                                            onClick={() => grid.removeRule(rule.id)}
+                                            aria-label="Remove condition"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                        <div className="sk-gridrule__value">{valueEditor(rule)}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {tab === 'fields' && (
+                    <>
+                        <div className="sk-gridsec">
+                            <div className="sk-gridsec__head">
+                                <div className="sk-gridsec__t">Fields · {cfg.cols.length} shown</div>
+                            </div>
+                            {ordered.map((key, i) => {
+                                const column = map.get(key);
+                                if (!column) return null;
+                                const on = cfg.cols.includes(key);
+                                const locked = !!column.locked || column.hideable === false;
+                                return (
+                                    <div
+                                        key={key}
+                                        draggable={!locked && on}
+                                        className={cn('sk-gridcol', !on && 'is-off', dragging === i && 'is-drag')}
+                                        onDragStart={() => setDragging(i)}
+                                        onDragEnd={() => setDragging(null)}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            if (dragging != null && dragging !== i) { moveTo(dragging, i); setDragging(i); }
+                                        }}
+                                    >
+                                        <span className="sk-gridcol__grip"><GripVertical size={13} /></span>
+                                        <span className="sk-gridcol__nm">{columnLabel(column)}</span>
+                                        {locked
+                                            ? <span className="sk-gridcol__lock">pinned</span>
+                                            : (
+                                                <Switch
+                                                    checked={on}
+                                                    onCheckedChange={() => grid.toggleColumn(key, allKeys)}
+                                                    aria-label={`Show ${columnLabel(column)}`}
+                                                />
+                                            )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {(showRowDetail || showDensity) && (
+                        <div className="sk-gridsec">
+                            {showRowDetail && (
+                            <>
+                            <div className="sk-gridsec__head"><div className="sk-gridsec__t">Row detail</div></div>
+                            <p className="sk-gridsec__hint">Extra fields printed under the first column.</p>
+                            <div className="sk-gridsec__tags">
+                                {columns.filter((c) => !c.locked && isSortable(c)).map((c) => {
+                                    const on = cfg.sub.includes(c.key);
+                                    return (
+                                        <button
+                                            key={c.key}
+                                            type="button"
+                                            className={cn('sk-gridrule__tag', on && 'is-on')}
+                                            onClick={() => grid.setSub(
+                                                on ? cfg.sub.filter((k) => k !== c.key) : [...cfg.sub, c.key],
+                                            )}
+                                        >
+                                            {columnLabel(c)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            </>
+                            )}
+
+                            {showDensity && (
+                            <>
+                            <div className="sk-gridsec__head" style={showRowDetail ? { marginTop: 18 } : undefined}>
+                                <div className="sk-gridsec__t">Density</div>
+                            </div>
+                            <div className="sk-gridseg sk-gridseg--wide">
+                                {[['cozy', 'Cozy'], ['compact', 'Compact']].map(([value, text]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={cn(cfg.density === value && 'is-on')}
+                                        onClick={() => grid.setDensity(value)}
+                                    >
+                                        {text}
+                                    </button>
+                                ))}
+                            </div>
+                            </>
+                            )}
+                        </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            <div className="sk-griddrawer__foot">
+                <Button variant="ghost" size="sm" onClick={grid.resetToView}>
+                    <History size={14} /> Reset
+                </Button>
+                <span className="sk-griddrawer__sp" />
+                <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+            </div>
+        </Drawer>
+    );
+}
+
+export default GridFilterDrawer;

@@ -14,14 +14,23 @@ import {
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
+import { useRecordVisit } from '@/hooks/useRecordVisit';
+import FavoriteStar from '@/components/FavoriteStar';
 import EmptyState from '../components/EmptyState';
 import UptimeBars from '../components/monitoring/UptimeBars';
 import { monitorStateOf } from '../components/monitoring/monitorShared';
 import {
-    AreaChart, DataTable, KpiBand, MetricCard, Pill, SegControl,
+    AreaChart, DataTable, DataTableFooter, KpiBand, MetricCard,
+    Pill, SegControl,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const POLL_MS = 15000;
 
@@ -37,6 +46,69 @@ const RANGES = [
     { value: 24, label: '24h' },
     { value: 168, label: '7d' },
     { value: 720, label: '30d' },
+];
+
+// Built-in views for the check log. Every rule matches against a column's
+// `value` accessor, so 'up' below is the word the Result cell prints and '200'
+// is the string the Code cell prints.
+//
+// Nothing here names a monitor. The route already scopes the log to one, and
+// the same view key is shared by every monitor that renders this page — a
+// preset that mentioned a host or an id would be dead on all the others.
+const NO_RULES = { match: 'all', rules: [] };
+
+const CHECK_VIEWS = [
+    {
+        // How a log is read by default: the most recent probe on top.
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'checked_at', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Everything that did not come back up — a 5xx, a timeout, a TLS
+        // failure, a keyword that went missing. `none: ['up']` rather than
+        // `any: ['down']` because HealthCheck.status also records 'degraded',
+        // and a worklist that silently dropped those would be the wrong list.
+        name: 'Failed checks',
+        state: {
+            sorts: [{ key: 'checked_at', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'mc1', field: 'status', op: 'none', value: ['up'] }],
+            },
+        },
+    },
+    {
+        // What the p95 tile is made of. Sort-only on purpose: "slow" is
+        // relative to the target, so a fixed millisecond threshold would be
+        // wrong on a static page and useless on a heavy API.
+        name: 'Slowest first',
+        state: {
+            sorts: [{ key: 'response_time', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Redirects, 4xx, 5xx — and the probes that never answered at all,
+        // which read '—' and are exactly what this view is for: a check that
+        // timed out did not return 200 either. On a ping or port monitor,
+        // where no row carries a code, it shows the whole log; that is the
+        // honest answer to "which of these was not a 200".
+        name: 'Non-200 responses',
+        state: {
+            sorts: [{ key: 'checked_at', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'mc2', field: 'status_code', op: 'none', value: ['200'] }],
+            },
+        },
+    },
 ];
 
 function percentile(values, p) {
@@ -61,6 +133,9 @@ export default function MonitorDetail() {
     const { confirm } = useConfirm();
 
     const [monitor, setMonitor] = useState(null);
+    useRecordVisit(monitor && {
+        type: 'monitor', id: monitor.id, path: `/monitoring/monitors/${monitor.id}`, label: monitor.name,
+    });
     const [checks, setChecks] = useState([]);
     const [uptime, setUptime] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -73,6 +148,12 @@ export default function MonitorDetail() {
     const [frozen, setFrozen] = useState(null);
     const [busy, setBusy] = useState(false);
     const pollRef = useRef(null);
+    // Sort/column state for the check log lives above the early returns so the
+    // hook order never changes; storageKey keeps the choices across visits.
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitor-checks-sort' });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-monitor-checks-cols',
+    });
 
     const load = useCallback(async () => {
         try {
@@ -113,6 +194,103 @@ export default function MonitorDetail() {
         };
     }, [series]);
 
+    // The rows the log renders: the held snapshot while frozen, else the live
+    // list. It and the columns below sit ABOVE the early returns so the chrome
+    // hook runs on every render, including the loading and not-found ones.
+    const rows = frozen || checks;
+
+    // Check-log columns. `value` is what the column menu, the filter rules and
+    // the export read; `sortValue` is what DataTable's sorter reads — it does
+    // NOT fall back to `value`, so a sortable column needs both. Types are
+    // declared rather than inferred: a window in which every check passed would
+    // type Result from a single distinct value, and the 'Failed checks' preset
+    // would then be filtering a column the engine calls plain text.
+    const checkColumns = useMemo(() => [
+        {
+            key: 'checked_at',
+            header: 'Time',
+            sortable: true,
+            hideable: false,
+            type: 'date',
+            value: (c) => c.checked_at || null,
+            sortValue: (c) => (c.checked_at ? new Date(c.checked_at).getTime() : null),
+            render: (c) => new Date(c.checked_at).toLocaleTimeString(),
+        },
+        {
+            // Split from the HTTP code beside it. This cell used to print the
+            // code while sorting on the status, which left "failed" and "500"
+            // sharing one column — so one of the two was always filtering on
+            // something the row did not show.
+            key: 'status',
+            header: 'Result',
+            sortable: true,
+            type: 'enum',
+            // No `enumOrder`: the pick-list is built from the statuses this
+            // window actually contains, so it never offers 'down' on a log
+            // with nothing but successes in it.
+            value: (c) => c.status || 'unknown',
+            sortValue: (c) => c.status || '',
+            render: (c) => (
+                <span className={`mon-code mon-code--${c.status === 'up' ? 'ok' : 'bad'}`}>
+                    {c.status}
+                </span>
+            ),
+        },
+        {
+            // Enum, not num: status codes are a short repeating set, so the
+            // menu offers the ones this window actually contains as a
+            // pick-list. A probe that never answered has no code and reads
+            // '—', which is a value you can filter on rather than a blank.
+            key: 'status_code',
+            header: 'Code',
+            sortable: true,
+            type: 'enum',
+            value: (c) => (c.status_code == null ? '—' : String(c.status_code)),
+            sortValue: (c) => c.status_code ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (c) => (c.status_code == null ? '—' : c.status_code),
+        },
+        {
+            key: 'response_time',
+            header: 'Latency',
+            sortable: true,
+            type: 'num',
+            unit: ' ms',
+            // Null for a check that timed out, never 0 — a zero would sort as
+            // the fastest probe in the window and satisfy "is under 200".
+            value: (c) => c.response_time ?? null,
+            sortValue: (c) => c.response_time ?? null,
+            render: (c) => (c.response_time == null ? '—' : `${c.response_time} ms`),
+        },
+        {
+            // The error text only. The cell falls back to the request line,
+            // which is identical on every row of one monitor's log, so a rule
+            // reading what the cell renders would match all rows or none.
+            key: 'error',
+            header: 'Detail',
+            type: 'text',
+            value: (c) => c.error || '',
+            cellClassName: 'mon-checkdetail',
+            render: (c) => c.error || `${monitor?.check_method || 'GET'} ${monitor?.check_target}`,
+        },
+    ], [monitor]);
+
+    // No `pageState`: the two things this page owns are the fetch window (a
+    // SegControl in the Performance section, shared with the chart) and the
+    // freeze, which is a transient hold on a streaming table. Neither is state
+    // a saved view should change under the operator from another section.
+    const chrome = useTableChrome({
+        columns: checkColumns,
+        rows,
+        viewPageKey: 'monitor-checks',
+        builtinViews: CHECK_VIEWS,
+        noun: 'checks',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
     // Both pre-load states keep the shell, so the bar is in place from the
     // first paint rather than appearing once the monitor resolves.
     if (loading && !monitor) {
@@ -139,7 +317,6 @@ export default function MonitorDetail() {
     const state = monitorStateOf(monitor);
     const certDays = certDaysLeft(monitor.cert_expires_at);
     const isHttpish = ['http', 'keyword'].includes(monitor.check_type);
-    const rows = frozen || checks;
     const newSinceFreeze = frozen
         ? checks.filter((c) => !frozen.some((f) => f.id === c.id)).length
         : 0;
@@ -199,6 +376,7 @@ export default function MonitorDetail() {
             meta={`${monitor.check_type} · ${monitor.check_target || 'bound site'} · every ${monitor.check_interval}s`}
             actions={(
                 <>
+                    <FavoriteStar type="monitor" id={monitor.id} path={`/monitoring/monitors/${monitor.id}`} label={monitor.name} />
                     <Pill kind={state.tone}>{state.label}</Pill>
                     <Button variant="outline" size="sm" onClick={onCheckNow} disabled={busy}>
                         <RefreshCw size={14} /> Check now
@@ -387,64 +565,65 @@ export default function MonitorDetail() {
                 </div>
             )}
 
+            {/* The chrome belongs to the log, so it renders only in this
+                section — a view picker above the chart or the config panes
+                would be naming something they do not show. The old panel
+                header is gone with it: its <h3> repeated the segment that is
+                already lit above, and its "N results" is what the table footer
+                reports, under the rows it is counting. */}
             {section === 'checks' && (
-                <div className="mon-panel mon-panel--flush">
-                    <div className="mon-panel__header">
-                        <div>
-                            <h3>Check log</h3>
-                            <span className="mon-panel-sub">
-                                {rows.length} result{rows.length === 1 ? '' : 's'} · {frozen ? 'frozen' : 'live'}
-                            </span>
-                        </div>
-                        <div className="mon-panel__actions">
-                            {frozen && newSinceFreeze > 0 && (
-                                <Pill kind="cyan">{newSinceFreeze} new</Pill>
-                            )}
-                            <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
-                                {frozen ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Hold</>}
-                            </Button>
-                        </div>
-                    </div>
-                    <DataTable
-                        tableClassName="sk-dtable monitor-checks-table"
-                        sortable={false}
-                        data={rows}
-                        keyField="id"
-                        rowClassName={(c) => (c.status === 'up' ? undefined : 'is-bad')}
-                        emptyState={(
-                            <div className="mon-empty">
-                                <p>No checks in this window yet.</p>
-                            </div>
+                <>
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="checks"
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                {frozen && newSinceFreeze > 0 && (
+                                    <Pill kind="cyan">{newSinceFreeze} new</Pill>
+                                )}
+                                <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
+                                    {frozen ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Hold</>}
+                                </Button>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                            </>
                         )}
-                        columns={[
-                            {
-                                key: 'checked_at',
-                                header: 'Time',
-                                render: (c) => new Date(c.checked_at).toLocaleTimeString(),
-                            },
-                            {
-                                key: 'status',
-                                header: 'Result',
-                                render: (c) => (
-                                    <span className={`mon-code mon-code--${c.status === 'up' ? 'ok' : 'bad'}`}>
-                                        {c.status_code ?? c.status}
-                                    </span>
-                                ),
-                            },
-                            {
-                                key: 'response_time',
-                                header: 'Latency',
-                                render: (c) => (c.response_time == null ? '—' : `${c.response_time} ms`),
-                            },
-                            {
-                                key: 'error',
-                                header: 'Detail',
-                                cellClassName: 'mon-checkdetail',
-                                render: (c) => c.error || `${monitor.check_method || 'GET'} ${monitor.check_target}`,
-                            },
-                        ]}
                     />
-                </div>
+
+                    <GridChips {...chrome.chipProps} />
+
+                    <div className="mon-panel mon-panel--flush">
+                        <DataTable
+                            {...chrome.tableProps}
+                            tableClassName="sk-dtable monitor-checks-table"
+                            data={rows}
+                            keyField="id"
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            rowClassName={(c) => (c.status === 'up' ? undefined : 'is-bad')}
+                            emptyState={(
+                                <EmptyState
+                                    icon={Activity}
+                                    title="No checks in this window yet."
+                                />
+                            )}
+                            columns={chrome.columns}
+                            footer={(
+                                <DataTableFooter
+                                    shown={chrome.shownCount}
+                                    total={rows.length}
+                                    noun="check"
+                                />
+                            )}
+                        />
+                    </div>
+
+                    <GridFilterDrawer {...chrome.drawerProps} />
+                </>
             )}
 
             {section === 'config' && (

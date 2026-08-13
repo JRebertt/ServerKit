@@ -16,6 +16,11 @@ from app.services.db_admin_sso_service import (
     DbAdminSsoService, ADMINER_LABEL, ADMINER_CONTAINER, REAP_JOB_KIND,
 )
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 @pytest.fixture
 def managed(app):

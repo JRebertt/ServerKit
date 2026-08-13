@@ -304,14 +304,16 @@ class WafService:
         """
         from app.models.application import Application
 
-        application = Application.query.get(application_id)
+        application = Application.query_active().filter_by(id=application_id).first()
         if not application:
             return None
 
         candidates = set()
         if application.name:
             candidates.add(application.name)
-        for domain in getattr(application, 'domains', []) or []:
+        # live_domains, not domains: a tombstoned domain's server_name is no
+        # longer in any vhost, and matching on it could land on another app's file.
+        for domain in getattr(application, 'live_domains', []) or []:
             if getattr(domain, 'domain', None):
                 candidates.add(domain.domain)
 
@@ -385,7 +387,7 @@ class WafService:
         from app.models.application import Application
         from app.models.waf_policy import WafPolicy
 
-        application = Application.query.get(application_id)
+        application = Application.query_active().filter_by(id=application_id).first()
         if not application:
             return {'success': False, 'error': 'Application not found'}
 

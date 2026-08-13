@@ -86,12 +86,6 @@
         }
     }
 
-    .mon-empty {
-        padding: 26px 18px;
-        font-size: 13px;
-        color: var(--text-faint);
-    }
-
     // Check result code chip (200 / down / ok).
     .mon-code {
         display: inline-flex;
@@ -385,21 +379,6 @@
 // ── incidents ───────────────────────────────────────────────
 .incidents-page {
 
-    .incidents-listhead {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin: 18px 0 14px;
-    }
-
-    .incidents-listhead__meta {
-        font-family: var(--mono);
-        font-size: 11px;
-        color: var(--text-faint);
-    }
-
     .incidents-list {
         background: var(--bg-card, var(--surface-1));
         border: 1px solid var(--border-soft);
@@ -458,6 +437,14 @@
     }
 
     .incident-row__chev { flex-shrink: 0; color: var(--text-faint); }
+
+    // Ack / Resolve share the trailing cell with the chevron, so a fleet alert
+    // stays actionable without earning a column that is empty on every other row.
+    .incident-row__acts {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 }
 
 // Incident drawer body

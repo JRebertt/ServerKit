@@ -35,7 +35,8 @@ class Environment(db.Model):
         }
         if include_counts:
             from app.models.application import Application
-            result['app_count'] = Application.query.filter_by(environment_id=self.id).count()
+            # Live apps only — see Project.to_dict.
+            result['app_count'] = Application.query_active().filter_by(environment_id=self.id).count()
         return result
 
     def __repr__(self):

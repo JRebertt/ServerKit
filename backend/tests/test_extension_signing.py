@@ -19,6 +19,11 @@ from app import db
 from app.models.plugin import InstalledPlugin
 from app.services import plugin_service, registry_service, signing_service
 
+# Installs plugins, and plugin_service hot-loads their blueprints onto the
+# live app. Flask refuses register_blueprint once an app has served a
+# request, so these need a private app (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 # --------------------------------------------------------------------------- #
 # Fixtures / helpers

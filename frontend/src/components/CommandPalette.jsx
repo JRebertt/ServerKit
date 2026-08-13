@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     History, SlidersHorizontal, LayoutGrid, Zap, Server, Globe,
-    Database, Boxes, Puzzle, BookOpen, KeyRound, Clock, ExternalLink,
+    Database, Boxes, Puzzle, BookOpen, KeyRound, Clock, ExternalLink, Star,
 } from 'lucide-react';
 import api from '../services/api';
 import {
@@ -23,14 +23,16 @@ import { COMMAND_ACTIONS } from '../data/commandActions';
 import { DOCS_LINKS } from '../utils/docsLinks';
 import { scoreItem } from '../utils/paletteScore';
 import { frecencyScore, recordUse, recentIds } from '../utils/paletteFrecency';
+import { getFavorites, getRecents } from '../utils/recents';
 
 // Group order in the list, plus a per-category icon and a scoring weight so the
 // headline categories (Settings, Pages, Actions) outrank raw entity hits on ties.
 const GROUP_ORDER = [
-    'Recently used', 'Settings', 'Pages', 'Actions', 'Services', 'Servers',
+    'Favorites', 'Recently used', 'Settings', 'Pages', 'Actions', 'Services', 'Servers',
     'Domains', 'Databases', 'Sites', 'Cron Jobs', 'Vaults', 'Extensions', 'Docs',
 ];
 const CATEGORY_ICONS = {
+    Favorites: Star,
     'Recently used': History,
     Settings: SlidersHorizontal,
     Pages: LayoutGrid,
@@ -46,6 +48,7 @@ const CATEGORY_ICONS = {
     Docs: BookOpen,
 };
 const CATEGORY_WEIGHT = {
+    Favorites: 5,
     Settings: 6, Pages: 4, Actions: 4, Services: 2, Servers: 2, Domains: 2,
     Databases: 2, Sites: 2, 'Cron Jobs': 1, Vaults: 1, Extensions: 1, Docs: 0,
 };
@@ -54,6 +57,11 @@ const ENTITY_CATEGORY = {
     service: 'Services', app: 'Services', server: 'Servers', domain: 'Domains',
     database: 'Databases', site: 'Sites', cron: 'Cron Jobs',
     extension: 'Extensions', plugin: 'Extensions', vault: 'Vaults',
+};
+// Visit/favorite entry `type` -> human sublabel.
+const TYPE_LABEL = {
+    service: 'Service', server: 'Server', monitor: 'Monitor',
+    workspace: 'Workspace', project: 'Project', domain: 'Domain',
 };
 
 // Docs entries derived from the single docsLinks map (plan 40). Hidden under
@@ -168,6 +176,31 @@ const CommandPalette = ({ open, onClose }) => {
             }));
     }, [whiteLabel]);
 
+    // --- Favorites + visited entities (localStorage, refreshed per open) -----
+    const favoriteItems = useMemo(
+        () => (open ? getFavorites() : []).map((e) => ({
+            id: `fav:${e.type}:${e.id}`,
+            label: e.label,
+            sublabel: TYPE_LABEL[e.type] || e.type,
+            keywords: `${e.type} favorite starred`,
+            path: e.path,
+            category: 'Favorites',
+        })),
+        [open],
+    );
+
+    const visitItems = useMemo(
+        () => (open ? getRecents(6) : []).map((e) => ({
+            id: `visit:${e.type}:${e.id}`,
+            label: e.label,
+            sublabel: TYPE_LABEL[e.type] || e.type,
+            keywords: `${e.type} recent visited`,
+            path: e.path,
+            category: 'Recently used',
+        })),
+        [open],
+    );
+
     // --- Async entity provider (backend /search), debounced 200ms ------------
     useEffect(() => {
         if (!open) return undefined;
@@ -200,8 +233,8 @@ const CommandPalette = ({ open, onClose }) => {
     const results = useMemo(() => {
         const t = term.trim();
 
-        // Empty query: recently used + suggestions (bare), or the full small set
-        // for a prefix mode.
+        // Empty query: favorites + recent visits + frecency recents + suggested
+        // actions (bare), or the full small set for a prefix mode.
         if (!t) {
             if (mode === 'actions') return capGroups(actionItems);
             if (mode === 'docs') return capGroups(docItems);
@@ -215,14 +248,20 @@ const CommandPalette = ({ open, onClose }) => {
                 ? recents
                 : pageItems.slice(0, 6).map((i) => ({ ...i, category: 'Recently used' }));
             const suggestions = actionItems.filter((a) => a.suggested).slice(0, 4);
-            return capGroups([...base, ...suggestions], 8, OVERALL_CAP);
+            return capGroups([
+                ...favoriteItems.slice(0, 4),
+                ...visitItems,
+                ...base,
+                ...suggestions,
+            ], 8, OVERALL_CAP);
         }
 
         const syncPool = mode === 'actions'
             ? actionItems
             : mode === 'docs'
                 ? docItems
-                : [...settingsItems, ...pageItems, ...actionItems, ...pluginItems, ...docItems];
+                : [...settingsItems, ...pageItems, ...actionItems, ...pluginItems, ...docItems,
+                    ...favoriteItems, ...visitItems];
 
         const scored = [];
         for (const item of syncPool) {

@@ -8,6 +8,8 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional
 
+from app.utils.git_security import git_argv, git_env, validate_ref_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,9 @@ class GitDeployService:
         from app.models import Application, GitWebhook, GitDeployment
         from app.services.docker_service import DockerService
 
-        app = Application.query.get(app_id)
+        # query_active: a webhook can still fire for a deleted app — this pulls
+        # code and rebuilds/restarts containers, so a tombstone must not deploy.
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -174,7 +178,7 @@ class GitDeployService:
         from app.models import Application, GitDeployment
         from app.services.docker_service import DockerService
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -311,7 +315,7 @@ class GitDeployService:
         """Trigger a manual deployment."""
         from app.models import Application, GitWebhook
 
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
 
@@ -337,11 +341,18 @@ class GitDeployService:
         if not os.path.exists(git_dir):
             return {'success': False, 'error': 'Not a git repository'}
 
+        # The branch flows in from API bodies and webhook configs; validate it
+        # and terminate options with '--' so it cannot be parsed as a git flag
+        # (GHSA-8vx6-432p-h62q).
+        ref_error = validate_ref_name(branch, 'branch')
+        if ref_error:
+            return {'success': False, 'error': ref_error}
+
         try:
             # Fetch and reset to remote branch
             commands = [
-                ['git', 'fetch', 'origin', branch],
-                ['git', 'reset', '--hard', f'origin/{branch}']
+                git_argv('fetch', 'origin', '--', branch),
+                git_argv('reset', '--hard', f'origin/{branch}')
             ]
 
             output = []
@@ -351,7 +362,8 @@ class GitDeployService:
                     cwd=path,
                     capture_output=True,
                     text=True,
-                    timeout=120
+                    timeout=120,
+                    env=git_env()
                 )
                 output.append(f"$ {' '.join(cmd)}")
                 output.append(result.stdout)

@@ -100,8 +100,10 @@ def _collect_counts():
     from app.models import Application, Domain, Server, User
     from app.jobs.models import Job
     return {
-        'applications': Application.query.count(),
-        'domains': Domain.query.count(),
+        # Live rows only, matching `domains` below — the bundle reports what the
+        # install currently runs, not how much is sitting in the recycle bin.
+        'applications': Application.query_active().count(),
+        'domains': Domain.query_active().count(),
         'servers': Server.query.count(),
         'users': User.query.count(),
         'jobs': Job.query.count(),

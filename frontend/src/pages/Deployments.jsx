@@ -1,55 +1,101 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    CheckCircle2,
-    XCircle,
-    Clock,
-    RefreshCw,
-    Loader2,
-    PlayCircle,
-    FlaskConical,
-    ChevronRight,
-} from 'lucide-react';
+import { RefreshCw, Loader2, PlayCircle, FlaskConical } from 'lucide-react';
 import api from '../services/api';
 import Modal from '../components/Modal';
-import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { SegControl, SearchField } from '@/components/ds';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { DataTable, DataTableFooter, Pill, SearchField } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import RequiresDocker from '../components/RequiresDocker';
+
+// How many jobs one fetch pulls. The column rules run over what has been
+// fetched, so this is the reach of a filter until the user asks for more.
+const PAGE = 100;
 import {
     KIND_CHIP,
     stepTicks,
     sourceRef,
     formatDuration,
     relativeTime,
-    groupDeploys,
+    activityGroup,
 } from '../utils/deployActivity';
 
-const STATE_ICON = {
-    succeeded: { Icon: CheckCircle2, cls: 'succeeded' },
-    failed: { Icon: XCircle, cls: 'failed' },
-    running: { Icon: Loader2, cls: 'running' },
-    pending: { Icon: Clock, cls: 'pending' },
+const STATUS_KIND = {
+    succeeded: 'green',
+    failed: 'red',
+    running: 'cyan',
+    pending: 'gray',
 };
 
-const STATUS_FILTERS = [
-    ['all', 'All'],
-    ['running', 'Running'],
-    ['succeeded', 'Succeeded'],
-    ['failed', 'Failed'],
+// Built-in saved views. These replace the segmented All/Running/Succeeded/Failed
+// strip: the strip was a status rule wearing a button, could not combine with
+// anything (you could not ask for "failed, on that server"), and reported counts
+// the footer already reports. Every rule matches the `status` column's `value`,
+// which is the raw job status the Pill also prints.
+const NO_RULES = { match: 'all', rules: [] };
+const NEWEST_FIRST = [{ key: 'started', direction: 'desc' }];
+const STATUS_IS = (...value) => ({
+    match: 'all',
+    rules: [{ id: 'dp-st', field: 'status', op: 'any', value }],
+});
+
+const BUILTIN_VIEWS = [
+    {
+        name: 'All deploys',
+        state: {
+            sorts: NEWEST_FIRST, hiddenKeys: [], groupBy: null, columnFilters: NO_RULES,
+        },
+    },
+    {
+        // Queued rides along with running: both answer "is anything happening
+        // right now", and a job sitting in the queue is the one worth chasing.
+        name: 'In flight',
+        state: {
+            sorts: NEWEST_FIRST,
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: STATUS_IS('running', 'pending'),
+        },
+    },
+    {
+        name: 'Failed',
+        state: {
+            sorts: NEWEST_FIRST, hiddenKeys: [], groupBy: null, columnFilters: STATUS_IS('failed'),
+        },
+    },
+    {
+        name: 'Succeeded',
+        state: {
+            sorts: NEWEST_FIRST,
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: STATUS_IS('succeeded'),
+        },
+    },
+    {
+        // The old feed's Queued / Today / Earlier buckets, kept as a grouping
+        // rather than a fixed layout — the chronological read is worth having,
+        // but it is one way of looking at the runs, not the only one.
+        name: 'By day',
+        state: {
+            sorts: NEWEST_FIRST, hiddenKeys: [], groupBy: 'started', columnFilters: NO_RULES,
+        },
+    },
 ];
 
 const Deployments = () => {
     const navigate = useNavigate();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [serverFilter, setServerFilter] = useState('all');
     const [search, setSearch] = useState('');
-    const [servers, setServers] = useState([]);
     const [autoRefresh, setAutoRefresh] = useState(true);
-    const refreshRef = useRef(null);
 
     // Simulated deployments (dev-only): null until the backend confirms the
     // gate is on — a 404 (production) simply keeps the trigger hidden.
@@ -58,32 +104,44 @@ const Deployments = () => {
     const [simSpeed, setSimSpeed] = useState('fast');
     const [simBusy, setSimBusy] = useState(null);
 
-    // Status is filtered client-side so the segmented control can show a live
-    // count per state; only the server filter narrows the query.
-    const loadJobs = async () => {
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: NEWEST_FIRST,
+        storageKey: 'serverkit-table-deployments-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-deployments-cols',
+    });
+    // Not persisted separately: a grouping worth keeping is a saved view.
+    const [groupBy, setGroupBy] = useState(null);
+    const [hasMore, setHasMore] = useState(false);
+    const [loaded, setLoaded] = useState(PAGE);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    // One unfiltered query. The target server used to narrow it server-side
+    // through a <select>; it is the Target column now, so its pick-list is built
+    // from the servers that actually deployed something and combines with every
+    // other rule instead of replacing them.
+    //
+    // That trade has a catch worth being honest about: the rules run over the
+    // rows FETCHED, where `?server_id=` searched the whole history. So the
+    // window is explicit — when a page comes back full there is certainly more
+    // behind it, and the footer offers to go get it rather than quietly
+    // filtering a truncated list.
+    const loadJobs = useCallback(async (limit = PAGE) => {
         try {
-            const params = { limit: 100 };
-            if (serverFilter !== 'all') params.serverId = serverFilter;
-            const data = await api.getDeploymentJobs(params);
-            setJobs(data.jobs || []);
+            const data = await api.getDeploymentJobs({ limit });
+            const rows = data.jobs || [];
+            setJobs(rows);
+            setHasMore(rows.length >= limit);
+            setLoaded(limit);
         } catch (err) {
             console.error('Failed to load deployment jobs', err);
         } finally {
             setLoading(false);
         }
-    };
-
-    const loadServers = async () => {
-        try {
-            const data = await api.getAvailableServers();
-            setServers(Array.isArray(data) ? data : []);
-        } catch {
-            setServers([]);
-        }
-    };
+    }, []);
 
     useEffect(() => {
-        loadServers();
         api.getDeploySimulateInfo()
             .then((data) => setSimInfo(data?.enabled ? data : null))
             .catch(() => setSimInfo(null));
@@ -100,19 +158,14 @@ const Deployments = () => {
         }
     };
 
-    useEffect(() => {
-        loadJobs();
-    }, [serverFilter]);
+    useEffect(() => { loadJobs(); }, [loadJobs]);
 
     useEffect(() => {
-        if (refreshRef.current) clearInterval(refreshRef.current);
         if (!autoRefresh) return undefined;
-        refreshRef.current = setInterval(loadJobs, 3000);
-        return () => clearInterval(refreshRef.current);
-    }, [autoRefresh, serverFilter]);
+        const timer = setInterval(loadJobs, 3000);
+        return () => clearInterval(timer);
+    }, [autoRefresh, loadJobs]);
 
-    // Search narrows the set the counts are taken from, so the numbers always
-    // describe what a click on that filter would actually show.
     const searched = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return jobs;
@@ -123,26 +176,170 @@ const Deployments = () => {
         );
     }, [jobs, search]);
 
-    const counts = useMemo(() => {
-        const c = { all: searched.length, running: 0, succeeded: 0, failed: 0 };
-        searched.forEach((j) => {
-            if (c[j.status] !== undefined) c[j.status] += 1;
-        });
-        return c;
-    }, [searched]);
+    // Two accessors where they differ: `value` is what the column menu, the
+    // filter rules and the export read; `sortValue` is what the sorter reads.
+    // Every derived column carries a `render` — without one DataTable falls back
+    // to row[key], and none of these keys exist on a deployment job payload.
+    const columns = useMemo(() => [
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            hideable: false,
+            // Declared, not inferred: a panel with three deploys in it fails the
+            // enum cardinality test, and the views above would silently become
+            // free-text rules that match nothing.
+            type: 'enum',
+            enumOrder: ['running', 'pending', 'succeeded', 'failed'],
+            value: (job) => job.status,
+            sortValue: (job) => job.status,
+            // `animate-spin` rather than the `spin` the retired feed rows used:
+            // only the former is a real global rule, so `spin` never rotated
+            // anything it was put on.
+            render: (job) => (
+                <Pill kind={STATUS_KIND[job.status] || 'gray'} dot={job.status !== 'running'}>
+                    {job.status === 'running' && <Loader2 size={11} className="animate-spin" />}
+                    {job.status}
+                </Pill>
+            ),
+        },
+        {
+            key: 'deploy',
+            header: 'Deploy',
+            sortable: true,
+            hideable: false,
+            type: 'text',
+            value: (job) => job.app_name || 'deployment',
+            sortValue: (job) => job.app_name || 'deployment',
+            render: (job) => (
+                <div className="sk-cell-name">
+                    <span>
+                        <div>{job.app_name || 'deployment'}</div>
+                        <div className="sk-cell-sub">
+                            {sourceRef(job) || job.id.slice(0, 8)} · {job.trigger || 'manual'}
+                            {job.status === 'failed' && job.error_message && (
+                                <span className="deployments-page__error"> · {job.error_message}</span>
+                            )}
+                        </div>
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'kind',
+            header: 'Type',
+            sortable: true,
+            type: 'enum',
+            // Filter and sort on the word the chip prints, so a rule reads the
+            // way the row does rather than exposing the backend enum.
+            value: (job) => KIND_CHIP[job.kind] || job.kind,
+            sortValue: (job) => KIND_CHIP[job.kind] || job.kind,
+            render: (job) => (
+                <span className="deployments-page__kind">{KIND_CHIP[job.kind] || job.kind}</span>
+            ),
+        },
+        {
+            key: 'pipeline',
+            header: 'Pipeline',
+            sortable: true,
+            type: 'num',
+            unit: '%',
+            value: (job) => job.progress_percent ?? 0,
+            sortValue: (job) => job.progress_percent ?? 0,
+            render: (job) => (
+                <span className="deployments-page__pipe">
+                    <span className="deployments-page__ticks">
+                        {stepTicks(job).map((state, i) => (
+                            <i key={i} className={`is-${state}`} />
+                        ))}
+                    </span>
+                    <span className="deployments-page__pipe-count">
+                        {job.current_step || 0}/{job.total_steps || 0}
+                    </span>
+                </span>
+            ),
+        },
+        {
+            key: 'target',
+            header: 'Target',
+            sortable: true,
+            type: 'enum',
+            groupable: true,
+            // A job with no target server ran on the panel's own box; spelling
+            // that out keeps the pick-list honest instead of offering a blank.
+            value: (job) => job.target_server_name || 'Local server',
+            sortValue: (job) => job.target_server_name || 'Local server',
+            groupValue: (job) => job.target_server_name || 'Local server',
+            cellClassName: 'sk-cell-mono',
+            render: (job) => job.target_server_name || 'Local server',
+        },
+        {
+            key: 'took',
+            header: 'Took',
+            sortable: true,
+            type: 'num',
+            unit: 's',
+            value: (job) => job.duration ?? null,
+            sortValue: (job) => job.duration ?? null,
+            cellClassName: 'sk-cell-mono',
+            render: (job) => formatDuration(job.duration),
+        },
+        {
+            key: 'started',
+            header: 'Started',
+            sortable: true,
+            type: 'date',
+            groupable: true,
+            value: (job) => job.started_at || job.created_at || null,
+            sortValue: (job) => {
+                const time = Date.parse(job.started_at || job.created_at);
+                return Number.isNaN(time) ? null : time;
+            },
+            groupValue: (job) => activityGroup(job),
+            cellClassName: 'sk-cell-mono',
+            render: (job) => (job.status === 'pending'
+                ? 'queued'
+                : relativeTime(job.started_at || job.created_at)),
+        },
+    ], []);
 
-    const groups = useMemo(() => {
-        const shown = statusFilter === 'all'
-            ? searched
-            : searched.filter((j) => j.status === statusFilter);
-        return groupDeploys(shown);
-    }, [searched, statusFilter]);
+    // No `pageState`: search is the only page-private control left, and a saved
+    // view carrying somebody's half-typed search term is not a view of the data.
+    const chrome = useTableChrome({
+        columns,
+        rows: searched,
+        viewPageKey: 'deployments',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'deploys',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy,
+    });
+
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
+        <>
+            <SearchField
+                value={search}
+                onSearch={setSearch}
+                placeholder="Search deploys…"
+            />
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadJobs} />
+        </>,
+    );
 
     useTopbarActions(() =>
         <>
             {/* No "New service" button here: unlike the design mock, this tab
                 group already carries a New Service tab, and a second entry
-                point crowded the strip into overflow. */}
+                point crowded the strip into overflow. No Refresh button
+                either — the chrome's "⋮" owns "Refresh data" on every page. */}
             {simInfo?.enabled && (
                 <Button variant="outline" size="sm" onClick={() => setSimOpen(true)}>
                     <FlaskConical size={16} />
@@ -158,158 +355,62 @@ const Deployments = () => {
                 <RefreshCw size={16} className={autoRefresh ? 'spin' : ''} />
                 {autoRefresh ? 'Live' : 'Paused'}
             </Button>
-            <Button variant="outline" size="sm" onClick={loadJobs}>
-                <RefreshCw size={16} /> Refresh
-            </Button>
-            <SearchField
-                value={search}
-                onSearch={setSearch}
-                placeholder="Search deploys…"
-            />
         </>,
-        [autoRefresh, simInfo?.enabled, search]
+        [autoRefresh, simInfo?.enabled]
     );
 
     return (
         <RequiresDocker what="Deployments">
         <div className="sk-tabgroup__inner deployments-page">
-            <div className="deployments-page__toolbar">
-                <SegControl
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    options={STATUS_FILTERS.map(([value, label]) => ({
-                        value,
-                        label,
-                        count: counts[value],
-                    }))}
-                    aria-label="Filter by status"
-                />
-                <select
-                    className="deployments-page__server-select"
-                    value={serverFilter}
-                    onChange={(e) => setServerFilter(e.target.value)}
-                    aria-label="Filter by target server"
-                >
-                    <option value="all">All servers</option>
-                    {servers.map((s) => (
-                        <option key={s.id} value={s.id}>
-                            {s.name}{s.is_local ? ' (local)' : ''}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            {topbarChrome}
 
-            {loading ? (
-                <div className="deployments-page__loading" aria-busy="true">
-                    {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="deployments-page__loading-row">
-                            <Skeleton variant="line" width={96} />
-                            <Skeleton variant="line" width="34%" />
-                            <Skeleton variant="line" width="20%" />
-                            <Skeleton variant="line" width="26%" />
-                        </div>
-                    ))}
-                </div>
-            ) : groups.length === 0 ? (
-                <div className="deployments-page__empty">
-                    <PlayCircle size={34} />
-                    <strong>
-                        {jobs.length === 0 ? 'No deployment jobs yet' : 'No deploys match this filter'}
-                    </strong>
-                    <span>
-                        {jobs.length === 0
+            <GridViewPicker
+                views={chrome.views}
+                label="deploys"
+                onCreate={chrome.createView}
+                actions={chromeActions}
+            />
+
+            <GridChips {...chrome.chipProps} />
+
+            <DataTable
+                columns={chrome.columns}
+                data={searched}
+                keyField="id"
+                sorts={sorts}
+                onSortsChange={setSorts}
+                groupBy={groupBy}
+                onGroupByChange={setGroupBy}
+                {...chrome.tableProps}
+                loading={loading && jobs.length === 0}
+                onRowClick={(job) => navigate(`/deployments/${job.id}`)}
+                emptyState={(
+                    <EmptyState
+                        icon={PlayCircle}
+                        title={jobs.length === 0 ? 'No deployment jobs yet' : 'No deploys match this search'}
+                        description={jobs.length === 0
                             ? 'Create a service from a repository or install a template to see activity here.'
-                            : 'Try a different status, server, or search term.'}
-                    </span>
-                </div>
-            ) : (
-                <div className="deployments-page__feed">
-                    <div className="deployments-page__feed-head" aria-hidden="true">
-                        <span />
-                        <span>Deploy</span>
-                        <span>Pipeline</span>
-                        <span>Target</span>
-                        <span className="is-right">Took</span>
-                        <span className="is-right">Started</span>
-                        <span />
-                    </div>
+                            : 'Try a different search term, or pick another view.'}
+                    />
+                )}
+                footer={(
+                    <DataTableFooter
+                        // DataTable applies the column rules itself, so the shown
+                        // count comes from the chrome; `jobs` is the whole query.
+                        shown={chrome.shownCount}
+                        total={jobs.length}
+                        noun="deploy"
+                        hasMore={hasMore}
+                        loading={loadingMore}
+                        onLoadMore={() => {
+                            setLoadingMore(true);
+                            loadJobs(loaded + PAGE).finally(() => setLoadingMore(false));
+                        }}
+                    />
+                )}
+            />
 
-                    {groups.map(({ group, items }) => (
-                        <div className="deployments-page__group" key={group}>
-                            <div className="deployments-page__group-head">
-                                {group}
-                                <i />
-                            </div>
-                            {items.map((job) => {
-                                const meta = STATE_ICON[job.status] || STATE_ICON.pending;
-                                const { Icon } = meta;
-                                const ticks = stepTicks(job);
-                                return (
-                                    <button
-                                        type="button"
-                                        key={job.id}
-                                        className={`deployments-page__row deployments-page__row--${meta.cls}`}
-                                        onClick={() => navigate(`/deployments/${job.id}`)}
-                                        title="Open the Deploy Console"
-                                    >
-                                        <span className={`deployments-page__row-ico is-${meta.cls}`}>
-                                            <Icon size={15} className={job.status === 'running' ? 'spin' : ''} />
-                                        </span>
-
-                                        <span className="deployments-page__row-main">
-                                            <span className="deployments-page__row-name">
-                                                {job.app_name || 'deployment'}
-                                                <span className="deployments-page__row-kind">
-                                                    {KIND_CHIP[job.kind] || job.kind}
-                                                </span>
-                                            </span>
-                                            <span className="deployments-page__row-sub">
-                                                <span className="deployments-page__row-ref">
-                                                    {sourceRef(job) || job.id.slice(0, 8)}
-                                                </span>
-                                                <span className="deployments-page__row-sep">·</span>
-                                                <span>{job.trigger || 'manual'}</span>
-                                                {job.status === 'failed' && job.error_message && (
-                                                    <>
-                                                        <span className="deployments-page__row-sep">·</span>
-                                                        <span className="deployments-page__row-error">
-                                                            {job.error_message}
-                                                        </span>
-                                                    </>
-                                                )}
-                                            </span>
-                                        </span>
-
-                                        <span className="deployments-page__pipe">
-                                            <span className="deployments-page__ticks">
-                                                {ticks.map((state, i) => (
-                                                    <i key={i} className={`is-${state}`} />
-                                                ))}
-                                            </span>
-                                            <span className="deployments-page__pipe-count">
-                                                {job.current_step || 0}/{job.total_steps || 0}
-                                            </span>
-                                        </span>
-
-                                        <span className="deployments-page__row-target">
-                                            {job.target_server_name || 'Local server'}
-                                        </span>
-                                        <span className="deployments-page__row-took">
-                                            {formatDuration(job.duration)}
-                                        </span>
-                                        <span className="deployments-page__row-when">
-                                            {job.status === 'pending'
-                                                ? 'queued'
-                                                : relativeTime(job.started_at || job.created_at)}
-                                        </span>
-                                        <ChevronRight size={15} className="deployments-page__row-chev" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ))}
-                </div>
-            )}
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal
                 open={simOpen}

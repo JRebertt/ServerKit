@@ -266,7 +266,7 @@ class BackupPolicyService:
                 try:
                     from app.models.application import Application
                     from app.services.volume_service import VolumeService
-                    app = Application.query.get(meta['app_id'])
+                    app = Application.query_active().filter_by(id=meta['app_id']).first()
                     host_path = VolumeService.host_path_for_mount(app, vol_mount)
                     if host_path:
                         file_paths = [host_path]
@@ -304,8 +304,11 @@ class BackupPolicyService:
             )
 
         # application
+        # A BackupPolicy outlives the app it points at, and its ScheduledJob keeps
+        # firing, so a deleted app must fail here rather than have tar/restic run
+        # against it and eat remote storage quota.
         from app.models.application import Application
-        app = Application.query.get(policy.target_id)
+        app = Application.query_active().filter_by(id=policy.target_id).first()
         if not app:
             raise BackupPolicyError('Application not found')
         if not app.root_path:

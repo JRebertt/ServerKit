@@ -14,31 +14,12 @@
     padding-top: $space-5;
 }
 
-// Segmented filter above the table. The counts it carries replaced the KPI
-// strip that used to sit here — same numbers, on the control you'd click.
-.dom-listhead {
-    display: flex;
-    align-items: center;
-    gap: $space-4;
-    margin-bottom: $space-3;
-}
-
 // Table card
 .dom-card {
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
     overflow: hidden;
-}
-
-.dom-empty {
-    padding: $space-10;
-    text-align: center;
-    color: $text-tertiary;
-    font-size: $font-size-sm;
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
 }
 
 // Domain cell bits
@@ -93,6 +74,41 @@
     &--green { color: $success; }
     &--amber { color: $warning; }
     &--red { color: $danger; }
+
+    // The relative form ("in 4 months") under the absolute date: the date is
+    // what you copy, the relative is what you judge.
+    &__rel {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--text-ghost);
+        margin-top: 1px;
+    }
+}
+
+// SSL-expiry cell: the number plus a 90-day track, so a column of them reads
+// as a risk profile rather than a column of numbers to compare by hand.
+.dom-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+
+    &__bar {
+        display: block;
+        height: 4px;
+        border-radius: 3px;
+        background: var(--surface-3);
+        overflow: hidden;
+
+        i {
+            display: block;
+            height: 100%;
+            border-radius: 3px;
+            opacity: 0.85;
+        }
+    }
 }
 
 // Inline per-row actions (DNS records / Cloudflare) for provider domains.

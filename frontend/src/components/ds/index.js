@@ -19,5 +19,24 @@ export {
 } from './FilterDrawer';
 export { PageTopbar } from './PageTopbar';
 export { DataTable } from './DataTable';
+export { SortChipBar } from './SortChipBar';
+export { DataTableFooter } from './DataTableFooter';
+export { ListToolbar } from './ListToolbar';
+
+// DEPRECATED toolbar menus — ZERO render sites left in the app.
+//
+// Each one is a toolbar-level copy of something DataTable's per-column "⋮"
+// menu now does next to the column it acts on: SortMenu -> sort, ColumnsMenu ->
+// hide/show, GroupMenu -> group by (that one never had a render site at all).
+// ViewMenu is replaced by grid/GridViewPicker, which renders the active view as
+// the page HEADING rather than as one more button among buttons.
+//
+// Still exported because extensions may deep-import '@/components/ds' (see the
+// note in plugins/sdk/index.js) — none of the four is on the SDK's blessed
+// list, so they can go in the next SDK major. Do not reach for them in core.
+export { SortMenu } from './SortMenu';
+export { ColumnsMenu } from './ColumnsMenu';
+export { GroupMenu } from './GroupMenu';
+export { ViewMenu } from './ViewMenu';
 export { ResourceCard, ResourceList } from './ResourceCard';
 export { svcGrad, initials, gaugeColor } from './utils';

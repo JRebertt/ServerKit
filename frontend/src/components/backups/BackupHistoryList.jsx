@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pill } from '@/components/ds';
+import { Pill, DataTable, DataTableFooter } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import {
@@ -128,6 +128,80 @@ export default function BackupHistoryList({
 }) {
     const hasDrills = drills && drills.length > 0;
 
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace (.sk-cell-name, .backup-history-list__*,
+    // .sk-cell-mono). The row click opens the detail drawer; the actions cell
+    // stops propagation so its buttons never trigger it.
+    const columns = [
+        {
+            key: 'backup',
+            header: 'Backup',
+            sortable: true,
+            hideable: false,
+            sortValue: (run) => run.metadata?.backup_name || `Backup #${run.id}`,
+            render: (run) => (
+                <div className="sk-cell-name">
+                    <span className="backup-history-list__ico"><Archive size={14} /></span>
+                    <span>{run.metadata?.backup_name || `Backup #${run.id}`}</span>
+                    <Pill kind={run.kind === 'full' ? 'violet' : 'gray'} dot={false}>{run.kind}</Pill>
+                </div>
+            ),
+        },
+        {
+            key: 'date',
+            header: 'Date',
+            sortable: true,
+            sortValue: (run) => (run.started_at ? new Date(run.started_at).getTime() : null),
+            cellClassName: 'backup-history-list__when',
+            render: (run) => formatWhen(run.started_at),
+        },
+        {
+            key: 'size',
+            header: 'Size',
+            sortable: true,
+            sortValue: (run) => run.size_total || 0,
+            cellClassName: 'sk-cell-mono',
+            render: (run) => humanSize(run.size_total),
+        },
+        {
+            key: 'cost',
+            header: 'Cost',
+            sortable: true,
+            sortValue: (run) => Number(run.cost_total || 0),
+            cellClassName: 'sk-cell-mono',
+            render: (run) => formatMoney(run.cost_total),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (run) => run.status || '',
+            render: (run) => <Pill kind={statusKind(run.status)}>{run.status}</Pill>,
+        },
+        {
+            key: 'storage',
+            header: 'Storage',
+            sortable: true,
+            sortValue: (run) => storageLabel(run),
+            render: (run) => storageIcon(run),
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            render: (run) => (
+                <div className="backup-history-list__actions" onClick={(e) => e.stopPropagation()}>
+                    <Button size="icon" variant="outline" title="Restore" disabled={run.status !== 'success'} onClick={() => onRestore(run)}><RotateCcw size={14} /></Button>
+                    {run.remote_key && (
+                        <Button size="icon" variant="outline" title="Verify remote copy" onClick={() => onVerify(run)}><ShieldCheck size={14} /></Button>
+                    )}
+                    <Button size="icon" variant="destructive" title="Delete" onClick={() => onDelete(run)}><Trash2 size={14} /></Button>
+                </div>
+            ),
+        },
+    ];
+
     if (loading && (!runs || runs.length === 0)) {
         return <EmptyState icon={Archive} title="Loading backups…" loading />;
     }
@@ -150,50 +224,22 @@ export default function BackupHistoryList({
     return (
         <>
             <RestoreDrills drills={drills} />
-            <table className="sk-dtable backup-history-list">
-                <thead>
-                    <tr>
-                        <th>Backup</th>
-                        <th>Date</th>
-                        <th>Size</th>
-                        <th>Cost</th>
-                        <th>Status</th>
-                        <th>Storage</th>
-                        <th aria-label="Actions" />
-                    </tr>
-                </thead>
-                <tbody>
-                    {runs.map((run) => (
-                        <tr
-                            key={run.id}
-                            className={`backup-history-list__row ${onRowClick ? 'is-clickable' : ''}`}
-                            onClick={onRowClick ? () => onRowClick(run) : undefined}
-                        >
-                            <td>
-                                <div className="sk-cell-name">
-                                    <span className="backup-history-list__ico"><Archive size={14} /></span>
-                                    <span>{run.metadata?.backup_name || `Backup #${run.id}`}</span>
-                                    <Pill kind={run.kind === 'full' ? 'violet' : 'gray'} dot={false}>{run.kind}</Pill>
-                                </div>
-                            </td>
-                            <td className="backup-history-list__when">{formatWhen(run.started_at)}</td>
-                            <td className="sk-cell-mono">{humanSize(run.size_total)}</td>
-                            <td className="sk-cell-mono">{formatMoney(run.cost_total)}</td>
-                            <td><Pill kind={statusKind(run.status)}>{run.status}</Pill></td>
-                            <td>{storageIcon(run)}</td>
-                            <td>
-                                <div className="backup-history-list__actions" onClick={(e) => e.stopPropagation()}>
-                                    <Button size="icon" variant="outline" title="Restore" disabled={run.status !== 'success'} onClick={() => onRestore(run)}><RotateCcw size={14} /></Button>
-                                    {run.remote_key && (
-                                        <Button size="icon" variant="outline" title="Verify remote copy" onClick={() => onVerify(run)}><ShieldCheck size={14} /></Button>
-                                    )}
-                                    <Button size="icon" variant="destructive" title="Delete" onClick={() => onDelete(run)}><Trash2 size={14} /></Button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            <DataTable
+                columns={columns}
+                data={runs}
+                keyField="id"
+                storageKey="serverkit-table-backup-history"
+                onRowClick={onRowClick}
+                rowClassName="backup-history-list__row"
+                tableClassName="backup-history-list"
+                footer={(
+                    <DataTableFooter
+                        shown={runs.length}
+                        total={runs.length}
+                        noun="backup"
+                    />
+                )}
+            />
         </>
     );
 }

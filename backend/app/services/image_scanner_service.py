@@ -181,7 +181,8 @@ class ImageScannerService:
     @classmethod
     def scan_application(cls, application_id: int) -> Dict:
         """Run a CVE scan for the Docker image of an application."""
-        app = Application.query.get(application_id)
+        # query_active: a scan spawns Grype and pulls from the registry.
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         image_ref = app.docker_image or app.container_id
@@ -224,7 +225,8 @@ class ImageScannerService:
     @classmethod
     def generate_sbom(cls, application_id: int) -> Dict:
         """Generate and persist an SPDX SBOM for an application image."""
-        app = Application.query.get(application_id)
+        # query_active: Syft pulls/inspects the image out of process.
+        app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
         image_ref = app.docker_image or app.container_id

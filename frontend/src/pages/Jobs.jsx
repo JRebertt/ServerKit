@@ -7,19 +7,25 @@
 // in-page SegControl rather than its own tab strip, because the group's bar
 // already owns the tab row and a nav under a nav reads as two headers.
 //
-// Activity shows clickable compact KPIs, a DataTable of runs, and server-side
-// pagination over a job store that can hold six figures of scheduler-tick rows.
+// Activity shows a view bar, a DataTable of runs, and server-side pagination
+// over a job store that can hold six figures of scheduler-tick rows.
 // Wired to the real ApiService job methods (see frontend/src/services/api/jobs.js).
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock } from 'lucide-react';
 import api from '../services/api';
 import {
-    MetricCard, KpiBand, Pill, DataTable, SegControl,
+    Pill, DataTable, DataTableFooter, SegControl,
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
 } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
+} from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import EmptyState from '../components/EmptyState';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/timeAgo';
@@ -29,6 +35,104 @@ const titleCase = (value = '') => value.charAt(0).toUpperCase() + value.slice(1)
 const STATUSES = ['all', 'queued', 'running', 'succeeded', 'failed', 'cancelled'];
 const PAGE_SIZE = 50;
 const POLL_MS = 5000;
+
+// Built-in saved views, in the shared envelope (see ds/grid/viewState.js):
+// { sorts, hiddenKeys, columnOrder, groupBy, columnFilters, page }.
+//
+// Two filter systems live on this page and they are NOT the same tool:
+//
+//   page.serverFilters — the FilterDrawer's {status, kind} query pair ('' =
+//     all), sent to GET /jobs. Narrows the whole TABLE before pagination.
+//   columnFilters      — the chrome's client-side {match, rules} column rules.
+//     Narrows the PAGE_SIZE rows already on screen.
+//
+// They shared the name `filters` until plan 69, which is exactly how a preset
+// could blank both server filters while filtering nothing. `serverFilters` is
+// namespaced inside `page` now; useTableChrome's `rename` keeps views users
+// saved under the old top-level `filters` working.
+//
+// A Scheduled/Activity view is still NOT expressible here: that switch lives in
+// the URL-driven SegControl, and the drawer's kind options come from the API.
+//
+// Every preset spells out BOTH filter sets even when empty. An absent key does
+// reset to empty, but capture() always emits both — so a preset that omits one
+// reads as permanently "Unsaved" the instant you pick it.
+const STATUS_RULE = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+const ALL_JOBS = { status: '', kind: '' };
+
+const BUILTIN_VIEWS = [
+    {
+        name: 'Failed',
+        state: {
+            sorts: [], hiddenKeys: [], columnFilters: NO_RULES,
+            page: { serverFilters: { status: 'failed', kind: '' } },
+        },
+    },
+    {
+        name: 'Newest first',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES,
+            page: { serverFilters: ALL_JOBS },
+        },
+    },
+    {
+        // The retired "Running" KPI tile. This one is a COLUMN rule rather than
+        // a server filter: it composes with whatever kind is already selected,
+        // which is what the tile did on top of the drawer's kind. The cost is
+        // that it narrows the loaded page, not the table — see the caveat above
+        // the Status column.
+        name: 'Running',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: [],
+            columnFilters: STATUS_RULE('running'),
+            page: { serverFilters: ALL_JOBS },
+        },
+    },
+    {
+        // Started and never finished — oldest first, because the one that has
+        // been "running" longest is the one that is actually wedged.
+        name: 'Stuck in flight',
+        state: {
+            sorts: [{ key: 'when', direction: 'asc' }], hiddenKeys: [], columnFilters: NO_RULES,
+            page: { serverFilters: { status: 'running', kind: '' } },
+        },
+    },
+    {
+        // Queued work. The stored value is `pending` (Job.STATUS_PENDING) — the
+        // retired KPI tile read `by_status.pending` but its click sent
+        // `'queued'`, so the tile counted one bucket and filtered another. This
+        // view is the server-side one and it has always been right; nothing
+        // client-side is added on top of it.
+        name: 'Backlog',
+        state: {
+            sorts: [{ key: 'when', direction: 'asc' }], hiddenKeys: ['progress'], columnFilters: NO_RULES,
+            page: { serverFilters: { status: 'pending', kind: '' } },
+        },
+    },
+    {
+        name: 'Failures by kind',
+        state: {
+            sorts: [{ key: 'kind', direction: 'asc' }, { key: 'when', direction: 'desc' }],
+            hiddenKeys: ['owner'], columnFilters: NO_RULES,
+            page: { serverFilters: { status: 'failed', kind: '' } },
+        },
+    },
+    {
+        name: 'Backup runs',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: ['kind'], columnFilters: NO_RULES,
+            page: { serverFilters: { status: '', kind: 'backup.policy.run' } },
+        },
+    },
+    {
+        name: 'App deploys',
+        state: {
+            sorts: [{ key: 'when', direction: 'desc' }], hiddenKeys: ['kind', 'owner'], columnFilters: NO_RULES,
+            page: { serverFilters: { status: '', kind: 'deploy.app' } },
+        },
+    },
+];
 
 // Map a job status to a DS Pill colour.
 const STATUS_KIND = {
@@ -75,7 +179,6 @@ export default function Jobs() {
     const scheduledView = location.pathname.endsWith('/scheduled');
     const [jobs, setJobs] = useState([]);
     const [total, setTotal] = useState(0);
-    const [stats, setStats] = useState(null);
     const [scheduled, setScheduled] = useState([]);
     // Advanced filters live in the shared FilterDrawer (status + kind, single-
     // select; '' = all). Search is a separate debounced term.
@@ -87,20 +190,51 @@ export default function Jobs() {
     const [loading, setLoading] = useState(true);
     const pollRef = useRef(null);
 
+    // Table sort + column visibility, controlled so saved views can drive
+    // them — same localStorage keys the DataTables used when uncontrolled.
+    const { sorts: activitySorts, setSorts: setActivitySorts } = useTableSort({
+        storageKey: 'serverkit-table-jobs-activity-sort',
+    });
+    const { hiddenKeys: activityHidden, setHiddenKeys: setActivityHidden } = useColumnVisibility({
+        storageKey: 'serverkit-table-jobs-activity-cols',
+    });
+    const { sorts: schedSorts, setSorts: setSchedSorts } = useTableSort({
+        storageKey: 'serverkit-table-jobs-scheduled-sort',
+    });
+    const { hiddenKeys: schedHidden } = useColumnVisibility({
+        storageKey: 'serverkit-table-jobs-scheduled-cols',
+    });
+
+    // The page-private half of a saved view. Everything else the chrome
+    // captures (sorts, hidden columns, column order, column rules) is common to
+    // every list page and lives in the envelope, not here. The server-side
+    // page/offset is deliberately NOT captured — a view is a query, not a
+    // scroll position.
+    const viewPageState = useMemo(() => ({ serverFilters: filters }), [filters]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.serverFilters !== undefined) {
+            setFilters({ status: '', kind: '', ...saved.serverFilters });
+            // A different query means a different result set; staying on page 4
+            // of the old one would land on an empty table.
+            setPage(0);
+        }
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const params = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
             if (filters.status) params.status = filters.status;
             if (filters.kind) params.kind = filters.kind;
             if (q) params.q = q;
-            const [jobsRes, statsRes, schedRes] = await Promise.all([
+            // No /jobs/stats call any more: its whole-table group-bys only ever
+            // fed the count line above the table, and the footer counts the
+            // rows the query actually returned.
+            const [jobsRes, schedRes] = await Promise.all([
                 api.getJobs(params),
-                api.getJobStats().catch(() => null),
                 api.getScheduledJobs().catch(() => null),
             ]);
             setJobs(jobsRes?.jobs || []);
             setTotal(jobsRes?.total ?? (jobsRes?.jobs?.length || 0));
-            setStats(statsRes?.stats || statsRes || null);
             setScheduled(schedRes?.scheduled || schedRes?.jobs || schedRes || []);
         } catch {
             // Keep the last good state on screen rather than blanking the page.
@@ -124,8 +258,6 @@ export default function Jobs() {
         return () => clearInterval(pollRef.current);
     }, [isAdmin, load]);
 
-    // KPI tiles are quick status filters; the drawer owns the full set.
-    const setStatusQuick = (value) => { setFilters((f) => ({ ...f, status: value })); setPage(0); };
     const onFiltersChange = (next) => { setFilters(next); setPage(0); };
     const onSearch = (value) => { setQ(value.trim()); setPage(0); };
     const resetFilters = () => { setFilters({ status: '', kind: '' }); setQ(''); setPage(0); };
@@ -133,7 +265,9 @@ export default function Jobs() {
 
     // Search + advanced-filter trigger + Refresh sit in the shared page top bar
     // (the Marketplace/Domains pattern). Search/filters only apply to the
-    // Activity tab; the Scheduled tab just gets Refresh.
+    // Activity tab; the Scheduled tab just gets Refresh. The view picker is NOT
+    // here any more — it is the Activity table's own heading, because it
+    // describes that table and nothing else on the page.
     useTopbarActions(() => {
         if (!isAdmin) return null;
         return (
@@ -168,42 +302,28 @@ export default function Jobs() {
         catch { toast.error('Update failed'); }
     };
 
-    if (!isAdmin) {
-        return (
-            <div className="sk-tabgroup__inner jobs-page">
-                <div className="sk-jobs"><div className="sk-jobs__empty">Admins only.</div></div>
-            </div>
-        );
-    }
-
-    const byStatus = stats?.by_status || {};
-    const hasFilters = Boolean(filters.status || filters.kind || q);
-    const hasPrev = page > 0;
-    const hasNext = (page + 1) * PAGE_SIZE < total;
-
-    const kindOptions = kinds
-        .map((k) => (typeof k === 'string' ? k : k.kind || k.name))
-        .filter(Boolean);
-
-    const filterGroups = [
+    // Declared above the admin gate because useTableChrome is a hook and the
+    // gate returns early — the column list is what it infers filter types from.
+    const jobColumns = [
         {
             key: 'status',
-            label: 'Status',
-            type: 'single',
-            options: STATUSES.filter((s) => s !== 'all').map((s) => ({ value: s, label: titleCase(s) })),
+            header: 'Status',
+            sortable: true,
+            // Typed explicitly rather than left to inference. There is no
+            // `value`/`sortValue` here, so a rule reads `row.status` — the DB
+            // string — which is what the presets commit to. Inference would
+            // agree on a full page but downgrade a 2-row page to free text,
+            // and then the Status column menu would lose its pick-list.
+            //
+            // ⚠ A column rule filters the PAGE_SIZE rows the grid holds, not
+            // the table: the job store is paginated server-side. Where a status
+            // is worth a whole-table answer (Failed, Backlog) the built-in view
+            // sends it to the API instead — see BUILTIN_VIEWS.
+            type: 'enum',
+            render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill>,
         },
-        {
-            key: 'kind',
-            label: 'Kind',
-            type: 'single',
-            options: kindOptions.map((k) => ({ value: k, label: k })),
-        },
-    ];
-
-    const jobColumns = [
-        { key: 'status', header: 'Status', render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill> },
-        { key: 'kind', header: 'Kind', cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
-        { key: 'owner', header: 'Owner', cellClassName: 'sk-jobs__owner', render: ownerLabel },
+        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
+        { key: 'owner', header: 'Owner', sortable: true, sortValue: (j) => j.owner_type || null, cellClassName: 'sk-jobs__owner', render: ownerLabel },
         {
             key: 'progress',
             header: 'Progress',
@@ -216,7 +336,17 @@ export default function Jobs() {
                 </>
             ),
         },
-        { key: 'when', header: 'When', cellClassName: 'sk-jobs__when', render: (j) => timeAgo(j.created_at || j.updated_at) },
+        {
+            key: 'when',
+            header: 'When',
+            sortable: true,
+            sortValue: (j) => {
+                const stamp = j.created_at || j.updated_at;
+                return stamp ? new Date(stamp).getTime() : null;
+            },
+            cellClassName: 'sk-jobs__when',
+            render: (j) => timeAgo(j.created_at || j.updated_at),
+        },
         {
             key: 'actions',
             header: '',
@@ -239,10 +369,67 @@ export default function Jobs() {
         },
     ];
 
+    // Shared list chrome for the ACTIVITY table only — the saved views describe
+    // its sorts, its columns and this page's server query, none of which the
+    // Scheduled table has. `rename` keeps views saved before the envelope, whose
+    // server query sat at the top level as `filters`, pointing at the right key.
+    const chrome = useTableChrome({
+        columns: jobColumns,
+        rows: jobs,
+        viewPageKey: 'jobs',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'jobs',
+        sorts: activitySorts,
+        setSorts: setActivitySorts,
+        hiddenKeys: activityHidden,
+        setHiddenKeys: setActivityHidden,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+        rename: { filters: 'serverFilters' },
+    });
+
+    // Only the "⋮" is hoisted: the top bar's filter button already opens the
+    // SERVER query drawer, which sees rows this client never loaded, and a
+    // second one would open a weaker drawer over the loaded page only. Gated on
+    // the Activity tab because the chrome describes that table, not Scheduled.
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />, { enabled: isAdmin && !scheduledView },
+    );
+
+    if (!isAdmin) {
+        return (
+            <div className="sk-tabgroup__inner jobs-page">
+                <div className="sk-jobs"><EmptyState title="Admins only." /></div>
+            </div>
+        );
+    }
+
+    const hasFilters = Boolean(filters.status || filters.kind || q);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    const kindOptions = kinds
+        .map((k) => (typeof k === 'string' ? k : k.kind || k.name))
+        .filter(Boolean);
+
+    const filterGroups = [
+        {
+            key: 'status',
+            label: 'Status',
+            type: 'single',
+            options: STATUSES.filter((s) => s !== 'all').map((s) => ({ value: s, label: titleCase(s) })),
+        },
+        {
+            key: 'kind',
+            label: 'Kind',
+            type: 'single',
+            options: kindOptions.map((k) => ({ value: k, label: k })),
+        },
+    ];
+
     const scheduledColumns = [
-        { key: 'name', header: 'Name', render: (s) => s.name || s.kind || `#${s.id}` },
-        { key: 'kind', header: 'Kind', cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
-        { key: 'schedule', header: 'Schedule', cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
+        { key: 'name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
+        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
+        { key: 'schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
         { key: 'next', header: 'Next run', cellClassName: 'sk-jobs__when', render: (s) => (s.next_run_at ? timeAgo(s.next_run_at) : '—') },
         { key: 'enabled', header: 'Enabled', render: (s) => <Pill kind={s.enabled ? 'green' : 'gray'}>{s.enabled ? 'On' : 'Off'}</Pill> },
         {
@@ -265,6 +452,7 @@ export default function Jobs() {
 
     return (
         <div className="sk-tabgroup__inner jobs-page">
+            {topbarChrome}
             <div className="sk-jobs">
                 <div className="sk-jobs__viewswitch">
                     <SegControl
@@ -284,28 +472,32 @@ export default function Jobs() {
                         columns={scheduledColumns}
                         data={scheduled}
                         keyField="id"
-                        sortable={false}
+                        sorts={schedSorts}
+                        onSortsChange={setSchedSorts}
+                        hiddenKeys={schedHidden}
                         loading={loading && scheduled.length === 0}
-                        emptyState={(
-                            <div className="sk-jobs__empty">
-                                <Clock size={24} aria-hidden="true" />
-                                <p>No scheduled jobs yet.</p>
-                            </div>
-                        )}
+                        emptyTitle="No scheduled jobs yet."
+                        emptyMessage=""
                     />
                 ) : (
                     <>
-                        <KpiBand>
-                            <MetricCard label="Total" value={stats?.total ?? total ?? 0} tone="accent" compact
-                                onClick={() => setStatusQuick('')} />
-                            <MetricCard label="Running" value={byStatus.running ?? 0} tone="cyan" compact
-                                onClick={() => setStatusQuick('running')} />
-                            <MetricCard label="Queued" value={byStatus.pending ?? byStatus.queued ?? 0} tone="amber" compact
-                                onClick={() => setStatusQuick('queued')} />
-                            <MetricCard label="Failed" value={byStatus.failed ?? 0} tone="red" compact
-                                onClick={() => setStatusQuick('failed')} />
-                        </KpiBand>
+                        {/* The KPI band is gone: three of its four tiles were a
+                            status filter wearing a number, and those are views
+                            now. The rest was whole-table arithmetic that only
+                            ever restated what the view picker offers. */}
+                        <GridViewPicker
+                            views={chrome.views}
+                            label="jobs"
+                            onCreate={chrome.createView}
+                        
+                actions={chromeActions}
+            />
 
+                        <GridChips {...chrome.chipProps} />
+
+                        {/* Clears the SERVER query (status/kind/search). The
+                            column rules have their own Clear on the chip bar —
+                            two filter systems, two resets. */}
                         {hasFilters && (
                             <div className="sk-jobs__resultbar">
                                 <Button variant="ghost" size="sm" onClick={resetFilters}>
@@ -315,30 +507,26 @@ export default function Jobs() {
                         )}
 
                         <DataTable
-                            columns={jobColumns}
+                            columns={chrome.columns}
                             data={jobs}
                             keyField="id"
-                            sortable={false}
+                            sorts={activitySorts}
+                            onSortsChange={setActivitySorts}
+                            {...chrome.tableProps}
                             loading={loading && jobs.length === 0}
-                            emptyState={(
-                                <div className="sk-jobs__empty">
-                                    <ListChecks size={24} aria-hidden="true" />
-                                    <p>{hasFilters ? 'No jobs match these filters.' : 'No jobs have run yet.'}</p>
-                                </div>
+                            footer={(
+                                <DataTableFooter
+                                    shown={jobs.length}
+                                    total={total}
+                                    noun="job"
+                                    page={page + 1}
+                                    totalPages={totalPages}
+                                    onPageChange={(next) => setPage(next - 1)}
+                                />
                             )}
+                            emptyTitle={hasFilters ? 'No jobs match these filters.' : 'No jobs have run yet.'}
+                            emptyMessage=""
                         />
-
-                        {(hasPrev || hasNext) && (
-                            <div className="sk-jobs__pager">
-                                <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-                                    <ChevronLeft size={14} /> Prev
-                                </Button>
-                                <span className="sk-jobs__pager-label">Page {page + 1}</span>
-                                <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => setPage((p) => p + 1)}>
-                                    Next <ChevronRight size={14} />
-                                </Button>
-                            </div>
-                        )}
                     </>
                 )}
             </div>
@@ -351,6 +539,10 @@ export default function Jobs() {
                 onChange={onFiltersChange}
                 title="Filter jobs"
             />
+
+            {/* The column-rule drawer. Distinct from the FilterDrawer above it:
+                that one rewrites the API query, this one narrows the rows the
+                query already returned. */}
         </div>
     );
 }

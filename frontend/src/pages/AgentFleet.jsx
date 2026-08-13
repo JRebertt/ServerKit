@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MetricCard, Pill, Gauge } from '@/components/ds';
+import { MetricCard, KpiBand, Pill, Gauge, DataTable, DataTableFooter } from '@/components/ds';
 
 const AgentFleet = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -203,6 +203,252 @@ const AgentFleet = () => {
         return map[status] || 'gray';
     };
 
+    // Columns for the shared DataTable. Cell markup and classNames are
+    // identical to the hand-rolled tables they replace. No in-page toolbar
+    // rows on this page (Refresh lives in the shared top bar), so each table
+    // runs uncontrolled with a storageKey instead of SortMenu/ColumnsMenu.
+    const versionColumns = [
+        {
+            key: 'version',
+            header: 'Version',
+            sortable: true,
+            hideable: false,
+            sortValue: (v) => v.version || '',
+            cellClassName: 'font-semibold',
+            render: (v) => `v${v.version}`,
+        },
+        {
+            key: 'channel',
+            header: 'Channel',
+            sortable: true,
+            sortValue: (v) => v.channel || '',
+            render: (v) => (
+                <Pill kind={v.channel === 'stable' ? 'green' : 'amber'}>{v.channel}</Pill>
+            ),
+        },
+        {
+            key: 'published',
+            header: 'Published',
+            sortable: true,
+            sortValue: (v) => (v.published_at ? new Date(v.published_at).getTime() : null),
+            render: (v) => new Date(v.published_at).toLocaleDateString(),
+        },
+        {
+            key: 'compat',
+            header: 'Panel Compatibility',
+            render: (v) => `${v.min_panel_version || 'Any'} - ${v.max_panel_version || 'Latest'}`,
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (v) => (v.is_active ? 'Active' : 'Inactive'),
+            render: (v) => (
+                <Pill kind={v.is_active ? 'green' : 'gray'}>
+                    {v.is_active ? 'Active' : 'Inactive'}
+                </Pill>
+            ),
+        },
+    ];
+
+    const rolloutColumns = [
+        {
+            key: 'version',
+            header: 'Version',
+            sortable: true,
+            hideable: false,
+            sortValue: (r) => r.version || '',
+            cellClassName: 'font-semibold',
+            render: (r) => `v${r.version}`,
+        },
+        {
+            key: 'strategy',
+            header: 'Strategy',
+            sortable: true,
+            sortValue: (r) => r.strategy || '',
+            render: (r) => r.strategy,
+        },
+        {
+            key: 'progress',
+            header: 'Progress',
+            sortable: true,
+            sortValue: (r) => (r.total_servers > 0 ? (r.processed_servers / r.total_servers * 100) : 0),
+            render: (r) => (
+                <div className="flex items-center gap-3">
+                    <Gauge
+                        className="w-24"
+                        value={r.total_servers > 0 ? (r.processed_servers / r.total_servers * 100) : 0}
+                        color={r.status === 'failed' ? 'var(--red)' : r.status === 'completed' ? 'var(--green)' : 'var(--accent-bright)'}
+                    />
+                    <span className="text-sm text-gray-500">
+                        {r.processed_servers}/{r.total_servers}
+                        {r.failed_servers > 0 && (
+                            <span className="text-red-500 ml-1">({r.failed_servers} failed)</span>
+                        )}
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            sortValue: (r) => r.status || '',
+            render: (r) => (
+                <Pill kind={rolloutPillKind(r.status)}>{r.status}</Pill>
+            ),
+        },
+        {
+            key: 'started',
+            header: 'Started',
+            sortable: true,
+            sortValue: (r) => (r.started_at ? new Date(r.started_at).getTime() : null),
+            cellClassName: 'text-sm',
+            render: (r) => (r.started_at ? new Date(r.started_at).toLocaleString() : '-'),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions',
+            render: (r) => (
+                <>
+                    {r.status === 'running' && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600"
+                            onClick={() => cancelRollout(r.id)}
+                            title="Cancel Rollout"
+                        >
+                            <XCircle size={14} /> Cancel
+                        </Button>
+                    )}
+                    {r.error && (
+                        <span className="text-xs text-red-500" title={r.error}>
+                            <AlertCircle size={14} />
+                        </span>
+                    )}
+                </>
+            ),
+        },
+    ];
+
+    const queueColumns = [
+        {
+            key: 'server',
+            header: 'Server',
+            sortable: true,
+            hideable: false,
+            sortValue: (cmd) => cmd.server_id || '',
+            render: (cmd) => `${cmd.server_id?.slice(0, 8)}...`,
+        },
+        {
+            key: 'command',
+            header: 'Command',
+            sortable: true,
+            sortValue: (cmd) => cmd.command_type || '',
+            cellClassName: 'font-mono text-sm',
+            render: (cmd) => cmd.command_type,
+        },
+        {
+            key: 'retries',
+            header: 'Retries',
+            sortable: true,
+            sortValue: (cmd) => cmd.retry_count ?? null,
+            render: (cmd) => (
+                <span className={cmd.retry_count > 0 ? 'text-yellow-600' : ''}>
+                    {cmd.retry_count}/{cmd.max_retries}
+                </span>
+            ),
+        },
+        {
+            key: 'queued',
+            header: 'Queued At',
+            sortable: true,
+            sortValue: (cmd) => (cmd.created_at ? new Date(cmd.created_at).getTime() : null),
+            cellClassName: 'text-sm',
+            render: (cmd) => new Date(cmd.created_at).toLocaleString(),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions',
+            render: (cmd) => (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => retryCommand(cmd.id)}
+                    title="Retry now"
+                >
+                    <RotateCcw size={14} /> Retry
+                </Button>
+            ),
+        },
+    ];
+
+    const approvalColumns = [
+        {
+            key: 'name',
+            header: 'Server Name',
+            sortable: true,
+            hideable: false,
+            sortValue: (server) => server.name || '',
+            cellClassName: 'font-semibold',
+            render: (server) => server.name,
+        },
+        {
+            key: 'ip',
+            header: 'IP Address',
+            sortable: true,
+            sortValue: (server) => server.ip_address || '',
+            render: (server) => server.ip_address || 'N/A',
+        },
+        {
+            key: 'requested',
+            header: 'Requested',
+            sortable: true,
+            sortValue: (server) => (server.created_at ? new Date(server.created_at).getTime() : null),
+            render: (server) => new Date(server.created_at).toLocaleString(),
+        },
+        {
+            key: 'agent',
+            header: 'Agent Version',
+            sortable: true,
+            sortValue: (server) => server.agent_version || '',
+            render: (server) => `v${server.agent_version || 'Unknown'}`,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            cellClassName: 'actions',
+            render: (server) => (
+                <>
+                    <Button
+                        size="sm"
+                        className="flex items-center gap-1"
+                        onClick={() => approveAgent(server.id)}
+                    >
+                        <CheckCircle size={14} /> Approve
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600"
+                        onClick={() => rejectAgent(server.id)}
+                    >
+                        <XCircle size={14} /> Reject
+                    </Button>
+                </>
+            ),
+        },
+    ];
+
     return (
         <div className="sk-tabgroup__inner">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -233,12 +479,12 @@ const AgentFleet = () => {
                 {/* ==================== Dashboard ==================== */}
                 {activeTab === 'dashboard' && health && (
                     <div className="space-y-6">
-                        <div className="fleet-kpis">
+                        <KpiBand>
                             <MetricCard icon={<Server size={16} />} tone="accent" label="Total Agents" value={health.total_servers} />
                             <MetricCard icon={<CheckCircle size={16} />} tone="green" label="Online" value={health.online_servers} />
                             <MetricCard icon={<AlertCircle size={16} />} tone="red" label="Offline" value={health.offline_servers} />
                             <MetricCard icon={<Zap size={16} />} tone="cyan" label="Success Rate" value={`${health.command_success_rate}%`} />
-                        </div>
+                        </KpiBand>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="card">
@@ -302,43 +548,25 @@ const AgentFleet = () => {
                         <div className="card-header">
                             <h2>Agent Versions</h2>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="sk-dtable">
-                                <thead>
-                                    <tr>
-                                        <th>Version</th>
-                                        <th>Channel</th>
-                                        <th>Published</th>
-                                        <th>Panel Compatibility</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {versions.map(v => (
-                                        <tr key={v.id}>
-                                            <td className="font-semibold">v{v.version}</td>
-                                            <td>
-                                                <Pill kind={v.channel === 'stable' ? 'green' : 'amber'}>{v.channel}</Pill>
-                                            </td>
-                                            <td>{new Date(v.published_at).toLocaleDateString()}</td>
-                                            <td>{v.min_panel_version || 'Any'} - {v.max_panel_version || 'Latest'}</td>
-                                            <td>
-                                                <Pill kind={v.is_active ? 'green' : 'gray'}>
-                                                    {v.is_active ? 'Active' : 'Inactive'}
-                                                </Pill>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {versions.length === 0 && (
-                                        <tr>
-                                            <td colSpan="5" className="text-center py-8 text-gray-500">
-                                                No agent versions registered in database.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={versionColumns}
+                            data={versions}
+                            keyField="id"
+                            storageKey="serverkit-table-fleet-versions"
+                            className="overflow-x-auto"
+                            emptyState={(
+                                <div className="text-center py-8 text-gray-500">
+                                    No agent versions registered in database.
+                                </div>
+                            )}
+                            footer={(
+                                <DataTableFooter
+                                    shown={versions.length}
+                                    total={versions.length}
+                                    noun="version"
+                                />
+                            )}
+                        />
                         {versions.length > 0 && versions[0].release_notes && (
                             <div className="card-body border-t">
                                 <h3 className="text-sm font-semibold mb-2">Latest Release Notes (v{versions[0].version})</h3>
@@ -421,65 +649,20 @@ const AgentFleet = () => {
                                 <h2>Rollout History</h2>
                             </div>
                             {rollouts.length > 0 ? (
-                                <div className="overflow-x-auto">
-                                    <table className="sk-dtable">
-                                        <thead>
-                                            <tr>
-                                                <th>Version</th>
-                                                <th>Strategy</th>
-                                                <th>Progress</th>
-                                                <th>Status</th>
-                                                <th>Started</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {rollouts.map(r => (
-                                                <tr key={r.id}>
-                                                    <td className="font-semibold">v{r.version}</td>
-                                                    <td>{r.strategy}</td>
-                                                    <td>
-                                                        <div className="flex items-center gap-3">
-                                                            <Gauge
-                                                                className="w-24"
-                                                                value={r.total_servers > 0 ? (r.processed_servers / r.total_servers * 100) : 0}
-                                                                color={r.status === 'failed' ? 'var(--red)' : r.status === 'completed' ? 'var(--green)' : 'var(--accent-bright)'}
-                                                            />
-                                                            <span className="text-sm text-gray-500">
-                                                                {r.processed_servers}/{r.total_servers}
-                                                                {r.failed_servers > 0 && (
-                                                                    <span className="text-red-500 ml-1">({r.failed_servers} failed)</span>
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <Pill kind={rolloutPillKind(r.status)}>{r.status}</Pill>
-                                                    </td>
-                                                    <td className="text-sm">{r.started_at ? new Date(r.started_at).toLocaleString() : '-'}</td>
-                                                    <td className="actions">
-                                                        {r.status === 'running' && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="text-red-600"
-                                                                onClick={() => cancelRollout(r.id)}
-                                                                title="Cancel Rollout"
-                                                            >
-                                                                <XCircle size={14} /> Cancel
-                                                            </Button>
-                                                        )}
-                                                        {r.error && (
-                                                            <span className="text-xs text-red-500" title={r.error}>
-                                                                <AlertCircle size={14} />
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <DataTable
+                                    columns={rolloutColumns}
+                                    data={rollouts}
+                                    keyField="id"
+                                    storageKey="serverkit-table-fleet-rollouts"
+                                    className="overflow-x-auto"
+                                    footer={(
+                                        <DataTableFooter
+                                            shown={rollouts.length}
+                                            total={rollouts.length}
+                                            noun="rollout"
+                                        />
+                                    )}
+                                />
                             ) : (
                                 <div className="card-body py-12 text-center text-gray-500">
                                     <Zap size={48} className="mx-auto text-gray-300 mb-4" />
@@ -498,43 +681,20 @@ const AgentFleet = () => {
                             <p className="text-sm text-gray-500">Commands waiting to be delivered when agents reconnect</p>
                         </div>
                         {queuedCommands.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="sk-dtable">
-                                    <thead>
-                                        <tr>
-                                            <th>Server</th>
-                                            <th>Command</th>
-                                            <th>Retries</th>
-                                            <th>Queued At</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {queuedCommands.map(cmd => (
-                                            <tr key={cmd.id}>
-                                                <td>{cmd.server_id?.slice(0, 8)}...</td>
-                                                <td className="font-mono text-sm">{cmd.command_type}</td>
-                                                <td>
-                                                    <span className={cmd.retry_count > 0 ? 'text-yellow-600' : ''}>
-                                                        {cmd.retry_count}/{cmd.max_retries}
-                                                    </span>
-                                                </td>
-                                                <td className="text-sm">{new Date(cmd.created_at).toLocaleString()}</td>
-                                                <td className="actions">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => retryCommand(cmd.id)}
-                                                        title="Retry now"
-                                                    >
-                                                        <RotateCcw size={14} /> Retry
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <DataTable
+                                columns={queueColumns}
+                                data={queuedCommands}
+                                keyField="id"
+                                storageKey="serverkit-table-fleet-queue"
+                                className="overflow-x-auto"
+                                footer={(
+                                    <DataTableFooter
+                                        shown={queuedCommands.length}
+                                        total={queuedCommands.length}
+                                        noun="command"
+                                    />
+                                )}
+                            />
                         ) : (
                             <div className="card-body py-12 text-center text-gray-500">
                                 <CheckCircle size={48} className="mx-auto text-gray-300 mb-4" />
@@ -617,53 +777,25 @@ const AgentFleet = () => {
                         <div className="card-header">
                             <h2>Pending Registrations</h2>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="sk-dtable">
-                                <thead>
-                                    <tr>
-                                        <th>Server Name</th>
-                                        <th>IP Address</th>
-                                        <th>Requested</th>
-                                        <th>Agent Version</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pendingServers.map(server => (
-                                        <tr key={server.id}>
-                                            <td className="font-semibold">{server.name}</td>
-                                            <td>{server.ip_address || 'N/A'}</td>
-                                            <td>{new Date(server.created_at).toLocaleString()}</td>
-                                            <td>v{server.agent_version || 'Unknown'}</td>
-                                            <td className="actions">
-                                                <Button
-                                                    size="sm"
-                                                    className="flex items-center gap-1"
-                                                    onClick={() => approveAgent(server.id)}
-                                                >
-                                                    <CheckCircle size={14} /> Approve
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-red-600"
-                                                    onClick={() => rejectAgent(server.id)}
-                                                >
-                                                    <XCircle size={14} /> Reject
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {pendingServers.length === 0 && (
-                                        <tr>
-                                            <td colSpan="5" className="text-center py-8 text-gray-500">
-                                                No pending agent registrations.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={approvalColumns}
+                            data={pendingServers}
+                            keyField="id"
+                            storageKey="serverkit-table-fleet-approvals"
+                            className="overflow-x-auto"
+                            emptyState={(
+                                <div className="text-center py-8 text-gray-500">
+                                    No pending agent registrations.
+                                </div>
+                            )}
+                            footer={(
+                                <DataTableFooter
+                                    shown={pendingServers.length}
+                                    total={pendingServers.length}
+                                    noun="registration"
+                                />
+                            )}
+                        />
                     </div>
                 )}
 

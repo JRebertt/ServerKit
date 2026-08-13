@@ -8,18 +8,8 @@
     flex-direction: column;
     gap: 1rem;
 
-    &__toolbar {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-    }
+    // The toolbar row is the shared ListToolbar (.sk-listhead).
 
-    &__search {
-        flex: 1 1 280px;
-    }
-
-    &__filters,
     &__actions {
         display: flex;
         gap: 0.4rem;
@@ -81,19 +71,5 @@
         gap: 0.35rem;
         flex-wrap: wrap;
         justify-content: flex-end;
-    }
-
-    &__logs {
-        max-height: 60vh;
-        overflow: auto;
-        padding: 0.75rem;
-        border: 1px solid var(--border-soft);
-        border-radius: var(--radius-sm);
-        background: var(--bg-code);
-        color: var(--text-code);
-        font-family: var(--mono);
-        font-size: 12px;
-        white-space: pre-wrap;
-        margin: 0;
     }
 }

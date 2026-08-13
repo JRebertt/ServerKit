@@ -138,7 +138,7 @@ def _require_app_access(app_id):
     user = User.query.get(get_jwt_identity())
     if not user:
         return {'error': 'Unauthorized'}, 401
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return {'error': 'Application not found'}, 404
     if not ResourceGrantService.can_access_app(user, app):

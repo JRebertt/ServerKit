@@ -1,14 +1,58 @@
-import { useState, useEffect } from 'react';
-import { Ban } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Ban, Shield } from 'lucide-react';
 import api from '../../services/api';
-import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
+import EmptyState from '@/components/EmptyState';
 import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer, applyFilters,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+
+// Fail2ban's own default jail name since 0.9, and the one this tab's Ban modal
+// pre-selects — so it is the value a preset can actually count on being there.
+const SSH_JAIL = 'sshd';
+
+// Built-in saved views. A ban row is only { ip, jail }, so the jail is the one
+// axis worth slicing: SSH is where the internet-wide noise lands, and everything
+// else is a jail someone configured on purpose and should be reading.
+const FAIL2BAN_VIEWS = [
+    {
+        // The drive-by traffic. Usually the longest list on the page and the
+        // one you scan for a source you recognise rather than act on row by row.
+        name: 'SSH bans',
+        state: {
+            sorts: [{ key: 'ip', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'f2b1', field: 'jail', op: 'any', value: [SSH_JAIL] }],
+            },
+        },
+    },
+    {
+        // Everything the SSH view buries: web-auth, WordPress and per-app jails.
+        // A ban here means something reached an application, so it is the half
+        // worth reading first. Jail before IP, so each jail stays together.
+        name: 'App & web jail bans',
+        state: {
+            sorts: [{ key: 'jail', direction: 'asc' }, { key: 'ip', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'f2b2', field: 'jail', op: 'none', value: [SSH_JAIL] }],
+            },
+        },
+    },
+];
 
 const Fail2banTab = () => {
     const [status, setStatus] = useState(null);
@@ -19,8 +63,12 @@ const Fail2banTab = () => {
     const [showBanModal, setShowBanModal] = useState(false);
     const [banIP, setBanIP] = useState('');
     const [banJail, setBanJail] = useState('sshd');
-    const [confirmDialog, setConfirmDialog] = useState(null);
     const toast = useToast();
+    const { confirm } = useConfirm();
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-fail2ban-bans-sort' });
+    const {
+        hiddenKeys, setHiddenKeys,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-fail2ban-bans-cols' });
 
     useEffect(() => {
         loadData();
@@ -87,24 +135,83 @@ const Fail2banTab = () => {
     };
 
     const handleUnban = async (ip, jail) => {
-        setConfirmDialog({
+        const confirmed = await confirm({
             title: 'Unban IP',
             message: `Are you sure you want to unban ${ip} from ${jail}?`,
             confirmText: 'Unban',
             variant: 'warning',
-            onConfirm: async () => {
-                try {
-                    await api.fail2banUnban(ip, jail);
-                    toast.success(`IP ${ip} unbanned`);
-                    await loadData();
-                } catch (error) {
-                    toast.error(`Failed to unban: ${error.message}`);
-                }
-                setConfirmDialog(null);
-            },
-            onCancel: () => setConfirmDialog(null)
         });
+        if (!confirmed) return;
+        try {
+            await api.fail2banUnban(ip, jail);
+            toast.success(`IP ${ip} unbanned`);
+            await loadData();
+        } catch (error) {
+            toast.error(`Failed to unban: ${error.message}`);
+        }
     };
+
+    // Cell markup/classNames identical to the hand-rolled table they replace.
+    // Declared above the loading guard now: the chrome below is a hook, so it
+    // cannot sit behind an early return.
+    const banColumns = [
+        {
+            key: 'ip',
+            header: 'IP Address',
+            sortable: true,
+            hideable: false,
+            sortValue: (ban) => ban.ip || '',
+            cellClassName: 'sk-cell-mono sec-ip--red',
+            render: (ban) => ban.ip,
+        },
+        {
+            key: 'jail',
+            header: 'Jail',
+            sortable: true,
+            // Declared, not inferred: a host with two jails and two bans fails
+            // the enum cardinality test and would fall back to text, which
+            // turns the jail pick-list into a typed fragment and both views
+            // above into no-ops. `value` is what the rules read.
+            type: 'enum',
+            value: (ban) => ban.jail || '',
+            sortValue: (ban) => ban.jail || '',
+            render: (ban) => <span className="sk-tag">{ban.jail}</span>,
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            sortable: false,
+            hideable: false,
+            render: (ban) => (
+                <Button variant="secondary" size="sm" onClick={() => handleUnban(ban.ip, ban.jail)}>
+                    Unban
+                </Button>
+            ),
+        },
+    ];
+
+    // Scoped to this table, not to Security as a page: one tab is mounted at a
+    // time, so a picker at the page heading would sit above whichever tab
+    // happened to be open. No `urlScope` — the bans table is the only one on
+    // this tab, so its links keep the plain ?view= names.
+    const chrome = useTableChrome({
+        columns: banColumns,
+        rows: bans,
+        viewPageKey: 'security-fail2ban',
+        builtinViews: FAIL2BAN_VIEWS,
+        noun: 'bans',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+    });
+
+    // DataTable applies the column rules itself, so the count has to be
+    // re-derived here or a view that narrows to two rows still claims the total.
+    const shownBans = useMemo(
+        () => applyFilters(bans, chrome.cfg.filters, chrome.columns),
+        [bans, chrome.cfg.filters, chrome.columns],
+    );
 
     if (loading) {
         return <div className="loading-sm">Loading Fail2ban status...</div>;
@@ -113,16 +220,16 @@ const Fail2banTab = () => {
     return (
         <div className="fail2ban-tab">
             {!status?.installed ? (
-                <div className="empty-state">
-                    <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" strokeWidth="1">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <h3>Fail2ban Not Installed</h3>
-                    <p>Install Fail2ban to protect against brute force attacks.</p>
-                    <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
-                        {actionLoading ? 'Installing...' : 'Install Fail2ban'}
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={Shield}
+                    title="Fail2ban Not Installed"
+                    description="Install Fail2ban to protect against brute force attacks."
+                    action={(
+                        <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
+                            {actionLoading ? 'Installing...' : 'Install Fail2ban'}
+                        </Button>
+                    )}
+                />
             ) : (
                 <>
                     <div className="card">
@@ -196,41 +303,53 @@ const Fail2banTab = () => {
                         </div>
                     )}
 
-                    <div className="card sec-flush">
-                        <div className="card-header">
-                            <h3>Banned IPs {bans.length > 0 && <span className="sec-count">· {bans.length}</span>}</h3>
-                        </div>
-                        {bans.length === 0 ? (
-                            <div className="card-body">
-                                <p className="text-muted">No IPs are currently banned.</p>
-                            </div>
-                        ) : (
-                            <table className="sk-dtable">
-                                <thead>
-                                    <tr>
-                                        <th>IP Address</th>
-                                        <th>Jail</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {bans.map((ban, index) => (
-                                        <tr key={index}>
-                                            <td className="sk-cell-mono sec-ip--red">{ban.ip}</td>
-                                            <td><span className="sk-tag">{ban.jail}</span></td>
-                                            <td>
-                                                <Button variant="secondary" size="sm" onClick={() => handleUnban(ban.ip, ban.jail)}>
-                                                    Unban
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    {/* The view name replaces the old "Banned IPs" <h3>: it is
+                        the same heading slot, and it now says WHICH bans you
+                        are looking at rather than just that they are bans. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="bans"
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+                            </>
                         )}
-                    </div>
+                    />
+
+                    <GridChips {...chrome.chipProps} />
+
+                    {bans.length === 0 ? (
+                        <div className="card">
+                            <p className="text-muted">No IPs are currently banned.</p>
+                        </div>
+                    ) : (
+                        <div className="card sec-flush">
+                            <DataTable
+                                columns={chrome.columns}
+                                data={bans}
+                                keyField={(ban) => `${ban.ip}-${ban.jail}`}
+                                sorts={sorts}
+                                onSortsChange={setSorts}
+                                {...chrome.tableProps}
+                                footer={(
+                                    <DataTableFooter
+                                        shown={shownBans.length}
+                                        total={bans.length}
+                                        noun="banned IP"
+                                    />
+                                )}
+                            />
+                        </div>
+                    )}
                 </>
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
 
             <Modal open={showBanModal} onClose={() => setShowBanModal(false)} title="Ban IP Address">
                 <div className="form-group">
@@ -262,17 +381,6 @@ const Fail2banTab = () => {
                     </Button>
                 </div>
             </Modal>
-
-            {confirmDialog && (
-                <ConfirmDialog
-                    title={confirmDialog.title}
-                    message={confirmDialog.message}
-                    confirmText={confirmDialog.confirmText}
-                    variant={confirmDialog.variant}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
         </div>
     );
 };

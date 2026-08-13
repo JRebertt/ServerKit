@@ -159,154 +159,9 @@
     // Content area - no padding needed, tabs handle their own
 }
 
-// Table Header (filter + search)
-.docker-table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: $space-3 $space-5;
-    border-bottom: 1px solid $border-subtle;
-    background: $bg-hover;
-}
-
-.docker-filter-toggle {
-    display: flex;
-    align-items: center;
-    gap: $space-2;
-    font-size: $font-size-sm;
-    color: $text-secondary;
-    cursor: pointer;
-
-    input[type="checkbox"] {
-        width: 14px;
-        height: 14px;
-        accent-color: $accent-primary;
-    }
-}
-
-.docker-search {
-    background: $bg-card;
-    border: 1px solid $border-subtle;
-    padding: $space-2 $space-3;
-    border-radius: $radius-sm;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    width: 200px;
-
-    &::placeholder {
-        color: $text-tertiary;
-    }
-
-    &:focus {
-        outline: none;
-        border-color: $accent-primary;
-    }
-}
-
-// Docker Table
-.docker-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: $font-size-sm;
-
-    th {
-        text-align: left;
-        padding: $space-3 $space-5;
-        background: $bg-hover;
-        color: $text-tertiary;
-        font-size: $font-size-xs;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-weight: $font-weight-semibold;
-    }
-
-    td {
-        padding: $space-4 $space-5;
-        border-bottom: 1px solid $border-subtle;
-        vertical-align: middle;
-    }
-
-    tr:hover {
-        background: $bg-hover;
-    }
-
-    tr:last-child td {
-        border-bottom: none;
-    }
-}
-
-// Container Name & ID
-.docker-container-name {
-    font-weight: $font-weight-semibold;
-    color: $text-primary;
-    font-size: $font-size-sm;
-    display: block;
-    margin-bottom: $space-1;
-}
-
-.docker-container-id {
-    font-family: $font-mono;
-    color: $accent-primary;
-    font-size: $font-size-xs;
-}
-
-// Image Tag
-.docker-image-tag {
-    font-family: $font-mono;
-    color: $text-secondary;
-    font-size: $font-size-xs;
-    background: $bg-hover;
-    padding: $space-1 $space-2;
-    border-radius: $radius-sm;
-}
-
-// Status Pill
-.docker-status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: $space-2;
-    font-size: $font-size-xs;
-    font-weight: $font-weight-semibold;
-    padding: $space-1 $space-2;
-    border-radius: $radius-full;
-
-    &.running {
-        background: fade($success-raw, 10%);
-        color: $success;
-        border: 1px solid fade($success-raw, 20%);
-    }
-
-    &.exited {
-        background: fade($danger-raw, 10%);
-        color: $danger;
-        border: 1px solid fade($danger-raw, 20%);
-    }
-}
-
-.docker-status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-}
-
-.docker-status-detail {
-    font-size: $font-size-xs;
-    color: $text-tertiary;
-    margin-top: $space-1;
-}
-
-// Ports
-.docker-ports {
-    font-family: $font-mono;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    line-height: 1.6;
-
-    &.faded {
-        opacity: 0.4;
-    }
-}
+// The hand-rolled `.docker-table` markup and its cell/pill/toolbar styles are
+// gone: every Docker tab renders through <DataTable> under .dx-manager-table
+// now, and each one carries its own chrome row instead of a bespoke toolbar.
 
 // Resource Bars
 .docker-res-container {
@@ -349,43 +204,6 @@
 
 .faded {
     opacity: 0.3;
-}
-
-// Icon Actions
-.docker-actions-cell {
-    text-align: right;
-    white-space: nowrap;
-}
-
-.docker-icon-action {
-    background: transparent;
-    border: 1px solid transparent;
-    color: $text-tertiary;
-    width: 28px;
-    height: 28px;
-    border-radius: $radius-sm;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-
-    &:hover:not(:disabled) {
-        color: $text-primary;
-        background: $bg-hover;
-        border-color: $border-subtle;
-    }
-
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    svg {
-        width: 14px;
-        height: 14px;
-    }
 }
 
 // Empty & Loading States
@@ -1113,6 +931,21 @@
     flex-direction: column;
 }
 
+// Images · Volumes · Networks · Compose. Same shape as the containers pane,
+// minus the inspector column: the chrome row stays put and the table scrolls.
+.dx-list-pane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    .dx-resource-list {
+        flex: 1;
+        min-height: 0;
+        margin-top: $space-3;
+    }
+}
+
 // Status filter rendered as a segmented control (redesign seg look).
 .dx-filter-chips {
     display: inline-flex;
@@ -1230,6 +1063,10 @@
     color: $text-secondary;
     font-size: $font-size-xs;
     cursor: pointer;
+    // Sits in the view row next to the search box now, where a flex parent will
+    // happily wrap "Include stopped" onto two lines and make the row taller
+    // than everything else on it.
+    white-space: nowrap;
 
     input {
         width: 14px;
@@ -1295,6 +1132,16 @@
     th:nth-child(5) { width: 16%; }
     th:nth-child(6) { width: 10%; }
     th:nth-child(7) { width: 116px; }
+
+    // Those track widths are tuned for the Containers grid (checkbox + seven
+    // columns). The sibling resource tabs have four or five and no row click,
+    // so they drop the track list and let their own column descriptors decide.
+    // `table-layout: fixed` stays: without it a 64-character volume name or a
+    // long mountpoint widens the row and pushes the actions off the right edge.
+    &.dx-plain-table {
+        th:nth-child(n) { width: auto; }
+        tbody tr { cursor: default; }
+    }
 
     tbody tr {
         cursor: pointer;
@@ -2004,35 +1851,6 @@
 
 .dx-tab-toolbar-right {
     margin-left: auto;
-}
-
-.dx-sort-control {
-    display: inline-flex;
-    align-items: center;
-    gap: $space-1;
-
-    span {
-        color: $text-tertiary;
-        font-size: $font-size-xs;
-        font-weight: $font-weight-semibold;
-    }
-
-    select {
-        height: 32px;
-        min-width: 108px;
-        padding: 0 $space-6 0 $space-2;
-        border: 1px solid $border-default;
-        border-radius: $radius-md;
-        background: $bg-elevated;
-        color: $text-primary;
-        font-size: $font-size-xs;
-        outline: none;
-
-        &:focus {
-            border-color: $accent-primary;
-            box-shadow: 0 0 0 2px $accent-glow;
-        }
-    }
 }
 
 .dx-manager-layout {

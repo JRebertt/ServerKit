@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -18,7 +18,15 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { MetricCard, Pill } from '@/components/ds';
+import {
+    DataTable, DataTableFooter, MetricCard, KpiBand, Pill, SortChipBar,
+} from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const STATUS_KINDS = {
     pending: 'blue',
@@ -40,6 +48,68 @@ const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_lette
 
 const POLL_INTERVAL = 3000;
 
+// Built-in saved views.
+//
+// These views are shared by EVERY queue this route renders, so nothing here may
+// name a queue or a group — each one is a statement about messages.
+//
+// The status presets drive the page's own `statusFilter` (the `page` bag)
+// rather than a column rule. /messages is filtered SERVER side and capped at
+// 100 rows, so a client-side rule could only narrow the page that already
+// loaded; asking the server for `dead_letter` is the only way to see a dead
+// letter that sits past row 100 of a busy queue.
+const PAGE = (statusFilter) => ({ statusFilter });
+const NO_RULES = { match: 'all', rules: [] };
+
+const BUILTIN_VIEWS = [
+    {
+        // Head of line first — the oldest pending message is the one holding
+        // up everything behind it.
+        name: 'Waiting',
+        state: {
+            page: PAGE('pending'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'asc' }],
+        },
+    },
+    {
+        // Leased to a consumer. Oldest first: a message that has been in
+        // flight for a long time is a consumer that died holding the lease.
+        name: 'In flight',
+        state: {
+            page: PAGE('in_flight'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'asc' }],
+        },
+    },
+    {
+        // Erroring but still inside max_attempts. Most-attempted first, which
+        // is the order they will give up in.
+        name: 'Failed',
+        state: {
+            page: PAGE('failed'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'attempts', direction: 'desc' }],
+        },
+    },
+    {
+        // Retries exhausted: the requeue worklist.
+        name: 'Dead letter',
+        state: {
+            page: PAGE('dead_letter'), hiddenKeys: [], columnFilters: NO_RULES,
+            sorts: [{ key: 'created', direction: 'desc' }],
+        },
+    },
+    {
+        // A first-time delivery leaves attempts at 1, so `> 1` is exactly the
+        // set that needed redelivering — a flaky consumer shows up here across
+        // every status, including the messages that eventually completed.
+        name: 'Retried',
+        state: {
+            page: PAGE('all'), hiddenKeys: [],
+            sorts: [{ key: 'attempts', direction: 'desc' }],
+            columnFilters: { match: 'all', rules: [{ id: 'retry', field: 'attempts', op: 'gt', value: 1 }] },
+        },
+    },
+];
+
 const QueueDetail = () => {
     const { groupSlug, queueSlug } = useParams();
     const navigate = useNavigate();
@@ -54,6 +124,17 @@ const QueueDetail = () => {
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [showSend, setShowSend] = useState(false);
     const [sendForm, setSendForm] = useState({ payload: '{}', priority: 0, delay_ms: 0 });
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-queue-messages-sort' });
+    const {
+        hiddenKeys, setHiddenKeys,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-queue-messages-cols' });
+
+    // The one narrowing control this page owns, as the envelope's `page` bag.
+    // It is a SERVER filter — restoring it refetches rather than re-slicing.
+    const viewPageState = useMemo(() => ({ statusFilter }), [statusFilter]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.statusFilter !== undefined) setStatusFilter(saved.statusFilter);
+    }, []);
 
     const pollRef = useRef(null);
 
@@ -156,6 +237,97 @@ const QueueDetail = () => {
         }
     };
 
+    // DataTable columns. Cell markup and classNames are identical to the
+    // hand-rolled table they replace, so _queue-operations.scss keeps applying
+    // (.queue-table, .col-actions, .queue-payload-preview, .queue-actions).
+    const columns = [
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            // `value` is not optional here. The rule engine falls back to
+            // sortValue when a column has none, and this sortValue is a
+            // lifecycle RANK — a status rule would then compare 'failed'
+            // against 3 and match nothing at all.
+            type: 'enum',
+            value: (msg) => msg.status,
+            enumOrder: STATUS_ORDER,
+            // Lifecycle order, not alphabet.
+            sortValue: (msg) => STATUS_ORDER.indexOf(msg.status),
+            render: (msg) => <Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill>,
+        },
+        {
+            key: 'payload',
+            header: 'Payload',
+            sortable: false,
+            // The raw payload is an object, and `contains` over one stringifies
+            // to '[object Object]' for every row. Match the text the cell
+            // actually shows instead, so "payload contains order_id" works.
+            type: 'text',
+            value: (msg) => JSON.stringify(msg.payload),
+            render: (msg) => <code className="queue-payload-preview">{JSON.stringify(msg.payload).slice(0, 80)}</code>,
+        },
+        {
+            key: 'attempts',
+            header: 'Attempts',
+            sortable: true,
+            // Declared rather than inferred: the "Retried" preset compares
+            // against this, and an inference that saw only zeroes on a fresh
+            // queue would type the column and then the rule differently.
+            type: 'num',
+            value: (msg) => msg.attempts,
+            sortValue: (msg) => msg.attempts,
+            render: (msg) => <>{msg.attempts} / {msg.max_attempts}</>,
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            // Same split as elsewhere: epoch ms sorts, the ISO string filters.
+            // Without `value` the column menu would offer "is under 1755…".
+            type: 'date',
+            value: (msg) => msg.created_at,
+            sortValue: (msg) => new Date(msg.created_at).getTime(),
+            render: (msg) => new Date(msg.created_at).toLocaleString(),
+        },
+        ...(!viewOnly ? [{
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            className: 'col-actions',
+            cellClassName: 'col-actions',
+            render: (msg) => (
+                <div className="queue-actions" onClick={e => e.stopPropagation()}>
+                    {(msg.status === 'failed' || msg.status === 'dead_letter') && (
+                        <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title="Requeue">
+                            <RefreshCw size={14} />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title="Delete message">
+                        <Trash2 size={14} />
+                    </Button>
+                </div>
+            ),
+        }] : []),
+    ];
+
+    // Shared list chrome: view picker + filter chips + filter drawer + tools.
+    // Declared before the loading return so the hook order is stable.
+    const chrome = useTableChrome({
+        columns,
+        rows: messages,
+        viewPageKey: 'queue-messages',
+        builtinViews: BUILTIN_VIEWS,
+        noun: 'messages',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
     if (loading) {
         return (
             <div className="queue-page queue-page--loading">
@@ -197,7 +369,7 @@ const QueueDetail = () => {
                 </div>
             </div>
 
-            <div className="queue-detail-stats">
+            <KpiBand>
                 <MetricCard label="Total" value={stats.total || 0} />
                 {STATUS_ORDER.map(s => (
                     <MetricCard
@@ -207,24 +379,50 @@ const QueueDetail = () => {
                         kind={s === 'failed' || s === 'dead_letter' ? 'danger' : undefined}
                     />
                 ))}
-            </div>
+            </KpiBand>
 
             <div className={`queue-detail-body ${selectedMessage ? 'has-panel' : ''}`}>
                 <div className="queue-detail-main">
+                    {/* The view name heads the message list, with the table's
+                        own chrome on the same line. The queue's own name stays
+                        in the detail header above — a view here is about the
+                        messages, and is shared by every queue. */}
+                    <GridViewPicker
+                        views={chrome.views}
+                        label="messages"
+                        onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu
+                                    {...chrome.toolsProps}
+                                    onRefresh={() => { loadMeta(); loadMessages(statusFilter); }}
+                                />
+                            </>
+                        )}
+                    />
+
+                    {/* The status select stays on its own line: it is a SERVER
+                        filter, not table chrome — changing it refetches. */}
                     <div className="queue-messages-toolbar">
-                        <select
-                            className="queue-select"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">All statuses</option>
-                            {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-                        </select>
-                        <span className="queue-results-summary">
-                            <strong>{messages.length}</strong>
-                            <span>{messages.length === 1 ? 'message' : 'messages'}</span>
-                        </span>
+                        <div className="queue-messages-selects">
+                            <select
+                                className="queue-select"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="all">All statuses</option>
+                                {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                            </select>
+                        </div>
                     </div>
+
+                    <GridChips {...chrome.chipProps} />
+
+                    <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 
                     {messages.length === 0 ? (
                         <EmptyState
@@ -235,47 +433,25 @@ const QueueDetail = () => {
                                 : 'This queue is empty. Send a message to get started.'}
                         />
                     ) : (
-                        <div className="queue-table-wrap">
-                            <table className="queue-table">
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th>Payload</th>
-                                        <th>Attempts</th>
-                                        <th>Created</th>
-                                        {!viewOnly && <th className="col-actions" aria-label="Actions" />}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {messages.map(msg => (
-                                        <tr
-                                            key={msg.id}
-                                            className={`is-clickable ${selectedMessage?.id === msg.id ? 'is-selected' : ''}`}
-                                            onClick={() => setSelectedMessage(msg)}
-                                        >
-                                            <td><Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill></td>
-                                            <td><code className="queue-payload-preview">{JSON.stringify(msg.payload).slice(0, 80)}</code></td>
-                                            <td>{msg.attempts} / {msg.max_attempts}</td>
-                                            <td>{new Date(msg.created_at).toLocaleString()}</td>
-                                            {!viewOnly && (
-                                                <td className="col-actions" onClick={e => e.stopPropagation()}>
-                                                    <div className="queue-actions">
-                                                        {(msg.status === 'failed' || msg.status === 'dead_letter') && (
-                                                            <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title="Requeue">
-                                                                <RefreshCw size={14} />
-                                                            </Button>
-                                                        )}
-                                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title="Delete message">
-                                                            <Trash2 size={14} />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={chrome.columns}
+                            data={messages}
+                            keyField="id"
+                            sorts={sorts}
+                            onSortsChange={setSorts}
+                            {...chrome.tableProps}
+                            onRowClick={(msg) => setSelectedMessage(msg)}
+                            rowClassName={(msg) => (selectedMessage?.id === msg.id ? 'is-selected' : '')}
+                            className="queue-table-wrap"
+                            tableClassName="queue-table"
+                            footer={(
+                                <DataTableFooter
+                                    shown={messages.length}
+                                    total={messages.length}
+                                    noun="message"
+                                />
+                            )}
+                        />
                     )}
                 </div>
 
@@ -337,6 +513,8 @@ const QueueDetail = () => {
                             </div>
                         </form>
             </Modal>
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };

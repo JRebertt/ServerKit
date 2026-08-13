@@ -128,20 +128,31 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 // ------------------------------------------------------------
 // MetricCard / KPI tile
 // ------------------------------------------------------------
+// Row layout: [icon] [value + label] [trend], with an optional spark bleeding
+// along the bottom. Stacking the icon above the value cost ~46px per tile for
+// no information — a summary strip ate a fifth of the page before the content
+// it summarises. See the note in MetricCard.jsx.
 .sk-kpi {
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
-    padding: 16px 17px;
+    padding: 11px 13px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.15s;
 
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    // The spark spans the full width on its own line under the row.
+    grid-template-areas: "icon body trend" "spark spark spark";
+
     &:hover { border-color: var(--border-strong); }
 
-    &__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     &__icon {
-        width: 32px; height: 32px; border-radius: 8px;
+        grid-area: icon;
+        width: 30px; height: 30px; border-radius: 8px;
         display: grid; place-items: center;
         background: var(--surface-2); color: var(--text-dim);
 
@@ -152,9 +163,12 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         &--red    { background: var(--red-bg);    color: var(--red); }
         &--violet { background: var(--violet-bg); color: var(--violet); }
     }
+    // Grid areas need a single child to own the text column; a tile with no
+    // icon simply leaves the first track at zero width.
+    &__body { grid-area: body; min-width: 0; }
     &__val {
-        font-family: var(--mono); font-size: 27px; font-weight: 600;
-        letter-spacing: -0.02em; line-height: 1;
+        font-family: var(--mono); font-size: 22px; font-weight: 600;
+        letter-spacing: -0.02em; line-height: 1.1;
         // Explicit theme colour — don't inherit, or a host with a stray text
         // colour (e.g. a non-tabgroup page shell) renders the value near-black.
         color: var(--text);
@@ -164,20 +178,25 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        small { font-size: 14px; color: var(--text-faint); font-weight: 500; }
+        small { font-size: 13px; color: var(--text-faint); font-weight: 500; }
     }
-    &__label { font-size: 12.5px; color: var(--text-dim); margin-top: 6px; }
-    // Optional mono detail row beneath the value (e.g. "Total 32 · Cached 4").
+    &__label {
+        font-size: 12px; color: var(--text-dim); margin-top: 1px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    // Optional mono detail row beneath the label (e.g. "Total 32 · Cached 4").
     &__sub {
         font-family: var(--mono);
-        font-size: 11.5px;
+        font-size: 11px;
         color: var(--text-faint);
-        margin-top: 8px;
+        margin-top: 3px;
         display: flex;
-        gap: 14px;
+        gap: 12px;
         flex-wrap: wrap;
     }
     &__trend {
+        grid-area: trend;
+        align-self: start;
         font-family: var(--mono); font-size: 11px;
         display: flex; align-items: center; gap: 4px;
         &--up { color: var(--green); }
@@ -188,7 +207,8 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     // padding so the series bleeds to the corners instead of floating in a box
     // — the design mock's `.kpi-spark`.
     &__spark {
-        margin: 10px -17px -16px;
+        grid-area: spark;
+        margin: 8px -13px -11px;
         line-height: 0;
         opacity: 0.9;
 
@@ -227,7 +247,7 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 
     // Skeleton tile — same geometry as .sk-kpi so content doesn't jump on load.
     &__skel {
-        height: 96px;
+        height: 64px;
         border-radius: var(--radius);
         border: 1px solid var(--border-soft);
         background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
@@ -347,6 +367,7 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     font-size: 13px;
 
     thead th {
+        position: relative;
         text-align: left;
         font-family: var(--mono);
         font-size: 10.5px;
@@ -356,6 +377,42 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         font-weight: 600;
         padding: 11px 16px;
         border-bottom: 1px solid var(--border);
+
+        // Header cells that carry a "⋮" reserve its lane, so the label never
+        // reflows when the button appears on hover.
+        &.has-menu { padding-right: 28px; }
+        &.is-filtered { color: var(--accent-bright); }
+        &:hover .sk-colmenu-btn { opacity: 1; }
+        &.is-filtered .sk-colmenu-btn { opacity: 1; color: var(--accent-bright); }
+    }
+
+    // Top-lit header, matching the DataGrid surface, so the two table
+    // implementations read as one component.
+    thead { background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+
+    &__filter-mark { color: var(--accent-bright); flex-shrink: 0; }
+
+    // Filtered-to-nothing: the header stays, because the control that undoes it
+    // lives in the header menu.
+    &__nomatch td {
+        padding: 34px 16px !important;
+        text-align: center;
+        color: var(--text-faint);
+        font-size: 12.5px;
+
+        button {
+            margin-left: 10px;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: var(--surface-2);
+            color: var(--text-dim);
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+
+            &:hover { border-color: var(--accent-dim); color: var(--accent-bright); }
+        }
     }
     tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
     tbody tr { transition: background 0.12s; }
@@ -370,15 +427,698 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 
     // Sortable column headers (used by the DataTable component).
     .is-sortable { cursor: pointer; user-select: none; }
+    .is-sortable:hover { color: var(--text-dim); }
+    .is-sorted { color: var(--accent-bright); }
     &__head-inner { display: inline-flex; align-items: center; gap: 5px; }
-    &__sort { display: inline-flex; color: var(--accent-bright); }
+    &__sort { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-bright); }
     &__sort-placeholder { color: var(--text-faint); opacity: 0.35; }
+    // Priority number shown next to the direction chevron when more than one
+    // sort level is active (shift+click stacking).
+    &__sort-priority {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--accent-bright);
+        opacity: 0.85;
+        transform: translateY(-3px);
+    }
+
+    // Native selection column (selectable tables).
+    &__check { width: 36px; padding-right: 0 !important; }
+
+    // Keyboard-nav cursor row (j/k). Distinct from hover: it follows the keys,
+    // not the mouse.
+    tbody tr.is-cursor {
+        background: var(--accent-bg-soft);
+        box-shadow: inset 2px 0 0 var(--accent-bright);
+    }
+
+    // Group header row (groupBy). Click collapses/expands the group.
+    &__group {
+        cursor: pointer;
+        user-select: none;
+
+        td {
+            padding: 7px 16px !important;
+            background: var(--surface-2);
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        &:hover td { background: var(--surface-3); }
+    }
+
+    &__group-inner { display: inline-flex; align-items: center; gap: 7px; }
+
+    &__group-chev {
+        color: var(--text-faint);
+        transition: transform 0.14s;
+        transform: rotate(90deg);
+
+        .is-collapsed & { transform: rotate(0deg); }
+    }
+
+    &__group-label {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    &__group-count {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-faint);
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 999px;
+        padding: 1px 7px;
+    }
 }
 
 .sk-dtable-wrap { overflow-x: auto; }
+// Opt-in sticky header for tall tables: cap the wrap and pin the thead.
+.sk-dtable-wrap--sticky {
+    max-height: var(--dtable-max-height, 60vh);
+    overflow-y: auto;
+
+    .sk-dtable thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--surface);
+    }
+}
 .sk-dtable__loading {
     display: flex; align-items: center; justify-content: center;
     min-height: 180px; color: var(--text-faint);
+}
+
+// ------------------------------------------------------------
+// DataTableFooter — one standard "how much / show more" bar under tables.
+// Replaces the ad-hoc pagers (Prev/Next labels, bare Load more, nothing).
+// ------------------------------------------------------------
+.sk-dtable-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 16px;
+    border-top: 1px solid var(--border-soft);
+
+    &__count {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+        white-space: nowrap;
+    }
+
+    &__controls { display: inline-flex; align-items: center; gap: 10px; }
+
+    &__sizes .sk-seg__btn { padding: 3px 9px; font-size: 11.5px; }
+
+    &__pager { display: inline-flex; align-items: center; gap: 8px; }
+    &__page {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-dim);
+        min-width: 44px;
+        text-align: center;
+    }
+}
+
+// ------------------------------------------------------------
+// SortMenu / ColumnsMenu — compact toolbar popovers (Frappe/Twenty style).
+// Rendered inside the shared .ui-popover-panel surface.
+// ------------------------------------------------------------
+.sk-tablemenu {
+    width: 15rem;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    &__title {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        font-weight: 600;
+        padding: 2px 6px 6px;
+    }
+
+    &__section {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-ghost);
+        padding: 8px 6px 3px;
+        border-top: 1px solid var(--border-soft);
+        margin-top: 4px;
+    }
+
+    &__empty {
+        font-size: 12px;
+        color: var(--text-faint);
+        padding: 6px;
+    }
+
+    &__list { display: flex; flex-direction: column; gap: 1px; }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 8px;
+        border: none;
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { background: var(--surface-2); color: var(--text); }
+
+        &.is-on { color: var(--accent-bright); font-weight: 550; }
+
+        &--toggle svg { color: var(--text-faint); flex-shrink: 0; }
+        &--toggle.is-off { color: var(--text-faint); }
+    }
+
+    // An active sort row: [priority] field [dir] [x]
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 7px;
+        background: var(--surface-2);
+    }
+
+    &__priority {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--accent-bright);
+        min-width: 12px;
+        text-align: center;
+    }
+
+    &__field {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12.5px;
+        color: var(--text);
+        font-weight: 550;
+    }
+
+    &__dir,
+    &__remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { background: var(--surface); color: var(--text); }
+    }
+
+    &__dir { color: var(--accent-bright); }
+
+    &__footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 8px;
+        margin-top: 4px;
+        border-top: 1px solid var(--border-soft);
+    }
+}
+
+// ------------------------------------------------------------
+// SortChipBar — active-sort chips above the table (Twenty style). Renders
+// nothing when no sort is active, so the bar never sits empty.
+// ------------------------------------------------------------
+.sk-sortchips {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    padding: 8px 2px 0;
+
+    &__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 24px;
+        padding-left: 9px;
+        border-radius: 999px;
+        background: var(--accent-bg-soft);
+        border: 1px solid var(--accent-dim);
+        color: var(--accent-bright);
+        font-size: 12px;
+        user-select: none;
+        white-space: nowrap;
+    }
+
+    &__priority {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        opacity: 0.8;
+        margin-right: 2px;
+    }
+
+    &__body {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 100%;
+        padding: 0 4px 0 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font-size: inherit;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    &__label { font-weight: 550; }
+
+    &__remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        margin-right: 3px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        opacity: 0.7;
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { opacity: 1; background: var(--accent-bg); }
+    }
+
+    &__reset {
+        border: none;
+        background: none;
+        padding: 0 4px;
+        color: var(--text-faint);
+        font-size: 12px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: color 0.12s;
+
+        &:hover { color: var(--text); }
+    }
+}
+
+// ------------------------------------------------------------
+// ViewMenu — saved-view picker. Reuses the .sk-tablemenu popover chrome and
+// adds view rows (apply / default-star / delete) plus the save-current form.
+// ------------------------------------------------------------
+.sk-viewmenu {
+    // "Modified" dot on the trigger when the live state differs from the view.
+    &__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: var(--amber);
+        margin-left: 2px;
+        flex-shrink: 0;
+    }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        border-radius: 7px;
+        padding-right: 4px;
+        transition: background 0.12s;
+
+        &:hover { background: var(--surface-2); }
+        &.is-active { background: var(--accent-bg-soft); }
+    }
+
+    &__apply {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 8px;
+        border: none;
+        background: none;
+        color: var(--text-dim);
+        font-size: 12.5px;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+
+        .is-active & { color: var(--accent-bright); font-weight: 550; }
+        svg { flex-shrink: 0; }
+    }
+
+    &__name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__star,
+    &__delete {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+        opacity: 0;
+        transition: 0.12s;
+
+        .sk-viewmenu__row:hover & { opacity: 1; }
+        &:hover { background: var(--surface); color: var(--text); }
+    }
+
+    // The default star stays visible even when the row isn't hovered.
+    &__star.is-on {
+        opacity: 1;
+        color: var(--amber);
+        fill: var(--amber);
+    }
+
+    &__update {
+        display: flex;
+        justify-content: flex-end;
+        gap: 4px;
+        padding: 6px 2px 2px;
+        border-top: 1px solid var(--border-soft);
+        margin-top: 4px;
+    }
+
+    &__save {
+        display: flex;
+        gap: 8px;
+        padding-top: 8px;
+        margin-top: 4px;
+        border-top: 1px solid var(--border-soft);
+
+        input {
+            flex: 1;
+            min-width: 0;
+            height: 30px;
+            padding: 0 10px;
+            background: var(--surface-2);
+            border: 1px solid var(--border-soft);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12.5px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.14s;
+
+            &::placeholder { color: var(--text-faint); }
+            &:focus { border-color: var(--accent-dim); }
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// Floating bulk-actions pill — appears only while rows are selected
+// (Frappe ListSelectBanner style), instead of a permanent toolbar row.
+// ------------------------------------------------------------
+.sk-bulkbar {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 9px 7px 16px;
+    // It floats over a dark page in a dark pill, so at --surface with a hairline
+    // border it read as a smudge rather than a control. Lifted one step to
+    // --surface-2, given an accent-tinted rim and a deeper, wider shadow: the
+    // shadow is what actually separates it from the background, since two dark
+    // greys a few percent apart never will.
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    box-shadow:
+        0 18px 44px rgba(0, 0, 0, 0.55),
+        0 2px 10px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgb(from var(--accent) r g b / 0.14);
+    animation: sk-bulkbar-in 0.16s ease-out;
+
+    &__count {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+    }
+
+    // Callers pass either shared <Button>s or plain <button>s — GridBulkBar's
+    // documented API is the latter, and an unstyled bare button renders as a
+    // white OS-default control sitting in a dark pill. Style them here so both
+    // shapes land the same, and scroll horizontally rather than letting a page
+    // with five bulk actions stretch the pill off both edges of the viewport.
+    &__actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar { display: none; }
+
+        > button:not(.ui-button) {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 11px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            font-size: 12.5px;
+            color: var(--text-dim);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: 0.12s;
+
+            &:hover { background: var(--surface-3); color: var(--text); }
+            &:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: -2px; }
+            &.is-danger:hover { background: var(--red-bg); color: var(--red); }
+        }
+    }
+
+    &__clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: none;
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text-faint);
+        cursor: pointer;
+        transition: 0.12s;
+
+        &:hover { color: var(--text); }
+    }
+}
+
+@keyframes sk-bulkbar-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+// ------------------------------------------------------------
+// ListToolbar (.sk-listhead) — the one list-page toolbar row. Replaces the
+// per-page listheads (.dom-listhead, .cron-listhead, .servers-listhead…).
+// [title] [filters] [extras]                  [count] [tools]
+// ------------------------------------------------------------
+.sk-listhead {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    flex-wrap: wrap;
+    margin-bottom: $space-3;
+
+    &__title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--text);
+    }
+
+    &__right {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        margin-left: auto;
+    }
+
+    &__count {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+        white-space: nowrap;
+
+        b { color: var(--text-dim); font-weight: 600; }
+    }
+
+    // Secondary pickers (server/group selects) that live in the toolbar.
+    &__select {
+        height: 32px;
+        padding: 0 $space-3;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text-dim);
+        font-size: 12.5px;
+        font-family: inherit;
+    }
+
+    @media (max-width: $breakpoint-md) {
+        &__right { width: 100%; margin-left: 0; }
+    }
+}
+
+// ------------------------------------------------------------
+// wp-list chrome — the ResourceListPage list scaffold (status seg + search
+// toolbar, table card, optional card grid). Restores the canonical layout
+// these hooks had before the WordPress styles moved into the extension, plus
+// the new sort/columns menus slot.
+// ------------------------------------------------------------
+.wp-list {
+    display: flex;
+    flex-direction: column;
+    padding: $space-4;
+
+    // The toolbar row is the shared .sk-listhead (ResourceListPage renders
+    // ListToolbar); only the search fallback and the layout switch stay here.
+
+    // In-page search fallback — used when a page does NOT publish its search
+    // into the shared topbar (extensions outside a tab group).
+    &__search {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        padding: 0 10px;
+        width: 240px;
+        max-width: 100%;
+        height: 32px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        color: var(--text-faint);
+        transition: border-color 0.14s;
+
+        &:focus-within { border-color: var(--accent-dim); }
+
+        svg { flex-shrink: 0; }
+
+        input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: none;
+            color: var(--text);
+            font-size: 13px;
+
+            &::placeholder { color: var(--text-faint); }
+            &:focus { outline: none; }
+        }
+    }
+
+    // Table/cards switch — only rendered by pages that pass a card renderer.
+    // Lives in the ListToolbar tools slot.
+    &__viewswitch {
+        display: flex;
+        gap: 2px;
+        flex-shrink: 0;
+        padding: 3px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+
+        button {
+            display: grid;
+            place-items: center;
+            padding: 6px 9px;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-faint);
+            cursor: pointer;
+            transition: background 0.14s, color 0.14s;
+
+            &:hover { color: var(--text); }
+            &.is-active { background: var(--surface-3); color: var(--text); }
+        }
+    }
+
+    &__card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        overflow: hidden;
+    }
+
+    // Card layout for the same rows the table shows.
+    &__cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 14px;
+    }
+
+    &__cardtile {
+        display: flex;
+        flex-direction: column;
+        padding: $space-4;
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: border-color 0.14s, transform 0.14s;
+
+        &:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+        &.is-selected { border-color: var(--accent-dim); background: var(--accent-bg-soft); }
+    }
 }
 
 // ------------------------------------------------------------
@@ -412,13 +1152,33 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         gap: 8px;
         flex-shrink: 0;
 
-        // House rule: the search box is ALWAYS the right-most control in the
-        // top bar, whatever order a page happens to publish its actions in.
-        // Enforced here rather than by convention at each call site, so it
-        // cannot drift and new pages get it for free. (Flex order defaults to
-        // 0, so lifting only the search field is enough.)
-        > .sk-searchfield { order: 1; }
+        // House rule: the top bar has FIXED SLOTS, not a publication order.
+        // Whatever order a page happens to render its actions in, they land in
+        // the same places on every page:
+        //
+        //     [ page actions ] [ search ] [ filter · overflow ]
+        //
+        // Enforced here rather than by convention at each call site so it
+        // cannot drift and new pages get it for free. The point is muscle
+        // memory: the search box must sit in the same pixels on /domains as on
+        // /services, and must not move when a page gains or loses a button.
+        // Half of what lands here is portaled in through .sk-topbar__chrome
+        // (see useTopbarChrome), which `display: contents` erases from layout —
+        // its children are flex items of THIS box, but they are grandchildren
+        // in the selector, so every slot rule has to name both depths. Miss
+        // that and the portaled icons default to order 0 and jump ahead of the
+        // search box the page rendered itself.
+        > *,
+        > .sk-topbar__chrome > * { order: 0; }
+        > .sk-searchfield,
+        > .sk-topbar__chrome > .sk-searchfield { order: 1; }
+        > .sk-gridicon,
+        > .sk-topbar__chrome > .sk-gridicon { order: 2; }
     }
+
+    // The portal target a table's chrome renders into. It must not become a box
+    // of its own, or the whole chrome would be one order:0 blob.
+    &__chrome { display: contents; }
 
     // Routed sub-nav (the ex-sidebar sub-items). The nav is the flex-fill
     // measurement region for PageTopbar's overflow logic; it is right-aligned so
@@ -758,48 +1518,6 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     &__icon { color: var(--red); margin-bottom: 14px; }
     &__title { font-size: 15px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
     &__message { font-size: 13px; color: var(--text-dim); max-width: 420px; margin: 0 0 16px; }
-}
-
-// ------------------------------------------------------------
-// SearchFilterBar — reusable search + filter + sort bar.
-// ------------------------------------------------------------
-.sk-search-filter-bar {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-
-    &__search { position: relative; flex: 1 1 220px; min-width: 180px; }
-    &__search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
-    &__input { padding-left: 32px; }
-    &__clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); color: var(--text-faint); }
-
-    &__filters { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    &__chip {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 5px 11px; border-radius: 7px;
-        font-size: 12.5px; font-weight: 450;
-        color: var(--text-dim); background: var(--surface-2);
-        border: 1px solid var(--border-soft);
-        cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
-
-        &:hover { background: var(--surface-3); }
-        &.is-active { color: var(--accent-bright); background: var(--accent-bg-soft); border-color: var(--accent-dim); }
-    }
-    &__count {
-        font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
-        .is-active & { color: var(--accent-bright); }
-    }
-
-    &__sort {
-        select {
-            appearance: none;
-            padding: 6px 24px 6px 10px;
-            border-radius: 7px;
-            border: 1px solid var(--border-soft);
-            background: var(--surface-2);
-            color: var(--text-dim);
-            font-size: 12.5px;
-            cursor: pointer;
-        }
-    }
 }
 
 // ------------------------------------------------------------

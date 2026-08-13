@@ -143,7 +143,7 @@ class BandwidthService:
         # domain (lowercased) -> app_id, for attributing vhost-split lines.
         domain_app = {
             d.name.lower(): d.application_id
-            for d in Domain.query.all() if d.name
+            for d in Domain.query_active().all() if d.name
         }
 
         # domain -> {'app_id': ..., 'bytes': ..., 'requests': ...}
@@ -181,16 +181,19 @@ class BandwidthService:
             return merged_hosts, merged_plain
 
         # Per-site logs: /var/log/nginx/{app.name}.access.log
-        for app_row in Application.query.all():
+        # Live apps only: a deleted app's vhost is gone, and a new app reusing the
+        # name would otherwise have the same log file counted twice.
+        for app_row in Application.query_active().all():
             base = os.path.join(log_dir, f'{app_row.name}.access.log')
             per_host, plain = _parse_with_rotation(base)
+            live_domains = app_row.live_domains
             primary = None
-            for d in (app_row.domains or []):
+            for d in live_domains:
                 if d.is_primary:
                     primary = d.name
                     break
-            if primary is None and app_row.domains:
-                primary = app_row.domains[0].name
+            if primary is None and live_domains:
+                primary = live_domains[0].name
             default_domain = (primary or app_row.name or '').lower()
             if default_domain:
                 _add(default_domain, app_row.id, plain[0], plain[1])

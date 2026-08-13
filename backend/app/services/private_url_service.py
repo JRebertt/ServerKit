@@ -78,7 +78,13 @@ class PrivateURLService:
         """
         from app.models import Application
 
-        query = Application.query.filter_by(private_slug=slug)
+        # query_active, and this is the Class-B trap from the Domain round:
+        # migration 084 made the slug unique only among LIVE rows precisely so
+        # a delete stops burning `/p/<slug>`. Checking every row here would
+        # re-impose at the application level the reservation the schema just
+        # released. A restore whose slug was taken meanwhile is refused by
+        # pre_restore_application, which is where that conflict belongs.
+        query = Application.query_active().filter_by(private_slug=slug)
         if exclude_app_id:
             query = query.filter(Application.id != exclude_app_id)
 

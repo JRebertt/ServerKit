@@ -58,6 +58,10 @@ export const SETTINGS_INDEX = [
     { id: 'activity-dashboard', label: 'Activity dashboard', description: 'Monitor team activity and view statistics', keywords: 'activity dashboard stats graphs', tab: 'activity', adminOnly: true },
     { id: 'activity-audit-log', label: 'Audit log', description: 'View a detailed audit trail of all system actions and user activities', keywords: 'audit log history actions', tab: 'activity', adminOnly: true },
 
+    { id: 'recyclebin-restore', label: 'Restore deleted records', description: 'Put back a domain, saved view or other record that was deleted', keywords: 'recycle bin restore undelete undo trash deleted recover', tab: 'recyclebin', adminOnly: true },
+    { id: 'recyclebin-purge', label: 'Permanently delete records', description: 'Destroy a soft-deleted record for good, or purge everything past retention', keywords: 'purge permanent destroy trash empty retention', tab: 'recyclebin', adminOnly: true },
+
+
     { id: 'site-registration', label: 'Public user registration', description: 'Allow or disable new user registration on the login page', keywords: 'registration public signup', tab: 'site', adminOnly: true },
     { id: 'site-appearance', label: 'Panel title & login layout', description: 'Set the panel name shown in the browser tab and on the sign-in page, and pick the login page layout', keywords: 'title brand name login layout appearance tab centered split minimal', tab: 'site', adminOnly: true },
     { id: 'site-app-ports', label: 'Managed app ports', description: 'Control the base port assigned to new applications', keywords: 'ports app wordpress container', tab: 'site', adminOnly: true },

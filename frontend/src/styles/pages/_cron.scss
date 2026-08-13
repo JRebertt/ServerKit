@@ -4,45 +4,6 @@
 
 .cron-page {
 
-    // ── list head ───────────────────────────────────────────
-    // No KPI strip and no in-body search box: the segmented filter carries the
-    // counts and search lives in the top bar, matching /domains. The section
-    // title anchors the left, everything that qualifies the list sits right.
-    .cron-listhead {
-        display: flex;
-        align-items: center;
-        gap: $space-4;
-        margin-bottom: $space-3;
-
-        &__title {
-            margin: 0;
-            font-size: 14px;
-            font-weight: $font-weight-semibold;
-            letter-spacing: -0.01em;
-            color: var(--text);
-        }
-
-        &__right {
-            display: flex;
-            align-items: center;
-            gap: $space-3;
-            margin-left: auto;
-        }
-
-        &__count {
-            font-family: var(--mono);
-            font-size: 11.5px;
-            color: var(--text-faint);
-            white-space: nowrap;
-        }
-
-        @media (max-width: $breakpoint-md) {
-            flex-wrap: wrap;
-
-            &__right { width: 100%; margin-left: 0; }
-        }
-    }
-
     .cron-servicenote {
         font-family: var(--mono);
         font-size: 11px;

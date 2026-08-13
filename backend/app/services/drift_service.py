@@ -323,8 +323,12 @@ def _nginx_list_resources():
     """Apps published via host nginx = apps that have Domain rows."""
     from app.models.application import Application
     from app.models.domain import Domain
-    rows = (Application.query
+    # Both sides must be live: drift REPAIR rewrites the vhost, so a tombstoned
+    # app (or an app whose only remaining domains are tombstoned) would have the
+    # config the delete removed written back.
+    rows = (Application.query_active()
             .join(Domain, Domain.application_id == Application.id)
+            .filter(Domain.deleted_at.is_(None))
             .distinct()
             .all())
     return [(app.id, app.name) for app in rows]
@@ -335,7 +339,7 @@ def _nginx_render_expected(app_id):
     from app.services.nginx_service import NginxService
     from app.services.site_domain_service import SiteDomainService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None:
         return {}
     kwargs, warning = SiteDomainService.app_vhost_kwargs(app)
@@ -357,7 +361,7 @@ def _nginx_repair(app_id):
     from app.services.nginx_service import NginxService
     from app.services.site_domain_service import SiteDomainService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None:
         return {'success': False, 'error': f'Application {app_id} not found'}
     res = SiteDomainService.write_app_vhost(app)
@@ -386,7 +390,7 @@ register_check({
 def _compose_list_resources():
     """Managed apps that live in a project dir (candidate compose apps)."""
     from app.models.application import Application
-    rows = Application.query.filter(Application.root_path.isnot(None)).all()
+    rows = Application.query_active().filter(Application.root_path.isnot(None)).all()
     out = []
     for app in rows:
         try:
@@ -403,7 +407,7 @@ def _compose_render_expected(app_id):
     from app.models.application import Application
     from app.services.compose_env_service import ComposeEnvService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None or not app.root_path:
         return {}
     spec = ComposeEnvService.render_override(app.root_path, app.compose_file)
@@ -418,7 +422,7 @@ def _compose_repair(app_id):
     from app.services.compose_env_service import ComposeEnvService
     from app.services.docker_service import DockerService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None:
         return {'success': False, 'error': f'Application {app_id} not found'}
     written = ComposeEnvService.refresh_for_project(app.root_path, app.compose_file)
@@ -461,7 +465,7 @@ def _manifest_list_resources():
     from app.services.manifest_apply_service import ManifestApplyService
 
     out = []
-    rows = Application.query.filter(Application.project_id.isnot(None)).all()
+    rows = Application.query_active().filter(Application.project_id.isnot(None)).all()
     for app in rows:
         try:
             if ManifestApplyService.resolved_for_app(app) is not None:
@@ -475,7 +479,7 @@ def _manifest_render_expected(app_id):
     from app.models.application import Application
     from app.services.manifest_apply_service import ManifestApplyService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None:
         return {}
     resolved = ManifestApplyService.resolved_for_app(app)
@@ -496,7 +500,7 @@ def _manifest_read_actual(paths):
         except (ValueError, IndexError):
             actual[path] = None
             continue
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         resolved = ManifestApplyService.resolved_for_app(app) if app else None
         if app is None or resolved is None:
             actual[path] = None
@@ -510,7 +514,7 @@ def _manifest_repair(app_id):
     from app.models.application import Application
     from app.services.manifest_apply_service import ManifestApplyService
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     if app is None:
         return {'success': False, 'error': f'Application {app_id} not found'}
     if not app.project_id:

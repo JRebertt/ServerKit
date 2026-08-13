@@ -466,7 +466,7 @@ def handle_subscribe_container_logs(data):
 
     # Get app and verify access
     try:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             emit('container_log_error', {'message': 'Application not found', 'app_id': app_id})
             return

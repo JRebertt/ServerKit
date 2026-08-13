@@ -1,35 +1,87 @@
-import { useEffect, useState } from 'react';
-import { Archive, Trash2, RefreshCw } from 'lucide-react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Archive, Trash2 } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '../EmptyState';
 import { useConfirm } from '../../hooks/useConfirm';
 import { formatBytes } from '@/utils/formatBytes';
+import { DataTable, DataTableFooter, SearchField } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
-const FILTERS = [
-    { id: 'all', label: 'All' },
-    { id: 'mysql', label: 'MySQL' },
-    { id: 'postgresql', label: 'PostgreSQL' },
+// The backend reports the engine as the bare wire name it derived from the
+// filename prefix; these are what the row (and therefore every rule) says.
+const ENGINE_LABEL = { mysql: 'MySQL', postgresql: 'PostgreSQL' };
+
+// Built-in saved views. The All / MySQL / PostgreSQL segmented row this replaces
+// was a column rule on the engine wearing a segmented control — and it re-asked
+// the server for a subset it already had. The list is fetched whole once and
+// sliced here, so the presets combine with a search and with each other's sorts.
+const NO_RULES = { match: 'all', rules: [] };
+const NEWEST_FIRST = [{ key: 'created', direction: 'desc' }];
+const PAGE_CLEAR = { search: '' };
+const ENGINE_IS = (label, id) => ({
+    match: 'all',
+    rules: [{ id, field: 'engine', op: 'any', value: [label] }],
+});
+
+const BACKUP_VIEWS = [
+    {
+        // The landing view: everything, most recent dump first, because the
+        // backup you care about is almost always the last one taken.
+        name: 'All backups',
+        state: { sorts: NEWEST_FIRST, hiddenKeys: [], columnFilters: NO_RULES, page: PAGE_CLEAR },
+    },
+    {
+        name: 'MySQL',
+        state: { sorts: NEWEST_FIRST, hiddenKeys: ['engine'], columnFilters: ENGINE_IS('MySQL', 'bk1'), page: PAGE_CLEAR },
+    },
+    {
+        name: 'PostgreSQL',
+        state: { sorts: NEWEST_FIRST, hiddenKeys: ['engine'], columnFilters: ENGINE_IS('PostgreSQL', 'bk2'), page: PAGE_CLEAR },
+    },
+    {
+        // Disk pressure, which is the other reason anyone opens this tab: the
+        // dumps worth pruning are at the top.
+        name: 'Largest first',
+        state: {
+            sorts: [{ key: 'size', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+            page: PAGE_CLEAR,
+        },
+    },
 ];
 
 export default function BackupsTab() {
     const { confirm } = useConfirm();
     const [backups, setBackups] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
+    const [search, setSearch] = useState('');
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: NEWEST_FIRST,
+        storageKey: 'serverkit-table-db-backups-sort',
+    });
+    const {
+        hiddenKeys, setHiddenKeys,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-db-backups-cols' });
 
-    useEffect(() => { load(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    async function load() {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await api.getDatabaseBackups(filter === 'all' ? null : filter);
+            const data = await api.getDatabaseBackups();
             setBackups(data.backups || []);
         } catch (err) {
             console.error('Failed to load backups:', err);
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
 
     async function remove(filename) {
         const ok = await confirm({ title: 'Delete backup', message: `Delete backup "${filename}"? This cannot be undone.`, confirmText: 'Delete backup', variant: 'danger' });
@@ -42,60 +94,200 @@ export default function BackupsTab() {
         }
     }
 
+    // Every derived column carries BOTH `value` (what the rules, the pick-lists
+    // and the export read) and `render` (the cell): `engine` and `created` are
+    // not keys on a backup row at all, and `size` is a raw byte count that would
+    // otherwise print as nine digits.
+    const columns = [
+        {
+            key: 'database',
+            header: 'Database',
+            sortable: true,
+            hideable: false,
+            type: 'text',
+            value: (b) => b.database || '',
+            cellClassName: 'sk-cell-name',
+        },
+        {
+            key: 'engine',
+            header: 'Engine',
+            sortable: true,
+            // Declared, not inferred: a directory holding two MySQL dumps and
+            // nothing else fails the enum cardinality test, which would turn the
+            // pick-list into a typed fragment and both engine views into no-ops.
+            type: 'enum',
+            enumOrder: ['MySQL', 'PostgreSQL'],
+            value: (b) => ENGINE_LABEL[b.type] || b.type || '',
+            sortValue: (b) => ENGINE_LABEL[b.type] || b.type || '',
+            render: (b) => (
+                <span className={`dbx-engine-tag is-${b.type}`}>{ENGINE_LABEL[b.type] || b.type}</span>
+            ),
+        },
+        {
+            key: 'filename',
+            header: 'File',
+            sortable: true,
+            type: 'text',
+            value: (b) => b.filename || '',
+            cellClassName: 'sk-cell-mono',
+        },
+        {
+            key: 'size',
+            header: 'Size',
+            sortable: true,
+            type: 'num',
+            value: (b) => (typeof b.size === 'number' ? b.size : null),
+            sortValue: (b) => (typeof b.size === 'number' ? b.size : null),
+            cellClassName: 'sk-cell-mono',
+            render: (b) => formatBytes(b.size, { decimals: 2, defaultValue: '0 B' }),
+        },
+        {
+            key: 'created',
+            header: 'Created',
+            sortable: true,
+            // Declared: `sortValue` is epoch ms, and letting that number type the
+            // column would offer "is under 1754…" instead of a date picker.
+            type: 'date',
+            value: (b) => b.created_at || null,
+            sortValue: (b) => {
+                const parsed = Date.parse(b.created_at || '');
+                return Number.isNaN(parsed) ? null : parsed;
+            },
+            cellClassName: 'sk-cell-mono',
+            render: (b) => {
+                const parsed = Date.parse(b.created_at || '');
+                return Number.isNaN(parsed) ? '—' : new Date(parsed).toLocaleString();
+            },
+        },
+        {
+            key: 'actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            className: 'text-right',
+            cellClassName: 'dbx-grid-actions',
+            render: (b) => (
+                <button type="button" className="dbx-icon-btn is-danger" onClick={() => remove(b.filename)} aria-label={`Delete ${b.filename}`}>
+                    <Trash2 size={14} aria-hidden="true" />
+                </button>
+            ),
+        },
+    ];
+
+    const shown = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        if (!term) return backups;
+        return backups.filter((b) => (
+            (b.database || '').toLowerCase().includes(term)
+            || (b.filename || '').toLowerCase().includes(term)
+        ));
+    }, [backups, search]);
+
+    const viewPageState = useMemo(() => ({ search }), [search]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearch(saved.search);
+    }, []);
+
+    // Scoped to this tab. `urlScope` because the Databases route can have a
+    // processes tab and a table's structure open beside this one, and three
+    // chrome instances would otherwise fight over the same ?view=/?sort=.
+    const chrome = useTableChrome({
+        columns,
+        rows: shown,
+        viewPageKey: 'databases-backups',
+        builtinViews: BACKUP_VIEWS,
+        urlScope: 'dbbackups',
+        noun: 'backups',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
+    if (loading) {
+        return <EmptyState loading loadingVariant="table" title="Loading backups…" />;
+    }
+
+    // An empty pane still needs a way to re-check. Returning the EmptyState on
+    // its own took the chrome — and with it the only Refresh on this tab — off
+    // the screen exactly when the user most wants to press it, because a backup
+    // that finished a second ago is the reason the list looks empty.
+    if (backups.length === 0) {
+        return (
+            <div className="dbx-backups">
+                <GridViewPicker
+                    views={chrome.views}
+                    label="backups"
+                    onCreate={chrome.createView}
+                    actions={<GridToolsMenu {...chrome.toolsProps} onRefresh={load} />}
+                />
+                <EmptyState
+                    icon={Archive}
+                    title="No backups yet"
+                    description="Back up a database from its tree menu and it will appear here."
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="dbx-backups">
-            <div className="dbx-backups-toolbar">
-                <div className="dbx-segmented">
-                    {FILTERS.map((f) => (
-                        <button key={f.id} type="button" className={filter === f.id ? 'is-active' : ''} onClick={() => setFilter(f.id)}>
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
-                <div className="dbx-table-toolbar-spacer" />
-                <button type="button" className="dbx-icon-btn" onClick={load} disabled={loading} aria-label="Refresh">
-                    <RefreshCw size={14} className={loading ? 'dbx-spin' : ''} aria-hidden="true" />
-                </button>
-            </div>
-
-            <div className="dbx-backups-body">
-                {loading ? (
-                    <EmptyState loading loadingVariant="table" title="Loading backups…" />
-                ) : backups.length === 0 ? (
-                    <EmptyState icon={Archive} title="No backups yet" description="Back up a database from its tree menu and it will appear here." />
-                ) : (
-                    <table className="dbx-grid dbx-backups-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Database</th>
-                                <th scope="col">Engine</th>
-                                <th scope="col">File</th>
-                                <th scope="col">Size</th>
-                                <th scope="col">Created</th>
-                                <th scope="col" aria-label="Actions" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {backups.map((b) => (
-                                <tr key={b.filename}>
-                                    <td className="dbx-col-name">{b.database}</td>
-                                    <td>
-                                        <span className={`dbx-engine-tag is-${b.type}`}>{b.type === 'mysql' ? 'MySQL' : 'PostgreSQL'}</span>
-                                    </td>
-                                    <td className="dbx-mono">{b.filename}</td>
-                                    <td className="dbx-mono">{formatBytes(b.size, { decimals: 2, defaultValue: '0 B' })}</td>
-                                    <td className="dbx-mono">{new Date(b.created_at).toLocaleString()}</td>
-                                    <td className="dbx-grid-actions">
-                                        <button type="button" className="dbx-icon-btn is-danger" onClick={() => remove(b.filename)} aria-label={`Delete ${b.filename}`}>
-                                            <Trash2 size={14} aria-hidden="true" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* One row of chrome. This pane lives inside the explorer's own tab
+                bar, so it stays inline rather than being hoisted; refresh is in
+                the "⋮" with the other table-wide actions. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="backups"
+                onCreate={chrome.createView}
+                actions={(
+                    <>
+                        <SearchField
+                            value={search}
+                            onSearch={setSearch}
+                            placeholder="Filter database or file…"
+                        />
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                    </>
                 )}
-            </div>
+            />
+
+            <GridChips {...chrome.chipProps} />
+
+            {/* Only the SEARCH can empty the pane outright. A column rule that
+                matches nothing keeps the table mounted — the header menu that
+                undoes it lives in the header. */}
+            {shown.length === 0 ? (
+                <EmptyState
+                    icon={Archive}
+                    title="No matching backups"
+                    description="No backup matches the current search."
+                />
+            ) : (
+                <DataTable
+                    {...chrome.tableProps}
+                    columns={chrome.columns}
+                    data={shown}
+                    keyField="filename"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    className="dbx-pane-scroll"
+                    footer={(
+                        <DataTableFooter
+                            shown={chrome.shownCount}
+                            total={backups.length}
+                            noun="backup"
+                        />
+                    )}
+                />
+            )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 }

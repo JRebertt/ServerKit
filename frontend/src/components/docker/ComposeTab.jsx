@@ -1,17 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
+import { DataTable, DataTableFooter, SearchField } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
-import { Package, Play, Square, RotateCw, FileText } from 'lucide-react';
+import { Package, Play, Square, RotateCw, FileText, Download } from 'lucide-react';
 import {
     useServer,
     unwrapRemoteData,
     normalizeListResponse,
 } from './dockerHelpers';
-import { IconAction, DownloadIcon } from './dockerShared';
+
+// `docker compose ls --format json` capitalises its keys; the label-scanning
+// fallback in docker_service builds the same shape by hand. Read through one
+// accessor each so a payload from either path lands in the same column.
+const projectName = (project) => project.Name || project.name || '';
+const projectStatus = (project) => project.Status || project.status || '';
+const projectConfig = (project) => project.ConfigFiles || project.config_files || '';
+
+// Status is a summary string — "running(3)" or "exited(2), running(1)" — so
+// both the label and the count have to be parsed out of it. A project with even
+// one container up counts as Running, which is what the old pill said too.
+const isProjectRunning = (project) => projectStatus(project).includes('running');
+const projectStatusLabel = (project) => (isProjectRunning(project) ? 'Running' : 'Stopped');
+const projectRunningCount = (project) => {
+    const match = projectStatus(project).match(/running\((\d+)\)/);
+    return match ? Number.parseInt(match[1], 10) : 0;
+};
+
+// Built-in views. Up/down is the only axis a compose listing carries, and it is
+// the one the pill already renders — so the two views below are the chip row
+// that used to sit above this table, minus the row.
+const NO_RULES = { match: 'all', rules: [] };
+const PAGE_CLEAR = { search: '' };
+const STATUS_IS = (id, value) => ({
+    match: 'all',
+    rules: [{ id, field: 'status', op: 'any', value: [value] }],
+});
+
+const COMPOSE_VIEWS = [
+    {
+        // What is actually serving traffic, busiest project first.
+        name: 'Running',
+        state: {
+            sorts: [{ key: 'running', direction: 'desc' }],
+            hiddenKeys: [],
+            columnFilters: STATUS_IS('dc1', 'Running'),
+            page: PAGE_CLEAR,
+        },
+    },
+    {
+        // Projects the CLI still knows about but nothing is up for — either
+        // deliberately parked or something failed to come back after a reboot.
+        name: 'Stopped',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: STATUS_IS('dc2', 'Stopped'),
+            page: PAGE_CLEAR,
+        },
+    },
+    {
+        // The way back out of either of the above.
+        name: 'All projects',
+        state: {
+            sorts: [{ key: 'name', direction: 'asc' }],
+            hiddenKeys: [],
+            columnFilters: NO_RULES,
+            page: PAGE_CLEAR,
+        },
+    },
+];
 
 // Compose Tab
 const ComposeTab = ({ onStatsChange }) => {
@@ -22,10 +89,18 @@ const ComposeTab = ({ onStatsChange }) => {
     const [loading, setLoading] = useState(true);
     const [logsProject, setLogsProject] = useState(null);
     const [actionLoading, setActionLoading] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: [{ key: 'name', direction: 'asc' }],
+        storageKey: 'serverkit-table-docker-compose-sort',
+    });
+    const { hiddenKeys, setHiddenKeys } = useColumnVisibility({
+        storageKey: 'serverkit-table-docker-compose-cols',
+    });
 
     useEffect(() => {
         loadProjects();
-    }, [serverId]);
+    }, [serverId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function loadProjects() {
         setLoading(true);
@@ -46,13 +121,14 @@ const ComposeTab = ({ onStatsChange }) => {
     }
 
     async function handleAction(project, action) {
-        const projectPath = project.ConfigFiles || project.config_files;
+        const projectPath = projectConfig(project);
         if (!projectPath) {
             toast.error('Project path not found');
             return;
         }
 
-        setActionLoading(prev => ({ ...prev, [project.Name || project.name]: true }));
+        const name = projectName(project);
+        setActionLoading(prev => ({ ...prev, [name]: true }));
 
         try {
             if (action === 'up') {
@@ -65,7 +141,7 @@ const ComposeTab = ({ onStatsChange }) => {
             } else if (action === 'down') {
                 const downConfirmed = await confirmCompose({ title: 'Stop Compose Project', message: 'Stop this compose project? Containers will be removed.' });
                 if (!downConfirmed) {
-                    setActionLoading(prev => ({ ...prev, [project.Name || project.name]: false }));
+                    setActionLoading(prev => ({ ...prev, [name]: false }));
                     return;
                 }
                 if (isRemote) {
@@ -95,130 +171,245 @@ const ComposeTab = ({ onStatsChange }) => {
             console.error(`Failed to ${action} project:`, err);
             toast.error(err.message || `Failed to ${action} project`);
         } finally {
-            setActionLoading(prev => ({ ...prev, [project.Name || project.name]: false }));
+            setActionLoading(prev => ({ ...prev, [name]: false }));
         }
     }
 
-    function getProjectStatus(project) {
-        const status = project.Status || project.status || '';
-        if (status.includes('running')) return 'running';
-        if (status.includes('exited') || status.includes('stopped')) return 'exited';
-        return 'unknown';
-    }
+    const filteredProjects = useMemo(() => {
+        const search = searchTerm.toLowerCase();
+        if (!search) return projects;
+        return projects.filter((project) => (
+            projectName(project).toLowerCase().includes(search) ||
+            projectConfig(project).toLowerCase().includes(search)
+        ));
+    }, [projects, searchTerm]);
 
-    function parseRunningCount(status) {
-        // Parse status like "running(3)" or "exited(2), running(1)"
-        const match = status.match(/running\((\d+)\)/);
-        return match ? parseInt(match[1], 10) : 0;
-    }
+    // Every derived column carries BOTH `value` (rules, export) and `render`
+    // (the cell). One without the other renders blank — and `running`, an array
+    // of nothing on the row itself, would have thrown outright.
+    const columns = [
+        {
+            key: 'name',
+            header: 'Project',
+            sortable: true,
+            hideable: false,
+            type: 'text',
+            value: projectName,
+            sortValue: projectName,
+            render: (project) => (
+                <span className="dx-name-line" title={projectName(project)}>
+                    <span>{projectName(project)}</span>
+                </span>
+            ),
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            // Declared: two labels across a handful of rows infer as text, which
+            // would turn both views above into typed-fragment matches. The
+            // pill's own word IS the filterable value.
+            type: 'enum',
+            enumOrder: ['Running', 'Stopped'],
+            width: 170,
+            value: projectStatusLabel,
+            // Running first on asc, matching the old default ordering.
+            sortValue: (project) => (isProjectRunning(project) ? 0 : 1),
+            render: (project) => (
+                <>
+                    <span className={`dx-status-pill ${isProjectRunning(project) ? 'running' : 'stopped'}`}>
+                        {projectStatusLabel(project)}
+                    </span>
+                    <span className="dx-muted-line" title={projectStatus(project)}>
+                        {projectStatus(project) || 'unknown'}
+                    </span>
+                </>
+            ),
+        },
+        {
+            key: 'running',
+            header: 'Up',
+            sortable: true,
+            // Declared with the raw container count behind it, so "up is over 0"
+            // is a numeric rule rather than a string match on "running(3)".
+            type: 'num',
+            width: 90,
+            value: projectRunningCount,
+            sortValue: projectRunningCount,
+            render: (project) => {
+                const count = projectRunningCount(project);
+                if (!count) return <span className="dx-muted-line">-</span>;
+                return <span className="dx-muted-line mono">{count}</span>;
+            },
+        },
+        {
+            key: 'config',
+            header: 'Config File',
+            sortable: true,
+            type: 'text',
+            value: projectConfig,
+            sortValue: projectConfig,
+            render: (project) => (
+                <span className="dx-muted-line mono" title={projectConfig(project)}>
+                    {projectConfig(project) || '-'}
+                </span>
+            ),
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            width: 132,
+            className: 'text-right',
+            render: (project) => {
+                const busy = !!actionLoading[projectName(project)];
+                const running = isProjectRunning(project);
+                return (
+                    <div className="dx-row-actions">
+                        <button
+                            type="button"
+                            className="dx-row-action"
+                            onClick={() => setLogsProject(project)}
+                            disabled={busy}
+                            title="Logs"
+                        >
+                            <FileText size={13} />
+                        </button>
+                        {running ? (
+                            <>
+                                <button
+                                    type="button"
+                                    className="dx-row-action"
+                                    onClick={() => handleAction(project, 'restart')}
+                                    disabled={busy}
+                                    title="Restart"
+                                >
+                                    <RotateCw size={13} />
+                                </button>
+                                <button
+                                    type="button"
+                                    className="dx-row-action is-danger"
+                                    onClick={() => handleAction(project, 'down')}
+                                    disabled={busy}
+                                    title="Stop"
+                                >
+                                    <Square size={13} />
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                className="dx-row-action is-success"
+                                onClick={() => handleAction(project, 'up')}
+                                disabled={busy}
+                                title="Start"
+                            >
+                                <Play size={13} />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="dx-row-action"
+                            onClick={() => handleAction(project, 'pull')}
+                            disabled={busy}
+                            title="Pull images"
+                        >
+                            <Download size={13} />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ];
+
+    const viewPageState = useMemo(() => ({ search: searchTerm }), [searchTerm]);
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearchTerm(saved.search);
+    }, []);
+
+    // Chrome INLINE in the picker's `actions` — the Docker page owns the top bar
+    // above this panel. `urlScope` because that one route renders five of these
+    // tables, and the link params (`view`, `sort`, `hide`, `f`…) are global
+    // names: unscoped, the compose sort would arrive as the containers sort.
+    const chrome = useTableChrome({
+        columns,
+        rows: filteredProjects,
+        viewPageKey: 'docker-compose',
+        urlScope: 'compose',
+        builtinViews: COMPOSE_VIEWS,
+        noun: 'projects',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
 
     if (loading) {
-        return <div className="docker-loading">Loading compose projects...</div>;
+        return (
+            <div className="dx-tab-pane">
+                <div className="docker-loading">Loading compose projects...</div>
+            </div>
+        );
     }
 
     return (
-        <div>
-            <div className="docker-table-header">
-                <div className="docker-table-info">
-                    {projects.length} project{projects.length !== 1 ? 's' : ''} found
-                </div>
-                <Button variant="outline" size="sm" onClick={loadProjects}>
-                    Refresh
-                </Button>
-            </div>
+        <div className="dx-tab-pane dx-list-pane">
+            <GridViewPicker
+                views={chrome.views}
+                label="projects"
+                onCreate={chrome.createView}
+                actions={(
+                    <>
+                        <SearchField
+                            value={searchTerm}
+                            onSearch={setSearchTerm}
+                            placeholder="Filter project or config path…"
+                        />
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        {/* Refresh is not repeated as its own icon: it rides the
+                            "⋮" with the other table-wide actions. */}
+                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadProjects} />
+                    </>
+                )}
+            />
 
-            {projects.length === 0 ? (
+            <GridChips {...chrome.chipProps} />
+
+            {filteredProjects.length === 0 ? (
                 <EmptyState
                     icon={Package}
-                    title="No Compose projects"
-                    description="No Docker Compose projects are running on this server."
-                    action={<code>docker compose up -d</code>}
+                    title={projects.length === 0 ? 'No Compose projects' : 'No matching projects'}
+                    description={projects.length === 0
+                        ? 'No Docker Compose projects are running on this server.'
+                        : 'No projects match the current search.'}
+                    action={projects.length === 0 ? <code>docker compose up -d</code> : null}
                 />
             ) : (
-                <table className="docker-table">
-                    <thead>
-                        <tr>
-                            <th>Project</th>
-                            <th>Status</th>
-                            <th>Config File</th>
-                            <th className="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {projects.map(project => {
-                            const name = project.Name || project.name;
-                            const status = project.Status || project.status || 'unknown';
-                            const configFiles = project.ConfigFiles || project.config_files || '';
-                            const isRunning = getProjectStatus(project) === 'running';
-                            const runningCount = parseRunningCount(status);
-                            const isLoading = actionLoading[name];
-
-                            return (
-                                <tr key={name}>
-                                    <td>
-                                        <span className="docker-container-name">{name}</span>
-                                    </td>
-                                    <td>
-                                        <span className={`docker-status-pill ${isRunning ? 'running' : 'exited'}`}>
-                                            <span className="docker-status-dot" />
-                                            {isRunning ? `Running (${runningCount})` : 'Stopped'}
-                                        </span>
-                                        <div className="docker-status-detail">{status}</div>
-                                    </td>
-                                    <td>
-                                        <span className="docker-container-id truncate inline-block" style={{ maxWidth: '300px' }}>
-                                            {configFiles}
-                                        </span>
-                                    </td>
-                                    <td className="docker-actions-cell">
-                                        <IconAction
-                                            title="Logs"
-                                            onClick={() => setLogsProject(project)}
-                                            disabled={isLoading}
-                                        >
-                                            <FileText size={14} />
-                                        </IconAction>
-                                        {isRunning ? (
-                                            <>
-                                                <IconAction
-                                                    title="Restart"
-                                                    onClick={() => handleAction(project, 'restart')}
-                                                    disabled={isLoading}
-                                                >
-                                                    <RotateCw size={14} />
-                                                </IconAction>
-                                                <IconAction
-                                                    title="Stop"
-                                                    onClick={() => handleAction(project, 'down')}
-                                                    disabled={isLoading}
-                                                    color="#EF4444"
-                                                >
-                                                    <Square size={14} />
-                                                </IconAction>
-                                            </>
-                                        ) : (
-                                            <IconAction
-                                                title="Start"
-                                                onClick={() => handleAction(project, 'up')}
-                                                disabled={isLoading}
-                                                color="#10B981"
-                                            >
-                                                <Play size={14} />
-                                            </IconAction>
-                                        )}
-                                        <IconAction
-                                            title="Pull Images"
-                                            onClick={() => handleAction(project, 'pull')}
-                                            disabled={isLoading}
-                                        >
-                                            <DownloadIcon />
-                                        </IconAction>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                <section className="dx-resource-list">
+                    <DataTable
+                        {...chrome.tableProps}
+                        columns={chrome.columns}
+                        data={filteredProjects}
+                        keyField={(project) => projectName(project)}
+                        sorts={sorts}
+                        onSortsChange={setSorts}
+                        className="dx-table-wrap"
+                        tableClassName="dx-manager-table dx-plain-table"
+                        footer={(
+                            <DataTableFooter
+                                shown={chrome.shownCount}
+                                total={projects.length}
+                                noun="project"
+                            />
+                        )}
+                    />
+                </section>
             )}
 
             {logsProject && (
@@ -227,6 +418,8 @@ const ComposeTab = ({ onStatsChange }) => {
                     onClose={() => setLogsProject(null)}
                 />
             )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
         </div>
     );
 };
@@ -240,13 +433,13 @@ const ComposeLogsModal = ({ project, onClose }) => {
     const [selectedService, setSelectedService] = useState('');
     const [services, setServices] = useState([]);
 
-    const projectName = project.Name || project.name;
-    const projectPath = project.ConfigFiles || project.config_files || '';
+    const name = projectName(project);
+    const projectPath = projectConfig(project);
 
     useEffect(() => {
         loadServices();
         loadLogs();
-    }, [project, tail, selectedService]);
+    }, [project, tail, selectedService]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function loadServices() {
         try {
@@ -291,7 +484,7 @@ const ComposeLogsModal = ({ project, onClose }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={`Logs: ${projectName}`} size="lg">
+        <Modal open onClose={onClose} title={`Logs: ${name}`} size="lg">
             <div className="modal-body">
                 <div className="logs-controls flex flex-wrap items-center gap-2 mb-2">
                     <label>Service:</label>

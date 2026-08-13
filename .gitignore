@@ -37,6 +37,8 @@ __pycache__/
 /backend/pip-log.txt
 /backend/pip-delete-this-directory.txt
 /backend/dev-data/
+# Runtime state written by cron_service.py into the shipped data dir.
+/backend/app/data/cron_jobs.json
 /venv/
 
 # Go / Agent
@@ -62,6 +64,12 @@ __pycache__/
 .env.development.local
 .env.test.local
 .env.production.local
+# ...and any copy of one. These rules were exact-match, so a `.bak` left behind
+# by an editor or by dev.ps1 rewriting its own block showed up as an untracked
+# file begging to be committed — and a local env file holds the WSL IP of
+# whichever machine wrote it.
+.env*.local.*
+.env*.local-*
 *.key
 *.pem
 *.crt

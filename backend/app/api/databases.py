@@ -683,7 +683,7 @@ def list_all_docker_databases():
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
     app_q = WorkspaceService.scope_query(
-        Application.query.filter_by(app_type='docker'), Application, user,
+        Application.query_active().filter_by(app_type='docker'), Application, user,
         workspace_id=ws_id, owner_attr='user_id', grant_resource_type='application')
 
     out = []
@@ -712,7 +712,7 @@ def get_app_databases(app_id):
     """
     current_user_id = get_jwt_identity()
     user = User.query.get(current_user_id)
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
         return jsonify({'error': 'Application not found'}), 404

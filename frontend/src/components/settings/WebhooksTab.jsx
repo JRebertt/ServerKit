@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import Modal from '@/components/Modal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '../../contexts/ToastContext';
@@ -234,13 +234,9 @@ export default function WebhooksTab() {
                 </Card>
             )}
 
-            <Dialog open={endpointForm.open} onOpenChange={(open) => setEndpointForm({ ...endpointForm, open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New Webhook Endpoint</DialogTitle>
-                        <DialogDescription>Create a slug, secret, and optional forward URL.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={createEndpoint} className="space-y-4">
+            <Modal open={endpointForm.open} onClose={() => setEndpointForm({ ...endpointForm, open: false })} title="New Webhook Endpoint">
+                <p className="sk-modal__subtitle">Create a slug, secret, and optional forward URL.</p>
+                <form onSubmit={createEndpoint} className="space-y-4">
                         <div>
                             <Label htmlFor="epName">Name</Label>
                             <Input id="epName" value={endpointForm.name} onChange={(e) => setEndpointForm({ ...endpointForm, name: e.target.value })} required />
@@ -257,20 +253,22 @@ export default function WebhooksTab() {
                             <Label htmlFor="epRetry">Retries</Label>
                             <Input id="epRetry" type="number" min={0} max={10} value={endpointForm.retry_count} onChange={(e) => setEndpointForm({ ...endpointForm, retry_count: e.target.value })} />
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="submit">Create Endpoint</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
 
-            <Dialog open={!!regeneratedSecret} onOpenChange={() => setRegeneratedSecret(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Webhook Secret</DialogTitle>
-                        <DialogDescription>Copy this secret now. It will not be shown again.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2">
+            <Modal
+                open={!!regeneratedSecret}
+                onClose={() => setRegeneratedSecret(null)}
+                title="Webhook Secret"
+                footer={(
+                    <Button onClick={() => setRegeneratedSecret(null)}>Done</Button>
+                )}
+            >
+                <p className="sk-modal__subtitle">Copy this secret now. It will not be shown again.</p>
+                <div className="space-y-2">
                         <Label>Endpoint</Label>
                         <Input readOnly value={regeneratedSecret?.name || ''} />
                         <Label>Secret</Label>
@@ -281,11 +279,7 @@ export default function WebhooksTab() {
                             </Button>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button onClick={() => setRegeneratedSecret(null)}>Done</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            </Modal>
         </div>
     );
 }

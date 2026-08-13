@@ -20,7 +20,7 @@ def _job_visible_to(user, job):
     """Read gate for one job: app-linked jobs follow the app's grant seam;
     app-less jobs belong to their requester (or a panel admin)."""
     if job.app_id:
-        app = Application.query.get(job.app_id)
+        app = Application.query_active().filter_by(id=job.app_id).first()
         return app is not None and ResourceGrantService.can_access_app(user, app)
     return user.is_admin or job.requested_by == user.id
 
@@ -29,7 +29,7 @@ def _job_operable_by(user, job):
     """Operate gate (retry): app-linked jobs need member+ on the app; app-less
     jobs stay requester-or-admin."""
     if job.app_id:
-        app = Application.query.get(job.app_id)
+        app = Application.query_active().filter_by(id=job.app_id).first()
         return app is not None and ResourceGrantService.can_operate_app(user, app)
     return user.is_admin or job.requested_by == user.id
 
@@ -86,7 +86,7 @@ def list_deployment_jobs():
     limit = request.args.get('limit', 50, type=int)
 
     if app_id:
-        app = Application.query.get(app_id)
+        app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:

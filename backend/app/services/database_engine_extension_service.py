@@ -448,7 +448,7 @@ def engine_instances() -> List[Dict]:
     from app.models import Application
 
     described = []
-    for app in Application.query.order_by(Application.created_at.asc()).all():
+    for app in Application.query_active().order_by(Application.created_at.asc()).all():
         record = _describe(app)
         if record:
             described.append(record)
@@ -459,7 +459,7 @@ def _find_instance(app_id: int) -> Optional[Dict]:
     """One installed engine by app id, or ``None`` when it is not an engine."""
     from app.models import Application
 
-    app = Application.query.get(app_id)
+    app = Application.query_active().filter_by(id=app_id).first()
     return _describe(app) if app is not None else None
 
 

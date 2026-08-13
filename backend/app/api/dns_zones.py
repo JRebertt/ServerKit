@@ -210,6 +210,10 @@ def list_managed_records():
     from app.services.dns_ownership_service import DnsOwnershipService
     from app.models.application import Application
     rows = DnsOwnershipService.list_all()
+    # Deliberately unfiltered. These records still EXIST at the provider after
+    # the app that created them is deleted, and this table is where an operator
+    # goes to find orphans; blanking app_name would turn the traceable ones into
+    # unattributed records. Display only — nothing here acts on the app.
     app_names = {a.id: a.name for a in Application.query.all()} if rows else {}
     out = []
     for r in rows:

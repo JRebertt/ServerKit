@@ -81,6 +81,7 @@ from app.models.server_survey import ServerSurvey
 from app.models.dns_cutover_snapshot import DnsCutoverSnapshot
 from app.models.theme import Theme
 from app.models.plugin_store import PluginStore
+from app.models.saved_view import SavedView
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -133,4 +134,5 @@ __all__ = [
     'DnsCutoverSnapshot',
     'Theme',
     'PluginStore',
+    'SavedView',
 ]

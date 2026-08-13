@@ -27,6 +27,10 @@
     --bg-tertiary: #1c2029;    // = --surface-3
 
     // ---- Backgrounds (new prototype names) ----
+    // --surface-0 is the recessed step BELOW --surface: group headers, drawer
+    // tab strips and drawer footers sit on it so they read as part of the
+    // chrome rather than as another card.
+    --surface-0: #0d0f14;
     --surface: #101218;
     --surface-2: #161922;
     --surface-3: #1c2029;
@@ -120,6 +124,7 @@
     --bg-elevated: #ffffff;
     --bg-secondary: #f1f3f9;
     --bg-tertiary: #e6e9f2;
+    --surface-0: #f1f3f9;
     --surface: #ffffff;
     --surface-2: #f6f7fb;
     --surface-3: #eef1f7;
@@ -178,6 +183,7 @@
         --bg-elevated: #ffffff;
         --bg-secondary: #f1f3f9;
         --bg-tertiary: #e6e9f2;
+        --surface-0: #f1f3f9;
         --surface: #ffffff;
         --surface-2: #f6f7fb;
         --surface-3: #eef1f7;

@@ -162,7 +162,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 1rem;
     padding: 0 0.5rem;
     flex-shrink: 0;
 }
@@ -263,6 +262,44 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+// Quick-create — a small circular accent "+" (AI chat-bubble style) that rides
+// on the first sidebar category row, next to the section label. Doubled class
+// beats the base `.quick-create` rules, which live in a later-imported
+// stylesheet.
+.nav-category--create {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-right: 0.35rem;
+}
+
+.quick-create.quick-create--fab {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(160deg, var(--accent-bright), var(--accent));
+    box-shadow: 0 2px 8px -1px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    color: #fff;
+    flex-shrink: 0;
+    transition: filter 0.15s, transform 0.15s;
+
+    svg {
+        stroke: #fff;
+    }
+
+    &:hover {
+        background: linear-gradient(160deg, var(--accent-bright), var(--accent));
+        color: #fff;
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+    }
+
+    &:active {
+        transform: translateY(0);
+    }
 }
 
 // Scrollable Navigation Container
@@ -749,6 +786,19 @@
                     gap: 0;
                 }
 
+                // Category labels hide in the collapsed rail, but the row
+                // hosting quick-create stays so the "+" survives as a bare
+                // circular FAB.
+                .nav-category.nav-category--create {
+                    display: flex;
+                    justify-content: center;
+                    margin: 0.75rem 0 0.5rem;
+
+                    span {
+                        display: none;
+                    }
+                }
+
                 .brand-text,
                 .brand-star,
                 .nav-category,
@@ -811,6 +861,19 @@
             margin: 0;
             flex-shrink: 0;
             max-width: 170px;
+        }
+
+        // Category labels are hidden in the bar, but keep the quick-create row
+        // visible as a bare circular FAB at the start of the nav strip.
+        .nav-category.nav-category--create {
+            display: flex;
+            align-items: center;
+            margin: 0;
+            flex-shrink: 0;
+
+            span {
+                display: none;
+            }
         }
 
         // Nav fills the middle of the bar and scrolls horizontally if it runs long.

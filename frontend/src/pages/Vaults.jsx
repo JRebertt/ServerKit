@@ -1,19 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Modal from '@/components/Modal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '../contexts/ToastContext';
-import { Plus, MoreVertical, Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
-import EmptyState from '../components/EmptyState';
+import { ArrowLeft, Plus, MoreVertical, Copy, Eye, EyeOff, KeyRound, Trash2 } from 'lucide-react';
+import ResourceListPage from '../components/layouts/ResourceListPage';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { SearchField, ServiceTile } from '@/components/ds';
+import { formatRelativeTime } from '@/utils/time';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
+
+// Two tables, one chrome. The vault list and a vault's secrets are the same
+// surface at two depths, so both go through ResourceListPage rather than the
+// list being a table and the drill-down being a hand-rolled card.
+const VAULT_VIEWS = [
+    { name: 'All vaults', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: null } },
+    {
+        name: 'Empty vaults',
+        state: {
+            search: '',
+            sorts: [],
+            hiddenKeys: [],
+            columnFilters: { match: 'all', rules: [{ id: 'vv1', field: 'secrets', op: 'eq', value: 0 }] },
+        },
+    },
+];
 
 /**
  * Vaults — encrypted key/value stores for credentials and tokens. Rendered
@@ -34,6 +51,7 @@ export default function Vaults() {
     const [secretForm, setSecretForm] = useState({ open: false, name: '', value: '', description: '' });
     const [revealSecretId, setRevealSecretId] = useState(null);
     const [revealedValue, setRevealedValue] = useState('');
+    const [search, setSearch] = useState('');
 
     useEffect(() => {
         loadAll();
@@ -131,135 +149,230 @@ export default function Vaults() {
         }
     }
 
-    if (loading) {
-        return (
-            <div className="sk-tabgroup__inner secrets-page">
-                <EmptyState loading loadingVariant="table" title="Loading vaults..." />
-            </div>
-        );
-    }
+    // The top bar follows the depth: at the list it creates vaults, inside one
+    // it goes back and adds secrets. Search is published here too so it lands
+    // in the bar next to the filter and "⋮" the table hoists into it.
+    useTopbarActions(() => (selectedVault ? (
+        <>
+            <Button variant="outline" size="sm" onClick={() => setSelectedVault(null)}>
+                <ArrowLeft size={15} /> All vaults
+            </Button>
+            <Button size="sm" onClick={() => setSecretForm({ open: true, name: '', value: '', description: '' })}>
+                <Plus size={15} /> Add secret
+            </Button>
+            <SearchField value={search} onSearch={setSearch} placeholder="Search secrets…" />
+        </>
+    ) : (
+        <>
+            <Button size="sm" onClick={() => setVaultForm({ open: true, name: '', description: '', workspace_id: activeWorkspaceId })}>
+                <Plus size={15} /> New vault
+            </Button>
+            <SearchField value={search} onSearch={setSearch} placeholder="Search vaults…" />
+        </>
+    )), [selectedVault, search, activeWorkspaceId]);
 
-    return (
-        <div className="sk-tabgroup__inner secrets-page">
-            {!selectedVault ? (
-                <Card>
-                    <CardHeader>
-                        <div className="secrets__header">
-                            <div>
-                                <CardTitle>Secret Vaults</CardTitle>
-                                <CardDescription>Encrypted key/value stores for credentials and tokens.</CardDescription>
-                            </div>
-                            <Button onClick={() => setVaultForm({ open: true, name: '', description: '', workspace_id: activeWorkspaceId })}>
-                                <Plus size={14} /> New Vault
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {vaults.length === 0 ? (
-                            <EmptyState title="No vaults yet" description="Create a vault to start storing secrets." />
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Secrets</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {vaults.map(vault => (
-                                        <TableRow key={vault.id} className="cursor-pointer" onClick={() => openVault(vault.id)}>
-                                            <TableCell className="font-medium">{vault.name}</TableCell>
-                                            <TableCell>{vault.description || '—'}</TableCell>
-                                            <TableCell>{vault.secret_count ?? '—'}</TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                                        <Button variant="ghost" size="icon"><MoreVertical size={14} /></Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => openVault(vault.id)}>Open</DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteVault(vault.id)}>Delete</DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
-                    <CardHeader>
-                        <div className="secrets__header">
-                            <div>
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedVault(null)}>← Back</Button>
-                                <CardTitle className="mt-2">{selectedVault.name}</CardTitle>
-                                <CardDescription>{selectedVault.description || 'No description'}</CardDescription>
-                            </div>
-                            <Button onClick={() => setSecretForm({ open: true, name: '', value: '', description: '' })}>
-                                <Plus size={14} /> Add Secret
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {(selectedVault.secrets || []).length === 0 ? (
-                            <EmptyState title="No secrets yet" description="Add your first secret to this vault." />
-                        ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Value</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead>Updated</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {selectedVault.secrets.map(secret => {
-                                        const revealed = revealSecretId === secret.id;
-                                        return (
-                                            <TableRow key={secret.id}>
-                                                <TableCell className="font-medium">{secret.name}</TableCell>
-                                                <TableCell>
-                                                    <code className="secrets__value">
-                                                        {revealed ? revealedValue : secret.value}
-                                                    </code>
-                                                </TableCell>
-                                                <TableCell>{secret.description || '—'}</TableCell>
-                                                <TableCell>{formatDate(secret.updated_at)}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" onClick={() => revealed ? setRevealSecretId(null) : revealSecret(secret)}>
-                                                        {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(revealed ? revealedValue : secret.value); toast.success('Copied') }}>
-                                                        <Copy size={14} />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteSecret(secret.id)}>
-                                                        <Trash2 size={14} />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
+    // Reset the query when changing depth — a term that matched a vault name is
+    // almost never a secret name, and leaving it applied shows an empty table.
+    useEffect(() => { setSearch(''); }, [selectedVault?.id]);
+
+    const vaultRows = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return vaults;
+        return vaults.filter((v) => (
+            v.name?.toLowerCase().includes(q) || v.description?.toLowerCase().includes(q)
+        ));
+    }, [vaults, search]);
+
+    const secretRows = useMemo(() => {
+        const all = selectedVault?.secrets || [];
+        const q = search.trim().toLowerCase();
+        if (!q) return all;
+        return all.filter((s) => (
+            s.name?.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
+        ));
+    }, [selectedVault, search]);
+
+    const vaultColumns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Vault',
+            sortable: true,
+            hideable: false,
+            value: (v) => v.name,
+            render: (v) => (
+                <div className="sk-cell-name">
+                    <ServiceTile name={v.name} size={30} className="wp-list__tile" aria-hidden="true" />
+                    <span>{v.name}</span>
+                </div>
+            ),
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            value: (v) => v.description || '',
+            render: (v) => v.description || <span className="wp-list__dash">—</span>,
+        },
+        {
+            key: 'secrets',
+            header: 'Secrets',
+            type: 'number',
+            sortable: true,
+            width: 100,
+            cellClassName: 'sk-cell-mono',
+            // `value` sorts and filters; `render` is what the cell shows —
+            // DataTable falls back to row[key], and there is no `secrets` key.
+            value: (v) => v.secret_count ?? 0,
+            render: (v) => v.secret_count ?? 0,
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            width: 56,
+            className: 'text-right',
+            render: (v) => (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon"><MoreVertical size={14} /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openVault(v.id)}>Open</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => deleteVault(v.id)}>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ),
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], []);
+
+    const secretColumns = useMemo(() => [
+        {
+            key: 'name',
+            header: 'Secret',
+            sortable: true,
+            hideable: false,
+            value: (s) => s.name,
+            cellClassName: 'sk-cell-mono',
+        },
+        {
+            key: 'value',
+            header: 'Value',
+            sortable: false,
+            filterable: false,
+            render: (s) => (
+                <code className="secrets__value">
+                    {revealSecretId === s.id ? revealedValue : s.value}
+                </code>
+            ),
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            sortable: true,
+            value: (s) => s.description || '',
+            render: (s) => s.description || <span className="wp-list__dash">—</span>,
+        },
+        {
+            key: 'updated',
+            header: 'Updated',
+            type: 'date',
+            sortable: true,
+            width: 130,
+            cellClassName: 'sk-cell-mono',
+            value: (s) => s.updated_at || null,
+            render: (s) => (s.updated_at
+                ? <span title={formatDate(s.updated_at)}>{formatRelativeTime(s.updated_at)}</span>
+                : <span className="wp-list__dash">—</span>),
+        },
+        {
+            key: '__actions',
+            header: '',
+            sortable: false,
+            hideable: false,
+            width: 120,
+            className: 'text-right',
+            render: (s) => {
+                const revealed = revealSecretId === s.id;
+                return (
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" onClick={() => (revealed ? setRevealSecretId(null) : revealSecret(s))} title={revealed ? 'Hide' : 'Reveal'}>
+                            {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Copy" onClick={() => { navigator.clipboard.writeText(revealed ? revealedValue : s.value); toast.success('Copied'); }}>
+                            <Copy size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" title="Delete" onClick={() => deleteSecret(s.id)}>
+                            <Trash2 size={14} />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], [revealSecretId, revealedValue]);
+
+    const vaultTable = selectedVault ? (
+        <ResourceListPage
+            key="secrets"
+            loading={false}
+            storageKey="serverkit-list-secrets"
+            viewPageKey="vault-secrets"
+            noun="secrets"
+            totalCount={(selectedVault.secrets || []).length}
+            items={secretRows}
+            columns={secretColumns}
+            keyField="id"
+            emptyIcon={KeyRound}
+            emptyTitle="No secrets yet"
+            emptyDescription={`Add your first secret to ${selectedVault.name}.`}
+            emptyAction={(
+                <Button onClick={() => setSecretForm({ open: true, name: '', value: '', description: '' })}>
+                    <Plus size={16} /> Add secret
+                </Button>
             )}
+            filteredEmptyIcon={KeyRound}
+            filteredEmptyTitle="No secrets found"
+            filteredEmptyDescription="Try adjusting your search or filters."
+        />
+    ) : (
+        <ResourceListPage
+            key="vaults"
+            loading={loading}
+            loadingTitle="Loading vaults…"
+            storageKey="serverkit-list-vaults"
+            viewPageKey="vaults"
+            noun="vaults"
+            builtinViews={VAULT_VIEWS}
+            totalCount={vaults.length}
+            items={vaultRows}
+            columns={vaultColumns}
+            keyField="id"
+            onRowClick={(v) => openVault(v.id)}
+            emptyIcon={KeyRound}
+            emptyTitle="No vaults yet"
+            emptyDescription="A vault is an encrypted key/value store for credentials and tokens. Create one to start putting secrets in it."
+            emptyAction={(
+                <Button onClick={() => setVaultForm({ open: true, name: '', description: '', workspace_id: activeWorkspaceId })}>
+                    <Plus size={16} /> Create your first vault
+                </Button>
+            )}
+            filteredEmptyIcon={KeyRound}
+            filteredEmptyTitle="No vaults found"
+            filteredEmptyDescription="Try adjusting your search or filters."
+        />
+    );
 
-            <Dialog open={vaultForm.open} onOpenChange={(open) => setVaultForm({ ...vaultForm, open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New Vault</DialogTitle>
-                        <DialogDescription>Create an encrypted vault to group secrets.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={createVault} className="space-y-4">
+    // ResourceListPage supplies the `sk-tabgroup__inner` wrapper itself, so the
+    // page is just the active table plus the two dialogs.
+    return (
+        <>
+            {vaultTable}
+
+            <Modal open={vaultForm.open} onClose={() => setVaultForm({ ...vaultForm, open: false })} title="New Vault">
+                <p className="sk-modal__subtitle">Create an encrypted vault to group secrets.</p>
+                <form onSubmit={createVault} className="space-y-4">
                         <div>
                             <Label htmlFor="vaultName">Name</Label>
                             <Input id="vaultName" value={vaultForm.name} onChange={(e) => setVaultForm({ ...vaultForm, name: e.target.value })} required />
@@ -287,20 +400,15 @@ export default function Vaults() {
                                 </Select>
                             </div>
                         )}
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="submit">Create Vault</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
+            </Modal>
 
-            <Dialog open={secretForm.open} onOpenChange={(open) => setSecretForm({ ...secretForm, open })}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Secret</DialogTitle>
-                        <DialogDescription>Add an encrypted secret to {selectedVault?.name}.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={createSecret} className="space-y-4">
+            <Modal open={secretForm.open} onClose={() => setSecretForm({ ...secretForm, open: false })} title="Add Secret">
+                <p className="sk-modal__subtitle">Add an encrypted secret to {selectedVault?.name}.</p>
+                <form onSubmit={createSecret} className="space-y-4">
                         <div>
                             <Label htmlFor="secretName">Name</Label>
                             <Input id="secretName" value={secretForm.name} onChange={(e) => setSecretForm({ ...secretForm, name: e.target.value })} required />
@@ -313,12 +421,11 @@ export default function Vaults() {
                             <Label htmlFor="secretDesc">Description</Label>
                             <Textarea id="secretDesc" value={secretForm.description} onChange={(e) => setSecretForm({ ...secretForm, description: e.target.value })} />
                         </div>
-                        <DialogFooter>
+                        <div className="modal-actions">
                             <Button type="submit">Save Secret</Button>
-                        </DialogFooter>
+                        </div>
                     </form>
-                </DialogContent>
-            </Dialog>
-        </div>
+            </Modal>
+        </>
     );
 }

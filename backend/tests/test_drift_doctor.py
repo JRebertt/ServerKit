@@ -17,6 +17,11 @@ from app.services.doctor_service import (
     LAST_REPORT_KEY as DOCTOR_REPORT_KEY,
 )
 
+# Registers blueprints / url rules on the app fixture. Flask cannot unregister
+# those, so these tests need a private app rather than the session-wide one
+# (plan 64 Phase 1).
+pytestmark = pytest.mark.fresh_app
+
 
 # --------------------------------------------------------------------------- #
 # Fake drift check plumbing

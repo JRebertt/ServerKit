@@ -3,22 +3,6 @@
 // ============================================
 
 .env-vars-container {
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: $space-4;
-
-        h3 {
-            margin: 0;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: $space-2;
-        }
-    }
-
     .hint {
         color: $text-secondary;
         font-size: $font-size-sm;
@@ -26,55 +10,25 @@
     }
 }
 
-// ── Panels ──────────────────────────────────────────────────────────────
-// Each logical group (Add / Variables) is a bordered surface that lifts off
-// the page body, so sections read as sections instead of dissolving into the
-// background. Uses --border (not --border-soft) + a soft shadow because on the
-// dark theme --surface sits only a hair above --bg-body.
-.env-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-    margin-bottom: $space-4;
+// ── Table cells ─────────────────────────────────────────────────────────
+// The variables list is a shared DataTable now, so the only thing left to say
+// is that keys and values are code: everything else (surface, borders, header
+// menus, footer) comes from the table itself.
+.env-cell-key {
+    font-family: $font-mono;
+}
 
-    &__head {
-        display: flex;
-        align-items: center;
-        gap: $space-3;
-        padding: 11px $space-4;
-        background: var(--surface-2);
-        border-bottom: 1px solid var(--border-soft);
-    }
+.env-cell-value {
+    font-family: $font-mono;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    word-break: break-all;
+}
 
-    &__title {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-family: var(--mono);
-        font-size: 10.5px;
-        font-weight: $font-weight-semibold;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--text-faint);
-    }
-
-    // Count chip beside the "Variables" title
-    &__count {
-        font-family: var(--mono);
-        font-size: 10.5px;
-        font-weight: $font-weight-semibold;
-        letter-spacing: 0;
-        color: var(--accent-bright);
-        background: var(--accent-bg);
-        padding: 1px 7px;
-        border-radius: $radius-full;
-    }
-
-    &__body {
-        padding: $space-4;
-    }
+// A cell answering "nothing here" — the same dash the Undocumented view
+// filters on, dimmed so it reads as absence rather than as content.
+.env-muted {
+    color: $text-tertiary;
 }
 
 // Key input — mono, uppercase (used inside the Add Variable modal)
@@ -114,39 +68,24 @@
     margin: $space-1 0 $space-4;
 }
 
-// Filter — compact search sitting in the Variables panel head, right-aligned
-.env-panel__filter {
-    position: relative;
-    margin-left: auto;
+// Inline value editor — lives inside the Value cell, so it has to stay on one
+// line next to a Save/Cancel pair rather than spanning a row of its own.
+.env-edit-row {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex-wrap: wrap;
 
     input {
-        width: 220px;
-        max-width: 46vw;
-        height: 32px;
-        padding-right: 30px;
-        font-size: $font-size-sm;
-    }
-
-    .filter-clear {
-        position: absolute;
-        right: 6px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        color: $text-tertiary;
-        cursor: pointer;
-        font-size: 18px;
-        line-height: 1;
-        padding: 2px 6px;
-
-        &:hover {
-            color: $text-primary;
-        }
+        flex: 1;
+        min-width: 160px;
+        font-family: $font-mono;
     }
 }
 
-// Variables list
+// Key/value row pattern — no longer the app's env-var surface (that is a
+// DataTable now), but still the documented "list of pairs" block in the style
+// guide, so it keeps its own styling.
 .env-list {
     display: flex;
     flex-direction: column;
@@ -154,7 +93,7 @@
 }
 
 .env-item {
-    // One tier brighter than the panel surface it sits on, so rows have depth
+    // One tier brighter than the surface it sits on, so rows have depth
     // (body < panel --surface < row --surface-2) instead of blending together.
     background: var(--surface-2);
     border: 1px solid var(--border-soft);
@@ -167,13 +106,6 @@
         background: var(--surface-3);
     }
 
-    .env-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: $space-1;
-    }
-
     .env-key {
         font-family: $font-mono;
         font-weight: 600;
@@ -183,42 +115,12 @@
         gap: $space-1;
     }
 
-    .env-item-actions {
-        display: flex;
-        gap: $space-1;
-        opacity: 0;
-        transition: opacity 0.2s;
-    }
-
-    &:hover .env-item-actions {
-        opacity: 1;
-    }
-
     .env-value {
         font-family: $font-mono;
         font-size: $font-size-sm;
         color: $text-secondary;
         word-break: break-all;
         padding: $space-1 0;
-    }
-
-    .env-description {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
-        margin-top: $space-1;
-        font-style: italic;
-    }
-
-    .env-edit-row {
-        display: flex;
-        gap: $space-2;
-        margin-top: $space-2;
-        flex-wrap: wrap;
-
-        input {
-            flex: 1;
-            font-family: $font-mono;
-        }
     }
 }
 
@@ -264,28 +166,12 @@
     }
 }
 
-// Empty state — centered inside .env-panel__body, with a primary Add action
-.env-empty {
+// The shared EmptyState allows a single action node; an app with no variables
+// yet can start from scratch or from a file, so it gets both side by side.
+.env-empty-actions {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: $space-4;
-    padding: $space-10 $space-6;
-    text-align: center;
-    color: var(--text-faint);
-    font-size: $font-size-sm;
-
-    p { margin: 0; }
-}
-
-// Footer — Clear-all lives here, right-aligned under the list
-.env-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-top: $space-4;
-    padding-top: $space-4;
-    border-top: 1px solid var(--border-soft);
+    gap: $space-2;
+    justify-content: center;
 }
 
 // Clear-all: quiet by default, danger only on hover (no alarming red slab)

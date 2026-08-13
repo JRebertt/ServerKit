@@ -9,36 +9,17 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
+    padding: $space-3;
 
-    .dbp-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: $space-3;
-        padding: $space-2 $space-3;
-        border-bottom: 1px solid $border-color;
-        flex-shrink: 0;
-    }
-
-    .dbp-count {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-2;
-        color: $text-secondary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-    }
-
-    .dbp-toolbar-right {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-3;
-    }
-
+    // Rides the view-picker line next to the search box, so it must not wrap:
+    // on a narrow workspace the label broke across two lines and dragged the
+    // whole chrome row taller than the icons beside it.
     .dbp-auto {
         display: inline-flex;
         align-items: center;
         gap: $space-2;
+        flex-shrink: 0;
+        white-space: nowrap;
         color: $text-secondary;
         font-size: $font-size-sm;
         cursor: pointer;
@@ -48,7 +29,7 @@
     }
 
     .dbp-error {
-        margin: $space-3;
+        margin: 0 0 $space-3;
         padding: $space-2 $space-3;
         background: $danger-bg;
         border: 1px solid $danger-border;
@@ -64,47 +45,6 @@
         justify-content: center;
     }
 
-    .dbp-scroll {
-        flex: 1;
-        min-height: 0;
-        overflow: auto;
-    }
-
-    .dbp-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: $font-size-sm;
-
-        th {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            background: $bg-tertiary;
-            color: $text-secondary;
-            font-weight: $font-weight-medium;
-            text-align: left;
-            padding: $space-2 $space-3;
-            border-bottom: 1px solid $border-color;
-            white-space: nowrap;
-        }
-
-        td {
-            padding: $space-2 $space-3;
-            border-bottom: 1px solid $border-color;
-            color: $text-primary;
-            vertical-align: top;
-            white-space: nowrap;
-        }
-
-        tbody tr:hover td { background: $bg-hover; }
-    }
-
-    .dbp-mono {
-        font-family: $font-family-mono;
-        font-size: $font-size-xs;
-        color: $text-secondary;
-    }
-
     .dbp-state {
         display: inline-block;
         padding: 1px $space-2;
@@ -114,10 +54,14 @@
         font-size: $font-size-xs;
     }
 
+    // The cell used to inherit `white-space: nowrap` from the hand-rolled
+    // table; the shared table does not set it, and without it a long statement
+    // wraps to six lines instead of truncating.
     .dbp-query {
         max-width: 480px;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
         font-family: $font-family-mono;
         font-size: $font-size-xs;
     }

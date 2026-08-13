@@ -1,14 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Folder, Plus, RefreshCw, Server as ServerLucideIcon } from 'lucide-react';
+import { ChevronRight, Folder, Plus, RefreshCw, Server as ServerLucideIcon, X } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Drawer, Gauge, Pill, SearchField, SegControl } from '@/components/ds';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import {
+    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField,
+} from '@/components/ds';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import useFocusParam from '@/hooks/useFocusParam';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
 
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
@@ -21,7 +30,91 @@ const STATUS_KIND = {
     pending: 'gray',
 };
 
-const STATUS_FILTERS = ['all', 'online', 'offline', 'connecting', 'pending'];
+// Built-in saved views. States only use real column keys (SERVER_COLUMNS) —
+// there is no separate status segment or group select any more; the Status and
+// Group columns' own menus are the one place the fleet is narrowed, and they
+// carry live per-value counts neither control had.
+//
+// NOTE for anyone adding a metric preset: only ever use `gt` on cpu/memory/disk.
+// Their sortValue is null for a non-live row, and a `lt` rule would match every
+// offline and pending server (see the null guard in ds/grid/fields.js).
+const STATUS = (...value) => ({ match: 'all', rules: [{ id: 'st', field: 'status', op: 'any', value }] });
+const NO_RULES = { match: 'all', rules: [] };
+
+const SERVER_BUILTIN_VIEWS = [
+    { name: 'Online', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: STATUS('online') } },
+    { name: 'Offline', state: { search: '', sorts: [], hiddenKeys: [], columnFilters: STATUS('offline') } },
+    { name: 'By CPU', state: { search: '', sorts: [{ key: 'cpu', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    {
+        // Machines that HAVE an agent but stopped answering, longest silence
+        // first. `pending` is excluded — that means nobody ever installed one.
+        // CPU/Memory/Disk are hidden because no row here is live, so all three
+        // would render an em-dash.
+        name: 'Not reporting',
+        state: {
+            search: '', groupBy: null,
+            sorts: [{ key: 'lastSeen', direction: 'asc' }],
+            hiddenKeys: ['cpu', 'memory', 'disk'],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'nr1', field: 'status', op: 'any', value: ['offline', 'connecting'] }],
+            },
+        },
+    },
+    {
+        // Saturated on EITHER axis — a box swapping at 95% memory with calm CPU
+        // is the one that falls over, so match:any rather than all.
+        //
+        // No `status is online` rule here, deliberately: `match` is per VIEW,
+        // not per rule, so adding one to an `any` list would OR it in and widen
+        // the view to every online server. It is not needed — the metrics are
+        // null on a non-live row and `gt` rejects null, so both rules already
+        // only ever match a reporting machine.
+        name: 'Under load',
+        state: {
+            search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'cpu', direction: 'desc' }],
+            columnFilters: {
+                match: 'any',
+                rules: [
+                    { id: 'ul1', field: 'cpu', op: 'gt', value: 85 },
+                    { id: 'ul2', field: 'memory', op: 'gt', value: 90 },
+                ],
+            },
+        },
+    },
+    {
+        // The one fleet metric that never recovers on its own.
+        name: 'Disk pressure',
+        state: {
+            search: '', groupBy: null,
+            sorts: [{ key: 'disk', direction: 'desc' }],
+            hiddenKeys: ['agent', 'cpu', 'memory'],
+            columnFilters: {
+                match: 'all',
+                rules: [
+                    { id: 'dp0', field: 'status', op: 'any', value: ['online'] },
+                    { id: 'dp1', field: 'disk', op: 'gt', value: 85 },
+                ],
+            },
+        },
+    },
+    {
+        // Fleet commands target a group_id, so an ungrouped server is silently
+        // skipped by every bulk action. This view is the worklist that fixes it.
+        // 'Ungrouped' is the Group column's own label for a null group_name,
+        // not a sentinel — see the `value` accessor on that column.
+        name: 'Ungrouped',
+        state: {
+            search: '', groupBy: null, hiddenKeys: [],
+            sorts: [{ key: 'name', direction: 'asc' }],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'ug1', field: 'group', op: 'any', value: ['Ungrouped'] }],
+            },
+        },
+    },
+];
 
 const formatLastSeen = (timestamp) => {
     if (!timestamp) return 'Never';
@@ -35,6 +128,119 @@ const formatLastSeen = (timestamp) => {
 
 const clamp = (v) => Math.min(100, Math.max(0, Number(v) || 0));
 
+const isLive = (server) => Boolean(server.metrics) && (server.status || 'pending') === 'online';
+
+// One metric column (CPU / Memory / Disk): a percentage over a thin gauge.
+// A gauge with nothing behind it reads as 0%, which is a claim — offline and
+// pending rows get a dash instead, and sort as null (always last).
+const meterColumn = (key, header, metricKey) => ({
+    key,
+    header,
+    sortable: true,
+    sortValue: (server) => (isLive(server) ? clamp(server.metrics?.[metricKey]) : null),
+    className: 'servers-table__meter',
+    cellClassName: 'servers-table__meter',
+    render: (server) => {
+        if (!isLive(server)) return <span className="servers-row__nodata">&mdash;</span>;
+        const value = clamp(server.metrics?.[metricKey]);
+        return (
+            <>
+                <div className="sk-cell-mono">{value.toFixed(0)}%</div>
+                <Gauge value={value} />
+            </>
+        );
+    },
+});
+
+// Columns for the shared DataTable. Cell markup and classNames are identical
+// to the hand-rolled table they replace, so _servers.scss keeps applying
+// (.sk-cell-name, .sk-cell-mono, .servers-row__*, .servers-table__meter).
+const SERVER_COLUMNS = [
+    {
+        key: 'name',
+        header: 'Server',
+        sortable: true,
+        hideable: false,
+        sortValue: (server) => server.name || '',
+        render: (server) => (
+            <div className="sk-cell-name">
+                <span className="servers-row__ico">
+                    <ServerLucideIcon size={15} />
+                </span>
+                <span>
+                    <div>{server.name}</div>
+                    <div className="sk-cell-sub">
+                        {[server.group_name, server.os_version || server.os_type]
+                            .filter(Boolean).join(' \u00b7 ') || 'unclaimed'}
+                    </div>
+                </span>
+            </div>
+        ),
+    },
+    {
+        key: 'host',
+        header: 'Host',
+        cellClassName: 'sk-cell-mono',
+        render: (server) => server.hostname || server.ip_address || '\u2014',
+    },
+    {
+        key: 'agent',
+        header: 'Agent',
+        cellClassName: 'sk-cell-mono servers-row__agent',
+        render: (server) => server.agent_version || 'not installed',
+    },
+    {
+        key: 'group',
+        header: 'Group',
+        sortable: true,
+        type: 'enum',
+        // An ungrouped server needs a real LABEL, not null: the enum engine
+        // compares String(value), so a null would only ever be matchable as the
+        // literal string 'null'. This label is what the "Ungrouped" preset
+        // filters on, and what the column menu lists.
+        value: (server) => server.group_name || 'Ungrouped',
+        groupable: true,
+        render: (server) => (
+            server.group_name || <span className="servers-row__nodata">Ungrouped</span>
+        ),
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        sortable: true,
+        type: 'enum',
+        // Explicit, rather than leaning on the sortValue fallback: this pins
+        // the null -> 'pending' coercion as the FILTER value too, so a server
+        // that never reported does not stringify to 'null' in a rule.
+        value: (server) => server.status || 'pending',
+        sortValue: (server) => server.status || 'pending',
+        groupable: true,
+        groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
+        render: (server) => {
+            const status = server.status || 'pending';
+            return <Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill>;
+        },
+    },
+    meterColumn('cpu', 'CPU', 'cpu_percent'),
+    meterColumn('memory', 'Memory', 'memory_percent'),
+    meterColumn('disk', 'Disk', 'disk_percent'),
+    {
+        key: 'lastSeen',
+        header: 'Last seen',
+        sortable: true,
+        sortValue: (server) => (server.last_seen ? new Date(server.last_seen).getTime() : null),
+        cellClassName: 'sk-cell-mono servers-row__seen',
+        render: (server) => formatLastSeen(server.last_seen),
+    },
+    {
+        key: 'open',
+        header: '',
+        sortable: false,
+        hideable: false,
+        render: () => <ChevronRight size={16} className="servers-row__chev" />,
+    },
+];
+
 // The fleet as one table. The previous layout wrapped this list in a rail of
 // its own: a health dial, a status nav and a groups nav, each restating a
 // number the table already carries. Every one of those is now a column or a
@@ -46,11 +252,43 @@ const Servers = () => {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
+    // Quick-create deep link: /servers?focus=create:server opens the add modal.
+    useFocusParam('create', () => setShowAddModal(true));
     const [showGroupModal, setShowGroupModal] = useState(false);
-    const [selectedGroup, setSelectedGroup] = useState('all');
-    const [selectedStatus, setSelectedStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [bulkBusy, setBulkBusy] = useState(false);
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-servers-sort' });
+    const {
+        hiddenKeys, setHiddenKeys,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-servers-cols' });
+    const [groupBy, setGroupBy] = useState(() => {
+        try {
+            return window.localStorage.getItem('serverkit-table-servers-group') || null;
+        } catch {
+            return null;
+        }
+    });
     const toast = useToast();
+
+    const changeGroupBy = (next) => {
+        setGroupBy(next);
+        try {
+            if (next) window.localStorage.setItem('serverkit-table-servers-group', next);
+            else window.localStorage.removeItem('serverkit-table-servers-group');
+        } catch {
+            /* private mode / quota — the choice just doesn't persist */
+        }
+    };
+
+    // Page-owned view state — search is all that is left. Status and group used
+    // to live here too, as a segment row and a select; both are column rules
+    // now, which useTableChrome captures itself.
+    const viewPageState = useMemo(() => ({ search: searchTerm }), [searchTerm]);
+
+    const applyViewPageState = useCallback((saved) => {
+        if (saved.search !== undefined) setSearchTerm(saved.search);
+    }, []);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -74,24 +312,13 @@ const Servers = () => {
     }, [loadData]);
 
     const filteredServers = servers.filter((server) => {
-        const matchesGroup = selectedGroup === 'all'
-            || (selectedGroup === 'ungrouped' && !server.group_id)
-            || String(server.group_id) === String(selectedGroup);
-        const matchesStatus = selectedStatus === 'all' || server.status === selectedStatus;
         const q = searchTerm.trim().toLowerCase();
-        const matchesSearch = !q
+        return !q
             || server.name?.toLowerCase().includes(q)
             || server.hostname?.toLowerCase().includes(q)
             || server.ip_address?.toLowerCase().includes(q)
             || server.group_name?.toLowerCase().includes(q);
-        return matchesGroup && matchesStatus && matchesSearch;
     });
-
-    const online = servers.filter((s) => s.status === 'online').length;
-    const statusCounts = servers.reduce((acc, server) => {
-        acc[server.status] = (acc[server.status] || 0) + 1;
-        return acc;
-    }, {});
 
     // The tab-group top bar owns this page's controls, search included.
     useTopbarActions(() => (
@@ -113,6 +340,36 @@ const Servers = () => {
         </>
     ), [searchTerm, loading]);
 
+    const chrome = useTableChrome({
+        columns: SERVER_COLUMNS,
+        rows: filteredServers,
+        viewPageKey: 'servers',
+        builtinViews: SERVER_BUILTIN_VIEWS,
+        noun: 'servers',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        groupBy,
+        setGroupBy: changeGroupBy,
+        pageState: viewPageState,
+        applyPage: applyViewPageState,
+    });
+
+    // Filter + "⋮" ride in the top bar next to the actions and the search box,
+    // not in a toolbar under the view name. That toolbar was also repeating the
+    // row count the view row already showed, with an "N online" tacked on that
+    // no filter, sort or view ever referred to.
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+        </>,
+    );
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner servers-page">
@@ -123,35 +380,16 @@ const Servers = () => {
 
     return (
         <div className="sk-tabgroup__inner servers-page">
-            <div className="servers-listhead">
-                <SegControl
-                    value={selectedStatus}
-                    onChange={setSelectedStatus}
-                    options={STATUS_FILTERS.map((key) => ({
-                        value: key,
-                        label: key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1),
-                        count: key === 'all' ? servers.length : (statusCounts[key] || 0),
-                    }))}
-                    aria-label="Filter by status"
-                />
-                {groups.length > 0 && (
-                    <select
-                        className="servers-groupselect"
-                        value={selectedGroup}
-                        onChange={(e) => setSelectedGroup(e.target.value)}
-                        aria-label="Filter by group"
-                    >
-                        <option value="all">All groups</option>
-                        {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                        <option value="ungrouped">Ungrouped</option>
-                    </select>
-                )}
-                <span className="servers-count">
-                    {filteredServers.length} of {servers.length} server{servers.length === 1 ? '' : 's'}
-                    <i>&middot;</i>
-                    <b>{online} online</b>
-                </span>
-            </div>
+            {topbarChrome}
+            <GridViewPicker
+                views={chrome.views}
+                label="servers"
+                onCreate={chrome.createView}
+            
+                actions={chromeActions}
+            />
+
+            <GridChips {...chrome.chipProps} />
 
             {filteredServers.length === 0 ? (
                 <EmptyState
@@ -159,7 +397,7 @@ const Servers = () => {
                     title={servers.length === 0 ? 'No servers yet' : 'No servers match these filters'}
                     description={servers.length === 0
                         ? 'Pair an agent and the machine shows up here with its CPU, memory and disk alongside every other box you run.'
-                        : 'Adjust the status, group or search to see your servers.'}
+                        : 'Adjust the search or clear the column filters to see your servers.'}
                     action={servers.length === 0 ? (
                         <Button onClick={() => setShowAddModal(true)}>
                             <Plus size={16} /> Add your first server
@@ -168,9 +406,8 @@ const Servers = () => {
                         <Button
                             variant="outline"
                             onClick={() => {
-                                setSelectedGroup('all');
-                                setSelectedStatus('all');
                                 setSearchTerm('');
+                                chrome.api.resetToView();
                             }}
                         >
                             Clear filters
@@ -178,83 +415,88 @@ const Servers = () => {
                     )}
                 />
             ) : (
-                <div className="servers-card">
-                    <table className="sk-dtable servers-table">
-                        <thead>
-                            <tr>
-                                <th>Server</th>
-                                <th>Host</th>
-                                <th>Agent</th>
-                                <th>Status</th>
-                                <th className="servers-table__meter">CPU</th>
-                                <th className="servers-table__meter">Memory</th>
-                                <th className="servers-table__meter">Disk</th>
-                                <th>Last seen</th>
-                                <th aria-label="Open" />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredServers.map((server) => {
-                                const status = server.status || 'pending';
-                                const live = Boolean(server.metrics) && status === 'online';
-                                const meters = [
-                                    clamp(server.metrics?.cpu_percent),
-                                    clamp(server.metrics?.memory_percent),
-                                    clamp(server.metrics?.disk_percent),
-                                ];
-                                return (
-                                    <tr
-                                        key={server.id}
-                                        className="servers-row"
-                                        onClick={() => navigate(`/servers/${server.id}`)}
-                                    >
-                                        <td>
-                                            <div className="sk-cell-name">
-                                                <span className="servers-row__ico">
-                                                    <ServerLucideIcon size={15} />
-                                                </span>
-                                                <span>
-                                                    <div>{server.name}</div>
-                                                    <div className="sk-cell-sub">
-                                                        {[server.group_name, server.os_version || server.os_type]
-                                                            .filter(Boolean).join(' \u00b7 ') || 'unclaimed'}
-                                                    </div>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="sk-cell-mono">
-                                            {server.hostname || server.ip_address || '\u2014'}
-                                        </td>
-                                        <td className="sk-cell-mono servers-row__agent">
-                                            {server.agent_version || 'not installed'}
-                                        </td>
-                                        <td><Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill></td>
-                                        {/* A gauge with nothing behind it reads as 0%,
-                                            which is a claim. Offline and pending rows
-                                            get a dash instead. */}
-                                        {meters.map((value, i) => (
-                                            <td key={i} className="servers-table__meter">
-                                                {live ? (
-                                                    <>
-                                                        <div className="sk-cell-mono">{value.toFixed(0)}%</div>
-                                                        <Gauge value={value} />
-                                                    </>
-                                                ) : (
-                                                    <span className="servers-row__nodata">&mdash;</span>
-                                                )}
-                                            </td>
-                                        ))}
-                                        <td className="sk-cell-mono servers-row__seen">
-                                            {formatLastSeen(server.last_seen)}
-                                        </td>
-                                        <td>
-                                            <ChevronRight size={16} className="servers-row__chev" />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                <DataTable
+                    columns={chrome.columns}
+                    data={filteredServers}
+                    keyField="id"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    {...chrome.tableProps}
+                    groupBy={groupBy}
+                    onGroupByChange={changeGroupBy}
+                    selectable
+                    selectedKeys={[...selectedIds]}
+                    onToggleRow={(id, checked) => setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (checked) next.add(id);
+                        else next.delete(id);
+                        return next;
+                    })}
+                    onToggleAll={(checked) => setSelectedIds(
+                        checked ? new Set(filteredServers.map((s) => s.id)) : new Set(),
+                    )}
+                    keyboardNav
+                    onRowClick={(server) => navigate(`/servers/${server.id}`)}
+                    rowClassName="servers-row"
+                    className="servers-card"
+                    tableClassName="servers-table"
+                    footer={(
+                        <DataTableFooter
+                            shown={chrome.shownCount}
+                            total={servers.length}
+                            noun="server"
+                        />
+                    )}
+                />
+            )}
+
+            <GridFilterDrawer {...chrome.drawerProps} />
+
+            {/* Bulk edit: assign the selected servers to a group. */}
+            {selectedIds.size > 0 && (
+                <div className="sk-bulkbar" role="status">
+                    <span className="sk-bulkbar__count">{selectedIds.size} selected</span>
+                    <div className="sk-bulkbar__actions">
+                        <select
+                            className="sk-listhead__select"
+                            defaultValue=""
+                            disabled={bulkBusy}
+                            aria-label="Set group for selected servers"
+                            onChange={async (e) => {
+                                const groupId = e.target.value;
+                                if (!groupId) return;
+                                setBulkBusy(true);
+                                try {
+                                    await Promise.all([...selectedIds].map((id) => api.updateServer(id, {
+                                        group_id: groupId === 'none' ? null : Number(groupId),
+                                    })));
+                                    const groupName = groupId === 'none'
+                                        ? 'Ungrouped'
+                                        : groups.find((g) => String(g.id) === groupId)?.name;
+                                    toast.success(`Moved ${selectedIds.size} server(s) to ${groupName}`);
+                                    setSelectedIds(new Set());
+                                    loadData();
+                                } catch (err) {
+                                    toast.error(err.message || 'Could not set the group');
+                                } finally {
+                                    setBulkBusy(false);
+                                    e.target.value = '';
+                                }
+                            }}
+                        >
+                            <option value="" disabled>Set group…</option>
+                            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                            <option value="none">Ungrouped</option>
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        className="sk-bulkbar__clear"
+                        onClick={() => setSelectedIds(new Set())}
+                        aria-label="Clear selection"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 
