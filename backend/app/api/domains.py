@@ -8,7 +8,7 @@ from app import db
 from app.middleware.rbac import admin_required
 from app.models import Domain, Application, User
 from app.services.nginx_service import NginxService
-from app.services.ssl_service import SSLService
+from app.services.ssl_service import SSLService, get_acme_contact, remember_acme_contact
 from app.services.resource_grant_service import ResourceGrantService
 
 domains_bp = Blueprint('domains', __name__)
@@ -386,10 +386,14 @@ def enable_ssl(domain_id):
         return jsonify({'error': 'Access denied'}), 403
 
     data = request.get_json() or {}
-    email = data.get('email')
+    # An address on the request wins; otherwise the panel-wide ACME contact,
+    # so the modal stops asking for the same address on every certificate.
+    email = get_acme_contact(data.get('email'))
 
     if not email:
-        return jsonify({'error': 'Email is required for SSL certificate'}), 400
+        return jsonify({'error': 'Email is required for SSL certificate. Set a '
+                                 'default contact in Settings to stop being '
+                                 'asked for it per certificate.'}), 400
 
     # Request Let's Encrypt certificate
     result = SSLService.obtain_certificate(
@@ -415,6 +419,10 @@ def enable_ssl(domain_id):
     domain.ssl_certificate_path = result['certificate_path']
     domain.ssl_private_key_path = result['private_key_path']
     db.session.commit()
+
+    # Only after issuance actually worked — remembering an address that
+    # Let's Encrypt rejected would be worse than not remembering one.
+    remember_acme_contact(data.get('email'), user_id=current_user_id)
 
     return jsonify({
         'message': 'SSL enabled for domain',

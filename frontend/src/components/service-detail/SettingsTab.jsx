@@ -452,7 +452,21 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
     const [attaching, setAttaching] = useState(false);
     const [serverkitDomains, setServerkitDomains] = useState([]);
     const [contextLoading, setContextLoading] = useState(true);
+    // localStorage seeds the field instantly (no flash on a page the user has
+    // used before); the panel-wide contact fills it in when this browser has
+    // no copy — which is the case the Domains modal shares.
     const [email, setEmail] = useState(() => localStorage.getItem('serverkit_ssl_email') || '');
+
+    useEffect(() => {
+        if (email) return undefined;
+        let cancelled = false;
+        api.getAcmeContact()
+            .then(({ email: stored }) => { if (!cancelled && stored) setEmail(stored); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+        // Runs once: this only ever seeds an empty field, never overwrites typing.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // "Give it a subdomain" — publish the app at a managed <label>.<base> host.
     const [subdomainModal, setSubdomainModal] = useState(null); // { base_domain, dns_mode }

@@ -57,6 +57,50 @@ def resolve_certbot_bin() -> Optional[str]:
     return found
 
 
+# Panel-wide ACME contact, stored in system settings.
+ACME_EMAIL_SETTING = 'ssl.acme_email'
+
+
+def get_acme_contact(provided: Optional[str] = None) -> Optional[str]:
+    """The contact address to register with Let's Encrypt.
+
+    An address supplied with the request wins; otherwise the panel-wide
+    contact stored in settings. Returns ``None`` when neither exists, leaving
+    it to the caller to decide whether that is fatal — the domain SSL modal
+    treats it as a hard requirement, while the automatic issuance paths would
+    rather fall back than refuse.
+    """
+    provided = (provided or '').strip()
+    if provided:
+        return provided
+    try:
+        from app.services.settings_service import SettingsService
+        stored = (SettingsService.get(ACME_EMAIL_SETTING) or '').strip()
+    except Exception:  # noqa: BLE001 — never let settings break issuance
+        return None
+    return stored or None
+
+
+def remember_acme_contact(email: Optional[str], user_id=None) -> None:
+    """Store *email* as the panel-wide ACME contact.
+
+    Called whenever a certificate request carries an explicit address, so the
+    next request anywhere in the panel can prefill instead of asking again.
+    Best-effort by design: failing to remember an address must never turn a
+    successful certificate issuance into an error.
+    """
+    email = (email or '').strip()
+    if not email:
+        return
+    try:
+        from app.services.settings_service import SettingsService
+        if (SettingsService.get(ACME_EMAIL_SETTING) or '').strip() == email:
+            return
+        SettingsService.set(ACME_EMAIL_SETTING, email, user_id=user_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class SSLService:
     """Service for SSL certificate management with Let's Encrypt."""
 

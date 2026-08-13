@@ -1,9 +1,22 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.middleware.rbac import admin_required
-from app.services.ssl_service import SSLService
+from app.services.ssl_service import SSLService, get_acme_contact, remember_acme_contact
 
 ssl_bp = Blueprint('ssl', __name__)
+
+
+@ssl_bp.route('/acme-contact', methods=['GET'])
+@jwt_required()
+def acme_contact():
+    """The panel-wide ACME contact, for prefilling certificate forms.
+
+    Deliberately not admin-gated: issuing a certificate for an app you can
+    edit is not an admin action, so the surfaces that need this prefill are
+    reachable by non-admins too. The value is the address the operator chose
+    to receive expiry notices at, not a credential.
+    """
+    return jsonify({'email': get_acme_contact() or ''}), 200
 
 
 @ssl_bp.route('/certificates', methods=['GET'])
@@ -37,7 +50,9 @@ def obtain_certificate():
         return jsonify({'error': 'No data provided'}), 400
 
     domains = data.get('domains')
-    email = data.get('email')
+    # Falls back to the stored panel-wide contact, so a caller that has one
+    # configured no longer has to repeat it on every request.
+    email = get_acme_contact(data.get('email'))
 
     if not domains or not email:
         return jsonify({'error': 'domains and email are required'}), 400
@@ -48,6 +63,9 @@ def obtain_certificate():
         webroot_path=data.get('webroot_path'),
         use_nginx=data.get('use_nginx', True)
     )
+
+    if result.get('success'):
+        remember_acme_contact(data.get('email'), user_id=get_jwt_identity())
 
     return jsonify(result), 201 if result['success'] else 400
 

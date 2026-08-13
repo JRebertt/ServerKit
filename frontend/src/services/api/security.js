@@ -105,6 +105,12 @@ export async function obtainCertificate(data) {
     });
 }
 
+// Panel-wide Let's Encrypt contact, used to prefill certificate forms so the
+// same address isn't retyped per certificate.
+export async function getAcmeContact() {
+    return this.request('/ssl/acme-contact');
+}
+
 export async function renewCertificate(domain) {
     return this.request(`/ssl/certificates/${domain}/renew`, { method: 'POST' });
 }
