@@ -352,6 +352,8 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                 </div>
             )}
 
+            <QuickCreate variant="sidebar" />
+
             <WorkspaceSwitcher />
 
             <div className="nav-scroll">
@@ -551,7 +553,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         </span>
                         <ChevronUp size={14} className={`user-menu-arrow ${menuOpen ? 'open' : ''}`} aria-hidden="true" />
                     </button>
-                    <QuickCreate />
                     <NotificationBell />
                 </div>
             </div>

@@ -226,8 +226,8 @@
     }
 }
 
-// Global quick-create ("+") — matches the notification bell's chrome so the
-// sidebar footer / mobile top bar read as one control strip.
+// Global quick-create ("+") base button — compact square used in the mobile
+// top bar. The sidebar uses the extended variant (see layout/_sidebar.scss).
 .quick-create {
     display: inline-flex;
     align-items: center;
@@ -245,13 +245,6 @@
         background: $bg-hover;
         color: $text-primary;
         border-color: $border-default;
-    }
-
-    .sidebar-footer__row & {
-        width: 38px;
-        height: auto;
-        min-height: 34px;
-        align-self: stretch;
     }
 }
 

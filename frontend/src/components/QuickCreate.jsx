@@ -25,21 +25,30 @@ const CREATE_ITEMS = [
     { kind: 'project', label: 'Project', icon: FolderKanban, path: '/projects?focus=create:project' },
 ];
 
-export function QuickCreate({ className }) {
+export function QuickCreate({ className, variant = 'icon' }) {
     const navigate = useNavigate();
+    // 'icon' — compact square button (mobile top bar). 'sidebar' — extended
+    // "Create" pill pinned to the top of the sidebar (Gmail "Compose" pattern);
+    // its menu opens downward since the trigger is no longer in the footer.
+    const extended = variant === 'sidebar';
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className={cn('quick-create', className)}
+                    className={cn('quick-create', extended && 'quick-create--extended', className)}
                     title="Create new…"
                     aria-label="Create new"
                 >
                     <Plus size={16} />
+                    {extended && <span className="quick-create__label">Create</span>}
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" sideOffset={8}>
+            <DropdownMenuContent
+                side={extended ? 'bottom' : 'top'}
+                align={extended ? 'start' : 'end'}
+                sideOffset={8}
+            >
                 {CREATE_ITEMS.map((item) => (
                     <DropdownMenuItem key={item.kind} onSelect={() => navigate(item.path)}>
                         <item.icon size={14} aria-hidden="true" />
