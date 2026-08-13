@@ -277,8 +277,16 @@ const Domains = () => {
     async function handleVerifyDomain(domain) {
         try {
             const result = await api.verifyDomain(domain.id);
-            if (result.verified) toast.success(`Domain verified! IP: ${result.ip_address}`);
-            else toast.error(`Domain verification failed: ${result.error}`);
+            if (!result.verified) {
+                toast.error(`Domain verification failed: ${result.error}`);
+            } else if (result.warning) {
+                // The name resolves, but something about it will break
+                // issuance later (a stray AAAA record, today). A green
+                // "verified" toast here is how that stayed invisible.
+                toast.warning(result.warning, { duration: 15000 });
+            } else {
+                toast.success(`Domain verified! IP: ${result.ip_address}`);
+            }
         } catch (err) {
             setError(err.message);
         }

@@ -481,27 +481,62 @@ def renew_ssl(domain_id):
 @domains_bp.route('/<int:domain_id>/verify', methods=['GET'])
 @jwt_required()
 def verify_domain(domain_id):
-    """Verify domain DNS configuration."""
-    import socket
+    """Verify domain DNS configuration (A *and* AAAA).
+
+    This used to be a bare IPv4 ``socket.gethostbyname``, which made a stray
+    AAAA record invisible — and that is the case worth catching. Let's Encrypt
+    prefers IPv6 whenever a AAAA record exists, so a domain whose A record
+    points here perfectly still fails HTTP-01 issuance when its AAAA points
+    somewhere else. The old check called that domain verified and the operator
+    was left with a certificate error that named nothing.
+    """
+    from app.services.doctor_service import (
+        _aaaa_conflicts, _local_host_ips, _resolve_host_ips,
+    )
+    from app.services.site_domain_service import SiteDomainService
 
     domain = Domain.query_active().filter_by(id=domain_id).first()
     if not domain:
         return jsonify({'error': 'Domain not found'}), 404
 
     try:
-        # Try to resolve the domain
-        ip_address = socket.gethostbyname(domain.name)
-        return jsonify({
-            'verified': True,
-            'domain': domain.name,
-            'ip_address': ip_address
-        }), 200
-    except socket.gaierror:
+        ips = _resolve_host_ips(domain.name)
+    except OSError:  # gaierror and friends — any resolver failure
+        ips = []
+
+    if not ips:
         return jsonify({
             'verified': False,
             'domain': domain.name,
             'error': 'Domain could not be resolved'
         }), 200
+
+    try:
+        server_ip = SiteDomainService.server_ip()
+    except Exception:  # noqa: BLE001 — an unset public IP is not an error here
+        server_ip = None
+
+    ipv4 = [ip for ip in ips if ':' not in ip]
+    conflicts = _aaaa_conflicts(ips, server_ip, _local_host_ips())
+
+    payload = {
+        'verified': True,
+        'domain': domain.name,
+        # Single address kept for callers that predate ip_addresses; prefer an
+        # IPv4 one so the value means what it always did.
+        'ip_address': (ipv4 or ips)[0],
+        'ip_addresses': ips,
+    }
+    if conflicts:
+        payload['aaaa_conflict'] = conflicts
+        payload['warning'] = (
+            f"{domain.name} has an AAAA record pointing to "
+            f"{', '.join(conflicts)}, which is not this server. Let's Encrypt "
+            f"prefers IPv6, so certificate issuance will be attempted against "
+            f"that address and fail even though the A record is correct. "
+            f"Remove the AAAA record, or point it at this server's IPv6 address."
+        )
+    return jsonify(payload), 200
 
 
 @domains_bp.route('/nginx/sites', methods=['GET'])

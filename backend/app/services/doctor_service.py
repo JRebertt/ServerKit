@@ -64,6 +64,65 @@ def _resolve_host_ips(host):
     return ips
 
 
+def _normalize_ip(ip):
+    """Canonical form of an IP string for comparison (compressed/lower-cased
+    for IPv6); falls back to the stripped input when unparseable."""
+    try:
+        return str(ipaddress.ip_address((ip or '').strip()))
+    except ValueError:
+        return (ip or '').strip().lower()
+
+
+def _local_host_ips():
+    """This host's own IP addresses across all interfaces (best-effort).
+
+    Used to tell "this server" apart from "somewhere else" when judging
+    whether a resolved AAAA record is a stray. Returns a set of normalized
+    address strings; empty when undetectable. Module-level so tests can stub.
+    """
+    ips = set()
+    try:
+        import psutil
+        for addrs in (psutil.net_if_addrs() or {}).values():
+            for addr in addrs:
+                if addr.family in (socket.AF_INET, socket.AF_INET6):
+                    # strip a zone id (fe80::1%eth0) before normalizing
+                    ips.add(_normalize_ip(addr.address.split('%', 1)[0]))
+    except Exception:  # noqa: BLE001 — detection is best-effort
+        pass
+    return ips
+
+
+def _aaaa_conflicts(ips, server_ip, known_ips=None):
+    """IPv6 addresses among ``ips`` that do not belong to this server.
+
+    "This server" = the configured public IP plus every local interface
+    address. A stray AAAA record pointing elsewhere breaks Let's Encrypt
+    HTTP-01 issuance — the CA prefers IPv6 when a AAAA record exists — so the
+    sweep must surface it even when the A record is perfectly correct, which
+    is exactly the case that looks healthy and is not.
+
+    ``known_ips`` is passed in by callers that sweep many domains so the
+    interface enumeration happens once per run rather than once per domain.
+    """
+    v6 = []
+    for ip in ips or []:
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if addr.version == 6:
+            v6.append(str(addr))
+    if not v6:
+        return []
+    if known_ips is None:
+        known_ips = _local_host_ips()
+    known = {_normalize_ip(a) for a in known_ips}
+    if server_ip:
+        known.add(_normalize_ip(server_ip))
+    return [ip for ip in v6 if ip not in known]
+
+
 def _is_public_site_host(host):
     """True when ``host`` is a real, public hostname worth a DNS lookup — not
     localhost, a bare label, an IP literal, or a dev/reserved suffix."""
@@ -330,7 +389,9 @@ class DoctorService:
         provider_available = cls._dns_provider_available()
 
         capped = public[:DNS_CHECK_MAX_DOMAINS]
-        checks = [cls._dns_check_one(host, server_ip, provider_available)
+        # Enumerated once for the whole sweep, not once per domain.
+        local_ips = _local_host_ips()
+        checks = [cls._dns_check_one(host, server_ip, provider_available, local_ips)
                   for host in capped]
 
         overflow = len(public) - len(capped)
@@ -342,7 +403,7 @@ class DoctorService:
         return checks
 
     @classmethod
-    def _dns_check_one(cls, host, server_ip, provider_available):
+    def _dns_check_one(cls, host, server_ip, provider_available, local_ips=None):
         key = f'dns.resolve.{host}'
         title = f'DNS: {host}'
         try:
@@ -352,6 +413,18 @@ class DoctorService:
         if not ips:
             return cls._dns_unresolved(key, title, host, server_ip, provider_available)
         if server_ip and server_ip in ips:
+            # The A record is right, which is exactly why a stray AAAA hides
+            # here: everything looks correct until issuance tries IPv6 first.
+            conflicts = _aaaa_conflicts(ips, server_ip, local_ips)
+            if conflicts:
+                return _check(
+                    key, title, 'warn',
+                    f'{host} points at this server over IPv4, but its AAAA record '
+                    f'resolves to {", ".join(conflicts)}, which is not this '
+                    f"server. Let's Encrypt prefers IPv6, so HTTP-01 issuance "
+                    f'will be attempted against that address and fail. Remove '
+                    f"the AAAA record, or point it at this server's IPv6 "
+                    f'address.')
             return _check(key, title, 'ok', f'{host} resolves to {server_ip}.')
         resolved = ', '.join(ips)
         if server_ip:
