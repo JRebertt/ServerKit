@@ -191,7 +191,35 @@ class DoctorService:
                     f'service.{name}', f'{name} service', 'fail', 'Not running.',
                     repairable=True, repair_ref={'kind': 'service', 'name': name},
                 ))
+        if 'nginx' in probed:
+            checks.append(cls._nginx_config_check())
         return checks
+
+    @classmethod
+    def _nginx_config_check(cls):
+        """A running-but-misconfigured nginx passes ``systemctl is-active``;
+        only ``nginx -t`` sees it. Not repairable: config repair is operator
+        territory, and a wrong guess can take every site on the host down."""
+        key = 'nginx.config'
+        title = 'nginx configuration'
+        from app.utils.system import is_command_available
+        if not is_command_available('nginx'):
+            return _check(key, title, 'warn',
+                          'nginx binary not found — configuration test skipped.')
+        from app.services.nginx_service import NginxService
+        try:
+            result = NginxService.test_config()
+        except Exception as e:  # noqa: BLE001
+            return _check(key, title, 'warn', f'Config test could not run: {e}')
+        if result.get('success'):
+            return _check(key, title, 'ok', 'nginx configuration test passed.')
+        output = (result.get('message') or result.get('error') or '').strip()
+        detail = 'nginx configuration test (nginx -t) failed'
+        if output:
+            detail += f': {output}'
+        detail += ('. nginx will refuse to reload/restart until the '
+                   'configuration parses — review the file nginx names above.')
+        return _check(key, title, 'fail', detail, repairable=False)
 
     @classmethod
     def _cert_check(cls):
