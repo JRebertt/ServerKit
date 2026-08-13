@@ -536,6 +536,34 @@ def get_manifest_spec():
     })
 
 
+@plugins_bp.route('/<int:plugin_id>/permissions', methods=['GET'])
+@jwt_required()
+def get_plugin_permissions(plugin_id):
+    """Declared vs actually-observed permission use for one extension (plan 55).
+
+    Admin-only: it describes what a piece of third-party code has been reaching
+    for, which is operator information.
+
+    The response is deliberately explicit about its own blind spot. Only
+    permissions whose every use must pass through the SDK capability gate are
+    observable — today that is ``agent.command:<action>`` and nothing else.
+    For the declaration-only capabilities (docker, shell, filesystem, network,
+    db) the panel exposes no helper to gate, so an extension reaches the host
+    module directly and no in-process check can see it. ``observable: false``
+    on a row means "no evidence either way", never "unused".
+    """
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.services.plugin_service import get_plugin
+    from app.plugins_sdk import permissions as perms
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': 'Plugin not found'}), 404
+    return jsonify(perms.usage_report(plugin.slug))
+
+
 @plugins_bp.route('/<int:plugin_id>/config', methods=['GET'])
 @jwt_required()
 def get_plugin_config(plugin_id):
