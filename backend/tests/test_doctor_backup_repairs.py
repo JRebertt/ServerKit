@@ -3,11 +3,14 @@
 ``backup_drill_stale.*`` and ``backup_unverified.*`` both emitted
 ``repairable: True``, but ``DoctorService.repair()`` only knew drift, service,
 dns and extension. Every Repair button those checks rendered came back
-"Unknown repair kind: backup_drill" — a button that failed 100% of the time.
+"Unknown repair kind: backup_drill" — a button that failed 100% of the time,
+on the check family whose entire job is telling you whether your backups can
+be trusted.
 
 The dispatcher now handles both. They are deliberately asymmetric: a drill is
 enqueued as a job (so the answer carries a job id), while verification runs
-inline and returns a verdict.
+inline and returns a verdict — and verification itself picks its ladder from
+what the run actually has, on disk or offsite.
 """
 from unittest.mock import patch
 
@@ -32,18 +35,42 @@ def policy(app):
     return row
 
 
+def _run_for(policy, remote_key=None):
+    """A successful backup run, offsite or local-only."""
+    from app import db
+    from app.models.backup_run import BackupRun
+
+    run = BackupRun(policy_id=policy.id, kind='full', status='success')
+    run.remote_key = remote_key
+    db.session.add(run)
+    db.session.commit()
+    return run
+
+
+def _tier1_setting(level, error=None):
+    """Stand-in for verify_run_tier1, which mutates the run's verify ladder in
+    place and does not commit."""
+    def _apply(run, meta):
+        run.verify_level = level
+        run.verify_error = error
+        return {}
+    return _apply
+
+
 # --------------------------------------------------------------------------- #
 # The regression itself
 # --------------------------------------------------------------------------- #
 def test_both_kinds_are_known_to_the_dispatcher(app, policy):
     """The whole bug: these two came back 'Unknown repair kind'."""
+    run = _run_for(policy, remote_key='s3://bucket/key')
+
     with patch('app.services.backup_drill_service.BackupDrillService.request_drill',
                return_value=_Job()), \
             patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
                   return_value={'success': True, 'verified': True}):
         results = DoctorService.repair([
             {'kind': 'backup_drill', 'policy_id': policy.id},
-            {'kind': 'backup_verify', 'policy_id': policy.id, 'run_id': 7},
+            {'kind': 'backup_verify', 'policy_id': policy.id, 'run_id': run.id},
         ])
 
     assert [r['success'] for r in results] == [True, True]
@@ -124,40 +151,54 @@ class TestBackupDrillRepair:
 
 
 # --------------------------------------------------------------------------- #
-# backup_verify — synchronous, returns a verdict
+# backup_verify — synchronous, and routed by what the run actually has
+#
+# verify_run compares against the REMOTE copy and raises when there is none, so
+# routing every run through it would leave the button broken for every install
+# without offsite storage — the same defect this item exists to remove.
 # --------------------------------------------------------------------------- #
 class TestBackupVerifyRepair:
 
-    def _verify(self, policy, **patch_kwargs):
-        with patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
-                   **patch_kwargs) as verify:
-            result = DoctorService.repair([{'kind': 'backup_verify',
-                                            'policy_id': policy.id,
-                                            'run_id': 7}])[0]
-        return result, verify
+    def _repair(self, policy, run):
+        return DoctorService.repair([{'kind': 'backup_verify',
+                                      'policy_id': policy.id,
+                                      'run_id': run.id}])[0]
 
-    def test_a_verified_copy_succeeds(self, app, policy):
-        result, verify = self._verify(
-            policy, return_value={'success': True, 'verified': True})
+    # -- offsite runs ------------------------------------------------------ #
+
+    def test_a_verified_remote_copy_succeeds(self, app, policy):
+        run = _run_for(policy, remote_key='s3://bucket/key')
+
+        with patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
+                   return_value={'success': True, 'verified': True}) as remote, \
+                patch('app.services.backup_verify_service.verify_run_tier1') as tier1:
+            result = self._repair(policy, run)
 
         assert result['success'] is True
         assert result['verified'] is True
-        assert verify.call_args.args[1] == 7
+        assert remote.call_args.args[1] == run.id
+        tier1.assert_not_called()
 
     def test_no_job_id_because_it_is_synchronous(self, app, policy):
         """Unlike the drill, nothing is queued — claiming a job id would send
         the console looking for a job that does not exist."""
-        result, _ = self._verify(
-            policy, return_value={'success': True, 'verified': True})
+        run = _run_for(policy, remote_key='s3://bucket/key')
+
+        with patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
+                   return_value={'success': True, 'verified': True}):
+            result = self._repair(policy, run)
 
         assert 'job_id' not in result
 
-    def test_a_mismatching_copy_is_a_failure_not_a_fix(self, app, policy):
+    def test_a_mismatching_remote_copy_is_a_failure_not_a_fix(self, app, policy):
         """Verification running and finding a BAD copy is a worse outcome than
         'unverified' — reporting it as a successful repair would be a lie."""
-        result, _ = self._verify(
-            policy, return_value={'success': True, 'verified': False,
-                                  'detail': {'size': 'mismatch'}})
+        run = _run_for(policy, remote_key='s3://bucket/key')
+
+        with patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
+                   return_value={'success': True, 'verified': False,
+                                 'detail': {'size': 'mismatch'}}):
+            result = self._repair(policy, run)
 
         assert result['success'] is False
         assert 'did not match' in result['error']
@@ -165,11 +206,80 @@ class TestBackupVerifyRepair:
     def test_a_policy_error_is_reported_not_raised(self, app, policy):
         from app.services.backup_policy_service import BackupPolicyError
 
-        result, _ = self._verify(
-            policy, side_effect=BackupPolicyError('Backup not found'))
+        run = _run_for(policy, remote_key='s3://bucket/key')
+        with patch('app.services.backup_policy_service.BackupPolicyService.verify_run',
+                   side_effect=BackupPolicyError('Backup not found')):
+            result = self._repair(policy, run)
 
         assert result['success'] is False
         assert 'Backup not found' in result['error']
+
+    # -- local-only runs --------------------------------------------------- #
+
+    def test_local_only_run_is_verified_on_disk_not_remotely(self, app, policy):
+        run = _run_for(policy, remote_key=None)
+
+        with patch('app.services.backup_verify_service.verify_run_tier1',
+                   side_effect=_tier1_setting('hashed')) as tier1, \
+                patch('app.services.backup_policy_service.BackupPolicyService.verify_run') as remote:
+            result = self._repair(policy, run)
+
+        assert result['success'] is True
+        assert result['verify_level'] == 'hashed'
+        tier1.assert_called_once()
+        remote.assert_not_called()   # there is nothing to compare against
+
+    def test_an_unreadable_archive_is_a_failure(self, app, policy):
+        """Tier 1 leaves the level at 'none' when it cannot read the archive —
+        the worst answer, and the one most worth knowing before a restore
+        depends on it."""
+        run = _run_for(policy)
+
+        with patch('app.services.backup_verify_service.verify_run_tier1',
+                   side_effect=_tier1_setting(
+                       'none', 'Primary archive not found on disk (not readable).')):
+            result = self._repair(policy, run)
+
+        assert result['success'] is False
+        assert 'not readable' in result['error']
+
+    def test_a_checksum_mismatch_is_a_failure_even_though_it_is_readable(self, app, policy):
+        """'listed' clears the doctor check, but a mismatch means the archive
+        is not the one the manifest describes — not a fix."""
+        run = _run_for(policy)
+
+        with patch('app.services.backup_verify_service.verify_run_tier1',
+                   side_effect=_tier1_setting(
+                       'listed', 'Checksum mismatch: expected abc123…')):
+            result = self._repair(policy, run)
+
+        assert result['success'] is False
+        assert 'Checksum mismatch' in result['error']
+
+    def test_the_verified_level_is_persisted(self, app, policy):
+        """verify_run_tier1 mutates without committing, so the commit is the
+        repair's job — otherwise the doctor reports 'unverified' again on the
+        very next sweep."""
+        from app import db
+        from app.models.backup_run import BackupRun
+
+        run = _run_for(policy)
+        with patch('app.services.backup_verify_service.verify_run_tier1',
+                   side_effect=_tier1_setting('hashed')):
+            self._repair(policy, run)
+        db.session.expire_all()
+
+        assert BackupRun.query.filter_by(id=run.id).first().verify_level == 'hashed'
+
+    # -- lookup failures --------------------------------------------------- #
+
+    def test_a_missing_run_reads_as_not_found(self, app, policy):
+        result = DoctorService.repair([{'kind': 'backup_verify',
+                                        'policy_id': policy.id,
+                                        'run_id': 987654}])[0]
+
+        assert result['success'] is False
+        assert 'not found' in result['error'].lower()
 
     def test_a_deleted_policy_reads_as_gone(self, app):
         result = DoctorService.repair(
@@ -179,37 +289,12 @@ class TestBackupVerifyRepair:
         assert 'no longer exists' in result['error']
 
 
-# --------------------------------------------------------------------------- #
-# The other half: don't render a button that cannot work
-# --------------------------------------------------------------------------- #
-class TestVerifyButtonIsOnlyOfferedWhenItCanWork:
-    """verify_run compares against the REMOTE copy and raises when there is
-    none. A local-only backup would therefore render a Repair button that
-    fails every time — the same defect A.1 exists to remove."""
+def test_every_unverified_backup_still_gets_a_button(app, policy):
+    """The check must keep offering the repair regardless of offsite storage —
+    now that both ladders work, gating it would hide a working fix."""
+    _run_for(policy, remote_key=None)
+    check = DoctorService._backup_unverified_check(policy)
 
-    def _check_for(self, app, policy, remote_key):
-        from app import db
-        from app.models.backup_run import BackupRun
-
-        run = BackupRun(policy_id=policy.id, kind='full', status='success')
-        run.remote_key = remote_key
-        db.session.add(run)
-        db.session.commit()
-        return DoctorService._backup_unverified_check(policy)
-
-    def test_local_only_backup_is_not_repairable(self, app, policy):
-        check = self._check_for(app, policy, None)
-
-        assert check['status'] == 'warn'
-        assert check['repairable'] is False
-        assert check['repair_ref'] is None
-        # and it says what WOULD fix it
-        assert 'offsite' in check['detail'] or 'restore drill' in check['detail']
-
-    def test_backup_with_a_remote_copy_is_repairable(self, app, policy):
-        check = self._check_for(app, policy, 's3://bucket/key')
-
-        assert check['status'] == 'warn'
-        assert check['repairable'] is True
-        assert check['repair_ref']['kind'] == 'backup_verify'
-        assert check['repair_ref']['policy_id'] == policy.id
+    assert check['status'] == 'warn'
+    assert check['repairable'] is True
+    assert check['repair_ref']['kind'] == 'backup_verify'

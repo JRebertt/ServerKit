@@ -590,27 +590,15 @@ class DoctorService:
         key = f'backup_unverified.{policy.id}'
         title = f'Backup verification: {cls._policy_label(policy)}'
         level = run.effective_verify_level()
-        if level != 'none':
-            return _check(key, title, 'ok', f'Latest backup verified ({level}).')
-
-        # The repair verifies the REMOTE copy (size + checksum against the
-        # provider). With no remote copy there is nothing for it to compare, so
-        # offering the button would be offering a guaranteed failure — the
-        # exact thing this check family got wrong. Say what would fix it
-        # instead: an offsite copy, or a restore drill.
-        if not getattr(run, 'remote_key', None):
+        if level == 'none':
             return _check(
                 key, title, 'warn',
-                'The latest backup has not been verified, and it has no offsite '
-                'copy to verify against. Send this policy to remote storage, or '
-                'run a restore drill to prove the backup restores.')
-        return _check(
-            key, title, 'warn',
-            'The latest backup has not been verified (no integrity check or '
-            'restore drill has run against it yet).',
-            repairable=True,
-            repair_ref={'kind': 'backup_verify', 'policy_id': policy.id,
-                        'run_id': run.id})
+                'The latest backup has not been verified (no integrity check or '
+                'restore drill has run against it yet).',
+                repairable=True,
+                repair_ref={'kind': 'backup_verify', 'policy_id': policy.id,
+                            'run_id': run.id})
+        return _check(key, title, 'ok', f'Latest backup verified ({level}).')
 
     @classmethod
     def _setup_checks(cls):
@@ -765,11 +753,18 @@ class DoctorService:
 
     @classmethod
     def _repair_backup_verify(cls, policy_id, run_id):
-        """Verify a backup run's remote copy.
+        """Verify a backup run by whatever means that run allows.
 
-        Unlike the drill this is synchronous — verify_run does the size and
-        checksum comparison inline and returns the verdict, so there is no job
-        id to hand back.
+        Two ladders exist and the check cannot tell them apart from outside. A
+        run with an offsite copy is verified against the provider (size +
+        checksum via verify_run). A local-only run is verified in place: read
+        the archive and checksum it against the stored manifest. Routing every
+        run down the remote path would make this button useless for anyone who
+        has not configured offsite storage — which is most installs, and which
+        is the same "button that always fails" defect this item exists to
+        remove.
+
+        Synchronous either way, unlike the drill, so there is no job id.
         """
         policy = cls._load_policy(policy_id)
         if policy is None:
@@ -778,6 +773,16 @@ class DoctorService:
         from app.services.backup_policy_service import (
             BackupPolicyError, BackupPolicyService,
         )
+        try:
+            run = BackupPolicyService.get_run(policy, run_id)
+        except Exception:  # noqa: BLE001
+            run = None
+        if run is None:
+            return {'success': False, 'error': 'Backup not found.'}
+
+        if not getattr(run, 'remote_key', None):
+            return cls._verify_run_locally(run)
+
         try:
             result = BackupPolicyService.verify_run(policy, run_id)
         except BackupPolicyError as e:
@@ -793,6 +798,37 @@ class DoctorService:
                     'detail': result.get('detail')}
         return {'success': True, 'verified': True,
                 'detail': 'Remote copy verified.'}
+
+    @staticmethod
+    def _verify_run_locally(run):
+        """Tier-1 (on-disk) verification: is the archive readable, and does it
+        still checksum to what the manifest recorded?
+
+        verify_run_tier1 mutates the run's verify ladder without committing,
+        so the commit is ours.
+        """
+        from app import db
+        from app.services import backup_verify_service
+        try:
+            backup_verify_service.verify_run_tier1(run, run.get_metadata() or {})
+            db.session.commit()
+        except Exception as e:  # noqa: BLE001
+            db.session.rollback()
+            return {'success': False, 'error': str(e)}
+
+        level = run.verify_level or 'none'
+        if level == 'none':
+            # Unreadable archive — the worst answer, and the one most worth
+            # knowing before a restore depends on it.
+            return {'success': False,
+                    'error': run.verify_error
+                             or 'The backup archive could not be read.'}
+        if run.verify_error:
+            # Readable but the checksum disagrees with the manifest.
+            return {'success': False, 'error': run.verify_error,
+                    'verify_level': level}
+        return {'success': True, 'verify_level': level,
+                'detail': f'Backup verified on disk ({level}).'}
 
     @classmethod
     def _restart_service(cls, name):
