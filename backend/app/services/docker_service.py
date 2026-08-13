@@ -1300,6 +1300,43 @@ class DockerService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
+    def compose_build(cls, project_path, service=None, compose_file=None, no_cache=False):
+        """Build the project's images without starting anything.
+
+        The deploy preflight (plan 72 B.1) runs this *before* the live
+        containers are stopped, so a build failure can no longer take a site
+        down: the subsequent ``up --build`` re-uses the layer cache.
+        """
+        try:
+            cmd = cls._compose_base_cmd(compose_file) + ['build']
+            if no_cache:
+                cmd.append('--no-cache')
+            if service:
+                cmd.append(service)
+
+            result = subprocess.run(
+                cmd, cwd=project_path,
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return {'success': True, 'output': result.stdout}
+            return {'success': False, 'error': result.stderr, 'output': result.stdout}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @staticmethod
+    def image_exists(image_ref):
+        """True when the image is already in the local image store."""
+        try:
+            result = subprocess.run(
+                ['docker', 'image', 'inspect', image_ref],
+                capture_output=True, text=True
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    @classmethod
     def validate_compose_file(cls, project_path, compose_file=None):
         """Validate a Docker Compose file."""
         try:

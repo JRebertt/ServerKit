@@ -23,7 +23,7 @@ import hashlib
 import threading
 import subprocess
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any
 from pathlib import Path
 import requests
 
@@ -2230,11 +2230,19 @@ class TemplateService:
         }
 
     @classmethod
-    def update_app(cls, app_id: int, user_id: int = None) -> Dict:
-        """Update an installed app to the latest template version."""
+    def update_app(cls, app_id: int, user_id: int = None,
+                   log_callback: Callable[[str], None] = None) -> Dict:
+        """Update an installed app to the latest template version.
+
+        The new compose is rendered, validated and its images resolved *before*
+        the running containers are stopped (plan 72 B.1) — a template whose new
+        version does not render, does not validate or cannot pull now fails
+        with the old stack still serving.
+        """
         from app import db
         from app.models import Application
         from app.services.docker_service import DockerService
+        from app.services import deploy_preflight_service as preflight
 
         config = cls.get_config()
         installed = config.get('installed', {}).get(str(app_id))
@@ -2256,8 +2264,13 @@ class TemplateService:
 
         template = result['template']
 
-        # Load existing variables
+        # Load existing variables. install_info is written back further down, so
+        # it must exist even when the marker file is missing or corrupt —
+        # otherwise the update raised NameError *after* compose_down and left
+        # the app stopped, which is exactly the outage this path is supposed to
+        # avoid.
         info_path = os.path.join(app_path, '.serverkit-template.json')
+        install_info = {}
         try:
             with open(info_path, 'r') as f:
                 install_info = json.load(f)
@@ -2293,11 +2306,36 @@ class TemplateService:
                 if not script_result.get('success'):
                     return script_result
 
-            # Stop current containers
+            # Generate the new compose FIRST and validate it while the current
+            # stack is still running. It is written to a sibling candidate file
+            # (a dotfile, so nothing globbing docker-compose* picks it up) —
+            # same directory, so relative bind mounts and .env resolve exactly
+            # as they will after the switchover.
+            compose_content = cls.generate_compose(template, variables)
+            candidate_name = '.serverkit-preflight-compose.yml'
+            candidate_path = os.path.join(app_path, candidate_name)
+            try:
+                with open(candidate_path, 'w') as f:
+                    f.write(compose_content)
+                checks = preflight.preflight_compose_project(
+                    app_path, compose_file=candidate_name,
+                    log=log_callback,
+                    label=f'the new {template.get("name", template_id)} compose',
+                )
+            finally:
+                if os.path.exists(candidate_path):
+                    os.remove(candidate_path)
+
+            if not checks.ok:
+                # Nothing has been stopped and nothing on disk has changed —
+                # the app is still serving the version it was serving.
+                return {'success': False, 'error': checks.error,
+                        'preflight': checks.to_dict()}
+
+            # ---- switchover: past this line the live stack is down ---------
             DockerService.compose_down(app_path)
 
-            # Generate new docker-compose.yml
-            compose_content = cls.generate_compose(template, variables)
+            # Write the compose that was just validated
             with open(compose_path, 'w') as f:
                 f.write(compose_content)
 
@@ -2322,7 +2360,10 @@ class TemplateService:
             with open(info_path, 'w') as f:
                 json.dump(install_info, f, indent=2)
 
-            # Pull new images and start
+            # Pull new images and start. The preflight above already pulled
+            # everything the validated compose referenced, so this is a cached
+            # no-op for those; it stays as the safety net for images that
+            # _process_template_files introduced after validation.
             DockerService.compose_pull(app_path)
             compose_result = DockerService.compose_up(app_path, detach=True, build=True)
 

@@ -388,17 +388,44 @@ class GitDeployService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
-    def _standard_restart(cls, app) -> Dict:
-        """Standard restart - stop then start."""
+    def _standard_restart(cls, app, log_callback=None) -> Dict:
+        """Standard restart - validate, build, then stop and start.
+
+        The default webhook path. It used to go straight to ``compose down``,
+        so a commit that broke the compose file or the build took the site down
+        and left it down (plan 72 B.1). The preflight now validates the compose
+        and builds the images to completion while the old containers are still
+        serving; only then is anything stopped.
+        """
         from app.services.docker_service import DockerService
+        from app.services import deploy_preflight_service as preflight
 
         output = []
 
-        # Stop
+        def _log(line: str) -> None:
+            output.append(line)
+            if log_callback:
+                try:
+                    log_callback(line)
+                except Exception:
+                    pass
+
+        checks = preflight.preflight_compose_project(app.root_path, log=_log)
+        if not checks.ok:
+            # Nothing was stopped — the previous release is still serving.
+            return {
+                'success': False,
+                'output': '\n'.join(output),
+                'error': checks.error,
+                'preflight': checks.to_dict(),
+            }
+
+        # ---- switchover: past this line the live stack is down -------------
         stop_result = DockerService.compose_down(app.root_path)
         output.append(f"Stop: {stop_result.get('message', stop_result.get('error', 'Unknown'))}")
 
-        # Build and start
+        # Build and start (the build is a cache hit — the preflight already
+        # built these images before anything was stopped)
         up_result = DockerService.compose_up(app.root_path, detach=True, build=True)
         output.append(f"Start: {up_result.get('message', up_result.get('error', 'Unknown'))}")
 
