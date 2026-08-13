@@ -100,19 +100,36 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         };
     }, [menuOpen]);
 
-    // Check if WordPress is installed
+    const { nav: pluginNav, tabs: pluginTabs } = useContributions();
+
+    // Runtime conditions are probed ONLY when a contributed nav item actually
+    // asks for one. These two probes used to fire unconditionally on every app
+    // load, and both endpoints belong to extensions — /gpu/ to serverkit-gpu,
+    // /wordpress/standalone/status to serverkit-wordpress. With the extension
+    // absent the route is not registered, so the call is a guaranteed 404 that
+    // cannot change a single rendered pixel: the only manifest declaring
+    // `requiresCondition: "gpuAvailable"` ships with the GPU extension itself,
+    // so when it is gone nothing reads the answer.
+    //
+    // They were not free. In dev the API shares the browser's 6-connection
+    // HTTP/1.1 pool with Vite's module graph, so two doomed requests hold a
+    // third of the page's connection budget for their entire lifetime.
+    const needsGpu = (pluginNav || []).some((i) => i?.requiresCondition === 'gpuAvailable');
+    const needsWp = (pluginNav || []).some((i) => i?.requiresCondition === 'wpInstalled');
+
     useEffect(() => {
+        if (!needsWp) { setWpInstalled(false); return; }
         api.getWordPressStatus()
             .then(data => setWpInstalled(!!data?.installed))
             .catch(() => setWpInstalled(false));
-    }, []);
+    }, [needsWp]);
 
-    // Hide GPU Monitor when the host has no GPU (mirrors the wpInstalled gate).
     useEffect(() => {
+        if (!needsGpu) { setGpuAvailable(false); return; }
         api.getGpuInfo()
             .then(data => setGpuAvailable(!!data?.available))
             .catch(() => setGpuAvailable(false));
-    }, []);
+    }, [needsGpu]);
 
     // Feature-module toggles (WordPress; Email is now an extension). Default to
     // enabled until the shared module state loads so items never flicker/hide.
@@ -140,8 +157,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         updateUser({ sidebar_config: config });
         api.updateCurrentUser({ sidebar_config: config }).catch(() => {});
     };
-
-    const { nav: pluginNav, tabs: pluginTabs } = useContributions();
 
     const visibleItems = useMemo(() => {
         const core = getVisibleItems(user?.sidebar_config);

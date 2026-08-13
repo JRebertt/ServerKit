@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../services/api';
@@ -23,28 +23,56 @@ export default function DeployPill() {
     // Deploy Activity and the console are the surface this pill points at.
     const onDeploySurface = pathname === '/deployments' || pathname.startsWith('/deployments/');
 
+    // A tick must never start while the previous one is outstanding. This pill
+    // lives in the global shell, so it polls on EVERY authenticated route; when
+    // the backend is slow a 6s interval with no guard stacks a new pair of
+    // requests every 6s on top of the ones already waiting. A 30s response time
+    // means five concurrent `status=running` calls — which is exactly what a
+    // DevTools capture of /domains showed, alongside a wall of pending rows.
+    const inFlight = useRef(false);
+
     const refresh = useCallback(async () => {
+        if (inFlight.current) return;
+        inFlight.current = true;
         try {
-            const [running, pending] = await Promise.all([
-                api.getDeploymentJobs({ status: 'running', limit: 20 }),
-                api.getDeploymentJobs({ status: 'pending', limit: 20 }),
-            ]);
-            const jobs = [...(running?.jobs || []), ...(pending?.jobs || [])];
-            setActive(jobs);
+            // One request, not two. The endpoint returns the job's status, so
+            // asking for each status separately doubled the request count to
+            // learn the same thing.
+            const res = await api.getDeploymentJobs({ limit: 20 });
+            setActive((res?.jobs || []).filter(
+                (job) => job.status === 'running' || job.status === 'pending',
+            ));
         } catch {
             // Silent — the pill is a convenience, not critical chrome.
+        } finally {
+            inFlight.current = false;
         }
     }, []);
 
     useEffect(() => {
         if (onDeploySurface) return undefined;
-        refresh();
-        const t = setInterval(refresh, POLL_MS);
-        // React quickly to live status changes when a console elsewhere is streaming.
+
+        // Polling a background tab buys nothing and competes for the browser's
+        // per-origin connections with whatever the visible tab is doing.
+        const tick = () => {
+            if (document.visibilityState !== 'visible') return;
+            refresh();
+        };
+        tick();
+        const t = setInterval(tick, POLL_MS);
+
+        // Catch up once when the tab comes back rather than polling all along.
+        const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+        document.addEventListener('visibilitychange', onVisible);
+
+        // React quickly to live status changes when a console elsewhere is
+        // streaming — but a burst of deploy_status events must not become a
+        // burst of requests, so the in-flight guard covers these too.
         const unsubStatus = socketService.on('deploy_status', refresh);
         const unsubConnect = socketService.on('connected', refresh);
         return () => {
             clearInterval(t);
+            document.removeEventListener('visibilitychange', onVisible);
             unsubStatus();
             unsubConnect();
         };
