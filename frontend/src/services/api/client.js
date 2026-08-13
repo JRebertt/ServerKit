@@ -14,9 +14,49 @@ const API_BASE_URL = import.meta.env.DEV
     ? '/api/v1'
     : normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 
+// Requests that are safe to share with a concurrent identical caller: a plain
+// GET with no body, no custom headers (X-DB-Password and friends change what
+// comes back) and no abort signal (one caller aborting must not cancel
+// someone else's request).
+// A joining caller gets its own copy, so the two callers keep the independent
+// objects they had when each ran its own fetch — one of them mutating the
+// result (sorting an array in place, say) must not corrupt the other's.
+const cloneResult = (data) => {
+    if (data === null || typeof data !== 'object') return data;
+    try {
+        return structuredClone(data);
+    } catch {
+        return data;   // exotic payload — sharing beats throwing
+    }
+};
+
+const isCoalescable = (options) => (
+    (!options.method || options.method === 'GET')
+    && !options.body
+    && !options.headers
+    && !options.signal
+);
+
 class ApiClient {
     constructor() {
         this.baseUrl = API_BASE_URL;
+        // In-flight GET coalescing. Two callers asking for the same URL at the
+        // same moment share one network request instead of racing.
+        //
+        // This is NOT a cache — the entry is dropped the moment the request
+        // settles, so nobody ever reads a stale body. It only collapses the
+        // overlap, which is where the duplicates actually came from: React's
+        // StrictMode double-invokes every effect in dev, two independent
+        // components own the same endpoint (/system/notices,
+        // /plugins/contributions), and a poller whose previous tick has not
+        // returned fires again on schedule. A DevTools capture of one page load
+        // showed the same endpoint requested up to five times concurrently.
+        //
+        // It matters more than it looks: in dev the API shares the browser's
+        // six-connection HTTP/1.1 budget with Vite's module graph, so a
+        // redundant request does not merely waste the backend's time, it holds
+        // a connection the page needs to finish rendering.
+        this._inflight = new Map();
     }
 
     getToken() {
@@ -36,7 +76,22 @@ class ApiClient {
         localStorage.removeItem('workspace_accent');
     }
 
-    async request(endpoint, options = {}) {
+    request(endpoint, options = {}) {
+        if (!isCoalescable(options)) return this._request(endpoint, options);
+
+        // Scope the key by workspace: the same path returns different rows
+        // under a different X-Workspace-Id.
+        const key = `${localStorage.getItem('active_workspace_id') || ''}|${endpoint}`;
+        const existing = this._inflight.get(key);
+        if (existing) return existing.then(cloneResult);
+
+        const pending = this._request(endpoint, options)
+            .finally(() => { this._inflight.delete(key); });
+        this._inflight.set(key, pending);
+        return pending;
+    }
+
+    async _request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
         const token = this.getToken();
 
