@@ -64,6 +64,12 @@ __pycache__/
 .env.development.local
 .env.test.local
 .env.production.local
+# ...and any copy of one. These rules were exact-match, so a `.bak` left behind
+# by an editor or by dev.ps1 rewriting its own block showed up as an untracked
+# file begging to be committed — and a local env file holds the WSL IP of
+# whichever machine wrote it.
+.env*.local.*
+.env*.local-*
 *.key
 *.pem
 *.crt
