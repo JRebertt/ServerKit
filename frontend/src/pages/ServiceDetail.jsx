@@ -367,9 +367,9 @@ const ServiceDetail = () => {
                                         Suspend Service
                                     </button>
                                 )}
-                                {service.port && (
+                                {openUrl && (
                                     <a
-                                        href={`http://localhost:${service.port}`}
+                                        href={openUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={() => setShowMoreMenu(false)}

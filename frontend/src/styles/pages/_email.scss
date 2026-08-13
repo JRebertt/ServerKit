@@ -82,6 +82,25 @@
         text-align: center;
     }
 
+    // Inline install failure (component + stderr from the API) — same card
+    // chrome as the hero note, in the danger tone. pre-line keeps one failing
+    // component per line; anywhere stops a long unbroken stderr token from
+    // widening the hero.
+    &__hero-error {
+        margin: $space-3 0 0;
+        padding: $space-3 $space-4;
+        background: var(--red-bg);
+        border: 1px solid var(--red);
+        border-radius: var(--radius);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--red);
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+        text-align: left;
+    }
+
     // ── Action clusters (row actions, form buttons, toolbars) ─
     &__actions {
         display: flex;
