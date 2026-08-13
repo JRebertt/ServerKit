@@ -7,10 +7,28 @@ const normalizeApiBaseUrl = (url) => {
     return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`;
 };
 
-// In dev, keep browser requests same-origin so Vite can proxy /api to the
-// configured backend target. Calling VITE_API_URL directly bypasses that
-// proxy and exposes CORS/preflight redirects in the browser.
-const API_BASE_URL = import.meta.env.DEV
+// In dev the API gets its OWN ORIGIN rather than being proxied through Vite.
+//
+// Same-origin looks simpler, and it is what this did for a long time, but it
+// puts every API call into the same per-origin connection pool as Vite's module
+// graph — and Vite serves each of the ~760 source files as its own request. A
+// browser allows six concurrent HTTP/1.1 connections per origin, so a page that
+// makes twenty API calls queues them behind hundreds of .jsx requests. That is
+// not a theory about the mechanism: a DevTools capture of /domains showed a 404
+// taking 28.77 seconds that the backend's own request log measured at 1.0ms.
+// The whole gap was Stalled/Queueing. Splitting the origin doubles the usable
+// sockets and, more importantly, stops a slow API call from blocking a module.
+//
+// The backend already allows the Vite dev origin (config.py
+// DEFAULT_CORS_ORIGINS) and now sends Access-Control-Max-Age, so the preflight
+// each Authorization-bearing request needs is paid once per endpoint per hour
+// rather than every few seconds.
+//
+// Set VITE_API_PROXY=true to go back to same-origin — the escape hatch if a
+// setup has an origin CORS does not expect. Socket.IO is unaffected: it stays
+// on window.location.origin in dev (see services/socket.js) because a WebSocket
+// upgrades out of the HTTP connection pool anyway.
+const API_BASE_URL = (import.meta.env.DEV && import.meta.env.VITE_API_PROXY === 'true')
     ? '/api/v1'
     : normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 

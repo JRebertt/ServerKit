@@ -104,7 +104,14 @@ def create_app(config_name=None):
         origins=cors_origins,
         supports_credentials=True,
         allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
-        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        # Every panel request carries an Authorization header, which makes it a
+        # non-simple cross-origin request: without Access-Control-Max-Age the
+        # browser re-runs a preflight OPTIONS every few seconds (Chrome's
+        # default cache is 5s), so a cross-origin panel pays two round trips per
+        # call forever. One hour is the practical ceiling — Chrome caps the
+        # value at 2h, Firefox at 24h, and both take the smaller of the two.
+        max_age=3600,
     )
 
     # Register security headers middleware
