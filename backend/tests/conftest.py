@@ -334,12 +334,21 @@ def wp_extension(app):
 
 
 @pytest.fixture
-def wp_extension_package():
-    """Load just the WordPress extension's backend package (app.plugins
-    .serverkit-wordpress.*) from its standalone repo — enough for the lazy
-    wordpress_bridge to resolve service classes. Skips when the source isn't
-    available. For route-level tests use wp_extension (also mounts
-    blueprints + seeds the active row)."""
+def wp_extension_package(app):
+    """Load the WordPress extension's backend package (app.plugins
+    .serverkit-wordpress.*) from its standalone repo AND mark it active, which
+    is what the lazy wordpress_bridge needs to resolve service classes. Skips
+    when the source isn't available. For route-level tests use wp_extension,
+    which additionally mounts the blueprints and registers the core_hooks seams.
+
+    The active row is not optional. `wordpress_bridge.ensure_loadable()` gates
+    on an ACTIVE InstalledPlugin row, not on importability -- deliberately, so
+    a DISABLED extension's services stay unreachable even though its modules
+    still import (audit F2). Loading the package alone therefore stopped being
+    enough, and every test whose code path reached the bridge failed with
+    WordPressExtensionMissingError while looking exactly like "the extension is
+    not installed".
+    """
     tests_dir = _wp_ext_tests_dir()
     if not tests_dir:
         pytest.skip('serverkit-wordpress source not available '
@@ -347,4 +356,21 @@ def wp_extension_package():
     if tests_dir not in sys.path:
         sys.path.insert(0, tests_dir)
     import _wp_support
-    return _wp_support.load_ext()
+    mods = _wp_support.load_ext()
+
+    from app import db
+    from app.models.plugin import InstalledPlugin
+    with app.app_context():
+        row = InstalledPlugin.query.filter_by(slug='serverkit-wordpress').first()
+        if not row:
+            row = InstalledPlugin(
+                name='serverkit-wordpress', display_name='WordPress',
+                slug='serverkit-wordpress', version='1.0.0',
+                status=InstalledPlugin.STATUS_ACTIVE,
+                has_backend=True, url_prefix='/api/v1/wordpress',
+            )
+            db.session.add(row)
+        else:
+            row.status = InstalledPlugin.STATUS_ACTIVE
+        db.session.commit()
+    return mods
