@@ -1086,16 +1086,20 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
         # write, and both append one. json.dump does not, so without it every
         # install rewrote the file with the newline stripped and left a dirty
         # working tree whose diff contained no actual change.
+        # newline='\n' matters for the same reason: .gitattributes pins the repo
+        # to `text=auto eol=lf`, but Python's text mode translates \n to \r\n on
+        # Windows, so a dev-machine install rewrote every tracked manifest with
+        # CRLF.
         if has_backend:
             manifest_out = os.path.join(backend_dest, 'plugin.json')
-            with open(manifest_out, 'w') as f:
+            with open(manifest_out, 'w', newline='\n') as f:
                 json.dump(manifest, f, indent=2)
                 f.write('\n')
 
         # Also write manifest to frontend dir
         if has_frontend:
             manifest_out = os.path.join(frontend_dest, 'plugin.json')
-            with open(manifest_out, 'w') as f:
+            with open(manifest_out, 'w', newline='\n') as f:
                 json.dump(manifest, f, indent=2)
                 f.write('\n')
 
@@ -1355,9 +1359,10 @@ def _regenerate_frontend_manifest():
             entry['styles'] = [f'plugins/{p.slug}/styles/{s}' for s in styles]
         entries.append(entry)
 
-    # Trailing newline for the same reason as the per-plugin manifests above:
-    # scripts/sync-builtin-frontends.mjs writes this same tracked file with one.
-    with open(manifest_path, 'w') as f:
+    # Trailing newline and LF for the same reasons as the per-plugin manifests
+    # above: scripts/sync-builtin-frontends.mjs writes this same tracked file
+    # with one, and .gitattributes pins the repo to eol=lf.
+    with open(manifest_path, 'w', newline='\n') as f:
         json.dump({'plugins': entries}, f, indent=2)
         f.write('\n')
 

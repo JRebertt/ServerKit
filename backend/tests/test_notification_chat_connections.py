@@ -7,6 +7,7 @@ payload, the consumer delivery path, and legacy-import idempotency.
 import hashlib
 import hmac
 import json
+import logging
 
 import pytest
 from werkzeug.security import generate_password_hash
@@ -16,7 +17,7 @@ from app.models import User
 from app.models.chat_webhook import ChatWebhookConnection
 from app.models.notification_preferences import NotificationPreferences
 from app.notifications.consumer import process_message
-from app.notifications.models import NotificationDelivery
+from app.notifications.models import Notification, NotificationDelivery
 from app.notifications.service import GROUP_SLUG, QUEUE_SLUG, NotificationBusService
 from app.queue_bus.service import QueueBusService
 from app.services.chat_webhook_service import ChatWebhookService
@@ -70,6 +71,203 @@ class TestCrud:
         ChatWebhookService.delete(a.id)
         db.session.refresh(b)
         assert b.is_default is True
+
+    def test_update_changes_metadata_and_preserves_omitted_credentials(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Old name',
+            'url': 'https://hooks.example/old',
+            'secret': 'keep-me',
+            'categories': ['security'],
+        })
+
+        updated = ChatWebhookService.update(conn.id, {
+            'name': 'New name',
+            'categories': ['backups'],
+            'is_active': False,
+        })
+
+        assert updated.name == 'New name'
+        assert updated.categories() == ['backups']
+        assert updated.is_active is False
+        assert updated.credentials() == {
+            'url': 'https://hooks.example/old',
+            'secret': 'keep-me',
+        }
+
+    def test_update_rotates_supplied_credentials(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/old',
+            'secret': 'old-secret',
+        })
+
+        updated = ChatWebhookService.update(conn.id, {
+            'url': 'https://hooks.example/new',
+            'secret': 'new-secret',
+        })
+
+        assert updated.credentials() == {
+            'url': 'https://hooks.example/new',
+            'secret': 'new-secret',
+        }
+        assert updated.raw_credentials()['url'] != 'https://hooks.example/new'
+        assert updated.raw_credentials()['secret'] != 'new-secret'
+
+    def test_update_carries_untouched_credential_across_untranslated(self, app):
+        """An untouched credential keeps its exact stored ciphertext.
+
+        Fernet is non-deterministic, so re-encrypting an unchanged plaintext
+        would visibly rewrite the column. Rewriting is how a value that failed
+        to decrypt (wrong key, or a legacy plaintext row) gets double-wrapped
+        and lost, so the byte-for-byte check is the guard against that.
+        """
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/old',
+            'secret': 'keep-me',
+        })
+        secret_before = conn.raw_credentials()['secret']
+
+        updated = ChatWebhookService.update(conn.id, {
+            'url': 'https://hooks.example/new',
+        })
+
+        assert updated.raw_credentials()['secret'] == secret_before
+        assert updated.credentials() == {
+            'url': 'https://hooks.example/new',
+            'secret': 'keep-me',
+        }
+
+    def test_update_accepts_a_round_tripped_unchanged_is_default(self, app):
+        """to_dict() always emits is_default, so GET -> edit -> PUT sends it."""
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/ops',
+        })
+        body = conn.to_dict()
+        body['name'] = 'Ops renamed'
+
+        updated = ChatWebhookService.update(conn.id, body)
+
+        assert updated.name == 'Ops renamed'
+        assert updated.is_default is True
+
+    def test_update_still_rejects_an_actual_is_default_change(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/ops',
+        })
+
+        with pytest.raises(ValueError, match='default endpoint'):
+            ChatWebhookService.update(conn.id, {'is_default': False})
+
+    def test_corrupt_non_dict_credentials_do_not_500(self, app):
+        """A row holding well-formed JSON of the wrong shape stays serialisable.
+
+        Every caller of raw_credentials() assumes a mapping, so a hand-edited
+        ``[]`` used to blow up to_dict() -- i.e. the list endpoint -- before
+        update() was even reachable.
+        """
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Corrupt',
+            'url': 'https://hooks.example/ops',
+        })
+        conn.credentials_json = '[]'
+        db.session.commit()
+
+        assert conn.raw_credentials() == {}
+        assert conn.credentials() == {}
+        assert conn.to_dict()['destination'] == ''
+        # and the write path reports a controlled validation error, not a 500
+        with pytest.raises(ValueError, match='requires a url'):
+            ChatWebhookService.update(conn.id, {'secret': 'x'})
+
+    def test_update_clears_explicitly_empty_optional_credential(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'telegram',
+            'name': 'Bot',
+            'chat_id': '1234',
+            'bot_token': 'token-to-clear',
+        })
+
+        updated = ChatWebhookService.update(conn.id, {'bot_token': ''})
+
+        assert updated.credentials() == {'chat_id': '1234'}
+
+    def test_update_rejects_kind_change(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Ops', 'url': 'https://discord/hook',
+        })
+
+        with pytest.raises(ValueError, match='kind cannot be changed'):
+            ChatWebhookService.update(conn.id, {'kind': 'slack'})
+
+    def test_update_rejects_non_list_categories(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Ops', 'url': 'https://discord/hook',
+        })
+
+        with pytest.raises(ValueError, match='categories must be a list'):
+            ChatWebhookService.update(conn.id, {'categories': 'security'})
+
+    def test_update_rejects_empty_required_destination(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'telegram', 'name': 'Bot', 'chat_id': '1234',
+        })
+
+        with pytest.raises(ValueError, match='requires a chat_id'):
+            ChatWebhookService.update(conn.id, {'chat_id': ''})
+
+    def test_update_validation_failure_does_not_mutate_connection(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'telegram',
+            'name': 'Original',
+            'chat_id': '1234',
+            'categories': ['security'],
+        })
+
+        with pytest.raises(ValueError, match='requires a chat_id'):
+            ChatWebhookService.update(conn.id, {
+                'name': 'Changed',
+                'categories': ['apps'],
+                'is_active': False,
+                'chat_id': '',
+            })
+
+        assert conn.name == 'Original'
+        assert conn.categories() == ['security']
+        assert conn.is_active is True
+
+
+class TestDefaults:
+    def test_set_default_is_scoped_to_kind_and_activates_selection(self, app):
+        first_discord = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Primary', 'url': 'https://discord/primary',
+        })
+        second_discord = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Secondary', 'url': 'https://discord/secondary',
+            'is_active': False,
+        })
+        slack = ChatWebhookService.add({
+            'kind': 'slack', 'name': 'Slack', 'url': 'https://slack/default',
+        })
+
+        selected = ChatWebhookService.set_default(second_discord.id)
+
+        assert selected.id == second_discord.id
+        assert selected.is_default is True
+        assert selected.is_active is True
+        assert first_discord.is_default is False
+        assert slack.is_default is True
+
+    def test_set_default_returns_none_for_unknown_id(self, app):
+        assert ChatWebhookService.set_default(999999) is None
 
 
 class TestCategoryRouting:
@@ -156,6 +354,142 @@ class TestSigningAndDelivery:
         assert seen['cfg']['webhook_url'] == 'https://discord/webhook'
 
 
+class TestConnectionTesting:
+    def test_inactive_connection_can_send_test_through_real_formatter(self, app, monkeypatch):
+        captured = {}
+
+        class _Resp:
+            status_code = 204
+            text = ''
+
+        def fake_post(url, json=None, timeout=None, **kwargs):
+            captured.update({'url': url, 'json': json, 'timeout': timeout})
+            return _Resp()
+
+        monkeypatch.setattr('app.services.notification_service.requests.post', fake_post)
+        conn = ChatWebhookService.add({
+            'kind': 'discord',
+            'name': 'Disabled room',
+            'url': 'https://discord.example/webhook',
+            'is_active': False,
+        })
+
+        result = ChatWebhookService.test(conn.id)
+
+        assert result == {'success': True, 'message': 'Test notification sent'}
+        assert captured['url'] == 'https://discord.example/webhook'
+        assert captured['json']['embeds'][0]['description'] == (
+            'This is a test notification from ServerKit.'
+        )
+        assert conn.last_tested_at is not None
+        assert conn.last_test_ok is True
+        # The test notification is transient: it must never reach the bell feed.
+        assert Notification.query.count() == 0
+
+    def test_failed_connection_test_persists_failure(self, app, monkeypatch):
+        class _Resp:
+            ok = False
+            status_code = 503
+
+        monkeypatch.setattr(
+            'app.services.chat_webhook_service.requests.post',
+            lambda *args, **kwargs: _Resp(),
+        )
+        conn = ChatWebhookService.add({
+            'kind': 'webhook', 'name': 'Ops', 'url': 'https://hooks.example/failing',
+        })
+
+        result = ChatWebhookService.test(conn.id)
+
+        assert result == {
+            'success': False, 'error': 'Test notification failed',
+        }
+        assert conn.last_tested_at is not None
+        assert conn.last_test_ok is False
+
+    def test_connection_test_hides_transport_errors(self, app, monkeypatch):
+        def fail_post(*args, **kwargs):
+            raise RuntimeError('x' * 500)
+
+        monkeypatch.setattr('app.services.notification_service.requests.post', fail_post)
+        conn = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Ops', 'url': 'https://discord.example/webhook',
+        })
+
+        result = ChatWebhookService.test(conn.id)
+
+        assert result == {
+            'success': False, 'error': 'Test notification failed',
+        }
+        assert conn.last_test_ok is False
+
+    def test_connection_test_does_not_expose_transport_secrets(self, app, monkeypatch):
+        def fail_post(url, *args, **kwargs):
+            raise RuntimeError(f'failed POST {url}')
+
+        monkeypatch.setattr(
+            'app.services.chat_webhook_service.requests.post', fail_post,
+        )
+        secret_url = 'https://hooks.example/super-secret-token'
+        conn = ChatWebhookService.add({
+            'kind': 'webhook', 'name': 'Ops', 'url': secret_url,
+        })
+
+        result = ChatWebhookService.test(conn.id)
+
+        assert result == {
+            'success': False, 'error': 'Test notification failed',
+        }
+        assert secret_url not in json.dumps(result)
+
+    def test_connection_test_keeps_secrets_out_of_the_log(self, app, monkeypatch, caplog):
+        """The failure reason is logged for diagnosis, but redacted first.
+
+        Providers put the credential in the URL *path* and requests embeds the
+        whole URL in its exception text, so an unredacted log line would leak
+        past to_dict()'s destination masking -- and /api/logs serves those files
+        back to the panel.
+        """
+        def fail_post(url, *args, **kwargs):
+            raise RuntimeError(f'failed POST {url}')
+
+        monkeypatch.setattr(
+            'app.services.chat_webhook_service.requests.post', fail_post,
+        )
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/services/T000/B000/super-secret-token',
+        })
+
+        with caplog.at_level(logging.WARNING,
+                             logger='app.services.chat_webhook_service'):
+            ChatWebhookService.test(conn.id)
+
+        logged = '\n'.join(r.getMessage() for r in caplog.records)
+        assert 'super-secret-token' not in logged
+        assert 'T000' not in logged
+        # the host survives -- it is the part that makes the log worth keeping
+        assert 'hooks.example' in logged
+        assert '<redacted>' in logged
+
+    def test_redact_reason_strips_telegram_bot_tokens(self, app):
+        from app.services.chat_webhook_service import _redact_reason
+
+        token = '123456789:AAHkq3Bv7pQwErTyUiOpAsDfGhJkLzXcVbN'
+        reason = f'404 Client Error for url: https://api.telegram.org/bot{token}/sendMessage'
+
+        redacted = _redact_reason(reason)
+
+        assert token not in redacted
+        assert 'AAHkq3Bv7pQwErTyUiOpAsDfGhJkLzXcVbN' not in redacted
+        assert 'api.telegram.org' in redacted
+        assert _redact_reason(None) is None
+
+    def test_connection_test_returns_none_for_unknown_id(self, app):
+        assert ChatWebhookService.test(999999) is None
+
+
 class TestImport:
     def test_import_is_idempotent(self, app, monkeypatch):
         from app.services.notification_service import NotificationService
@@ -189,3 +523,162 @@ class TestApi:
 
         dele = client.delete(f'/api/v1/notifications/admin/chat-connections/{cid}', headers=auth_headers)
         assert dele.status_code == 200
+
+    def test_update_connection(self, app, client, auth_headers):
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Old name',
+            'url': 'https://hooks.example/original-destination',
+            'secret': 'never-serialize-me',
+        })
+
+        resp = client.put(
+            f'/api/v1/notifications/admin/chat-connections/{conn.id}',
+            json={'name': 'New name', 'categories': ['apps'], 'is_active': False},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body['success'] is True
+        assert body['connection']['name'] == 'New name'
+        assert body['connection']['categories'] == ['apps']
+        assert body['connection']['is_active'] is False
+        assert 'never-serialize-me' not in json.dumps(body)
+        assert 'https://hooks.example/original-destination' not in json.dumps(body)
+
+    def test_update_connection_returns_404_for_unknown_id(self, app, client, auth_headers):
+        resp = client.put(
+            '/api/v1/notifications/admin/chat-connections/999999',
+            json={'name': 'Missing'},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 404
+        assert resp.get_json() == {'error': 'Connection not found'}
+
+    def test_update_connection_returns_400_for_kind_change(self, app, client, auth_headers):
+        conn = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Ops', 'url': 'https://discord/hook',
+        })
+
+        resp = client.put(
+            f'/api/v1/notifications/admin/chat-connections/{conn.id}',
+            json={'kind': 'slack'},
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 400
+        assert 'kind cannot be changed' in resp.get_json()['error']
+
+    @pytest.mark.parametrize('payload', [[], False, None])
+    def test_update_connection_rejects_falsy_non_object_json(self, app, client,
+                                                              auth_headers, payload):
+        conn = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Ops', 'url': 'https://discord/hook',
+        })
+
+        resp = client.put(
+            f'/api/v1/notifications/admin/chat-connections/{conn.id}',
+            data=json.dumps(payload),
+            content_type='application/json',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 400
+        assert resp.get_json() == {'error': 'request body must be an object'}
+
+    def test_test_connection_returns_200_on_delivery(self, app, client, auth_headers,
+                                                       monkeypatch):
+        class _Resp:
+            status_code = 204
+            text = ''
+
+        monkeypatch.setattr(
+            'app.services.notification_service.requests.post',
+            lambda *args, **kwargs: _Resp(),
+        )
+        conn = ChatWebhookService.add({
+            'kind': 'discord',
+            'name': 'Disabled room',
+            'url': 'https://discord.example/webhook',
+            'is_active': False,
+        })
+
+        resp = client.post(
+            f'/api/v1/notifications/admin/chat-connections/{conn.id}/test',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 200
+        assert resp.get_json() == {
+            'success': True, 'message': 'Test notification sent',
+        }
+        db.session.refresh(conn)
+        assert conn.last_test_ok is True
+
+    def test_test_connection_returns_400_on_delivery_failure(self, app, client,
+                                                               auth_headers, monkeypatch):
+        class _Resp:
+            ok = False
+            status_code = 503
+
+        monkeypatch.setattr(
+            'app.services.chat_webhook_service.requests.post',
+            lambda *args, **kwargs: _Resp(),
+        )
+        conn = ChatWebhookService.add({
+            'kind': 'webhook', 'name': 'Ops', 'url': 'https://hooks.example/failing',
+        })
+
+        resp = client.post(
+            f'/api/v1/notifications/admin/chat-connections/{conn.id}/test',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 400
+        assert resp.get_json() == {
+            'success': False, 'error': 'Test notification failed',
+        }
+
+    def test_test_connection_returns_404_for_unknown_id(self, app, client, auth_headers):
+        resp = client.post(
+            '/api/v1/notifications/admin/chat-connections/999999/test',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 404
+        assert resp.get_json() == {'error': 'Connection not found'}
+
+    def test_set_default_connection(self, app, client, auth_headers):
+        first = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'First', 'url': 'https://discord/first',
+        })
+        second = ChatWebhookService.add({
+            'kind': 'discord', 'name': 'Second', 'url': 'https://discord/second',
+            'is_active': False,
+        })
+
+        resp = client.post(
+            f'/api/v1/notifications/admin/chat-connections/{second.id}/default',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body['success'] is True
+        assert body['connection']['id'] == second.id
+        assert body['connection']['is_default'] is True
+        assert body['connection']['is_active'] is True
+        db.session.refresh(first)
+        assert first.is_default is False
+
+    def test_set_default_connection_returns_404_for_unknown_id(self, app, client,
+                                                                 auth_headers):
+        resp = client.post(
+            '/api/v1/notifications/admin/chat-connections/999999/default',
+            headers=auth_headers,
+        )
+
+        assert resp.status_code == 404
+        assert resp.get_json() == {'error': 'Connection not found'}

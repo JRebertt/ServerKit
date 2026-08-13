@@ -35,7 +35,8 @@ class ChatWebhookConnection(db.Model):
     categories_json = db.Column(db.Text)
 
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    # The default connection for its kind (used when nothing category-matches).
+    # Administrative default for this kind. Category fan-out remains driven by
+    # active connections whose category filters match the notification.
     is_default = db.Column(db.Boolean, default=False, index=True)
     # True when created by the one-time import of legacy notifications.json config.
     imported = db.Column(db.Boolean, default=False)
@@ -48,9 +49,14 @@ class ChatWebhookConnection(db.Model):
 
     def raw_credentials(self):
         try:
-            return json.loads(self.credentials_json) if self.credentials_json else {}
+            value = json.loads(self.credentials_json) if self.credentials_json else {}
         except (json.JSONDecodeError, TypeError):
             return {}
+        # A hand-edited or corrupt row can hold valid JSON of the wrong shape
+        # (``[]``, a string, ``null``). Every caller assumes a mapping, so
+        # normalise here rather than at each call site -- same guard as
+        # ``categories()`` below.
+        return value if isinstance(value, dict) else {}
 
     def credentials(self):
         """Decrypted credentials for use at send/test time (never serialized)."""

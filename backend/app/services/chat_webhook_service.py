@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import datetime
 
 import requests
@@ -29,6 +30,31 @@ logger = logging.getLogger(__name__)
 # The single header the generic webhook signs its body with (HMAC-SHA256).
 SIGNATURE_HEADER = 'X-ServerKit-Signature'
 _REQUEST_TIMEOUT = 15
+
+# Split a URL into scheme+host and everything after it.
+_URL_RE = re.compile(r'(https?://[^/\s\'"]+)([^\s\'"]*)')
+# Telegram bot tokens look like ``123456789:AA...`` and appear in bare error text
+# as well as inside the API URL.
+_BOT_TOKEN_RE = re.compile(r'\b\d{6,}:[A-Za-z0-9_-]{20,}\b')
+
+
+def _redact_reason(text):
+    """Reduce a transport error to something safe to write to the log.
+
+    Every mainstream chat provider puts the credential in the URL *path* -- the
+    Discord/Slack/Teams webhook token and the Telegram bot token are all path
+    segments -- and ``requests`` embeds the full URL in its exception text. The
+    host is useful for diagnosis and is not a secret, so keep it and drop the
+    rest. ``to_dict()`` already masks ``destination``, so logging the raw string
+    would leak past the API's own masking.
+    """
+    if not text:
+        return None
+    text = _BOT_TOKEN_RE.sub('<token>', str(text))
+    return _URL_RE.sub(
+        lambda m: m.group(1) + ('/<redacted>' if m.group(2) not in ('', '/') else m.group(2)),
+        text,
+    )
 
 # Legacy notifications.json section -> (connection kind, destination key in the
 # saved config). telegram maps to chat_id; the chat flavors carry a webhook_url.
@@ -81,6 +107,110 @@ class ChatWebhookService:
             created_by=data.get('created_by'),
         )
         db.session.add(conn)
+        db.session.commit()
+        return conn
+
+    @classmethod
+    def update(cls, conn_id, data):
+        """Update mutable connection fields without exposing stored secrets.
+
+        Credential fields are patch-like: omitted values are preserved, empty
+        optional values clear the credential, and required destinations cannot
+        be cleared. The connection kind and default flag have dedicated
+        lifecycle semantics and cannot be changed here.
+        """
+        if not isinstance(data, dict):
+            raise ValueError('request body must be an object')
+
+        conn = db.session.get(ChatWebhookConnection, conn_id)
+        if conn is None:
+            return None
+
+        if 'kind' in data:
+            kind = (data.get('kind') or '').strip().lower()
+            if kind != conn.kind:
+                raise ValueError('connection kind cannot be changed')
+        if 'is_default' in data and bool(data.get('is_default')) != bool(conn.is_default):
+            raise ValueError('use the default endpoint to change is_default')
+
+        new_name = conn.name
+        new_categories_json = conn.categories_json
+        new_is_active = conn.is_active
+        new_credentials_json = conn.credentials_json
+
+        if 'name' in data:
+            new_name = str(data.get('name') or '').strip()
+            if not new_name:
+                raise ValueError('name is required')
+
+        if 'categories' in data:
+            categories = data.get('categories')
+            if not isinstance(categories, list):
+                raise ValueError('categories must be a list')
+            categories = [category for category in categories if category]
+            new_categories_json = json.dumps(categories) if categories else None
+
+        if 'is_active' in data:
+            new_is_active = bool(data.get('is_active'))
+
+        url_supplied = 'url' in data or 'webhook_url' in data
+        credential_supplied = url_supplied or any(
+            field in data for field in ('secret', 'chat_id', 'bot_token')
+        )
+        if credential_supplied:
+            # Work on the stored ciphertext so untouched credentials are carried
+            # across byte-identical. Decrypting them first would re-wrap values
+            # that ``decrypt_secret_safe`` handed back unchanged (wrong key, or
+            # a not-yet-migrated plaintext row), corrupting them permanently.
+            credentials = conn.raw_credentials()
+            if conn.kind == 'telegram':
+                if 'chat_id' in data:
+                    chat_id = str(data.get('chat_id') or '').strip()
+                    if not chat_id:
+                        raise ValueError('telegram connection requires a chat_id')
+                    credentials['chat_id'] = encrypt_secret(chat_id)
+                if 'bot_token' in data:
+                    bot_token = data.get('bot_token')
+                    if bot_token in (None, ''):
+                        credentials.pop('bot_token', None)
+                    else:
+                        credentials['bot_token'] = encrypt_secret(str(bot_token))
+            else:
+                if url_supplied:
+                    url_value = data.get('url') if 'url' in data else data.get('webhook_url')
+                    url = str(url_value or '').strip()
+                    if not url:
+                        raise ValueError(f'{conn.kind} connection requires a url')
+                    credentials['url'] = encrypt_secret(url)
+                if 'secret' in data:
+                    secret = data.get('secret')
+                    if secret in (None, ''):
+                        credentials.pop('secret', None)
+                    else:
+                        credentials['secret'] = encrypt_secret(str(secret))
+
+            required = 'chat_id' if conn.kind == 'telegram' else 'url'
+            if not credentials.get(required):  # pragma: no cover - corrupt legacy row
+                raise ValueError(f'{conn.kind} connection requires a {required}')
+            new_credentials_json = json.dumps(credentials)
+
+        conn.name = new_name
+        conn.categories_json = new_categories_json
+        conn.is_active = new_is_active
+        conn.credentials_json = new_credentials_json
+        db.session.commit()
+        return conn
+
+    @classmethod
+    def set_default(cls, conn_id):
+        """Select and activate the administrative default for one kind."""
+        conn = db.session.get(ChatWebhookConnection, conn_id)
+        if conn is None:
+            return None
+
+        for candidate in ChatWebhookConnection.query.filter_by(kind=conn.kind).all():
+            candidate.is_default = candidate.id == conn.id
+        conn.is_active = True
         db.session.commit()
         return conn
 
@@ -144,6 +274,70 @@ class ChatWebhookService:
                  .order_by(ChatWebhookConnection.id.asc())
                  .all())
         return [c for c in conns if c.matches_category(category)]
+
+    # ------------------------------------------------------------------
+    # Connection testing
+    # ------------------------------------------------------------------
+    @classmethod
+    def test(cls, conn_id):
+        """Synchronously send a test through a connection's real formatter.
+
+        Inactive connections remain testable so an administrator can validate
+        a destination before enabling it. The transient notification is never
+        persisted; only the connection's latest test outcome is recorded.
+        """
+        conn = db.session.get(ChatWebhookConnection, conn_id)
+        if conn is None:
+            return None
+
+        from app.notifications.models import Notification
+
+        message = 'This is a test notification from ServerKit.'
+        notification = Notification(
+            event_key='notification.test',
+            category='system',
+            severity=Notification.SEVERITY_TEST,
+            title='ServerKit test notification',
+            body=message,
+            audience=f'chat connection:{conn.id}',
+            created_at=datetime.utcnow(),
+        )
+        notification.set_data({'message': message})
+
+        delivery_result = None
+        try:
+            credentials = conn.credentials()
+            if conn.kind == 'webhook':
+                delivery_result = cls._deliver_webhook(
+                    conn, credentials, notification)
+            else:
+                delivery_result = cls._deliver_chat(
+                    conn, credentials, notification)
+            success = delivery_result.ok
+        except Exception:  # pragma: no cover - defensive formatter guard
+            logger.exception(
+                'Chat connection test raised (id=%s, kind=%s)',
+                conn.id,
+                conn.kind,
+            )
+            success = False
+
+        conn.last_tested_at = datetime.utcnow()
+        conn.last_test_ok = success
+        db.session.commit()
+
+        if success:
+            return {'success': True, 'message': 'Test notification sent'}
+        # The reason stays server-side AND redacted: transport errors embed the
+        # full webhook URL (secret path segment included) and Telegram bot
+        # tokens, and the panel serves the log files back over /api/logs.
+        logger.warning(
+            'Chat connection test failed (id=%s, kind=%s, reason=%s)',
+            conn.id,
+            conn.kind,
+            _redact_reason(getattr(delivery_result, 'error', None)),
+        )
+        return {'success': False, 'error': 'Test notification failed'}
 
     # ------------------------------------------------------------------
     # Delivery (called by the chat channel adapter for ``conn:<id>`` targets)
