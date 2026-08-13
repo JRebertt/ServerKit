@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    PanelLeftClose, PanelLeftOpen, Search, X, RefreshCw, Plus, Terminal,
+    PanelLeftClose, PanelLeftOpen, X, RefreshCw, Plus, Terminal,
     Archive, Database, Table2, Server, ChevronDown,
     Trash2, DatabaseBackup, Copy, FileCode2, Lock, BookMarked, Activity,
     SlidersHorizontal, Layers, ExternalLink, Download,
 } from 'lucide-react';
 import api from '../services/api';
 import Modal from '@/components/Modal';
+import { SearchField } from '@/components/ds';
 import ManagedDatabasesPanel from '../components/databases/ManagedDatabasesPanel';
 import { formatBytes } from '@/utils/formatBytes';
 import { useToast } from '../contexts/ToastContext';
@@ -777,17 +778,14 @@ export default function Databases() {
                 {sidebarVisible && (
                     <aside className="dbx-tree-panel" aria-label="Database sources">
                         <div className="dbx-tree-search">
-                            <Search size={14} aria-hidden="true" />
-                            <input
-                                type="text"
-                                placeholder="Filter tables…"
+                            {/* The shared search box, not a hand-rolled input —
+                                it debounces and clears itself, which is what the
+                                icon + input + X this replaces was reimplementing. */}
+                            <SearchField
                                 value={filter}
-                                onChange={(e) => setFilter(e.target.value)}
-                                aria-label="Filter sources"
+                                onSearch={setFilter}
+                                placeholder="Filter tables…"
                             />
-                            {filter && (
-                                <button type="button" onClick={() => setFilter('')} aria-label="Clear filter"><X size={13} aria-hidden="true" /></button>
-                            )}
                         </div>
                         <div className="dbx-tree-scroll">
                             {statusLoading ? (

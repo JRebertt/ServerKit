@@ -10,12 +10,14 @@ import LogToolbar from '../components/log-viewer/LogToolbar';
 import LogContent from '../components/log-viewer/LogContent';
 import { formatBytes, logKindFromPath } from '../components/log-viewer/logHelpers';
 import { formatBytes as formatMemory } from '@/utils/formatBytes';
-import { Pill, Drawer } from '../components/ds';
+import { Drawer } from '../components/ds';
+import ProcessTable, { procUser } from '../components/ProcessTable';
+import SystemdServicesTab from '../components/serverdetail/ServicesTab';
+import { useTableSort } from '@/hooks/useTableSort';
 import PageLayout from '../layouts/PageLayout';
-import { Button } from '@/components/ui/button';
 import {
-    FileText, Clock, AlertCircle, Search, X, RefreshCw, AlertTriangle, Activity,
-    Play, Square, RotateCw, Terminal as TerminalIcon, Server as ServerIcon,
+    FileText, Clock, AlertCircle, Search, X, AlertTriangle, Activity,
+    Terminal as TerminalIcon, Server as ServerIcon,
     ScrollText, Cpu, Settings,
 } from 'lucide-react';
 
@@ -782,6 +784,10 @@ function priorityColor(value) {
     return '#646b7a';
 }
 
+// Server-side page sizes for /processes. Not a table concern — the endpoint
+// returns a top-N slice, so this decides what is fetched, not what is shown.
+const PROCESS_LIMITS = [25, 50, 100, 250];
+
 const ProcessesTab = () => {
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -791,28 +797,32 @@ const ProcessesTab = () => {
 
     const [processes, setProcesses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sortBy, setSortBy] = useState('cpu');
-    const [sortDir, setSortDir] = useState('desc');
     const [limit, setLimit] = useState(100);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [userFilter, setUserFilter] = useState(null);
     const [selectedProcess, setSelectedProcess] = useState(null);
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
+
+    // The table sorts client-side, but /processes answers with a TOP-N slice:
+    // the top 100 by CPU re-sorted by memory is NOT the top 100 by memory. So
+    // the sort lives here and the fetch follows whatever the table is showing.
+    const { sorts, setSorts } = useTableSort({
+        storageKey: 'serverkit-table-processes-sort',
+        defaultSorts: [{ key: 'cpu', direction: 'desc' }],
+    });
+    const fetchSort = sorts[0]?.key === 'memory' ? 'memory' : 'cpu';
 
     const intervalRef = useRef(null);
 
     useEffect(() => {
         loadProcesses();
-    }, [sortBy, limit, target.kind, target.server_id]); // eslint-disable-line
+    }, [fetchSort, limit, target.kind, target.server_id]); // eslint-disable-line
 
     useEffect(() => {
         if (autoRefresh) {
             intervalRef.current = setInterval(() => loadProcesses(false), 4000);
         }
         return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, sortBy, limit]); // eslint-disable-line
+    }, [autoRefresh, fetchSort, limit]); // eslint-disable-line
 
     async function loadProcesses(showSpinner = true) {
         if (isRemote) {
@@ -822,7 +832,7 @@ const ProcessesTab = () => {
         }
         if (showSpinner) setLoading(true);
         try {
-            const data = await api.getProcesses(limit, sortBy);
+            const data = await api.getProcesses(limit, fetchSort);
             setProcesses(data.processes || []);
             setLastUpdated(new Date());
         } catch (err) {
@@ -830,6 +840,27 @@ const ProcessesTab = () => {
             toast.error(`Failed: ${err.message}`);
         } finally {
             setLoading(false);
+        }
+    }
+
+    // The list payload is a summary — no thread count, no resident bytes, no
+    // command line. Ask for the full record when a row is opened so the drawer
+    // shows answers instead of dashes.
+    async function openProcess(p) {
+        setSelectedProcess(p);
+        try {
+            const data = await api.getProcess(p.pid);
+            const detail = data?.process;
+            if (!detail) return;
+            setSelectedProcess((prev) => (prev?.pid === p.pid ? {
+                ...prev,
+                ...detail,
+                // psutil hands back an argv ARRAY; rendered raw React would
+                // concatenate it without spaces.
+                command: Array.isArray(detail.cmdline) ? detail.cmdline.join(' ') : prev.command,
+            } : prev));
+        } catch {
+            /* the summary row is still worth showing */
         }
     }
 
@@ -854,65 +885,10 @@ const ProcessesTab = () => {
         }
     }
 
-    function toggleSort(col) {
-        if (sortBy === col) {
-            setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortBy(col);
-            setSortDir(col === 'name' || col === 'user' ? 'asc' : 'desc');
-        }
-    }
-
-    const userGroups = useMemo(() => {
-        const map = new Map();
-        for (const p of processes) {
-            const u = p.user || 'unknown';
-            map.set(u, (map.get(u) || 0) + 1);
-        }
-        return [...map.entries()].sort((a, b) => b[1] - a[1]);
-    }, [processes]);
-
-    const statusCounts = useMemo(() => {
-        const counts = { all: processes.length, running: 0, sleeping: 0, stopped: 0, zombie: 0 };
-        for (const p of processes) {
-            const s = (p.status || '').toLowerCase();
-            if (s === 'running') counts.running++;
-            else if (s === 'sleeping') counts.sleeping++;
-            else if (s === 'stopped') counts.stopped++;
-            else if (s === 'zombie') counts.zombie++;
-        }
-        return counts;
-    }, [processes]);
-
     const totalCpu = useMemo(() => processes.reduce((s, p) => s + (p.cpu_percent || 0), 0), [processes]);
-    const totalMem = useMemo(() => processes.reduce((s, p) => s + (p.memory_info?.rss || 0), 0), [processes]);
-
-    const filtered = useMemo(() => {
-        let list = processes;
-        if (userFilter) list = list.filter(p => (p.user || 'unknown') === userFilter);
-        if (statusFilter !== 'all') list = list.filter(p => (p.status || '').toLowerCase() === statusFilter);
-        const q = searchTerm.toLowerCase();
-        if (q) {
-            list = list.filter(p =>
-                p.name?.toLowerCase().includes(q) ||
-                p.command?.toLowerCase().includes(q) ||
-                String(p.pid).includes(q)
-            );
-        }
-        const dir = sortDir === 'asc' ? 1 : -1;
-        const sorted = [...list];
-        sorted.sort((a, b) => {
-            switch (sortBy) {
-                case 'pid': return ((a.pid || 0) - (b.pid || 0)) * dir;
-                case 'name': return (a.name || '').localeCompare(b.name || '') * dir;
-                case 'user': return (a.user || '').localeCompare(b.user || '') * dir;
-                case 'memory': return ((a.memory_percent || 0) - (b.memory_percent || 0)) * dir;
-                case 'cpu':
-                default: return ((a.cpu_percent || 0) - (b.cpu_percent || 0)) * dir;
-            }
-        });
-        return sorted;
-    }, [processes, userFilter, statusFilter, searchTerm, sortBy, sortDir]);
+    // Percent, not bytes: the list endpoint reports memory_percent and leaves
+    // memory_info to the per-PID call, so a byte total here was always "0 B".
+    const totalMem = useMemo(() => processes.reduce((s, p) => s + (p.memory_percent || 0), 0), [processes]);
 
     return (
         <div className="proc-page">
@@ -927,18 +903,16 @@ const ProcessesTab = () => {
                         </span>
                     )}
                 </div>
+                {/* No process count here — DataTableFooter reports it, under
+                    the rows it is counting. */}
                 <div className="lv-header-stats">
-                    <span className="lv-stat">
-                        <span className="lv-stat-label">Total</span>
-                        <span className="lv-stat-value">{processes.length}</span>
-                    </span>
                     <span className="lv-stat">
                         <span className="lv-stat-label">CPU</span>
                         <span className="lv-stat-value">{totalCpu.toFixed(1)}%</span>
                     </span>
                     <span className="lv-stat">
                         <span className="lv-stat-label">Memory</span>
-                        <span className="lv-stat-value">{formatMemory(totalMem)}</span>
+                        <span className="lv-stat-value">{totalMem.toFixed(1)}%</span>
                     </span>
                     {lastUpdated && (
                         <span className="lv-stat">
@@ -949,182 +923,48 @@ const ProcessesTab = () => {
                 </div>
             </div>
 
-            <div className="proc-toolbar">
-                <div className="proc-filter-chips">
-                    {[
-                        { id: 'all', label: 'All', count: statusCounts.all },
-                        { id: 'running', label: 'Running', count: statusCounts.running },
-                        { id: 'sleeping', label: 'Sleeping', count: statusCounts.sleeping },
-                        { id: 'stopped', label: 'Stopped', count: statusCounts.stopped },
-                        { id: 'zombie', label: 'Zombie', count: statusCounts.zombie },
-                    ].map(c => (
-                        <button type="button"
-                            key={c.id}
-                            className={`proc-chip ${statusFilter === c.id ? 'active' : ''}`}
-                            onClick={() => setStatusFilter(c.id)}
-                            disabled={c.id !== 'all' && c.count === 0}
-                        >
-                            <span>{c.label}</span>
-                            <span className="proc-chip-count">{c.count}</span>
-                        </button>
-                    ))}
-                </div>
-                <div className="proc-toolbar-right">
-                    <div className="lv-search-field">
-                        <Search size={13} className="lv-search-field-icon" />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Filter PID, name, command…"
-                        />
-                        {searchTerm && (
-                            <button type="button" className="lv-search-field-clear" onClick={() => setSearchTerm('')}>
-                                <X size={11} />
-                            </button>
-                        )}
-                    </div>
-                    <select
-                        className="lv-select"
-                        value={limit}
-                        onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                    >
-                        <option value={25}>Top 25</option>
-                        <option value={50}>Top 50</option>
-                        <option value={100}>Top 100</option>
-                        <option value={250}>Top 250</option>
-                    </select>
-                    <button type="button"
-                        className={`lv-chip ${autoRefresh ? 'active' : ''}`}
-                        onClick={() => setAutoRefresh(!autoRefresh)}
-                        disabled={isRemote}
-                    >
-                        <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
-                        <span>Live</span>
-                    </button>
-                    <Button size="icon" variant="ghost" className="lv-icon-btn" onClick={() => loadProcesses()} title="Refresh" aria-label="Refresh processes">
-                        <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </Button>
-                </div>
-            </div>
-
-            <div className="proc-layout">
-                <aside className="proc-sidebar">
-                    <div className="lv-sidebar-header">
-                        <span className="lv-header-label is-indented">Users</span>
-                    </div>
-                    <div className="lv-sidebar-body">
-                        <button type="button"
-                            className={`lv-file ${!userFilter ? 'active' : ''}`}
-                            onClick={() => setUserFilter(null)}
-                        >
-                            <span className="lv-file-dot is-accent" />
-                            <span className="lv-file-name">All users</span>
-                            <span className="lv-file-size">{processes.length}</span>
-                        </button>
-                        {userGroups.map(([user, count]) => (
-                            <button type="button"
-                                key={user}
-                                className={`lv-file ${userFilter === user ? 'active' : ''}`}
-                                onClick={() => setUserFilter(user)}
+            {/* Only the FIRST load swaps the table out. This list auto-refreshes
+                on a timer, and swapping on every `loading` tick unmounted the
+                whole table — chrome, active view, column rules, sort and scroll
+                position with it — then remounted a second later. */}
+            {loading && processes.length === 0 ? (
+                <div className="lv-content-loading">Loading processes…</div>
+            ) : (
+                <ProcessTable
+                    processes={processes}
+                    selectedPid={selectedProcess?.pid ?? null}
+                    onSelect={openProcess}
+                    onKill={(p) => handleKillProcess(p.pid)}
+                    onForceKill={(p) => handleKillProcess(p.pid, true)}
+                    onRefresh={() => loadProcesses()}
+                    formatMemory={formatMemory}
+                    viewPageKey="terminal-processes"
+                    sorts={sorts}
+                    onSortsChange={setSorts}
+                    actions={(
+                        <>
+                            <select
+                                className="lv-select"
+                                value={limit}
+                                onChange={(e) => setLimit(parseInt(e.target.value, 10))}
+                                title="Processes to fetch"
                             >
-                                <span className="lv-file-dot" style={{ background: hashColor(user) }} />
-                                <span className="lv-file-name">{user}</span>
-                                <span className="lv-file-size">{count}</span>
+                                {PROCESS_LIMITS.map((n) => (
+                                    <option key={n} value={n}>Top {n}</option>
+                                ))}
+                            </select>
+                            <button type="button"
+                                className={`lv-chip ${autoRefresh ? 'active' : ''}`}
+                                onClick={() => setAutoRefresh(!autoRefresh)}
+                                disabled={isRemote}
+                            >
+                                <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
+                                <span>Live</span>
                             </button>
-                        ))}
-                    </div>
-                </aside>
-
-                <div className="proc-main">
-                    {loading ? (
-                        <div className="lv-content-loading">Loading processes…</div>
-                    ) : filtered.length === 0 ? (
-                        <div className="lv-empty-hint is-medium">
-                            <p>No processes match your filters.</p>
-                        </div>
-                    ) : (
-                        <div className="proc-table-wrap">
-                            <table className="proc-table">
-                                <thead>
-                                    <tr>
-                                        <th onClick={() => toggleSort('pid')} className={sortBy === 'pid' ? 'active' : ''}>
-                                            PID {sortBy === 'pid' && (sortDir === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th onClick={() => toggleSort('name')} className={sortBy === 'name' ? 'active' : ''}>
-                                            Process {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th onClick={() => toggleSort('user')} className={sortBy === 'user' ? 'active' : ''}>
-                                            User {sortBy === 'user' && (sortDir === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th onClick={() => toggleSort('cpu')} className={sortBy === 'cpu' ? 'active' : ''}>
-                                            CPU {sortBy === 'cpu' && (sortDir === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th onClick={() => toggleSort('memory')} className={sortBy === 'memory' ? 'active' : ''}>
-                                            Memory {sortBy === 'memory' && (sortDir === 'asc' ? '↑' : '↓')}
-                                        </th>
-                                        <th>Status</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.map(p => {
-                                        const cpu = Math.min(Number(p.cpu_percent) || 0, 100);
-                                        const mem = Math.min(Number(p.memory_percent) || 0, 100);
-                                        const isSelected = selectedProcess?.pid === p.pid;
-                                        return (
-                                            <tr
-                                                key={p.pid}
-                                                className={isSelected ? 'selected' : ''}
-                                                onClick={() => setSelectedProcess(p)}
-                                            >
-                                                <td className="mono">{p.pid}</td>
-                                                <td>
-                                                    <div className="proc-name-cell">
-                                                        <span className="proc-name">{p.name}</span>
-                                                        {p.command && (
-                                                            <span className="proc-cmd" title={p.command}>{p.command}</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <span className="proc-user-tag">
-                                                        <span className="proc-user-dot" style={{ background: hashColor(p.user) }} />
-                                                        {p.user}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className="proc-bar-cell">
-                                                        <span className="proc-bar-value">{cpu.toFixed(1)}%</span>
-                                                        <div className="proc-bar"><div className="proc-bar-fill cpu" style={{ width: `${cpu}%` }} /></div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div className="proc-bar-cell">
-                                                        <span className="proc-bar-value">{formatMemory(p.memory_info?.rss)}</span>
-                                                        <div className="proc-bar"><div className="proc-bar-fill mem" style={{ width: `${mem}%` }} /></div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <Pill kind={processStatusKind(p.status)}>{p.status}</Pill>
-                                                </td>
-                                                <td className="proc-actions" onClick={(e) => e.stopPropagation()}>
-                                                    <button type="button" className="lv-icon-btn" onClick={() => handleKillProcess(p.pid)} title="Kill (SIGTERM)">
-                                                        <X size={13} />
-                                                    </button>
-                                                    <button type="button" className="lv-icon-btn danger" onClick={() => handleKillProcess(p.pid, true)} title="Force kill (SIGKILL)">
-                                                        <AlertTriangle size={13} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                        </>
                     )}
-                </div>
-            </div>
+                />
+            )}
 
             {/* The shared DS drawer, not a hand-rolled slide-over: focus trap,
                 escape-to-close and the same chrome as every other drawer. */}
@@ -1132,7 +972,7 @@ const ProcessesTab = () => {
                 open={!!selectedProcess}
                 onOpenChange={(open) => { if (!open) setSelectedProcess(null); }}
                 title={selectedProcess?.name || ''}
-                subtitle={selectedProcess ? `PID ${selectedProcess.pid} · ${selectedProcess.user}` : ''}
+                subtitle={selectedProcess ? `PID ${selectedProcess.pid} · ${procUser(selectedProcess)}` : ''}
                 icon={<Activity size={18} />}
                 width={520}
                 flush
@@ -1146,7 +986,7 @@ const ProcessesTab = () => {
                             </div>
                             <div className="meta-item">
                                 <span className="meta-label">User</span>
-                                <span className="meta-value">{selectedProcess.user}</span>
+                                <span className="meta-value">{procUser(selectedProcess)}</span>
                             </div>
                             <div className="meta-item">
                                 <span className="meta-label">Status</span>
@@ -1196,158 +1036,12 @@ const ProcessesTab = () => {
     );
 };
 
-// Stable colour from a string — used to tag users by colour (categorical
-// tints aligned to the redesign palette).
-function hashColor(str) {
-    if (!str) return '#646b7a';
-    const palette = ['#6d7cff', '#3ddc97', '#f5b945', '#ec4899', '#14b8a6', '#b07bf5', '#49c7f0', '#fb7185'];
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-    return palette[Math.abs(h) % palette.length];
-}
-
-// Map a service status kind onto a ds Pill tone.
-const SVC_PILL_KIND = { running: 'green', failed: 'red', stopped: 'gray', other: 'amber' };
-
+// Services renders the SAME converged systemd table Server Detail does — the
+// only thing this tab adds is the choice of which host answers, and that choice
+// is what the component's `serverId` already meant. Remounting on it keeps one
+// host's unit list, search and view state from bleeding into the other's.
 const ServicesTab = () => {
-    const toast = useToast();
-    const { confirm } = useConfirm();
-
     const [target, setTarget] = useState({ kind: 'local' });
-    const isRemote = target.kind === 'agent';
-
-    const [services, setServices] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(null);
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedService, setSelectedService] = useState(null);
-    const [serviceLogs, setServiceLogs] = useState('');
-    const [logsLoading, setLogsLoading] = useState(false);
-    const [logSearch, setLogSearch] = useState('');
-    const [appliedLogSearch, setAppliedLogSearch] = useState('');
-    const [logLineCount, setLogLineCount] = useState(200);
-    const [logShowLineNumbers, setLogShowLineNumbers] = useState(true);
-    const [logWrap, setLogWrap] = useState(true);
-    const [logAutoRefresh, setLogAutoRefresh] = useState(false);
-    const logContentRef = useRef(null);
-    const logIntervalRef = useRef(null);
-
-    useEffect(() => {
-        loadServices();
-    }, [target.kind, target.server_id]); // eslint-disable-line
-
-    useEffect(() => {
-        if (logAutoRefresh && selectedService) {
-            logIntervalRef.current = setInterval(() => loadServiceLogs(selectedService, false), 3000);
-        }
-        return () => { if (logIntervalRef.current) clearInterval(logIntervalRef.current); };
-    }, [logAutoRefresh, selectedService, logLineCount, appliedLogSearch]); // eslint-disable-line
-
-    async function loadServices() {
-        if (isRemote) {
-            setServices([]);
-            setLoading(false);
-            return;
-        }
-        setLoading(true);
-        try {
-            const data = await api.getServicesStatus();
-            setServices(data.services || []);
-        } catch (err) {
-            toast.error(`Failed: ${err.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function handleAction(serviceName, action) {
-        const isDestructive = action === 'stop' || action === 'restart';
-        if (isDestructive) {
-            const ok = await confirm({
-                title: action === 'stop' ? 'Stop service' : 'Restart service',
-                message: `${action === 'stop' ? 'Stop' : 'Restart'} ${serviceName}?`,
-                variant: 'warning',
-                confirmText: action === 'stop' ? 'Stop' : 'Restart',
-            });
-            if (!ok) return;
-        }
-        setActionLoading(`${serviceName}-${action}`);
-        try {
-            await api.controlService(serviceName, action);
-            toast.success(`${serviceName} ${action}ed`);
-            await loadServices();
-        } catch (err) {
-            toast.error(`Failed to ${action} ${serviceName}: ${err.message}`);
-        } finally {
-            setActionLoading(null);
-        }
-    }
-
-    async function loadServiceLogs(serviceName, showSpinner = true) {
-        if (showSpinner) setLogsLoading(true);
-        try {
-            const data = await api.getJournalLogs(serviceName, logLineCount);
-            setServiceLogs(data.lines?.join('\n') || '');
-            if (logAutoRefresh && logContentRef.current) {
-                logContentRef.current.scrollTop = logContentRef.current.scrollHeight;
-            }
-        } catch (err) {
-            setServiceLogs(`Error: ${err.message}`);
-        } finally {
-            setLogsLoading(false);
-        }
-    }
-
-    function openServiceDrawer(service) {
-        setSelectedService(service);
-        setLogSearch('');
-        setAppliedLogSearch('');
-        loadServiceLogs(service.name);
-    }
-
-    function closeServiceDrawer() {
-        setSelectedService(null);
-        setLogAutoRefresh(false);
-        setServiceLogs('');
-    }
-
-    function statusKind(status) {
-        const s = (status || '').toLowerCase();
-        if (s === 'running' || s === 'active') return 'running';
-        if (s === 'failed') return 'failed';
-        if (s === 'stopped' || s === 'inactive' || s === 'dead') return 'stopped';
-        return 'other';
-    }
-
-    const counts = useMemo(() => {
-        const c = { all: services.length, running: 0, stopped: 0, failed: 0 };
-        for (const s of services) {
-            const k = statusKind(s.status);
-            if (k === 'running') c.running++;
-            else if (k === 'stopped') c.stopped++;
-            else if (k === 'failed') c.failed++;
-        }
-        return c;
-    }, [services]);
-
-    const filtered = useMemo(() => {
-        let list = services;
-        if (statusFilter !== 'all') list = list.filter(s => statusKind(s.status) === statusFilter);
-        const q = searchTerm.toLowerCase();
-        if (q) {
-            list = list.filter(s =>
-                s.name?.toLowerCase().includes(q) ||
-                s.description?.toLowerCase().includes(q)
-            );
-        }
-        return list.slice().sort((a, b) => {
-            const ak = statusKind(a.status), bk = statusKind(b.status);
-            const order = { failed: 0, running: 1, other: 2, stopped: 3 };
-            if (ak !== bk) return (order[ak] ?? 4) - (order[bk] ?? 4);
-            return (a.name || '').localeCompare(b.name || '');
-        });
-    }, [services, statusFilter, searchTerm]);
 
     return (
         <div className="svc-page">
@@ -1355,275 +1049,14 @@ const ServicesTab = () => {
                 <div className="lv-header-target">
                     <span className="lv-header-label">Source</span>
                     <TargetPicker feature="services" value={target} onChange={setTarget} />
-                    {isRemote && (
-                        <span className="lv-header-hint">
-                            <AlertCircle size={12} />
-                            Remote service control isn&apos;t available yet for {target.name}.
-                        </span>
-                    )}
-                </div>
-                <div className="lv-header-stats">
-                    <span className="lv-stat">
-                        <span className="lv-stat-label">Total</span>
-                        <span className="lv-stat-value">{services.length}</span>
-                    </span>
-                    <button type="button"
-                        className="lv-icon-btn"
-                        onClick={loadServices}
-                        title="Refresh"
-                    >
-                        <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </button>
                 </div>
             </div>
-
-            <div className="svc-toolbar">
-                <div className="proc-filter-chips">
-                    {[
-                        { id: 'all', label: 'All', count: counts.all },
-                        { id: 'running', label: 'Running', count: counts.running },
-                        { id: 'failed', label: 'Failed', count: counts.failed },
-                        { id: 'stopped', label: 'Stopped', count: counts.stopped },
-                    ].map(c => (
-                        <button type="button"
-                            key={c.id}
-                            className={`proc-chip ${statusFilter === c.id ? 'active' : ''}`}
-                            onClick={() => setStatusFilter(c.id)}
-                            disabled={c.id !== 'all' && c.count === 0}
-                        >
-                            <span>{c.label}</span>
-                            <span className="proc-chip-count">{c.count}</span>
-                        </button>
-                    ))}
-                </div>
-                <div className="lv-search-field is-wide">
-                    <Search size={13} className="lv-search-field-icon" />
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Filter services…"
-                    />
-                    {searchTerm && (
-                        <button type="button" className="lv-search-field-clear" onClick={() => setSearchTerm('')}>
-                            <X size={11} />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {loading ? (
-                <div className="lv-content-loading is-medium">Loading services…</div>
-            ) : filtered.length === 0 ? (
-                <div className="lv-empty-hint is-medium">
-                    <p>{services.length === 0 ? 'No services found.' : 'No services match the current filters.'}</p>
-                </div>
-            ) : (
-                <div className="svc-grid">
-                    {filtered.map(service => {
-                        const kind = statusKind(service.status);
-                        const isRunning = kind === 'running';
-                        const isFailed = kind === 'failed';
-                        return (
-                            <div
-                                key={service.name}
-                                className={`svc-card status-${kind}`}
-                                onClick={() => openServiceDrawer(service)}
-                            >
-                                <div className="svc-card-head">
-                                    <div className="svc-card-title">
-                                        <span className={`svc-status-dot status-${kind}`} />
-                                        <h4>{service.name}</h4>
-                                    </div>
-                                    <Pill kind={SVC_PILL_KIND[kind] || 'gray'}>
-                                        {service.status || 'unknown'}
-                                    </Pill>
-                                </div>
-                                {service.description && (
-                                    <p className="svc-card-desc" title={service.description}>
-                                        {service.description}
-                                    </p>
-                                )}
-                                <div className="svc-card-meta">
-                                    {service.pid && (
-                                        <span><span className="svc-meta-label">PID</span> {service.pid}</span>
-                                    )}
-                                    {service.memory && (
-                                        <span><span className="svc-meta-label">Mem</span> {service.memory}</span>
-                                    )}
-                                </div>
-                                <div className="svc-card-actions" onClick={(e) => e.stopPropagation()}>
-                                    {isRunning ? (
-                                        <>
-                                            <button type="button"
-                                                className="svc-action-btn"
-                                                onClick={() => handleAction(service.name, 'restart')}
-                                                disabled={actionLoading === `${service.name}-restart`}
-                                            >
-                                                <RotateCw size={12} /> Restart
-                                            </button>
-                                            <button type="button"
-                                                className="svc-action-btn"
-                                                onClick={() => handleAction(service.name, 'stop')}
-                                                disabled={actionLoading === `${service.name}-stop`}
-                                            >
-                                                <Square size={12} /> Stop
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <button type="button"
-                                            className={`svc-action-btn primary ${isFailed ? 'danger' : ''}`}
-                                            onClick={() => handleAction(service.name, 'start')}
-                                            disabled={actionLoading === `${service.name}-start`}
-                                        >
-                                            <Play size={12} /> Start
-                                        </button>
-                                    )}
-                                    <button type="button"
-                                        className="svc-action-btn ghost"
-                                        onClick={() => openServiceDrawer(service)}
-                                    >
-                                        <FileText size={12} /> Logs
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            <Drawer
-                open={!!selectedService}
-                onOpenChange={(open) => { if (!open) closeServiceDrawer(); }}
-                title={selectedService?.name || ''}
-                subtitle={selectedService
-                    ? (selectedService.description || `journalctl -u ${selectedService.name}`)
-                    : ''}
-                icon={selectedService
-                    ? <span className={`svc-status-dot status-${statusKind(selectedService.status)} is-large`} />
-                    : null}
-                width={520}
-                flush
-            >
-                {selectedService && (
-                    <>
-                        <div className="preview-drawer-meta">
-                            <div className="meta-item">
-                                <span className="meta-label">Status</span>
-                                <span className="meta-value">{selectedService.status || 'unknown'}</span>
-                            </div>
-                            {selectedService.pid && (
-                                <div className="meta-item">
-                                    <span className="meta-label">PID</span>
-                                    <span className="meta-value mono">{selectedService.pid}</span>
-                                </div>
-                            )}
-                            {selectedService.memory && (
-                                <div className="meta-item">
-                                    <span className="meta-label">Memory</span>
-                                    <span className="meta-value">{selectedService.memory}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="preview-drawer-actions">
-                            {statusKind(selectedService.status) === 'running' ? (
-                                <>
-                                    <button type="button"
-                                        className="drawer-action-btn"
-                                        onClick={() => handleAction(selectedService.name, 'restart')}
-                                        disabled={actionLoading === `${selectedService.name}-restart`}
-                                    >
-                                        <RotateCw size={14} /> Restart
-                                    </button>
-                                    <button type="button"
-                                        className="drawer-action-btn"
-                                        onClick={() => handleAction(selectedService.name, 'stop')}
-                                        disabled={actionLoading === `${selectedService.name}-stop`}
-                                    >
-                                        <Square size={14} /> Stop
-                                    </button>
-                                </>
-                            ) : (
-                                <button type="button"
-                                    className="drawer-action-btn"
-                                    onClick={() => handleAction(selectedService.name, 'start')}
-                                    disabled={actionLoading === `${selectedService.name}-start`}
-                                >
-                                    <Play size={14} /> Start
-                                </button>
-                            )}
-                        </div>
-
-                        <LogToolbar
-                            searchPattern={logSearch}
-                            onSearchChange={setLogSearch}
-                            onSearchSubmit={() => setAppliedLogSearch(logSearch)}
-                            onSearchClear={() => { setLogSearch(''); setAppliedLogSearch(''); }}
-                            lineCount={logLineCount}
-                            onLineCountChange={(n) => { setLogLineCount(n); setTimeout(() => loadServiceLogs(selectedService.name), 0); }}
-                            autoRefresh={logAutoRefresh}
-                            onAutoRefreshToggle={() => setLogAutoRefresh(!logAutoRefresh)}
-                            showLineNumbers={logShowLineNumbers}
-                            onToggleLineNumbers={() => setLogShowLineNumbers(!logShowLineNumbers)}
-                            wrapLines={logWrap}
-                            onToggleWrap={() => setLogWrap(!logWrap)}
-                            isFullscreen={false}
-                            onToggleFullscreen={() => {}}
-                            onRefresh={() => loadServiceLogs(selectedService.name)}
-                            onDownload={() => {
-                                if (!serviceLogs) return;
-                                const blob = new Blob([serviceLogs], { type: 'text/plain' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `${selectedService.name}-${Date.now()}.log`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                            }}
-                            onClear={() => toast.error('Journal logs cannot be truncated.')}
-                            onScrollToBottom={() => {
-                                if (logContentRef.current) logContentRef.current.scrollTop = logContentRef.current.scrollHeight;
-                            }}
-                            canAct={true}
-                        />
-
-                        <div className="preview-drawer-body">
-                            <LogContent
-                                ref={logContentRef}
-                                live={logAutoRefresh}
-                                scrollKey={selectedService?.name}
-                                content={serviceLogs}
-                                loading={logsLoading}
-                                emptyMessage="No log output."
-                                showLineNumbers={logShowLineNumbers}
-                                wrapLines={logWrap}
-                                searchPattern={appliedLogSearch}
-                            />
-                        </div>
-                    </>
-                )}
-            </Drawer>
+            <SystemdServicesTab
+                key={target.server_id || 'local'}
+                serverId={target.kind === 'agent' ? target.server_id : null}
+            />
         </div>
     );
 };
-
-// Map a process status onto a ds Pill tone.
-function processStatusKind(status) {
-    switch (status?.toLowerCase()) {
-        case 'running':
-            return 'green';
-        case 'sleeping':
-            return 'cyan';
-        case 'stopped':
-        case 'zombie':
-            return 'red';
-        case 'idle':
-        case 'disk-sleep':
-            return 'amber';
-        default:
-            return 'gray';
-    }
-}
 
 export default Terminal;

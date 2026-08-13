@@ -6,7 +6,11 @@ import {
 import useTabParam from '../hooks/useTabParam';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { api } from '../services/api';
-import { DataTable, DataTableFooter, MetricCard, KpiBand, Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, MetricCard, KpiBand, Pill, ListToolbar } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useToast } from '../contexts/ToastContext';
@@ -20,6 +24,37 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const VALID_TABS = ['overview', 'users', 'connections', 'logs'];
+
+// Built-in saved views for the users table. An FTP account has one axis worth
+// slicing — whether its shell still permits a login — and it is the axis the
+// row already renders as a pill, so the rules below match the `status` column's
+// `value`, which is the same word the Pill shows.
+const NO_RULES = { match: 'all', rules: [] };
+const BY_NAME = [{ key: 'username', direction: 'asc' }];
+const STATUS_IS = (value) => ({
+    match: 'all',
+    rules: [{ id: 'fu1', field: 'status', op: 'any', value: [value] }],
+});
+
+const FTP_USER_VIEWS = [
+    {
+        // Every account the panel can see, in the order you would read them.
+        name: 'All users',
+        state: { sorts: BY_NAME, hiddenKeys: [], columnFilters: NO_RULES },
+    },
+    {
+        // Who can actually connect right now — the unfiltered table cannot
+        // answer that at a glance once a few accounts have been parked.
+        name: 'Active',
+        state: { sorts: BY_NAME, hiddenKeys: [], columnFilters: STATUS_IS('Active') },
+    },
+    {
+        // The other half: accounts left in /etc/passwd with a nologin shell.
+        // Worth reading before creating a user that duplicates one.
+        name: 'Disabled',
+        state: { sorts: BY_NAME, hiddenKeys: [], columnFilters: STATUS_IS('Disabled') },
+    },
+];
 
 function FTPServer() {
     const [status, setStatus] = useState(null);
@@ -256,6 +291,9 @@ function FTPServer() {
             header: 'Username',
             sortable: true,
             hideable: false,
+            // A login name is a fragment you type, not a value you pick.
+            type: 'text',
+            value: (user) => user.username || '',
             sortValue: (user) => user.username || '',
             render: (user) => (
                 <>
@@ -270,6 +308,8 @@ function FTPServer() {
             key: 'home',
             header: 'Home Directory',
             sortable: true,
+            type: 'text',
+            value: (user) => user.home || '',
             sortValue: (user) => user.home || '',
             cellClassName: 'sk-cell-mono',
             render: (user) => (
@@ -285,6 +325,10 @@ function FTPServer() {
             key: 'usage',
             header: 'Usage',
             sortable: true,
+            // Filter on the byte count, not on the "1.2 MB" string the cell
+            // shows — "greater than" is the only useful question here.
+            type: 'num',
+            value: (user) => user.home_size ?? null,
             sortValue: (user) => user.home_size ?? null,
             cellClassName: 'sk-cell-mono',
             render: (user) => user.home_size_human,
@@ -293,6 +337,14 @@ function FTPServer() {
             key: 'status',
             header: 'Status',
             sortable: true,
+            // Declared, not inferred: a box with two FTP accounts of two
+            // statuses fails the enum cardinality test and would fall back to
+            // text, which turns the pick-list into a typed fragment and both
+            // status views above into no-ops. There is no `status` key on the
+            // row either — `value` is what the rules read.
+            type: 'enum',
+            enumOrder: ['Active', 'Disabled'],
+            value: (user) => (user.is_active ? 'Active' : 'Disabled'),
             sortValue: (user) => (user.is_active ? 'Active' : 'Disabled'),
             render: (user) => (
                 <Pill kind={user.is_active ? 'green' : 'gray'}>
@@ -343,6 +395,9 @@ function FTPServer() {
             header: 'Local Address',
             sortable: true,
             hideable: false,
+            // addr:port pairs are near-unique per row — you type a fragment.
+            type: 'text',
+            value: (conn) => conn.local || '',
             sortValue: (conn) => conn.local || '',
             cellClassName: 'sk-cell-mono',
             render: (conn) => <code>{conn.local}</code>,
@@ -351,6 +406,8 @@ function FTPServer() {
             key: 'remote',
             header: 'Remote Address',
             sortable: true,
+            type: 'text',
+            value: (conn) => conn.remote || '',
             sortValue: (conn) => conn.remote || '',
             cellClassName: 'sk-cell-mono',
             render: (conn) => <code>{conn.remote}</code>,
@@ -359,6 +416,10 @@ function FTPServer() {
             key: 'state',
             header: 'State',
             sortable: true,
+            // Declared: with a single connection listed the one distinct value
+            // fails the cardinality test and the column would drop to text.
+            type: 'enum',
+            value: (conn) => conn.state || '',
             sortValue: (conn) => conn.state || '',
             render: (conn) => (
                 <Pill kind="green">{conn.state}</Pill>
@@ -382,6 +443,38 @@ function FTPServer() {
             ),
         },
     ];
+
+    // Chrome stays INLINE rather than hoisted: /ftp is one page in the Files
+    // tab group, so its top bar is shared with File Manager, and these tables
+    // are two of four inner tabs — a hoisted picker would sit over Overview and
+    // Logs too. One route, two tables, so each needs its own `urlScope`:
+    // without it both would write `?view=`/`?sort=` and clobber each other.
+    const userChrome = useTableChrome({
+        columns: userColumns,
+        rows: users,
+        viewPageKey: 'ftp-users',
+        builtinViews: FTP_USER_VIEWS,
+        noun: 'users',
+        sorts: userSorts,
+        setSorts: setUserSorts,
+        hiddenKeys: userHiddenKeys,
+        setHiddenKeys: setUserHiddenKeys,
+        urlScope: 'users',
+    });
+
+    // No built-in views: every row here is an established session to port 21,
+    // so there is no second slice to name — `ss` reports nothing else.
+    const connChrome = useTableChrome({
+        columns: connectionColumns,
+        rows: connections,
+        viewPageKey: 'ftp-connections',
+        noun: 'connections',
+        sorts: connSorts,
+        setSorts: setConnSorts,
+        hiddenKeys: connHiddenKeys,
+        setHiddenKeys: setConnHiddenKeys,
+        urlScope: 'connections',
+    });
 
     const isInstalled = status?.any_installed;
     const isRunning = status?.any_running;
@@ -569,86 +662,124 @@ function FTPServer() {
 
                         <TabsContent value="users">
                             <div className="users-tab">
-                                <div className="section-header">
-                                    <h3>FTP Users</h3>
-                                    <div className="section-header__actions">
-                                        <Button onClick={() => setShowUserModal(true)}>
-                                            Add User
-                                        </Button>
-                                    </div>
-                                </div>
-                                {users.length === 0 ? (
-                                    <EmptyState
-                                        icon={UserPlus}
-                                        title="No FTP users configured"
-                                        action={<Button onClick={() => setShowUserModal(true)}>Create First User</Button>}
-                                    />
-                                ) : (
-                                    <DataTable
-                                        columns={userColumns}
-                                        data={users}
-                                        keyField="username"
-                                        sorts={userSorts}
-                                        onSortsChange={setUserSorts}
-                                        hiddenKeys={userHiddenKeys}
-                                        onHiddenKeysChange={setUserHiddenKeys}
-                                        className="users-table"
-                                        footer={(
-                                            <DataTableFooter
-                                                shown={users.length}
-                                                total={users.length}
-                                                noun="user"
+                                {/* The view name replaces the old "FTP Users"
+                                    eyebrow: one heading, and it now names the
+                                    slice you are looking at. Add User keeps its
+                                    own bar because it acts on the server, not
+                                    on what you are looking at; Refresh is in
+                                    the "⋮". */}
+                                <GridViewPicker
+                                    views={userChrome.views}
+                                    label="users"
+                                    onCreate={userChrome.createView}
+                                    actions={(
+                                        <>
+                                            <GridFilterButton
+                                                count={userChrome.filterCount}
+                                                onClick={() => userChrome.setDrawerOpen(true)}
                                             />
-                                        )}
-                                    />
-                                )}
+                                            <GridToolsMenu {...userChrome.toolsProps} onRefresh={loadUsers} />
+                                        </>
+                                    )}
+                                />
+                                <ListToolbar>
+                                    <Button onClick={() => setShowUserModal(true)}>
+                                        Add User
+                                    </Button>
+                                </ListToolbar>
+
+                                <GridChips {...userChrome.chipProps} />
+
+                                <DataTable
+                                    columns={userChrome.columns}
+                                    data={users}
+                                    keyField="username"
+                                    sorts={userSorts}
+                                    onSortsChange={setUserSorts}
+                                    {...userChrome.tableProps}
+                                    className="users-table"
+                                    emptyState={(
+                                        <EmptyState
+                                            icon={UserPlus}
+                                            title="No FTP users configured"
+                                            action={<Button onClick={() => setShowUserModal(true)}>Create First User</Button>}
+                                        />
+                                    )}
+                                    footer={(
+                                        <DataTableFooter
+                                            // DataTable applies the column rules
+                                            // itself, so the shown count comes
+                                            // from the chrome — `users` is only
+                                            // ever the whole account list.
+                                            shown={userChrome.shownCount}
+                                            total={users.length}
+                                            noun="user"
+                                        />
+                                    )}
+                                />
+
+                                <GridFilterDrawer {...userChrome.drawerProps} />
                             </div>
                         </TabsContent>
 
                         <TabsContent value="connections">
                             <div className="connections-tab">
-                                <div className="section-header">
-                                    <h3>Active Connections</h3>
-                                    <div className="section-header__actions">
-                                        <Button variant="outline" onClick={loadConnections}>
-                                            <RefreshCw size={14} />
-                                            Refresh
-                                        </Button>
-                                    </div>
-                                </div>
-                                {connections.length === 0 ? (
-                                    <EmptyState icon={Network} title="No active connections" />
-                                ) : (
-                                    <DataTable
-                                        columns={connectionColumns}
-                                        data={connections}
-                                        keyField={(conn) => conn.pid ?? `${conn.local}-${conn.remote}`}
-                                        sorts={connSorts}
-                                        onSortsChange={setConnSorts}
-                                        hiddenKeys={connHiddenKeys}
-                                        onHiddenKeysChange={setConnHiddenKeys}
-                                        className="connections-table"
-                                        footer={(
-                                            <DataTableFooter
-                                                shown={connections.length}
-                                                total={connections.length}
-                                                noun="connection"
+                                {/* Refresh moved into the "⋮" so it stays
+                                    reachable even with nothing connected —
+                                    the empty state is the table's now. */}
+                                <GridViewPicker
+                                    views={connChrome.views}
+                                    label="connections"
+                                    onCreate={connChrome.createView}
+                                    actions={(
+                                        <>
+                                            <GridFilterButton
+                                                count={connChrome.filterCount}
+                                                onClick={() => connChrome.setDrawerOpen(true)}
                                             />
-                                        )}
-                                    />
-                                )}
+                                            <GridToolsMenu {...connChrome.toolsProps} onRefresh={loadConnections} />
+                                        </>
+                                    )}
+                                />
+
+                                <GridChips {...connChrome.chipProps} />
+
+                                <DataTable
+                                    columns={connChrome.columns}
+                                    data={connections}
+                                    keyField={(conn) => conn.pid ?? `${conn.local}-${conn.remote}`}
+                                    sorts={connSorts}
+                                    onSortsChange={setConnSorts}
+                                    {...connChrome.tableProps}
+                                    className="connections-table"
+                                    emptyState={<EmptyState icon={Network} title="No active connections" />}
+                                    footer={(
+                                        <DataTableFooter
+                                            shown={connChrome.shownCount}
+                                            total={connections.length}
+                                            noun="connection"
+                                        />
+                                    )}
+                                />
+
+                                <GridFilterDrawer {...connChrome.drawerProps} />
                             </div>
                         </TabsContent>
 
                         <TabsContent value="logs">
                             <div className="logs-tab">
-                                <div className="section-header">
-                                    <h3>Server Logs</h3>
-                                    <Button variant="outline" onClick={loadLogs}>
-                                        <RefreshCw size={14} />
-                                        Refresh
-                                    </Button>
-                                </div>
+                                {/* No table here, so no view picker — a title
+                                    and the one action, through the shared
+                                    toolbar instead of a hand-rolled row. */}
+                                <ListToolbar
+                                    title="Server logs"
+                                    tools={(
+                                        <Button variant="outline" onClick={loadLogs}>
+                                            <RefreshCw size={14} />
+                                            Refresh
+                                        </Button>
+                                    )}
+                                />
                                 <div className="log-viewer">
                                     <pre>{logs}</pre>
                                 </div>

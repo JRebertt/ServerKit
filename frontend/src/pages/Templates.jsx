@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Search, X, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
+    Search, Star, ExternalLink, BookOpen, Container, Globe, BarChart3,
     Database, Shield, Cloud, MessageSquare, Video, Music, Image, Home,
     Code, Server, GitBranch, Workflow, HardDrive, Lock, Users, FileText,
     Settings, Layers, LayoutTemplate, Check, Tag, Cpu,
@@ -15,9 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
     SearchField, FilterDrawer, FilterButton, countActiveFilters, Drawer,
+    DataTableFooter,
 } from '@/components/ds';
+import { useTableChrome, GridViewPicker, GridToolsMenu } from '@/components/ds/grid';
 import ServerPicker from '@/components/templates/ServerPicker';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarChrome } from '@/hooks/useTopbarActions';
+import { applyTableSorts, useTableSort } from '@/hooks/useTableSort';
 import EmptyState from '../components/EmptyState';
 
 // Featured templates (curated list)
@@ -158,15 +161,56 @@ const TEMPLATE_ICONS = {
     'node-app': Code
 };
 
-const SORT_OPTIONS = [
-    { value: 'featured', label: 'Featured first' },
-    { value: 'name-asc', label: 'Name (A–Z)' },
-    { value: 'name-desc', label: 'Name (Z–A)' },
-];
-
 const KIND_OPTIONS = [
     { value: 'compose', label: 'One-click' },
     { value: 'repo', label: 'Git repo' },
+];
+
+const isFeatured = (templateId) => FEATURED_TEMPLATES.includes(templateId);
+const kindLabel = (template) => ((template.kind || 'compose') === 'repo' ? 'Git repo' : 'One-click');
+
+// The catalog stays a card grid — a template is something you read, not a row
+// you scan — but the chrome around it still has to know what a template IS.
+// These descriptors are what the saved views sort by and what the "⋮" exports;
+// nothing renders them, so none of them carries a `render`.
+const templateColumns = [
+    { key: 'name', header: 'Template', type: 'text', value: (t) => t.name || '', sortValue: (t) => t.name || '' },
+    {
+        key: 'featured',
+        header: 'Featured',
+        type: 'bool',
+        value: (t) => isFeatured(t.id),
+        // 1/0 rather than the boolean: applyTableSorts compares booleans as the
+        // strings "true"/"false", which happens to work and would stop working
+        // the moment anyone renamed the labels.
+        sortValue: (t) => (isFeatured(t.id) ? 1 : 0),
+    },
+    { key: 'kind', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
+    { key: 'version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
+    { key: 'categories', header: 'Categories', type: 'text', value: (t) => (t.categories || []).join(', ') },
+    { key: 'description', header: 'Description', type: 'text', value: (t) => t.description || '' },
+];
+
+// Sort orders are built-in saved views now. The two-button Featured / A–Z strip
+// beside the result count and the drawer's own "Sort" group were the same three
+// orders offered twice, and neither could be saved or shared as a link.
+//
+// The views describe ORDER only — no `page` bag. Type and category stay
+// URL-backed drawer filters, and a view that also wrote them could not win: the
+// router defers its own state update, so `useViewLink` rewrites `?view=` from
+// the search string as it was BEFORE the view was applied and drops any param
+// the same apply had just written. A view whose type slice silently did nothing
+// is worse than no such view.
+const NO_RULES = { match: 'all', rules: [] };
+const FEATURED_SORT = [
+    { key: 'featured', direction: 'desc' },
+    { key: 'name', direction: 'asc' },
+];
+
+const TEMPLATE_VIEWS = [
+    { name: 'Featured first', state: { sorts: FEATURED_SORT, hiddenKeys: [], columnFilters: NO_RULES } },
+    { name: 'A–Z', state: { sorts: [{ key: 'name', direction: 'asc' }], hiddenKeys: [], columnFilters: NO_RULES } },
+    { name: 'Z–A', state: { sorts: [{ key: 'name', direction: 'desc' }], hiddenKeys: [], columnFilters: NO_RULES } },
 ];
 
 const Templates = () => {
@@ -186,8 +230,12 @@ const Templates = () => {
     const selectedCategory = searchParams.get('category') || '';
     const selectedKind = searchParams.get('kind') || '';
     const searchQuery = searchParams.get('search') || '';
-    const sortBy = searchParams.get('sort') || 'featured';
     const installTemplateId = searchParams.get('install');
+
+    const { sorts, setSorts } = useTableSort({
+        defaultSorts: FEATURED_SORT,
+        storageKey: 'serverkit-table-templates-sort',
+    });
 
     useEffect(() => {
         loadData();
@@ -230,28 +278,28 @@ const Templates = () => {
         loadTemplates();
     }, [selectedCategory, searchQuery]);
 
+    // Functional update: ?view= is written by the chrome from its own copy of
+    // the search string, so rebuilding this one from a captured `searchParams`
+    // would drop whichever of the two landed first.
     function updateFilters(updates) {
-        const newParams = new URLSearchParams(searchParams);
-        Object.entries(updates).forEach(([key, value]) => {
-            if (value) {
-                newParams.set(key, value);
-            } else {
-                newParams.delete(key);
-            }
+        setSearchParams((previous) => {
+            const next = new URLSearchParams(previous);
+            Object.entries(updates).forEach(([key, value]) => {
+                if (value) next.set(key, value);
+                else next.delete(key);
+            });
+            return next;
         });
-        setSearchParams(newParams);
-    }
-
-    function setSelectedCategoryFilter(category) {
-        updateFilters({ category });
     }
 
     function setSearchQueryFilter(search) {
         updateFilters({ search: search || null });
     }
 
+    // Clears the filters, not the whole query string — ?view= is which view you
+    // are in, not something the filters put there.
     function clearAllFilters() {
-        setSearchParams(new URLSearchParams());
+        updateFilters({ category: null, kind: null, search: null });
     }
 
     async function loadData() {
@@ -419,42 +467,18 @@ const Templates = () => {
         }
     }
 
-    function isFeatured(templateId) {
-        return FEATURED_TEMPLATES.includes(templateId);
-    }
-
-    // Sort templates
-    function sortTemplates(list) {
-        const sorted = [...list];
-        switch (sortBy) {
-            case 'name-asc':
-                return sorted.sort((a, b) => a.name.localeCompare(b.name));
-            case 'name-desc':
-                return sorted.sort((a, b) => b.name.localeCompare(a.name));
-            case 'featured':
-                return sorted.sort((a, b) => {
-                    const aFeatured = isFeatured(a.id);
-                    const bFeatured = isFeatured(b.id);
-                    if (aFeatured && !bFeatured) return -1;
-                    if (!aFeatured && bFeatured) return 1;
-                    return a.name.localeCompare(b.name);
-                });
-            default:
-                return sorted;
-        }
-    }
-
     // Kind is filtered client-side (the list endpoint filters category + search).
-    const kindFiltered = selectedKind
-        ? templates.filter(t => (t.kind || 'compose') === selectedKind)
-        : templates;
-    const sortedTemplates = sortTemplates(kindFiltered);
+    const kindFiltered = useMemo(
+        () => (selectedKind
+            ? templates.filter(t => (t.kind || 'compose') === selectedKind)
+            : templates),
+        [templates, selectedKind],
+    );
 
     // The active-filter badge counts real filters only (category + kind); sort is
     // an ordering, not a filter, so it never inflates the count.
     const activeFilterCount = countActiveFilters({ category: selectedCategory, kind: selectedKind });
-    const hasActiveFilters = Boolean(selectedCategory || selectedKind || searchQuery
-        || (sortBy && sortBy !== 'featured'));
+    const hasActiveFilters = Boolean(selectedCategory || selectedKind || searchQuery);
 
     // How many templates each option would match, counted over the whole
     // catalog rather than the current result set — a count that shrank to 0 as
@@ -489,25 +513,41 @@ const Templates = () => {
                 count: optionCounts.byCategory[cat] || 0,
             })),
         },
-        {
-            key: 'sort',
-            label: 'Sort',
-            type: 'single',
-            options: SORT_OPTIONS,
-        },
     ];
 
-    const filterValue = { category: selectedCategory, kind: selectedKind, sort: sortBy };
+    const filterValue = { category: selectedCategory, kind: selectedKind };
 
     function handleFilterChange(next) {
         updateFilters({
             category: next.category || null,
             kind: next.kind || null,
-            sort: next.sort && next.sort !== 'featured' ? next.sort : null,
         });
     }
 
-    useTopbarActions(() =>
+    // No `pageState`: type and category are the drawer's, and a template belongs
+    // to SEVERAL categories at once, so neither could become a column rule
+    // either — the rule engine compares one value per row, and "is any of" would
+    // miss every template whose match is its second category.
+    const chrome = useTableChrome({
+        columns: templateColumns,
+        rows: kindFiltered,
+        viewPageKey: 'templates',
+        builtinViews: TEMPLATE_VIEWS,
+        noun: 'templates',
+        sorts,
+        setSorts,
+    });
+
+    // No <DataTable> to apply the view's sort, so the cards do it themselves
+    // from the same state a table would have used.
+    const sortedTemplates = useMemo(
+        () => applyTableSorts(chrome.shownRows, sorts, chrome.columns),
+        [chrome.shownRows, sorts, chrome.columns],
+    );
+
+    // Search, the filter button and the "⋮" ride the tab group's top bar, so the
+    // view row below is the view name alone.
+    const { portal: topbarChrome, actions: chromeActions } = useTopbarChrome(
         <>
             <SearchField
                 value={searchQuery}
@@ -515,8 +555,8 @@ const Templates = () => {
                 placeholder="Search templates…"
             />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
         </>,
-        [searchQuery, activeFilterCount]
     );
 
     if (loading) {
@@ -529,6 +569,7 @@ const Templates = () => {
 
     return (
         <div className="sk-tabgroup__inner templates-page">
+            {topbarChrome}
             {/* The catalog is not the only way in: a repo or an archive skips
                 templates entirely, so both routes lead the page rather than
                 hiding behind the New Service tab. */}
@@ -551,57 +592,15 @@ const Templates = () => {
                 </button>
             </div>
 
-            {/* One header row: result count, whatever filtering is currently in
-                force (as removable chips), and sort. Categories are not listed
-                here — every filter lives in the FilterDrawer, so there is one
-                place to look rather than two competing ones. */}
-            <div className="templates-results-header">
-                <span className="results-count">
-                    {sortedTemplates.length} template{sortedTemplates.length !== 1 ? 's' : ''}
-                </span>
-                <div className="active-filters">
-                    {selectedKind && (
-                        <button type="button" className="filter-chip"
-                            onClick={() => updateFilters({ kind: null })}>
-                            {KIND_OPTIONS.find(k => k.value === selectedKind)?.label || selectedKind}
-                            <X size={12} />
-                        </button>
-                    )}
-                    {selectedCategory && (
-                        <button type="button" className="filter-chip"
-                            onClick={() => setSelectedCategoryFilter(null)}>
-                            {selectedCategory}
-                            <X size={12} />
-                        </button>
-                    )}
-                    {searchQuery && (
-                        <button type="button" className="filter-chip"
-                            onClick={() => setSearchQueryFilter('')}>
-                            &ldquo;{searchQuery}&rdquo;
-                            <X size={12} />
-                        </button>
-                    )}
-                    {hasActiveFilters && (
-                        <Button variant="ghost" size="sm" className="clear-all-btn" onClick={clearAllFilters}>
-                            Clear all
-                        </Button>
-                    )}
-                </div>
-                {/* The two orders people actually reach for; the full sort list
-                    (incl. Z–A) stays in the filter drawer. */}
-                <div className="tpl-sort" role="group" aria-label="Sort templates">
-                    {[['featured', 'Featured'], ['name-asc', 'A–Z']].map(([value, label]) => (
-                        <button
-                            type="button"
-                            key={value}
-                            className={sortBy === value ? 'is-active' : ''}
-                            onClick={() => updateFilters({ sort: value === 'featured' ? null : value })}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            {/* The one row of chrome: the active view names what you are looking
+                at, and its actions ride the top bar. The count that used to sit
+                here is under the cards now, next to what it is counting. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="templates"
+                onCreate={chrome.createView}
+                actions={chromeActions}
+            />
 
             {/* Templates Grid */}
             <div className="templates-grid">
@@ -672,6 +671,16 @@ const Templates = () => {
                 )}
             </div>
 
+            {/* Under the cards, not above them: `templates` is what the category
+                and search query returned, `sortedTemplates` is what the kind
+                slice left of it. */}
+            {sortedTemplates.length > 0 && (
+                <DataTableFooter
+                    shown={sortedTemplates.length}
+                    total={templates.length}
+                    noun="template"
+                />
+            )}
 
             {/* Install Modal (compose templates only) */}
             {showInstallModal && selectedTemplate && (

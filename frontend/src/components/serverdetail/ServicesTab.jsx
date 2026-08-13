@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '@/hooks/useConfirm';
 import { Button } from '@/components/ui/button';
-import { Pill, DataTable, DataTableFooter, ListToolbar, SearchField } from '../ds';
+import { Pill, Drawer, DataTable, DataTableFooter, ListToolbar, SearchField } from '../ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import Modal from '../Modal';
+import LogToolbar from '../log-viewer/LogToolbar';
+import LogContent from '../log-viewer/LogContent';
 
 // Built-in saved views. These are the four buttons that used to sit in the
 // toolbar (All / Active / Failed / Inactive) — they narrowed the AGENT query
@@ -90,17 +92,53 @@ const STATE_PILL = {
     stopped: 'gray',
 };
 
-const ServicesTab = ({ serverId, serverStatus }) => {
+// The panel host and an agent answer the same question in different
+// vocabularies: `/processes/services` probes a fixed list of well-known daemons
+// and reports running/stopped, the agent runs `systemctl list-units --all` and
+// reports systemd's own ACTIVE word. Normalising the local answer INTO the unit
+// shape — rather than teaching the table, the columns and the views two shapes —
+// is what lets one component serve both hosts.
+const localServiceToUnit = (s) => ({
+    unit: s.name,
+    active: s.status === 'running' ? 'active' : 'inactive',
+    sub: s.status || '',
+    pid: s.pid ?? null,
+});
+
+// `serverId` absent means the panel host itself (Terminal › Services); a server
+// id means a paired agent (Server Detail › Services).
+const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
     const toast = useToast();
+    const { confirm } = useConfirm();
+    const isLocal = !serverId;
     const [units, setUnits] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [busyUnit, setBusyUnit] = useState(null);
-    const [logsFor, setLogsFor] = useState(null); // { unit, entries, raw }
-    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-sd-services-sort' });
+
+    // Local and remote units are the same table but not the same list, so their
+    // saved views and column prefs are namespaced apart. Server Detail keeps the
+    // keys it already persists under.
+    const viewPageKey = isLocal ? 'terminal-services' : 'serverdetail-services';
+    const storageKey = isLocal ? 'serverkit-table-terminal-services' : 'serverkit-table-sd-services';
+    const { sorts, setSorts } = useTableSort({ storageKey: `${storageKey}-sort` });
     const {
         hiddenKeys, setHiddenKeys,
-    } = useColumnVisibility({ storageKey: 'serverkit-table-sd-services-cols' });
+    } = useColumnVisibility({ storageKey: `${storageKey}-cols` });
+
+    // Log drawer state. The unit under inspection plus the viewer preferences
+    // the shared LogToolbar drives.
+    const [logsFor, setLogsFor] = useState(null);
+    const [logText, setLogText] = useState('');
+    const [logsLoading, setLogsLoading] = useState(false);
+    const [logSearch, setLogSearch] = useState('');
+    const [appliedLogSearch, setAppliedLogSearch] = useState('');
+    const [logLineCount, setLogLineCount] = useState(200);
+    const [logShowLineNumbers, setLogShowLineNumbers] = useState(true);
+    const [logWrap, setLogWrap] = useState(true);
+    const [logAutoRefresh, setLogAutoRefresh] = useState(false);
+    const logContentRef = useRef(null);
+    const logIntervalRef = useRef(null);
 
     // One unfiltered fetch. The state buckets are column rules now, so asking
     // the agent for a subset would only hide rows from the rules — and from the
@@ -108,28 +146,44 @@ const ServicesTab = ({ serverId, serverStatus }) => {
     const loadUnits = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await api.getRemoteServices(serverId);
-            setUnits(data?.units || []);
+            if (isLocal) {
+                const data = await api.getServicesStatus();
+                setUnits((data?.services || []).map(localServiceToUnit));
+            } else {
+                const data = await api.getRemoteServices(serverId);
+                setUnits(data?.units || []);
+            }
         } catch (err) {
             toast.error(err.message || 'Failed to load services');
         } finally {
             setLoading(false);
         }
-    }, [serverId, toast]);
+    }, [isLocal, serverId, toast]);
 
     useEffect(() => {
-        if (serverStatus !== 'online') {
+        if (!isLocal && serverStatus !== 'online') {
             setLoading(false);
             return;
         }
         loadUnits();
-    }, [serverStatus, loadUnits]);
+    }, [isLocal, serverStatus, loadUnits]);
 
     const filtered = useMemo(() => {
         if (!search.trim()) return units;
         const needle = search.trim().toLowerCase();
-        return units.filter((u) => u.unit?.toLowerCase().includes(needle));
+        return units.filter((u) => (
+            u.unit?.toLowerCase().includes(needle)
+            || u.description?.toLowerCase().includes(needle)
+        ));
     }, [units, search]);
+
+    // The row the log drawer is describing, read back from the CURRENT list: a
+    // start/stop from inside the drawer reloads the units, and a snapshot taken
+    // when it opened would keep showing the state you just changed.
+    const logsUnit = useMemo(
+        () => (logsFor ? units.find((u) => u.unit === logsFor.unit) || logsFor : null),
+        [units, logsFor],
+    );
 
     // The page's own half of a saved view. Everything else — sorts, hidden
     // columns, rules — is captured identically on every list page.
@@ -139,9 +193,21 @@ const ServicesTab = ({ serverId, serverStatus }) => {
     }, []);
 
     async function control(unit, action) {
+        // Stopping or restarting a unit takes something down; starting one
+        // cannot, so only the first two ask.
+        if (action !== 'start') {
+            const ok = await confirm({
+                title: action === 'stop' ? 'Stop service' : 'Restart service',
+                message: `${action === 'stop' ? 'Stop' : 'Restart'} ${unit}?`,
+                variant: 'warning',
+                confirmText: action === 'stop' ? 'Stop' : 'Restart',
+            });
+            if (!ok) return;
+        }
         setBusyUnit(unit);
         try {
-            await api.controlRemoteService(serverId, unit, action);
+            if (isLocal) await api.controlService(unit, action);
+            else await api.controlRemoteService(serverId, unit, action);
             toast.success(`${unit}: ${action} ok`);
             // Refresh state — only the affected row needs a reload but
             // re-fetching the list is simpler and keeps the filter consistent.
@@ -153,13 +219,48 @@ const ServicesTab = ({ serverId, serverStatus }) => {
         }
     }
 
-    async function viewLogs(unit) {
+    // `lines` is passed explicitly by the line-count control: the state setter
+    // has not landed when the refetch fires, so reading logLineCount there
+    // would re-fetch the count the user just moved away from.
+    const loadLogs = useCallback(async (unit, { spinner = true, lines } = {}) => {
+        const count = lines ?? logLineCount;
+        if (spinner) setLogsLoading(true);
         try {
-            const data = await api.getRemoteServiceLogs(serverId, unit, 200);
-            setLogsFor({ unit, entries: data?.entries || [] });
+            if (isLocal) {
+                const data = await api.getJournalLogs(unit, count);
+                setLogText(data?.lines?.join('\n') || '');
+            } else {
+                const data = await api.getRemoteServiceLogs(serverId, unit, count);
+                setLogText((data?.entries || [])
+                    .map((e) => (e.priority ? `[${e.priority}] ` : '') + (e.message || ''))
+                    .join('\n'));
+            }
         } catch (err) {
-            toast.error(err.message || 'Failed to load logs');
+            setLogText(`Error: ${err.message}`);
+        } finally {
+            setLogsLoading(false);
         }
+    }, [isLocal, serverId, logLineCount]);
+
+    useEffect(() => {
+        if (logAutoRefresh && logsFor) {
+            logIntervalRef.current = setInterval(() => loadLogs(logsFor.unit, { spinner: false }), 3000);
+        }
+        return () => { if (logIntervalRef.current) clearInterval(logIntervalRef.current); };
+    }, [logAutoRefresh, logsFor, loadLogs]);
+
+    function openLogs(unit) {
+        setLogsFor({ unit });
+        setLogSearch('');
+        setAppliedLogSearch('');
+        setLogText('');
+        loadLogs(unit);
+    }
+
+    function closeLogs() {
+        setLogsFor(null);
+        setLogAutoRefresh(false);
+        setLogText('');
     }
 
     async function reloadDaemon() {
@@ -174,9 +275,24 @@ const ServicesTab = ({ serverId, serverStatus }) => {
         }
     }
 
+    function downloadLogs() {
+        if (!logText || !logsFor) return;
+        const url = URL.createObjectURL(new Blob([logText], { type: 'text/plain' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${logsFor.unit}-${Date.now()}.log`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     // Units table columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace so the .server-services__* SCSS keeps
     // applying (.server-services__desc, .server-services__row-actions, .mono).
+    //
+    // The two hosts do not answer with the same fields: an agent unit carries a
+    // description and no PID, the panel host's daemon probe carries a PID and no
+    // description. Declaring only the column the payload actually fills is what
+    // keeps this from being a column of blanks on one host or the other.
     //
     // Declared above the offline guard: the chrome below is a hook, so it
     // cannot sit behind an early return.
@@ -215,7 +331,16 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                 </Pill>
             ),
         },
-        {
+        ...(isLocal ? [{
+            key: 'pid',
+            header: 'PID',
+            sortable: true,
+            type: 'num',
+            value: (u) => u.pid ?? null,
+            sortValue: (u) => u.pid ?? null,
+            cellClassName: 'mono',
+            render: (u) => u.pid ?? '—',
+        }] : [{
             key: 'description',
             header: 'Description',
             sortable: true,
@@ -224,7 +349,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
             sortValue: (u) => u.description || '',
             cellClassName: 'server-services__desc',
             render: (u) => u.description,
-        },
+        }]),
         {
             key: 'actions',
             header: '',
@@ -250,7 +375,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                     >Restart</Button>
                     <Button
                         size="sm" variant="outline"
-                        onClick={() => viewLogs(u.unit)}
+                        onClick={() => openLogs(u.unit)}
                     >Logs</Button>
                 </>
             ),
@@ -265,7 +390,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
     const chrome = useTableChrome({
         columns: unitColumns,
         rows: filtered,
-        viewPageKey: 'serverdetail-services',
+        viewPageKey,
         builtinViews: SERVICE_VIEWS,
         noun: 'units',
         sorts,
@@ -276,7 +401,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
         applyPage: applyViewPageState,
     });
 
-    if (serverStatus !== 'online') {
+    if (!isLocal && serverStatus !== 'online') {
         return (
             <div className="empty-state">
                 <p>Server is offline. Reconnect to manage services.</p>
@@ -309,19 +434,24 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                     </>
                 )}
             />
-            <ListToolbar
-                tools={(
-                    <div className="server-services__actions">
-                        <Button
-                            variant="outline"
-                            onClick={reloadDaemon}
-                            disabled={busyUnit === '__daemon__'}
-                        >
-                            Reload daemon
-                        </Button>
-                    </div>
-                )}
-            />
+            {/* daemon-reload is an agent verb; the panel host has no endpoint
+                for it, so local gets no toolbar row at all rather than an
+                empty one. */}
+            {!isLocal && (
+                <ListToolbar
+                    tools={(
+                        <div className="server-services__actions">
+                            <Button
+                                variant="outline"
+                                onClick={reloadDaemon}
+                                disabled={busyUnit === '__daemon__'}
+                            >
+                                Reload daemon
+                            </Button>
+                        </div>
+                    )}
+                />
+            )}
 
             <GridChips {...chrome.chipProps} />
 
@@ -352,24 +482,94 @@ const ServicesTab = ({ serverId, serverStatus }) => {
 
             <GridFilterDrawer {...chrome.drawerProps} />
 
-            <Modal
+            {/* The shared log viewer, not a <pre> in a modal: the same search,
+                line numbers, wrap, live tail and download the Log Files tab
+                offers, so a unit's journal is not a lesser surface. */}
+            <Drawer
                 open={!!logsFor}
-                onClose={() => setLogsFor(null)}
-                title={logsFor ? `Logs — ${logsFor.unit}` : ''}
-                size="xl"
+                onOpenChange={(open) => { if (!open) closeLogs(); }}
+                title={logsUnit?.unit || ''}
+                subtitle={logsUnit ? (logsUnit.description || `journalctl -u ${logsUnit.unit}`) : ''}
+                width={620}
+                flush
             >
-                {logsFor && (
-                    <pre className="server-services__logs">
-                        {logsFor.entries.length === 0
-                            ? '(no entries)'
-                            : logsFor.entries.map((e, i) => (
-                                <div key={i}>
-                                    [{e.priority || '-'}] {e.message}
+                {logsUnit && (
+                    <>
+                        <div className="preview-drawer-meta">
+                            <div className="meta-item">
+                                <span className="meta-label">State</span>
+                                <span className="meta-value">
+                                    {logsUnit.active || logsUnit.sub || 'unknown'}
+                                </span>
+                            </div>
+                            {logsUnit.pid != null && (
+                                <div className="meta-item">
+                                    <span className="meta-label">PID</span>
+                                    <span className="meta-value mono">{logsUnit.pid}</span>
                                 </div>
-                            ))}
-                    </pre>
+                            )}
+                        </div>
+
+                        <div className="preview-drawer-actions">
+                            <button type="button"
+                                className="drawer-action-btn"
+                                onClick={() => control(logsFor.unit, 'start')}
+                                disabled={busyUnit === logsFor.unit}
+                            >Start</button>
+                            <button type="button"
+                                className="drawer-action-btn"
+                                onClick={() => control(logsFor.unit, 'stop')}
+                                disabled={busyUnit === logsFor.unit}
+                            >Stop</button>
+                            <button type="button"
+                                className="drawer-action-btn"
+                                onClick={() => control(logsFor.unit, 'restart')}
+                                disabled={busyUnit === logsFor.unit}
+                            >Restart</button>
+                        </div>
+
+                        <LogToolbar
+                            searchPattern={logSearch}
+                            onSearchChange={setLogSearch}
+                            onSearchSubmit={() => setAppliedLogSearch(logSearch)}
+                            onSearchClear={() => { setLogSearch(''); setAppliedLogSearch(''); }}
+                            lineCount={logLineCount}
+                            onLineCountChange={(n) => { setLogLineCount(n); loadLogs(logsFor.unit, { lines: n }); }}
+                            autoRefresh={logAutoRefresh}
+                            onAutoRefreshToggle={() => setLogAutoRefresh(!logAutoRefresh)}
+                            showLineNumbers={logShowLineNumbers}
+                            onToggleLineNumbers={() => setLogShowLineNumbers(!logShowLineNumbers)}
+                            wrapLines={logWrap}
+                            onToggleWrap={() => setLogWrap(!logWrap)}
+                            isFullscreen={false}
+                            onToggleFullscreen={() => {}}
+                            onRefresh={() => loadLogs(logsFor.unit)}
+                            onDownload={downloadLogs}
+                            onClear={() => toast.error('Journal logs cannot be truncated from the panel.')}
+                            onScrollToBottom={() => {
+                                if (logContentRef.current) {
+                                    logContentRef.current.scrollTop = logContentRef.current.scrollHeight;
+                                }
+                            }}
+                            canAct={!logsLoading}
+                        />
+
+                        <div className="preview-drawer-body">
+                            <LogContent
+                                ref={logContentRef}
+                                live={logAutoRefresh}
+                                scrollKey={logsFor.unit}
+                                content={logText}
+                                loading={logsLoading}
+                                emptyMessage="No log output."
+                                showLineNumbers={logShowLineNumbers}
+                                wrapLines={logWrap}
+                                searchPattern={appliedLogSearch}
+                            />
+                        </div>
+                    </>
                 )}
-            </Modal>
+            </Drawer>
         </div>
     );
 };

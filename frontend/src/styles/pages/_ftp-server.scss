@@ -1,7 +1,7 @@
 // ============================================
 // FTP SERVER PAGE (redesign — Files group, see docs/REDESIGN_MAP.md #7):
-// MetricCard KPI strip + mono-uppercase eyebrow section headers + dense
-// .sk-dtable user/connection tables on flat surface cards.
+// MetricCard KPI strip + dense .sk-dtable user/connection tables on flat
+// surface cards, each under the shared GridViewPicker chrome row.
 // ============================================
 
 .ftp-server {
@@ -10,32 +10,6 @@
     // The grid lives in the <KpiBand> primitive now; re-declaring it here is how
     // the rule got lost in a rebuild and left the tiles stacked full-width.
     .sk-kpiband-wrap { margin-bottom: $space-5; }
-
-    // ─── Mono eyebrow section headers (Users / Connections / Logs) ───
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: $space-3;
-        margin-bottom: $space-3;
-
-        h3 {
-            margin: 0;
-            font-family: var(--mono);
-            font-size: 10.5px;
-            font-weight: $font-weight-semibold;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-faint);
-        }
-    }
-
-    // Right-end cluster of a section header (sort/column menus + action button)
-    .section-header__actions {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-    }
 
     // ─── Overview: config + connection-info cards ───────
     .overview-tab {

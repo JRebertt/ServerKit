@@ -179,166 +179,10 @@
     }
 }
 
-// Filters
-.templates-filters {
-    display: flex;
-    flex-direction: column;
-    gap: $space-4;
-    margin-bottom: $space-4;
-}
-
-// Scoped: Servers carries its own .search-box definition
-.templates-page .search-box {
-    position: relative;
-    max-width: 400px;
-    width: min(400px, 42vw);
-
-    .search-icon {
-        position: absolute;
-        left: $space-3;
-        top: 50%;
-        transform: translateY(-50%);
-        color: $text-tertiary;
-        pointer-events: none;
-    }
-
-    input {
-        width: 100%;
-        min-height: 36px;
-        padding: $space-2 $space-4;
-        padding-left: $space-10;
-        padding-right: $space-10;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: $radius-lg;
-        color: $text-primary;
-        font-size: $font-size-sm + 1;
-
-        &:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 3px var(--accent-bg-soft);
-        }
-
-        &::placeholder {
-            color: var(--text-faint);
-        }
-    }
-
-    .search-clear {
-        position: absolute;
-        right: $space-2;
-        top: 50%;
-        transform: translateY(-50%);
-        padding: $space-1;
-        background: transparent;
-        border: none;
-        color: $text-tertiary;
-        cursor: pointer;
-        border-radius: $radius-sm;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        &:hover {
-            color: $text-primary;
-            background: var(--surface-hover);
-        }
-    }
-}
-
-// Active filters — removable chips, inline in the results header.
-.active-filters {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: $space-2;
-    min-width: 0;
-}
-
-// The whole chip is the remove control — clicking anywhere on it drops that
-// filter, so there is no small × to aim at.
-.filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 8px;
-    background: var(--accent-bg);
-    border: 1px solid var(--accent-dim);
-    border-radius: $radius-md;
-    color: $text-secondary;
-    font-size: $font-size-sm;
-    text-transform: capitalize;
-    cursor: pointer;
-    transition: background $transition-fast, color $transition-fast;
-
-    &:hover {
-        background: var(--accent-bg-soft, var(--accent-bg));
-        color: $text-primary;
-    }
-
-    svg {
-        flex-shrink: 0;
-        color: $text-tertiary;
-    }
-
-    &:hover svg { color: $text-primary; }
-}
-
-.clear-all-btn {
-    padding: $space-1 $space-3;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: $radius-full;
-    font-size: $font-size-sm;
-    color: $text-secondary;
-    cursor: pointer;
-    transition: all $transition-fast;
-
-    &:hover {
-        background: var(--surface-hover);
-        border-color: var(--border-strong);
-        color: $text-primary;
-    }
-}
-
-// Quick-chips row + result count + sort. Full category list, kind, and the
-// remaining sort orders live in the shared FilterDrawer opened from the topbar.
-.templates-results-header {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: $space-3;
-    margin-bottom: $space-4;
-    padding-bottom: $space-3;
-    border-bottom: 1px solid var(--border-soft);
-}
-
-// Two-way sort toggle beside the result count.
-.tpl-sort {
-    display: flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: $radius-lg;
-
-    button {
-        padding: 6px 12px;
-        background: none;
-        border: none;
-        border-radius: $radius-md;
-        color: $text-tertiary;
-        font-size: $font-size-sm;
-        font-weight: $font-weight-medium;
-        white-space: nowrap;
-        cursor: pointer;
-        transition: background $transition-fast, color $transition-fast;
-
-        &:hover { color: $text-primary; }
-        &.is-active { background: var(--surface-3); color: $text-primary; }
-    }
-}
+// The result count, the removable filter chips and the two-button sort toggle
+// that used to sit above the grid are gone: DataTableFooter counts under the
+// cards, the FilterDrawer's badge reports what is filtering, and the sort orders
+// are built-in saved views on the GridViewPicker row.
 
 // ---- quick-start import banner -------------------------------------------
 // Repo / archive imports sit above the catalog: they are the two ways in that
@@ -406,13 +250,6 @@
         color: var(--text-ghost);
         transition: color $transition-fast, transform $transition-fast;
     }
-}
-
-.results-count {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--text-faint);
-    white-space: nowrap;
 }
 
 // Kind badge on catalog cards ("Git repo" / "One-click").
@@ -879,17 +716,6 @@
             opacity: 1;
             pointer-events: auto;
         }
-    }
-
-    .search-box {
-        width: 100%;
-        max-width: none;
-    }
-
-    .templates-results-header {
-        grid-template-columns: 1fr;
-        align-items: flex-start;
-        gap: $space-3;
     }
 }
 

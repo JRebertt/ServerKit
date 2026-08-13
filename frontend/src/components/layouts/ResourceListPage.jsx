@@ -18,6 +18,14 @@ import { useTopbarChrome } from '@/hooks/useTopbarActions';
 // they own data + columns + handlers and pass them in. Markup mirrors the
 // established `.wp-list` design so existing SCSS applies unchanged.
 //
+// DEPRECATED props, kept working, zero core render sites: `filters` /
+// `activeFilter` / `onFilterChange` (the status segment row) and `renderCard` /
+// `viewStorageKey` (the list/cards switch). Both are a second way to decide what
+// the table shows that the saved view cannot capture, so core expresses them as
+// `columnFilters` rules instead. They stay because this component is exported
+// from plugins/sdk — its props ARE the contract — and go on the next SDK major.
+// Do not reach for them in core; see the per-prop notes below.
+//
 //   <ResourceListPage
 //     className="services-page"
 //     loading={loading}

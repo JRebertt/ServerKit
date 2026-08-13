@@ -1,17 +1,55 @@
 import { Plus } from 'lucide-react';
 import { ServiceTile, Pill, DataTable, DataTableFooter } from '@/components/ds';
+import {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '@/components/ds/grid';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 
+const NO_RULES = { match: 'all', rules: [] };
+const BY_NAME = [{ key: 'name', direction: 'asc' }];
+
+// Built-in saved views. Role is the only axis a membership row has, and it is
+// the one that answers "who can change things here".
+const WORKSPACE_MEMBER_VIEWS = [
+    {
+        name: 'All members',
+        state: { sorts: BY_NAME, hiddenKeys: [], columnFilters: NO_RULES },
+    },
+    {
+        name: 'Owners',
+        state: {
+            sorts: BY_NAME,
+            hiddenKeys: [],
+            columnFilters: {
+                match: 'all',
+                rules: [{ id: 'wsm1', field: 'role', op: 'any', value: ['owner'] }],
+            },
+        },
+    },
+];
+
 const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMember }) => {
-    // DataTable columns. Cell markup and classNames are identical to the
-    // hand-rolled table they replace, so _workspaces.scss keeps applying
-    // (.sk-cell-name, .sk-cell-sub, .ws-row__av).
+    const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ws-members-sort' });
+    const {
+        hiddenKeys, setHiddenKeys,
+    } = useColumnVisibility({ storageKey: 'serverkit-table-ws-members-cols' });
+
+    // DataTable columns. Cell markup and classNames are unchanged, so the
+    // shared .sk-cell-name / .sk-cell-sub rules keep applying.
     const columns = [
         {
             key: 'name',
             header: 'Member',
             sortable: true,
             hideable: false,
+            // There is no `name` key on the row — the cell falls back from
+            // username to email, so `value` has to do the same or the filter
+            // would match nothing at all.
+            type: 'text',
+            value: (m) => m.username || m.email || '',
             sortValue: (m) => m.username || m.email || '',
             render: (m) => (
                 <div className="sk-cell-name">
@@ -27,6 +65,12 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
             key: 'role',
             header: 'Role',
             sortable: true,
+            // Declared, not inferred: a workspace with an owner and one member
+            // fails the enum cardinality test and would fall back to text,
+            // turning the pick-list into a typed fragment and "Owners" into a
+            // no-op.
+            type: 'enum',
+            value: (m) => m.role || '',
             sortValue: (m) => m.role || '',
             render: (m) => (
                 m.role === 'owner'
@@ -48,23 +92,71 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
         },
     ];
 
+    // One ROUTE renders four of these tabs, so each carries its own view
+    // namespace and its own `urlScope` — without the scope they would all write
+    // `?view=`/`?sort=` and a link saved on Members would reopen on Servers.
+    const chrome = useTableChrome({
+        columns,
+        rows: members,
+        viewPageKey: 'workspace-members',
+        builtinViews: WORKSPACE_MEMBER_VIEWS,
+        noun: 'members',
+        sorts,
+        setSorts,
+        hiddenKeys,
+        setHiddenKeys,
+        urlScope: 'members',
+    });
+
+    const unassigned = allUsers.filter(u => !members.find(m => m.user_id === u.id));
+
     return (
         <>
+            {/* Inline chrome, not hoisted: this is a tab inside a detail page
+                that already owns the top bar, so hoisting would hijack it. */}
+            <GridViewPicker
+                views={chrome.views}
+                label="members"
+                onCreate={chrome.createView}
+                actions={(
+                    <>
+                        <GridFilterButton
+                            count={chrome.filterCount}
+                            onClick={() => chrome.setDrawerOpen(true)}
+                        />
+                        <GridToolsMenu {...chrome.toolsProps} />
+                    </>
+                )}
+            />
+
+            <GridChips {...chrome.chipProps} />
+
             <DataTable
-                columns={columns}
+                columns={chrome.columns}
                 data={members}
                 keyField="id"
-                storageKey="serverkit-table-ws-members"
+                sorts={sorts}
+                onSortsChange={setSorts}
+                {...chrome.tableProps}
                 className="ws-detail__tablecard"
                 emptyTitle="No members"
                 emptyMessage="This workspace has no members yet."
-                footer={<DataTableFooter shown={members.length} total={members.length} noun="member" />}
+                footer={(
+                    <DataTableFooter
+                        shown={chrome.shownCount}
+                        total={members.length}
+                        noun="member"
+                    />
+                )}
             />
-            {allUsers.filter(u => !members.find(m => m.user_id === u.id)).length > 0 && (
+
+            <GridFilterDrawer {...chrome.drawerProps} />
+
+            {unassigned.length > 0 && (
                 <>
                     <div className="ws-pick-label">Add a member</div>
                     <div className="ws-pick">
-                        {allUsers.filter(u => !members.find(m => m.user_id === u.id)).map(u => (
+                        {unassigned.map(u => (
                             <div key={u.id} className="ws-pick__item" onClick={() => onAddMember(u.id)}>
                                 <ServiceTile name={u.username || u.email || '?'} size={24} className="ws-row__av" />
                                 <span className="ws-pick__name">{u.username || u.email}</span>

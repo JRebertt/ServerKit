@@ -68,32 +68,15 @@ export function relativeTime(iso, now = Date.now()) {
     return `${Math.floor(mins / 1440)}d ago`;
 }
 
-// Queued runs float to the top; everything else falls into a day bucket so the
-// feed reads chronologically without printing a date on every row.
+// Day bucket for a run, so the table can group chronologically without printing
+// a date on every row. Queued runs are their own bucket — they have no start
+// time to place them by, and they are the ones worth reading first.
+//
+// The hand-rolled orderer that used to sit here went with the feed: the table's
+// own grouping sorts the buckets by the active sort, which is the same answer
+// without a second copy of the ordering rules.
 export function activityGroup(job, now = Date.now()) {
     if (job.status === 'pending' || !job.started_at) return 'Queued';
     const mins = (now - new Date(job.started_at).getTime()) / 60000;
     return mins < 1440 ? 'Today' : 'Earlier';
-}
-
-const GROUP_ORDER = { Queued: 0, Today: 1, Earlier: 2 };
-
-// Group into ordered buckets, newest first inside each.
-export function groupDeploys(jobs, now = Date.now()) {
-    const buckets = new Map();
-    jobs.forEach((job) => {
-        const g = activityGroup(job, now);
-        if (!buckets.has(g)) buckets.set(g, []);
-        buckets.get(g).push(job);
-    });
-    return [...buckets.entries()]
-        .sort((a, b) => GROUP_ORDER[a[0]] - GROUP_ORDER[b[0]])
-        .map(([group, items]) => ({
-            group,
-            items: items.sort((a, b) => {
-                const ta = new Date(a.started_at || a.created_at).getTime() || 0;
-                const tb = new Date(b.started_at || b.created_at).getTime() || 0;
-                return tb - ta;
-            }),
-        }));
 }

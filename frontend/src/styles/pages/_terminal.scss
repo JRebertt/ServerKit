@@ -1,9 +1,9 @@
 // ============================================
 // TERMINAL & LOGS — flush "infra console" look (REDESIGN_MAP §4 #12).
-// Tab bodies: Log Files + System Journal (lv-*), Processes (proc-*),
-// Services (svc-*). The lv-* viewer classes are also rendered by
-// components/log-viewer/*, and .lv-icon-btn is reused by Docker.jsx —
-// keep their shapes stable.
+// Tab bodies: Log Files + System Journal (lv-*). Processes and Services keep
+// only a page wrapper here — both render converged tables that carry their own
+// chrome. The lv-* viewer classes are also rendered by components/log-viewer/*,
+// and .lv-icon-btn is reused by Docker.jsx — keep their shapes stable.
 // ============================================
 
 .terminal-page {
@@ -930,243 +930,22 @@ $lk-default:  #646b7a;
 }
 
 // ============================================
-// PROCESSES TAB (proc-*) — flush console frame
+// PROCESSES + SERVICES TABS
 // ============================================
-.proc-page {
+// Both are now a source-header strip stacked over a converged table
+// (components/ProcessTable.jsx, components/serverdetail/ServicesTab.jsx), which
+// brings its own frame — so the tab itself only has to stack and to give the
+// strip an outline it no longer inherits from a console shell.
+.proc-page,
+.svc-page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 220px);
-    min-height: 540px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-}
-
-.proc-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     gap: $space-3;
-    padding: $space-2 $space-4;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border-soft);
-    flex-wrap: wrap;
-    flex-shrink: 0;
-}
 
-.proc-filter-chips {
-    display: flex;
-    gap: 7px;
-    flex-wrap: wrap;
-}
-
-// Page-owned status chips (demo cat-chip look). Terminal must not lean on
-// other pages' .filter-chip styles.
-.proc-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-faint);
-    font-size: $font-size-sm + 0.5;
-    font-weight: $font-weight-medium;
-    cursor: pointer;
-    @include transition(all);
-
-    &:hover:not(:disabled) {
-        color: $text-primary;
-        border-color: var(--border-strong);
+    > .lv-header {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
     }
-    &:disabled { opacity: 0.45; cursor: not-allowed; }
-
-    &.active {
-        background: var(--accent-bg);
-        border-color: var(--accent-dim);
-        color: var(--accent-bright);
-    }
-}
-
-.proc-chip-count {
-    font-family: var(--mono);
-    font-size: 10.5px;
-    opacity: 0.75;
-}
-
-.proc-toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: $space-2;
-    flex-wrap: wrap;
-}
-
-.proc-layout {
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 0;
-    flex: 1;
-    min-height: 0;
-
-    @media (max-width: $breakpoint-lg) {
-        grid-template-columns: 1fr;
-        grid-template-rows: 200px 1fr;
-
-        .proc-sidebar {
-            border-right: none;
-            border-bottom: 1px solid var(--border-soft);
-        }
-    }
-}
-
-.proc-sidebar {
-    background: $bg-sidebar;
-    border-right: 1px solid var(--border-soft);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-}
-
-.proc-main {
-    background: var(--surface);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.proc-table-wrap {
-    flex: 1;
-    overflow: auto;
-    scrollbar-width: thin;
-
-    &::-webkit-scrollbar { width: 8px; height: 8px; }
-    &::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: $radius-sm; }
-}
-
-// Dense table per the .sk-dtable spec (kept page-local for the sticky
-// sortable header + inline gauges).
-.proc-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-
-    thead th {
-        position: sticky;
-        top: 0;
-        background: var(--surface);
-        text-align: left;
-        padding: 10px $space-4;
-        font-family: var(--mono);
-        font-size: 10.5px;
-        font-weight: $font-weight-semibold;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--text-faint);
-        cursor: pointer;
-        @include transition(color);
-        z-index: 1;
-        border-bottom: 1px solid var(--border);
-        user-select: none;
-
-        &:hover { color: var(--text-dim); }
-        &.active { color: var(--accent-bright); }
-    }
-
-    tbody tr {
-        border-bottom: 1px solid var(--border-soft);
-        cursor: pointer;
-        @include transition(background);
-
-        &:hover { background: var(--surface-2); }
-        &.selected {
-            background: var(--accent-bg-soft);
-            &:hover { background: var(--accent-bg); }
-        }
-    }
-
-    td {
-        padding: 9px $space-4;
-        vertical-align: middle;
-    }
-
-    .mono {
-        font-family: var(--mono);
-        font-size: $font-size-sm;
-        color: var(--text-dim);
-    }
-}
-
-.proc-name-cell {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    max-width: 320px;
-}
-
-.proc-name {
-    color: $text-primary;
-    font-weight: $font-weight-medium;
-    @include truncate();
-}
-
-.proc-cmd {
-    font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--text-ghost);
-    @include truncate();
-}
-
-.proc-user-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-dim);
-    font-size: $font-size-sm + 0.5;
-}
-
-.proc-user-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-}
-
-.proc-bar-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 80px;
-}
-
-.proc-bar-value {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--text-dim);
-}
-
-.proc-bar {
-    height: 4px;
-    background: var(--surface-3);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.proc-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    @include transition(width);
-
-    &.cpu { background: var(--accent-bright); }
-    &.mem { background: var(--cyan); }
-}
-
-.proc-actions {
-    display: flex;
-    gap: 2px;
-    justify-content: flex-end;
 }
 
 .proc-command {
@@ -1184,195 +963,10 @@ $lk-default:  #646b7a;
 }
 
 // ============================================
-// SERVICES TAB (svc-*)
-// ============================================
-.svc-page {
-    display: flex;
-    flex-direction: column;
-    gap: $space-3;
-
-    // Standalone header strip (not inside a console frame on this tab)
-    > .lv-header {
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-    }
-}
-
-.svc-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: $space-3;
-    padding: $space-2 $space-3;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    flex-wrap: wrap;
-}
-
-.svc-grid {
-    display: grid;
-    gap: $space-3;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-}
-
-.svc-card {
-    position: relative;
-    background: var(--surface);
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    padding: $space-4;
-    display: flex;
-    flex-direction: column;
-    gap: $space-3;
-    cursor: pointer;
-    @include transition(all);
-    overflow: hidden;
-
-    &::before {
-        content: '';
-        position: absolute;
-        left: 0; top: 0; bottom: 0;
-        width: 3px;
-        background: var(--border);
-        @include transition(background);
-    }
-
-    &.status-running::before { background: var(--green); }
-    &.status-failed::before  { background: var(--red); }
-    &.status-stopped::before { background: var(--text-ghost); }
-    &.status-other::before   { background: var(--amber); }
-
-    &:hover {
-        border-color: var(--border-strong);
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-md);
-    }
-
-    &.status-failed {
-        background: linear-gradient(135deg, fade($danger-raw, 5%), var(--surface) 60%);
-    }
-}
-
-.svc-card-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: $space-2;
-}
-
-.svc-card-title {
-    display: flex;
-    align-items: center;
-    gap: $space-2;
-    min-width: 0;
-
-    h4 {
-        margin: 0;
-        font-size: 13px;
-        font-weight: $font-weight-semibold;
-        color: $text-primary;
-        @include truncate();
-        font-family: var(--mono);
-    }
-}
-
-.svc-status-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-ghost);
-    flex-shrink: 0;
-
-    &.is-large { width: 12px; height: 12px; }
-    &.status-running { background: var(--green); box-shadow: 0 0 0 3px fade($success-raw, 18%); }
-    &.status-failed  { background: var(--red);   box-shadow: 0 0 0 3px fade($danger-raw, 18%); }
-    &.status-stopped { background: var(--text-ghost); }
-    &.status-other   { background: var(--amber); }
-}
-
-.svc-card-desc {
-    margin: 0;
-    font-size: $font-size-sm;
-    color: var(--text-dim);
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.svc-card-meta {
-    display: flex;
-    gap: $space-4;
-    font-size: 11.5px;
-    color: var(--text-faint);
-    font-family: var(--mono);
-}
-
-.svc-meta-label {
-    color: var(--text-ghost);
-    font-weight: $font-weight-semibold;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-right: 2px;
-    font-size: 9.5px;
-}
-
-.svc-card-actions {
-    display: flex;
-    gap: $space-1;
-    margin-top: auto;
-    padding-top: $space-3;
-    border-top: 1px solid var(--border-soft);
-    flex-wrap: wrap;
-}
-
-.svc-action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 10px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: $text-primary;
-    font-size: $font-size-sm;
-    font-weight: $font-weight-medium;
-    cursor: pointer;
-    @include transition(all);
-
-    &:hover:not(:disabled) {
-        background: var(--surface-3);
-        border-color: var(--border-strong);
-    }
-    &:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    &.primary {
-        background: $accent-primary;
-        border-color: $accent-primary;
-        color: white;
-        &:hover:not(:disabled) { background: $accent-hover; border-color: $accent-hover; }
-    }
-    &.danger {
-        background: $danger;
-        border-color: $danger;
-        color: white;
-        &:hover:not(:disabled) { background: $danger-hover; border-color: $danger-hover; }
-    }
-    &.ghost {
-        background: transparent;
-        border-color: transparent;
-        color: var(--text-dim);
-        &:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
-    }
-}
-
-// ============================================
 // LEGACY (pre-redesign) — still consumed by components/JournalControls.jsx,
-// components/ProcessTable.jsx, components/ServiceCard.jsx and StyleGuide.jsx.
-// Not rendered by pages/Terminal.jsx anymore; keep until those move.
+// components/ServiceCard.jsx and StyleGuide.jsx. Keep until those move.
+// .processes-table below is NOT legacy: it is what components/ProcessTable.jsx
+// renders, on Terminal › Processes and in the style guide.
 // ============================================
 
 .journal-container {
@@ -1525,10 +1119,8 @@ $lk-default:  #646b7a;
 .processes-table {
     width: 100%;
     min-width: 800px;
-    table-layout: fixed;
     border-collapse: collapse;
 
-    // Column widths: PID | Name | User | CPU% | Mem% | Memory | Status | Actions
     th, td {
         padding: $space-2 $space-3;
         text-align: left;
@@ -1549,15 +1141,9 @@ $lk-default:  #646b7a;
         border-bottom: 1px solid $border-subtle;
     }
 
-    // Explicit column widths for alignment
-    th:nth-child(1), td:nth-child(1) { width: 70px; }   // PID
-    th:nth-child(2), td:nth-child(2) { width: auto; }    // Name (flexible)
-    th:nth-child(3), td:nth-child(3) { width: 90px; }    // User
-    th:nth-child(4), td:nth-child(4) { width: 110px; }   // CPU %
-    th:nth-child(5), td:nth-child(5) { width: 110px; }   // Memory %
-    th:nth-child(6), td:nth-child(6) { width: 90px; }    // Memory
-    th:nth-child(7), td:nth-child(7) { width: 80px; }    // Status
-    th:nth-child(8), td:nth-child(8) { width: 110px; }   // Actions
+    // No nth-child column widths: columns can now be hidden and reordered from
+    // the header menu, so a width pinned to a POSITION lands on whatever column
+    // happens to sit there.
 
     tr {
         cursor: pointer;
@@ -1574,11 +1160,6 @@ $lk-default:  #646b7a;
 
     tbody tr {
         border-bottom: 1px solid $border-subtle;
-    }
-
-    .mono {
-        font-family: $font-mono;
-        font-size: $font-size-xs;
     }
 
     .process-name {

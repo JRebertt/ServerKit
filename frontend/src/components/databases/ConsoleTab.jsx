@@ -207,25 +207,18 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
 
             <div className="dbx-results">
                 {(results || loading || error) ? (
-                    <>
-                        {results && !error && (
-                            <div className="dbx-results-head">
-                                <span className="dbx-results-count">
-                                    <strong>{results.row_count}</strong> row{results.row_count === 1 ? '' : 's'}
-                                    {results.truncated && ` · truncated from ${results.total_rows}`}
-                                </span>
-                                <span className="dbx-results-time">{results.execution_time}s</span>
-                            </div>
-                        )}
-                        <ResultsGrid
-                            columns={results?.columns}
-                            rows={results?.rows}
-                            loading={loading}
-                            error={error}
-                            emptyTitle="Query ran"
-                            emptyDescription="No rows returned."
-                        />
-                    </>
+                    // No count strip above the grid: the status bar at the foot
+                    // of the explorer already reports rows, truncation and
+                    // execution time for whichever tab is active, and this was
+                    // the same three facts a second time.
+                    <ResultsGrid
+                        columns={results?.columns}
+                        rows={results?.rows}
+                        loading={loading}
+                        error={error}
+                        emptyTitle="Query ran"
+                        emptyDescription="No rows returned."
+                    />
                 ) : (
                     <div className="dbx-console-hint">
                         <p>Write SQL above and press <kbd>{MOD_KEY}</kbd> + <kbd>Enter</kbd> to run.</p>

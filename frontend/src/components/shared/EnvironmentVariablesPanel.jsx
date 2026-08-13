@@ -10,6 +10,13 @@ import { useToast } from '../../contexts/ToastContext';
  * truth); this surface is the read-side facade meant to be embedded on a
  * resource's detail page.
  *
+ * Deliberately NOT converged onto components/EnvironmentVariables.jsx (the
+ * app's own env-var editor) or SharedVariableGroups (the group editor). Those
+ * two own a stored row — it has an id, you create/edit/delete it, and a saved
+ * view over it means something. A row here is a computed merge result: no id,
+ * no owner, nothing to act on, and it exists only to answer "where did this
+ * value come from and does it actually win". Same word, three data shapes.
+ *
  * Provenance: when the hierarchical resolver is available, each variable shows
  * which scope it won at (workspace < project < environment < direct attachment).
  * For applications we also cross-check the app's LOCAL env vars: shared groups

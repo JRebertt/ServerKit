@@ -22,6 +22,9 @@ export function DataTableFooter({
     shown,
     total,
     noun = 'row',
+    // Explicit plural for the nouns a naive +"s" mangles — "5 processs",
+    // "3 policys". Omit it wherever +"s" is already right.
+    plural,
     // client-side page-size segment (omit to hide)
     pageSize,
     pageSizeOptions = [25, 50, 100],
@@ -36,9 +39,10 @@ export function DataTableFooter({
     onPageChange,
     className,
 }) {
+    const many = plural || `${noun}s`;
     const label = total == null || total === shown
-        ? `${shown} ${noun}${shown === 1 ? '' : 's'}`
-        : `Shown ${shown} of ${total} ${noun}s`;
+        ? `${shown} ${shown === 1 ? noun : many}`
+        : `Shown ${shown} of ${total} ${many}`;
 
     const paged = page != null && totalPages != null && onPageChange;
 
