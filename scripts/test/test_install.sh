@@ -1610,19 +1610,127 @@ else
     bad "bootstrap_firewall would lock the panel out on PANEL_PORT=8443: [$(printf '%s' "$out" | tr '\n' ' ')]"
 fi
 
-# -- bootstrap: an ALREADY-ACTIVE firewall is the operator's. Open ports on it
-#    (configure_firewall's job), never rewrite its default policy.
-out="$( set -Eeuo pipefail; PATH="$t42/bin:$PATH"
-        OS_FAMILY=debian; FW_DRY_RUN=1; FIREWALL_BACKEND=firewalld
-        SSHD_CONFIG_ROOT="$t42/ssh"
-        detect_container() { printf ''; }
-        pkg_add() { :; }
+# --------------------------------------------------------------------------
+# "Is this box already protected?" — the question the bootstrap's skip-guard
+# has to ask. It originally asked firewall_detect() != none, which answers a
+# DIFFERENT question ("which backend do I open a port through") and returns
+# `nftables` for a bare nft binary with an empty ruleset. Every case below was
+# written after a real Ubuntu 24.04 VM install logged "via nftables" while the
+# bootstrap printed nothing at all.
+# --------------------------------------------------------------------------
+fw_probe_dir() {  # fw_probe_dir <name> -> fresh bin dir on stdout
+    local d="$t42/fw-$1"; rm -rf "$d"; mkdir -p "$d"; printf '%s' "$d"
+}
+run_bootstrap() {  # run_bootstrap <bindir>
+    ( set -Eeuo pipefail; PATH="$1:$PATH"
+      OS_FAMILY=debian; FW_DRY_RUN=1
+      SSHD_CONFIG_ROOT="$t42/ssh"
+      detect_container() { printf ''; }
+      pkg_add() { :; }
+      source "$LIB_DIR/firewall.sh"
+      bootstrap_firewall 2>&1 )
+}
+
+# -- The two predicates answer DIFFERENT questions, and conflating them is what
+#    broke this. Pinned at the predicate level so the distinction survives any
+#    future refactor of either one.
+d="$(fw_probe_dir predicates)"
+make_stub_stdout "$d" nft 0 </dev/null
+make_stub_stdout "$d" ufw 0 <<'EOF'
+Status: inactive
+EOF
+res="$( set -Eeuo pipefail; PATH="$d:$PATH"
         source "$LIB_DIR/firewall.sh"
-        bootstrap_firewall 2>&1 )"
-if [ -z "$out" ]; then
+        printf '%s/' "$(firewall_detect)"
+        firewall_inbound_default_deny && printf 'protected' || printf 'unprotected' )"
+if [ "$res" = "nftables/unprotected" ]; then
+    ok "firewall_detect names a backend where inbound_default_deny sees no protection"
+else
+    bad "expected [nftables/unprotected], got [$res]"
+fi
+
+# -- THE REGRESSION: stock cloud image — nft binary present, ruleset EMPTY, ufw
+#    installed but inactive. Nothing is filtering, so the bootstrap MUST run.
+d="$(fw_probe_dir empty)"
+make_stub_stdout "$d" nft 0 </dev/null
+make_stub_stdout "$d" ufw 0 <<'EOF'
+Status: inactive
+EOF
+out="$(run_bootstrap "$d")"
+if printf '%s' "$out" | grep -q 'ufw allow'; then
+    ok "bootstrap_firewall runs on a box whose nft ruleset is empty (stock-image regression)"
+else
+    bad "bootstrap_firewall skipped an UNPROTECTED box: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- Docker's chains are not a host firewall. A box running Docker has plenty of
+#    nft rules and still accepts every inbound port.
+d="$(fw_probe_dir docker)"
+make_stub_stdout "$d" nft 0 <<'EOF'
+table ip nat {
+	chain DOCKER {
+		iifname "docker0" counter packets 0 bytes 0 return
+	}
+}
+table ip filter {
+	chain FORWARD {
+		type filter hook forward priority filter; policy drop;
+	}
+}
+EOF
+make_stub_stdout "$d" ufw 0 <<'EOF'
+Status: inactive
+EOF
+out="$(run_bootstrap "$d")"
+if printf '%s' "$out" | grep -q 'ufw allow'; then
+    ok "bootstrap_firewall is not fooled by Docker's nftables chains"
+else
+    bad "Docker's rules read as a protected box: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- A real default-deny nft policy on the INPUT hook IS protection: hands off.
+d="$(fw_probe_dir nftdeny)"
+make_stub_stdout "$d" nft 0 <<'EOF'
+table inet filter {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		tcp dport 22 accept
+	}
+}
+EOF
+out="$(run_bootstrap "$d")"
+if printf '%s' "$out" | grep -qi 'already filtered'; then
+    ok "bootstrap_firewall leaves a real nftables default-deny alone"
+else
+    bad "bootstrap_firewall did not respect an nft input policy drop: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- An ALREADY-ACTIVE ufw is the operator's. Open ports on it
+#    (configure_firewall's job), never rewrite its default policy.
+d="$(fw_probe_dir ufwactive)"
+make_stub_stdout "$d" ufw 0 <<'EOF'
+Status: active
+Default: deny (incoming), allow (outgoing), disabled (routed)
+EOF
+out="$(run_bootstrap "$d")"
+if printf '%s' "$out" | grep -qi 'already filtered' \
+   && ! printf '%s' "$out" | grep -q 'ufw default deny'; then
     ok "bootstrap_firewall leaves an already-active firewall's policy alone"
 else
     bad "bootstrap_firewall touched an existing firewall: [$(printf '%s' "$out" | tr '\n' ' ')]"
+fi
+
+# -- ufw installed and active but ALLOWING inbound is not protection.
+d="$(fw_probe_dir ufwallow)"
+make_stub_stdout "$d" ufw 0 <<'EOF'
+Status: active
+Default: allow (incoming), allow (outgoing), disabled (routed)
+EOF
+out="$(run_bootstrap "$d")"
+if printf '%s' "$out" | grep -q 'ufw default deny'; then
+    ok "bootstrap_firewall fixes an active ufw that still allows inbound"
+else
+    bad "an allow-inbound ufw read as protected: [$(printf '%s' "$out" | tr '\n' ' ')]"
 fi
 
 # -- bootstrap: non-Debian is a no-op (UFW is Debian/Ubuntu; RHEL boots with

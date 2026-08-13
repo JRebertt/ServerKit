@@ -1518,7 +1518,17 @@ bootstrap_firewall() {
     if [ "${OS_FAMILY:-}" != "debian" ]; then
         return 0
     fi
-    if [ "$(firewall_detect)" != "none" ]; then
+    # "Is this box already protected", NOT "does a firewall binary exist".
+    #
+    # This used to ask firewall_detect() != none, which was wrong in the way
+    # that matters: firewall_detect returns `nftables` when the nft binary is
+    # merely present and can list an empty ruleset, so on a stock Ubuntu cloud
+    # image — precisely the box this function exists for — the bootstrap
+    # returned here silently and never installed anything. Caught on a real
+    # 24.04 VM: the install logged "Opening HTTP/HTTPS (80, 443) via nftables"
+    # while every line below went unprinted.
+    if firewall_inbound_default_deny; then
+        good "Inbound traffic is already filtered by default — leaving the firewall alone."
         return 0
     fi
 
