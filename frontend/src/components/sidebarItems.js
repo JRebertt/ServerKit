@@ -186,21 +186,9 @@ export const SIDEBAR_ITEMS = [
     // The inbound-webhook console is no longer a sidebar page: it's server
     // configuration, so it lives at Settings → Admin → Webhooks alongside the
     // outbound notification subscriptions. /webhooks redirects there.
-    {
-        // Admin distro-matrix test console (Docker-backed runs, per-distro
-        // logs). Sits next to Jobs under System.
-        //
-        // Developer tooling, not an operator surface: hidden unless this is a
-        // local `npm run dev` build or an admin has turned on Site Settings →
-        // Developer mode. The route is gated on the same condition, so a
-        // production install neither shows nor serves it.
-        id: 'test-sandbox',
-        label: 'Test Sandbox',
-        route: '/test-sandbox',
-        requiresCondition: 'devMode',
-        category: 'system',
-        icon: '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>'
-    },
+    // Test Sandbox (admin distro-matrix test console) is not a sidebar item
+    // either — it lives in the dev-only "Dev Tools" section in Sidebar.jsx,
+    // gated on the same useDevMode flag as its route guard.
     {
         // Redesign: Marketplace uses the top-bar layout (REDESIGN_MAP §6 dec. 3).
         // Downloads now lives in the page's top bar (PageTopbar MARKET_TABS), not

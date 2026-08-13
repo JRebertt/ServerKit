@@ -27,26 +27,26 @@ const CREATE_ITEMS = [
 
 export function QuickCreate({ className, variant = 'icon' }) {
     const navigate = useNavigate();
-    // 'icon' — compact square button (mobile top bar). 'sidebar' — extended
-    // "Create" pill pinned to the top of the sidebar (Gmail "Compose" pattern);
-    // its menu opens downward since the trigger is no longer in the footer.
-    const extended = variant === 'sidebar';
+    // 'icon' — compact square button (mobile top bar). 'sidebar' — small
+    // circular accent FAB (AI chat-bubble style) that lives on the first
+    // sidebar category row; its menu opens downward since the trigger sits at
+    // the top of the nav.
+    const fab = variant === 'sidebar';
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className={cn('quick-create', extended && 'quick-create--extended', className)}
+                    className={cn('quick-create', fab && 'quick-create--fab', className)}
                     title="Create new…"
                     aria-label="Create new"
                 >
-                    <Plus size={16} />
-                    {extended && <span className="quick-create__label">Create</span>}
+                    <Plus size={fab ? 13 : 16} />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-                side={extended ? 'bottom' : 'top'}
-                align={extended ? 'start' : 'end'}
+                side={fab ? 'bottom' : 'top'}
+                align="end"
                 sideOffset={8}
             >
                 {CREATE_ITEMS.map((item) => (

@@ -265,41 +265,41 @@
     text-overflow: ellipsis;
 }
 
-// Quick-create — prominent "new anything" entry point pinned to the top of the
-// sidebar (Gmail "Compose" / Material extended-FAB pattern) instead of crowding
-// the footer strip next to the notification bell. Doubled class beats the base
-// `.quick-create` rules, which live in a later-imported stylesheet.
-.quick-create.quick-create--extended {
-    width: 100%;
-    height: 38px;
-    margin: 0 0 0.75rem;
-    padding: 0 12px;
-    gap: 8px;
-    justify-content: flex-start;
+// Quick-create — a small circular accent "+" (AI chat-bubble style) that rides
+// on the first sidebar category row, next to the section label. Doubled class
+// beats the base `.quick-create` rules, which live in a later-imported
+// stylesheet.
+.nav-category--create {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-right: 0.35rem;
+}
+
+.quick-create.quick-create--fab {
+    width: 22px;
+    height: 22px;
     border: none;
-    border-radius: 10px;
+    border-radius: 50%;
     background: linear-gradient(160deg, var(--accent-bright), var(--accent));
-    box-shadow: 0 4px 14px -2px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px -1px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     color: #fff;
-    font-size: 0.85rem;
-    font-weight: $font-weight-medium;
     flex-shrink: 0;
     transition: filter 0.15s, transform 0.15s;
 
     svg {
         stroke: #fff;
-        flex-shrink: 0;
     }
 
     &:hover {
         background: linear-gradient(160deg, var(--accent-bright), var(--accent));
-        border-color: transparent;
         color: #fff;
-        filter: brightness(1.1);
+        filter: brightness(1.12);
+        transform: translateY(-1px);
     }
 
     &:active {
-        transform: translateY(1px);
+        transform: translateY(0);
     }
 }
 
@@ -787,16 +787,15 @@
                     gap: 0;
                 }
 
-                // Quick-create collapses to a circular mini-FAB.
-                .quick-create.quick-create--extended {
-                    width: 36px;
-                    height: 36px;
-                    padding: 0;
-                    margin: 0 auto 0.75rem;
+                // Category labels hide in the collapsed rail, but the row
+                // hosting quick-create stays so the "+" survives as a bare
+                // circular FAB.
+                .nav-category.nav-category--create {
+                    display: flex;
                     justify-content: center;
-                    border-radius: 50%;
+                    margin: 0.75rem 0 0.5rem;
 
-                    .quick-create__label {
+                    span {
                         display: none;
                     }
                 }
@@ -865,16 +864,15 @@
             max-width: 170px;
         }
 
-        // Quick-create shrinks to a compact accent icon button in the bar.
-        .quick-create.quick-create--extended {
-            width: 34px;
-            height: 34px;
-            padding: 0;
+        // Category labels are hidden in the bar, but keep the quick-create row
+        // visible as a bare circular FAB at the start of the nav strip.
+        .nav-category.nav-category--create {
+            display: flex;
+            align-items: center;
             margin: 0;
-            justify-content: center;
-            border-radius: 9px;
+            flex-shrink: 0;
 
-            .quick-create__label {
+            span {
                 display: none;
             }
         }
