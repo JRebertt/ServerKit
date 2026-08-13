@@ -10,6 +10,7 @@ import EmptyState from '../EmptyState';
 import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTopbarChrome } from '@/hooks/useTopbarActions';
 
 // Shared chrome for resource list pages (Services, Servers, …): the status
 // filter + search toolbar, sort & column menus, the DataTable with a standard
@@ -92,8 +93,21 @@ export default function ResourceListPage({
     filteredEmptyIcon,
     filteredEmptyTitle = 'No results found',
     filteredEmptyDescription = 'Try adjusting your search or filter.',
-    // Opt-in card view: pass a renderer and the toolbar grows a list/cards
+    // Where the table's chrome (filter · "⋮") goes. `true` publishes it into the
+    // enclosing tab group's top bar, on the same line as the page's actions and
+    // search — the shape every top-level list page has. Set it false for a
+    // table nested inside a page that owns that bar already (a tab's inner
+    // table), and the chrome renders in the view row instead. Outside a tab
+    // group it falls back to the view row on its own.
+    chromeInTopbar = true,
+    // Opt-in card view: pass a renderer and the chrome grows a list/cards
     // switch. Pages that omit it are table-only exactly as before.
+    //
+    // DEPRECATED for core: no core page passes it any more. A layout toggle is
+    // a third way to change what the table shows, next to views and filters,
+    // that none of them can save or share — the saved view is the one answer to
+    // "how do I want to look at this". Kept working because this component is
+    // SDK surface; remove on the next SDK major.
     renderCard,
     viewStorageKey,
     // Row selection: pass selectedIds (Set) + handlers to get a native
@@ -213,6 +227,64 @@ export default function ResourceListPage({
     const orderedColumns = chrome.columns;
     const tableViews = chrome.views;
 
+    // The table's own chrome, built once and rendered in exactly ONE place:
+    // hoisted into the tab group's top bar next to the page's actions, or — for
+    // an inner table, or a page reused outside a tab group — in the view row.
+    // It used to be a second toolbar under the view row on every page, which
+    // for most of them was an otherwise empty bar holding two icons.
+    const chromeNode = (
+        <>
+            {view === 'list' && (
+                <>
+                    <GridFilterButton
+                        count={chrome.filterCount}
+                        onClick={() => chrome.setDrawerOpen(true)}
+                    />
+                    <GridToolsMenu
+                        {...chrome.toolsProps}
+                        selectedRows={selectable && selectedIds
+                            ? items.filter((i) => selectedIds.has(i[keyField]))
+                            : []}
+                    />
+                </>
+            )}
+            {renderCard && (
+                <div className="wp-list__viewswitch" role="group" aria-label="Layout">
+                    {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
+                        <button
+                            type="button"
+                            key={key}
+                            className={view === key ? 'is-active' : ''}
+                            onClick={() => changeView(key)}
+                            title={label}
+                            aria-label={label}
+                            aria-pressed={view === key}
+                        >
+                            <Icon size={15} />
+                        </button>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+
+    // Nothing to host while the page is empty or still loading — the chrome
+    // acts on a table that isn't there.
+    const hasTable = !loading && resolvedTotal > 0;
+    const { hosted: chromeHoisted, portal: chromePortal } = useTopbarChrome(
+        chromeNode,
+        { enabled: chromeInTopbar && hasTable },
+    );
+
+    // Where the chrome lands when the top bar didn't take it: the view row if
+    // there is one, otherwise a bar of its own.
+    const hasPicker = !!viewPageKey && view === 'list';
+    const inlineChrome = chromeHoisted ? null : chromeNode;
+
+    // The quick-filter segment and any page extras still need a bar of their
+    // own; pages that have neither get no second row at all.
+    const hasToolbar = !!filters || !!toolbarExtra || (onSearchChange && !searchInTopbar);
+
     // Paged AFTER the column rules, not before. Slicing `items` meant a page
     // size of 25 took 25 unfiltered rows and THEN filtered them, so "show 25"
     // could render three. `chrome.shownRows` is the same set the table renders,
@@ -244,6 +316,7 @@ export default function ResourceListPage({
 
     return (
         <div className={cn('sk-tabgroup__inner', className)}>
+            {chromePortal}
             {header}
             {resolvedTotal === 0 ? (
                 <EmptyState
@@ -260,72 +333,40 @@ export default function ResourceListPage({
                         Group and Columns are gone from the toolbar entirely —
                         they live in each column's own "⋮" now, next to the
                         column they act on. */}
-                    {viewPageKey && view === 'list' && (
+                    {hasPicker && (
                         <GridViewPicker
                             views={tableViews}
                             label={noun}
-                            total={`${chrome.shownCount} of ${resolvedTotal} ${noun}`}
                             onCreate={chrome.createView}
+                            actions={inlineChrome}
                         />
                     )}
-                    <ListToolbar
-                        filters={filters && (
-                            <SegControl
-                                value={activeFilter}
-                                onChange={onFilterChange}
-                                options={filters}
-                            />
-                        )}
-                        tools={(
-                            <>
-                                {view === 'list' && (
-                                    <>
-                                        <GridFilterButton
-                                            count={chrome.filterCount}
-                                            onClick={() => chrome.setDrawerOpen(true)}
-                                        />
-                                        <GridToolsMenu
-                                            {...chrome.toolsProps}
-                                            selectedRows={selectable && selectedIds
-                                                ? items.filter((i) => selectedIds.has(i[keyField]))
-                                                : []}
-                                        />
-                                    </>
-                                )}
-                                {renderCard && (
-                                    <div className="wp-list__viewswitch" role="group" aria-label="Layout">
-                                        {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
-                                            <button
-                                                type="button"
-                                                key={key}
-                                                className={view === key ? 'is-active' : ''}
-                                                onClick={() => changeView(key)}
-                                                title={label}
-                                                aria-label={label}
-                                                aria-pressed={view === key}
-                                            >
-                                                <Icon size={15} />
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    >
-                        {onSearchChange && !searchInTopbar && (
-                            <div className="wp-list__search">
-                                <Search size={15} aria-hidden="true" />
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => onSearchChange(e.target.value)}
-                                    placeholder={searchPlaceholder}
-                                    aria-label={searchPlaceholder}
+                    {(hasToolbar || (inlineChrome && !hasPicker)) && (
+                        <ListToolbar
+                            filters={filters && (
+                                <SegControl
+                                    value={activeFilter}
+                                    onChange={onFilterChange}
+                                    options={filters}
                                 />
-                            </div>
-                        )}
-                        {toolbarExtra}
-                    </ListToolbar>
+                            )}
+                            tools={hasPicker ? undefined : inlineChrome}
+                        >
+                            {onSearchChange && !searchInTopbar && (
+                                <div className="wp-list__search">
+                                    <Search size={15} aria-hidden="true" />
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => onSearchChange(e.target.value)}
+                                        placeholder={searchPlaceholder}
+                                        aria-label={searchPlaceholder}
+                                    />
+                                </div>
+                            )}
+                            {toolbarExtra}
+                        </ListToolbar>
+                    )}
 
                     {view === 'list' && <GridChips {...chrome.chipProps} />}
 

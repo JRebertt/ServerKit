@@ -612,7 +612,6 @@ const Domains = () => {
                     <GridViewPicker
                         views={grid.views}
                         label="domains"
-                        total={`${view.total} of ${rows.length} domains`}
                         onCreate={createView}
                     />
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import api from '../services/api';
@@ -445,10 +445,27 @@ const ServerTemplates = () => {
         ? (compliance.compliant || 0) + (compliance.drifted || 0) + (compliance.unknown || 0)
         : 0;
 
+    // Filter + "⋮" ride the group's top bar, so the view row is the view name
+    // alone. Gated on the tab that owns the table: the Library is a card
+    // catalogue these do not act on, and the drawer the filter button opens is
+    // rendered inside the Templates tab, so hoisting it unconditionally would
+    // leave a button whose panel does not exist.
+    const gridIsOnScreen = activeTab === 'templates' && templates.length > 0;
+    const { portal: topbarChrome } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+        </>, { enabled: gridIsOnScreen },
+    );
+
     if (loading) return <PageLoader />;
 
     return (
         <div className="sk-tabgroup__inner server-templates-page">
+            {topbarChrome}
             {/* Stays a band: these tiles count ASSIGNMENTS — a different entity
                 from the templates in the table below — and "Unknown" is the
                 remainder of the other two, not a predicate. Neither number is
@@ -500,30 +517,10 @@ const ServerTemplates = () => {
                         />
                     ) : (
                         <>
-                            {/* One row of chrome: the view name carries the
-                                count, and the filter button and "⋮" ride the
-                                same line rather than a second, otherwise empty
-                                toolbar. `shownCount` is the count AFTER the
-                                column rules, which are applied inside the
-                                table — `templates.length` here would read "4
-                                of 4" while the table showed 2. */}
                             <GridViewPicker
                                 views={chrome.views}
                                 label="templates"
-                                total={`${chrome.shownCount} of ${templates.length} template${templates.length === 1 ? '' : 's'}`}
                                 onCreate={chrome.createView}
-                                actions={(
-                                    <>
-                                        {/* This page has no server-side filter
-                                            drawer, so the grid one is the only
-                                            filter affordance here. */}
-                                        <GridFilterButton
-                                            count={chrome.filterCount}
-                                            onClick={() => chrome.setDrawerOpen(true)}
-                                        />
-                                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
-                                    </>
-                                )}
                             />
 
                             <GridChips {...chrome.chipProps} />

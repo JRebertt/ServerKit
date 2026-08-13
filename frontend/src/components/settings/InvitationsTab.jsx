@@ -277,11 +277,8 @@ const InvitationsTab = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="invitations"
-                total={loading ? null : `${chrome.shownCount} of ${invitations.length} invitation${invitations.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -290,7 +287,8 @@ const InvitationsTab = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadInvitations} />
                     </>
                 )}
-            >
+            />
+            <ListToolbar>
                 <Button variant="default" size="sm" onClick={() => setShowInviteModal(true)}>
                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>

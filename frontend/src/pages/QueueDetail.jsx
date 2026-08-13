@@ -383,16 +383,30 @@ const QueueDetail = () => {
 
             <div className={`queue-detail-body ${selectedMessage ? 'has-panel' : ''}`}>
                 <div className="queue-detail-main">
-                    {/* The view name heads the message list. The queue's own
-                        name stays in the detail header above — a view here is
-                        about the messages, and is shared by every queue. */}
+                    {/* The view name heads the message list, with the table's
+                        own chrome on the same line. The queue's own name stays
+                        in the detail header above — a view here is about the
+                        messages, and is shared by every queue. */}
                     <GridViewPicker
                         views={chrome.views}
                         label="messages"
-                        total={`${chrome.shownCount} of ${messages.length} loaded`}
                         onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu
+                                    {...chrome.toolsProps}
+                                    onRefresh={() => { loadMeta(); loadMessages(statusFilter); }}
+                                />
+                            </>
+                        )}
                     />
 
+                    {/* The status select stays on its own line: it is a SERVER
+                        filter, not table chrome — changing it refetches. */}
                     <div className="queue-messages-toolbar">
                         <div className="queue-messages-selects">
                             <select
@@ -403,23 +417,6 @@ const QueueDetail = () => {
                                 <option value="all">All statuses</option>
                                 {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                             </select>
-                        </div>
-                        <div className="queue-messages-actions">
-                            <span className="queue-results-summary">
-                                <strong>{messages.length}</strong>
-                                <span>{messages.length === 1 ? 'message' : 'messages'}</span>
-                            </span>
-                            {/* Sort and hide live in each column's own "⋮" menu
-                                now. What stays here is what has no per-column
-                                equivalent: the multi-rule drawer and export. */}
-                            <GridFilterButton
-                                count={chrome.filterCount}
-                                onClick={() => chrome.setDrawerOpen(true)}
-                            />
-                            <GridToolsMenu
-                                {...chrome.toolsProps}
-                                onRefresh={() => { loadMeta(); loadMessages(statusFilter); }}
-                            />
                         </div>
                     </div>
 

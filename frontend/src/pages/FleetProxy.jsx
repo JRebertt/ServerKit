@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Network, RefreshCw, Server as ServerIcon } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
-import { DataTable, ListToolbar, Pill } from '@/components/ds';
+import { DataTable, Pill } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -377,10 +377,21 @@ const FleetProxy = () => {
         setGroupBy,
     });
 
-    const managed = rows.filter((row) => row.proxy_type && row.proxy_type !== 'nginx').length;
+    // Filter + "⋮" ride in the shared Servers top bar. The toolbar they used to
+    // sit in held nothing else but a re-count of the table underneath it.
+    const { portal: topbarChrome } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+        </>,
+    );
 
     return (
         <div className="sk-tabgroup__inner fleet-proxy">
+            {topbarChrome}
             {error ? (
                 <div className="fleet-proxy__error">
                     <p>{error}</p>
@@ -391,28 +402,7 @@ const FleetProxy = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="servers"
-                        total={loading ? null : `${chrome.shownCount} of ${rows.length} server${rows.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
-                    />
-                    <ListToolbar
-                        // Null while the fetch is in flight: an empty `rows` is
-                        // "not known yet", and "0 servers" is a claim.
-                        count={loading ? null : (
-                            <>
-                                {rows.length} server{rows.length === 1 ? '' : 's'}
-                                <i>&middot;</i>
-                                <b>{managed} managed stack{managed === 1 ? '' : 's'}</b>
-                            </>
-                        )}
-                        tools={(
-                            <>
-                                <GridFilterButton
-                                    count={chrome.filterCount}
-                                    onClick={() => chrome.setDrawerOpen(true)}
-                                />
-                                <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                            </>
-                        )}
                     />
 
                     <GridChips {...chrome.chipProps} />

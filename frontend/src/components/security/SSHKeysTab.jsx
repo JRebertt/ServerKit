@@ -197,18 +197,15 @@ const SSHKeysTab = () => {
     return (
         <div className="ssh-keys-tab">
             {/* The view name replaces the old "SSH Authorized Keys" <h3>: one
-                heading, and it now names the slice you are looking at. Add Key
-                and Refresh stay put — they are actions, not filters. */}
+                heading, and it now names the slice you are looking at. The
+                table's chrome rides that same line; Add Key keeps its own bar
+                because it acts on the file, not on what you are looking at.
+                Refresh is gone from it — it is in the "⋮". */}
             <GridViewPicker
                 views={chrome.views}
                 label="keys"
-                // Null while the read is in flight: an empty `keys` means "not
-                // known yet", and "0 of 0 keys" would be a claim.
-                total={loading ? null : `${shownKeys.length} of ${keys.length} keys`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -217,12 +214,10 @@ const SSHKeysTab = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadKeys} />
                     </>
                 )}
-            >
+            />
+            <ListToolbar>
                 <Button variant="default" size="sm" onClick={() => setShowAddModal(true)}>
                     Add Key
-                </Button>
-                <Button variant="outline" size="sm" onClick={loadKeys}>
-                    Refresh
                 </Button>
             </ListToolbar>
 

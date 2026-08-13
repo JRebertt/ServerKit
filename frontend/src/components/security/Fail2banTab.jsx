@@ -8,7 +8,7 @@ import Modal from '../Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DataTable, DataTableFooter, ListToolbar, Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer, applyFilters,
@@ -309,11 +309,8 @@ const Fail2banTab = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="bans"
-                        total={`${shownBans.length} of ${bans.length} bans`}
                         onCreate={chrome.createView}
-                    />
-                    <ListToolbar
-                        tools={(
+                        actions={(
                             <>
                                 <GridFilterButton
                                     count={chrome.filterCount}

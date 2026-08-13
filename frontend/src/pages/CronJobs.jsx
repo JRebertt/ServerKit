@@ -12,8 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
-    Pill, SearchField, DataTable, Drawer,
-    DataTableFooter, ListToolbar,
+    Pill, SearchField, DataTable, Drawer, DataTableFooter,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -467,13 +466,14 @@ const CronJobs = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="jobs"
-                        total={`${chrome.shownCount} of ${jobs.length} jobs`}
                         onCreate={chrome.createView}
-                    />
-                    <ListToolbar
-                        count={serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
-                        tools={(
+                        actions={(
                             <>
+                                {/* The daemon's health rides with the chrome
+                                    rather than in a bar of its own: it is the
+                                    reason a "next run" may never happen, so it
+                                    belongs beside the table it invalidates. */}
+                                {serviceNote && <span className="cron-servicenote">{serviceNote}</span>}
                                 <GridFilterButton
                                     count={chrome.filterCount}
                                     onClick={() => chrome.setDrawerOpen(true)}

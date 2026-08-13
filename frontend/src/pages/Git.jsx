@@ -1112,7 +1112,6 @@ function Git({ basePath = '/git' }) {
                 <GridViewPicker
                     views={repoChrome.views}
                     label="repositories"
-                    total={`${repoChrome.shownCount} of ${repositories.length} repositories`}
                     onCreate={repoChrome.createView}
                     actions={(
                         <>
@@ -1204,7 +1203,6 @@ function Git({ basePath = '/git' }) {
                 <GridViewPicker
                     views={webhookChrome.views}
                     label="webhooks"
-                    total={`${webhookChrome.shownCount} of ${webhooks.length} webhooks`}
                     onCreate={webhookChrome.createView}
                     actions={(
                         <>

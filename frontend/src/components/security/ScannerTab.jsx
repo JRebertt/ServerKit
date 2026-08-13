@@ -512,8 +512,8 @@ const ScannerTab = () => {
         setHiddenKeys: historyCols.setHiddenKeys,
     });
 
-    // The tables filter internally, so mirror the rules here for the counts —
-    // a header claiming "12 findings" above 3 filtered rows is the table lying
+    // The tables filter internally, so mirror the rules here for the footers —
+    // a count reading "12 findings" under 3 filtered rows is the table lying
     // about what you are looking at.
     const shownFindings = applyFilters(findings, findingsChrome.cfg.filters, findingsChrome.columns);
     const shownHistory = applyFilters(history, historyChrome.cfg.filters, historyChrome.columns);
@@ -719,17 +719,20 @@ const ScannerTab = () => {
                         <GridViewPicker
                             views={findingsChrome.views}
                             label="findings"
-                            total={shownFindings.length === findings.length
-                                ? `${findings.length} findings`
-                                : `${shownFindings.length} of ${findings.length} findings`}
                             onCreate={findingsChrome.createView}
+                            actions={(
+                                <>
+                                    <GridFilterButton
+                                        count={findingsChrome.filterCount}
+                                        onClick={() => findingsChrome.setDrawerOpen(true)}
+                                    />
+                                    <GridToolsMenu {...findingsChrome.toolsProps} onRefresh={loadScanStatus} />
+                                </>
+                            )}
                         />
                         <div className="sec-tableactions">
-                            <GridFilterButton
-                                count={findingsChrome.filterCount}
-                                onClick={() => findingsChrome.setDrawerOpen(true)}
-                            />
-                            <GridToolsMenu {...findingsChrome.toolsProps} onRefresh={loadScanStatus} />
+                            {/* Dismiss throws the findings away rather than
+                                narrowing them, so it stays out of the chrome. */}
                             <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
                         </div>
                     </div>
@@ -755,22 +758,22 @@ const ScannerTab = () => {
 
             <div className="card sec-flush">
                 <div className="card-header">
+                    {/* Refresh is not repeated as a button next to the "⋮" that
+                        already carries it. */}
                     <GridViewPicker
                         views={historyChrome.views}
                         label="scans"
-                        total={shownHistory.length === history.length
-                            ? `${history.length} scans`
-                            : `${shownHistory.length} of ${history.length} scans`}
                         onCreate={historyChrome.createView}
+                        actions={(
+                            <>
+                                <GridFilterButton
+                                    count={historyChrome.filterCount}
+                                    onClick={() => historyChrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu {...historyChrome.toolsProps} onRefresh={loadHistory} />
+                            </>
+                        )}
                     />
-                    <div className="sec-tableactions">
-                        <GridFilterButton
-                            count={historyChrome.filterCount}
-                            onClick={() => historyChrome.setDrawerOpen(true)}
-                        />
-                        <GridToolsMenu {...historyChrome.toolsProps} onRefresh={loadHistory} />
-                        <Button variant="outline" size="sm" onClick={loadHistory}>Refresh</Button>
-                    </div>
                 </div>
                 <GridChips {...historyChrome.chipProps} />
                 {history.length === 0 ? (

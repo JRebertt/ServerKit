@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Trash2, Undo2, RefreshCw, Clock } from 'lucide-react';
+import { Trash2, Undo2, RefreshCw } from 'lucide-react';
 import api from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -282,21 +282,8 @@ export default function RecycleBinTab() {
                     <GridViewPicker
                         views={chrome.views}
                         label="items"
-                        total={`${shown.length} of ${items.length} item${items.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
-                    />
-                    {/* The retention note goes in the count slot: it is meta,
-                        not a tool, and that also spares
-                        `.recyclebin__retention`'s margin-left:auto from a flex
-                        row it was never written for. */}
-                    <ListToolbar
-                        filters={<SegControl value={kind} onChange={setKind} options={filters} />}
-                        count={(
-                            <span className="recyclebin__retention">
-                                <Clock size={13} /> kept {retentionDays} days
-                            </span>
-                        )}
-                        tools={(
+                        actions={(
                             <>
                                 <GridFilterButton
                                     count={chrome.filterCount}
@@ -305,6 +292,12 @@ export default function RecycleBinTab() {
                                 <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
                             </>
                         )}
+                    />
+                    {/* The toolbar survives only for the type quick-filter. The
+                        retention window is already spelled out in the hint
+                        above, so repeating it here bought nothing. */}
+                    <ListToolbar
+                        filters={<SegControl value={kind} onChange={setKind} options={filters} />}
                     />
 
                     <GridChips {...chrome.chipProps} />

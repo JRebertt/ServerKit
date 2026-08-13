@@ -14,16 +14,17 @@
 // The KPI band that rebuild introduced is gone again. Five of its six tiles
 // were filter shortcuts wearing a number — clicking one only ever set
 // `filters.severity` — so they are saved views now (see BUILTIN_VIEWS), which
-// is the same shortcut plus a name, a link and a place in the picker. "Total
-// (24h)" was the one true aggregate (a backend count over a window the table
-// never holds), so it moved to the view bar's meta line rather than dying.
+// is the same shortcut plus a name, a link and a place in the picker. The
+// sixth, "Total (24h)", was a real backend aggregate, but the view row is the
+// view name alone now and there was nowhere left to put it — so the
+// /telemetry/stats call went with it. The footer counts what is loaded.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Activity, ChevronRight, Info, Loader2, RefreshCw, Trash2,
 } from 'lucide-react';
 import api from '../services/api';
 import {
-    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer, ListToolbar,
+    DataTable, DataTableFooter, Drawer, FilterButton, FilterDrawer,
     Pill, SearchField, countActiveFilters,
 } from '@/components/ds';
 import {
@@ -32,7 +33,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -115,7 +116,6 @@ export default function Telemetry() {
     const [loading, setLoading] = useState(true);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
-    const [stats, setStats] = useState(null);
     const [sources, setSources] = useState([]);
     const [eventTypes, setEventTypes] = useState([]);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -136,14 +136,6 @@ export default function Telemetry() {
     const applyViewPageState = useCallback((saved) => {
         if (saved.serverFilters !== undefined) {
             setFilters({ ...EMPTY_FILTERS, ...saved.serverFilters });
-        }
-    }, []);
-
-    const loadStats = useCallback(async () => {
-        try {
-            setStats(await api.getTelemetryStats({ hours: 24 }));
-        } catch {
-            // stats are optional
         }
     }, []);
 
@@ -181,10 +173,9 @@ export default function Telemetry() {
     }, [filters, q, showToast]);
 
     useEffect(() => {
-        loadStats();
         loadFilterOptions();
         fetchEvents(1, true);
-    }, [loadStats, loadFilterOptions, fetchEvents]);
+    }, [loadFilterOptions, fetchEvents]);
 
     const emitTestEvent = async () => {
         try {
@@ -197,7 +188,6 @@ export default function Telemetry() {
             });
             showToast('Test event emitted', 'success');
             fetchEvents(1, true);
-            loadStats();
         } catch (err) {
             showToast(`Failed to emit test event: ${err.message}`, 'error');
         }
@@ -217,7 +207,6 @@ export default function Telemetry() {
             const data = await api.cleanupTelemetryEvents(90);
             showToast(`Deleted ${data.deleted} old events`, 'success');
             fetchEvents(1, true);
-            loadStats();
         } catch (err) {
             showToast(`Cleanup failed: ${err.message}`, 'error');
         }
@@ -365,26 +354,25 @@ export default function Telemetry() {
         rename: { filters: 'serverFilters' },
     });
 
+    // The "⋮" rides the top bar next to the page's own controls, leaving the
+    // view row as just the view name. It is NOT joined by a grid filter button:
+    // this page's one filter button is the top bar's, which opens the SERVER
+    // query drawer (eight keys, applied to the query rather than the loaded 50).
+    const { portal: topbarChrome } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />,
+    );
+
     const hasFilters = Boolean(q || activeFilterCount);
 
     return (
         <div className="sk-tabgroup__inner telemetry-page">
+            {topbarChrome}
             {/* Outside the empty check below on purpose: a view that returns
-                no events must still be swappable for another one. "Total (24h)"
-                is the KPI band's one surviving number — a backend count over a
-                window the loaded rows never model, so nothing on the grid can
-                restate it. It rides the meta line beside the row count. */}
+                no events must still be swappable for another one. */}
             <GridViewPicker
                 views={chrome.views}
                 label="events"
-                total={`${chrome.shownCount} of ${events.length} loaded · ${stats?.total || 0} in the last 24h`}
                 onCreate={chrome.createView}
-                // The "..." sits on the view-name line rather than in a toolbar
-                // of its own -- with nothing else to put there, that toolbar was
-                // an empty bar holding one icon. And there is ONE filter button
-                // on this page: the top bar's, which opens the SERVER query
-                // drawer (eight keys, applied to the query, not the loaded 50).
-                actions={<GridToolsMenu {...chrome.toolsProps} onRefresh={() => fetchEvents(1, true)} />}
             />
 
             <GridChips {...chrome.chipProps} />

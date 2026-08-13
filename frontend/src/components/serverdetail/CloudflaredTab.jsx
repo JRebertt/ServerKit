@@ -411,8 +411,8 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     ) : (
                         <Pill kind="green">cloudflared ready{status?.version ? ` (${status.version})` : ''}</Pill>
                     )}
-                    {/* The tunnel count moved to the view bar below, where it
-                        can say how many of them the active view is showing. */}
+                    {/* No tunnel count here — the table footer reports it,
+                        under the rows it is counting. */}
                 </div>
                 <div className="cron-tab__actions">
                     <Button variant="outline" onClick={loadTunnels} disabled={notInstalled}>Refresh</Button>
@@ -467,7 +467,6 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         <GridViewPicker
                             views={chrome.views}
                             label="tunnels"
-                            total={`${chrome.shownCount} of ${tunnels.length} tunnels`}
                             onCreate={chrome.createView}
                             actions={(
                                 <>

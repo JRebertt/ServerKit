@@ -3,7 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
+import { DataTable, DataTableFooter } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer, applyFilters,
@@ -217,13 +217,6 @@ const QuarantineTab = () => {
         [files, chrome.cfg.filters, chrome.columns],
     );
 
-    // Null while the fetch is in flight: an empty `files` is "not known yet",
-    // and "0 files" is a claim.
-    const countLabel = loading ? null
-        : shownCount === files.length
-            ? `${files.length} file${files.length === 1 ? '' : 's'}`
-            : `${shownCount} of ${files.length} files`;
-
     return (
         <div className="quarantine-tab">
             {message && (
@@ -232,17 +225,16 @@ const QuarantineTab = () => {
                 </div>
             )}
 
-            {/* The view name replaces the old "Quarantined Files · N" eyebrow:
-                the view IS what you are looking at, and two titles stacked read
-                as two sections. */}
+            {/* One row of chrome. The view name replaces the old "Quarantined
+                Files · N" eyebrow — the view IS what you are looking at — and
+                the filter and the "⋮" ride the same line. Refresh is not
+                repeated as a button: it is in the "⋮" with the other
+                table-wide actions. */}
             <GridViewPicker
                 views={chrome.views}
                 label="files"
-                total={countLabel}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -251,9 +243,7 @@ const QuarantineTab = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadFiles} />
                     </>
                 )}
-            >
-                <Button variant="outline" size="sm" onClick={loadFiles}>Refresh</Button>
-            </ListToolbar>
+            />
 
             <GridChips {...chrome.chipProps} />
 

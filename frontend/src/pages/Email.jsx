@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable, DataTableFooter, ListToolbar } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, DataTable, DataTableFooter, ListToolbar, SearchField } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -596,15 +596,14 @@ function AccountsTab({ domains }) {
 
     return (
         <section className="sk-email__section">
+            {/* One row of chrome: the view name and the table's own controls.
+                What stays in the toolbar below is not chrome — the domain
+                select is WHICH list you are looking at. */}
             <GridViewPicker
                 views={chrome.views}
                 label="accounts"
-                total={`${filtered.length} of ${accounts.length} accounts`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                className="sk-email__filters"
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -613,7 +612,8 @@ function AccountsTab({ domains }) {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
                     </>
                 )}
-            >
+            />
+            <ListToolbar className="sk-email__filters">
                 <label>
                     Domain
                     <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
@@ -1003,39 +1003,29 @@ function QueueTab() {
 
     return (
         <section className="sk-email__section">
+            {/* Everything that acts on the queue rides the view line, in the
+                same order the topbar pages use: action, search, filter, "⋮".
+                Refresh is not repeated as a button — it is in the "⋮". */}
             <GridViewPicker
                 views={chrome.views}
                 label="messages"
-                total={`${filtered.length} of ${queue.length} messages`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                className="sk-email__filters"
-                tools={(
+                actions={(
                     <>
+                        <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
+                        <SearchField
+                            value={search}
+                            onSearch={setSearch}
+                            placeholder="Search queue by sender, recipient, or ID…"
+                        />
                         <GridFilterButton
                             count={chrome.filterCount}
                             onClick={() => chrome.setDrawerOpen(true)}
                         />
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                        <div className="sk-email__actions">
-                            <Button variant="outline" size="sm" onClick={load}><RefreshCw size={14} /> Refresh</Button>
-                            <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
-                        </div>
                     </>
                 )}
-            >
-                <label className="search-box">
-                    <Search size={16} />
-                    <Input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search queue by sender, recipient, or ID..."
-                        aria-label="Search mail queue"
-                    />
-                </label>
-            </ListToolbar>
+            />
 
             <GridChips {...chrome.chipProps} />
 

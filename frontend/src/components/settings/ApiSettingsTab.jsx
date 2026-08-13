@@ -293,11 +293,8 @@ const ApiKeysSection = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="keys"
-                total={loading ? null : `${chrome.shownCount} of ${keys.length} key${keys.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -306,7 +303,11 @@ const ApiKeysSection = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadKeys} />
                     </>
                 )}
-            >
+            />
+            {/* The toolbar survives only because Create Key is the card's own
+                action, not the table's — everything that acts on the table
+                rides the view line above. */}
+            <ListToolbar>
                 <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
                     <Plus size={14} /> Create Key
                 </Button>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Send, Inbox } from 'lucide-react';
 import api from '../services/api';
 import {
-    FilterDrawer, FilterButton, DataTable, DataTableFooter, ListToolbar,
+    FilterDrawer, FilterButton, DataTable, DataTableFooter,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -79,7 +79,6 @@ export default function DeliveryLog() {
     const { isAdmin } = useAuth();
     const toast = useToast();
     const [deliveries, setDeliveries] = useState([]);
-    const [stats, setStats] = useState(null);
     const [status, setStatus] = useState('all');
     const [channel, setChannel] = useState('all');
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -93,7 +92,6 @@ export default function DeliveryLog() {
             if (channel !== 'all') params.channel = channel;
             const data = await api.getDeliveryLog(params);
             setDeliveries(data.deliveries || []);
-            setStats(data.stats || null);
         } catch {
             // leave the last good state on screen
         } finally {
@@ -262,29 +260,24 @@ export default function DeliveryLog() {
                 <EmailProviders />
 
                 {/* The KPI band is gone: Sent / Pending / Failed are the first
-                    three built-in views, and "Total" — the one number that was a
-                    true whole-table aggregate rather than a count of the loaded
-                    page — is the second half of the meta line below. */}
+                    three built-in views, and the row count belongs to the
+                    footer, under the rows it is counting. */}
                 <GridViewPicker
                     views={chrome.views}
                     label="deliveries"
-                    total={`${chrome.shownCount} of ${stats?.total ?? deliveries.length} deliveries`}
                     onCreate={chrome.createView}
-                />
-                <ListToolbar
-                    // The chips below only ever show CLIENT rules, so the server
-                    // query the whole list was fetched under needs saying here —
-                    // otherwise a status preset silently changes what is loaded
-                    // with nothing on screen to explain it.
-                    count={(
+                    actions={(
                         <>
-                            {status === 'all' ? 'all statuses' : status}
-                            <i>&middot;</i>
-                            {channel === 'all' ? 'all channels' : channel}
-                        </>
-                    )}
-                    tools={(
-                        <>
+                            {/* The chips only ever show CLIENT rules, so the
+                                server query the list was fetched under needs
+                                saying here — otherwise a status preset silently
+                                changes what is loaded with nothing on screen to
+                                explain it. */}
+                            <span className="sk-listhead__count">
+                                {status === 'all' ? 'all statuses' : status}
+                                <i>&middot;</i>
+                                {channel === 'all' ? 'all channels' : channel}
+                            </span>
                             <GridFilterButton
                                 count={chrome.filterCount}
                                 onClick={() => chrome.setDrawerOpen(true)}

@@ -12,10 +12,18 @@ import { cn } from '@/lib/utils';
 // Built-in views ship in code; "My views" are the user's own, persisted through
 // /api/v1/views by useTableViews. A modified view shows an asterisk plus an
 // inline Save / Reset strip, so tweaking a built-in never silently destroys it.
-// `actions` is the table's own controls — the filter button and the "⋮". They
-// belong on the SAME line as the view name: a page whose toolbar has nothing
-// else in it was rendering an empty second bar just to hold two icons.
-export function GridViewPicker({ views, counts, onCreate, label = 'items', total, actions }) {
+//
+// `actions` is the table's own chrome — search, the filter button and the "⋮".
+// They belong on the SAME line as the view name, and this is the ONLY row of
+// chrome a table gets. A page that owns a top bar hoists that same node up
+// there instead (see useTopbarChrome) and passes nothing here; an inner or sub
+// table, which has no top bar of its own, passes it and keeps it inline.
+//
+// There is deliberately no row count. It was rendered twice on every page that
+// also had a toolbar underneath — once next to the view name, once on the right
+// of the second bar — and the footer already says how many rows there are,
+// under the rows it is counting.
+export function GridViewPicker({ views, counts, onCreate, label = 'items', actions }) {
     const [open, setOpen] = useState(false);
     const [menuFor, setMenuFor] = useState(null);
     const [creating, setCreating] = useState(false);
@@ -144,10 +152,6 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', total
                     )}
                 </PopoverContent>
             </Popover>
-
-            {total != null && (
-                <span className="sk-viewbar__count">{total}</span>
-            )}
 
             {views.isDirty && (
                 <div className="sk-viewbar__dirty">

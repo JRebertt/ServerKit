@@ -52,7 +52,21 @@ function contributedIcon(inner) {
 export default function TabGroupLayout({ tabs, groupId }) {
     const location = useLocation();
     const [actions, setActions] = useState(null);
+    // Two slots, not one. `actions` is the page's ("Add domain") and comes up
+    // through state; `chrome` is the table's (search · filter · "⋮") and is
+    // PORTALED into the empty div below by whatever renders the table — often a
+    // shared wrapper, which must not clobber the page's actions to get its two
+    // icons into the bar. The chrome goes through the DOM rather than through
+    // state because the node closes over values that change identity every
+    // render, and pushing that upward is an infinite render loop. See
+    // useTopbarChrome.
+    const [chromeSlot, setChromeSlot] = useState(null);
     const { tabs: contributedTabs } = useContributions();
+
+    const outletContext = useMemo(
+        () => ({ setTopbarActions: setActions, topbarChromeSlot: chromeSlot, hasTopbarChrome: true }),
+        [chromeSlot],
+    );
 
     // Merge extension-contributed tabs for this group into the strip.
     // Dedup by `to` (core wins); optional numeric `order` picks the
@@ -95,10 +109,10 @@ export default function TabGroupLayout({ tabs, groupId }) {
             <PageTopbar
                 navLabel={active.label}
                 tabs={mergedTabs}
-                actions={actions}
+                actions={<>{actions}<span className="sk-topbar__chrome" ref={setChromeSlot} /></>}
             />
             <div className="sk-tabgroup__content">
-                <Outlet context={{ setTopbarActions: setActions }} />
+                <Outlet context={outletContext} />
             </div>
         </div>
     );

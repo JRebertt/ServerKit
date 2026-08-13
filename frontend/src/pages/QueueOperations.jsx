@@ -7,7 +7,6 @@ import {
     Trash2,
     RefreshCw,
     Plus,
-    Search,
     Activity,
     Folder,
     Server,
@@ -23,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    DataTable, DataTableFooter, MetricCard, Pill, SortChipBar,
+    DataTable, DataTableFooter, MetricCard, Pill, SearchField, SortChipBar,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -560,26 +559,36 @@ const QueueOperations = () => {
                         </div>
                     </div>
 
-                    {/* The view name is the page's heading for the list, above
-                        the bar that narrows it. */}
+                    {/* The view name is the page's heading for the list, and
+                        the table's own chrome sits on that same line. */}
                     <GridViewPicker
                         views={chrome.views}
                         label="queues"
-                        total={`${chrome.shownCount} of ${queues.length} queues`}
                         onCreate={chrome.createView}
+                        actions={(
+                            <>
+                                <SearchField
+                                    value={searchTerm}
+                                    onSearch={setSearchTerm}
+                                    placeholder="Search queues…"
+                                />
+                                <GridFilterButton
+                                    count={chrome.filterCount}
+                                    onClick={() => chrome.setDrawerOpen(true)}
+                                />
+                                <GridToolsMenu
+                                    {...chrome.toolsProps}
+                                    onRefresh={() => { loadData(); loadQueues(selectedGroup); }}
+                                />
+                            </>
+                        )}
                     />
 
+                    {/* The group select stays out of the chrome row: it decides
+                        which group's queues are FETCHED, not how the loaded
+                        rows are shown. */}
                     <div className="queue-command-bar">
                         <div className="queue-toolbar">
-                            <label className="search-box">
-                                <Search size={16} />
-                                <Input
-                                    type="text"
-                                    placeholder="Search queues by name or slug..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </label>
                             <select
                                 className="queue-select"
                                 value={selectedGroup}
@@ -588,36 +597,20 @@ const QueueOperations = () => {
                                 <option value="">All groups</option>
                                 {groups.map(g => <option key={g.id} value={g.slug}>{g.name}</option>)}
                             </select>
-                            {/* Sort and hide moved into each column's own "⋮"
-                                menu, next to the column they act on. What is
-                                left here is the pair that has no per-column
-                                equivalent: the multi-rule drawer and export. */}
-                            <GridFilterButton
-                                count={chrome.filterCount}
-                                onClick={() => chrome.setDrawerOpen(true)}
-                            />
-                            <GridToolsMenu
-                                {...chrome.toolsProps}
-                                onRefresh={() => { loadData(); loadQueues(selectedGroup); }}
-                            />
                         </div>
-                        <div className="queue-results-summary">
-                            <strong>{filteredQueues.length}</strong>
-                            <span>{filteredQueues.length === 1 ? 'queue' : 'queues'}</span>
-                            {hasActiveFilters && (
-                                <button
-                                    type="button"
-                                    className="queue-clear-filters"
-                                    onClick={() => {
-                                        setSelectedGroup('');
-                                        setMessageFilter('all');
-                                        setSearchTerm('');
-                                    }}
-                                >
-                                    Clear filters
-                                </button>
-                            )}
-                        </div>
+                        {hasActiveFilters && (
+                            <button
+                                type="button"
+                                className="queue-clear-filters"
+                                onClick={() => {
+                                    setSelectedGroup('');
+                                    setMessageFilter('all');
+                                    setSearchTerm('');
+                                }}
+                            >
+                                Clear filters
+                            </button>
+                        )}
                     </div>
 
                     <GridChips {...chrome.chipProps} />

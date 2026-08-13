@@ -314,8 +314,8 @@ const CronTab = ({ serverId, serverStatus }) => {
                     ) : (
                         <Pill kind="green">cron daemon active{status?.daemon ? ` (${status.daemon})` : ''}</Pill>
                     )}
-                    {/* The job count moved to the view bar below, where it can
-                        say how many of them the active view is showing. */}
+                    {/* No job count here — the table footer reports it, under
+                        the rows it is counting. */}
                 </div>
                 <div className="cron-tab__actions">
                     <Button variant="outline" onClick={loadJobs}>Refresh</Button>
@@ -343,7 +343,6 @@ const CronTab = ({ serverId, serverStatus }) => {
                     <GridViewPicker
                         views={chrome.views}
                         label="jobs"
-                        total={`${chrome.shownCount} of ${jobs.length} jobs`}
                         onCreate={chrome.createView}
                         actions={(
                             <>

@@ -21,7 +21,7 @@ import {
 import BackupsOverview from '../components/backups/BackupsOverview';
 import SchedulesTable from '../components/backups/SchedulesTable';
 import StorageDestinations from '../components/backups/StorageDestinations';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
@@ -726,6 +726,19 @@ const Backups = () => {
         </>
     ), [activeTab, search]);
 
+    // The chrome acts on the snapshot table, so it is only published while that
+    // section is on screen — the other tabs are forms and a KPI band, with
+    // nothing to filter, sort or export.
+    const { portal: topbarChrome } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+        </>, { enabled: activeTab === 'snapshots' },
+    );
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner backups-page">
@@ -736,6 +749,7 @@ const Backups = () => {
 
     return (
         <div className="sk-tabgroup__inner backups-page">
+            {topbarChrome}
             {error && (
                 <div className="alert alert-danger">
                     {error}
@@ -759,30 +773,14 @@ const Backups = () => {
 
             {activeTab === 'snapshots' && (
                 <>
-                    {/* One row of chrome: the view name IS the heading, it
-                        carries the count, and the filter button and "⋮" ride
-                        the same line. Search stays in the top bar with every
-                        other list page, and Refresh moved into the "⋮" — a
-                        whole toolbar holding one button was a second header.
-
-                        The count is `chrome.shownCount`, not the length of the
-                        array handed to the table: the column rules are applied
-                        inside <DataTable>, so counting the input array here
-                        would read "12 of 12" above a table showing 3. */}
+                    {/* The view name is all this line carries: search, the
+                        filter button and the "⋮" ride the tab group's top bar,
+                        and the row count belongs to the footer, under the rows
+                        it is counting. */}
                     <GridViewPicker
                         views={chrome.views}
                         label="snapshots"
-                        total={`${chrome.shownCount} of ${backups.length} snapshot${backups.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
-                        actions={(
-                            <>
-                                <GridFilterButton
-                                    count={chrome.filterCount}
-                                    onClick={() => chrome.setDrawerOpen(true)}
-                                />
-                                <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
-                            </>
-                        )}
                     />
 
                     <GridChips {...chrome.chipProps} />

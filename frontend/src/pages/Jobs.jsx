@@ -15,7 +15,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock } from 'lucide-react';
 import api from '../services/api';
 import {
-    Pill, DataTable, DataTableFooter, SegControl, ListToolbar,
+    Pill, DataTable, DataTableFooter, SegControl,
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
 } from '@/components/ds';
 import {
@@ -23,7 +23,7 @@ import {
 } from '@/components/ds/grid';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../components/EmptyState';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
@@ -179,7 +179,6 @@ export default function Jobs() {
     const scheduledView = location.pathname.endsWith('/scheduled');
     const [jobs, setJobs] = useState([]);
     const [total, setTotal] = useState(0);
-    const [stats, setStats] = useState(null);
     const [scheduled, setScheduled] = useState([]);
     // Advanced filters live in the shared FilterDrawer (status + kind, single-
     // select; '' = all). Search is a separate debounced term.
@@ -227,14 +226,15 @@ export default function Jobs() {
             if (filters.status) params.status = filters.status;
             if (filters.kind) params.kind = filters.kind;
             if (q) params.q = q;
-            const [jobsRes, statsRes, schedRes] = await Promise.all([
+            // No /jobs/stats call any more: its whole-table group-bys only ever
+            // fed the count line above the table, and the footer counts the
+            // rows the query actually returned.
+            const [jobsRes, schedRes] = await Promise.all([
                 api.getJobs(params),
-                api.getJobStats().catch(() => null),
                 api.getScheduledJobs().catch(() => null),
             ]);
             setJobs(jobsRes?.jobs || []);
             setTotal(jobsRes?.total ?? (jobsRes?.jobs?.length || 0));
-            setStats(statsRes?.stats || statsRes || null);
             setScheduled(schedRes?.scheduled || schedRes?.jobs || schedRes || []);
         } catch {
             // Keep the last good state on screen rather than blanking the page.
@@ -388,6 +388,14 @@ export default function Jobs() {
         rename: { filters: 'serverFilters' },
     });
 
+    // Only the "⋮" is hoisted: the top bar's filter button already opens the
+    // SERVER query drawer, which sees rows this client never loaded, and a
+    // second one would open a weaker drawer over the loaded page only. Gated on
+    // the Activity tab because the chrome describes that table, not Scheduled.
+    const { portal: topbarChrome } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />, { enabled: isAdmin && !scheduledView },
+    );
+
     if (!isAdmin) {
         return (
             <div className="sk-tabgroup__inner jobs-page">
@@ -396,13 +404,8 @@ export default function Jobs() {
         );
     }
 
-    const byStatus = stats?.by_status || {};
     const hasFilters = Boolean(filters.status || filters.kind || q);
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    // The one number the grid genuinely cannot derive: a backend sum over every
-    // Job row, not over the page. `total` is the count matching the current
-    // query, which collapses to the same figure when nothing is filtered.
-    const allJobs = stats?.total ?? total ?? 0;
 
     const kindOptions = kinds
         .map((k) => (typeof k === 'string' ? k : k.kind || k.name))
@@ -449,6 +452,7 @@ export default function Jobs() {
 
     return (
         <div className="sk-tabgroup__inner jobs-page">
+            {topbarChrome}
             <div className="sk-jobs">
                 <div className="sk-jobs__viewswitch">
                     <SegControl
@@ -479,35 +483,12 @@ export default function Jobs() {
                     <>
                         {/* The KPI band is gone: three of its four tiles were a
                             status filter wearing a number, and those are views
-                            now. What a band could say and a grid cannot is the
-                            whole-table arithmetic — the job store is paginated,
-                            so these are backend group-bys over every row, not
-                            counts of the 50 on screen. They stay as meta text
-                            beside the count rather than a full-width row of
-                            cards restating what the view picker already offers. */}
+                            now. The rest was whole-table arithmetic that only
+                            ever restated what the view picker offers. */}
                         <GridViewPicker
                             views={chrome.views}
                             label="jobs"
-                            total={hasFilters
-                                ? `${chrome.shownCount} of ${total} matching · ${allJobs} jobs total`
-                                : `${chrome.shownCount} of ${allJobs} jobs`}
                             onCreate={chrome.createView}
-                        />
-                        <ListToolbar
-                            count={(
-                                <>
-                                    {byStatus.running ?? 0} running
-                                    <i>&middot;</i>
-                                    {byStatus.pending ?? byStatus.queued ?? 0} queued
-                                    <i>&middot;</i>
-                                    <b>{byStatus.failed ?? 0} failed</b>
-                                </>
-                            )}
-                            // ONE filter button on this page, and it is the top
-                            // bar's: it opens the SERVER query drawer, which sees
-                            // rows this client never loaded. A second one here
-                            // opened a weaker drawer over the loaded page only.
-                            tools={<GridToolsMenu {...chrome.toolsProps} onRefresh={load} />}
                         />
 
                         <GridChips {...chrome.chipProps} />

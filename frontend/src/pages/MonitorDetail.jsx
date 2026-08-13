@@ -569,14 +569,13 @@ export default function MonitorDetail() {
                 section — a view picker above the chart or the config panes
                 would be naming something they do not show. The old panel
                 header is gone with it: its <h3> repeated the segment that is
-                already lit above, and its "N results · live" is the picker's
-                count line, so keeping both was two headers for one table. */}
+                already lit above, and its "N results" is what the table footer
+                reports, under the rows it is counting. */}
             {section === 'checks' && (
                 <>
                     <GridViewPicker
                         views={chrome.views}
                         label="checks"
-                        total={`${chrome.shownCount} of ${rows.length} check${rows.length === 1 ? '' : 's'} · ${frozen ? 'frozen' : 'live'}`}
                         onCreate={chrome.createView}
                         actions={(
                             <>

@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import useFocusParam from '@/hooks/useFocusParam';
@@ -183,7 +183,6 @@ export default function Monitors() {
     const toast = useToast();
 
     const [monitors, setMonitors] = useState([]);
-    const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState('');
     const [filters, setFilters] = useState({ status: '', type: '' });
@@ -198,12 +197,10 @@ export default function Monitors() {
 
     const load = useCallback(async () => {
         try {
-            const [listRes, statsRes] = await Promise.all([
-                api.getMonitors({ q: q || undefined, status: filters.status || undefined, type: filters.type || undefined }),
-                api.getMonitorStats().catch(() => null),
-            ]);
+            const listRes = await api.getMonitors({
+                q: q || undefined, status: filters.status || undefined, type: filters.type || undefined,
+            });
             setMonitors(listRes?.monitors || []);
-            setStats(statsRes?.stats || null);
         } catch {
             // Keep the last good list on screen rather than blanking the page.
         } finally {
@@ -447,34 +444,31 @@ export default function Monitors() {
         rename: { filters: 'serverFilters' },
     });
 
+    // The "⋮" rides the top bar with the page's own controls, so the view row
+    // is the view name and nothing else. No grid filter button joins it: this
+    // page has exactly ONE filter button and it is the top bar's, which opens
+    // the SERVER query drawer. Column rules come from each column's own header
+    // menu and show up in the chips.
+    const { portal: topbarChrome } = useTopbarChrome(
+        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />,
+    );
+
     const hasFilters = Boolean(q || filters.status || filters.type);
     const isHttpish = ['http', 'keyword'].includes(form.check_type);
 
     return (
         <div className="sk-tabgroup__inner monitors-page">
+            {topbarChrome}
             {/* No KPI band: Operational / Degraded / Down are each a saved view
                 you can act from, so the band was three numbers you had to
-                re-filter by hand. The 30-day mean is not a filter — it is a
-                fleet aggregate — so it rides the view bar's meta line. */}
+                re-filter by hand. The fleet's 30-day mean went with the view
+                row's meta line — an aggregate no row on this grid can restate,
+                and now with nowhere to sit — so /monitors/stats is not fetched
+                any more either. */}
             <GridViewPicker
                 views={chrome.views}
                 label="monitors"
-                total={(
-                    <>
-                        {chrome.shownCount} of {monitors.length} monitor{monitors.length === 1 ? '' : 's'}
-                        {stats?.overall_uptime_30d != null && (
-                            <> &middot; {stats.overall_uptime_30d}% uptime (30d)</>
-                        )}
-                    </>
-                )}
                 onCreate={chrome.createView}
-                // The "⋮" sits on the view-name line. There is exactly ONE
-                // filter button on this page and it is the top bar's, which
-                // opens the SERVER query drawer; a second one here opened a
-                // second drawer that narrowed the same list a weaker way, which
-                // is the duplicate affordance this whole round removes. Column
-                // rules come from each column's own menu and show in the chips.
-                actions={<GridToolsMenu {...chrome.toolsProps} onRefresh={load} />}
             />
 
             <GridChips {...chrome.chipProps} />

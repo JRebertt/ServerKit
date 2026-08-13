@@ -8,9 +8,9 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    DataTable, DataTableFooter, Drawer, Gauge, ListToolbar, Pill, SearchField,
+    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField,
 } from '@/components/ds';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import {
@@ -320,8 +320,6 @@ const Servers = () => {
             || server.group_name?.toLowerCase().includes(q);
     });
 
-    const online = servers.filter((s) => s.status === 'online').length;
-
     // The tab-group top bar owns this page's controls, search included.
     useTopbarActions(() => (
         <>
@@ -358,6 +356,20 @@ const Servers = () => {
         applyPage: applyViewPageState,
     });
 
+    // Filter + "⋮" ride in the top bar next to the actions and the search box,
+    // not in a toolbar under the view name. That toolbar was also repeating the
+    // row count the view row already showed, with an "N online" tacked on that
+    // no filter, sort or view ever referred to.
+    const { portal: topbarChrome } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
+        </>,
+    );
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner servers-page">
@@ -368,29 +380,11 @@ const Servers = () => {
 
     return (
         <div className="sk-tabgroup__inner servers-page">
+            {topbarChrome}
             <GridViewPicker
                 views={chrome.views}
                 label="servers"
-                total={`${chrome.shownCount} of ${servers.length} servers`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                count={(
-                    <>
-                        {filteredServers.length} of {servers.length} server{servers.length === 1 ? '' : 's'}
-                        <i>&middot;</i>
-                        <b>{online} online</b>
-                    </>
-                )}
-                tools={(
-                    <>
-                        <GridFilterButton
-                            count={chrome.filterCount}
-                            onClick={() => chrome.setDrawerOpen(true)}
-                        />
-                        <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
-                    </>
-                )}
             />
 
             <GridChips {...chrome.chipProps} />

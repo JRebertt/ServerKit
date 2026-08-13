@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { IMPACT_TONE, INCIDENT_STATES } from '../components/monitoring/monitorShared';
 
 // Built-in views. This page used to carry BOTH old affordances at once — a KPI
@@ -250,12 +250,6 @@ export default function Incidents() {
         ));
     }, [items, search]);
 
-    // TRUE aggregates — neither is a count of the rows this page renders, so
-    // neither can be a preset. `openIncidents` counts the raw incidents array
-    // (excluding host alerts) and `activeAlerts` is its own source. They ride
-    // the view bar's meta line rather than a full-width band.
-    const openIncidents = incidents.filter((i) => i.status !== 'resolved').length;
-
     const onPostUpdate = async (state) => {
         if (!selected || selected.kind !== 'incident') return;
         try {
@@ -375,6 +369,16 @@ export default function Incidents() {
         applyPage: applyViewPageState,
     });
 
+    const { portal: topbarChrome } = useTopbarChrome(
+        <>
+            <GridFilterButton
+                count={chrome.filterCount}
+                onClick={() => chrome.setDrawerOpen(true)}
+            />
+            <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+        </>,
+    );
+
     if (loading) {
         return (
             <div className="sk-tabgroup__inner incidents-page">
@@ -389,23 +393,11 @@ export default function Incidents() {
 
     return (
         <div className="sk-tabgroup__inner incidents-page">
-            {/* The two numbers that are NOT filters ride the meta line: neither
-                counts the rows below it. A full-width band for them would be
-                four tiles of which two only ever restated a segment. */}
+            {topbarChrome}
             <GridViewPicker
                 views={chrome.views}
                 label="incidents"
-                total={`${chrome.shownCount} of ${items.length} · ${openIncidents} open · ${activeAlerts.length} host alerts firing`}
                 onCreate={chrome.createView}
-                actions={(
-                    <>
-                        <GridFilterButton
-                            count={chrome.filterCount}
-                            onClick={() => chrome.setDrawerOpen(true)}
-                        />
-                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                    </>
-                )}
             />
 
             <GridChips {...chrome.chipProps} />

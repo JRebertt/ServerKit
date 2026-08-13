@@ -418,65 +418,6 @@ const Services = () => {
             filteredEmptyIcon={Layers}
             filteredEmptyTitle="No services found"
             filteredEmptyDescription="Try adjusting your search or filter"
-            viewStorageKey="serverkit.services.view"
-            renderCard={(app) => {
-                const typeInfo = getServiceType(app.app_type);
-                const primaryDomain = (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name;
-                const isRunning = app.status === 'running';
-                const bw = bandwidth[String(app.id)];
-                return (
-                    <>
-                        <div className="services-card__top">
-                            <ServiceTile name={app.name} size={40} aria-hidden="true" />
-                            <div className="services-card__id">
-                                <div className="services-card__name">{app.name}</div>
-                                <div className="sk-cell-sub">{typeInfo.label}</div>
-                            </div>
-                            <Pill kind={STATUS_PILL[app.status] || 'gray'}>
-                                {getStatusConfig(app.status).label}
-                            </Pill>
-                        </div>
-
-                        <div className="services-card__domain">
-                            {primaryDomain || <span className="wp-list__dash">No domain</span>}
-                        </div>
-
-                        <div className="services-card__stats">
-                            <div>
-                                <span className="l">Project</span>
-                                <span className="v">{app.project_name || '—'}</span>
-                            </div>
-                            <div>
-                                <span className="l">Transfer</span>
-                                <span className="v">{bw?.month_bytes ? `${formatBytes(bw.month_bytes)}/mo` : '—'}</span>
-                            </div>
-                            <div>
-                                <span className="l">Last deploy</span>
-                                <span className="v">
-                                    {app.last_deploy_at ? formatRelativeTime(app.last_deploy_at) : '—'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="services-card__foot" onClick={(e) => e.stopPropagation()}>
-                            {isRunning ? (
-                                <>
-                                    <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title="Restart">
-                                        <RotateCw size={14} />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title="Stop">
-                                        <Square size={14} />
-                                    </Button>
-                                </>
-                            ) : (
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title="Start">
-                                    <Play size={14} />
-                                </Button>
-                            )}
-                        </div>
-                    </>
-                );
-            }}
         >
             <MoveToProjectDialog
                 open={showMoveDialog}

@@ -360,11 +360,8 @@ const UsersTab = () => {
             <GridViewPicker
                 views={chrome.views}
                 label="users"
-                total={`${chrome.shownCount} of ${users.length} user${users.length === 1 ? '' : 's'}`}
                 onCreate={chrome.createView}
-            />
-            <ListToolbar
-                tools={(
+                actions={(
                     <>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -373,7 +370,8 @@ const UsersTab = () => {
                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadUsers} />
                     </>
                 )}
-            >
+            />
+            <ListToolbar>
                 <Button variant="default" onClick={handleAddUser}>
                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                         <line x1="12" y1="5" x2="12" y2="19"/>

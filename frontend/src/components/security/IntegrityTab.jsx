@@ -271,10 +271,6 @@ const IntegrityTab = () => {
         [shownRows, chrome.cfg.filters, chrome.columns],
     );
 
-    const countLabel = shownCount === changeRows.length
-        ? `${changeRows.length} change${changeRows.length === 1 ? '' : 's'}`
-        : `${shownCount} of ${changeRows.length} changes`;
-
     function renderScopeCard(scope) {
         const key = scope.scope;
         const baseline = scope.baseline;
@@ -306,20 +302,10 @@ const IntegrityTab = () => {
                             : 'No baseline yet — create one to start tracking changes.'}
                         {check && ` · Last check ${formatAge(check.checked_at) || ''}`}
                     </p>
-                    {/* The scope's own actions share the toolbar with the
-                        table's controls, so opening the changes list does not
-                        grow a second row of buttons. */}
-                    <ListToolbar
-                        tools={isOpen ? (
-                            <>
-                                <GridFilterButton
-                                    count={chrome.filterCount}
-                                    onClick={() => chrome.setDrawerOpen(true)}
-                                />
-                                <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
-                            </>
-                        ) : null}
-                    >
+                    {/* These act on the SCOPE and are there whether or not the
+                        changes list is open, so they keep their own bar; the
+                        table's chrome rides the view line below. */}
+                    <ListToolbar>
                         <Button
                             variant="outline"
                             size="sm"
@@ -363,8 +349,16 @@ const IntegrityTab = () => {
                             <GridViewPicker
                                 views={chrome.views}
                                 label="changes"
-                                total={countLabel}
                                 onCreate={chrome.createView}
+                                actions={(
+                                    <>
+                                        <GridFilterButton
+                                            count={chrome.filterCount}
+                                            onClick={() => chrome.setDrawerOpen(true)}
+                                        />
+                                        <GridToolsMenu {...chrome.toolsProps} onRefresh={load} />
+                                    </>
+                                )}
                             />
                             <GridChips {...chrome.chipProps} />
                         </>

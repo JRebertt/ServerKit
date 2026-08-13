@@ -511,11 +511,8 @@ const FirewallTab = () => {
                             <GridViewPicker
                                 views={chrome.views}
                                 label="rules"
-                                total={`${shownRules.length} of ${rules.length} rules`}
                                 onCreate={chrome.createView}
-                            />
-                            <ListToolbar
-                                tools={(
+                                actions={(
                                     <>
                                         <GridFilterButton
                                             count={chrome.filterCount}
@@ -524,7 +521,11 @@ const FirewallTab = () => {
                                         <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
                                     </>
                                 )}
-                            >
+                            />
+                            {/* The toolbar survives only because Add Rule needs a
+                                home: this tab is nested, so there is no top bar
+                                to hoist a create action into. */}
+                            <ListToolbar>
                                 <Button variant="default" size="sm" onClick={() => setShowPortModal(true)}>Add Rule</Button>
                             </ListToolbar>
 

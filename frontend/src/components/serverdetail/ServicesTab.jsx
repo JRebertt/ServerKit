@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Pill, DataTable, DataTableFooter, ListToolbar } from '../ds';
+import { Pill, DataTable, DataTableFooter, ListToolbar, SearchField } from '../ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -287,17 +286,21 @@ const ServicesTab = ({ serverId, serverStatus }) => {
 
     return (
         <div className="server-services">
-            {/* The view name is the heading and carries the counts; the filter
-                button and "⋮" ride it. The toolbar below keeps only what is
-                the PAGE's rather than the table's: search, and the two systemd
-                actions. */}
+            {/* The view name is the heading and the table's whole chrome rides
+                it: search, the filter button and the "⋮". The toolbar below
+                keeps only what belongs to systemd rather than to the table —
+                and not Refresh, which is "Refresh data" in the "⋮". */}
             <GridViewPicker
                 views={chrome.views}
                 label="units"
-                total={`${chrome.shownCount} of ${units.length} units`}
                 onCreate={chrome.createView}
                 actions={(
                     <>
+                        <SearchField
+                            value={search}
+                            onSearch={setSearch}
+                            placeholder="Filter by unit name…"
+                        />
                         <GridFilterButton
                             count={chrome.filterCount}
                             onClick={() => chrome.setDrawerOpen(true)}
@@ -309,7 +312,6 @@ const ServicesTab = ({ serverId, serverStatus }) => {
             <ListToolbar
                 tools={(
                     <div className="server-services__actions">
-                        <Button variant="outline" onClick={loadUnits}>Refresh</Button>
                         <Button
                             variant="outline"
                             onClick={reloadDaemon}
@@ -319,14 +321,7 @@ const ServicesTab = ({ serverId, serverStatus }) => {
                         </Button>
                     </div>
                 )}
-            >
-                <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Filter by unit name…"
-                    className="server-services__search"
-                />
-            </ListToolbar>
+            />
 
             <GridChips {...chrome.chipProps} />
 

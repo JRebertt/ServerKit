@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Database, Loader, CheckCircle, ArrowUpCircle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, ListToolbar } from '@/components/ds';
+import { DataTable } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -309,11 +309,8 @@ const MigrationHistoryTab = () => {
                     <GridViewPicker
                         views={chrome.views}
                         label="migrations"
-                        total={`${chrome.shownCount} of ${revisions.length} revision${revisions.length === 1 ? '' : 's'}`}
                         onCreate={chrome.createView}
-                    />
-                    <ListToolbar
-                        tools={(
+                        actions={(
                             <>
                                 <GridFilterButton
                                     count={chrome.filterCount}

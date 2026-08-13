@@ -239,7 +239,7 @@ const IPListsTab = () => {
     // Cell markup/classNames identical to the hand-rolled table they replace.
     const renderList = (listType, items, sortState, chrome) => {
         // DataTable applies the column rules itself, so mirror them here for
-        // the counts — a header that says "12 entries" above 3 filtered rows is
+        // the footer — a count reading "12 entries" under 3 filtered rows is
         // the table lying about what you are looking at.
         const shown = applyFilters(items, chrome.cfg.filters, chrome.columns);
         return (
@@ -252,17 +252,18 @@ const IPListsTab = () => {
                 <GridViewPicker
                     views={chrome.views}
                     label={`${listType} entries`}
-                    total={shown.length === items.length
-                        ? `${items.length} entries`
-                        : `${shown.length} of ${items.length} entries`}
                     onCreate={chrome.createView}
+                    actions={(
+                        <>
+                            <GridFilterButton
+                                count={chrome.filterCount}
+                                onClick={() => chrome.setDrawerOpen(true)}
+                            />
+                            <GridToolsMenu {...chrome.toolsProps} onRefresh={loadLists} />
+                        </>
+                    )}
                 />
                 <div className="sec-tableactions">
-                    <GridFilterButton
-                        count={chrome.filterCount}
-                        onClick={() => chrome.setDrawerOpen(true)}
-                    />
-                    <GridToolsMenu {...chrome.toolsProps} onRefresh={loadLists} />
                     <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
                         Add to {listType}
                     </Button>
