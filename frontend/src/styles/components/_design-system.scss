@@ -128,20 +128,31 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 // ------------------------------------------------------------
 // MetricCard / KPI tile
 // ------------------------------------------------------------
+// Row layout: [icon] [value + label] [trend], with an optional spark bleeding
+// along the bottom. Stacking the icon above the value cost ~46px per tile for
+// no information — a summary strip ate a fifth of the page before the content
+// it summarises. See the note in MetricCard.jsx.
 .sk-kpi {
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
-    padding: 16px 17px;
+    padding: 11px 13px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.15s;
 
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    // The spark spans the full width on its own line under the row.
+    grid-template-areas: "icon body trend" "spark spark spark";
+
     &:hover { border-color: var(--border-strong); }
 
-    &__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
     &__icon {
-        width: 32px; height: 32px; border-radius: 8px;
+        grid-area: icon;
+        width: 30px; height: 30px; border-radius: 8px;
         display: grid; place-items: center;
         background: var(--surface-2); color: var(--text-dim);
 
@@ -152,9 +163,12 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         &--red    { background: var(--red-bg);    color: var(--red); }
         &--violet { background: var(--violet-bg); color: var(--violet); }
     }
+    // Grid areas need a single child to own the text column; a tile with no
+    // icon simply leaves the first track at zero width.
+    &__body { grid-area: body; min-width: 0; }
     &__val {
-        font-family: var(--mono); font-size: 27px; font-weight: 600;
-        letter-spacing: -0.02em; line-height: 1;
+        font-family: var(--mono); font-size: 22px; font-weight: 600;
+        letter-spacing: -0.02em; line-height: 1.1;
         // Explicit theme colour — don't inherit, or a host with a stray text
         // colour (e.g. a non-tabgroup page shell) renders the value near-black.
         color: var(--text);
@@ -164,20 +178,25 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        small { font-size: 14px; color: var(--text-faint); font-weight: 500; }
+        small { font-size: 13px; color: var(--text-faint); font-weight: 500; }
     }
-    &__label { font-size: 12.5px; color: var(--text-dim); margin-top: 6px; }
-    // Optional mono detail row beneath the value (e.g. "Total 32 · Cached 4").
+    &__label {
+        font-size: 12px; color: var(--text-dim); margin-top: 1px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    // Optional mono detail row beneath the label (e.g. "Total 32 · Cached 4").
     &__sub {
         font-family: var(--mono);
-        font-size: 11.5px;
+        font-size: 11px;
         color: var(--text-faint);
-        margin-top: 8px;
+        margin-top: 3px;
         display: flex;
-        gap: 14px;
+        gap: 12px;
         flex-wrap: wrap;
     }
     &__trend {
+        grid-area: trend;
+        align-self: start;
         font-family: var(--mono); font-size: 11px;
         display: flex; align-items: center; gap: 4px;
         &--up { color: var(--green); }
@@ -188,7 +207,8 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     // padding so the series bleeds to the corners instead of floating in a box
     // — the design mock's `.kpi-spark`.
     &__spark {
-        margin: 10px -17px -16px;
+        grid-area: spark;
+        margin: 8px -13px -11px;
         line-height: 0;
         opacity: 0.9;
 
@@ -227,7 +247,7 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 
     // Skeleton tile — same geometry as .sk-kpi so content doesn't jump on load.
     &__skel {
-        height: 96px;
+        height: 64px;
         border-radius: var(--radius);
         border: 1px solid var(--border-soft);
         background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
@@ -1100,10 +1120,23 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
         // cannot drift and new pages get it for free. The point is muscle
         // memory: the search box must sit in the same pixels on /domains as on
         // /services, and must not move when a page gains or loses a button.
-        > * { order: 0; }
-        > .sk-searchfield { order: 1; }
-        > .sk-gridicon { order: 2; }
+        // Half of what lands here is portaled in through .sk-topbar__chrome
+        // (see useTopbarChrome), which `display: contents` erases from layout —
+        // its children are flex items of THIS box, but they are grandchildren
+        // in the selector, so every slot rule has to name both depths. Miss
+        // that and the portaled icons default to order 0 and jump ahead of the
+        // search box the page rendered itself.
+        > *,
+        > .sk-topbar__chrome > * { order: 0; }
+        > .sk-searchfield,
+        > .sk-topbar__chrome > .sk-searchfield { order: 1; }
+        > .sk-gridicon,
+        > .sk-topbar__chrome > .sk-gridicon { order: 2; }
     }
+
+    // The portal target a table's chrome renders into. It must not become a box
+    // of its own, or the whole chrome would be one order:0 blob.
+    &__chrome { display: contents; }
 
     // Routed sub-nav (the ex-sidebar sub-items). The nav is the flex-fill
     // measurement region for PageTopbar's overflow logic; it is right-aligned so

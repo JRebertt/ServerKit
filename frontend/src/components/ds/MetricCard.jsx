@@ -51,20 +51,25 @@ export function MetricCard({
     const displayValue = useCompact ? formatCompact(numericValue) : value;
     const valueTitle = useCompact ? String(formatFull(numericValue)) : undefined;
 
+    // The icon sits BESIDE the value, not on a row of its own above it. Stacked,
+    // a 32px icon plus its gap cost a tile ~46px of height that carried no
+    // information — a four-tile strip was spending a fifth of the page above the
+    // fold to say "102 containers". Inline, the same tile is a third shorter and
+    // reads in one line.
     const inner = (
         <>
-            <div className="sk-kpi__top">
-                {icon && <span className={cn('sk-kpi__icon', `sk-kpi__icon--${resolvedTone}`)}>{icon}</span>}
-                {trend != null && (
-                    <span className={cn('sk-kpi__trend', `sk-kpi__trend--${trendDir}`)}>{trend}</span>
-                )}
+            {icon && <span className={cn('sk-kpi__icon', `sk-kpi__icon--${resolvedTone}`)}>{icon}</span>}
+            <div className="sk-kpi__body">
+                <div className="sk-kpi__val" title={valueTitle}>
+                    {displayValue}
+                    {unit && <small> {unit}</small>}
+                </div>
+                {label && <div className="sk-kpi__label">{label}</div>}
+                {children}
             </div>
-            <div className="sk-kpi__val" title={valueTitle}>
-                {displayValue}
-                {unit && <small> {unit}</small>}
-            </div>
-            {label && <div className="sk-kpi__label">{label}</div>}
-            {children}
+            {trend != null && (
+                <span className={cn('sk-kpi__trend', `sk-kpi__trend--${trendDir}`)}>{trend}</span>
+            )}
             {spark && <div className="sk-kpi__spark">{spark}</div>}
         </>
     );
