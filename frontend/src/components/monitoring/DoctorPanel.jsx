@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled }) {
 
 const DoctorPanel = () => {
     const toast = useToast();
+    const navigate = useNavigate();
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [running, setRunning] = useState(false);
@@ -154,9 +156,23 @@ const DoctorPanel = () => {
             const res = scope === 'fleet'
                 ? await api.repairFleetItems(items)
                 : await api.repairDoctorItems(items);
-            const failed = (res.results || []).filter((r) => !r.success);
+            const results = res.results || [];
+            const failed = results.filter((r) => !r.success);
+            // Some repairs run as a background job rather than inline — a
+            // restore drill, for one. Those have been QUEUED, not completed,
+            // and reporting them as "repaired" would claim an outcome that
+            // has not happened yet.
+            const queued = results.filter((r) => r.success && r.job_id);
             if (failed.length > 0) {
                 toast.error(`${failed.length} repair${failed.length !== 1 ? 's' : ''} failed — ${failed[0].error || 'see report'}`);
+            } else if (queued.length > 0) {
+                toast.success(
+                    `Started ${queued.length} background job${queued.length !== 1 ? 's' : ''} — the repair finishes there`,
+                    {
+                        duration: 10000,
+                        action: { label: 'View jobs', onClick: () => navigate('/monitoring/jobs') },
+                    },
+                );
             } else {
                 toast.success(`Repaired ${items.length} item${items.length !== 1 ? 's' : ''}`);
             }
