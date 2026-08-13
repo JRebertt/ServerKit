@@ -1230,6 +1230,10 @@
     color: $text-secondary;
     font-size: $font-size-xs;
     cursor: pointer;
+    // Sits in the view row next to the search box now, where a flex parent will
+    // happily wrap "Include stopped" onto two lines and make the row taller
+    // than everything else on it.
+    white-space: nowrap;
 
     input {
         width: 14px;

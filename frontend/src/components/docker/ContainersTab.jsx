@@ -6,18 +6,19 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import EmptyState from '../EmptyState';
 import Modal from '@/components/Modal';
-import { Drawer, DataTable, DataTableFooter, Pill } from '@/components/ds';
+import { Drawer, DataTable, DataTableFooter, Pill, SearchField } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
-    GridToolsMenu, GridFilterDrawer,
+    GridToolsMenu, GridFilterDrawer, GridBulkBar,
 } from '@/components/ds/grid';
+import { formatRelativeTime } from '@/utils/time';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    Box, Search, X, RefreshCw, Trash2, Play, Square, RotateCw,
+    Box, X, Trash2, Play, Square, RotateCw,
     Terminal as TerminalLucide, FileText, Activity, Clock3, Copy,
     Database, Gauge, Package, Server as ServerIcon, Lock,
 } from 'lucide-react';
@@ -191,9 +192,20 @@ const ContainersTab = ({ onStatsChange }) => {
         defaultSorts: [{ key: 'status', direction: 'asc' }],
         storageKey: 'serverkit-table-docker-containers-sort',
     });
+    // Health is off by default. On a typical host almost every row reads "No
+    // healthcheck", so the column spent its width restating that the image
+    // never declared one — and Status already says "(healthy)" for the few that
+    // do. It is one click away in the column menu, and the "Unhealthy or
+    // unwatched" view turns it back on, which is where it actually says
+    // something.
     const {
         hiddenKeys, setHiddenKeys,
-    } = useColumnVisibility({ storageKey: 'serverkit-table-docker-containers-cols' });
+    } = useColumnVisibility({
+        defaultHidden: ['health'],
+        storageKey: 'serverkit-table-docker-containers-cols',
+    });
+    const [picked, setPicked] = useState([]);
+    const [bulkBusy, setBulkBusy] = useState(false);
     // Not persisted on its own: a grouping worth keeping is a saved view.
     const [groupBy, setGroupBy] = useState(null);
     const statsRequestSeq = useRef(0);
@@ -347,6 +359,52 @@ const ContainersTab = ({ onStatsChange }) => {
         }
     }
 
+    const toggleRow = useCallback((key, on) => {
+        setPicked((prev) => (on ? [...new Set([...prev, key])] : prev.filter((k) => k !== key)));
+    }, []);
+
+    // Runs the same per-container call the row buttons run, one at a time so a
+    // single failure is reported against the container that failed rather than
+    // aborting the rest of the selection.
+    async function handleBulkAction(action) {
+        const targets = containers.filter((c) => picked.includes(getContainerId(c)));
+        const actionable = targets.filter((c) => !isProtectedContainer(c));
+        const skipped = targets.length - actionable.length;
+        if (!actionable.length) {
+            toast.error(skipped ? 'Only system containers were selected' : 'Nothing selected');
+            return;
+        }
+
+        setBulkBusy(true);
+        let ok = 0;
+        const failed = [];
+        for (const container of actionable) {
+            const id = getContainerId(container);
+            try {
+                if (isRemote) {
+                    if (action === 'start') await api.startRemoteContainer(serverId, id);
+                    else if (action === 'stop') await api.stopRemoteContainer(serverId, id);
+                    else await api.restartRemoteContainer(serverId, id);
+                } else if (action === 'start') await api.startContainer(id);
+                else if (action === 'stop') await api.stopContainer(id);
+                else await api.restartContainer(id);
+                ok += 1;
+            } catch {
+                failed.push(container.name || id);
+            }
+        }
+        setBulkBusy(false);
+
+        if (failed.length) {
+            toast.error(`${failed.length} failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`);
+        } else {
+            toast.success(`${ok} container${ok === 1 ? '' : 's'} ${action}${action === 'stop' ? 'ped' : 'ed'}${skipped ? ` · ${skipped} system container${skipped === 1 ? '' : 's'} skipped` : ''}`);
+        }
+        setPicked([]);
+        loadContainers();
+        onStatsChange?.();
+    }
+
     function parseStats(stats) {
         if (!stats) return { cpu: 0, memory: 0, available: false };
         const source = stats.stats || stats;
@@ -373,6 +431,16 @@ const ContainersTab = ({ onStatsChange }) => {
             getContainerImage(c).toLowerCase().includes(search)
         ));
     }, [containers, searchTerm]);
+
+    // Declared after `filteredContainers` because it closes over it: a
+    // useCallback dep array is evaluated during render, so referencing the
+    // const from above it is a temporal-dead-zone crash, not a lint nit.
+    const toggleAll = useCallback((on, keys) => {
+        // DataTable passes no key list when the header box is clicked; fall
+        // back to everything currently on screen.
+        const set = keys ?? filteredContainers.map((c) => getContainerId(c));
+        setPicked((prev) => (on ? [...new Set([...prev, ...set])] : prev.filter((k) => !set.includes(k))));
+    }, [filteredContainers]);
 
     const selectedStats = selectedContainer
         ? parseStats(containerStats[getContainerId(selectedContainer)])
@@ -513,6 +581,9 @@ const ContainersTab = ({ onStatsChange }) => {
             key: 'resources',
             header: 'Resources',
             sortable: true,
+            // Two labelled bars need a floor, or the column collapses to the
+            // width of its truncated header on a narrow viewport.
+            width: 150,
             // Declared, not inferred: on a host where everything is stopped no
             // row has a reading at all, and an all-null sample infers no type —
             // the column would offer filtering on a busy host and not on an
@@ -537,20 +608,35 @@ const ContainersTab = ({ onStatsChange }) => {
             // The raw value is docker's CreatedAt ("2026-08-12 09:12:33 -0400
             // EDT"), which both Date.parse and the rule engine read.
             type: 'date',
+            width: 110,
             value: (container) => container.created || container.CreatedAt || null,
             sortValue: (container) => {
                 const parsed = Date.parse(container.created || container.CreatedAt || '');
                 return Number.isNaN(parsed) ? null : parsed;
             },
-            render: (container) => (
-                <span className="dx-muted-line">{container.created || container.CreatedAt || '-'}</span>
-            ),
+            // Docker hands back "2026-08-12 09:12:33 -0400 EDT" — 29 characters
+            // of which the last 14 are never what you came to read. Shown as an
+            // age, with the full stamp on hover; the filter still works on the
+            // real date because `value` is untouched.
+            render: (container) => {
+                const raw = container.created || container.CreatedAt || '';
+                const parsed = Date.parse(raw);
+                if (Number.isNaN(parsed)) return <span className="dx-muted-line">-</span>;
+                return (
+                    <span className="dx-muted-line" title={raw}>
+                        {formatRelativeTime(new Date(parsed).toISOString())}
+                    </span>
+                );
+            },
         },
         {
             key: '__actions',
-            header: 'Actions',
+            header: '',
             sortable: false,
             hideable: false,
+            // Fixed: the actions used to sit in an auto-width column, so a long
+            // Created value pushed its own text underneath them.
+            width: 132,
             className: 'text-right',
             render: (container) => {
                 const containerId = getContainerId(container);
@@ -633,17 +719,32 @@ const ContainersTab = ({ onStatsChange }) => {
 
     return (
         <div className="dx-tab-pane dx-containers-pane">
-            {/* The view name is this pane's heading, and the table's own
-                controls ride the same line. `shownCount` is the count that
-                matches the body: `filteredContainers` has only been through the
-                search, the column rules are applied inside DataTable. */}
+            {/* One row of chrome. The view name is this pane's heading and
+                everything that acts on the table — the fetch scope, the search,
+                the filter, the "⋮" — rides the same line. This pane is inside
+                the Docker page's tab group, whose top bar belongs to that page,
+                so the chrome stays here rather than being hoisted (see
+                useTopbarChrome). Refresh is not repeated as an icon: it is in
+                the "⋮" with the other table-wide actions. */}
             <GridViewPicker
                 views={chrome.views}
                 label="containers"
-                total={`${chrome.shownCount} of ${containers.length} containers`}
                 onCreate={chrome.createView}
                 actions={(
                     <>
+                        <label className="dx-toggle">
+                            <input
+                                type="checkbox"
+                                checked={showAll}
+                                onChange={(e) => setShowAll(e.target.checked)}
+                            />
+                            <span>Include stopped</span>
+                        </label>
+                        <SearchField
+                            value={searchTerm}
+                            onSearch={setSearchTerm}
+                            placeholder="Filter name, image, or ID…"
+                        />
                         <GridFilterButton
                             count={chrome.filterCount}
                             onClick={() => chrome.setDrawerOpen(true)}
@@ -655,46 +756,21 @@ const ContainersTab = ({ onStatsChange }) => {
 
             <GridChips {...chrome.chipProps} />
 
-            {/* What is left of the toolbar is the page's own: the fetch scope
-                and the search it runs before the table sees a row. The
-                All/Running/Stopped chips that used to sit here were column
-                rules in disguise and are built-in views now. */}
-            <div className="dx-tab-toolbar">
-                <label className="dx-toggle">
-                    <input
-                        type="checkbox"
-                        checked={showAll}
-                        onChange={(e) => setShowAll(e.target.checked)}
-                    />
-                    <span>Include stopped</span>
-                </label>
-                <div className="dx-tab-toolbar-right">
-                    <div className="dx-search-field">
-                        <Search size={13} className="lv-search-field-icon" />
-                        <input
-                            type="text"
-                            placeholder="Filter name, image, or ID..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        {searchTerm && (
-                            <Button size="icon" variant="ghost" className="lv-search-field-clear" onClick={() => setSearchTerm('')} title="Clear search" aria-label="Clear search">
-                                <X size={11} />
-                            </Button>
-                        )}
-                    </div>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="lv-icon-btn"
-                        onClick={loadContainers}
-                        title="Refresh"
-                        aria-label="Refresh containers"
-                    >
-                        <RefreshCw size={13} className={loading ? 'spinning' : ''} />
-                    </Button>
-                </div>
-            </div>
+            {/* Restart/stop/start across a selection. Remove is deliberately
+                absent: bulk-deleting containers from a checkbox is a mistake
+                you cannot undo, and the per-row action already asks. Protected
+                system containers are skipped, not silently failed. */}
+            <GridBulkBar count={picked.length} noun="container" onClear={() => setPicked([])}>
+                <button type="button" onClick={() => handleBulkAction('restart')} disabled={bulkBusy}>
+                    <RotateCw size={13} /> Restart
+                </button>
+                <button type="button" onClick={() => handleBulkAction('stop')} disabled={bulkBusy}>
+                    <Square size={13} /> Stop
+                </button>
+                <button type="button" onClick={() => handleBulkAction('start')} disabled={bulkBusy}>
+                    <Play size={13} /> Start
+                </button>
+            </GridBulkBar>
 
             {/* Only the SEARCH can empty the pane outright. A column rule that
                 matches nothing keeps the table mounted — the header menu that
@@ -719,6 +795,10 @@ const ContainersTab = ({ onStatsChange }) => {
                             onSortsChange={setSorts}
                             groupBy={groupBy}
                             onGroupByChange={setGroupBy}
+                            selectable
+                            selectedKeys={picked}
+                            onToggleRow={toggleRow}
+                            onToggleAll={toggleAll}
                             onRowClick={(container) => setSelectedContainer(container)}
                             rowClassName={(container) => (
                                 `${isContainerRunning(container) ? 'is-running' : 'is-stopped'} ${getContainerId(selectedContainer) === getContainerId(container) ? 'is-selected' : ''}`
