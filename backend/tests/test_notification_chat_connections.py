@@ -16,7 +16,7 @@ from app.models import User
 from app.models.chat_webhook import ChatWebhookConnection
 from app.models.notification_preferences import NotificationPreferences
 from app.notifications.consumer import process_message
-from app.notifications.models import NotificationDelivery
+from app.notifications.models import Notification, NotificationDelivery
 from app.notifications.service import GROUP_SLUG, QUEUE_SLUG, NotificationBusService
 from app.queue_bus.service import QueueBusService
 from app.services.chat_webhook_service import ChatWebhookService
@@ -113,6 +113,57 @@ class TestCrud:
         }
         assert updated.raw_credentials()['url'] != 'https://hooks.example/new'
         assert updated.raw_credentials()['secret'] != 'new-secret'
+
+    def test_update_carries_untouched_credential_across_untranslated(self, app):
+        """An untouched credential keeps its exact stored ciphertext.
+
+        Fernet is non-deterministic, so re-encrypting an unchanged plaintext
+        would visibly rewrite the column. Rewriting is how a value that failed
+        to decrypt (wrong key, or a legacy plaintext row) gets double-wrapped
+        and lost, so the byte-for-byte check is the guard against that.
+        """
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/old',
+            'secret': 'keep-me',
+        })
+        secret_before = conn.raw_credentials()['secret']
+
+        updated = ChatWebhookService.update(conn.id, {
+            'url': 'https://hooks.example/new',
+        })
+
+        assert updated.raw_credentials()['secret'] == secret_before
+        assert updated.credentials() == {
+            'url': 'https://hooks.example/new',
+            'secret': 'keep-me',
+        }
+
+    def test_update_accepts_a_round_tripped_unchanged_is_default(self, app):
+        """to_dict() always emits is_default, so GET -> edit -> PUT sends it."""
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/ops',
+        })
+        body = conn.to_dict()
+        body['name'] = 'Ops renamed'
+
+        updated = ChatWebhookService.update(conn.id, body)
+
+        assert updated.name == 'Ops renamed'
+        assert updated.is_default is True
+
+    def test_update_still_rejects_an_actual_is_default_change(self, app):
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/ops',
+        })
+
+        with pytest.raises(ValueError, match='default endpoint'):
+            ChatWebhookService.update(conn.id, {'is_default': False})
 
     def test_update_clears_explicitly_empty_optional_credential(self, app):
         conn = ChatWebhookService.add({
@@ -309,6 +360,8 @@ class TestConnectionTesting:
         )
         assert conn.last_tested_at is not None
         assert conn.last_test_ok is True
+        # The test notification is transient: it must never reach the bell feed.
+        assert Notification.query.count() == 0
 
     def test_failed_connection_test_persists_failure(self, app, monkeypatch):
         class _Resp:

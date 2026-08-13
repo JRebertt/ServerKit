@@ -104,7 +104,7 @@ class ChatWebhookService:
             kind = (data.get('kind') or '').strip().lower()
             if kind != conn.kind:
                 raise ValueError('connection kind cannot be changed')
-        if 'is_default' in data:
+        if 'is_default' in data and bool(data.get('is_default')) != bool(conn.is_default):
             raise ValueError('use the default endpoint to change is_default')
 
         new_name = conn.name
@@ -132,40 +132,41 @@ class ChatWebhookService:
             field in data for field in ('secret', 'chat_id', 'bot_token')
         )
         if credential_supplied:
-            credentials = conn.credentials()
+            # Work on the stored ciphertext so untouched credentials are carried
+            # across byte-identical. Decrypting them first would re-wrap values
+            # that ``decrypt_secret_safe`` handed back unchanged (wrong key, or
+            # a not-yet-migrated plaintext row), corrupting them permanently.
+            credentials = conn.raw_credentials()
             if conn.kind == 'telegram':
                 if 'chat_id' in data:
                     chat_id = str(data.get('chat_id') or '').strip()
                     if not chat_id:
                         raise ValueError('telegram connection requires a chat_id')
-                    credentials['chat_id'] = chat_id
+                    credentials['chat_id'] = encrypt_secret(chat_id)
                 if 'bot_token' in data:
                     bot_token = data.get('bot_token')
                     if bot_token in (None, ''):
                         credentials.pop('bot_token', None)
                     else:
-                        credentials['bot_token'] = str(bot_token)
+                        credentials['bot_token'] = encrypt_secret(str(bot_token))
             else:
                 if url_supplied:
                     url_value = data.get('url') if 'url' in data else data.get('webhook_url')
                     url = str(url_value or '').strip()
                     if not url:
                         raise ValueError(f'{conn.kind} connection requires a url')
-                    credentials['url'] = url
+                    credentials['url'] = encrypt_secret(url)
                 if 'secret' in data:
                     secret = data.get('secret')
                     if secret in (None, ''):
                         credentials.pop('secret', None)
                     else:
-                        credentials['secret'] = str(secret)
+                        credentials['secret'] = encrypt_secret(str(secret))
 
             required = 'chat_id' if conn.kind == 'telegram' else 'url'
             if not credentials.get(required):  # pragma: no cover - corrupt legacy row
                 raise ValueError(f'{conn.kind} connection requires a {required}')
-            new_credentials_json = json.dumps({
-                key: encrypt_secret(str(value))
-                for key, value in credentials.items()
-            })
+            new_credentials_json = json.dumps(credentials)
 
         conn.name = new_name
         conn.categories_json = new_categories_json
@@ -277,6 +278,7 @@ class ChatWebhookService:
         )
         notification.set_data({'message': message})
 
+        delivery_result = None
         try:
             credentials = conn.credentials()
             if conn.kind == 'webhook':
@@ -287,6 +289,11 @@ class ChatWebhookService:
                     conn, credentials, notification)
             success = delivery_result.ok
         except Exception:  # pragma: no cover - defensive formatter guard
+            logger.exception(
+                'Chat connection test raised (id=%s, kind=%s)',
+                conn.id,
+                conn.kind,
+            )
             success = False
 
         conn.last_tested_at = datetime.utcnow()
@@ -295,10 +302,13 @@ class ChatWebhookService:
 
         if success:
             return {'success': True, 'message': 'Test notification sent'}
+        # The reason stays server-side: transport errors embed the full webhook
+        # URL (secret path segment included) and Telegram bot tokens.
         logger.warning(
-            'Chat connection test failed (id=%s, kind=%s)',
+            'Chat connection test failed (id=%s, kind=%s, reason=%s)',
             conn.id,
             conn.kind,
+            getattr(delivery_result, 'error', None),
         )
         return {'success': False, 'error': 'Test notification failed'}
 
