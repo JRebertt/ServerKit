@@ -3,6 +3,12 @@ import logging
 import subprocess
 from datetime import datetime
 from app.utils.system import run_command
+from app.services.ssl_service import resolve_certbot_bin
+
+
+def _certbot_bin():
+    """Resolved certbot binary, falling back to the bare name (PATH lookup)."""
+    return resolve_certbot_bin() or 'certbot'
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +53,7 @@ class AdvancedSSLService:
         from app.utils.system import PackageManager
 
         wildcard = f'*.{domain}'
-        cmd = ['certbot', 'certonly', '--non-interactive', '--agree-tos',
+        cmd = [_certbot_bin(), 'certonly', '--non-interactive', '--agree-tos',
                '--dns-' + dns_provider, '-d', domain, '-d', wildcard]
         cmd.extend(['--email', email] if email else ['--register-unsafely-without-email'])
 
@@ -89,7 +95,7 @@ class AdvancedSSLService:
         if not domains or len(domains) < 1:
             raise ValueError('At least one domain required')
 
-        cmd = ['certbot', 'certonly', '--non-interactive', '--agree-tos',
+        cmd = [_certbot_bin(), 'certonly', '--non-interactive', '--agree-tos',
                '--webroot', '-w', '/var/www/html']
         for d in domains:
             cmd.extend(['-d', d])

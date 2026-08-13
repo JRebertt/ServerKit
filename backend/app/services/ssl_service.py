@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import json
 from datetime import datetime
@@ -8,15 +9,70 @@ from pathlib import Path
 from app.utils.system import ServiceControl, run_privileged, PackageManager, is_command_available
 
 
+# Candidate locations for the certbot binary when it isn't on $PATH. Snap is
+# certbot's recommended install method and lands in /snap/bin (often missing
+# from a service's $PATH); apt/dnf land in /usr/bin; pip installs land in
+# /usr/local/bin.
+_CERTBOT_CANDIDATES = ('/usr/bin/certbot', '/snap/bin/certbot', '/usr/local/bin/certbot')
+
+_certbot_bin_cache: Optional[str] = None
+
+
+def reset_certbot_resolution_cache() -> None:
+    """Drop the cached certbot path (tests, and right after installing certbot)."""
+    global _certbot_bin_cache
+    _certbot_bin_cache = None
+
+
+def resolve_certbot_bin() -> Optional[str]:
+    """Resolve the certbot binary path.
+
+    Resolution order: the ``CERTBOT_BIN`` environment override (honored
+    unconditionally), then ``shutil.which('certbot')``, then the well-known
+    candidate paths including the snap location.  Returns ``None`` when
+    certbot cannot be found.
+
+    The result is cached — certbot's install location does not change
+    mid-process.  Negative results are intentionally not cached so a later
+    install is picked up without a restart.
+    """
+    global _certbot_bin_cache
+    if _certbot_bin_cache is not None:
+        return _certbot_bin_cache
+
+    override = os.environ.get('CERTBOT_BIN')
+    if override:
+        _certbot_bin_cache = override
+        return _certbot_bin_cache
+
+    found = shutil.which('certbot')
+    if not found:
+        for candidate in _CERTBOT_CANDIDATES:
+            if os.path.isfile(candidate) and \
+                    (os.name == 'nt' or os.access(candidate, os.X_OK)):
+                found = candidate
+                break
+
+    _certbot_bin_cache = found
+    return found
+
+
 class SSLService:
     """Service for SSL certificate management with Let's Encrypt."""
 
-    CERTBOT_BIN = os.environ.get('CERTBOT_BIN', '/usr/bin/certbot')
+    # Fallback used when resolution finds nothing, preserving the historical
+    # default; commands built with it fail cleanly with FileNotFoundError.
+    CERTBOT_FALLBACK = '/usr/bin/certbot'
     CERTS_DIR = '/etc/letsencrypt/live'
     RENEWAL_DIR = '/etc/letsencrypt/renewal'
     # Custom-cert install location (e.g. issued Cloudflare Origin CA certs, written
     # by AdvancedSSLService.upload_custom_cert). certbot doesn't know about these.
     SERVERKIT_CERTS_DIR = '/etc/ssl/serverkit'
+
+    @classmethod
+    def certbot_bin(cls) -> str:
+        """Resolved certbot binary path (never ``None`` — see CERTBOT_FALLBACK)."""
+        return resolve_certbot_bin() or cls.CERTBOT_FALLBACK
 
     @classmethod
     def is_certbot_installed(cls) -> bool:
@@ -37,9 +93,56 @@ class SSLService:
             if result.returncode != 0:
                 return {'success': False, 'error': result.stderr}
 
+            reset_certbot_resolution_cache()
             return {'success': True, 'message': 'Certbot installed successfully'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def _has_nginx_plugin(cls, certbot: str) -> bool:
+        """Check certbot's plugin list for an enabled nginx plugin.
+
+        Parses ``certbot plugins`` output (authoritative for both apt and snap
+        installs; enabled plugins are listed as ``* nginx``, disabled as
+        ``- nginx``).  Falls back to the distro package check when the probe
+        itself fails, so a broken ``plugins`` subcommand doesn't block issuance
+        on a host where the plugin package is clearly present.
+        """
+        try:
+            result = run_privileged([certbot, 'plugins'], timeout=60)
+            if result.returncode == 0:
+                return any(
+                    line.strip().startswith('* nginx')
+                    for line in (result.stdout or '').split('\n')
+                )
+        except Exception:
+            pass
+        return PackageManager.is_installed('python3-certbot-nginx')
+
+    @classmethod
+    def _preflight_nginx_plugin(cls, certbot: str) -> Optional[Dict]:
+        """Verify certbot's nginx plugin before invoking ``certbot --nginx``.
+
+        Without this, a host that has certbot but not the plugin (or a certbot
+        that can't see the nginx binary) fails deep inside certbot with a
+        confusing "nginx plugin is not working / binary doesn't exist" message
+        that we would pass through raw.  Returns an actionable error dict, or
+        ``None`` when everything is in place.
+        """
+        if not is_command_available('nginx'):
+            return {
+                'success': False,
+                'error': 'nginx binary not found — install nginx before '
+                         'requesting a certificate with the nginx plugin',
+            }
+        if not cls._has_nginx_plugin(certbot):
+            return {
+                'success': False,
+                'error': 'certbot nginx plugin not installed — install '
+                         'python3-certbot-nginx (apt) or use the certbot snap, '
+                         'which bundles the nginx plugin',
+            }
+        return None
 
     @classmethod
     def obtain_certificate(cls, domains: List[str], email: str,
@@ -52,9 +155,12 @@ class SSLService:
 
         try:
             # Build certbot command
-            cmd = [cls.CERTBOT_BIN, 'certonly']
+            cmd = [cls.certbot_bin(), 'certonly']
 
             if use_nginx:
+                preflight_error = cls._preflight_nginx_plugin(cmd[0])
+                if preflight_error is not None:
+                    return preflight_error
                 cmd.append('--nginx')
             elif webroot_path:
                 cmd.extend(['--webroot', '-w', webroot_path])
@@ -111,7 +217,7 @@ class SSLService:
     def renew_certificate(cls, domain: str = None) -> Dict:
         """Renew SSL certificate(s)."""
         try:
-            cmd = [cls.CERTBOT_BIN, 'renew', '--non-interactive']
+            cmd = [cls.certbot_bin(), 'renew', '--non-interactive']
 
             if domain:
                 cmd.extend(['--cert-name', domain])
@@ -132,7 +238,7 @@ class SSLService:
 
         try:
             cmd = [
-                cls.CERTBOT_BIN, 'revoke',
+                cls.certbot_bin(), 'revoke',
                 '--cert-path', cert_path,
                 '--non-interactive'
             ]
@@ -142,7 +248,7 @@ class SSLService:
             if result.returncode == 0:
                 # Also delete the certificate
                 delete_cmd = [
-                    cls.CERTBOT_BIN, 'delete',
+                    cls.certbot_bin(), 'delete',
                     '--cert-name', domain,
                     '--non-interactive'
                 ]
@@ -160,7 +266,7 @@ class SSLService:
         certificates = []
 
         try:
-            result = run_privileged([cls.CERTBOT_BIN, 'certificates'], timeout=60)
+            result = run_privileged([cls.certbot_bin(), 'certificates'], timeout=60)
 
             # Parse certbot output (skip on a non-zero exit, but still surface the
             # custom-installed certs below).
