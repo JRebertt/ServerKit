@@ -590,15 +590,27 @@ class DoctorService:
         key = f'backup_unverified.{policy.id}'
         title = f'Backup verification: {cls._policy_label(policy)}'
         level = run.effective_verify_level()
-        if level == 'none':
+        if level != 'none':
+            return _check(key, title, 'ok', f'Latest backup verified ({level}).')
+
+        # The repair verifies the REMOTE copy (size + checksum against the
+        # provider). With no remote copy there is nothing for it to compare, so
+        # offering the button would be offering a guaranteed failure — the
+        # exact thing this check family got wrong. Say what would fix it
+        # instead: an offsite copy, or a restore drill.
+        if not getattr(run, 'remote_key', None):
             return _check(
                 key, title, 'warn',
-                'The latest backup has not been verified (no integrity check or '
-                'restore drill has run against it yet).',
-                repairable=True,
-                repair_ref={'kind': 'backup_verify', 'policy_id': policy.id,
-                            'run_id': run.id})
-        return _check(key, title, 'ok', f'Latest backup verified ({level}).')
+                'The latest backup has not been verified, and it has no offsite '
+                'copy to verify against. Send this policy to remote storage, or '
+                'run a restore drill to prove the backup restores.')
+        return _check(
+            key, title, 'warn',
+            'The latest backup has not been verified (no integrity check or '
+            'restore drill has run against it yet).',
+            repairable=True,
+            repair_ref={'kind': 'backup_verify', 'policy_id': policy.id,
+                        'run_id': run.id})
 
     @classmethod
     def _setup_checks(cls):
@@ -700,10 +712,87 @@ class DoctorService:
                 from app.services import doctor_check_registry
                 results.append({'item': item, **doctor_check_registry.repair(
                     item.get('namespace'), item.get('ref'))})
+            elif kind == 'backup_drill':
+                results.append({'item': item,
+                                **cls._repair_backup_drill(item.get('policy_id'))})
+            elif kind == 'backup_verify':
+                results.append({'item': item, **cls._repair_backup_verify(
+                    item.get('policy_id'), item.get('run_id'))})
             else:
                 results.append({'item': item, 'success': False,
                                 'error': f'Unknown repair kind: {kind}'})
         return results
+
+    @staticmethod
+    def _load_policy(policy_id):
+        """Resolve a backup policy for a repair, or ``None``.
+
+        The id arrives from the client echoing back a repair_ref, so it is
+        looked up rather than trusted — an id for a policy that has since been
+        deleted must read as "gone", not raise.
+        """
+        try:
+            from app.models.backup_policy import BackupPolicy
+            return BackupPolicy.query.filter_by(id=policy_id).first()
+        except Exception:  # noqa: BLE001
+            return None
+
+    @classmethod
+    def _repair_backup_drill(cls, policy_id):
+        """Run a fresh restore drill for a policy.
+
+        Asynchronous: request_drill enqueues a ``backup.drill.run`` job and
+        returns it, so the answer carries the job id for the console to link
+        to rather than pretending the drill is already done.
+        """
+        policy = cls._load_policy(policy_id)
+        if policy is None:
+            return {'success': False,
+                    'error': f'Backup policy {policy_id} no longer exists.'}
+        from app.services.backup_drill_service import (
+            BackupDrillError, BackupDrillService,
+        )
+        try:
+            job = BackupDrillService.request_drill(policy, trigger='doctor')
+        except BackupDrillError as e:
+            # "already drilling" / "no successful backup to drill" are ordinary
+            # refusals, not faults — surface the reason as-is.
+            return {'success': False, 'error': str(e)}
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': str(e)}
+        return {'success': True, 'job_id': getattr(job, 'id', None),
+                'detail': 'Restore drill queued.'}
+
+    @classmethod
+    def _repair_backup_verify(cls, policy_id, run_id):
+        """Verify a backup run's remote copy.
+
+        Unlike the drill this is synchronous — verify_run does the size and
+        checksum comparison inline and returns the verdict, so there is no job
+        id to hand back.
+        """
+        policy = cls._load_policy(policy_id)
+        if policy is None:
+            return {'success': False,
+                    'error': f'Backup policy {policy_id} no longer exists.'}
+        from app.services.backup_policy_service import (
+            BackupPolicyError, BackupPolicyService,
+        )
+        try:
+            result = BackupPolicyService.verify_run(policy, run_id)
+        except BackupPolicyError as e:
+            return {'success': False, 'error': str(e)}
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': str(e)}
+        if not result.get('verified'):
+            # The check ran and the copy did NOT match — a real answer, and a
+            # worse one than "unverified". Do not report it as a fix.
+            return {'success': False,
+                    'error': 'Verification ran but the remote copy did not '
+                             'match — this backup may not restore.',
+                    'detail': result.get('detail')}
+        return {'success': True, 'verified': True,
+                'detail': 'Remote copy verified.'}
 
     @classmethod
     def _restart_service(cls, name):
