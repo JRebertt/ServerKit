@@ -6,7 +6,7 @@ import {
 import useTabParam from '../hooks/useTabParam';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { api } from '../services/api';
-import { DataTable, DataTableFooter, MetricCard, Pill } from '@/components/ds';
+import { DataTable, DataTableFooter, MetricCard, KpiBand, Pill } from '@/components/ds';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useToast } from '../contexts/ToastContext';
@@ -454,7 +454,7 @@ function FTPServer() {
                 />
             ) : (
                 <>
-                    <div className="ftp-kpis" role="group" aria-label="FTP server status">
+                    <KpiBand role="group" aria-label="FTP server status">
                         <MetricCard
                             tone={isRunning ? 'green' : 'amber'}
                             icon={<Activity size={16} />}
@@ -487,7 +487,7 @@ function FTPServer() {
                             value={connections.length}
                             label="Active connections"
                         />
-                    </div>
+                    </KpiBand>
 
                     <Tabs value={activeTab} onValueChange={(val) => {
                         setActiveTab(val);

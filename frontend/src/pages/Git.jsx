@@ -7,7 +7,7 @@ import { DangerZone } from '../components/DangerZone';
 import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
-    Pill, MetricCard, SegControl, Drawer, DataTable, DataTableFooter,
+    Pill, MetricCard, KpiBand, SegControl, Drawer, DataTable, DataTableFooter,
     ListToolbar,
 } from '../components/ds';
 import {
@@ -1012,39 +1012,39 @@ function Git({ basePath = '/git' }) {
         switch (activeTab) {
             case 'overview':
                 return (
-                    <div className="dom-kpis">
+                    <KpiBand>
                         <MetricCard tone={status?.running ? 'green' : 'red'} icon={<Server size={16} />} value={status?.running ? 'Running' : 'Stopped'} label="Server status" />
                         <MetricCard tone="accent" icon={<Globe size={16} />} value={status?.url_path || '/gitea'} label="URL path" />
                         <MetricCard tone="cyan" icon={<Terminal size={16} />} value={status?.ssh_port || 'N/A'} label="SSH port" />
                         <MetricCard tone="violet" icon={<Tag size={16} />} value={status?.version || 'Unknown'} label="Gitea version" />
-                    </div>
+                    </KpiBand>
                 );
             case 'repositories':
                 return (
-                    <div className="dom-kpis">
+                    <KpiBand>
                         <MetricCard tone="accent" icon={<FolderGit2 size={16} />} value={repositories.length} label="Repositories" />
                         <MetricCard tone="amber" icon={<Lock size={16} />} value={repoPrivateCount} label="Private" />
                         <MetricCard tone="cyan" icon={<GitBranch size={16} />} value={repoForkCount} label="Forks" />
                         <MetricCard tone="green" icon={<Clock size={16} />} value={repoUpdatedCount} label="Updated ≤7d" />
-                    </div>
+                    </KpiBand>
                 );
             case 'webhooks':
                 return (
-                    <div className="dom-kpis">
+                    <KpiBand>
                         <MetricCard tone="accent" icon={<Webhook size={16} />} value={webhooks.length} label="Webhooks" />
                         <MetricCard tone="green" icon={<Server size={16} />} value={webhookActiveCount} label="Active" />
                         <MetricCard tone="gray" icon={<AlertCircle size={16} />} value={webhookInactiveCount} label="Inactive" />
                         <MetricCard tone="cyan" icon={<Rocket size={16} />} value={webhookDeployCount} label="Deploy on push" />
-                    </div>
+                    </KpiBand>
                 );
             case 'deployments':
                 return (
-                    <div className="dom-kpis">
+                    <KpiBand>
                         <MetricCard tone="accent" icon={<Rocket size={16} />} value={deployments.length} label="Deployments" />
                         <MetricCard tone="green" icon={<Server size={16} />} value={deploymentSuccessCount} label="Success" />
                         <MetricCard tone="red" icon={<AlertTriangle size={16} />} value={deploymentFailedCount} label="Failed" />
                         <MetricCard tone="amber" icon={<Clock size={16} />} value={deploymentRunningCount} label="Running" />
-                    </div>
+                    </KpiBand>
                 );
             default:
                 return null;

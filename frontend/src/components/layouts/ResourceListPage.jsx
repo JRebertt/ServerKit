@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Search, Rows3, LayoutGrid, X } from 'lucide-react';
+import { Search, Rows3, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SegControl, DataTableFooter, ListToolbar } from '@/components/ds';
 import {
-    GridViewPicker, GridChips, GridFilterButton, GridToolsMenu, GridFilterDrawer,
+    GridViewPicker, GridChips, GridFilterButton, GridToolsMenu, GridFilterDrawer, GridBulkBar,
     useTableChrome,
 } from '@/components/ds/grid';
 import EmptyState from '../EmptyState';
@@ -422,24 +422,12 @@ export default function ResourceListPage({
                 </div>
             )}
 
-            {/* Floating bulk-actions pill: appears only while a selection is
-                active, instead of a permanent bar reserving toolbar space. */}
-            {selectedCount > 0 && (
-                <div className="sk-bulkbar" role="status">
-                    <span className="sk-bulkbar__count">{selectedCount} selected</span>
-                    <div className="sk-bulkbar__actions">{bulkActions}</div>
-                    {onClearSelection && (
-                        <button
-                            type="button"
-                            className="sk-bulkbar__clear"
-                            onClick={onClearSelection}
-                            aria-label="Clear selection"
-                        >
-                            <X size={14} />
-                        </button>
-                    )}
-                </div>
-            )}
+            {/* The shared selection bar — this wrapper used to hand-roll its
+                own copy, which is how /domains ended up with one at the top of
+                the list and /services with a different one at the bottom. */}
+            <GridBulkBar count={selectedCount} noun={noun.replace(/s$/, '')} onClear={onClearSelection}>
+                {bulkActions}
+            </GridBulkBar>
             <GridFilterDrawer {...chrome.drawerProps} />
 
             {children}

@@ -6,21 +6,12 @@
 // Monitor page: the Capacity section on /monitoring still renders them under
 // the same class names.
 
-// KPI band (Total agents / Online / Offline / Success rate). The rule was lost
-// in the recovery rebuild, so the tiles stacked full-width.
-.fleet-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: $space-5;
-
-    @media (max-width: 1100px) {
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    }
-    @media (max-width: 560px) {
-        grid-template-columns: 1fr 1fr;
-    }
-}
+// KPI band. The grid used to be re-declared here, and a previous rebuild lost
+// the rule and left the tiles stacked full-width — the same failure Git hit
+// again with a `dom-kpis` class that no stylesheet ever defined. The page uses
+// the <KpiBand> primitive now, so there is one definition of the grid and no
+// copy of it to lose. Only the page's own spacing stays.
+.sk-kpiband-wrap { margin-bottom: $space-5; }
 
 // Amber warning row (queued commands, forecast errors)
 .fleet-warnrow {

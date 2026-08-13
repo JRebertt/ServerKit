@@ -6,6 +6,13 @@ import { cn } from '@/lib/utils';
 // every page's summary strip shares the same spacing + collapse behaviour
 // instead of ~20 hand-rolled `*-kpis` grids.
 //
+// Use it for EVERY row of tiles. A page that writes its own grid container is
+// one stylesheet edit away from tiles stacked full-width, and that has now
+// happened three times: twice when a rebuild dropped a `*-kpis` rule, and once
+// on Git, which shipped `className="dom-kpis"` that no stylesheet ever defined,
+// so the tiles were full-width blocks from the day it was written. There is
+// nothing to lose here — the grid is declared once, in _design-system.scss.
+//
 // Props:
 //   dense    — compact 5-column variant (tighter gap).
 //   max      — how many tiles stay "primary" before folding (default 4, hard

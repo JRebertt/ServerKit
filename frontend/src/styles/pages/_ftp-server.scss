@@ -7,20 +7,9 @@
 .ftp-server {
 
     // ─── KPI strip (status / active server / users / connections) ───
-    // Rule was lost in the recovery rebuild, so the tiles stacked full-width.
-    .ftp-kpis {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
-        margin-bottom: $space-5;
-
-        @media (max-width: 1100px) {
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        }
-        @media (max-width: 560px) {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
+    // The grid lives in the <KpiBand> primitive now; re-declaring it here is how
+    // the rule got lost in a rebuild and left the tiles stacked full-width.
+    .sk-kpiband-wrap { margin-bottom: $space-5; }
 
     // ─── Mono eyebrow section headers (Users / Connections / Logs) ───
     .section-header {

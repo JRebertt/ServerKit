@@ -589,11 +589,7 @@
     }
 }
 
-.queue-detail-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: $space-3;
-}
+// Was a hand-rolled copy of the KpiBand grid; the page uses the primitive now.
 
 .queue-detail-body {
     display: grid;

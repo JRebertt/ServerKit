@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    DataTable, DataTableFooter, MetricCard, Pill, SortChipBar,
+    DataTable, DataTableFooter, MetricCard, KpiBand, Pill, SortChipBar,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -369,7 +369,7 @@ const QueueDetail = () => {
                 </div>
             </div>
 
-            <div className="queue-detail-stats">
+            <KpiBand>
                 <MetricCard label="Total" value={stats.total || 0} />
                 {STATUS_ORDER.map(s => (
                     <MetricCard
@@ -379,7 +379,7 @@ const QueueDetail = () => {
                         kind={s === 'failed' || s === 'dead_letter' ? 'danger' : undefined}
                     />
                 ))}
-            </div>
+            </KpiBand>
 
             <div className={`queue-detail-body ${selectedMessage ? 'has-panel' : ''}`}>
                 <div className="queue-detail-main">

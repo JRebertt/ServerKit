@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MetricCard, Pill, Gauge, DataTable, DataTableFooter } from '@/components/ds';
+import { MetricCard, KpiBand, Pill, Gauge, DataTable, DataTableFooter } from '@/components/ds';
 
 const AgentFleet = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -479,12 +479,12 @@ const AgentFleet = () => {
                 {/* ==================== Dashboard ==================== */}
                 {activeTab === 'dashboard' && health && (
                     <div className="space-y-6">
-                        <div className="fleet-kpis">
+                        <KpiBand>
                             <MetricCard icon={<Server size={16} />} tone="accent" label="Total Agents" value={health.total_servers} />
                             <MetricCard icon={<CheckCircle size={16} />} tone="green" label="Online" value={health.online_servers} />
                             <MetricCard icon={<AlertCircle size={16} />} tone="red" label="Offline" value={health.offline_servers} />
                             <MetricCard icon={<Zap size={16} />} tone="cyan" label="Success Rate" value={`${health.command_success_rate}%`} />
-                        </div>
+                        </KpiBand>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="card">
