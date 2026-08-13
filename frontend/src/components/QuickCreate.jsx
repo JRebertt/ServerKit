@@ -41,7 +41,7 @@ export function QuickCreate({ className, variant = 'icon' }) {
                     title="Create new…"
                     aria-label="Create new"
                 >
-                    <Plus size={fab ? 13 : 16} />
+                    <Plus size={fab ? 15 : 16} />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
