@@ -42,11 +42,18 @@ export function DataTableFooter({
 
     const paged = page != null && totalPages != null && onPageChange;
 
+    // "25 · 50 · 100 · All" over three rows is a control with nothing to
+    // control — every option shows the same three rows. Offer it only once the
+    // table is longer than the smallest page it could cut to (or when a page
+    // size is already pinned, so the way back to All never disappears).
+    const smallestPage = Math.min(...pageSizeOptions);
+    const worthPaging = (total ?? shown) > smallestPage || (pageSize != null && pageSize !== 'all');
+
     return (
         <div className={cn('sk-dtable-footer', className)}>
             <span className="sk-dtable-footer__count">{label}</span>
             <div className="sk-dtable-footer__controls">
-                {onPageSizeChange && (
+                {onPageSizeChange && worthPaging && (
                     <SegControl
                         className="sk-dtable-footer__sizes"
                         value={String(pageSize)}
