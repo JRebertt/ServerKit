@@ -306,11 +306,18 @@ def test_no_core_or_wp_module_references_analytics_extension():
 
 def test_ext_to_ext_seam_absent_side_returns_default(app):
     """get_installed_extension_attr — the seam an ext↔ext call goes through —
-    returns the default when the callee extension is absent (analytics is not
-    installed in this test panel), never raises."""
+    returns the default when the callee extension is absent, never raises.
+
+    Deliberately names a slug that CANNOT be installed. This used to name
+    serverkit-analytics on the assumption it "is not installed in this test
+    panel", which made the test depend on which extensions the checkout happens
+    to have: on a machine with analytics installed the seam correctly resolved
+    `inject` and the test failed with "assert <function inject> is None" — a
+    message that reads as a broken seam and means the exact opposite.
+    """
     from app.services.plugin_service import get_installed_extension_attr
     assert get_installed_extension_attr(
-        'serverkit-analytics', 'wp_integration', 'inject', default=None) is None
+        'serverkit-absent-by-design', 'wp_integration', 'inject', default=None) is None
 
 
 # --------------------------------------------------------------------------- #
