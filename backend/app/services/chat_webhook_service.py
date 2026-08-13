@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from datetime import datetime
 
 import requests
@@ -29,6 +30,31 @@ logger = logging.getLogger(__name__)
 # The single header the generic webhook signs its body with (HMAC-SHA256).
 SIGNATURE_HEADER = 'X-ServerKit-Signature'
 _REQUEST_TIMEOUT = 15
+
+# Split a URL into scheme+host and everything after it.
+_URL_RE = re.compile(r'(https?://[^/\s\'"]+)([^\s\'"]*)')
+# Telegram bot tokens look like ``123456789:AA...`` and appear in bare error text
+# as well as inside the API URL.
+_BOT_TOKEN_RE = re.compile(r'\b\d{6,}:[A-Za-z0-9_-]{20,}\b')
+
+
+def _redact_reason(text):
+    """Reduce a transport error to something safe to write to the log.
+
+    Every mainstream chat provider puts the credential in the URL *path* -- the
+    Discord/Slack/Teams webhook token and the Telegram bot token are all path
+    segments -- and ``requests`` embeds the full URL in its exception text. The
+    host is useful for diagnosis and is not a secret, so keep it and drop the
+    rest. ``to_dict()`` already masks ``destination``, so logging the raw string
+    would leak past the API's own masking.
+    """
+    if not text:
+        return None
+    text = _BOT_TOKEN_RE.sub('<token>', str(text))
+    return _URL_RE.sub(
+        lambda m: m.group(1) + ('/<redacted>' if m.group(2) not in ('', '/') else m.group(2)),
+        text,
+    )
 
 # Legacy notifications.json section -> (connection kind, destination key in the
 # saved config). telegram maps to chat_id; the chat flavors carry a webhook_url.
@@ -302,13 +328,14 @@ class ChatWebhookService:
 
         if success:
             return {'success': True, 'message': 'Test notification sent'}
-        # The reason stays server-side: transport errors embed the full webhook
-        # URL (secret path segment included) and Telegram bot tokens.
+        # The reason stays server-side AND redacted: transport errors embed the
+        # full webhook URL (secret path segment included) and Telegram bot
+        # tokens, and the panel serves the log files back over /api/logs.
         logger.warning(
             'Chat connection test failed (id=%s, kind=%s, reason=%s)',
             conn.id,
             conn.kind,
-            getattr(delivery_result, 'error', None),
+            _redact_reason(getattr(delivery_result, 'error', None)),
         )
         return {'success': False, 'error': 'Test notification failed'}
 

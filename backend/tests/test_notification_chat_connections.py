@@ -7,6 +7,7 @@ payload, the consumer delivery path, and legacy-import idempotency.
 import hashlib
 import hmac
 import json
+import logging
 
 import pytest
 from werkzeug.security import generate_password_hash
@@ -164,6 +165,28 @@ class TestCrud:
 
         with pytest.raises(ValueError, match='default endpoint'):
             ChatWebhookService.update(conn.id, {'is_default': False})
+
+    def test_corrupt_non_dict_credentials_do_not_500(self, app):
+        """A row holding well-formed JSON of the wrong shape stays serialisable.
+
+        Every caller of raw_credentials() assumes a mapping, so a hand-edited
+        ``[]`` used to blow up to_dict() -- i.e. the list endpoint -- before
+        update() was even reachable.
+        """
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Corrupt',
+            'url': 'https://hooks.example/ops',
+        })
+        conn.credentials_json = '[]'
+        db.session.commit()
+
+        assert conn.raw_credentials() == {}
+        assert conn.credentials() == {}
+        assert conn.to_dict()['destination'] == ''
+        # and the write path reports a controlled validation error, not a 500
+        with pytest.raises(ValueError, match='requires a url'):
+            ChatWebhookService.update(conn.id, {'secret': 'x'})
 
     def test_update_clears_explicitly_empty_optional_credential(self, app):
         conn = ChatWebhookService.add({
@@ -418,6 +441,50 @@ class TestConnectionTesting:
             'success': False, 'error': 'Test notification failed',
         }
         assert secret_url not in json.dumps(result)
+
+    def test_connection_test_keeps_secrets_out_of_the_log(self, app, monkeypatch, caplog):
+        """The failure reason is logged for diagnosis, but redacted first.
+
+        Providers put the credential in the URL *path* and requests embeds the
+        whole URL in its exception text, so an unredacted log line would leak
+        past to_dict()'s destination masking -- and /api/logs serves those files
+        back to the panel.
+        """
+        def fail_post(url, *args, **kwargs):
+            raise RuntimeError(f'failed POST {url}')
+
+        monkeypatch.setattr(
+            'app.services.chat_webhook_service.requests.post', fail_post,
+        )
+        conn = ChatWebhookService.add({
+            'kind': 'webhook',
+            'name': 'Ops',
+            'url': 'https://hooks.example/services/T000/B000/super-secret-token',
+        })
+
+        with caplog.at_level(logging.WARNING,
+                             logger='app.services.chat_webhook_service'):
+            ChatWebhookService.test(conn.id)
+
+        logged = '\n'.join(r.getMessage() for r in caplog.records)
+        assert 'super-secret-token' not in logged
+        assert 'T000' not in logged
+        # the host survives -- it is the part that makes the log worth keeping
+        assert 'hooks.example' in logged
+        assert '<redacted>' in logged
+
+    def test_redact_reason_strips_telegram_bot_tokens(self, app):
+        from app.services.chat_webhook_service import _redact_reason
+
+        token = '123456789:AAHkq3Bv7pQwErTyUiOpAsDfGhJkLzXcVbN'
+        reason = f'404 Client Error for url: https://api.telegram.org/bot{token}/sendMessage'
+
+        redacted = _redact_reason(reason)
+
+        assert token not in redacted
+        assert 'AAHkq3Bv7pQwErTyUiOpAsDfGhJkLzXcVbN' not in redacted
+        assert 'api.telegram.org' in redacted
+        assert _redact_reason(None) is None
 
     def test_connection_test_returns_none_for_unknown_id(self, app):
         assert ChatWebhookService.test(999999) is None

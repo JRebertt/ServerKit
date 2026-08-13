@@ -49,9 +49,14 @@ class ChatWebhookConnection(db.Model):
 
     def raw_credentials(self):
         try:
-            return json.loads(self.credentials_json) if self.credentials_json else {}
+            value = json.loads(self.credentials_json) if self.credentials_json else {}
         except (json.JSONDecodeError, TypeError):
             return {}
+        # A hand-edited or corrupt row can hold valid JSON of the wrong shape
+        # (``[]``, a string, ``null``). Every caller assumes a mapping, so
+        # normalise here rather than at each call site -- same guard as
+        # ``categories()`` below.
+        return value if isinstance(value, dict) else {}
 
     def credentials(self):
         """Decrypted credentials for use at send/test time (never serialized)."""
