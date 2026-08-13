@@ -564,6 +564,28 @@ def get_plugin_permissions(plugin_id):
     return jsonify(perms.usage_report(plugin.slug))
 
 
+@plugins_bp.route('/<int:plugin_id>/requirements', methods=['GET'])
+@jwt_required()
+def get_plugin_requirements(plugin_id):
+    """Python dependencies this extension shipped that were NOT installed.
+
+    Admin-only. Installing plugin dependencies runs pip with the backend's
+    privileges — a setup.py hook is arbitrary code — so it is opt-in and off by
+    default. Until now the skip was a log line: the file was written next to the
+    extension and nothing ever said so, leaving an extension running with
+    imports it may not have. Read-only; nothing here installs anything.
+    """
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.services.plugin_service import get_plugin, pending_requirements
+    plugin = get_plugin(plugin_id)
+    if not plugin:
+        return jsonify({'error': 'Plugin not found'}), 404
+    return jsonify(pending_requirements(plugin))
+
+
 @plugins_bp.route('/<int:plugin_id>/config', methods=['GET'])
 @jwt_required()
 def get_plugin_config(plugin_id):
