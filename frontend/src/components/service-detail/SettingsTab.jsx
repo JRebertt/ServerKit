@@ -151,13 +151,13 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
     async function handleDelete() {
         if (!await confirm({
             title: 'Delete Service',
-            message: `Delete ${app.name}? This action cannot be undone.`,
+            message: `Delete ${app.name}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.`,
             confirmText: 'Delete',
             variant: 'danger',
         })) return;
         if (!await confirm({
             title: 'Delete Service',
-            message: 'Are you sure? This will permanently remove the service.',
+            message: 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.',
             confirmText: 'Delete',
             variant: 'danger',
         })) return;
@@ -165,6 +165,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
         setDeleting(true);
         try {
             await api.deleteApp(app.id);
+            toast.success(`“${app.name}” moved to the recycle bin`);
             navigate('/services');
         } catch (err) {
             toast.error('Failed to delete service');
