@@ -923,7 +923,14 @@ def services_restart(name):
 
 @cli.group()
 def apps():
-    """Inspect applications via the panel API."""
+    """Inspect applications via the panel API.
+
+    Read-only. Application lifecycle -- start, stop, restart, logs, delete --
+    lives in the web UI and the HTTP API, not here; `serverkit apps stop
+    <name>` has never existed. `serverkit services` does control system
+    services (nginx, docker), which is a different thing and a common source
+    of the confusion.
+    """
 
 
 @apps.command('list')
