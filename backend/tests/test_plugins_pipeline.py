@@ -178,6 +178,26 @@ def test_reinstall_refreshes_metadata(app, plugin_dirs):
     assert InstalledPlugin.query.filter_by(slug='serverkit-demo').count() == 1
 
 
+def test_installed_manifests_are_written_with_lf(app, plugin_dirs):
+    """Manifests are tracked files pinned to LF by .gitattributes.
+
+    Python's text mode rewrites \\n as \\r\\n on Windows, so an install run on a
+    dev machine used to rewrite every tracked manifest with CRLF and leave four
+    modified files behind after the suite -- a diff with no content change.
+    """
+    _write_builtin(plugin_dirs['builtin'])
+    plugin_service.install_builtin_extension('serverkit-demo')
+
+    # The demo builtin ships a frontend half only, so no backend manifest is
+    # written. _regenerate_frontend_manifest() is skipped under the testing
+    # config, so plugins-manifest.json is out of reach here too.
+    path = plugin_dirs['frontend'] / 'serverkit-demo' / 'plugin.json'
+    assert path.exists(), f'{path} was not written'
+    raw = path.read_bytes()
+    assert b'\r\n' not in raw, f'{path} was written with CRLF'
+    assert raw.endswith(b'\n'), f'{path} lost its trailing newline'
+
+
 def test_reinstall_active_plugin_is_rejected(app, plugin_dirs):
     _write_builtin(plugin_dirs['builtin'])
     plugin_service.install_builtin_extension('serverkit-demo')
