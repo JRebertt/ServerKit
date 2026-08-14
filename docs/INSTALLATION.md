@@ -58,6 +58,7 @@ On a `minimal` install:
 | `SERVERKIT_EXTERNAL_PROXY=1` | You run your own TLS-terminating reverse proxy in front. Selects the plain-HTTP nginx site (no redirect for the proxy to loop on), skips certbot, and sets `TRUST_PROXY_HEADERS=true` + `TRUSTED_PROXY_HOPS=2`. See [Running behind your own reverse proxy](#running-behind-your-own-reverse-proxy) |
 | `SERVERKIT_PUBLIC_URL=https://panel.example.com` | The public URL browsers use. Required with `SERVERKIT_EXTERNAL_PROXY` — without it websocket connections are rejected on origin |
 | `SERVERKIT_CONFIG=/path/install.conf` | Read the options above from a `KEY=VALUE` file instead of the command line. Explicit environment still wins |
+| `SERVERKIT_BIND_HOST=0.0.0.0` | Expose the raw backend port instead of binding it to loopback. ⚠️ Also disables trusted client IPs — with the port directly reachable, `X-Forwarded-For` is client-forgeable. Firewall it yourself |
 | `INSTALL_FROM_RELEASE=1` | Install from the latest GitHub release tarball instead of cloning source |
 | `SERVERKIT_VERSION=v1.7.0` | Pin a specific release version |
 | `SERVERKIT_OFFLINE_TARBALL=/path/to/...tar.gz` | Use a local tarball instead of downloading |

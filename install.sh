@@ -1290,9 +1290,42 @@ build_virtualenv() {
 # ---------------------------------------------------------------------------
 # Application configuration and generated secrets
 # ---------------------------------------------------------------------------
+# Where gunicorn listens. Loopback by default — host nginx fronts the panel on
+# :80/:443, so the raw gunicorn port must not be world-reachable. Operators who
+# front it differently override with SERVERKIT_BIND_HOST=0.0.0.0.
+#
+# One definition, two consumers: it renders the systemd unit AND decides whether
+# X-Forwarded-For is trustworthy. Those answers must never disagree.
+backend_bind_host() {
+    printf '%s' "${SERVERKIT_BIND_HOST:-127.0.0.1}"
+}
+
+# True when the only route to Flask is through our own nginx.
+#
+# This is the whole security condition behind TRUST_PROXY_HEADERS. ProxyFix
+# takes X-Forwarded-For at face value, which is safe exactly when a proxy we
+# control is guaranteed to have written it — i.e. when nothing can open a socket
+# to gunicorn directly. Loopback binding is what guarantees that; the installer
+# firewall also never opens the backend port (SSH + 80/443 + PANEL_PORT only).
+backend_is_loopback_only() {
+    case "$(backend_bind_host)" in
+        127.0.0.1|localhost|::1|'[::1]') return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Set KEY=value in an env file, replacing any existing definition (commented or
 # not). Rewrites the file instead of `sed -i s|...|`: values here are URLs, and
 # an unescaped '/', '&' or '|' in a sed replacement is syntax, not data.
+# Fill a gap without ever overriding a choice. An uncommented definition is the
+# operator's — someone may have turned trust off deliberately, and a re-run
+# silently turning it back on would be the worst kind of surprise.
+_env_default_key() {
+    local file="$1" key="$2" value="$3"
+    grep -qE "^[[:space:]]*${key}=" "$file" && return 0
+    _env_set_key "$file" "$key" "$value"
+}
+
 _env_set_key() {
     local file="$1" key="$2" value="$3" tmp
     # Beside the target, not in /tmp: this file carries SECRET_KEY and the
@@ -1340,6 +1373,17 @@ write_config() {
                 _env_set_key "$INSTALL_DIR/.env" SERVERKIT_PUBLIC_URL "$PANEL_PUBLIC_URL"
             fi
             good "External-proxy settings applied to the existing .env."
+        elif backend_is_loopback_only; then
+            # Installs made before the trusted-proxy default existed have no
+            # TRUST_PROXY_HEADERS line at all, so they key rate limits, login
+            # lockout and audit logs on nginx's own address. Backfill it on a
+            # re-run — but only where the line is absent, never over an explicit
+            # setting.
+            if ! grep -qE '^[[:space:]]*TRUST_PROXY_HEADERS=' "$INSTALL_DIR/.env"; then
+                _env_default_key "$INSTALL_DIR/.env" TRUST_PROXY_HEADERS true
+                _env_default_key "$INSTALL_DIR/.env" TRUSTED_PROXY_HOPS 1
+                good "Enabled trusted-proxy client IPs (behind this install's own nginx)."
+            fi
         fi
         return
     fi
@@ -1400,6 +1444,39 @@ TRUST_PROXY_HEADERS=true
 TRUSTED_PROXY_HOPS=2
 PROXYEOF
 )
+    elif backend_is_loopback_only; then
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — every host install serves the panel through its own
+# nginx, and gunicorn binds loopback (see the systemd unit), so X-Forwarded-For
+# is written by that nginx and nothing can reach Flask directly to forge it.
+# Without this the panel keys per-IP rate limits, the login brute-force throttle
+# and every audit-log entry on nginx's own address instead of the real client.
+# One hop: our nginx is the only proxy in front. Raise it if you add another
+# (e.g. Cloudflare on top ⇒ 2).
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=1
+PROXYEOF
+)
+    else
+        # The raw gunicorn port is exposed, so a client can connect without
+        # passing through our nginx and X-Forwarded-For becomes attacker-chosen.
+        # Trusting it here would let anyone forge the IP that rate limits, login
+        # lockout and audit logs key on — strictly worse than logging one wrong
+        # address. Left off, and said out loud rather than silently.
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — deliberately OFF. SERVERKIT_BIND_HOST exposes the
+# backend port directly, so X-Forwarded-For is client-controlled and cannot be
+# trusted. Client IPs will show as the proxy/socket peer. If you do front this
+# with a proxy AND block direct access to the backend port, set:
+#   TRUST_PROXY_HEADERS=true
+#   TRUSTED_PROXY_HOPS=<number of proxies in front of Flask>
+TRUST_PROXY_HEADERS=false
+PROXYEOF
+)
+        warn "SERVERKIT_BIND_HOST=${SERVERKIT_BIND_HOST:-} exposes the backend port directly."
+        warn "Leaving TRUST_PROXY_HEADERS off: X-Forwarded-For would be client-forgeable."
     fi
 
     cat > "$INSTALL_DIR/.env" <<EOF
@@ -2184,10 +2261,8 @@ EOF
 render_service_unit() {
     local out="$1"
     local template="$INSTALL_DIR/templates/serverkit-backend.service.in"
-    # Bind the API to loopback by default — host nginx fronts it on :80/:443, so
-    # the raw gunicorn port must not be world-reachable. Operators who front it
-    # differently can override with SERVERKIT_BIND_HOST=0.0.0.0.
-    local bind_host="${SERVERKIT_BIND_HOST:-127.0.0.1}"
+    local bind_host
+    bind_host="$(backend_bind_host)"
     if [ -f "$template" ]; then
         sed -e "s|@SERVERKIT_DIR@|$INSTALL_DIR|g" \
             -e "s|@SERVERKIT_VENV_DIR@|$VENV_DIR|g" \

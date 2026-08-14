@@ -2046,6 +2046,116 @@ for site in serverkit.conf serverkit-insecure.conf; do
     fi
 done
 
+# --------------------------------------------------------------------------
+# T44 — every install must derive the REAL client IP.
+#
+# install.sh wrote no TRUST_PROXY_HEADERS line at all, so the config default
+# (False) applied while the panel always sits behind its own nginx: per-IP rate
+# limits, the login brute-force throttle and every audit-log entry keyed on
+# 127.0.0.1. .env.example claimed `true`, so the two disagreed.
+#
+# Trusting X-Forwarded-For is only safe because nothing can reach gunicorn
+# without passing through that nginx — render_service_unit binds loopback and
+# the firewall never opens the backend port. Expose the port and the header
+# becomes attacker-chosen, so the switch must follow the bind host.
+# --------------------------------------------------------------------------
+printf '\nT44 — trusted client IP on a stock install\n'
+t44="$WORK/t44"; mkdir -p "$t44"
+
+# -- the stock install: loopback-bound gunicorn behind our own nginx.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        rm -rf "$t44/a"; mkdir -p "$t44/a"
+        INSTALL_DIR="$t44/a"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/a/.env" )"
+if printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=true' \
+   && printf '%s' "$out" | grep -q '^TRUSTED_PROXY_HOPS=1'; then
+    ok "a stock install trusts its own nginx and derives the real client IP (1 hop)"
+else
+    bad "stock install produced: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- exposing the raw backend port must turn it OFF: X-Forwarded-For is then
+#    client-controlled, and a forged IP defeats the very throttles it feeds.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY || true
+        SERVERKIT_BIND_HOST=0.0.0.0
+        source "$INSTALL_SH" >/dev/null 2>&1
+        rm -rf "$t44/b"; mkdir -p "$t44/b"
+        INSTALL_DIR="$t44/b"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/b/.env" )"
+if printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=false' \
+   && ! printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=true'; then
+    ok "SERVERKIT_BIND_HOST=0.0.0.0 leaves trust OFF (the header would be forgeable)"
+else
+    bad "an exposed backend port still trusted X-Forwarded-For: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- the external-proxy switch still wins, with its own hop count.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        source "$INSTALL_SH" >/dev/null 2>&1
+        rm -rf "$t44/c"; mkdir -p "$t44/c"
+        INSTALL_DIR="$t44/c"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/c/.env" )"
+if printf '%s' "$out" | grep -q '^TRUSTED_PROXY_HOPS=2'; then
+    ok "SERVERKIT_EXTERNAL_PROXY still overrides the default with 2 hops"
+else
+    bad "external proxy did not set 2 hops: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- backfill on a re-run: pre-existing installs are the ones actually suffering.
+mkdir -p "$t44/old"
+printf 'SECRET_KEY=keep-me\nSERVERKIT_SSL_MODE=insecure\n' > "$t44/old/.env"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$t44/old"; SSL_MODE=insecure; PROFILE=standard
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$t44/old/.env" \
+   && grep -q '^TRUSTED_PROXY_HOPS=1' "$t44/old/.env" \
+   && grep -q '^SECRET_KEY=keep-me' "$t44/old/.env"; then
+    ok "a re-run backfills the trust setting into an install that predates it"
+else
+    bad "re-run backfill produced: [$(tr '\n' ' ' < "$t44/old/.env")]"
+fi
+
+# -- but an explicit operator choice is never overridden. Someone who turned
+#    trust off did it for a reason, and a re-run flipping it back on silently
+#    would be the worst possible surprise.
+mkdir -p "$t44/explicit"
+printf 'SECRET_KEY=keep-me\nTRUST_PROXY_HEADERS=false\n' > "$t44/explicit/.env"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$t44/explicit"; SSL_MODE=insecure; PROFILE=standard
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=false' "$t44/explicit/.env" \
+   && ! grep -q '^TRUST_PROXY_HEADERS=true' "$t44/explicit/.env"; then
+    ok "a re-run never overrides an explicit TRUST_PROXY_HEADERS=false"
+else
+    bad "a re-run overrode the operator's explicit setting: [$(tr '\n' ' ' < "$t44/explicit/.env")]"
+fi
+
+# -- the two consumers of the bind host must agree. The systemd unit and the
+#    trust decision reading different values is exactly how this class of bug
+#    comes back.
+unit="$t44/unit.service"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$REPO_DIR"; VENV_DIR="$REPO_DIR/venv"; LOG_DIR="$t44"
+  render_service_unit "$unit" >/dev/null 2>&1 ) || true
+if grep -q -- '-b 127.0.0.1:5000' "$unit" 2>/dev/null; then
+    ok "render_service_unit and the trust decision share one bind host (loopback)"
+else
+    bad "the rendered unit does not bind loopback: [$(grep ExecStart "$unit" 2>/dev/null)]"
+fi
+
 # -- static guard: the documented insecure site must keep shipping, since both
 #    the docs and SERVERKIT_EXTERNAL_PROXY point operators straight at it.
 if [ -f "$REPO_DIR/nginx/sites-available/serverkit-insecure.conf" ] \

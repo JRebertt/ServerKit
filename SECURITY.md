@@ -67,13 +67,33 @@ never hand-parses it. Instead it derives the client IP through one trusted seam
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `TRUST_PROXY_HEADERS` | `false` | Trust forwarding headers to derive the client IP. **Set `true` only where a reverse proxy is guaranteed in front** (the shipped nginx deploy sets it). Leave `false` for a directly-exposed server so headers can't be forged. |
+| `TRUST_PROXY_HEADERS` | `false` in code; `true` written by `install.sh` | Trust forwarding headers to derive the client IP. **Only where a reverse proxy is guaranteed in front.** Leave `false` for a directly-exposed server so headers can't be forged. |
 | `TRUSTED_PROXY_HOPS` | `1` | Number of trusted proxy hops in front of Flask (bundled nginx = 1). Raise it only if you add another proxy (e.g. Cloudflare on top). |
+
+The code default is `false` because a bare `create_app()` — a dev server, a test,
+an import — has nothing in front of it. A **host install is different**: it always
+serves the panel through its own nginx, and the systemd unit binds gunicorn to
+`127.0.0.1`, so nothing can reach Flask without passing through that nginx and
+`X-Forwarded-For` is ours. `install.sh` therefore writes `TRUST_PROXY_HEADERS=true`
+and `TRUSTED_PROXY_HOPS=1` into `.env`, and backfills them on a re-run of an
+install that predates this — without ever overriding a value you set yourself.
+
+Two cases where the installer deliberately does **not** enable it:
+
+- `SERVERKIT_BIND_HOST` set to anything but loopback. The raw backend port is then
+  reachable directly, a client can connect without traversing nginx, and
+  `X-Forwarded-For` becomes attacker-chosen. The installer says so and leaves it off.
+- `SERVERKIT_EXTERNAL_PROXY=1` uses `TRUSTED_PROXY_HOPS=2` instead — your proxy
+  appends the real client, then our nginx appends your proxy.
 
 With trust on, `ProxyFix` takes the **rightmost** `TRUSTED_PROXY_HOPS` entries of
 `X-Forwarded-For` — the hops your own proxies appended — so a forged *leftmost*
 value is discarded. Setting a hop count higher than the real number of proxies,
 or turning trust on for a directly-exposed panel, re-introduces spoofing — don't.
+
+⚠️ If you run the panel some other way — the Docker image with the port published,
+a custom unit, gunicorn by hand — you own this decision. Enable it only if a proxy
+you control is the sole path in.
 
 > **Behavior change:** audit-log source IPs now record the real client IP
 > instead of the proxy's address. Update any dashboards or alerts that were built
