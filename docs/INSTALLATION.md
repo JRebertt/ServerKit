@@ -55,6 +55,9 @@ On a `minimal` install:
 | `SERVERKIT_PROFILE=minimal\|standard\|full` | Pick the install profile and skip the prompt |
 | `SERVERKIT_PROFILE_TIMEOUT=15` | Seconds to wait at the profile prompt before taking the suggestion |
 | `SERVERKIT_SKIP_SSL=1` | Skip HTTPS/certbot entirely |
+| `SERVERKIT_EXTERNAL_PROXY=1` | You run your own TLS-terminating reverse proxy in front. Selects the plain-HTTP nginx site (no redirect for the proxy to loop on), skips certbot, and sets `TRUST_PROXY_HEADERS=true` + `TRUSTED_PROXY_HOPS=2`. See [Running behind your own reverse proxy](#running-behind-your-own-reverse-proxy) |
+| `SERVERKIT_PUBLIC_URL=https://panel.example.com` | The public URL browsers use. Required with `SERVERKIT_EXTERNAL_PROXY` — without it websocket connections are rejected on origin |
+| `SERVERKIT_CONFIG=/path/install.conf` | Read the options above from a `KEY=VALUE` file instead of the command line. Explicit environment still wins |
 | `INSTALL_FROM_RELEASE=1` | Install from the latest GitHub release tarball instead of cloning source |
 | `SERVERKIT_VERSION=v1.7.0` | Pin a specific release version |
 | `SERVERKIT_OFFLINE_TARBALL=/path/to/...tar.gz` | Use a local tarball instead of downloading |
@@ -77,6 +80,26 @@ Example offline install:
 ```bash
 curl -fsSL https://serverkit.ai/install.sh | \
   sudo SERVERKIT_OFFLINE_TARBALL=/tmp/serverkit-v1.7.0-linux-amd64.tar.gz bash
+```
+
+Example behind your own Caddy/Traefik:
+
+```bash
+curl -fsSL https://serverkit.ai/install.sh | \
+  sudo SERVERKIT_EXTERNAL_PROXY=1 SERVERKIT_PUBLIC_URL=https://panel.example.com bash
+```
+
+Example re-runnable install from a config file:
+
+```bash
+cat > /root/serverkit.conf <<'EOF'
+SERVERKIT_PROFILE=standard
+SERVERKIT_EXTERNAL_PROXY=1
+SERVERKIT_PUBLIC_URL=https://panel.example.com
+EOF
+
+curl -fsSL https://serverkit.ai/install.sh | \
+  sudo SERVERKIT_CONFIG=/root/serverkit.conf bash
 ```
 
 ## Updating ServerKit
@@ -114,6 +137,7 @@ sudo SERVERKIT_MIRROR_URL=https://mirror.example.com/releases serverkit update
 - [Requirements](#requirements)
 - [Quick Install (Docker)](#quick-install-docker)
 - [Manual Installation](#manual-installation)
+- [Running behind your own reverse proxy](#running-behind-your-own-reverse-proxy)
 - [Post-Installation Setup](#post-installation-setup)
 - [Security Configuration](#security-configuration)
 - [Notification Setup](#notification-setup)
@@ -146,7 +170,16 @@ For manual installation:
 
 ## Quick Install (Docker)
 
-This is the recommended installation method.
+`docker compose up -d` runs ServerKit as a **single container**: gunicorn serves
+the API, the React SPA and the Socket.IO websockets together on port 5000. There
+is no nginx inside it.
+
+> ⚠️ **A containerised panel cannot manage its own host.** It has no systemd, no
+> host nginx and no host package manager, so managed sites, per-app vhosts and
+> host services are unavailable. Use it for evaluation, for driving *other*
+> servers through agents, or as a panel behind your own reverse proxy. To manage
+> **this** machine, use the [one-line host install](#one-line-install-recommended)
+> instead.
 
 ### Step 1: Install Docker
 
@@ -206,6 +239,12 @@ nano .env
 - `SECRET_KEY` - Unique random string for Flask sessions
 - `JWT_SECRET_KEY` - Unique random string for JWT tokens
 - `CORS_ORIGINS` - Your domain (e.g., `https://panel.yourdomain.com`)
+- `SERVERKIT_HTTP_PORT` - Optional; host port to publish (default `5000`)
+
+Leave the database alone unless you want PostgreSQL: compose keeps SQLite on the
+`serverkit-data` volume. To use another database under Docker, set
+`SERVERKIT_DATABASE_URL` — **not** `DATABASE_URL`, which compose overrides so a
+relative SQLite path cannot silently place your data outside the volume.
 
 ### Step 4: Start ServerKit
 
@@ -222,11 +261,17 @@ docker compose ps
 
 ### Step 5: Access ServerKit
 
-Open your browser and navigate to:
-- **HTTP**: `http://your-server-ip`
-- **HTTPS**: `https://your-server-ip` (if SSL configured)
+Open your browser and navigate to `http://your-server-ip:5000` (override the
+published port with `SERVERKIT_HTTP_PORT` in `.env`).
 
 Create your admin account on first visit.
+
+The container speaks plain HTTP only — it has no certificates and no HTTPS
+listener. For TLS, terminate it in a reverse proxy in front of the container:
+see [Running behind your own reverse proxy](#running-behind-your-own-reverse-proxy).
+
+Your data (the SQLite database) lives on the `serverkit-data` named volume, so
+`docker compose down` keeps it and `docker compose down -v` destroys it.
 
 ---
 
@@ -438,6 +483,230 @@ sudo certbot --nginx -d your-domain.com
 # Auto-renewal is configured automatically
 sudo systemctl status certbot.timer
 ```
+
+---
+
+## Running behind your own reverse proxy
+
+Already running Caddy, Traefik, Nginx Proxy Manager or your own nginx — with
+Let's Encrypt, an internal PKI, or a private CA such as smallstep? ServerKit
+supports that. The panel itself is CA-agnostic: certificates are entirely your
+proxy's business, and ServerKit never sees them.
+
+Two things make it work, and one thing usually breaks first.
+
+### The redirect loop
+
+A **host install** puts its own nginx on port 80, and the default site 301s
+every plain-HTTP request to HTTPS. An external proxy terminates TLS and then
+speaks plain HTTP upstream — so it receives that 301, follows it, gets another,
+and the browser gives up with *"too many redirects"*. The fix is to stop that
+redirect (topology A below) or to bypass that nginx entirely (topology B).
+
+Nothing in the Flask app ever redirects to HTTPS, so once nginx is out of the
+way the loop cannot recur.
+
+### Pick a topology
+
+| | **A — proxy → ServerKit nginx** | **B — proxy → the app directly** |
+|---|---|---|
+| Install type | Host install (`install.sh`) | Docker, or a host install you front yourself |
+| Upstream | `127.0.0.1:80` | `127.0.0.1:5000` |
+| Panel UI / API / websockets | ✅ | ✅ |
+| Managed site vhosts, per-app domains | ✅ | ❌ **panel only** |
+| `TRUSTED_PROXY_HOPS` | `2` | `1` |
+
+Topology B is the only option for the Docker image — it contains no nginx.
+Choose A on a host install if ServerKit also hosts your sites, because those
+per-app vhosts live in the nginx you would be bypassing.
+
+### The two environment variables
+
+Both go in `.env` (host install: `/opt/serverkit/.env`) and both matter
+regardless of topology.
+
+| Variable | Why |
+|---|---|
+| `SERVERKIT_PUBLIC_URL` | **Required.** The browser's `Origin` on the Socket.IO handshake is your public HTTPS URL, which the panel does not otherwise know. Without it every realtime connection is rejected with HTTP 400 and the UI silently stops updating. Set it to the exact scheme+host you browse to, no trailing slash. |
+| `TRUST_PROXY_HEADERS` | Set `true` so the real client IP is read from `X-Forwarded-For` instead of every request appearing to come from your proxy. Rate limits, login lockout and audit logs all depend on it. ⚠️ Leave it **off** if the port is exposed directly to clients — the header is client-forgeable without a proxy in front to overwrite it. |
+
+```bash
+SERVERKIT_PUBLIC_URL=https://serverkit.example.com
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=1        # 2 for topology A — see the table above
+```
+
+`TRUSTED_PROXY_HOPS` is the number of proxies that append to `X-Forwarded-For`
+before Flask sees it. Count them: in topology A your proxy appends the client,
+then ServerKit's nginx appends your proxy, so it is `2`. Too low and you log
+your own proxy's IP; too high and a client can forge the value.
+
+### Topology A — keep ServerKit's nginx, drop the redirect
+
+The plain-HTTP site ships with every install; it just isn't the default.
+
+```bash
+# 1. Serve the panel over plain HTTP, with no redirect for your proxy to loop on
+sudo ln -sf /etc/nginx/sites-available/serverkit-insecure.conf \
+            /etc/nginx/sites-enabled/serverkit.conf
+
+# 2. Record that this box does not terminate TLS itself
+echo insecure | sudo tee /etc/serverkit/ssl-mode
+sudo sed -i 's/^SERVERKIT_SSL_MODE=.*/SERVERKIT_SSL_MODE=insecure/' /opt/serverkit/.env
+
+# 3. Add the two variables from above to /opt/serverkit/.env, then apply
+sudo nginx -t && sudo systemctl reload nginx
+sudo systemctl restart serverkit
+```
+
+> Run these **on the host**, not inside a container — `serverkit-insecure.conf`
+> is written to the host filesystem by `install.sh` and does not exist in any
+> ServerKit image.
+
+Step 2 is not cosmetic: it is what suppresses the panel's
+`Strict-Transport-Security` header. Left as `secure`, the panel tells browsers
+to force HTTPS on a port that only speaks HTTP. **Both** places must change —
+the panel reads the `SERVERKIT_SSL_MODE` environment variable first and only
+falls back to `/etc/serverkit/ssl-mode`, so editing the file alone has no effect
+on a host install, where `install.sh` wrote that variable into `.env`.
+
+To start a **new** install already in this shape, skip the manual steps:
+
+```bash
+curl -fsSL https://serverkit.ai/install.sh -o install.sh
+sudo SERVERKIT_EXTERNAL_PROXY=1 \
+     SERVERKIT_PUBLIC_URL=https://serverkit.example.com \
+     bash install.sh
+```
+
+`SERVERKIT_EXTERNAL_PROXY=1` selects the plain-HTTP site, skips certbot, and
+writes `TRUST_PROXY_HEADERS=true` + `TRUSTED_PROXY_HOPS=2` into `.env` for you.
+See [Install options](#install-options).
+
+### Topology B — point your proxy at the app
+
+Docker needs nothing but the environment — the shipped `docker-compose.yml`
+already publishes the panel on 5000:
+
+```bash
+# .env
+SERVERKIT_PUBLIC_URL=https://serverkit.example.com
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=1
+```
+
+```bash
+docker compose up -d
+```
+
+The container publishes on all interfaces by default, so port 5000 is reachable
+directly and bypasses your proxy (and its TLS). If the proxy runs on the same
+host, bind the panel to loopback with a `docker-compose.override.yml`:
+
+```yaml
+services:
+  serverkit:
+    ports: !override
+      - "127.0.0.1:5000:5000"
+```
+
+Otherwise, block 5000 at the firewall.
+
+On a host install, point your proxy at `127.0.0.1:5000` and leave ServerKit's
+nginx alone (or disable it if it fights for port 80). Gunicorn serves the SPA,
+the API and the websockets from that single port. Remember this is panel-only:
+managed sites do not exist without the vhost layer.
+
+### Proxy configuration
+
+Substitute `UPSTREAM` with `localhost:80` (topology A) or `localhost:5000`
+(topology B). Websockets need no special handling in Caddy or Traefik; nginx and
+Apache need the upgrade headers spelled out.
+
+**Caddy** — including a private ACME CA such as smallstep:
+
+```caddy
+{
+    # Only if you use an internal CA. Omit both lines for Let's Encrypt.
+    acme_ca      https://ca.lab/acme/acme/directory
+    acme_ca_root /etc/caddy/root_ca.crt
+}
+
+serverkit.example.com {
+    reverse_proxy UPSTREAM
+}
+```
+
+**Traefik** (dynamic file provider):
+
+```yaml
+http:
+  routers:
+    serverkit:
+      rule: "Host(`serverkit.example.com`)"
+      service: serverkit
+      tls:
+        certResolver: internal
+  services:
+    serverkit:
+      loadBalancer:
+        servers:
+          - url: "http://UPSTREAM"
+```
+
+**Nginx Proxy Manager**: add a Proxy Host for the domain, forward to the
+upstream host/port over `http`, and enable **Websockets Support** — the panel's
+realtime updates fail silently without it.
+
+**Plain nginx** elsewhere on your network:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name serverkit.example.com;
+
+    ssl_certificate     /etc/ssl/certs/serverkit.crt;
+    ssl_certificate_key /etc/ssl/private/serverkit.key;
+
+    location / {
+        proxy_pass http://UPSTREAM;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 7d;   # long-lived websockets
+        proxy_send_timeout 7d;
+    }
+}
+```
+
+### Private and internal CAs
+
+ServerKit needs no configuration for these — your proxy presents the
+certificate, and only browsers and other clients have to trust the issuing root.
+Install your root CA in the OS/browser trust store on the machines you browse
+from.
+
+One exception: if a **ServerKit agent** on another machine dials back to a panel
+fronted by a private CA, that machine must also trust the root, or the agent's
+TLS handshake fails. Install the root in its system trust store
+(`/usr/local/share/ca-certificates/` + `update-ca-certificates` on Debian/Ubuntu,
+`/etc/pki/ca-trust/source/anchors/` + `update-ca-trust` on RHEL-family).
+
+### Troubleshooting
+
+| Symptom | Cause |
+|---|---|
+| *"Too many redirects"* | Topology A step skipped — ServerKit's nginx is still 301ing to HTTPS. Check `readlink /etc/nginx/sites-enabled/serverkit.conf`. |
+| Loop persists after the fix | Your browser cached an HSTS entry from an earlier HTTPS visit. Clear it (`chrome://net-internals/#hsts` → *Delete domain security policies*) and confirm `/etc/serverkit/ssl-mode` reads `insecure`. |
+| UI loads, but nothing live-updates; console shows a failed `/socket.io/` request | `SERVERKIT_PUBLIC_URL` unset or not an exact match for the URL in the address bar (scheme, host, no trailing slash). Restart the panel after changing it. |
+| Websockets fail only through the proxy | Upgrade headers or Websockets Support not enabled on the proxy. |
+| Every audit-log entry and rate limit shows your proxy's IP | `TRUST_PROXY_HEADERS` is not `true`. |
+| Client IPs are wrong but not the proxy's | `TRUSTED_PROXY_HOPS` mismatch — recount the proxies in front of Flask. |
+| 502 from your proxy | Nothing is listening on the upstream. Check `serverkit status` / `docker compose ps`, and that the upstream port matches the topology. |
 
 ---
 

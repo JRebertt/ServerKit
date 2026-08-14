@@ -86,8 +86,15 @@ base de datos, migración y rollback automático. Usa `--dry-run` para previsual
 git clone https://github.com/jhd3197/ServerKit.git
 cd ServerKit
 cp .env.example .env       # luego edita .env con tus claves
-docker compose up -d       # accede en http://localhost
+docker compose up -d       # accede en http://localhost:5000
 ```
+
+Ejecuta el panel como un único contenedor. Ten en cuenta que un panel en
+contenedor **no puede administrar su propio host** — sin systemd, sin nginx del
+host, sin vhosts de sitios gestionados; para eso usa la Opción 1. No incluye
+nginx y nunca redirige a HTTPS, así que es el destino ideal para poner tu propio
+proxy inverso delante — consulta
+[Ejecutar detrás de tu propio proxy inverso](INSTALLATION.md#running-behind-your-own-reverse-proxy).
 
 ### Opción 3: Instalación Manual
 
