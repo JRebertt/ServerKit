@@ -712,7 +712,10 @@ exit 1
 EOF
 chmod +x "$t/bin/apt-get"
 ( set -Eeuo pipefail; PATH="$t/bin:$PYX:$PATH"; OS_FAMILY=debian PKG_MGR=apt locate_python ) >/dev/null 2>&1
-if grep -q 'install -y python3.11-venv' "$APT_LOG"; then
+# Match the PACKAGE, not the exact argv: pkg_add also passes
+# -o Dpkg::Options::=… now, and an assertion pinned to `install -y <pkg>`
+# breaks on any future flag without the behaviour under test changing.
+if grep -qE 'install .*python3\.11-venv' "$APT_LOG"; then
     ok "locate_python (Debian family) tries to install the matching pythonX.Y-venv package"
 else
     bad "locate_python never attempted the python3.11-venv fallback; apt saw: $(tr '\n' ';' < "$APT_LOG")"
@@ -735,8 +738,8 @@ EOF
 chmod +x "$t/bin/apt-get"
 out="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; PKG_MGR=apt ensure_compose_plugin 2>&1 )"
 rc=$?
-if [ "$rc" -eq 0 ] && grep -q 'install -y docker-compose-plugin' "$APT_LOG" \
-   && grep -q 'install -y docker-compose-v2' "$APT_LOG" \
+if [ "$rc" -eq 0 ] && grep -qE 'install .*docker-compose-plugin' "$APT_LOG" \
+   && grep -qE 'install .*docker-compose-v2' "$APT_LOG" \
    && printf '%s' "$out" | grep -q 'docker compose'; then
     ok "ensure_compose_plugin tries plugin → docker-compose-v2 → warn-and-continue (never aborts)"
 else
@@ -971,7 +974,7 @@ out="$( set -Eeuo pipefail; PATH="$t/bin"
         OS_FAMILY=debian PKG_MGR=apt provision_docker 2>&1 )"
 rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'get.docker.com' && \
-   grep -q 'install -y docker.io' "$APT_LOG"; then
+   grep -qE 'install .*docker\.io' "$APT_LOG"; then
     ok "provision_docker warns and falls back to the distro package when the download fails"
 else
     bad "provision_docker rc=$rc on a failed download (I13); apt saw: $(tr '\n' ';' < "$APT_LOG"): [$out]"
@@ -2174,6 +2177,21 @@ if grep -q -- '-b 127.0.0.1:5000' "$unit" 2>/dev/null; then
     ok "render_service_unit and the trust decision share one bind host (loopback)"
 else
     bad "the rendered unit does not bind loopback: [$(grep ExecStart "$unit" 2>/dev/null)]"
+fi
+
+# -- apt must never be able to open an interactive prompt.
+#
+#    `apt-get install -y` answers apt's questions but NOT debconf's: tzdata and
+#    friends still open a dialog and block. pkg_add captures output, so the
+#    installer then hangs in complete silence — a real 60-minute stall on
+#    ubuntu:22.04, found only once provisioning was exercised for real. Under
+#    `curl | bash` it is worse: stdin is the script, so debconf can consume
+#    installer source as its answers.
+apt_line="$(awk '/^pkg_add\(\)/,/^}/' "$INSTALL_SH" | grep -A3 'apt)')"
+if printf '%s' "$apt_line" | grep -q 'DEBIAN_FRONTEND=noninteractive'; then
+    ok "pkg_add runs apt with DEBIAN_FRONTEND=noninteractive"
+else
+    bad "pkg_add's apt branch can block on a debconf prompt: [$apt_line]"
 fi
 
 # -- static guard: the documented insecure site must keep shipping, since both

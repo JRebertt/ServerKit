@@ -109,7 +109,16 @@ pkg_install() {
     case "$mgr" in
         # Deliberate word-splitting of the package list via "$@" — each argument
         # is already a separate, individually-quoted package name.
-        apt)    _pkg_run apt-get install -y "$@" ;;
+        # `env VAR=…` rather than an exported variable: _pkg_sudo runs plain
+        # `sudo "$@"`, and sudo's env_reset would drop an exported
+        # DEBIAN_FRONTEND before apt ever saw it. Putting it in argv survives.
+        # Without it, debconf (tzdata et al) opens a dialog and waits forever —
+        # the docstring above promised "non-interactively" and only apt did not
+        # deliver it. --force-conf* covers modified-conffile prompts, which
+        # DEBIAN_FRONTEND does not suppress.
+        apt)    _pkg_run env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                    -o Dpkg::Options::=--force-confold \
+                    -o Dpkg::Options::=--force-confdef "$@" ;;
         dnf)    _pkg_run dnf install -y "$@" ;;
         yum)    _pkg_run yum install -y "$@" ;;
         zypper) _pkg_run zypper --non-interactive install "$@" ;;

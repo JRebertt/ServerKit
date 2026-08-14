@@ -422,7 +422,18 @@ ensure_bootstrap_tools() {
 pkg_add() {
     local out="" rc=0
     case "$PKG_MGR" in
-        apt)    out=$(apt-get install -y "$@" 2>&1) || rc=$? ;;
+        # -y is NOT enough on Debian/Ubuntu. It answers apt's own prompts but
+        # not debconf's: tzdata, keyboard-configuration and friends still open
+        # an interactive dialog and wait forever. Because this output is
+        # captured, the installer then hangs in total silence — observed as a
+        # 60-minute stall on ubuntu:22.04 with the prompt invisible. Worse
+        # under `curl | bash`, where stdin is the script itself, so debconf can
+        # read installer source as its answers. The Dpkg options cover the
+        # other prompt class (modified conffiles), which DEBIAN_FRONTEND alone
+        # does not suppress. Every other manager here was already guarded.
+        apt)    out=$(DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                        -o Dpkg::Options::=--force-confold \
+                        -o Dpkg::Options::=--force-confdef "$@" 2>&1) || rc=$? ;;
         dnf)    out=$(dnf install -y "$@" 2>&1) || rc=$? ;;
         yum)    out=$(yum install -y "$@" 2>&1) || rc=$? ;;
         zypper) out=$(zypper --non-interactive install "$@" 2>&1) || rc=$? ;;
