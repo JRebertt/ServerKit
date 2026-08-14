@@ -83,7 +83,13 @@ BACKUP_DIR="/var/backups/serverkit"
 CONFIG_DIR="/etc/serverkit"
 
 PYTHON_MIN="3.11"
-PYTHON_MAX="3.12"
+# 3.13 included since issue #99: Debian 13 (trixie) ships ONLY python3.13 — no
+# 3.11, no 3.12 — so a 3.11-3.12 gate could never be satisfied from its repos
+# and every install there fell through to the source build. Ubuntu 26.04 lands
+# in the same place. Raising the ceiling needed SQLAlchemy >= 2.0.31 (see
+# backend/requirements.txt) and dropping two stacked @classmethod/@staticmethod
+# decorators that 3.13 no longer collapses.
+PYTHON_MAX="3.13"
 PYTHON_BIN=""
 
 GITHUB_REPO="${GITHUB_REPO:-jhd3197/ServerKit}"
@@ -693,7 +699,7 @@ locate_python() {
     # given up on. Sets PYTHON_BIN and returns 0 on success; returns 1
     # (without aborting) when nothing fits.
     local c v
-    for c in python3.12 python3.11 python3; do
+    for c in python3.13 python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v=$("$c" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)
             if [ -n "$v" ] && ver_in_range "$v"; then
@@ -717,14 +723,55 @@ locate_python() {
 }
 
 build_python_from_source() {
-    cd /tmp
-    wget -q https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
-    tar xzf Python-3.12.8.tgz
-    cd Python-3.12.8
-    ./configure --enable-optimizations --prefix=/usr/local 2>&1 | tail -1
-    make -j"$(nproc)" 2>&1 | tail -1
-    make altinstall 2>&1 | tail -1
-    cd /tmp && rm -rf Python-3.12.8 Python-3.12.8.tgz
+    local ver="3.12.8" src="/tmp/Python-3.12.8"
+
+    # Every step is checked and the real error is shown. The old version piped
+    # each command to `tail -1` and ignored the status, so a failed configure
+    # looked identical to a successful one and the install died much later with
+    # "Could not install a supported Python" and no reason (issue #99).
+    #
+    # No --enable-optimizations: PGO triples-to-quadruples the build (20+ min on
+    # a small VPS) to buy runtime speed a control panel never notices. This is a
+    # last-resort path; finishing matters more than a faster interpreter.
+    (
+        set -e
+        cd /tmp
+        step "Downloading Python $ver source..."
+        wget -q "https://www.python.org/ftp/python/$ver/Python-$ver.tgz"
+        tar xzf "Python-$ver.tgz"
+        cd "Python-$ver"
+        step "Configuring Python $ver (this takes a few minutes)..."
+        ./configure --prefix=/usr/local > /tmp/python-build.log 2>&1
+        step "Compiling Python $ver..."
+        make -j"$(nproc)" >> /tmp/python-build.log 2>&1
+        make altinstall >> /tmp/python-build.log 2>&1
+    )
+    local rc=$?
+    rm -rf "$src" "/tmp/Python-$ver.tgz"
+
+    if [ "$rc" != "0" ]; then
+        warn "Building Python $ver failed. Last 20 lines:"
+        tail -20 /tmp/python-build.log 2>/dev/null | sed 's/^/    /' >&2
+        warn "Full log: /tmp/python-build.log"
+        return 1
+    fi
+
+    # A source build silently omits modules whose headers were missing at
+    # configure time. No ssl means every HTTPS fetch dies; no sqlite3 means the
+    # database never opens — both far from here and impossible to connect back.
+    local built="/usr/local/bin/python${ver%.*}"
+    if [ -x "$built" ]; then
+        local missing=""
+        for mod in ssl sqlite3 ctypes; do
+            "$built" -c "import $mod" >/dev/null 2>&1 || missing="$missing $mod"
+        done
+        if [ -n "$missing" ]; then
+            warn "The Python we built is missing stdlib modules:$missing"
+            warn "Install the matching -dev packages and re-run the installer."
+            return 1
+        fi
+    fi
+    return 0
 }
 
 provision_python() {
@@ -754,11 +801,24 @@ provision_python() {
                 pkg_add python3.12 python3.12-venv python3.12-dev
             fi
         else
-            # Debian (and Debian-like): python3.11 lives in the main repo.
+            # Debian (and Debian-like). The default `python3` tracks the
+            # release — bookworm 3.11, trixie 3.13 — so ask for it FIRST rather
+            # than naming a version. Trixie carries no python3.11 or python3.12
+            # at all, so the old "install python3.11, else python3.12" pair
+            # could only ever fail there (issue #99), and hardcoding 3.13
+            # instead would just move the same trap to the next release.
+            # The explicit fallbacks below cover releases whose default is out
+            # of range. locate_python (not `command -v`) is the probe, because
+            # a binary existing says nothing about it being in range or
+            # venv-capable.
             refresh_pkg_index
-            pkg_add python3.11 python3.11-venv python3.11-dev
-            command -v python3.11 &>/dev/null || \
+            pkg_add python3 python3-venv python3-dev
+            locate_python >/dev/null 2>&1 || \
+                pkg_add python3.13 python3.13-venv python3.13-dev
+            locate_python >/dev/null 2>&1 || \
                 pkg_add python3.12 python3.12-venv python3.12-dev
+            locate_python >/dev/null 2>&1 || \
+                pkg_add python3.11 python3.11-venv python3.11-dev
         fi
     elif [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; then
         pkg_add python3.12 python3.12-devel
@@ -781,19 +841,36 @@ provision_python() {
 
     # Last resort: compile from source.
     warn "Distro packages did not provide a supported Python — building from source."
+    # A COMPILER, first. This list was only the -dev headers: nothing anywhere
+    # in the installer ever installed gcc or make, so `./configure` could not
+    # run on any clean VPS and this whole fallback was decorative (issue #99).
     if [ "$OS_FAMILY" = "debian" ]; then
-        pkg_add wget zlib1g-dev libbz2-dev libreadline-dev \
+        pkg_add build-essential wget zlib1g-dev libbz2-dev libreadline-dev \
             libsqlite3-dev libncurses5-dev libncursesw5-dev \
             xz-utils tk-dev liblzma-dev libffi-dev libssl-dev
+    elif [ "$OS_FAMILY" = "suse" ]; then
+        pkg_add gcc gcc-c++ make wget zlib-devel libbz2-devel readline-devel \
+            sqlite3-devel ncurses-devel xz-devel tk-devel libffi-devel \
+            libopenssl-devel
     else
-        pkg_add wget zlib-devel bzip2-devel readline-devel \
-            sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel
+        pkg_add gcc gcc-c++ make wget zlib-devel bzip2-devel readline-devel \
+            sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel \
+            openssl-devel
     fi
-    build_python_from_source
+
+    if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+        halt "No C compiler available and no packaged Python $PYTHON_MIN-$PYTHON_MAX on ${ID:-this distro}.
+       Install one by hand, then re-run:  apt-get install build-essential   (or: dnf group install \"Development Tools\")"
+    fi
+
+    if ! build_python_from_source; then
+        halt "Could not build Python from source — see the log above.
+       Install Python $PYTHON_MIN-$PYTHON_MAX by hand and re-run the installer."
+    fi
     PYTHON_BIN="python3.12"
 
     command -v "$PYTHON_BIN" &>/dev/null || \
-        halt "Could not install a supported Python — install Python 3.11 or 3.12 by hand."
+        halt "Could not install a supported Python — install Python $PYTHON_MIN-$PYTHON_MAX by hand."
     good "Python installed ($PYTHON_BIN)."
 }
 
