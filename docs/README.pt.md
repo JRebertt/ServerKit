@@ -86,8 +86,15 @@ ou `--release [versão]` para tarballs de release.
 git clone https://github.com/jhd3197/ServerKit.git
 cd ServerKit
 cp .env.example .env       # depois edite o .env com suas chaves secretas
-docker compose up -d       # acesse em http://localhost
+docker compose up -d       # acesse em http://localhost:5000
 ```
+
+Executa o painel como um único contêiner. Note que um painel em contêiner **não
+consegue gerenciar o próprio host** — sem systemd, sem nginx do host, sem vhosts
+de sites gerenciados; para isso use a Opção 1. Ele não inclui nginx e nunca
+redireciona para HTTPS, o que o torna o alvo ideal para colocar seu próprio proxy
+reverso na frente — consulte
+[Rodar atrás do seu próprio proxy reverso](INSTALLATION.md#running-behind-your-own-reverse-proxy).
 
 ### Opção 3: Instalação Manual
 

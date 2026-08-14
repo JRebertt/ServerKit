@@ -56,10 +56,15 @@ mkpy() {  # mkpy <name> <major.minor>
     } > "$PY_STUB/$1"
     chmod +x "$PY_STUB/$1"
 }
-# python3.12 reports an out-of-range 3.13 (rejected); python3.11 is in range;
+# python3.12 reports an out-of-range 3.14 (rejected); python3.11 is in range;
 # bare python3 is an old 3.10 (rejected). locate_python must therefore pick
 # python3.11 — proving it no longer blindly trusts `python3`.
-mkpy python3.12 3.13
+#
+# The out-of-range stub used to report 3.13, which stopped being out of range
+# when the gate moved to cover Debian 13 (issue #99). Pick a version ABOVE
+# PYTHON_MAX, and move it whenever the ceiling moves — the point of the stub is
+# "too new", not any particular number.
+mkpy python3.12 3.14
 mkpy python3.11 3.11
 mkpy python3     3.10
 export PATH="$STUB_BIN:$PATH"
@@ -88,13 +93,28 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# T2 — ver_in_range gate (3.11/3.12 accepted, 3.10/3.13 rejected).
+# T2 — ver_in_range gate (3.11/3.12/3.13 accepted, 3.10/3.14 rejected).
+#
+# 3.13 MUST be accepted: Debian 13 ships only python3.13, and this assertion
+# previously required it to be rejected — the suite was actively pinning the
+# bug that made trixie uninstallable (issue #99).
 # --------------------------------------------------------------------------
 if ( set -Eeuo pipefail; ver_in_range 3.11 ) && ( set -Eeuo pipefail; ver_in_range 3.12 ) && \
-   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.13 ); then
-    ok "ver_in_range accepts 3.11/3.12 and rejects 3.10/3.13"
+   ( set -Eeuo pipefail; ver_in_range 3.13 ) && \
+   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.14 ); then
+    ok "ver_in_range accepts 3.11/3.12/3.13 and rejects 3.10/3.14"
 else
     bad "ver_in_range gate is wrong"
+fi
+
+# Debian 13 carries ONLY python3.13, so the ceiling has to include it or the
+# installer can never satisfy itself from trixie's repos. Guard the constant
+# directly — the gate above would still pass if PYTHON_MAX regressed to 3.12
+# and someone "fixed" the assertion to match.
+if [ "$PYTHON_MAX" = "3.13" ] || printf '%s\n%s' "3.13" "$PYTHON_MAX" | sort -C -V; then
+    ok "PYTHON_MAX ($PYTHON_MAX) covers Debian 13's python3.13"
+else
+    bad "PYTHON_MAX is $PYTHON_MAX — Debian 13 ships only python3.13 and would fall to a source build"
 fi
 
 # --------------------------------------------------------------------------
@@ -318,22 +338,68 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# T12 — the canonical docker-compose.yml is frontend-only. The backend manages
-# the host (creates /var/serverkit/apps/*, drives host Docker, reloads nginx),
-# which a container cannot do — a backend container fails app creation with
-# `Permission denied: /var/serverkit/apps/...` and has no host docker.sock.
-# Guard against re-adding a `backend` compose service (the regression that
-# broke WordPress/app creation).
+# T12 — docker-compose.yml shape.
+#
+# Two separate contracts live in this one file, and both have already been
+# broken once:
+#
+#   1. No `backend:` service. On a HOST install the backend manages the host
+#      (creates /var/serverkit/apps/*, drives host Docker, reloads nginx),
+#      which a container cannot do — a backend container fails app creation
+#      with `Permission denied: /var/serverkit/apps/...` and has no host
+#      docker.sock. This broke WordPress/app creation once already.
+#   2. Plain `docker compose up -d` must start something. Every service was
+#      once behind the `legacy-frontend` profile, so the default command
+#      started NOTHING while the README still told people to run it — issue
+#      #96, where the reporter ran the profile by hand and got an nginx
+#      container serving an empty dist directory (403).
 # --------------------------------------------------------------------------
 compose="$REPO_DIR/docker-compose.yml"
+# Service keys inside the `services:` block that carry no `profiles:` — i.e.
+# exactly what a plain `docker compose up -d` would start. Literal spaces
+# rather than {2}/{4} intervals so this works on any awk.
+compose_default_services="$(awk '
+    /^services:/ { in_services = 1; next }
+    /^[a-zA-Z]/  { in_services = 0 }
+    !in_services { next }
+    /^  [a-zA-Z0-9_-]+:[ ]*$/ { svc = $1; sub(/:$/, "", svc); order[++n] = svc; cur = svc; next }
+    /^    profiles:/ { if (cur != "") profiled[cur] = 1 }
+    END { for (i = 1; i <= n; i++) if (!profiled[order[i]]) print order[i] }
+' "$compose" | sort | tr '\n' ' ')"
+
 if grep -Eq '^[[:space:]]{2}backend:' "$compose"; then
     bad "docker-compose.yml defines a 'backend' service — the backend must run on the host, not in a container"
 elif ! grep -Eq '^[[:space:]]{2}frontend:' "$compose"; then
-    bad "docker-compose.yml is missing the 'frontend' service"
+    bad "docker-compose.yml is missing the legacy 'frontend' service"
 elif ! grep -q 'backend:host-gateway' "$compose"; then
     bad "docker-compose.yml frontend is missing the 'backend:host-gateway' alias to reach the host backend"
+elif ! awk '/^  frontend:/{f=1} f&&/^    profiles:/{print;exit}' "$compose" | grep -q 'legacy-frontend'; then
+    bad "the legacy frontend service is no longer behind the 'legacy-frontend' profile"
 else
-    ok "docker-compose.yml is frontend-only and routes /api to the host backend (backend:host-gateway)"
+    ok "docker-compose.yml has no backend service and keeps the legacy frontend profiled"
+fi
+
+# `docker compose up -d` must resolve to at least one service. Anything without
+# a `profiles:` key starts by default.
+if [ -z "${compose_default_services// /}" ]; then
+    bad "every docker-compose.yml service is behind a profile — 'docker compose up -d' would start NOTHING (issue #96)"
+elif ! grep -Eq '^[[:space:]]{2}serverkit:' "$compose"; then
+    bad "docker-compose.yml no longer defines the all-in-one 'serverkit' service"
+else
+    ok "'docker compose up -d' starts the all-in-one panel [$compose_default_services]"
+fi
+
+# The all-in-one image writes its SQLite database to /app/instance. The
+# Dockerfile must create that directory and chown it to the non-root runtime
+# user, or the container dies on boot with "unable to open database file" —
+# and a named volume mounted there inherits root ownership (issue #96).
+dockerfile="$REPO_DIR/Dockerfile"
+if ! grep -q '/app/instance' "$dockerfile"; then
+    bad "Dockerfile never creates /app/instance — the container cannot open its database"
+elif ! grep -Eq 'mkdir -p .*/app/instance' "$dockerfile"; then
+    bad "Dockerfile mentions /app/instance but does not mkdir it"
+else
+    ok "Dockerfile creates /app/instance for the database volume"
 fi
 
 # --------------------------------------------------------------------------
@@ -646,7 +712,10 @@ exit 1
 EOF
 chmod +x "$t/bin/apt-get"
 ( set -Eeuo pipefail; PATH="$t/bin:$PYX:$PATH"; OS_FAMILY=debian PKG_MGR=apt locate_python ) >/dev/null 2>&1
-if grep -q 'install -y python3.11-venv' "$APT_LOG"; then
+# Match the PACKAGE, not the exact argv: pkg_add also passes
+# -o Dpkg::Options::=… now, and an assertion pinned to `install -y <pkg>`
+# breaks on any future flag without the behaviour under test changing.
+if grep -qE 'install .*python3\.11-venv' "$APT_LOG"; then
     ok "locate_python (Debian family) tries to install the matching pythonX.Y-venv package"
 else
     bad "locate_python never attempted the python3.11-venv fallback; apt saw: $(tr '\n' ';' < "$APT_LOG")"
@@ -669,8 +738,8 @@ EOF
 chmod +x "$t/bin/apt-get"
 out="$( set -Eeuo pipefail; PATH="$t/bin:$PATH"; PKG_MGR=apt ensure_compose_plugin 2>&1 )"
 rc=$?
-if [ "$rc" -eq 0 ] && grep -q 'install -y docker-compose-plugin' "$APT_LOG" \
-   && grep -q 'install -y docker-compose-v2' "$APT_LOG" \
+if [ "$rc" -eq 0 ] && grep -qE 'install .*docker-compose-plugin' "$APT_LOG" \
+   && grep -qE 'install .*docker-compose-v2' "$APT_LOG" \
    && printf '%s' "$out" | grep -q 'docker compose'; then
     ok "ensure_compose_plugin tries plugin → docker-compose-v2 → warn-and-continue (never aborts)"
 else
@@ -905,7 +974,7 @@ out="$( set -Eeuo pipefail; PATH="$t/bin"
         OS_FAMILY=debian PKG_MGR=apt provision_docker 2>&1 )"
 rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'get.docker.com' && \
-   grep -q 'install -y docker.io' "$APT_LOG"; then
+   grep -qE 'install .*docker\.io' "$APT_LOG"; then
     ok "provision_docker warns and falls back to the distro package when the download fails"
 else
     bad "provision_docker rc=$rc on a failed download (I13); apt saw: $(tr '\n' ';' < "$APT_LOG"): [$out]"
@@ -1816,6 +1885,343 @@ if awk '/^bootstrap_firewall\(\)/,/^}/' "$INSTALL_SH" | grep -q 'detect_ssh_port
     ok "bootstrap_firewall still consults detect_ssh_ports before enabling anything"
 else
     bad "bootstrap_firewall no longer detects the SSH port — LOCKOUT RISK"
+fi
+
+# --------------------------------------------------------------------------
+# T43 — plan 71: running behind an operator's own reverse proxy.
+#
+# Issue #96. Two switches, and the failure modes are silent ones: a panel that
+# still 301s to HTTPS traps the proxy in a redirect loop, and a missing
+# SERVERKIT_PUBLIC_URL leaves the UI loading but never live-updating because
+# every websocket handshake is rejected on origin.
+# --------------------------------------------------------------------------
+printf '\nT43 — external reverse proxy (SERVERKIT_EXTERNAL_PROXY / SERVERKIT_CONFIG)\n'
+t43="$WORK/t43"
+mkdir -p "$t43"
+
+# -- EXTERNAL_PROXY implies SKIP_SSL. Sourcing install.sh re-runs the settings
+#    block, so the implication is observable without running an install.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        unset SERVERKIT_SKIP_SSL || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$SERVERKIT_SKIP_SSL" )"
+if [ "$out" = "1" ]; then
+    ok "SERVERKIT_EXTERNAL_PROXY=1 implies SERVERKIT_SKIP_SSL=1 (no HTTPS redirect to loop on)"
+else
+    bad "SERVERKIT_EXTERNAL_PROXY=1 left SERVERKIT_SKIP_SSL=[$out] — the panel would still 301 to HTTPS"
+fi
+
+# -- and it must NOT flip SKIP_SSL for an ordinary install.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY SERVERKIT_SKIP_SSL || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$SERVERKIT_SKIP_SSL" )"
+if [ "$out" = "0" ]; then
+    ok "the default install is untouched (SERVERKIT_SKIP_SSL=0)"
+else
+    bad "an ordinary install now skips SSL (SERVERKIT_SKIP_SSL=[$out])"
+fi
+
+# -- a trailing slash on the public URL must be stripped: a browser's Origin
+#    header never carries one, so storing it raw would never match.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        SERVERKIT_PUBLIC_URL="https://panel.example.com/"
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$PANEL_PUBLIC_URL" )"
+if [ "$out" = "https://panel.example.com" ]; then
+    ok "a trailing slash is stripped from SERVERKIT_PUBLIC_URL"
+else
+    bad "SERVERKIT_PUBLIC_URL normalised to [$out]"
+fi
+
+# -- SERVERKIT_CONFIG supplies defaults...
+cat > "$t43/install.conf" <<'CONF'
+# ServerKit install config
+SERVERKIT_EXTERNAL_PROXY=1
+SERVERKIT_PUBLIC_URL="https://from-file.example.com"
+SERVERKIT_PROFILE=minimal
+CONF
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY SERVERKIT_PUBLIC_URL SERVERKIT_PROFILE || true
+        SERVERKIT_CONFIG="$t43/install.conf"
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s|%s|%s' "$SERVERKIT_EXTERNAL_PROXY" "$PANEL_PUBLIC_URL" "$PROFILE" )"
+if [ "$out" = "1|https://from-file.example.com|minimal" ]; then
+    ok "SERVERKIT_CONFIG supplies defaults (quotes stripped, comments ignored)"
+else
+    bad "SERVERKIT_CONFIG produced [$out]"
+fi
+
+# -- ...but explicit environment always wins over the file.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY || true
+        SERVERKIT_CONFIG="$t43/install.conf"
+        SERVERKIT_PUBLIC_URL="https://from-env.example.com"
+        SERVERKIT_PROFILE=full
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s|%s' "$PANEL_PUBLIC_URL" "$PROFILE" )"
+if [ "$out" = "https://from-env.example.com|full" ]; then
+    ok "explicit environment overrides SERVERKIT_CONFIG"
+else
+    bad "SERVERKIT_CONFIG overrode the explicit environment: [$out]"
+fi
+
+# -- a missing config file is a hard error, not a silently-default install.
+if ( set -Eeuo pipefail
+     SERVERKIT_CONFIG="$t43/nope.conf"
+     source "$INSTALL_SH" >/dev/null 2>&1 ) ; then
+    bad "a missing SERVERKIT_CONFIG file was ignored"
+else
+    ok "a missing SERVERKIT_CONFIG file aborts instead of installing the wrong shape"
+fi
+
+# -- the file must be parsed, not executed: a command in it must not run.
+printf 'touch %s/pwned\nSERVERKIT_PROFILE=minimal\n' "$t43" > "$t43/evil.conf"
+( set -Eeuo pipefail
+  unset SERVERKIT_PROFILE || true
+  SERVERKIT_CONFIG="$t43/evil.conf"
+  source "$INSTALL_SH" >/dev/null 2>&1 ) || true
+if [ -e "$t43/pwned" ]; then
+    bad "SERVERKIT_CONFIG executed a command from the file — it must be parsed, not sourced"
+else
+    ok "SERVERKIT_CONFIG is parsed, not sourced (a stray command does not run as root)"
+fi
+
+# -- write_config on an EXISTING .env must apply the proxy settings, because
+#    "convert my install to sit behind Caddy" is a re-run and lands there.
+env_dir="$t43/opt"
+mkdir -p "$env_dir"
+cat > "$env_dir/.env" <<'ENVEOF'
+SECRET_KEY=keep-me
+SERVERKIT_SSL_MODE=secure
+# TRUST_PROXY_HEADERS=false
+ENVEOF
+( set -Eeuo pipefail
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$env_dir"; SSL_MODE=insecure; PROFILE=standard
+  SERVERKIT_EXTERNAL_PROXY=1; PANEL_PUBLIC_URL="https://panel.example.com"
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$env_dir/.env" \
+   && grep -q '^TRUSTED_PROXY_HOPS=2' "$env_dir/.env" \
+   && grep -q '^SERVERKIT_PUBLIC_URL=https://panel.example.com$' "$env_dir/.env" \
+   && grep -q '^SECRET_KEY=keep-me' "$env_dir/.env" \
+   && [ "$(grep -c 'TRUST_PROXY_HEADERS' "$env_dir/.env")" = "1" ]; then
+    ok "converting an existing install rewrites the proxy keys and keeps the secrets"
+else
+    bad "existing-.env conversion produced: [$(tr '\n' ' ' < "$env_dir/.env")]"
+fi
+
+# -- and SERVERKIT_SSL_MODE must flip to insecure in the .env, not only in
+#    /etc/serverkit/ssl-mode. _resolve_ssl_mode() reads the ENV VAR FIRST and
+#    only falls back to the file, and run.py load_dotenv()s this file — so a
+#    stale SERVERKIT_SSL_MODE=secure here keeps HSTS on and tells browsers to
+#    force HTTPS on a port that now only speaks plain HTTP.
+if grep -q '^SERVERKIT_SSL_MODE=insecure' "$env_dir/.env" \
+   && ! grep -q '^SERVERKIT_SSL_MODE=secure' "$env_dir/.env"; then
+    ok "the converted .env records ssl-mode=insecure so HSTS stops being sent"
+else
+    bad "SERVERKIT_SSL_MODE was not flipped to insecure: [$(grep SERVERKIT_SSL_MODE "$env_dir/.env" | tr '\n' ' ')]"
+fi
+
+# -- an ordinary re-run must not strip proxy settings someone configured by hand.
+( set -Eeuo pipefail
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$env_dir"; SSL_MODE=insecure; PROFILE=standard
+  SERVERKIT_EXTERNAL_PROXY=0
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$env_dir/.env"; then
+    ok "a plain re-run leaves existing proxy settings alone"
+else
+    bad "a plain re-run removed TRUST_PROXY_HEADERS from an existing .env"
+fi
+
+# -- only ONE default server may exist on :80.
+#
+#    Both site configs declare `listen 80 default_server` and then include
+#    /etc/nginx/serverkit-conf.d/*.conf. install.sh writes the canonical-domain
+#    redirect into that directory whenever PANEL_DOMAIN is set, and it used to
+#    declare `listen 80 default_server` as well — which nginx rejects outright
+#    ("a duplicate default server for 0.0.0.0:80"), in BOTH ssl modes. Since
+#    launch_services starts nginx after write_config, every first install with a
+#    domain produced an nginx that would not start. Verified against real nginx.
+#    Directives only — the block's own comments explain this trap by naming it.
+canon_block="$(awk '/canonical-domain.conf <<EOF/,/^EOF$/' "$INSTALL_SH" \
+                | grep -v '^[[:space:]]*#')"
+if [ -z "$canon_block" ]; then
+    bad "could not find the canonical-domain.conf heredoc in install.sh"
+elif printf '%s' "$canon_block" | grep -q 'default_server'; then
+    bad "the canonical-domain redirect declares default_server — nginx will refuse to start on any PANEL_DOMAIN install"
+elif ! printf '%s' "$canon_block" | grep -q 'server_name ~'; then
+    bad "the canonical-domain redirect no longer matches a bare IP by regex server_name — the redirect will never fire"
+else
+    ok "the canonical-domain redirect matches a bare IP without a second default_server"
+fi
+
+# -- and the shipped sites must remain the ONLY default server on :80.
+for site in serverkit.conf serverkit-insecure.conf; do
+    n="$(grep -c 'listen 80 default_server' "$REPO_DIR/nginx/sites-available/$site" || true)"
+    if [ "$n" = "1" ]; then
+        ok "$site declares exactly one default server on :80"
+    else
+        bad "$site declares $n default servers on :80 (expected 1)"
+    fi
+done
+
+# --------------------------------------------------------------------------
+# T44 — every install must derive the REAL client IP.
+#
+# install.sh wrote no TRUST_PROXY_HEADERS line at all, so the config default
+# (False) applied while the panel always sits behind its own nginx: per-IP rate
+# limits, the login brute-force throttle and every audit-log entry keyed on
+# 127.0.0.1. .env.example claimed `true`, so the two disagreed.
+#
+# Trusting X-Forwarded-For is only safe because nothing can reach gunicorn
+# without passing through that nginx — render_service_unit binds loopback and
+# the firewall never opens the backend port. Expose the port and the header
+# becomes attacker-chosen, so the switch must follow the bind host.
+# --------------------------------------------------------------------------
+printf '\nT44 — trusted client IP on a stock install\n'
+t44="$WORK/t44"; mkdir -p "$t44"
+
+# write_config mints secrets with `openssl rand -hex 32` and a python3 one-liner.
+# The distro containers this suite runs in ship NEITHER — ubuntu:24.04 and
+# debian:12 have no openssl and no python3 — and under `set -e` the failed
+# command substitution aborted write_config before it wrote a single line, so
+# three assertions read an empty file and failed in CI while passing on a dev
+# box that happens to have both. Stub them: this test is about which proxy keys
+# land in .env, not about how random the secrets are. (Same philosophy as the
+# rest of the suite, which stubs every external tool.)
+#
+# Shell functions win over PATH lookup, including for `"${PYTHON_BIN:-python3}"`,
+# so no PATH juggling is needed. Defined by calling this inside each subshell.
+# Literal values, no seq/head/tr: those are exactly the sort of tool a stripped
+# base image turns out not to have, which is the bug being fixed here.
+_t44_stub_keygen() {
+    openssl() { printf '%s\n' "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"; }
+    python3() { printf '%s\n' "ZmFrZS1mZXJuZXQta2V5LWZvci11bml0LXRlc3RzLTAwMDA9"; }
+}
+
+# -- the stock install: loopback-bound gunicorn behind our own nginx.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
+        rm -rf "$t44/a"; mkdir -p "$t44/a"
+        INSTALL_DIR="$t44/a"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/a/.env" )"
+if printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=true' \
+   && printf '%s' "$out" | grep -q '^TRUSTED_PROXY_HOPS=1'; then
+    ok "a stock install trusts its own nginx and derives the real client IP (1 hop)"
+else
+    bad "stock install produced: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- exposing the raw backend port must turn it OFF: X-Forwarded-For is then
+#    client-controlled, and a forged IP defeats the very throttles it feeds.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY || true
+        SERVERKIT_BIND_HOST=0.0.0.0
+        source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
+        rm -rf "$t44/b"; mkdir -p "$t44/b"
+        INSTALL_DIR="$t44/b"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/b/.env" )"
+if printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=false' \
+   && ! printf '%s' "$out" | grep -q '^TRUST_PROXY_HEADERS=true'; then
+    ok "SERVERKIT_BIND_HOST=0.0.0.0 leaves trust OFF (the header would be forgeable)"
+else
+    bad "an exposed backend port still trusted X-Forwarded-For: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- the external-proxy switch still wins, with its own hop count.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
+        rm -rf "$t44/c"; mkdir -p "$t44/c"
+        INSTALL_DIR="$t44/c"; SSL_MODE=insecure; PROFILE=standard
+        write_config >/dev/null 2>&1
+        cat "$t44/c/.env" )"
+if printf '%s' "$out" | grep -q '^TRUSTED_PROXY_HOPS=2'; then
+    ok "SERVERKIT_EXTERNAL_PROXY still overrides the default with 2 hops"
+else
+    bad "external proxy did not set 2 hops: [$(printf '%s' "$out" | grep -i proxy | tr '\n' ' ')]"
+fi
+
+# -- backfill on a re-run: pre-existing installs are the ones actually suffering.
+mkdir -p "$t44/old"
+printf 'SECRET_KEY=keep-me\nSERVERKIT_SSL_MODE=insecure\n' > "$t44/old/.env"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$t44/old"; SSL_MODE=insecure; PROFILE=standard
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$t44/old/.env" \
+   && grep -q '^TRUSTED_PROXY_HOPS=1' "$t44/old/.env" \
+   && grep -q '^SECRET_KEY=keep-me' "$t44/old/.env"; then
+    ok "a re-run backfills the trust setting into an install that predates it"
+else
+    bad "re-run backfill produced: [$(tr '\n' ' ' < "$t44/old/.env")]"
+fi
+
+# -- but an explicit operator choice is never overridden. Someone who turned
+#    trust off did it for a reason, and a re-run flipping it back on silently
+#    would be the worst possible surprise.
+mkdir -p "$t44/explicit"
+printf 'SECRET_KEY=keep-me\nTRUST_PROXY_HEADERS=false\n' > "$t44/explicit/.env"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$t44/explicit"; SSL_MODE=insecure; PROFILE=standard
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=false' "$t44/explicit/.env" \
+   && ! grep -q '^TRUST_PROXY_HEADERS=true' "$t44/explicit/.env"; then
+    ok "a re-run never overrides an explicit TRUST_PROXY_HEADERS=false"
+else
+    bad "a re-run overrode the operator's explicit setting: [$(tr '\n' ' ' < "$t44/explicit/.env")]"
+fi
+
+# -- the two consumers of the bind host must agree. The systemd unit and the
+#    trust decision reading different values is exactly how this class of bug
+#    comes back.
+unit="$t44/unit.service"
+( set -Eeuo pipefail
+  unset SERVERKIT_BIND_HOST || true
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$REPO_DIR"; VENV_DIR="$REPO_DIR/venv"; LOG_DIR="$t44"
+  render_service_unit "$unit" >/dev/null 2>&1 ) || true
+if grep -q -- '-b 127.0.0.1:5000' "$unit" 2>/dev/null; then
+    ok "render_service_unit and the trust decision share one bind host (loopback)"
+else
+    bad "the rendered unit does not bind loopback: [$(grep ExecStart "$unit" 2>/dev/null)]"
+fi
+
+# -- apt must never be able to open an interactive prompt.
+#
+#    `apt-get install -y` answers apt's questions but NOT debconf's: tzdata and
+#    friends still open a dialog and block. pkg_add captures output, so the
+#    installer then hangs in complete silence — a real 60-minute stall on
+#    ubuntu:22.04, found only once provisioning was exercised for real. Under
+#    `curl | bash` it is worse: stdin is the script, so debconf can consume
+#    installer source as its answers.
+apt_line="$(awk '/^pkg_add\(\)/,/^}/' "$INSTALL_SH" | grep -A3 'apt)')"
+if printf '%s' "$apt_line" | grep -q 'DEBIAN_FRONTEND=noninteractive'; then
+    ok "pkg_add runs apt with DEBIAN_FRONTEND=noninteractive"
+else
+    bad "pkg_add's apt branch can block on a debconf prompt: [$apt_line]"
+fi
+
+# -- static guard: the documented insecure site must keep shipping, since both
+#    the docs and SERVERKIT_EXTERNAL_PROXY point operators straight at it.
+if [ -f "$REPO_DIR/nginx/sites-available/serverkit-insecure.conf" ] \
+   && ! grep -qE 'return[[:space:]]+30[12]' "$REPO_DIR/nginx/sites-available/serverkit-insecure.conf"; then
+    ok "serverkit-insecure.conf ships and contains no redirect for a proxy to loop on"
+else
+    bad "serverkit-insecure.conf is missing or now redirects — issue #96 would recur"
 fi
 
 # --------------------------------------------------------------------------

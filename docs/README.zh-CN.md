@@ -86,8 +86,13 @@ sudo serverkit update
 git clone https://github.com/jhd3197/ServerKit.git
 cd ServerKit
 cp .env.example .env       # 编辑 .env 文件，填入你的密钥
-docker compose up -d       # 访问 http://localhost
+docker compose up -d       # 访问 http://localhost:5000
 ```
+
+以单容器方式运行面板。请注意，容器化的面板**无法管理它自己的宿主机**——没有 systemd、
+没有宿主机 nginx、没有托管站点的 vhost；需要这些功能请使用方式一。该镜像不含 nginx，
+也从不重定向到 HTTPS，因此非常适合放在你自己的反向代理后面——参阅
+[在你自己的反向代理后运行](INSTALLATION.md#running-behind-your-own-reverse-proxy)。
 
 ### 方式三：手动安装
 

@@ -115,64 +115,27 @@ Frontend will be available at: `http://localhost:41921`
 
 Use this for quick UI testing. Note: System management features (PHP install, firewall, etc.) won't work.
 
-### docker-compose.dev.yml
-
-Create this file in the project root:
-
-```yaml
-# Development docker-compose - FOR TESTING UI ONLY
-# System management features won't work in this mode
-
-services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: serverkit-backend-dev
-    environment:
-      - FLASK_ENV=development
-      - SECRET_KEY=dev-secret-key
-      - JWT_SECRET_KEY=dev-jwt-key
-      - DATABASE_URL=sqlite:////app/instance/serverkit.db
-      - CORS_ORIGINS=http://localhost,http://localhost:3000,http://localhost:5849
-    ports:
-      - "5849:5000"
-    volumes:
-      - ./backend:/app
-      - dev-data:/app/instance
-    networks:
-      - serverkit-dev
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: serverkit-frontend-dev
-    environment:
-      - VITE_API_URL=http://localhost:5849/api/v1
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - serverkit-dev
-
-networks:
-  serverkit-dev:
-    driver: bridge
-
-volumes:
-  dev-data:
-```
-
-### Run with Docker Compose
+The repository's `docker-compose.yml` already does this — it builds the
+all-in-one image from `Dockerfile` (gunicorn serving the API, the SPA and
+websockets together) and publishes it on port 5000.
 
 ```bash
-docker compose -f docker-compose.dev.yml up --build
+cp .env.example .env    # set SECRET_KEY / JWT_SECRET_KEY
+docker compose up -d --build
 ```
+
+Then open http://localhost:5000. Override the published port with
+`SERVERKIT_HTTP_PORT` in `.env` if 5000 is taken.
+
+```bash
+docker compose logs -f          # follow the panel log
+docker compose down             # stop, keep the database volume
+docker compose down -v          # stop and destroy the database
+```
+
+There is no hot reload in this mode — the SPA is a production build baked into
+the image, so a frontend change needs `docker compose up -d --build`. For an
+edit-refresh loop, use Option 1 (Vite HMR + Flask reloader).
 
 ---
 
@@ -183,8 +146,8 @@ Add this to `.devcontainer/devcontainer.json`:
 ```json
 {
   "name": "ServerKit Dev",
-  "dockerComposeFile": "../docker-compose.dev.yml",
-  "service": "backend",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "serverkit",
   "workspaceFolder": "/app",
   "customizations": {
     "vscode": {
@@ -195,8 +158,8 @@ Add this to `.devcontainer/devcontainer.json`:
       ]
     }
   },
-  "forwardPorts": [5000, 3000],
-  "postCreateCommand": "pip install -r requirements.txt"
+  "forwardPorts": [5000],
+  "postCreateCommand": "pip install -r backend/requirements.txt"
 }
 ```
 

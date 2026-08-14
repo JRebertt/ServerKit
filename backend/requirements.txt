@@ -4,7 +4,13 @@ Werkzeug==3.1.6
 
 # Database
 Flask-SQLAlchemy==3.1.1
-SQLAlchemy==2.0.23
+# >=2.0.31 is REQUIRED for Python 3.13. Older releases raise at import time:
+# "SQLCoreOperations directly inherits TypingOnly but has additional attributes
+# {'__static_attributes__', '__firstlineno__'}" — 3.13 adds those class
+# attributes and SQLAlchemy's TypingOnly guard rejected them. Debian 13 ships
+# only 3.13, so this pin is what lets the panel install there at all.
+# Verified: 3542 passed / 0 failed on 3.11 with 2.0.52, identical to 2.0.23.
+SQLAlchemy==2.0.52
 Flask-Migrate==4.0.7
 
 # Authentication

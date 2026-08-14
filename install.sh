@@ -11,10 +11,61 @@
 #   BUILD_FROM_SOURCE=1      force a source build even when a release exists
 #   SERVERKIT_SKIP_SSL=1     run on plain HTTP (no HTTPS / no certbot attempt)
 #
+# Running your own reverse proxy (Caddy / Traefik / nginx) in front of the panel:
+#
+#   SERVERKIT_EXTERNAL_PROXY=1   your proxy terminates TLS; ours must not
+#                                redirect to HTTPS. Implies SERVERKIT_SKIP_SSL=1
+#                                and configures the trusted-proxy client IP.
+#   SERVERKIT_PUBLIC_URL=...     the public https:// URL browsers use. Required
+#                                with EXTERNAL_PROXY or realtime updates break.
+#
+# Re-runnable installs:
+#
+#   SERVERKIT_CONFIG=/path/install.conf   KEY=VALUE defaults for any of the
+#                                         variables above. Explicit environment
+#                                         still wins over the file.
+#
 # The Flask backend runs straight on the host (it needs real system access);
 # the React frontend is built to static files and served by the host nginx.
 #
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Declarative install config (SERVERKIT_CONFIG)
+# ---------------------------------------------------------------------------
+# Sourced before any default is applied, so a file entry behaves exactly like
+# passing that variable on the command line. Runs this early — ahead of the
+# terminal-styling helpers — so it can only use plain printf/exit.
+load_install_config() {
+    local file="${SERVERKIT_CONFIG:-}"
+    [ -n "$file" ] || return 0
+    if [ ! -f "$file" ]; then
+        printf 'ERROR: SERVERKIT_CONFIG file not found: %s\n' "$file" >&2
+        exit 1
+    fi
+
+    # The file supplies DEFAULTS. A variable already present in the environment
+    # was passed explicitly for this run and must win, so apply keys one at a
+    # time and skip the ones already set — sourcing the file wholesale would
+    # invert that precedence. Parsing (rather than sourcing) also keeps a stray
+    # command in the file from executing as root.
+    local line key value
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line#"${line%%[![:space:]]*}"}"      # strip leading whitespace
+        case "$line" in ''|'#'*) continue ;; esac
+        case "$line" in 'export '*) line="${line#export }" ;; esac
+        case "$line" in *=*) ;; *) continue ;; esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        # Names only; anything else is a typo, not a variable.
+        case "$key" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+        value="${value%\"}"; value="${value#\"}"
+        value="${value%\'}"; value="${value#\'}"
+        [ -z "${!key+set}" ] || continue
+        export "$key=$value"
+    done < "$file"
+}
+load_install_config
 
 # ---------------------------------------------------------------------------
 # Settings and environment contract
@@ -32,7 +83,13 @@ BACKUP_DIR="/var/backups/serverkit"
 CONFIG_DIR="/etc/serverkit"
 
 PYTHON_MIN="3.11"
-PYTHON_MAX="3.12"
+# 3.13 included since issue #99: Debian 13 (trixie) ships ONLY python3.13 — no
+# 3.11, no 3.12 — so a 3.11-3.12 gate could never be satisfied from its repos
+# and every install there fell through to the source build. Ubuntu 26.04 lands
+# in the same place. Raising the ceiling needed SQLAlchemy >= 2.0.31 (see
+# backend/requirements.txt) and dropping two stacked @classmethod/@staticmethod
+# decorators that 3.13 no longer collapses.
+PYTHON_MAX="3.13"
 PYTHON_BIN=""
 
 GITHUB_REPO="${GITHUB_REPO:-jhd3197/ServerKit}"
@@ -57,6 +114,21 @@ PROFILE_PROMPT_TIMEOUT="${SERVERKIT_PROFILE_TIMEOUT:-15}"
 PANEL_DOMAIN="${PANEL_DOMAIN:-}"
 PANEL_PORT="${PANEL_PORT:-80}"
 SERVERKIT_SKIP_SSL="${SERVERKIT_SKIP_SSL:-0}"
+
+# An external reverse proxy (Caddy, Traefik, nginx elsewhere) terminates TLS in
+# front of the panel and speaks plain HTTP upstream. Our own nginx must then NOT
+# redirect :80 to HTTPS — the proxy would follow that redirect straight back
+# into itself, which is the "too many redirects" the browser reports. So this
+# implies SKIP_SSL, and it also turns on the trusted-proxy client-IP path with
+# two hops (their proxy appends the client, our nginx appends their proxy).
+SERVERKIT_EXTERNAL_PROXY="${SERVERKIT_EXTERNAL_PROXY:-0}"
+if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+    SERVERKIT_SKIP_SSL=1
+fi
+# The public https:// URL browsers use. Behind a proxy the panel cannot infer
+# it, and the Socket.IO handshake rejects the browser's Origin without it.
+PANEL_PUBLIC_URL="${SERVERKIT_PUBLIC_URL:-}"
+PANEL_PUBLIC_URL="${PANEL_PUBLIC_URL%/}"
 SERVERKIT_OFFLINE_TARBALL="${SERVERKIT_OFFLINE_TARBALL:-}"
 SERVERKIT_MIRROR_URL="${SERVERKIT_MIRROR_URL:-}"
 
@@ -350,7 +422,18 @@ ensure_bootstrap_tools() {
 pkg_add() {
     local out="" rc=0
     case "$PKG_MGR" in
-        apt)    out=$(apt-get install -y "$@" 2>&1) || rc=$? ;;
+        # -y is NOT enough on Debian/Ubuntu. It answers apt's own prompts but
+        # not debconf's: tzdata, keyboard-configuration and friends still open
+        # an interactive dialog and wait forever. Because this output is
+        # captured, the installer then hangs in total silence — observed as a
+        # 60-minute stall on ubuntu:22.04 with the prompt invisible. Worse
+        # under `curl | bash`, where stdin is the script itself, so debconf can
+        # read installer source as its answers. The Dpkg options cover the
+        # other prompt class (modified conffiles), which DEBIAN_FRONTEND alone
+        # does not suppress. Every other manager here was already guarded.
+        apt)    out=$(DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                        -o Dpkg::Options::=--force-confold \
+                        -o Dpkg::Options::=--force-confdef "$@" 2>&1) || rc=$? ;;
         dnf)    out=$(dnf install -y "$@" 2>&1) || rc=$? ;;
         yum)    out=$(yum install -y "$@" 2>&1) || rc=$? ;;
         zypper) out=$(zypper --non-interactive install "$@" 2>&1) || rc=$? ;;
@@ -627,7 +710,7 @@ locate_python() {
     # given up on. Sets PYTHON_BIN and returns 0 on success; returns 1
     # (without aborting) when nothing fits.
     local c v
-    for c in python3.12 python3.11 python3; do
+    for c in python3.13 python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v=$("$c" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)
             if [ -n "$v" ] && ver_in_range "$v"; then
@@ -651,14 +734,55 @@ locate_python() {
 }
 
 build_python_from_source() {
-    cd /tmp
-    wget -q https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz
-    tar xzf Python-3.12.8.tgz
-    cd Python-3.12.8
-    ./configure --enable-optimizations --prefix=/usr/local 2>&1 | tail -1
-    make -j"$(nproc)" 2>&1 | tail -1
-    make altinstall 2>&1 | tail -1
-    cd /tmp && rm -rf Python-3.12.8 Python-3.12.8.tgz
+    local ver="3.12.8" src="/tmp/Python-3.12.8"
+
+    # Every step is checked and the real error is shown. The old version piped
+    # each command to `tail -1` and ignored the status, so a failed configure
+    # looked identical to a successful one and the install died much later with
+    # "Could not install a supported Python" and no reason (issue #99).
+    #
+    # No --enable-optimizations: PGO triples-to-quadruples the build (20+ min on
+    # a small VPS) to buy runtime speed a control panel never notices. This is a
+    # last-resort path; finishing matters more than a faster interpreter.
+    (
+        set -e
+        cd /tmp
+        step "Downloading Python $ver source..."
+        wget -q "https://www.python.org/ftp/python/$ver/Python-$ver.tgz"
+        tar xzf "Python-$ver.tgz"
+        cd "Python-$ver"
+        step "Configuring Python $ver (this takes a few minutes)..."
+        ./configure --prefix=/usr/local > /tmp/python-build.log 2>&1
+        step "Compiling Python $ver..."
+        make -j"$(nproc)" >> /tmp/python-build.log 2>&1
+        make altinstall >> /tmp/python-build.log 2>&1
+    )
+    local rc=$?
+    rm -rf "$src" "/tmp/Python-$ver.tgz"
+
+    if [ "$rc" != "0" ]; then
+        warn "Building Python $ver failed. Last 20 lines:"
+        tail -20 /tmp/python-build.log 2>/dev/null | sed 's/^/    /' >&2
+        warn "Full log: /tmp/python-build.log"
+        return 1
+    fi
+
+    # A source build silently omits modules whose headers were missing at
+    # configure time. No ssl means every HTTPS fetch dies; no sqlite3 means the
+    # database never opens — both far from here and impossible to connect back.
+    local built="/usr/local/bin/python${ver%.*}"
+    if [ -x "$built" ]; then
+        local missing=""
+        for mod in ssl sqlite3 ctypes; do
+            "$built" -c "import $mod" >/dev/null 2>&1 || missing="$missing $mod"
+        done
+        if [ -n "$missing" ]; then
+            warn "The Python we built is missing stdlib modules:$missing"
+            warn "Install the matching -dev packages and re-run the installer."
+            return 1
+        fi
+    fi
+    return 0
 }
 
 provision_python() {
@@ -688,11 +812,24 @@ provision_python() {
                 pkg_add python3.12 python3.12-venv python3.12-dev
             fi
         else
-            # Debian (and Debian-like): python3.11 lives in the main repo.
+            # Debian (and Debian-like). The default `python3` tracks the
+            # release — bookworm 3.11, trixie 3.13 — so ask for it FIRST rather
+            # than naming a version. Trixie carries no python3.11 or python3.12
+            # at all, so the old "install python3.11, else python3.12" pair
+            # could only ever fail there (issue #99), and hardcoding 3.13
+            # instead would just move the same trap to the next release.
+            # The explicit fallbacks below cover releases whose default is out
+            # of range. locate_python (not `command -v`) is the probe, because
+            # a binary existing says nothing about it being in range or
+            # venv-capable.
             refresh_pkg_index
-            pkg_add python3.11 python3.11-venv python3.11-dev
-            command -v python3.11 &>/dev/null || \
+            pkg_add python3 python3-venv python3-dev
+            locate_python >/dev/null 2>&1 || \
+                pkg_add python3.13 python3.13-venv python3.13-dev
+            locate_python >/dev/null 2>&1 || \
                 pkg_add python3.12 python3.12-venv python3.12-dev
+            locate_python >/dev/null 2>&1 || \
+                pkg_add python3.11 python3.11-venv python3.11-dev
         fi
     elif [ "$OS_FAMILY" = "fedora" ] || [ "$OS_FAMILY" = "rhel" ]; then
         pkg_add python3.12 python3.12-devel
@@ -715,19 +852,36 @@ provision_python() {
 
     # Last resort: compile from source.
     warn "Distro packages did not provide a supported Python — building from source."
+    # A COMPILER, first. This list was only the -dev headers: nothing anywhere
+    # in the installer ever installed gcc or make, so `./configure` could not
+    # run on any clean VPS and this whole fallback was decorative (issue #99).
     if [ "$OS_FAMILY" = "debian" ]; then
-        pkg_add wget zlib1g-dev libbz2-dev libreadline-dev \
+        pkg_add build-essential wget zlib1g-dev libbz2-dev libreadline-dev \
             libsqlite3-dev libncurses5-dev libncursesw5-dev \
             xz-utils tk-dev liblzma-dev libffi-dev libssl-dev
+    elif [ "$OS_FAMILY" = "suse" ]; then
+        pkg_add gcc gcc-c++ make wget zlib-devel libbz2-devel readline-devel \
+            sqlite3-devel ncurses-devel xz-devel tk-devel libffi-devel \
+            libopenssl-devel
     else
-        pkg_add wget zlib-devel bzip2-devel readline-devel \
-            sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel
+        pkg_add gcc gcc-c++ make wget zlib-devel bzip2-devel readline-devel \
+            sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel \
+            openssl-devel
     fi
-    build_python_from_source
+
+    if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+        halt "No C compiler available and no packaged Python $PYTHON_MIN-$PYTHON_MAX on ${ID:-this distro}.
+       Install one by hand, then re-run:  apt-get install build-essential   (or: dnf group install \"Development Tools\")"
+    fi
+
+    if ! build_python_from_source; then
+        halt "Could not build Python from source — see the log above.
+       Install Python $PYTHON_MIN-$PYTHON_MAX by hand and re-run the installer."
+    fi
     PYTHON_BIN="python3.12"
 
     command -v "$PYTHON_BIN" &>/dev/null || \
-        halt "Could not install a supported Python — install Python 3.11 or 3.12 by hand."
+        halt "Could not install a supported Python — install Python $PYTHON_MIN-$PYTHON_MAX by hand."
     good "Python installed ($PYTHON_BIN)."
 }
 
@@ -1224,6 +1378,54 @@ build_virtualenv() {
 # ---------------------------------------------------------------------------
 # Application configuration and generated secrets
 # ---------------------------------------------------------------------------
+# Where gunicorn listens. Loopback by default — host nginx fronts the panel on
+# :80/:443, so the raw gunicorn port must not be world-reachable. Operators who
+# front it differently override with SERVERKIT_BIND_HOST=0.0.0.0.
+#
+# One definition, two consumers: it renders the systemd unit AND decides whether
+# X-Forwarded-For is trustworthy. Those answers must never disagree.
+backend_bind_host() {
+    printf '%s' "${SERVERKIT_BIND_HOST:-127.0.0.1}"
+}
+
+# True when the only route to Flask is through our own nginx.
+#
+# This is the whole security condition behind TRUST_PROXY_HEADERS. ProxyFix
+# takes X-Forwarded-For at face value, which is safe exactly when a proxy we
+# control is guaranteed to have written it — i.e. when nothing can open a socket
+# to gunicorn directly. Loopback binding is what guarantees that; the installer
+# firewall also never opens the backend port (SSH + 80/443 + PANEL_PORT only).
+backend_is_loopback_only() {
+    case "$(backend_bind_host)" in
+        127.0.0.1|localhost|::1|'[::1]') return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Set KEY=value in an env file, replacing any existing definition (commented or
+# not). Rewrites the file instead of `sed -i s|...|`: values here are URLs, and
+# an unescaped '/', '&' or '|' in a sed replacement is syntax, not data.
+# Fill a gap without ever overriding a choice. An uncommented definition is the
+# operator's — someone may have turned trust off deliberately, and a re-run
+# silently turning it back on would be the worst kind of surprise.
+_env_default_key() {
+    local file="$1" key="$2" value="$3"
+    grep -qE "^[[:space:]]*${key}=" "$file" && return 0
+    _env_set_key "$file" "$key" "$value"
+}
+
+_env_set_key() {
+    local file="$1" key="$2" value="$3" tmp
+    # Beside the target, not in /tmp: this file carries SECRET_KEY and the
+    # encryption key, and $INSTALL_DIR is root-owned while /tmp is world-listable.
+    tmp="$(mktemp "${file}.XXXXXX")"
+    grep -v -E "^[[:space:]]*#?[[:space:]]*${key}=" "$file" > "$tmp" || true
+    printf '%s=%s\n' "$key" "$value" >> "$tmp"
+    # cat rather than mv so the original mode (0600) and owner survive.
+    cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
 write_config() {
     phase "Configuration"
 
@@ -1245,6 +1447,31 @@ write_config() {
             sed -i "s|^SERVERKIT_PROFILE=.*|SERVERKIT_PROFILE=$PROFILE|" "$INSTALL_DIR/.env"
         else
             printf 'SERVERKIT_PROFILE=%s\n' "$PROFILE" >> "$INSTALL_DIR/.env"
+        fi
+        # Converting an existing install to sit behind an external proxy is a
+        # re-run with SERVERKIT_EXTERNAL_PROXY=1, and it lands here — the .env
+        # already exists. Applying the switch only on a first install would make
+        # the documented conversion path silently do nothing. Only ever ADD the
+        # trust settings; never remove them on an ordinary re-run, which would
+        # quietly break client IPs for someone who set them by hand.
+        if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+            _env_set_key "$INSTALL_DIR/.env" TRUST_PROXY_HEADERS true
+            _env_set_key "$INSTALL_DIR/.env" TRUSTED_PROXY_HOPS 2
+            if [ -n "$PANEL_PUBLIC_URL" ]; then
+                _env_set_key "$INSTALL_DIR/.env" SERVERKIT_PUBLIC_URL "$PANEL_PUBLIC_URL"
+            fi
+            good "External-proxy settings applied to the existing .env."
+        elif backend_is_loopback_only; then
+            # Installs made before the trusted-proxy default existed have no
+            # TRUST_PROXY_HEADERS line at all, so they key rate limits, login
+            # lockout and audit logs on nginx's own address. Backfill it on a
+            # re-run — but only where the line is absent, never over an explicit
+            # setting.
+            if ! grep -qE '^[[:space:]]*TRUST_PROXY_HEADERS=' "$INSTALL_DIR/.env"; then
+                _env_default_key "$INSTALL_DIR/.env" TRUST_PROXY_HEADERS true
+                _env_default_key "$INSTALL_DIR/.env" TRUSTED_PROXY_HOPS 1
+                good "Enabled trusted-proxy client IPs (behind this install's own nginx)."
+            fi
         fi
         return
     fi
@@ -1269,6 +1496,77 @@ write_config() {
         public_url="${url_scheme}://$PANEL_DOMAIN"
     fi
 
+    # Behind someone else's proxy the browser's origin is the proxy's https URL,
+    # which no local signal reveals — SSL_MODE is 'insecure' here precisely
+    # because *we* do not terminate TLS. So the operator-supplied value wins,
+    # and it must be live (not commented out) or every websocket handshake 400s.
+    local proxy_block=""
+    if [ -n "$PANEL_PUBLIC_URL" ]; then
+        public_url="$PANEL_PUBLIC_URL"
+        case ",$cors_origins," in
+            *",$public_url,"*) ;;
+            *) cors_origins="$cors_origins,$public_url" ;;
+        esac
+    fi
+    # Derived-from-the-domain URLs stay commented (they are a guess, and a wrong
+    # SERVERKIT_PUBLIC_URL breaks websockets rather than merely not helping).
+    # An operator-supplied one is written live.
+    local public_url_line=""
+    if [ -n "$PANEL_PUBLIC_URL" ]; then
+        public_url_line="SERVERKIT_PUBLIC_URL=$public_url"
+    elif [ -n "$public_url" ]; then
+        public_url_line="# SERVERKIT_PUBLIC_URL=$public_url"
+    fi
+
+    if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+        # Two hops: their proxy appends the real client, our nginx appends their
+        # proxy. ProxyFix counts from the right, so 1 would log their proxy's IP
+        # for every request and 3 would let a client forge its own.
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — set because this install sits behind an external
+# TLS-terminating proxy (SERVERKIT_EXTERNAL_PROXY=1). Derives the real client
+# IP from X-Forwarded-For for rate limits, login lockout and audit logs.
+# TRUSTED_PROXY_HOPS = proxies in front of Flask: external proxy + our nginx.
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=2
+PROXYEOF
+)
+    elif backend_is_loopback_only; then
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — every host install serves the panel through its own
+# nginx, and gunicorn binds loopback (see the systemd unit), so X-Forwarded-For
+# is written by that nginx and nothing can reach Flask directly to forge it.
+# Without this the panel keys per-IP rate limits, the login brute-force throttle
+# and every audit-log entry on nginx's own address instead of the real client.
+# One hop: our nginx is the only proxy in front. Raise it if you add another
+# (e.g. Cloudflare on top ⇒ 2).
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=1
+PROXYEOF
+)
+    else
+        # The raw gunicorn port is exposed, so a client can connect without
+        # passing through our nginx and X-Forwarded-For becomes attacker-chosen.
+        # Trusting it here would let anyone forge the IP that rate limits, login
+        # lockout and audit logs key on — strictly worse than logging one wrong
+        # address. Left off, and said out loud rather than silently.
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — deliberately OFF. SERVERKIT_BIND_HOST exposes the
+# backend port directly, so X-Forwarded-For is client-controlled and cannot be
+# trusted. Client IPs will show as the proxy/socket peer. If you do front this
+# with a proxy AND block direct access to the backend port, set:
+#   TRUST_PROXY_HEADERS=true
+#   TRUSTED_PROXY_HOPS=<number of proxies in front of Flask>
+TRUST_PROXY_HEADERS=false
+PROXYEOF
+)
+        warn "SERVERKIT_BIND_HOST=${SERVERKIT_BIND_HOST:-} exposes the backend port directly."
+        warn "Leaving TRUST_PROXY_HEADERS off: X-Forwarded-For would be client-forgeable."
+    fi
+
     cat > "$INSTALL_DIR/.env" <<EOF
 # ServerKit Configuration
 # Generated on $(date)
@@ -1284,13 +1582,16 @@ DATABASE_URL=sqlite:///$INSTALL_DIR/backend/instance/serverkit.db
 # CORS Origins (comma-separated, add your domain)
 CORS_ORIGINS=$cors_origins
 
-# Public URL for agents and install commands (optional)
-${public_url:+# SERVERKIT_PUBLIC_URL=$public_url}
+# Public URL for agents, browsers and install commands. Behind a reverse proxy
+# this must be the URL users actually browse to, or the websocket handshake is
+# rejected on origin and the UI stops live-updating.
+$public_url_line
 
 # SSL mode (secure|insecure) — gates the panel's HSTS header so HTTPS stays
 # optional. Mirrors /etc/serverkit/ssl-mode; set to 'secure' only when this
 # server terminates real end-to-end HTTPS.
 SERVERKIT_SSL_MODE=$SSL_MODE
+$proxy_block
 
 # Install profile (minimal|standard|full) — what this install provisioned, not
 # a licence tier. The panel reads it to decide whether to offer app hosting;
@@ -1313,12 +1614,21 @@ EOF
         cat > /etc/nginx/serverkit-conf.d/canonical-domain.conf <<EOF
 # Auto-generated by ServerKit install.sh
 # Redirect direct IP access to the canonical panel domain.
+#
+# NOT \`listen 80 default_server\` with \`server_name _\`. Both serverkit.conf and
+# serverkit-insecure.conf already declare a default server on :80 and then
+# include this directory, and a second default server for the same address:port
+# is a FATAL nginx error — "a duplicate default server for 0.0.0.0:80" — so
+# nginx refused to start on any install that set PANEL_DOMAIN.
+#
+# A regex server_name is the right tool anyway: nginx tries exact names, then
+# wildcards, then regexes, and only then the default server, so this block wins
+# for a bare-IP Host and every other Host still falls through to the panel.
+# That also removes the \`if\`, which nginx documents as best avoided.
 server {
-    listen 80 default_server;
-    server_name _;
-    if (\$host ~* ^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\$) {
-        return 301 ${url_scheme}://$PANEL_DOMAIN\$request_uri;
-    }
+    listen 80;
+    server_name ~^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\$;
+    return 301 ${url_scheme}://$PANEL_DOMAIN\$request_uri;
 }
 EOF
         good "Canonical-domain redirect configured for $PANEL_DOMAIN"
@@ -2039,10 +2349,8 @@ EOF
 render_service_unit() {
     local out="$1"
     local template="$INSTALL_DIR/templates/serverkit-backend.service.in"
-    # Bind the API to loopback by default — host nginx fronts it on :80/:443, so
-    # the raw gunicorn port must not be world-reachable. Operators who front it
-    # differently can override with SERVERKIT_BIND_HOST=0.0.0.0.
-    local bind_host="${SERVERKIT_BIND_HOST:-127.0.0.1}"
+    local bind_host
+    bind_host="$(backend_bind_host)"
     if [ -f "$template" ]; then
         sed -e "s|@SERVERKIT_DIR@|$INSTALL_DIR|g" \
             -e "s|@SERVERKIT_VENV_DIR@|$VENV_DIR|g" \
@@ -2282,6 +2590,40 @@ prompt_for_domain() {
     fi
 }
 
+prompt_for_public_url() {
+    # Only meaningful when someone else terminates TLS in front of us.
+    [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ] || return 0
+    [ -z "$PANEL_PUBLIC_URL" ] || return 0
+
+    # Derive rather than ask when the domain already answers the question.
+    if [ -n "$PANEL_DOMAIN" ]; then
+        PANEL_PUBLIC_URL="https://$PANEL_DOMAIN"
+        good "Public URL: $PANEL_PUBLIC_URL (from PANEL_DOMAIN)"
+        return 0
+    fi
+
+    if [ ! -t 0 ] && [ "${SERVERKIT_FORCE_PROMPT:-0}" != "1" ]; then
+        warn "SERVERKIT_EXTERNAL_PROXY=1 without SERVERKIT_PUBLIC_URL."
+        warn "Realtime updates will be rejected until you set it in $INSTALL_DIR/.env."
+        return 0
+    fi
+
+    printf '\n'
+    printf '%sPublic URL of the panel, as your reverse proxy publishes it%s\n' "$BLD" "$RST"
+    printf 'Example: https://serverkit.example.com\n'
+    printf 'Required: the browser sends this as its websocket Origin, and the\n'
+    printf 'panel rejects the handshake when it does not match.\n'
+    printf '%sTip:%s set SERVERKIT_PUBLIC_URL=... to skip this prompt\n' "$BLD" "$RST"
+    printf '> '
+    read -r PANEL_PUBLIC_URL || true
+    PANEL_PUBLIC_URL=$(printf '%s' "$PANEL_PUBLIC_URL" | tr -d ' ')
+    PANEL_PUBLIC_URL="${PANEL_PUBLIC_URL%/}"
+    if [ -z "$PANEL_PUBLIC_URL" ]; then
+        warn "No public URL given — realtime updates will be rejected until"
+        warn "SERVERKIT_PUBLIC_URL is set in $INSTALL_DIR/.env."
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -2321,6 +2663,7 @@ main() {
     # whether provision_docker runs at all.
     prompt_for_profile
     prompt_for_domain
+    prompt_for_public_url
     snapshot_existing
 
     # RHEL 9 family: keep sshd alive across the dnf work below (see the

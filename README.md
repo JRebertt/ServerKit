@@ -86,8 +86,14 @@ or `--release [version]` for release tarballs.
 git clone https://github.com/jhd3197/ServerKit.git
 cd ServerKit
 cp .env.example .env       # then edit .env with your secrets
-docker compose up -d       # access at http://localhost
+docker compose up -d       # access at http://localhost:5000
 ```
+
+Runs the panel as a single container. Note a containerised panel **cannot manage
+its own host** — no systemd, no host nginx, no managed site vhosts; use Option 1
+for that. It ships without nginx and never redirects to HTTPS, which makes it the
+right target to put your own reverse proxy in front of — see
+[Running behind your own reverse proxy](docs/INSTALLATION.md#running-behind-your-own-reverse-proxy).
 
 ### Option 3: Manual Installation
 

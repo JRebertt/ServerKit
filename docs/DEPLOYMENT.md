@@ -307,12 +307,24 @@ Docker volumes):
 
 ### Auto-renew SSL Certificate
 
-```bash
-# Add to crontab
-sudo crontab -e
+Certbot installs its own renewal timer, and host nginx reads the certificates
+straight out of `/etc/letsencrypt/live/`, so there is nothing to copy and no
+container to restart. Verify it is armed:
 
-# Add this line (renews at 2:30 AM daily)
-30 2 * * * certbot renew --quiet && cp /etc/letsencrypt/live/yourdomain.com/*.pem /opt/serverkit/nginx/ssl/ && docker compose -f /opt/serverkit/docker-compose.yml restart frontend
+```bash
+# The renewal timer certbot installed
+systemctl list-timers | grep certbot
+
+# Dry-run a renewal without touching the live certificate
+sudo certbot renew --dry-run
+```
+
+Only if the timer is missing, add a cron entry that reloads host nginx:
+
+```bash
+sudo crontab -e
+# Renew at 2:30 AM daily, reload nginx only when something actually renewed
+30 2 * * * certbot renew --quiet --deploy-hook "systemctl reload nginx"
 ```
 
 ### Change Domain
@@ -335,15 +347,22 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/serverkit
 
 ## Troubleshooting
 
-### Container won't start
+### Panel won't start
+
+This guide covers the **host install**, where the panel is a systemd service and
+not a container — do not reach for `docker compose` here, it would build a second,
+separate all-in-one panel beside this one.
 
 ```bash
 # Check logs
 serverkit logs backend
 
-# Rebuild
-docker compose build --no-cache
-docker compose up -d
+# Restart the service
+serverkit restart
+serverkit status
+
+# Deeper diagnosis
+serverkit doctor
 ```
 
 ### Permission denied errors
@@ -360,21 +379,18 @@ sudo usermod -aG docker $USER
 ### Port already in use
 
 ```bash
-# Find what's using port 80
+# Find what's using port 80 (host nginx) or 5000 (the panel backend)
 sudo lsof -i :80
-
-# Stop the service or change PORT in .env
+sudo lsof -i :5000
 ```
 
 ### Reset everything
 
 ```bash
-# Stop and remove all containers and volumes
-serverkit stop
-docker compose down -v
+# Delete all managed apps, containers, folders and orphaned Docker resources
+serverkit factory-reset
 
-# Rebuild from scratch
-docker compose build --no-cache
+# Bring the panel back up
 serverkit start
 serverkit init-db
 serverkit create-admin

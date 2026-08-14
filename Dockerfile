@@ -133,8 +133,17 @@ RUN groupadd -r serverkit && useradd -r -g serverkit serverkit
 # so runtime extension installs (PluginService's `pip install -r`) can write to it.
 COPY --from=python-builder --chown=serverkit:serverkit /opt/venv /opt/venv
 
-# Create necessary directories
-RUN mkdir -p /etc/serverkit /var/serverkit/apps /var/log/serverkit /var/quarantine /var/backups/serverkit /app/data \
+# Create necessary directories.
+#
+# /app/instance is where config.py's default DATABASE_URL points
+# (sqlite:////app/instance/serverkit.db). It must exist AND be owned by the
+# serverkit user before the USER switch below: SQLAlchemy will not create the
+# parent directory, so without this the container dies on boot with
+# "sqlite3.OperationalError: unable to open database file". Creating it here
+# also fixes the ownership of a named volume mounted at that path — Docker
+# seeds an empty volume from the image directory, permissions included, but
+# creates it root-owned when the path is absent from the image.
+RUN mkdir -p /etc/serverkit /var/serverkit/apps /var/log/serverkit /var/quarantine /var/backups/serverkit /app/data /app/instance \
     && chown -R serverkit:serverkit /etc/serverkit /var/serverkit /var/log/serverkit /var/quarantine /var/backups/serverkit /app
 
 # Set working directory

@@ -60,7 +60,9 @@ ok "pkg_detect honors PKG_MGR_OVERRIDE for all six managers"
 
 # Each manager's install command, captured in dry-run.
 declare -A expect_install=(
-    [apt]="apt-get install -y git"
+    # apt must carry the non-interactive guard in ARGV (sudo strips exported
+    # env), or debconf stalls the install forever with no visible prompt.
+    [apt]="env DEBIAN_FRONTEND=noninteractive apt-get install -y"
     [dnf]="dnf install -y git"
     [yum]="yum install -y git"
     [zypper]="zypper --non-interactive install git"
@@ -75,6 +77,27 @@ for mgr in "${!expect_install[@]}"; do
     fi
 done
 [ "$allok" = "1" ] && ok "pkg_install emits the right command per manager (dry-run)"
+
+# Every manager must be non-interactive. An install that stops to ask a question
+# nobody can answer hangs forever, and under `curl | bash` stdin is the script
+# itself — so the prompt may consume installer source as its answer.
+declare -A expect_noninteractive=(
+    [apt]="DEBIAN_FRONTEND=noninteractive"
+    [dnf]="-y"
+    [yum]="-y"
+    [zypper]="--non-interactive"
+    [pacman]="--noconfirm"
+)
+allok=1
+for mgr in "${!expect_noninteractive[@]}"; do
+    # `--` before the pattern: these expectations are flags (-y, --noconfirm),
+    # and grep would otherwise parse them as its own options.
+    if ! out="$( set -Eeuo pipefail; PKG_DRY_RUN=1 PKG_MGR_OVERRIDE="$mgr" pkg_install git 2>&1 )" \
+       || ! printf '%s' "$out" | grep -qF -- "${expect_noninteractive[$mgr]}"; then
+        bad "pkg_install $mgr can prompt: [$out]"; allok=0
+    fi
+done
+[ "$allok" = "1" ] && ok "pkg_install is non-interactive for every manager"
 
 # Empty PATH genuinely hides every package manager (CI distro containers DO ship
 # one, so PKG_MGR_OVERRIDE="" alone would run a real install here).

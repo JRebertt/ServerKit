@@ -30,8 +30,8 @@ cd frontend && npm run build
 cd backend && pytest
 cd backend && pytest --cov=app
 
-# Docker
-docker compose -f docker-compose.dev.yml up --build
+# Docker (all-in-one panel container; no host management)
+docker compose up -d --build
 ```
 
 Default dev credentials: `admin` / `admin`

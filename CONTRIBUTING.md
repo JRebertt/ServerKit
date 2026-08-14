@@ -38,8 +38,13 @@ Open http://localhost:41921 — login: `admin` / `admin`
 
 ```bash
 ./scripts/dev/dev.bat up   # Windows
-docker compose -f docker-compose.dev.yml up --build  # Linux/Mac
+docker compose up -d --build  # Linux/Mac
 ```
+
+The compose stack runs the all-in-one panel container (`Dockerfile`) on
+http://localhost:5000. It has no access to the host, so system-management
+features (packages, firewall, systemd, host nginx) are unavailable — use
+`./dev.sh` for those.
 
 ---
 
