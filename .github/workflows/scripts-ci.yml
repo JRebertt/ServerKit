@@ -104,6 +104,12 @@ jobs:
           - 'ubuntu:22.04'
           - 'ubuntu:24.04'
           - 'debian:12'
+          # Debian 13 (trixie) ships ONLY python3.13 — no 3.11, no 3.12. Issue
+          # #99: the installer's version gate could not be satisfied from its
+          # repos and fell through to a source build. Every list we had stopped
+          # at debian:12, which passes because bookworm still carries
+          # python3.11, so nothing caught it. Newest-stable belongs here.
+          - 'debian:13'
           - 'rockylinux:9'
           - 'almalinux:9'
           - 'fedora:40'
@@ -182,6 +188,46 @@ jobs:
             bash scripts/test/test_cli.sh
             bash scripts/test/test_agent_install.sh
             bash scripts/test/test_stage.sh
+          '
+
+  python-provisioning:
+    name: python provisioning (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # The suites above stub every external tool, which is the right trade for
+    # logic but leaves ONE thing untested: whether the distro's real repos can
+    # actually give us a supported Python. That gap shipped issue #99 — Debian
+    # 13 carries only python3.13, the gate wanted 3.11-3.12, and the installer
+    # fell through to a source build that cannot succeed (nothing in install.sh
+    # installs a compiler). Seven distro images were green throughout.
+    #
+    # provision_python needs no systemd, no nginx and no ports, so it runs
+    # honestly in the same plain containers. This is the leg that turns "a new
+    # distro dropped our Python" from an issue report into a red build.
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - 'ubuntu:22.04'
+          - 'ubuntu:24.04'
+          - 'debian:12'
+          - 'debian:13'
+          - 'rockylinux:9'
+          - 'almalinux:9'
+          - 'fedora:40'
+          - 'opensuse/leap:15.5'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: provision_python on ${{ matrix.image }}
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src "${{ matrix.image }}" sh -c '
+            command -v bash >/dev/null 2>&1 || {
+              { command -v apt-get >/dev/null 2>&1 && apt-get update -qq && apt-get install -y -qq bash; } ||
+              { command -v dnf     >/dev/null 2>&1 && dnf install -y -q bash; } ||
+              { command -v zypper  >/dev/null 2>&1 && zypper --non-interactive install bash; } || true
+            }
+            bash scripts/test/test_provision_python.sh
           '
 
   cross-arch-arm64:

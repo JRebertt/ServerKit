@@ -63,6 +63,22 @@ $DistroMap = @{
     'alma9'      = @{ backend = 'vagrant';   image = 'generic/alma9';      user = 'vagrant' }
     'debian11'   = @{ backend = 'vagrant';   image = 'generic/debian11';   user = 'vagrant' }
     'opensuse15' = @{ backend = 'vagrant';   image = 'generic/opensuse15'; user = 'vagrant' }
+
+    # NO debian13 (trixie) — not an oversight. As of 2026-08 no Debian 13 box
+    # publishes a Hyper-V provider, and this harness is Hyper-V only:
+    #   generic/debian13   does not exist (the generic/* line stops at debian12)
+    #   debian/trixie64    libvirt only
+    #   bento/debian-13    parallels, virtualbox, vmware_desktop
+    # Multipass is Ubuntu images only, so it cannot cover it either. Adding a
+    # name here would just fail at launch.
+    #
+    # Trixie is covered instead by the `python-provisioning` job in
+    # .github/workflows/scripts-ci.yml, which runs provision_python against the
+    # real debian:13 repos in a container. That catches the whole class of
+    # "a new distro release dropped the Python we ask for" (issue #99) without
+    # needing a VM. What is still NOT covered on trixie is the full end-to-end
+    # install: systemd unit, nginx vhost, live API harness. Re-check box
+    # availability periodically and add it here the moment one lands.
 }
 
 if ($Only) {

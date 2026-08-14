@@ -56,10 +56,15 @@ mkpy() {  # mkpy <name> <major.minor>
     } > "$PY_STUB/$1"
     chmod +x "$PY_STUB/$1"
 }
-# python3.12 reports an out-of-range 3.13 (rejected); python3.11 is in range;
+# python3.12 reports an out-of-range 3.14 (rejected); python3.11 is in range;
 # bare python3 is an old 3.10 (rejected). locate_python must therefore pick
 # python3.11 — proving it no longer blindly trusts `python3`.
-mkpy python3.12 3.13
+#
+# The out-of-range stub used to report 3.13, which stopped being out of range
+# when the gate moved to cover Debian 13 (issue #99). Pick a version ABOVE
+# PYTHON_MAX, and move it whenever the ceiling moves — the point of the stub is
+# "too new", not any particular number.
+mkpy python3.12 3.14
 mkpy python3.11 3.11
 mkpy python3     3.10
 export PATH="$STUB_BIN:$PATH"
@@ -88,13 +93,28 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# T2 — ver_in_range gate (3.11/3.12 accepted, 3.10/3.13 rejected).
+# T2 — ver_in_range gate (3.11/3.12/3.13 accepted, 3.10/3.14 rejected).
+#
+# 3.13 MUST be accepted: Debian 13 ships only python3.13, and this assertion
+# previously required it to be rejected — the suite was actively pinning the
+# bug that made trixie uninstallable (issue #99).
 # --------------------------------------------------------------------------
 if ( set -Eeuo pipefail; ver_in_range 3.11 ) && ( set -Eeuo pipefail; ver_in_range 3.12 ) && \
-   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.13 ); then
-    ok "ver_in_range accepts 3.11/3.12 and rejects 3.10/3.13"
+   ( set -Eeuo pipefail; ver_in_range 3.13 ) && \
+   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.14 ); then
+    ok "ver_in_range accepts 3.11/3.12/3.13 and rejects 3.10/3.14"
 else
     bad "ver_in_range gate is wrong"
+fi
+
+# Debian 13 carries ONLY python3.13, so the ceiling has to include it or the
+# installer can never satisfy itself from trixie's repos. Guard the constant
+# directly — the gate above would still pass if PYTHON_MAX regressed to 3.12
+# and someone "fixed" the assertion to match.
+if [ "$PYTHON_MAX" = "3.13" ] || printf '%s\n%s' "3.13" "$PYTHON_MAX" | sort -C -V; then
+    ok "PYTHON_MAX ($PYTHON_MAX) covers Debian 13's python3.13"
+else
+    bad "PYTHON_MAX is $PYTHON_MAX — Debian 13 ships only python3.13 and would fall to a source build"
 fi
 
 # --------------------------------------------------------------------------
