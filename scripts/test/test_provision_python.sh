@@ -61,6 +61,22 @@ set +e
 identify_system  >/dev/null 2>&1 || true
 choose_pkg_manager >/dev/null 2>&1 || true
 
+# main()'s order is identify_system -> choose_pkg_manager -> ensure_bootstrap_tools
+# -> ... -> provision_python, and this MUST match it.
+#
+# ensure_bootstrap_tools is what refreshes the package index (its own comment
+# says minimal images "ship with empty package indexes"). Omitting it made this
+# test fail on ubuntu:22.04 for a reason the real installer does not have: a
+# fresh container has empty apt lists, so the very first `apt-get install` finds
+# no candidate for anything — including software-properties-common, which
+# killed the deadsnakes fallback and dumped provision_python into the source
+# build. The installer was never broken there; the test was skipping a step.
+#
+# The lesson generalises: a test that calls production functions out of order
+# invents failures, and "fixing" install.sh to satisfy it would have made the
+# real thing worse.
+ensure_bootstrap_tools >/dev/null 2>&1 || true
+
 printf '  distro: %s (ID=%s, family=%s, pkg=%s)\n' \
     "${PRETTY_NAME:-unknown}" "${ID:-?}" "${OS_FAMILY:-?}" "${PKG_MGR:-?}"
 printf '  gate:   Python %s-%s\n' "$PYTHON_MIN" "$PYTHON_MAX"
