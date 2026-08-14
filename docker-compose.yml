@@ -1,27 +1,106 @@
 # ============================================
-# ServerKit Docker Compose  (optional legacy frontend container)
+# ServerKit Docker Compose
 # ============================================
-# ServerKit runs FULLY OFF DOCKER for the panel itself:
-#   - the backend runs on the host via systemd `serverkit.service`, and
-#   - the React frontend is served as static files directly by the host nginx
-#     from frontend/dist (built by install.sh) — NO container.
-# This keeps a ServerKit update from ever touching the workloads: managed apps
-# are the only things in Docker, and host nginx (which fronts them) is never
-# stopped, only gracefully reloaded.
+# `docker compose up -d` runs the all-in-one panel image (./Dockerfile):
+# gunicorn serves the API, the React SPA and the Socket.IO websockets from ONE
+# container on port 5000. Reach it at http://localhost:5000.
 #
-# The `frontend` service below is retained ONLY as an opt-in escape hatch for
-# anyone who specifically wants the panel UI in a container. It sits behind the
-# `legacy-frontend` profile, so the default `docker compose up -d` starts
-# NOTHING. To use it, also repoint nginx `location /` back at 127.0.0.1:3847:
+# There is NO nginx inside the container, and the app never redirects to HTTPS.
+# That makes this the topology to use when you already run your own reverse
+# proxy (Caddy, Traefik, Nginx Proxy Manager, …) with your own CA — point it at
+# port 5000 and set SERVERKIT_PUBLIC_URL + TRUST_PROXY_HEADERS below. See
+# docs/INSTALLATION.md → "Running behind your own reverse proxy".
 #
-#   docker compose --profile legacy-frontend up -d --build
+# ⚠ A containerised panel CANNOT manage its own host: no systemd, no host
+#   nginx, no host packages, so per-app vhosts and managed sites are out. It is
+#   the right shape for a demo, for driving OTHER servers through agents, and
+#   for a panel behind your own proxy. To manage THIS machine, use the host
+#   installer instead:
 #
-# Want a quick, throwaway demo with NO host management? Use the single-container
-# image built from ./Dockerfile instead — it bundles both tiers but, as its
-# header notes, cannot manage the host.
+#     curl -fsSL https://serverkit.ai/install.sh | sudo bash
+#
+# Before the first run:
+#   cp .env.example .env    # then set SECRET_KEY / JWT_SECRET_KEY
 # ============================================
 
 services:
+  serverkit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: serverkit:local
+    # Prefer the published release image over building locally? Comment out the
+    # `build:` block above and use:
+    #   image: jhd3197/serverkit:latest
+    container_name: serverkit
+    ports:
+      # Host port is overridable because 5000 collides with some AirPlay/dev
+      # setups; the container always listens on 5000.
+      - "${SERVERKIT_HTTP_PORT:-5000}:5000"
+    env_file:
+      # required:false so a missing .env warns instead of aborting. The panel
+      # does boot without one — but on config.py's built-in dev SECRET_KEY and
+      # JWT_SECRET_KEY, which are public knowledge. Fine for a five-minute look,
+      # never for anything reachable. `cp .env.example .env` and set both.
+      # (Needs Compose >= 2.24 for this long form.)
+      - path: .env
+        required: false
+    environment:
+      # Canonical database location: on the named volume, so `compose down`
+      # keeps your data.
+      #
+      # Deliberately NOT `${DATABASE_URL:-...}`. .env.example used to ship a
+      # *relative* `sqlite:///serverkit.db`, which resolves against the
+      # container WORKDIR (/app/backend) — off the volume, and silently
+      # destroyed by the next `compose down`. Anyone who copied that .env would
+      # inherit the trap. An `environment:` entry outranks `env_file:`, so this
+      # line neutralises it.
+      #
+      # To use PostgreSQL (or another absolute path), set SERVERKIT_DATABASE_URL
+      # in .env — DATABASE_URL there is ignored under Docker by design:
+      #   SERVERKIT_DATABASE_URL=postgresql://user:pass@db:5432/serverkit
+      DATABASE_URL: ${SERVERKIT_DATABASE_URL:-sqlite:////app/instance/serverkit.db}
+      # Required when a reverse proxy terminates TLS in front of this container:
+      # the Socket.IO origin check rejects the browser's handshake without it.
+      #   SERVERKIT_PUBLIC_URL=https://panel.example.com
+      #
+      # TRUST_PROXY_HEADERS makes ServerKit derive the real client IP from
+      # X-Forwarded-For (rate limits, login lockout, audit logs) instead of
+      # logging every request as the proxy's address. Leave it off unless a
+      # proxy really is in front — on a directly-exposed port the header is
+      # client-forgeable. Both are read from .env.
+      FLASK_ENV: ${FLASK_ENV:-production}
+    volumes:
+      - serverkit-data:/app/instance
+      # Let the panel manage Docker containers on this host. ⚠ The docker socket
+      # is root-equivalent on the host — mounting it means a panel compromise is
+      # a host compromise. Opt in deliberately:
+      # - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/v1/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # --------------------------------------------
+  # Legacy: panel UI in its own nginx container.
+  # --------------------------------------------
+  # Only for a HOST install (`install.sh`), where the backend already runs on
+  # the host under systemd and `frontend/dist` has been built there — this
+  # service is a static-file server plus a proxy to the host, nothing more. On
+  # its own it serves an empty directory and nginx answers 403.
+  #
+  # It sits behind a profile, so plain `docker compose up -d` never starts it:
+  #   docker compose --profile legacy-frontend up -d --build
+  #
+  # Then repoint the host nginx `location /` back at 127.0.0.1:3847.
   frontend:
     profiles: ["legacy-frontend"]
     build:
@@ -51,6 +130,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  serverkit-data:
+    name: serverkit-data
 
 networks:
   serverkit-network:
