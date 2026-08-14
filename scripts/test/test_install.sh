@@ -2085,10 +2085,29 @@ done
 printf '\nT44 — trusted client IP on a stock install\n'
 t44="$WORK/t44"; mkdir -p "$t44"
 
+# write_config mints secrets with `openssl rand -hex 32` and a python3 one-liner.
+# The distro containers this suite runs in ship NEITHER — ubuntu:24.04 and
+# debian:12 have no openssl and no python3 — and under `set -e` the failed
+# command substitution aborted write_config before it wrote a single line, so
+# three assertions read an empty file and failed in CI while passing on a dev
+# box that happens to have both. Stub them: this test is about which proxy keys
+# land in .env, not about how random the secrets are. (Same philosophy as the
+# rest of the suite, which stubs every external tool.)
+#
+# Shell functions win over PATH lookup, including for `"${PYTHON_BIN:-python3}"`,
+# so no PATH juggling is needed. Defined by calling this inside each subshell.
+# Literal values, no seq/head/tr: those are exactly the sort of tool a stripped
+# base image turns out not to have, which is the bug being fixed here.
+_t44_stub_keygen() {
+    openssl() { printf '%s\n' "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"; }
+    python3() { printf '%s\n' "ZmFrZS1mZXJuZXQta2V5LWZvci11bml0LXRlc3RzLTAwMDA9"; }
+}
+
 # -- the stock install: loopback-bound gunicorn behind our own nginx.
 out="$( set -Eeuo pipefail
         unset SERVERKIT_BIND_HOST SERVERKIT_EXTERNAL_PROXY || true
         source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
         rm -rf "$t44/a"; mkdir -p "$t44/a"
         INSTALL_DIR="$t44/a"; SSL_MODE=insecure; PROFILE=standard
         write_config >/dev/null 2>&1
@@ -2106,6 +2125,7 @@ out="$( set -Eeuo pipefail
         unset SERVERKIT_EXTERNAL_PROXY || true
         SERVERKIT_BIND_HOST=0.0.0.0
         source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
         rm -rf "$t44/b"; mkdir -p "$t44/b"
         INSTALL_DIR="$t44/b"; SSL_MODE=insecure; PROFILE=standard
         write_config >/dev/null 2>&1
@@ -2121,6 +2141,7 @@ fi
 out="$( set -Eeuo pipefail
         SERVERKIT_EXTERNAL_PROXY=1
         source "$INSTALL_SH" >/dev/null 2>&1
+        _t44_stub_keygen
         rm -rf "$t44/c"; mkdir -p "$t44/c"
         INSTALL_DIR="$t44/c"; SSL_MODE=insecure; PROFILE=standard
         write_config >/dev/null 2>&1
