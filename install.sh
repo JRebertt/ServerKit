@@ -11,10 +11,61 @@
 #   BUILD_FROM_SOURCE=1      force a source build even when a release exists
 #   SERVERKIT_SKIP_SSL=1     run on plain HTTP (no HTTPS / no certbot attempt)
 #
+# Running your own reverse proxy (Caddy / Traefik / nginx) in front of the panel:
+#
+#   SERVERKIT_EXTERNAL_PROXY=1   your proxy terminates TLS; ours must not
+#                                redirect to HTTPS. Implies SERVERKIT_SKIP_SSL=1
+#                                and configures the trusted-proxy client IP.
+#   SERVERKIT_PUBLIC_URL=...     the public https:// URL browsers use. Required
+#                                with EXTERNAL_PROXY or realtime updates break.
+#
+# Re-runnable installs:
+#
+#   SERVERKIT_CONFIG=/path/install.conf   KEY=VALUE defaults for any of the
+#                                         variables above. Explicit environment
+#                                         still wins over the file.
+#
 # The Flask backend runs straight on the host (it needs real system access);
 # the React frontend is built to static files and served by the host nginx.
 #
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Declarative install config (SERVERKIT_CONFIG)
+# ---------------------------------------------------------------------------
+# Sourced before any default is applied, so a file entry behaves exactly like
+# passing that variable on the command line. Runs this early — ahead of the
+# terminal-styling helpers — so it can only use plain printf/exit.
+load_install_config() {
+    local file="${SERVERKIT_CONFIG:-}"
+    [ -n "$file" ] || return 0
+    if [ ! -f "$file" ]; then
+        printf 'ERROR: SERVERKIT_CONFIG file not found: %s\n' "$file" >&2
+        exit 1
+    fi
+
+    # The file supplies DEFAULTS. A variable already present in the environment
+    # was passed explicitly for this run and must win, so apply keys one at a
+    # time and skip the ones already set — sourcing the file wholesale would
+    # invert that precedence. Parsing (rather than sourcing) also keeps a stray
+    # command in the file from executing as root.
+    local line key value
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="${line#"${line%%[![:space:]]*}"}"      # strip leading whitespace
+        case "$line" in ''|'#'*) continue ;; esac
+        case "$line" in 'export '*) line="${line#export }" ;; esac
+        case "$line" in *=*) ;; *) continue ;; esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        # Names only; anything else is a typo, not a variable.
+        case "$key" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+        value="${value%\"}"; value="${value#\"}"
+        value="${value%\'}"; value="${value#\'}"
+        [ -z "${!key+set}" ] || continue
+        export "$key=$value"
+    done < "$file"
+}
+load_install_config
 
 # ---------------------------------------------------------------------------
 # Settings and environment contract
@@ -57,6 +108,21 @@ PROFILE_PROMPT_TIMEOUT="${SERVERKIT_PROFILE_TIMEOUT:-15}"
 PANEL_DOMAIN="${PANEL_DOMAIN:-}"
 PANEL_PORT="${PANEL_PORT:-80}"
 SERVERKIT_SKIP_SSL="${SERVERKIT_SKIP_SSL:-0}"
+
+# An external reverse proxy (Caddy, Traefik, nginx elsewhere) terminates TLS in
+# front of the panel and speaks plain HTTP upstream. Our own nginx must then NOT
+# redirect :80 to HTTPS — the proxy would follow that redirect straight back
+# into itself, which is the "too many redirects" the browser reports. So this
+# implies SKIP_SSL, and it also turns on the trusted-proxy client-IP path with
+# two hops (their proxy appends the client, our nginx appends their proxy).
+SERVERKIT_EXTERNAL_PROXY="${SERVERKIT_EXTERNAL_PROXY:-0}"
+if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+    SERVERKIT_SKIP_SSL=1
+fi
+# The public https:// URL browsers use. Behind a proxy the panel cannot infer
+# it, and the Socket.IO handshake rejects the browser's Origin without it.
+PANEL_PUBLIC_URL="${SERVERKIT_PUBLIC_URL:-}"
+PANEL_PUBLIC_URL="${PANEL_PUBLIC_URL%/}"
 SERVERKIT_OFFLINE_TARBALL="${SERVERKIT_OFFLINE_TARBALL:-}"
 SERVERKIT_MIRROR_URL="${SERVERKIT_MIRROR_URL:-}"
 
@@ -1224,6 +1290,21 @@ build_virtualenv() {
 # ---------------------------------------------------------------------------
 # Application configuration and generated secrets
 # ---------------------------------------------------------------------------
+# Set KEY=value in an env file, replacing any existing definition (commented or
+# not). Rewrites the file instead of `sed -i s|...|`: values here are URLs, and
+# an unescaped '/', '&' or '|' in a sed replacement is syntax, not data.
+_env_set_key() {
+    local file="$1" key="$2" value="$3" tmp
+    # Beside the target, not in /tmp: this file carries SECRET_KEY and the
+    # encryption key, and $INSTALL_DIR is root-owned while /tmp is world-listable.
+    tmp="$(mktemp "${file}.XXXXXX")"
+    grep -v -E "^[[:space:]]*#?[[:space:]]*${key}=" "$file" > "$tmp" || true
+    printf '%s=%s\n' "$key" "$value" >> "$tmp"
+    # cat rather than mv so the original mode (0600) and owner survive.
+    cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
 write_config() {
     phase "Configuration"
 
@@ -1245,6 +1326,20 @@ write_config() {
             sed -i "s|^SERVERKIT_PROFILE=.*|SERVERKIT_PROFILE=$PROFILE|" "$INSTALL_DIR/.env"
         else
             printf 'SERVERKIT_PROFILE=%s\n' "$PROFILE" >> "$INSTALL_DIR/.env"
+        fi
+        # Converting an existing install to sit behind an external proxy is a
+        # re-run with SERVERKIT_EXTERNAL_PROXY=1, and it lands here — the .env
+        # already exists. Applying the switch only on a first install would make
+        # the documented conversion path silently do nothing. Only ever ADD the
+        # trust settings; never remove them on an ordinary re-run, which would
+        # quietly break client IPs for someone who set them by hand.
+        if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+            _env_set_key "$INSTALL_DIR/.env" TRUST_PROXY_HEADERS true
+            _env_set_key "$INSTALL_DIR/.env" TRUSTED_PROXY_HOPS 2
+            if [ -n "$PANEL_PUBLIC_URL" ]; then
+                _env_set_key "$INSTALL_DIR/.env" SERVERKIT_PUBLIC_URL "$PANEL_PUBLIC_URL"
+            fi
+            good "External-proxy settings applied to the existing .env."
         fi
         return
     fi
@@ -1269,6 +1364,44 @@ write_config() {
         public_url="${url_scheme}://$PANEL_DOMAIN"
     fi
 
+    # Behind someone else's proxy the browser's origin is the proxy's https URL,
+    # which no local signal reveals — SSL_MODE is 'insecure' here precisely
+    # because *we* do not terminate TLS. So the operator-supplied value wins,
+    # and it must be live (not commented out) or every websocket handshake 400s.
+    local proxy_block=""
+    if [ -n "$PANEL_PUBLIC_URL" ]; then
+        public_url="$PANEL_PUBLIC_URL"
+        case ",$cors_origins," in
+            *",$public_url,"*) ;;
+            *) cors_origins="$cors_origins,$public_url" ;;
+        esac
+    fi
+    # Derived-from-the-domain URLs stay commented (they are a guess, and a wrong
+    # SERVERKIT_PUBLIC_URL breaks websockets rather than merely not helping).
+    # An operator-supplied one is written live.
+    local public_url_line=""
+    if [ -n "$PANEL_PUBLIC_URL" ]; then
+        public_url_line="SERVERKIT_PUBLIC_URL=$public_url"
+    elif [ -n "$public_url" ]; then
+        public_url_line="# SERVERKIT_PUBLIC_URL=$public_url"
+    fi
+
+    if [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ]; then
+        # Two hops: their proxy appends the real client, our nginx appends their
+        # proxy. ProxyFix counts from the right, so 1 would log their proxy's IP
+        # for every request and 3 would let a client forge its own.
+        proxy_block=$(cat <<'PROXYEOF'
+
+# Trusted reverse proxy — set because this install sits behind an external
+# TLS-terminating proxy (SERVERKIT_EXTERNAL_PROXY=1). Derives the real client
+# IP from X-Forwarded-For for rate limits, login lockout and audit logs.
+# TRUSTED_PROXY_HOPS = proxies in front of Flask: external proxy + our nginx.
+TRUST_PROXY_HEADERS=true
+TRUSTED_PROXY_HOPS=2
+PROXYEOF
+)
+    fi
+
     cat > "$INSTALL_DIR/.env" <<EOF
 # ServerKit Configuration
 # Generated on $(date)
@@ -1284,13 +1417,16 @@ DATABASE_URL=sqlite:///$INSTALL_DIR/backend/instance/serverkit.db
 # CORS Origins (comma-separated, add your domain)
 CORS_ORIGINS=$cors_origins
 
-# Public URL for agents and install commands (optional)
-${public_url:+# SERVERKIT_PUBLIC_URL=$public_url}
+# Public URL for agents, browsers and install commands. Behind a reverse proxy
+# this must be the URL users actually browse to, or the websocket handshake is
+# rejected on origin and the UI stops live-updating.
+$public_url_line
 
 # SSL mode (secure|insecure) — gates the panel's HSTS header so HTTPS stays
 # optional. Mirrors /etc/serverkit/ssl-mode; set to 'secure' only when this
 # server terminates real end-to-end HTTPS.
 SERVERKIT_SSL_MODE=$SSL_MODE
+$proxy_block
 
 # Install profile (minimal|standard|full) — what this install provisioned, not
 # a licence tier. The panel reads it to decide whether to offer app hosting;
@@ -2291,6 +2427,40 @@ prompt_for_domain() {
     fi
 }
 
+prompt_for_public_url() {
+    # Only meaningful when someone else terminates TLS in front of us.
+    [ "$SERVERKIT_EXTERNAL_PROXY" = "1" ] || return 0
+    [ -z "$PANEL_PUBLIC_URL" ] || return 0
+
+    # Derive rather than ask when the domain already answers the question.
+    if [ -n "$PANEL_DOMAIN" ]; then
+        PANEL_PUBLIC_URL="https://$PANEL_DOMAIN"
+        good "Public URL: $PANEL_PUBLIC_URL (from PANEL_DOMAIN)"
+        return 0
+    fi
+
+    if [ ! -t 0 ] && [ "${SERVERKIT_FORCE_PROMPT:-0}" != "1" ]; then
+        warn "SERVERKIT_EXTERNAL_PROXY=1 without SERVERKIT_PUBLIC_URL."
+        warn "Realtime updates will be rejected until you set it in $INSTALL_DIR/.env."
+        return 0
+    fi
+
+    printf '\n'
+    printf '%sPublic URL of the panel, as your reverse proxy publishes it%s\n' "$BLD" "$RST"
+    printf 'Example: https://serverkit.example.com\n'
+    printf 'Required: the browser sends this as its websocket Origin, and the\n'
+    printf 'panel rejects the handshake when it does not match.\n'
+    printf '%sTip:%s set SERVERKIT_PUBLIC_URL=... to skip this prompt\n' "$BLD" "$RST"
+    printf '> '
+    read -r PANEL_PUBLIC_URL || true
+    PANEL_PUBLIC_URL=$(printf '%s' "$PANEL_PUBLIC_URL" | tr -d ' ')
+    PANEL_PUBLIC_URL="${PANEL_PUBLIC_URL%/}"
+    if [ -z "$PANEL_PUBLIC_URL" ]; then
+        warn "No public URL given — realtime updates will be rejected until"
+        warn "SERVERKIT_PUBLIC_URL is set in $INSTALL_DIR/.env."
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -2330,6 +2500,7 @@ main() {
     # whether provision_docker runs at all.
     prompt_for_profile
     prompt_for_domain
+    prompt_for_public_url
     snapshot_existing
 
     # RHEL 9 family: keep sshd alive across the dnf work below (see the

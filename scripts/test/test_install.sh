@@ -318,22 +318,68 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# T12 — the canonical docker-compose.yml is frontend-only. The backend manages
-# the host (creates /var/serverkit/apps/*, drives host Docker, reloads nginx),
-# which a container cannot do — a backend container fails app creation with
-# `Permission denied: /var/serverkit/apps/...` and has no host docker.sock.
-# Guard against re-adding a `backend` compose service (the regression that
-# broke WordPress/app creation).
+# T12 — docker-compose.yml shape.
+#
+# Two separate contracts live in this one file, and both have already been
+# broken once:
+#
+#   1. No `backend:` service. On a HOST install the backend manages the host
+#      (creates /var/serverkit/apps/*, drives host Docker, reloads nginx),
+#      which a container cannot do — a backend container fails app creation
+#      with `Permission denied: /var/serverkit/apps/...` and has no host
+#      docker.sock. This broke WordPress/app creation once already.
+#   2. Plain `docker compose up -d` must start something. Every service was
+#      once behind the `legacy-frontend` profile, so the default command
+#      started NOTHING while the README still told people to run it — issue
+#      #96, where the reporter ran the profile by hand and got an nginx
+#      container serving an empty dist directory (403).
 # --------------------------------------------------------------------------
 compose="$REPO_DIR/docker-compose.yml"
+# Service keys inside the `services:` block that carry no `profiles:` — i.e.
+# exactly what a plain `docker compose up -d` would start. Literal spaces
+# rather than {2}/{4} intervals so this works on any awk.
+compose_default_services="$(awk '
+    /^services:/ { in_services = 1; next }
+    /^[a-zA-Z]/  { in_services = 0 }
+    !in_services { next }
+    /^  [a-zA-Z0-9_-]+:[ ]*$/ { svc = $1; sub(/:$/, "", svc); order[++n] = svc; cur = svc; next }
+    /^    profiles:/ { if (cur != "") profiled[cur] = 1 }
+    END { for (i = 1; i <= n; i++) if (!profiled[order[i]]) print order[i] }
+' "$compose" | sort | tr '\n' ' ')"
+
 if grep -Eq '^[[:space:]]{2}backend:' "$compose"; then
     bad "docker-compose.yml defines a 'backend' service — the backend must run on the host, not in a container"
 elif ! grep -Eq '^[[:space:]]{2}frontend:' "$compose"; then
-    bad "docker-compose.yml is missing the 'frontend' service"
+    bad "docker-compose.yml is missing the legacy 'frontend' service"
 elif ! grep -q 'backend:host-gateway' "$compose"; then
     bad "docker-compose.yml frontend is missing the 'backend:host-gateway' alias to reach the host backend"
+elif ! awk '/^  frontend:/{f=1} f&&/^    profiles:/{print;exit}' "$compose" | grep -q 'legacy-frontend'; then
+    bad "the legacy frontend service is no longer behind the 'legacy-frontend' profile"
 else
-    ok "docker-compose.yml is frontend-only and routes /api to the host backend (backend:host-gateway)"
+    ok "docker-compose.yml has no backend service and keeps the legacy frontend profiled"
+fi
+
+# `docker compose up -d` must resolve to at least one service. Anything without
+# a `profiles:` key starts by default.
+if [ -z "${compose_default_services// /}" ]; then
+    bad "every docker-compose.yml service is behind a profile — 'docker compose up -d' would start NOTHING (issue #96)"
+elif ! grep -Eq '^[[:space:]]{2}serverkit:' "$compose"; then
+    bad "docker-compose.yml no longer defines the all-in-one 'serverkit' service"
+else
+    ok "'docker compose up -d' starts the all-in-one panel [$compose_default_services]"
+fi
+
+# The all-in-one image writes its SQLite database to /app/instance. The
+# Dockerfile must create that directory and chown it to the non-root runtime
+# user, or the container dies on boot with "unable to open database file" —
+# and a named volume mounted there inherits root ownership (issue #96).
+dockerfile="$REPO_DIR/Dockerfile"
+if ! grep -q '/app/instance' "$dockerfile"; then
+    bad "Dockerfile never creates /app/instance — the container cannot open its database"
+elif ! grep -Eq 'mkdir -p .*/app/instance' "$dockerfile"; then
+    bad "Dockerfile mentions /app/instance but does not mkdir it"
+else
+    ok "Dockerfile creates /app/instance for the database volume"
 fi
 
 # --------------------------------------------------------------------------
@@ -1816,6 +1862,197 @@ if awk '/^bootstrap_firewall\(\)/,/^}/' "$INSTALL_SH" | grep -q 'detect_ssh_port
     ok "bootstrap_firewall still consults detect_ssh_ports before enabling anything"
 else
     bad "bootstrap_firewall no longer detects the SSH port — LOCKOUT RISK"
+fi
+
+# --------------------------------------------------------------------------
+# T43 — plan 71: running behind an operator's own reverse proxy.
+#
+# Issue #96. Two switches, and the failure modes are silent ones: a panel that
+# still 301s to HTTPS traps the proxy in a redirect loop, and a missing
+# SERVERKIT_PUBLIC_URL leaves the UI loading but never live-updating because
+# every websocket handshake is rejected on origin.
+# --------------------------------------------------------------------------
+printf '\nT43 — external reverse proxy (SERVERKIT_EXTERNAL_PROXY / SERVERKIT_CONFIG)\n'
+t43="$WORK/t43"
+mkdir -p "$t43"
+
+# -- EXTERNAL_PROXY implies SKIP_SSL. Sourcing install.sh re-runs the settings
+#    block, so the implication is observable without running an install.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        unset SERVERKIT_SKIP_SSL || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$SERVERKIT_SKIP_SSL" )"
+if [ "$out" = "1" ]; then
+    ok "SERVERKIT_EXTERNAL_PROXY=1 implies SERVERKIT_SKIP_SSL=1 (no HTTPS redirect to loop on)"
+else
+    bad "SERVERKIT_EXTERNAL_PROXY=1 left SERVERKIT_SKIP_SSL=[$out] — the panel would still 301 to HTTPS"
+fi
+
+# -- and it must NOT flip SKIP_SSL for an ordinary install.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY SERVERKIT_SKIP_SSL || true
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$SERVERKIT_SKIP_SSL" )"
+if [ "$out" = "0" ]; then
+    ok "the default install is untouched (SERVERKIT_SKIP_SSL=0)"
+else
+    bad "an ordinary install now skips SSL (SERVERKIT_SKIP_SSL=[$out])"
+fi
+
+# -- a trailing slash on the public URL must be stripped: a browser's Origin
+#    header never carries one, so storing it raw would never match.
+out="$( set -Eeuo pipefail
+        SERVERKIT_EXTERNAL_PROXY=1
+        SERVERKIT_PUBLIC_URL="https://panel.example.com/"
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s' "$PANEL_PUBLIC_URL" )"
+if [ "$out" = "https://panel.example.com" ]; then
+    ok "a trailing slash is stripped from SERVERKIT_PUBLIC_URL"
+else
+    bad "SERVERKIT_PUBLIC_URL normalised to [$out]"
+fi
+
+# -- SERVERKIT_CONFIG supplies defaults...
+cat > "$t43/install.conf" <<'CONF'
+# ServerKit install config
+SERVERKIT_EXTERNAL_PROXY=1
+SERVERKIT_PUBLIC_URL="https://from-file.example.com"
+SERVERKIT_PROFILE=minimal
+CONF
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY SERVERKIT_PUBLIC_URL SERVERKIT_PROFILE || true
+        SERVERKIT_CONFIG="$t43/install.conf"
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s|%s|%s' "$SERVERKIT_EXTERNAL_PROXY" "$PANEL_PUBLIC_URL" "$PROFILE" )"
+if [ "$out" = "1|https://from-file.example.com|minimal" ]; then
+    ok "SERVERKIT_CONFIG supplies defaults (quotes stripped, comments ignored)"
+else
+    bad "SERVERKIT_CONFIG produced [$out]"
+fi
+
+# -- ...but explicit environment always wins over the file.
+out="$( set -Eeuo pipefail
+        unset SERVERKIT_EXTERNAL_PROXY || true
+        SERVERKIT_CONFIG="$t43/install.conf"
+        SERVERKIT_PUBLIC_URL="https://from-env.example.com"
+        SERVERKIT_PROFILE=full
+        source "$INSTALL_SH" >/dev/null 2>&1
+        printf '%s|%s' "$PANEL_PUBLIC_URL" "$PROFILE" )"
+if [ "$out" = "https://from-env.example.com|full" ]; then
+    ok "explicit environment overrides SERVERKIT_CONFIG"
+else
+    bad "SERVERKIT_CONFIG overrode the explicit environment: [$out]"
+fi
+
+# -- a missing config file is a hard error, not a silently-default install.
+if ( set -Eeuo pipefail
+     SERVERKIT_CONFIG="$t43/nope.conf"
+     source "$INSTALL_SH" >/dev/null 2>&1 ) ; then
+    bad "a missing SERVERKIT_CONFIG file was ignored"
+else
+    ok "a missing SERVERKIT_CONFIG file aborts instead of installing the wrong shape"
+fi
+
+# -- the file must be parsed, not executed: a command in it must not run.
+printf 'touch %s/pwned\nSERVERKIT_PROFILE=minimal\n' "$t43" > "$t43/evil.conf"
+( set -Eeuo pipefail
+  unset SERVERKIT_PROFILE || true
+  SERVERKIT_CONFIG="$t43/evil.conf"
+  source "$INSTALL_SH" >/dev/null 2>&1 ) || true
+if [ -e "$t43/pwned" ]; then
+    bad "SERVERKIT_CONFIG executed a command from the file — it must be parsed, not sourced"
+else
+    ok "SERVERKIT_CONFIG is parsed, not sourced (a stray command does not run as root)"
+fi
+
+# -- write_config on an EXISTING .env must apply the proxy settings, because
+#    "convert my install to sit behind Caddy" is a re-run and lands there.
+env_dir="$t43/opt"
+mkdir -p "$env_dir"
+cat > "$env_dir/.env" <<'ENVEOF'
+SECRET_KEY=keep-me
+SERVERKIT_SSL_MODE=secure
+# TRUST_PROXY_HEADERS=false
+ENVEOF
+( set -Eeuo pipefail
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$env_dir"; SSL_MODE=insecure; PROFILE=standard
+  SERVERKIT_EXTERNAL_PROXY=1; PANEL_PUBLIC_URL="https://panel.example.com"
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$env_dir/.env" \
+   && grep -q '^TRUSTED_PROXY_HOPS=2' "$env_dir/.env" \
+   && grep -q '^SERVERKIT_PUBLIC_URL=https://panel.example.com$' "$env_dir/.env" \
+   && grep -q '^SECRET_KEY=keep-me' "$env_dir/.env" \
+   && [ "$(grep -c 'TRUST_PROXY_HEADERS' "$env_dir/.env")" = "1" ]; then
+    ok "converting an existing install rewrites the proxy keys and keeps the secrets"
+else
+    bad "existing-.env conversion produced: [$(tr '\n' ' ' < "$env_dir/.env")]"
+fi
+
+# -- and SERVERKIT_SSL_MODE must flip to insecure in the .env, not only in
+#    /etc/serverkit/ssl-mode. _resolve_ssl_mode() reads the ENV VAR FIRST and
+#    only falls back to the file, and run.py load_dotenv()s this file — so a
+#    stale SERVERKIT_SSL_MODE=secure here keeps HSTS on and tells browsers to
+#    force HTTPS on a port that now only speaks plain HTTP.
+if grep -q '^SERVERKIT_SSL_MODE=insecure' "$env_dir/.env" \
+   && ! grep -q '^SERVERKIT_SSL_MODE=secure' "$env_dir/.env"; then
+    ok "the converted .env records ssl-mode=insecure so HSTS stops being sent"
+else
+    bad "SERVERKIT_SSL_MODE was not flipped to insecure: [$(grep SERVERKIT_SSL_MODE "$env_dir/.env" | tr '\n' ' ')]"
+fi
+
+# -- an ordinary re-run must not strip proxy settings someone configured by hand.
+( set -Eeuo pipefail
+  source "$INSTALL_SH" >/dev/null 2>&1
+  INSTALL_DIR="$env_dir"; SSL_MODE=insecure; PROFILE=standard
+  SERVERKIT_EXTERNAL_PROXY=0
+  write_config >/dev/null 2>&1 )
+if grep -q '^TRUST_PROXY_HEADERS=true' "$env_dir/.env"; then
+    ok "a plain re-run leaves existing proxy settings alone"
+else
+    bad "a plain re-run removed TRUST_PROXY_HEADERS from an existing .env"
+fi
+
+# -- only ONE default server may exist on :80.
+#
+#    Both site configs declare `listen 80 default_server` and then include
+#    /etc/nginx/serverkit-conf.d/*.conf. install.sh writes the canonical-domain
+#    redirect into that directory whenever PANEL_DOMAIN is set, and it used to
+#    declare `listen 80 default_server` as well — which nginx rejects outright
+#    ("a duplicate default server for 0.0.0.0:80"), in BOTH ssl modes. Since
+#    launch_services starts nginx after write_config, every first install with a
+#    domain produced an nginx that would not start. Verified against real nginx.
+#    Directives only — the block's own comments explain this trap by naming it.
+canon_block="$(awk '/canonical-domain.conf <<EOF/,/^EOF$/' "$INSTALL_SH" \
+                | grep -v '^[[:space:]]*#')"
+if [ -z "$canon_block" ]; then
+    bad "could not find the canonical-domain.conf heredoc in install.sh"
+elif printf '%s' "$canon_block" | grep -q 'default_server'; then
+    bad "the canonical-domain redirect declares default_server — nginx will refuse to start on any PANEL_DOMAIN install"
+elif ! printf '%s' "$canon_block" | grep -q 'server_name ~'; then
+    bad "the canonical-domain redirect no longer matches a bare IP by regex server_name — the redirect will never fire"
+else
+    ok "the canonical-domain redirect matches a bare IP without a second default_server"
+fi
+
+# -- and the shipped sites must remain the ONLY default server on :80.
+for site in serverkit.conf serverkit-insecure.conf; do
+    n="$(grep -c 'listen 80 default_server' "$REPO_DIR/nginx/sites-available/$site" || true)"
+    if [ "$n" = "1" ]; then
+        ok "$site declares exactly one default server on :80"
+    else
+        bad "$site declares $n default servers on :80 (expected 1)"
+    fi
+done
+
+# -- static guard: the documented insecure site must keep shipping, since both
+#    the docs and SERVERKIT_EXTERNAL_PROXY point operators straight at it.
+if [ -f "$REPO_DIR/nginx/sites-available/serverkit-insecure.conf" ] \
+   && ! grep -qE 'return[[:space:]]+30[12]' "$REPO_DIR/nginx/sites-available/serverkit-insecure.conf"; then
+    ok "serverkit-insecure.conf ships and contains no redirect for a proxy to loop on"
+else
+    bad "serverkit-insecure.conf is missing or now redirects — issue #96 would recur"
 fi
 
 # --------------------------------------------------------------------------
