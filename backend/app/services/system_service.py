@@ -272,7 +272,12 @@ class SystemService:
 
         return ' '.join(parts) if parts else '0m'
 
-    @classmethod
+    # Plain @staticmethod. It was @classmethod stacked on @staticmethod, which
+    # only ever worked because 3.9 let classmethod chain to another descriptor —
+    # deprecated in 3.11, REMOVED in 3.13, where the chain stops collapsing and
+    # `cls._is_iana_timezone(tz)` starts passing cls as the first argument:
+    # "takes 1 positional argument but 2 were given". Calling a staticmethod
+    # through `cls.` is fine, so the call sites need no change.
     @staticmethod
     def _is_iana_timezone(value):
         """True if `value` looks like an IANA zone key (Area/Location or a small

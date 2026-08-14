@@ -793,7 +793,9 @@ class CronService:
     # Application attribution (member-facing surface)
     # ------------------------------------------------------------------ #
 
-    @classmethod
+    # Plain @staticmethod — see the note on SystemService._is_iana_timezone.
+    # @classmethod stacked on @staticmethod breaks on Python 3.13, which removed
+    # classmethod descriptor chaining; cls then leaks in as the first argument.
     @staticmethod
     def _same_application(candidate, application_id) -> bool:
         """Do these two ids name the same app? Ids arrive as int or str."""
