@@ -124,9 +124,13 @@ class DomainAttachService:
         want_ssl = ssl in ('auto', 'on', True)
         if want_ssl:
             try:
-                from app.services.ssl_service import SSLService
+                from app.services.ssl_service import SSLService, get_acme_contact
                 from app.services.nginx_service import NginxService
-                cert = SSLService.obtain_certificate([host], email or f'admin@{host}')
+                # The stored panel contact before the admin@<host> guess —
+                # that guess is where Let's Encrypt expiry notices went to
+                # die, since the address usually does not exist.
+                cert = SSLService.obtain_certificate(
+                    [host], get_acme_contact(email) or f'admin@{host}')
                 if cert and cert.get('success'):
                     domain.ssl_enabled = True
                     domain.ssl_certificate_path = cert.get('certificate_path')

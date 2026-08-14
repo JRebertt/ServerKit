@@ -357,6 +357,56 @@ class FleetDoctorService:
             out.setdefault(r.server_id, []).append(r.to_dict())
         return out
 
+    @classmethod
+    def fleet_report(cls):
+        """The merged read-side view the ``GET /doctor/fleet`` route returns.
+
+        Shape::
+
+            {'ran_at': <iso>|None,
+             'servers': [{'server_id', 'name', 'hostname', 'connected',
+                          'ran_at', 'counts': {'ok','warn','fail','error'},
+                          'checks': [<row>, ...]}, ...]}
+
+        Every registered server is listed, connected or not — an unreachable
+        box keeps its last recorded rows (and reports ``connected: false``)
+        instead of vanishing from the report, which is what makes an offline
+        server a *reported state* rather than a hole (Fleet Contract, rule 2).
+        A freshly paired server with no rows yet is listed with an empty
+        ``checks`` list.
+
+        Each check row carries a ``key`` alias of ``check_key`` so the panel
+        can render fleet findings through the same field-driven
+        (``repairable`` / ``repair_ref``) component as the host doctor.
+        """
+        grouped = cls.all_results()
+        servers = []
+        newest = None
+        for server in cls._target_servers():
+            rows = grouped.get(server.id, [])
+            rows.sort(key=lambda r: r.get('check_key') or '')
+            counts = {'ok': 0, 'warn': 0, 'fail': 0, 'error': 0}
+            ran_at = None
+            checks = []
+            for row in rows:
+                status = row.get('status') or 'ok'
+                counts[status] = counts.get(status, 0) + 1
+                if row.get('ran_at') and (ran_at is None or row['ran_at'] > ran_at):
+                    ran_at = row['ran_at']
+                checks.append(dict(row, key=row.get('check_key')))
+            if ran_at and (newest is None or ran_at > newest):
+                newest = ran_at
+            servers.append({
+                'server_id': server.id,
+                'name': getattr(server, 'name', None),
+                'hostname': getattr(server, 'hostname', None),
+                'connected': bool(agent_registry.is_agent_connected(server.id)),
+                'ran_at': ran_at,
+                'counts': counts,
+                'checks': checks,
+            })
+        return {'ran_at': newest, 'servers': servers}
+
     # ------------------------------------------------------------------ #
     # Job plumbing
     # ------------------------------------------------------------------ #

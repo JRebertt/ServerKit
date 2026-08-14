@@ -14,6 +14,7 @@ import {
     ServerCog,
     ShieldAlert,
     ShieldCheck,
+    ShieldQuestion,
     Sparkles,
     Star,
     UploadCloud,
@@ -31,6 +32,7 @@ import {
 } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import ManualInstallModal from '../components/marketplace/ManualInstallModal';
+import ExtensionPermissionsDialog from '../components/marketplace/ExtensionPermissionsDialog';
 import {
     ExtensionBrandMark, hasBrandMark, extensionCoverStyle,
 } from '../components/icons/ExtensionBrands';
@@ -246,6 +248,10 @@ const Marketplace = () => {
     const [busyPlugin, setBusyPlugin] = useState(null); // { id, action }
     // Plugin whose config is being edited (#49) — drives the config dialog.
     const [configTarget, setConfigTarget] = useState(null);
+    // Plugin whose declared-vs-observed permissions and pending Python
+    // dependencies are being read (plan 55 tasks 6+7) — drives the read-only
+    // permissions dialog.
+    const [permissionsTarget, setPermissionsTarget] = useState(null);
 
     const loadExtensions = useCallback(async () => {
         try {
@@ -581,6 +587,7 @@ const Marketplace = () => {
                                     onUpdate={handlePluginUpdate}
                                     onUninstall={requestPluginUninstall}
                                     onConfigure={setConfigTarget}
+                                    onInspectPermissions={setPermissionsTarget}
                                     statusVariant={pluginStatusVariant}
                                 />
                             ))}
@@ -687,6 +694,13 @@ const Marketplace = () => {
                 <PluginConfigDialog
                     plugin={configTarget}
                     onClose={() => setConfigTarget(null)}
+                />
+            )}
+
+            {permissionsTarget && (
+                <ExtensionPermissionsDialog
+                    plugin={permissionsTarget}
+                    onClose={() => setPermissionsTarget(null)}
                 />
             )}
         </div>
@@ -958,7 +972,10 @@ const PLUGIN_SOURCE_BADGES = {
     registry: { label: 'Registry', variant: 'info' },
 };
 
-const PluginRow = ({ plugin, update, busy, onToggle, onUpdate, onUninstall, onConfigure, statusVariant }) => {
+const PluginRow = ({
+    plugin, update, busy, onToggle, onUpdate, onUninstall, onConfigure,
+    onInspectPermissions, statusVariant,
+}) => {
     const updateAvailable = Boolean(update?.update_available);
     const compatible = update?.compatible !== false;
     // A row action is in flight — disable every action on this row so it can't
@@ -1011,6 +1028,16 @@ const PluginRow = ({ plugin, update, busy, onToggle, onUpdate, onUninstall, onCo
                         Configure
                     </Button>
                 )}
+                <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isBusy}
+                    title="Declared permissions, what the panel has observed, and pending Python dependencies"
+                    onClick={() => onInspectPermissions(plugin)}
+                >
+                    <ShieldQuestion aria-hidden="true" />
+                    Permissions
+                </Button>
                 <Button
                     size="sm"
                     variant={plugin.status === 'active' ? 'outline' : 'default'}

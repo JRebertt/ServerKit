@@ -581,6 +581,10 @@ def create_app(config_name=None):
     from app.api.doctor import doctor_bp
     app.register_blueprint(doctor_bp, url_prefix='/api/v1/doctor')
 
+    # Register blueprints - Fleet doctor (the same sweep across the agent fleet)
+    from app.api.fleet_doctor import fleet_doctor_bp
+    app.register_blueprint(fleet_doctor_bp, url_prefix='/api/v1/doctor/fleet')
+
     # Register blueprints - Diagnostic support bundle
     from app.api.support_bundle import support_bundle_bp
     app.register_blueprint(support_bundle_bp, url_prefix='/api/v1/support-bundle')
@@ -769,6 +773,8 @@ def create_app(config_name=None):
             DriftService.register_jobs()
             from app.services.doctor_service import DoctorService
             DoctorService.register_jobs()
+            from app.services.fleet_doctor_service import FleetDoctorService
+            FleetDoctorService.register_jobs()
             from app.services.file_integrity_service import FileIntegrityService
             FileIntegrityService.register_jobs()
             from app.services.malware_scan_service import MalwareScanService

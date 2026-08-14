@@ -45,6 +45,24 @@ make_stub_exit() {
     done
 }
 
+# make_stub_stdout <bindir> <name> [exit-code] — a stub whose stdout is read
+# from THIS function's stdin, ignoring whatever arguments it is called with.
+#
+# Firewall detection reads the *text* of `ufw status verbose` and
+# `nft list ruleset` — "Status: active", "Default: deny (incoming)", a chain
+# policy — so a canned transcript is the only faithful fixture for it. An
+# exit-code stub cannot express "the tool ran fine and reported nothing", which
+# is exactly the stock-cloud-image case that matters.
+make_stub_stdout() {
+    local dir="$1" name="$2" code="${3:-0}"
+    {
+        printf '#!/usr/bin/env bash\ncat <<%s\n' "'STUB_EOF'"
+        cat
+        printf 'STUB_EOF\nexit %s\n' "$code"
+    } > "$dir/$name"
+    chmod +x "$dir/$name"
+}
+
 # make_stub_ok <bindir> <name...> — happy no-op stubs (exit 0).
 make_stub_ok() {
     local dir="$1"

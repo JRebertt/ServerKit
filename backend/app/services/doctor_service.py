@@ -64,6 +64,65 @@ def _resolve_host_ips(host):
     return ips
 
 
+def _normalize_ip(ip):
+    """Canonical form of an IP string for comparison (compressed/lower-cased
+    for IPv6); falls back to the stripped input when unparseable."""
+    try:
+        return str(ipaddress.ip_address((ip or '').strip()))
+    except ValueError:
+        return (ip or '').strip().lower()
+
+
+def _local_host_ips():
+    """This host's own IP addresses across all interfaces (best-effort).
+
+    Used to tell "this server" apart from "somewhere else" when judging
+    whether a resolved AAAA record is a stray. Returns a set of normalized
+    address strings; empty when undetectable. Module-level so tests can stub.
+    """
+    ips = set()
+    try:
+        import psutil
+        for addrs in (psutil.net_if_addrs() or {}).values():
+            for addr in addrs:
+                if addr.family in (socket.AF_INET, socket.AF_INET6):
+                    # strip a zone id (fe80::1%eth0) before normalizing
+                    ips.add(_normalize_ip(addr.address.split('%', 1)[0]))
+    except Exception:  # noqa: BLE001 — detection is best-effort
+        pass
+    return ips
+
+
+def _aaaa_conflicts(ips, server_ip, known_ips=None):
+    """IPv6 addresses among ``ips`` that do not belong to this server.
+
+    "This server" = the configured public IP plus every local interface
+    address. A stray AAAA record pointing elsewhere breaks Let's Encrypt
+    HTTP-01 issuance — the CA prefers IPv6 when a AAAA record exists — so the
+    sweep must surface it even when the A record is perfectly correct, which
+    is exactly the case that looks healthy and is not.
+
+    ``known_ips`` is passed in by callers that sweep many domains so the
+    interface enumeration happens once per run rather than once per domain.
+    """
+    v6 = []
+    for ip in ips or []:
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            continue
+        if addr.version == 6:
+            v6.append(str(addr))
+    if not v6:
+        return []
+    if known_ips is None:
+        known_ips = _local_host_ips()
+    known = {_normalize_ip(a) for a in known_ips}
+    if server_ip:
+        known.add(_normalize_ip(server_ip))
+    return [ip for ip in v6 if ip not in known]
+
+
 def _is_public_site_host(host):
     """True when ``host`` is a real, public hostname worth a DNS lookup — not
     localhost, a bare label, an IP literal, or a dev/reserved suffix."""
@@ -191,7 +250,35 @@ class DoctorService:
                     f'service.{name}', f'{name} service', 'fail', 'Not running.',
                     repairable=True, repair_ref={'kind': 'service', 'name': name},
                 ))
+        if 'nginx' in probed:
+            checks.append(cls._nginx_config_check())
         return checks
+
+    @classmethod
+    def _nginx_config_check(cls):
+        """A running-but-misconfigured nginx passes ``systemctl is-active``;
+        only ``nginx -t`` sees it. Not repairable: config repair is operator
+        territory, and a wrong guess can take every site on the host down."""
+        key = 'nginx.config'
+        title = 'nginx configuration'
+        from app.utils.system import is_command_available
+        if not is_command_available('nginx'):
+            return _check(key, title, 'warn',
+                          'nginx binary not found — configuration test skipped.')
+        from app.services.nginx_service import NginxService
+        try:
+            result = NginxService.test_config()
+        except Exception as e:  # noqa: BLE001
+            return _check(key, title, 'warn', f'Config test could not run: {e}')
+        if result.get('success'):
+            return _check(key, title, 'ok', 'nginx configuration test passed.')
+        output = (result.get('message') or result.get('error') or '').strip()
+        detail = 'nginx configuration test (nginx -t) failed'
+        if output:
+            detail += f': {output}'
+        detail += ('. nginx will refuse to reload/restart until the '
+                   'configuration parses — review the file nginx names above.')
+        return _check(key, title, 'fail', detail, repairable=False)
 
     @classmethod
     def _cert_check(cls):
@@ -302,7 +389,9 @@ class DoctorService:
         provider_available = cls._dns_provider_available()
 
         capped = public[:DNS_CHECK_MAX_DOMAINS]
-        checks = [cls._dns_check_one(host, server_ip, provider_available)
+        # Enumerated once for the whole sweep, not once per domain.
+        local_ips = _local_host_ips()
+        checks = [cls._dns_check_one(host, server_ip, provider_available, local_ips)
                   for host in capped]
 
         overflow = len(public) - len(capped)
@@ -314,7 +403,7 @@ class DoctorService:
         return checks
 
     @classmethod
-    def _dns_check_one(cls, host, server_ip, provider_available):
+    def _dns_check_one(cls, host, server_ip, provider_available, local_ips=None):
         key = f'dns.resolve.{host}'
         title = f'DNS: {host}'
         try:
@@ -324,6 +413,18 @@ class DoctorService:
         if not ips:
             return cls._dns_unresolved(key, title, host, server_ip, provider_available)
         if server_ip and server_ip in ips:
+            # The A record is right, which is exactly why a stray AAAA hides
+            # here: everything looks correct until issuance tries IPv6 first.
+            conflicts = _aaaa_conflicts(ips, server_ip, local_ips)
+            if conflicts:
+                return _check(
+                    key, title, 'warn',
+                    f'{host} points at this server over IPv4, but its AAAA record '
+                    f'resolves to {", ".join(conflicts)}, which is not this '
+                    f"server. Let's Encrypt prefers IPv6, so HTTP-01 issuance "
+                    f'will be attempted against that address and fail. Remove '
+                    f"the AAAA record, or point it at this server's IPv6 "
+                    f'address.')
             return _check(key, title, 'ok', f'{host} resolves to {server_ip}.')
         resolved = ', '.join(ips)
         if server_ip:
@@ -599,10 +700,135 @@ class DoctorService:
                 from app.services import doctor_check_registry
                 results.append({'item': item, **doctor_check_registry.repair(
                     item.get('namespace'), item.get('ref'))})
+            elif kind == 'backup_drill':
+                results.append({'item': item,
+                                **cls._repair_backup_drill(item.get('policy_id'))})
+            elif kind == 'backup_verify':
+                results.append({'item': item, **cls._repair_backup_verify(
+                    item.get('policy_id'), item.get('run_id'))})
             else:
                 results.append({'item': item, 'success': False,
                                 'error': f'Unknown repair kind: {kind}'})
         return results
+
+    @staticmethod
+    def _load_policy(policy_id):
+        """Resolve a backup policy for a repair, or ``None``.
+
+        The id arrives from the client echoing back a repair_ref, so it is
+        looked up rather than trusted — an id for a policy that has since been
+        deleted must read as "gone", not raise.
+        """
+        try:
+            from app.models.backup_policy import BackupPolicy
+            return BackupPolicy.query.filter_by(id=policy_id).first()
+        except Exception:  # noqa: BLE001
+            return None
+
+    @classmethod
+    def _repair_backup_drill(cls, policy_id):
+        """Run a fresh restore drill for a policy.
+
+        Asynchronous: request_drill enqueues a ``backup.drill.run`` job and
+        returns it, so the answer carries the job id for the console to link
+        to rather than pretending the drill is already done.
+        """
+        policy = cls._load_policy(policy_id)
+        if policy is None:
+            return {'success': False,
+                    'error': f'Backup policy {policy_id} no longer exists.'}
+        from app.services.backup_drill_service import (
+            BackupDrillError, BackupDrillService,
+        )
+        try:
+            job = BackupDrillService.request_drill(policy, trigger='doctor')
+        except BackupDrillError as e:
+            # "already drilling" / "no successful backup to drill" are ordinary
+            # refusals, not faults — surface the reason as-is.
+            return {'success': False, 'error': str(e)}
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': str(e)}
+        return {'success': True, 'job_id': getattr(job, 'id', None),
+                'detail': 'Restore drill queued.'}
+
+    @classmethod
+    def _repair_backup_verify(cls, policy_id, run_id):
+        """Verify a backup run by whatever means that run allows.
+
+        Two ladders exist and the check cannot tell them apart from outside. A
+        run with an offsite copy is verified against the provider (size +
+        checksum via verify_run). A local-only run is verified in place: read
+        the archive and checksum it against the stored manifest. Routing every
+        run down the remote path would make this button useless for anyone who
+        has not configured offsite storage — which is most installs, and which
+        is the same "button that always fails" defect this item exists to
+        remove.
+
+        Synchronous either way, unlike the drill, so there is no job id.
+        """
+        policy = cls._load_policy(policy_id)
+        if policy is None:
+            return {'success': False,
+                    'error': f'Backup policy {policy_id} no longer exists.'}
+        from app.services.backup_policy_service import (
+            BackupPolicyError, BackupPolicyService,
+        )
+        try:
+            run = BackupPolicyService.get_run(policy, run_id)
+        except Exception:  # noqa: BLE001
+            run = None
+        if run is None:
+            return {'success': False, 'error': 'Backup not found.'}
+
+        if not getattr(run, 'remote_key', None):
+            return cls._verify_run_locally(run)
+
+        try:
+            result = BackupPolicyService.verify_run(policy, run_id)
+        except BackupPolicyError as e:
+            return {'success': False, 'error': str(e)}
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'error': str(e)}
+        if not result.get('verified'):
+            # The check ran and the copy did NOT match — a real answer, and a
+            # worse one than "unverified". Do not report it as a fix.
+            return {'success': False,
+                    'error': 'Verification ran but the remote copy did not '
+                             'match — this backup may not restore.',
+                    'detail': result.get('detail')}
+        return {'success': True, 'verified': True,
+                'detail': 'Remote copy verified.'}
+
+    @staticmethod
+    def _verify_run_locally(run):
+        """Tier-1 (on-disk) verification: is the archive readable, and does it
+        still checksum to what the manifest recorded?
+
+        verify_run_tier1 mutates the run's verify ladder without committing,
+        so the commit is ours.
+        """
+        from app import db
+        from app.services import backup_verify_service
+        try:
+            backup_verify_service.verify_run_tier1(run, run.get_metadata() or {})
+            db.session.commit()
+        except Exception as e:  # noqa: BLE001
+            db.session.rollback()
+            return {'success': False, 'error': str(e)}
+
+        level = run.verify_level or 'none'
+        if level == 'none':
+            # Unreadable archive — the worst answer, and the one most worth
+            # knowing before a restore depends on it.
+            return {'success': False,
+                    'error': run.verify_error
+                             or 'The backup archive could not be read.'}
+        if run.verify_error:
+            # Readable but the checksum disagrees with the manifest.
+            return {'success': False, 'error': run.verify_error,
+                    'verify_level': level}
+        return {'success': True, 'verify_level': level,
+                'detail': f'Backup verified on disk ({level}).'}
 
     @classmethod
     def _restart_service(cls, name):

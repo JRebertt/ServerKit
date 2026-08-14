@@ -158,16 +158,35 @@ export default function Email() {
 // ---------- Overview ----------
 function OverviewTab({ status, installed, onChange }) {
     const toast = useToast();
+    const [installError, setInstallError] = useState(null);
     const components = status?.components || {};
     const names = Object.keys(components);
 
+    // install_all answers {error, results: {postfix: {success, error}, ...}},
+    // and the API client hangs that body off the thrown error as err.data. Dig
+    // the failing components' stderr out of `results` so the user sees WHICH
+    // component failed and why instead of a bare "Install failed". More than
+    // one can fail in a single call: the installer only returns early on
+    // postfix and dovecot, and lets dkim/spamassassin fall through.
+    const installFailures = (err) => Object.entries(err?.data?.results || {})
+        .filter(([, r]) => r && r.success === false)
+        .map(([component, r]) => `${component}: ${r.error || 'unknown error'}`);
+
     const install = async () => {
+        setInstallError(null);
         try {
             await api.installEmailServer();
             toast.success('Email server install started');
             onChange();
-        } catch {
-            toast.error('Install failed');
+        } catch (err) {
+            // err.message is the server's top-line reason ("Postfix
+            // installation failed"); the failures carry the actual stderr.
+            const summary = err?.message || 'Install failed';
+            const failures = installFailures(err);
+            // The toast stays one line — the inline block below keeps the full
+            // detail on screen after the toast has gone.
+            setInstallError([summary, ...failures].join('\n'));
+            toast.error(failures.length ? `${summary} — ${failures[0]}` : summary);
         }
     };
 
@@ -198,6 +217,9 @@ function OverviewTab({ status, installed, onChange }) {
                     A deliverability preflight (PTR, port 25, RBL) gates outbound sending before mail
                     can leave this host.
                 </p>
+                {installError && (
+                    <p className="sk-email__hero-error" role="alert">{installError}</p>
+                )}
             </div>
         );
     }

@@ -115,11 +115,27 @@ def test_cloudflare_caa_does_not_clobber_other_ca(app, monkeypatch):
 
 # ── cert issuance hook ──────────────────────────────────────────────────────
 
+def _skip_nginx_preflight(monkeypatch):
+    """Wave through obtain_certificate's nginx-plugin preflight.
+
+    These tests are about the CAA hook, not about the preflight (which has its
+    own coverage in test_ssl_certbot_resolution.py). They mock run_privileged
+    to simulate a successful certbot, but the preflight probes the real host
+    for an nginx binary and an enabled certbot nginx plugin — neither of which
+    exists on a dev box or CI runner — so without this it short-circuits and
+    the certbot run under test never happens.
+    """
+    from app.services.ssl_service import SSLService
+    monkeypatch.setattr(SSLService, '_preflight_nginx_plugin',
+                        classmethod(lambda cls, certbot: None))
+
+
 def test_obtain_certificate_invokes_caa_hook(app, monkeypatch):
     """A successful certbot run triggers ensure_caa_record and surfaces its result."""
     from app.services.ssl_service import SSLService
     from app.services.dns_provider_service import DNSProviderService
 
+    _skip_nginx_preflight(monkeypatch)
     monkeypatch.setattr(SSLService, 'is_certbot_installed', classmethod(lambda cls: True))
     monkeypatch.setattr('app.services.ssl_service.run_privileged',
                         lambda *a, **k: type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())
@@ -137,6 +153,7 @@ def test_obtain_certificate_caa_failure_is_non_fatal(app, monkeypatch):
     from app.services.ssl_service import SSLService
     from app.services.dns_provider_service import DNSProviderService
 
+    _skip_nginx_preflight(monkeypatch)
     monkeypatch.setattr(SSLService, 'is_certbot_installed', classmethod(lambda cls: True))
     monkeypatch.setattr('app.services.ssl_service.run_privileged',
                         lambda *a, **k: type('R', (), {'returncode': 0, 'stdout': '', 'stderr': ''})())

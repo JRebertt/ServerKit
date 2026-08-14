@@ -28,6 +28,16 @@ export async function runFleetSweep() {
     return this.request('/doctor/fleet/run', { method: 'POST' });
 }
 
+// Allowlisted remote repairs (currently: restart a core service on an agent).
+// Refusals — offline agent, missing capability, non-allowlisted target — come
+// back as per-item { success: false, code } results, not as a failed request.
+export async function repairFleetItems(items) {
+    return this.request('/doctor/fleet/repair', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+    });
+}
+
 // Setup Health — "how set-up is this panel" (server IP / base domain / DNS
 // provider / cert / email / backups). Admin-only; cheap DB/settings probes.
 export async function getSetupHealth() {

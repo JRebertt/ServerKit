@@ -254,14 +254,6 @@ class DeploymentService:
         if log_callback:
             log_callback(f"Deploying Docker image: {image_tag}")
 
-        # Stop and remove existing container
-        existing = DockerService.get_container(container_name)
-        if existing:
-            if log_callback:
-                log_callback("Stopping existing container...")
-            DockerService.stop_container(container_name)
-            DockerService.remove_container(container_name)
-
         # Configure container
         ports = []
         if app.port:
@@ -273,18 +265,40 @@ class DeploymentService:
         from app.services.env_service import EnvService
         env = EnvService.get_effective_env(app.id)
 
-        # Authenticate + pre-pull from a private registry when this app is bound
-        # to one, so the run below uses the locally-present image. Gated on
-        # registry_id: apps built from source never set it, so their locally-built
-        # image_tag is untouched (an authenticated pull of it would fail).
+        # ---- preflight (plan 72 B.1) -------------------------------------
+        # Everything that can fail while the old container keeps serving runs
+        # HERE, above the stop. The image is the only pre-traffic requirement
+        # this path has: a build already ran to completion in deploy() step 1,
+        # and a registry-bound app pulls now instead of after the stop — that
+        # pull used to sit below the stop/remove, so a registry hiccup left the
+        # app with no container at all. Gated on registry_id: apps built from
+        # source never set it, so their locally-built image_tag is untouched
+        # (an authenticated pull of it would fail).
         from app.services.container_registry_service import ContainerRegistryService
+        from app.services import deploy_preflight_service as preflight
         registry = ContainerRegistryService.for_app(app)
+
+        def _registry_pull():
+            return DockerService.pull_image(image_tag, tag=None, registry=registry)
+
+        pull_fn = None
         if registry is not None:
             if log_callback:
                 log_callback(f"Authenticating with registry {registry.name}...")
-            pull = DockerService.pull_image(image_tag, tag=None, registry=registry)
-            if not pull.get('success'):
-                return {'success': False, 'error': pull.get('error', 'Registry pull failed')}
+            pull_fn = _registry_pull
+
+        checks = preflight.preflight_image(image_tag, pull=pull_fn, log=log_callback)
+        if not checks.ok:
+            return {'success': False, 'error': checks.error,
+                    'preflight': checks.to_dict()}
+
+        # ---- switchover: past this line the live container is gone ---------
+        existing = DockerService.get_container(container_name)
+        if existing:
+            if log_callback:
+                log_callback("Stopping existing container...")
+            DockerService.stop_container(container_name)
+            DockerService.remove_container(container_name)
 
         # Attach any managed volumes so app data persists across redeploys
         # (each returns a `name:/mount[:ro]` spec for `docker run -v`).

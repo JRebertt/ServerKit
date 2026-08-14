@@ -112,12 +112,15 @@ def is_command_available(cmd: str) -> bool:
     """Check whether *cmd* is available on the system.
 
     Uses ``shutil.which`` first, then falls back to checking common sbin/local
-    paths that may not be on the current ``$PATH``.
+    paths that may not be on the current ``$PATH``.  ``/snap/bin`` is included
+    because snap is the recommended install method for tools like certbot, and
+    snap's bin dir is frequently missing from a service's ``$PATH``.
     """
     if shutil.which(cmd):
         return True
 
-    for directory in ('/usr/bin', '/usr/sbin', '/usr/local/bin', '/usr/local/sbin'):
+    for directory in ('/usr/bin', '/usr/sbin', '/usr/local/bin',
+                      '/usr/local/sbin', '/snap/bin'):
         if os.path.exists(os.path.join(directory, cmd)):
             return True
 

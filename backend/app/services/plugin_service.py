@@ -1054,10 +1054,11 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
                     # them runs pip with the backend's privileges, which means
                     # arbitrary code via setup.py hooks. Operators must opt in
                     # by setting SERVERKIT_ALLOW_PLUGIN_PIP=1.
+                    # Same predicate the admin surface reports (plan 55 task 6)
+                    # — if the two ever disagreed, the page would describe a
+                    # behaviour the installer does not have.
                     req_content = zf.read(member).decode('utf-8')
-                    if req_content.strip() and os.environ.get(
-                        'SERVERKIT_ALLOW_PLUGIN_PIP', ''
-                    ).lower() in ('1', 'true', 'yes'):
+                    if req_content.strip() and plugin_pip_enabled():
                         _install_requirements(req_content, slug)
                     elif req_content.strip():
                         # Persist the requirements file so the admin can review
@@ -1780,6 +1781,74 @@ def get_plugin(plugin_id):
 def get_plugin_by_slug(slug):
     """Get a plugin by its slug."""
     return InstalledPlugin.query.filter_by(slug=slug).first()
+
+
+# Opt-in for installing a plugin's Python dependencies. Off by default: pip runs
+# with the backend's privileges and a setup.py hook is arbitrary code.
+PLUGIN_PIP_ENV = 'SERVERKIT_ALLOW_PLUGIN_PIP'
+# How big a requirements.txt we are willing to echo back to the browser.
+_MAX_REQUIREMENTS_BYTES = 64 * 1024
+
+
+def plugin_pip_enabled():
+    """Whether the operator has opted into installing plugin Python deps."""
+    return os.environ.get(PLUGIN_PIP_ENV, '').lower() in ('1', 'true', 'yes')
+
+
+def pending_requirements(plugin):
+    """The Python dependencies an install declined to pip-install (plan 55).
+
+    When the opt-in is off, install writes the plugin's requirements.txt into
+    its backend dir and moves on with a log line nobody reads — the extension
+    then runs with imports it may not have. This makes that state answerable:
+    the file's contents, where it is, and the exact env var that changes the
+    behaviour.
+
+    Read-only by design. Nothing here installs anything, and the plan is
+    explicit that this surface introduces no auto-install behaviour change.
+    """
+    info = {
+        'slug': getattr(plugin, 'slug', None),
+        'pending': False,
+        'pip_enabled': plugin_pip_enabled(),
+        'env_var': PLUGIN_PIP_ENV,
+        'path': None,
+        'content': '',
+        'packages': [],
+        'truncated': False,
+    }
+    backend_path = getattr(plugin, 'backend_path', None)
+    if not backend_path:
+        return info
+
+    # backend_path is stored relative to the backend package root; join it the
+    # same way the loader does rather than trusting it as absolute.
+    candidate = backend_path if os.path.isabs(backend_path) else os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '..',
+        backend_path)
+    req_path = os.path.normpath(os.path.join(candidate, 'requirements.txt'))
+    if not os.path.isfile(req_path):
+        return info
+
+    try:
+        size = os.path.getsize(req_path)
+        with open(req_path, 'r', encoding='utf-8', errors='replace') as fh:
+            content = fh.read(_MAX_REQUIREMENTS_BYTES)
+    except OSError as exc:
+        logger.warning('could not read %s: %s', req_path, exc)
+        return info
+
+    info.update({
+        'pending': True,
+        'path': req_path,
+        'content': content,
+        'truncated': size > _MAX_REQUIREMENTS_BYTES,
+        # One line per requirement, comments and blanks dropped — enough for a
+        # compact list without pretending to parse PEP 508.
+        'packages': [ln.strip() for ln in content.splitlines()
+                     if ln.strip() and not ln.strip().startswith('#')],
+    })
+    return info
 
 
 # Plugin-config keys the panel owns — never user-editable, preserved across a

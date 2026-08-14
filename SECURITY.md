@@ -108,6 +108,45 @@ carry a `sink-safe: <sanitizer> — <why>` comment. `scripts/check-html-sinks.mj
 fails CI on any new unannotated sink, so a raw-HTML injection point can't land
 silently.
 
+## Extension Trust Model
+
+Extensions are **in-process code**. An installed extension runs with the panel's
+privileges, in the panel's interpreter, against the panel's database. Nothing in
+ServerKit sandboxes it, and no permission string changes that. Everything below is
+about making an extension's behaviour *legible* before and after you install it —
+not about containing it. Treat installing an extension exactly as you would treat
+running any other code as root on the box.
+
+**Integrity — what the panel does verify.** First-party release zips are signed
+(ed25519; the pinned public key ships in `backend/app/data/`), and the registry
+index carries `signature` + `publisher_key_id`. Install verifies before extracting:
+a **bad** signature is always a hard failure, an **unsigned** extension prompts for
+consent rather than being blocked (third parties must remain installable), and the
+verdict is stamped on the installed row and shown in the UI. Registry entries are
+additionally pinned by sha256, so a swapped release asset fails the download.
+
+**Permissions — what the panel does NOT enforce.** A manifest's `permissions` array
+is a consent signal shown at install time. It is enforced only where a capability
+*must* pass through the SDK gate, which today means `agent.command:<action>` and
+nothing else. `docker`, `shell`, `filesystem`, `network` and `db` have no gated
+helper — the SDK exposes none, and `db` is raw SQLAlchemy — so an extension using
+them imports the host module directly and no in-process check is involved.
+
+The extension detail page reflects that split rather than papering over it: it
+records real use (and refusals) for the mediated capability, and for the rest it
+says use **cannot be observed** instead of showing a zero count. A "never used"
+badge on an unenforceable permission would imply a boundary that does not exist.
+
+**Python dependencies** are not installed by default. pip would run with the
+backend's privileges and a `setup.py` hook is arbitrary code, so a shipped
+`requirements.txt` is saved for review and surfaced on the extension's page;
+operators opt in with `SERVERKIT_ALLOW_PLUGIN_PIP=1`.
+
+The practical controls, in order of how much they actually protect you: install
+only extensions you have reason to trust, prefer signed first-party releases,
+read the consent dialog, and keep the registry curated. See
+[docs/EXTENSIONS.md](docs/EXTENSIONS.md) for the per-capability table.
+
 ## Deployment Note
 
 The agent gateway keeps all connected-agent state in-memory in a single process.

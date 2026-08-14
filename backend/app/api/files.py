@@ -370,7 +370,9 @@ def upload_file():
     if not destination:
         return jsonify({'error': 'Destination path is required'}), 400
 
-    if not FileService.is_path_allowed(destination):
+    # Upload writes straight to disk without going through FileService's
+    # mutating methods, so it has to repeat the writable check itself.
+    if not FileService.is_path_writable(destination):
         return jsonify({'error': 'Access denied'}), 403
 
     if file.filename == '':
@@ -393,7 +395,7 @@ def upload_file():
         else:
             full_path = destination
 
-        if not FileService.is_path_allowed(full_path):
+        if not FileService.is_path_writable(full_path):
             return jsonify({'error': 'Access denied'}), 403
 
         # Ensure parent directory exists

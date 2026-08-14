@@ -87,6 +87,16 @@ class SettingsService:
             'type': 'boolean',
             'description': 'Whether the wildcard certificate for the sites base domain is set up; managed subdomains serve HTTPS when true.'
         },
+        # Panel-wide ACME contact. Every certificate ServerKit requests
+        # registers this address with Let's Encrypt, which is where expiry and
+        # revocation notices go — so it is worth storing once rather than
+        # retyping per certificate (or guessing admin@<domain>, which usually
+        # does not exist).
+        'ssl.acme_email': {
+            'value': '',
+            'type': 'string',
+            'description': "Contact email registered with Let's Encrypt for certificate expiry notices. Used when a certificate request does not carry its own address."
+        },
         # Canonical panel domain. When set, the panel uses this domain for
         # agent install commands, CORS origins, and optional IP redirects.
         'canonical_domain': {

@@ -30,8 +30,24 @@ from app.utils.formatting import format_bytes
 class FileService:
     """Service for file system operations."""
 
-    # Allowed root directories for browsing (security)
-    ALLOWED_ROOTS = ['/home', '/var/www', '/opt', '/srv', '/var/log', paths.SERVERKIT_DIR]
+    # Allowed root directories for browsing (security). Reachability is gated
+    # here; mutation is gated again by READ_ONLY_ROOTS below, by the
+    # files.write RBAC permission, and by the OS's own permissions.
+    # /etc/nginx backs the File Manager's "Web config" shortcut; it is only
+    # this subtree, not /etc — panel-internal paths stay blocked by
+    # PROTECTED_ROOTS below regardless (GHSA-rm3m-9mvw-68fh).
+    ALLOWED_ROOTS = ['/home', '/var/www', '/opt', '/srv', '/var/log', '/etc/nginx', paths.SERVERKIT_DIR]
+
+    # Roots that may be browsed and read but never modified through the file
+    # manager. Reading the effective nginx configuration is the point of the
+    # "Web config" shortcut; hand-editing it from here is not. The panel
+    # generates these vhosts itself, so a manual edit is overwritten without
+    # warning on the next domain change, and an editable /etc/nginx would hand
+    # anyone holding files.write a root-owned config that the panel itself
+    # reloads. Config changes belong to the nginx/domain surfaces, which
+    # regenerate and validate. Order matters: a read-only root only takes
+    # effect while it is also inside ALLOWED_ROOTS.
+    READ_ONLY_ROOTS = ['/etc/nginx']
 
     # Panel-internal directories that must NEVER be reachable through the file
     # manager, for any role. The backend .env (JWT_SECRET_KEY, encryption key,
@@ -78,6 +94,38 @@ class FileService:
                        for root in cls.ALLOWED_ROOTS)
         except (ValueError, OSError):
             return False
+
+    @classmethod
+    def is_path_readonly(cls, path: str) -> bool:
+        """True when *path* sits inside a browse-but-don't-touch root."""
+        try:
+            real_path = os.path.realpath(path)
+        except (ValueError, OSError):
+            return True
+        return any(real_path == root or real_path.startswith(root + os.sep)
+                   for root in cls.READ_ONLY_ROOTS)
+
+    @classmethod
+    def is_path_writable(cls, path: str) -> bool:
+        """Allowed *and* not read-only. Every mutating operation gates on this
+        rather than on is_path_allowed, so adding a root to READ_ONLY_ROOTS is
+        enough to make the whole write surface refuse it."""
+        return cls.is_path_allowed(path) and not cls.is_path_readonly(path)
+
+    # Denial reasons, kept identical in shape to the pre-existing messages so
+    # the frontend's error rendering is unchanged.
+    _DENIED = 'Access denied: path not in allowed directories'
+    _READONLY = ('Access denied: this location is read-only in the file '
+                 'manager — edit it through the panel surface that owns it')
+
+    @classmethod
+    def _write_denial(cls, path: str) -> Optional[str]:
+        """Denial message for a mutating operation on *path*, or None."""
+        if not cls.is_path_allowed(path):
+            return cls._DENIED
+        if cls.is_path_readonly(path):
+            return cls._READONLY
+        return None
 
     @classmethod
     def get_file_info(cls, path: str) -> Optional[Dict]:
@@ -230,8 +278,9 @@ class FileService:
     @classmethod
     def write_file(cls, path: str, content: str, create_backup: bool = True) -> Dict:
         """Write content to file."""
-        if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         try:
             # Create backup if file exists
@@ -256,8 +305,9 @@ class FileService:
     @classmethod
     def create_file(cls, path: str, content: str = '') -> Dict:
         """Create a new file."""
-        if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if os.path.exists(path):
             return {'success': False, 'error': 'File already exists'}
@@ -280,8 +330,9 @@ class FileService:
     @classmethod
     def create_directory(cls, path: str) -> Dict:
         """Create a new directory."""
-        if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if os.path.exists(path):
             return {'success': False, 'error': 'Directory already exists'}
@@ -297,8 +348,9 @@ class FileService:
     @classmethod
     def delete(cls, path: str) -> Dict:
         """Delete a file or directory."""
-        if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if not os.path.exists(path):
             return {'success': False, 'error': 'Path not found'}
@@ -317,8 +369,9 @@ class FileService:
     @classmethod
     def rename(cls, old_path: str, new_name: str) -> Dict:
         """Rename a file or directory."""
-        if not cls.is_path_allowed(old_path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(old_path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if not os.path.exists(old_path):
             return {'success': False, 'error': 'Path not found'}
@@ -330,7 +383,7 @@ class FileService:
         new_path = os.path.join(os.path.dirname(old_path), new_name)
 
         # Re-validate the constructed path
-        if not cls.is_path_allowed(new_path):
+        if not cls.is_path_writable(new_path):
             return {'success': False, 'error': 'Access denied: target path not allowed'}
 
         if os.path.exists(new_path):
@@ -347,8 +400,14 @@ class FileService:
     @classmethod
     def copy(cls, src_path: str, dest_path: str) -> Dict:
         """Copy a file or directory."""
-        if not cls.is_path_allowed(src_path) or not cls.is_path_allowed(dest_path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        # The source is only read, so copying *out* of a read-only root (e.g.
+        # taking a vhost off /etc/nginx to keep) is allowed; the destination
+        # is written, so it gets the full check.
+        if not cls.is_path_allowed(src_path):
+            return {'success': False, 'error': cls._DENIED}
+        denial = cls._write_denial(dest_path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if not os.path.exists(src_path):
             return {'success': False, 'error': 'Source not found'}
@@ -370,8 +429,11 @@ class FileService:
     @classmethod
     def move(cls, src_path: str, dest_path: str) -> Dict:
         """Move a file or directory."""
-        if not cls.is_path_allowed(src_path) or not cls.is_path_allowed(dest_path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        # A move removes the source, so unlike copy both ends must be writable.
+        for candidate in (src_path, dest_path):
+            denial = cls._write_denial(candidate)
+            if denial:
+                return {'success': False, 'error': denial}
 
         if not os.path.exists(src_path):
             return {'success': False, 'error': 'Source not found'}
@@ -390,8 +452,9 @@ class FileService:
     @classmethod
     def change_permissions(cls, path: str, mode: str) -> Dict:
         """Change file/directory permissions."""
-        if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+        denial = cls._write_denial(path)
+        if denial:
+            return {'success': False, 'error': denial}
 
         if not os.path.exists(path):
             return {'success': False, 'error': 'Path not found'}

@@ -405,7 +405,23 @@ location /p/ {{
 
     @classmethod
     def restart(cls) -> Dict:
-        """Restart Nginx service."""
+        """Restart Nginx service.
+
+        Config-tested first, exactly like reload — and the stakes are higher
+        here. A reload against a broken config fails safe: nginx rejects the
+        new config and keeps serving the old one. A restart stops nginx before
+        it starts it, so the same broken config takes every site on the host
+        down and leaves nginx dead until someone fixes it by hand. Testing
+        first means a bad config costs an error message instead of an outage.
+        """
+        test_result = cls.test_config()
+        if not test_result['success']:
+            return {
+                'success': False,
+                'error': "Config test failed: "
+                         f"{test_result.get('message') or test_result.get('error')}",
+            }
+
         try:
             result = ServiceControl.restart('nginx', timeout=30)
             return {

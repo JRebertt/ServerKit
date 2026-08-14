@@ -342,7 +342,7 @@ def list_things():
 | `doctor` | Register a health check; it appears on the doctor page, repair button and all. |
 | `search` | Register searchable entities; they appear in the command palette. |
 | `agents` | Run a command on a managed server (gated by `agent.command:<action>`). |
-| `require_permission(slug, cap)` | Capability gate — raises `PermissionDenied` if `cap` isn't declared in `permissions`. |
+| `require_permission(slug, cap)` | Capability gate — raises `PermissionDenied` if `cap` isn't declared in `permissions`, and records the call (allowed or refused). Only mediates what routes through it; see [Permissions & compatibility](#permissions--compatibility). |
 | `panel_version()` | The panel's version string (for in-plugin compat checks). |
 
 Errors follow the core convention: `return jsonify({'error': 'message'}), status`.
@@ -527,10 +527,43 @@ def register():
 
 ## Permissions & compatibility
 
-- `permissions` is a consent step on install and is **enforced** by the SDK gate:
-  `require_permission(slug, "docker")` raises unless `docker` is declared. (This is
-  in-process, declaration-based enforcement — see ADR 0001 / plan #42 for the
-  sandboxing posture.)
+`permissions` is a **consent signal**, and for most capabilities that is all it is.
+Be precise about which half applies, because the difference matters to anyone
+deciding whether to trust an extension.
+
+**What is actually mediated.** `require_permission(slug, cap)` raises
+`PermissionDenied` unless `cap` is declared. That gate is real, but it only fires
+where something *calls* it. Today exactly one capability is routed through it
+unavoidably:
+
+| Capability | Mediated? | Why |
+|---|---|---|
+| `agent.command:<action>` | **Yes** | The SDK is the only way to reach an agent, so every use passes the gate. Uses and refusals are recorded and shown on the extension's detail page. |
+| `docker`, `shell`, `filesystem`, `network`, `db` | **No** | The SDK exposes no helper for these (and `db` is raw SQLAlchemy), so an extension imports the host module directly and no in-process check is involved. |
+
+So declaring `docker` does **not** stop an extension from using Docker, and *not*
+declaring it does not stop it either. What declaring does is tell the operator, at
+install time, what the extension says it needs — and let them refuse.
+
+**Why the panel says "cannot be observed".** The extension detail page compares
+declared permissions against observed use. For `agent.command:*` an unused
+declaration is real evidence of over-asking. For the five host capabilities the
+panel reports that use *cannot be observed* rather than showing a zero: absence of
+evidence is not evidence of absence, and a "never used" badge there would imply an
+enforcement boundary that does not exist.
+
+Declare honestly regardless. The consent dialog is what the operator agrees to, and
+under-declaring to look harmless is the behaviour the curated registry exists to
+catch. True out-of-process sandboxing is deliberately out of scope — see ADR 0001 /
+plan #42 for the posture.
+
+**Python dependencies.** A `requirements.txt` in your zip is **not** installed by
+default: pip would run with the backend's privileges and a `setup.py` hook is
+arbitrary code. The file is saved next to the installed extension and surfaced on
+its detail page so an operator can review and install it deliberately. Operators
+opt in with `SERVERKIT_ALLOW_PLUGIN_PIP=1`. Design your extension to degrade
+clearly when an optional dependency is absent rather than crashing on import.
+
 - `min_panel_version` / `max_panel_version` are enforced at install **and** update
   for every source (URL/upload/local/builtin/registry).
 

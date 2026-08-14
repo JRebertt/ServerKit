@@ -860,3 +860,159 @@
         line-height: $line-height-normal;
     }
 }
+
+// Read-only permissions + pending-dependencies dialog for an installed
+// extension (plan 55 tasks 6+7). Rows are prose-first on purpose: the
+// distinction between "the gate saw nothing" and "there is no gate" only
+// survives if each row can say it in a sentence, so nothing here compresses
+// a permission down to a bare chip.
+.extension-permissions {
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+
+    &__section {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+    }
+
+    &__section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+
+        h4 {
+            margin: 0;
+            font-size: $font-size-base;
+            font-weight: $font-weight-semibold;
+        }
+    }
+
+    &__count {
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+    }
+
+    // The observation-window caveat under a section heading.
+    &__scope {
+        margin: 0;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        line-height: $line-height-normal;
+    }
+
+    &__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+    }
+
+    &__row {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        padding: $space-3;
+        border: 1px solid $border-subtle;
+        border-left: 2px solid $border-active;
+        border-radius: $radius-md;
+        background: $bg-elevated;
+
+        // Left edge carries the verdict so a scan down the list reads the
+        // three states apart before any text is read.
+        &--used { border-left-color: $success; }
+        &--unused { border-left-color: $warning; }
+        &--opaque { border-left-color: $border-active; }
+        &--blocked { border-left-color: $danger; }
+    }
+
+    &__row-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-2;
+
+        code {
+            font-family: $font-mono;
+            font-size: $font-size-sm;
+            color: $text-primary;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    &__note {
+        margin: 0;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+        line-height: $line-height-normal;
+
+        code {
+            font-family: $font-mono;
+            font-size: $font-size-sm;
+            padding: 1px 4px;
+            border-radius: $radius-sm;
+            background: $bg-code;
+            color: $text-primary;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    &__blocked {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+        margin-top: $space-2;
+    }
+
+    &__footnote {
+        margin: 0;
+        padding-top: $space-2;
+        border-top: 1px solid $border-subtle;
+        color: $text-tertiary;
+        font-size: $font-size-xs;
+        line-height: $line-height-normal;
+    }
+
+    // Verbatim requirements.txt — scrolls on its own rather than widening
+    // the dialog.
+    &__file {
+        margin: 0;
+        max-height: 220px;
+        overflow: auto;
+        padding: $space-3;
+        border: 1px solid $border-subtle;
+        border-radius: $radius-md;
+        background: $bg-code;
+        color: $text-secondary;
+        font-family: $font-mono;
+        font-size: $font-size-sm;
+        line-height: $line-height-normal;
+        white-space: pre;
+    }
+
+    &__error {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $space-3;
+
+        p {
+            margin: 0;
+            color: $danger;
+            font-size: $font-size-sm;
+            line-height: $line-height-normal;
+        }
+    }
+
+    .sk-pill svg {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+    }
+}

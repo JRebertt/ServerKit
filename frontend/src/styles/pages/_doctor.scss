@@ -227,6 +227,14 @@
         color: var(--text);
     }
 
+    // The agent's advertised hostname, next to the display name.
+    &__host {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+        overflow-wrap: anywhere;
+    }
+
     &__counts {
         display: flex;
         gap: $space-2;
@@ -236,4 +244,11 @@
     }
 
     &__count { white-space: nowrap; }
+
+    // A paired server the sweep has not reached yet.
+    &__hint {
+        margin: 0;
+        font-size: 12px;
+        color: var(--text-faint);
+    }
 }

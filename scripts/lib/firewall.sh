@@ -36,9 +36,79 @@ _fw_run() {
     "$@" >/dev/null 2>&1
 }
 
+# Is inbound traffic already filtered by default on this host?
+#
+# Distinct from firewall_detect() on purpose, and the difference is load-bearing.
+# firewall_detect answers "which backend do I open a port THROUGH" — it happily
+# returns `nftables` when the nft binary merely exists and can list an EMPTY
+# ruleset, which is true of a stock Ubuntu/Debian cloud image. Using it as an
+# "is a firewall already protecting this box" test therefore reports every
+# modern Linux as protected, and a default-deny bootstrap gated on it never
+# runs (found on a real Ubuntu 24.04 VM, where install logged "via nftables"
+# and the bootstrap said nothing at all).
+#
+# This asks the question that actually matters, and the only one the bootstrap
+# cares about: does the host already DENY inbound by default? Presence of rules
+# is not the test — Docker installs plenty of nft/iptables chains and protects
+# nothing — a default-deny policy on the input hook is.
+#
+# Returns 0 when inbound is default-denied, 1 otherwise (including when it
+# cannot tell: an unprotected box is the safer assumption for a caller whose
+# response is to *offer* protection, and every caller re-checks before acting).
+firewall_inbound_default_deny() {
+    # firewalld: running means a zone policy is in force; its default zones all
+    # reject unsolicited inbound.
+    if command -v firewall-cmd >/dev/null 2>&1; then
+        case "$(firewall-cmd --state 2>/dev/null || true)" in
+            *running*) return 0 ;;
+        esac
+    fi
+
+    # ufw: active AND its default incoming policy is deny/reject. `ufw status
+    # verbose` prints e.g. "Default: deny (incoming), allow (outgoing)".
+    if command -v ufw >/dev/null 2>&1; then
+        local ufw_out
+        ufw_out="$(ufw status verbose 2>/dev/null || true)"
+        case "$ufw_out" in
+            *[Ss]tatus:*[Ii]nactive*) : ;;
+            *[Ss]tatus:*[Aa]ctive*)
+                case "$ufw_out" in
+                    *[Dd]efault:*deny\ \(incoming\)*|*[Dd]efault:*reject\ \(incoming\)*)
+                        return 0 ;;
+                esac
+                ;;
+        esac
+    fi
+
+    # nftables: a base chain hooked to input whose policy is drop or reject.
+    # An empty ruleset, or Docker's nat/filter chains, match neither.
+    if command -v nft >/dev/null 2>&1; then
+        local nft_out
+        nft_out="$(nft -a list ruleset 2>/dev/null || true)"
+        if printf '%s' "$nft_out" \
+            | tr '\n' ' ' \
+            | grep -qE 'hook[[:space:]]+input[^}]*policy[[:space:]]+(drop|reject)'; then
+            return 0
+        fi
+    fi
+
+    # iptables/ip6tables: an INPUT policy that is not ACCEPT.
+    if command -v iptables >/dev/null 2>&1; then
+        case "$(iptables -S INPUT 2>/dev/null | head -1 || true)" in
+            *'-P INPUT DROP'*|*'-P INPUT REJECT'*) return 0 ;;
+        esac
+    fi
+
+    return 1
+}
+
 # Detect the active firewall. Order matters: a box can have several of these
 # binaries installed but only one actually managing the input chain, so we pick
 # the highest-level manager that reports itself active.
+#
+# NOTE: this answers "which backend should I open a port through", NOT "is this
+# box protected" — it returns a backend for a binary that exists even with no
+# rules at all. For the latter use firewall_inbound_default_deny() above.
 firewall_detect() {
     if [ -n "${FIREWALL_BACKEND:-}" ]; then
         printf '%s\n' "$FIREWALL_BACKEND"

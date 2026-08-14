@@ -94,9 +94,107 @@ class ProcessService:
         except psutil.AccessDenied:
             return {'success': False, 'error': f'Access denied to kill process {pid}'}
 
+    # Properties fetched per unit. Id is what the name actually resolves to,
+    # so two aliases of one unit collapse into a single row.
+    _SHOW_PROPERTIES = ('Id', 'LoadState', 'ActiveState', 'MainPID')
+
+    @classmethod
+    def _systemd_unit_states(cls, units: List[str]) -> Dict[str, Dict[str, str]]:
+        """``systemctl show`` output for *units*, keyed by the requested name.
+
+        One subprocess for the whole list rather than one per unit: this backs
+        a polled list, and MONITORED_SERVICES is long. systemctl emits one
+        property block per unit, in argument order, separated by blank lines.
+        Returns ``{}`` on anything unexpected so the caller can fall back
+        instead of reporting a wrong state.
+        """
+        cmd = ['systemctl', 'show', *units]
+        cmd += [f'--property={p}' for p in cls._SHOW_PROPERTIES]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            return {}
+        if result.returncode != 0:
+            return {}
+
+        blocks: List[Dict[str, str]] = []
+        current: Dict[str, str] = {}
+        for line in (result.stdout or '').splitlines():
+            line = line.strip()
+            if not line:
+                if current:
+                    blocks.append(current)
+                    current = {}
+                continue
+            key, _, value = line.partition('=')
+            current[key] = value
+        if current:
+            blocks.append(current)
+
+        # Index-matched by contract; if the block count disagrees the parse is
+        # not trustworthy and the caller falls back rather than guessing.
+        if len(blocks) != len(units):
+            return {}
+        return dict(zip(units, blocks))
+
     @classmethod
     def get_services_status(cls) -> List[Dict]:
-        """Get status of monitored services."""
+        """Status of the monitored services, as systemd sees them.
+
+        This used to substring-match psutil process names, which disagreed
+        with control_service() -- which acts through systemctl -- in both
+        directions. `mysql` matched the process `mysqld`, so a MariaDB box
+        whose unit is `mariadb` showed a running `mysql` row whose
+        start/stop/restart buttons systemctl could not honour; `docker`
+        matched `dockerd` and `redis` matched `redis-server`, listing the same
+        daemon two and three times; and any unrelated process whose name
+        merely contained a service name (say `php-fpm` inside a build script's
+        command) reported that service up. Asking systemd directly means the
+        list cannot claim a state the buttons are unable to act on.
+
+        Units the host does not have are dropped rather than listed as
+        stopped: MONITORED_SERVICES deliberately carries several spellings of
+        the same daemon so that whichever one a distro uses is found, and
+        showing all of them as stopped was noise. Aliases that resolve to one
+        unit collapse to a single row.
+        """
+        if platform.system() != 'Linux':
+            return cls._process_name_status()
+
+        states = cls._systemd_unit_states(cls.MONITORED_SERVICES)
+        if not states:
+            return cls._process_name_status()
+
+        services = []
+        seen_units = set()
+        for name in cls.MONITORED_SERVICES:
+            info = states.get(name) or {}
+            if info.get('LoadState') != 'loaded':
+                continue
+            unit_id = info.get('Id') or name
+            if unit_id in seen_units:
+                continue
+            seen_units.add(unit_id)
+            try:
+                pid = int(info.get('MainPID') or 0) or None
+            except ValueError:
+                pid = None
+            services.append({
+                'name': name,
+                'status': 'running' if info.get('ActiveState') == 'active' else 'stopped',
+                'pid': pid,
+            })
+        return services
+
+    @classmethod
+    def _process_name_status(cls) -> List[Dict]:
+        """Legacy process-name heuristic, kept for hosts without systemd.
+
+        Only reached off Linux (a Windows/macOS dev box) or when systemctl
+        cannot be queried at all. It matches loosely and can report a service
+        as running on a coincidental process name -- which is precisely why it
+        is no longer the Linux path.
+        """
         services = []
         running_procs = {p.name().lower(): p for p in psutil.process_iter(['name', 'pid'])}
 

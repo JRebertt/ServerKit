@@ -1,11 +1,12 @@
 // ============================================
-// SETUP HEALTH — dashboard widget
+// SETUP HEALTH — dashboard card
 // Compact "how set-up is this panel" card: score + top open items, each
 // deep-linking to its fix. Collapses to a slim "all set" line when clean.
+// Sits above the board as a direct child of .dashboard-page (a flex column),
+// so vertical rhythm comes from that container's gap — no margin here.
 // ============================================
 
 .setup-health-widget {
-    grid-column: span 6;
     display: flex;
     flex-direction: column;
     gap: $space-3;
@@ -118,10 +119,6 @@
         flex: 1;
         color: $text-secondary;
     }
-}
-
-@media (max-width: $breakpoint-md) {
-    .setup-health-widget { grid-column: span 12; }
 }
 
 // Per-user "secure your account" nudge banner (dashboard top).

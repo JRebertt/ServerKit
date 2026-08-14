@@ -149,9 +149,21 @@ const Domains = () => {
     const [selectedAppId, setSelectedAppId] = useState('');
     const [isPrimary, setIsPrimary] = useState(false);
     const [sslEmail, setSslEmail] = useState('');
+    const [acmeContact, setAcmeContact] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => { loadData(); }, []);
+
+    // The panel remembers one Let's Encrypt contact; this modal used to ask
+    // for it on every single certificate. Best-effort — an unreachable
+    // setting just leaves the field empty, as before.
+    useEffect(() => {
+        let cancelled = false;
+        api.getAcmeContact()
+            .then(({ email }) => { if (!cancelled && email) setAcmeContact(email); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     // Lazily resolve registration (expiry/registrar) for the open provider domain:
     // use the provider value if present, else fall back to a one-off RDAP lookup.
@@ -237,10 +249,13 @@ const Domains = () => {
 
     async function handleEnableSsl(e) {
         e.preventDefault();
-        if (!selectedDomain || !sslEmail) return;
+        // Mirrors the input's display fallback: an untouched field submits the
+        // stored contact rather than nothing.
+        const email = sslEmail || acmeContact;
+        if (!selectedDomain || !email) return;
         try {
             setActionLoading(true);
-            await api.enableSsl(selectedDomain.id, sslEmail);
+            await api.enableSsl(selectedDomain.id, email);
             setShowSslModal(false);
             setSslEmail('');
             setSelectedDomain(null);
@@ -277,8 +292,16 @@ const Domains = () => {
     async function handleVerifyDomain(domain) {
         try {
             const result = await api.verifyDomain(domain.id);
-            if (result.verified) toast.success(`Domain verified! IP: ${result.ip_address}`);
-            else toast.error(`Domain verification failed: ${result.error}`);
+            if (!result.verified) {
+                toast.error(`Domain verification failed: ${result.error}`);
+            } else if (result.warning) {
+                // The name resolves, but something about it will break
+                // issuance later (a stray AAAA record, today). A green
+                // "verified" toast here is how that stayed invisible.
+                toast.warning(result.warning, { duration: 15000 });
+            } else {
+                toast.success(`Domain verified! IP: ${result.ip_address}`);
+            }
         } catch (err) {
             setError(err.message);
         }
@@ -875,8 +898,18 @@ const Domains = () => {
                         </div>
                         <div className="form-group">
                             <Label>Email Address</Label>
-                            <Input type="email" placeholder="admin@example.com" value={sslEmail} onChange={e => setSslEmail(e.target.value)} required />
-                            <p className="hint">Required for certificate expiration notifications</p>
+                            <Input
+                                type="email"
+                                placeholder={acmeContact || 'admin@example.com'}
+                                value={sslEmail || acmeContact}
+                                onChange={e => setSslEmail(e.target.value)}
+                                required
+                            />
+                            <p className="hint">
+                                {acmeContact
+                                    ? "Certificate expiry notices go here. Saved from the last certificate you issued — change it to use a different address."
+                                    : 'Required for certificate expiration notifications. It will be remembered for the next certificate.'}
+                            </p>
                         </div>
                         <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={() => setShowSslModal(false)}>Cancel</Button>
