@@ -620,7 +620,8 @@ happen live, and debug failures entirely from the UI.
 
 - [x] Runtime frontend loading — installed extensions render without rebuilding the panel
 - [x] Extensions plug into the panel's own surfaces — their work shows up in the deploy console, their data in backups and restore, their health on the doctor page, their objects in search, and they can run commands across the fleet
-- [x] Signed extension releases, with explicit install consent for unsigned or third-party code
+- [x] Explicit install consent for unsigned, unreviewed or third-party extension code
+- [ ] Signed extension releases — the panel verifies ed25519 signatures against a pinned publisher key, but no published release is signed yet, so every first-party install still takes the unsigned-consent path
 - [x] The WordPress flagship extracted to its own repo and installed from the Marketplace like any other extension
 - [ ] The remaining built-ins extracted to standalone repos
 - [ ] Security suite (Fail2ban, ClamAV, Lynis, auto-updates, image scanning) as installable extensions for a leaner default panel
