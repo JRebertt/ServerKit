@@ -6,9 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **Scope:** This changelog tracks the **control panel** (Flask backend + React
-> frontend). The cross-platform **agent** ships on its own cadence and is tagged
-> separately (`agent-vX.Y.Z`) — see [`agent/README.md`](agent/README.md) for its
-> install and release notes.
+> frontend). The cross-platform **agent** lives in its own repository,
+> [`jhd3197/serverkit-agent`](https://github.com/jhd3197/serverkit-agent), ships
+> on its own cadence, and is tagged `vX.Y.Z` there (it was `agent-vX.Y.Z` while
+> it lived in this repo under `agent/`, which no longer exists).
 >
 > Commit-level history lives in `git log`; this file curates the user-facing
 > changes by theme.
@@ -17,6 +18,37 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 The `dev` branch is well ahead of the last `main` release. The headline work
 awaiting a stable release:
+
+### Fixed
+
+- **Adding a server to the fleet works again on Docker installs.** The panel
+  serves the agent installer at `/api/v1/servers/install.sh` by reading it off
+  its own filesystem, but the image never copied `scripts/` — so the enrollment
+  one-liner the panel prints in its own Add Server dialog returned 404 on every
+  container deployment, and no server could join a containerised panel. Bare
+  metal was unaffected (the installer clones the whole repo). The image now
+  ships both installers, and the release pipeline boots the built image and
+  requests them before publishing.
+
+- **The agent installer downloads from the right place.** When the Go agent
+  moved to its own repository, the installer and the panel's release lookup kept
+  asking `jhd3197/ServerKit` for `agent-v*` tags, which exist in no repository —
+  so `/api/v1/servers/agent/version` returned 503 to every agent polling for an
+  update, and the download URL was a 404. Both now target
+  `jhd3197/serverkit-agent` and its `vX.Y.Z` releases.
+
+- **Failed installs say so.** The enrollment command was
+  `curl -fsSL … | sudo bash`, where the shell reports bash's exit status, not
+  curl's — a failed download exited 0 and installed nothing silently. It now
+  downloads to a file first and only runs on success.
+
+- **API errors are JSON and get logged.** A missing installer answered `404`
+  ("wrong URL") for what was a server-side packaging fault; it now answers 503
+  and logs the path it searched. Framework-generated errors under `/api/`
+  (405, 413, `abort()`) returned Werkzeug's HTML page to clients parsing JSON,
+  unhandled exceptions were never logged with their request path, and nothing
+  in the app configured logging at all — so `logging.getLogger(__name__)` calls
+  throughout the services emitted unformatted records and dropped INFO entirely.
 
 ### Added
 
