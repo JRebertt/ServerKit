@@ -1,4 +1,16 @@
 #Requires -RunAsAdministrator
+#
+# ---------------------------------------------------------------------------
+# CANONICAL SOURCE: jhd3197/serverkit-agent -> install.ps1
+#
+# This file is VENDORED into the panel repo at ServerKit/scripts/install.ps1,
+# which is the copy the panel serves at GET /api/v1/servers/install.ps1 (it has
+# to exist on the panel's own disk, so the panel cannot simply link to it).
+#
+# Edit it in the agent repo, then re-vendor with ServerKit's
+# scripts/sync-agent-installers.sh. Do not patch one copy only -- see the note
+# in install.sh; ServerKit's nightly CI fails on any drift.
+# ---------------------------------------------------------------------------
 <#
 .SYNOPSIS
     ServerKit Agent Installation Script for Windows
@@ -48,7 +60,7 @@ $ConfigDir = "$env:ProgramData\ServerKit\Agent"
 $LogDir = "$env:ProgramData\ServerKit\Agent\logs"
 $ServiceName = "ServerKitAgent"
 # The agent has its own repo and its own vX.Y.Z releases; it no longer ships
-# from the panel monorepo. Keep in step with scripts/install.sh.
+# from the panel monorepo.
 $GitHubRepo = "jhd3197/serverkit-agent"
 $AgentBinary = "serverkit-agent.exe"
 

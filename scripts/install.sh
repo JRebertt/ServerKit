@@ -2,6 +2,20 @@
 #
 # ServerKit Agent Installation Script
 #
+# ---------------------------------------------------------------------------
+# CANONICAL SOURCE: jhd3197/serverkit-agent -> install.sh
+#
+# This file is VENDORED into the panel repo at ServerKit/scripts/install.sh,
+# which is the copy the panel serves at GET /api/v1/servers/install.sh (it has
+# to exist on the panel's own disk, so the panel cannot simply link to it).
+#
+# Edit it in the agent repo, then re-vendor with ServerKit's
+# scripts/sync-agent-installers.sh. Do not patch one copy only: they silently
+# drifted once already, and the panel spent that entire time serving an
+# installer that downloaded from a tag scheme that no longer existed
+# (ServerKit issue #101). ServerKit's nightly CI now fails on any drift.
+# ---------------------------------------------------------------------------
+#
 # Usage:
 #   curl -fsSL https://your-serverkit.com/install.sh -o /tmp/serverkit-agent-install.sh \
 #     && sudo bash /tmp/serverkit-agent-install.sh --token "TOKEN" --server "URL"
@@ -39,11 +53,10 @@ INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/serverkit-agent"
 LOG_DIR="/var/log/serverkit-agent"
 SERVICE_USER="serverkit-agent"
-# The agent lives in its own repo and publishes its own releases, tagged plain
-# `vX.Y.Z`. It used to live in the panel monorepo under `agent-v*` tags, and this
-# script was never updated when it moved -- so every download 404'd against a tag
-# scheme that no longer exists anywhere. Keep this in step with
-# serverkit-agent/install.sh; the panel serves THIS copy.
+# The agent publishes its own releases from its own repo, tagged plain `vX.Y.Z`.
+# It used to live in the panel monorepo under `agent-v*` tags, and this script
+# was never updated when it moved -- so every download 404'd against a tag scheme
+# that no longer exists anywhere (ServerKit issue #101).
 GITHUB_REPO="jhd3197/serverkit-agent"
 AGENT_BINARY="serverkit-agent"
 

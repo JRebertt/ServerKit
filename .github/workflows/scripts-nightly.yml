@@ -48,6 +48,15 @@ jobs:
       - name: Verify the agent release chain
         run: bash scripts/test/verify-agent-release-chain.sh
 
+      # scripts/install.sh is a VENDORED copy of the agent repo's canonical one
+      # (the panel has to serve it off its own disk). Two copies of one file is
+      # what caused the second half of #101: one was fixed, the other was not,
+      # and nothing compared them. Unit tests cannot see this -- they only ever
+      # exercise the copy in their own repo -- so the comparison has to be a
+      # cross-repo job. Re-vendor with scripts/sync-agent-installers.sh.
+      - name: Vendored installers match the agent repo
+        run: bash scripts/test/check-installer-drift.sh
+
   tarball-install:
     name: Install from a freshly built release tarball
     runs-on: ubuntu-latest
