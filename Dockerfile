@@ -156,6 +156,17 @@ COPY --chown=serverkit:serverkit backend/ ./backend/
 # reports its real version in containers instead of the unknown-version fallback
 COPY --chown=serverkit:serverkit VERSION ./VERSION
 
+# Ship the fleet-agent installers. The panel serves these over HTTP at
+# /api/v1/servers/install.sh and /install.ps1, reading them off its own disk at
+# <tree root>/scripts — which is /app/scripts here. They were missing from the
+# image entirely, so every containerised panel answered the enrollment one-liner
+# its own UI prints with a 404 and no server could ever join the fleet (#101).
+#
+# Only these two files: both are standalone (they source nothing from
+# scripts/lib), so the rest of scripts/ — lib, keys, the test harnesses,
+# stage-remote.sh — stays out of the image where it belongs.
+COPY --chown=serverkit:serverkit scripts/install.sh scripts/install.ps1 ./scripts/
+
 # Copy built frontend from Stage 1
 COPY --from=frontend-builder --chown=serverkit:serverkit /app/frontend/dist ./frontend/dist
 
