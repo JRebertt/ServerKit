@@ -30,6 +30,24 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Asks GitHub whether the URLs the agent installer builds resolve to real
+  # assets. Every unit test stubs curl, so they prove the script is internally
+  # consistent and nothing more -- which is how the installer went on pointing
+  # at jhd3197/ServerKit and `agent-v*` tags for the entire period after the Go
+  # agent moved to its own repo (issue #101). This job is also the tripwire for
+  # the reverse case: a change to the agent's release naming or tag scheme
+  # breaking the panel's installer from the other side of the repo split.
+  agent-release-chain:
+    name: Agent download URLs resolve on GitHub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify the agent release chain
+        run: bash scripts/test/verify-agent-release-chain.sh
+
   tarball-install:
     name: Install from a freshly built release tarball
     runs-on: ubuntu-latest
