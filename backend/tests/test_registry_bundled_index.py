@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 BUNDLED = Path(__file__).resolve().parent.parent / 'app' / 'data' / 'registry_index.json'
+BUILTIN_DIR = Path(__file__).resolve().parent.parent.parent / 'builtin-extensions'
 PUBLISHED = 'https://raw.githubusercontent.com/jhd3197/serverkit-extensions/main/index.json'
 SHA256_HEX = 64
 
@@ -75,6 +76,37 @@ def test_source_url_agrees_with_the_declared_version(bundled):
         tag = source.split('/releases/download/')[1].split('/')[0]
         assert tag.lstrip('v') == str(e['version']), (
             f"{e['slug']}: version {e['version']} but source points at tag {tag}"
+        )
+
+
+def test_bundled_entries_match_what_the_panel_actually_ships(bundled):
+    """A `bundled: true` entry promises an extension that ships inside the panel.
+
+    Those entries carry no source/sha256 -- there is nothing to download and
+    nothing to checksum -- so every other check in this file skips them, and
+    `test_matches_published_index` only proves the catalog agrees with the
+    registry, not that either agrees with the code. A bundled entry can
+    therefore name a version the panel does not ship, or an extension it does
+    not ship at all, and nothing notices.
+
+    This is the offline half of that: it needs no network and fails on the PR
+    that introduces the mismatch. Only checked in this direction -- a builtin
+    that is deliberately absent from the catalog is a product decision, not rot.
+    """
+    for e in bundled['extensions']:
+        if not e.get('bundled'):
+            continue
+        slug = e['slug']
+        manifest = BUILTIN_DIR / slug / 'plugin.json'
+        assert manifest.is_file(), (
+            f'{slug}: listed as bundled, but {manifest.parent.name}/plugin.json '
+            f'does not exist -- the catalog offers an extension the panel does not ship'
+        )
+        with open(manifest, 'r', encoding='utf-8') as f:
+            shipped = json.load(f)
+        assert str(shipped.get('version')) == str(e.get('version')), (
+            f'{slug}: catalog says {e.get("version")}, '
+            f'builtin-extensions/{slug}/plugin.json ships {shipped.get("version")}'
         )
 
 
