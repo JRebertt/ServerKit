@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import api from '../services/api';
 
 // Class-based Error Boundary for catching React errors
 export class ErrorBoundary extends Component {
@@ -15,6 +16,21 @@ export class ErrorBoundary extends Component {
     componentDidCatch(error, errorInfo) {
         this.setState({ errorInfo });
         console.error('ErrorBoundary caught an error:', error, errorInfo);
+        // Fire-and-forget report to the backend error tracker. Wrapped so
+        // reporting can NEVER throw inside the boundary — reportClientError
+        // already swallows network failures; this guards payload assembly.
+        try {
+            api.reportClientError({
+                message: error?.message || 'Unknown error',
+                exception_type: error?.name,
+                traceback: error?.stack,
+                endpoint: window.location.pathname,
+                context: {
+                    componentStack: errorInfo?.componentStack?.slice(0, 2000),
+                    userAgent: navigator.userAgent,
+                },
+            });
+        } catch { /* reporting must never break the boundary */ }
     }
 
     handleRetry = () => {
