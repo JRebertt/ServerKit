@@ -50,6 +50,14 @@ awaiting a stable release:
   in the app configured logging at all — so `logging.getLogger(__name__)` calls
   throughout the services emitted unformatted records and dropped INFO entirely.
 
+- **Offline panels see the full extension catalog again.** When the registry is
+  unreachable the Marketplace falls back to a copy bundled with the panel, and
+  that copy had fallen behind the published registry — so a panel without
+  internet, or one with the registry disabled, was missing LocalKit Bridge while
+  an online panel offered it. The bundled copy is back in step, and a check now
+  fails the build if a bundled entry ever names a version the panel does not
+  actually ship.
+
 ### Added
 
 - **Deploy Activity is now a live feed, not a table.** Runs group into Queued /
