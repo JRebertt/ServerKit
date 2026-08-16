@@ -1,5 +1,5 @@
 import {
-    Activity, AlertTriangle, Gauge, ListChecks, Radar, ScrollText,
+    Activity, AlertTriangle, Bug, Gauge, ListChecks, Radar, ScrollText,
     SlidersHorizontal, Stethoscope,
 } from 'lucide-react';
 
@@ -34,5 +34,6 @@ export const MONITOR_TABS = [
     { to: '/monitoring/capacity', label: 'Capacity', icon: <Gauge size={15} /> },
     { to: '/telemetry', label: 'Events', icon: <ScrollText size={15} /> },
     { to: '/monitoring/jobs', label: 'Jobs', icon: <ListChecks size={15} /> },
+    { to: '/monitoring/errors', label: 'Errors', icon: <Bug size={15} /> },
     { to: '/monitoring/doctor', label: 'Doctor', icon: <Stethoscope size={15} /> },
 ];

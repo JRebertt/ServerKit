@@ -1,0 +1,398 @@
+// Errors — the error tracker (backend + frontend exceptions, deduplicated by
+// fingerprint), a tab in the Monitoring group.
+//
+// Follows the group's standard tab-page pattern (Telemetry / Jobs): the shared
+// PageTopbar carries SearchField + Refresh via useTopbarActions, quick filters
+// are SegControls in the one ListToolbar, and the list is a server-paginated
+// DataTable whose footer owns the count and the pager. A row click opens the
+// detail Drawer; resolve/delete live there, not in row actions.
+import { useCallback, useEffect, useState } from 'react';
+import { AlertOctagon, CheckCheck, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import api from '../services/api';
+import {
+    DataTable, DataTableFooter, Drawer, ListToolbar, Pill, SearchField, SegControl,
+} from '@/components/ds';
+import { Button } from '@/components/ui/button';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import EmptyState from '../components/EmptyState';
+import { timeAgo } from '../utils/time';
+
+const PAGE_SIZE = 50;
+
+// `level` is a free-form severity string from the reporter; bucket it onto the
+// Pill palette. Anything unrecognized renders gray rather than guessing.
+const LEVEL_KIND = {
+    critical: 'red',
+    fatal: 'red',
+    error: 'red',
+    warning: 'amber',
+    warn: 'amber',
+    info: 'cyan',
+    debug: 'gray',
+};
+
+function levelKind(level) {
+    return LEVEL_KIND[String(level || '').toLowerCase()] || 'gray';
+}
+
+function formatStamp(iso) {
+    if (!iso) return '—';
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+
+// `context` arrives as an object from the API but is rendered as text; a
+// string context (already JSON, or a plain note) is shown verbatim.
+function contextText(context) {
+    if (context == null) return null;
+    if (typeof context === 'string') return context;
+    try {
+        return JSON.stringify(context, null, 2);
+    } catch {
+        return String(context);
+    }
+}
+
+export default function Errors() {
+    const { isAdmin } = useAuth();
+    const toast = useToast();
+    const { confirm } = useConfirm();
+
+    const [entries, setEntries] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [pages, setPages] = useState(1);
+    const [page, setPage] = useState(1);
+    const [stats, setStats] = useState(null);
+    const [source, setSource] = useState('all');       // all | backend | frontend
+    const [status, setStatus] = useState('all');       // all | unresolved | resolved
+    const [q, setQ] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);
+
+    const load = useCallback(async () => {
+        try {
+            const params = { page, per_page: PAGE_SIZE };
+            if (source !== 'all') params.source = source;
+            if (status !== 'all') params.resolved = status === 'resolved';
+            if (q) params.search = q;
+            const data = await api.getErrorLogs(params);
+            setEntries(data.items || []);
+            setTotal(data.total ?? (data.items?.length || 0));
+            setPages(data.pages ?? 1);
+        } catch {
+            // Keep the last good list on screen rather than blanking the page.
+        } finally {
+            setLoading(false);
+        }
+    }, [page, source, status, q]);
+
+    const loadStats = useCallback(async () => {
+        try {
+            setStats(await api.getErrorLogStats());
+        } catch {
+            // The strip is a summary; the table below is the source of truth.
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isAdmin) return;
+        load();
+        loadStats();
+    }, [isAdmin, load, loadStats]);
+
+    // Any filter change restarts pagination — staying on page 4 of the old
+    // query would land on an empty table.
+    const onSourceChange = (value) => { setSource(value); setPage(1); };
+    const onStatusChange = (value) => { setStatus(value); setPage(1); };
+    const onSearch = (value) => { setQ(value.trim()); setPage(1); };
+    const refresh = () => { load(); loadStats(); };
+
+    // Search + Refresh live in the group's shared top bar, the way every other
+    // list page in the panel does it.
+    useTopbarActions(() => {
+        if (!isAdmin) return null;
+        return (
+            <>
+                <SearchField value={q} onSearch={onSearch} placeholder="Search messages or types…" />
+                <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+                    <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+                </Button>
+            </>
+        );
+    }, [isAdmin, q, loading, load, loadStats]);
+
+    // The list rows already carry the full record (traceback, context); the
+    // detail call only refreshes count/resolved while the drawer is open.
+    const openDetail = (entry) => {
+        setSelected(entry);
+        api.getErrorLog(entry.id)
+            .then((data) => setSelected((cur) => (cur && cur.id === entry.id ? { ...entry, ...data } : cur)))
+            .catch(() => { /* the list row is enough */ });
+    };
+
+    const onToggleResolve = async (entry) => {
+        try {
+            await api.resolveErrorLog(entry.id, !entry.resolved);
+            toast.success(entry.resolved ? 'Marked as unresolved' : 'Marked as resolved');
+            setSelected(null);
+            refresh();
+        } catch (err) {
+            toast.error(err.message || 'Update failed');
+        }
+    };
+
+    const onDelete = async (entry) => {
+        const confirmed = await confirm({
+            title: 'Delete error',
+            message: `Delete "${entry.exception_type || 'this error'}" and its history? This cannot be undone.`,
+            confirmText: 'Delete',
+            variant: 'danger',
+        });
+        if (!confirmed) return;
+        try {
+            await api.deleteErrorLog(entry.id);
+            toast.success('Error deleted');
+            setSelected(null);
+            refresh();
+        } catch (err) {
+            toast.error(err.message || 'Delete failed');
+        }
+    };
+
+    const columns = [
+        {
+            key: 'level',
+            header: 'Level',
+            sortable: true,
+            type: 'enum',
+            value: (e) => e.level || '',
+            sortValue: (e) => e.level || '',
+            render: (e) => <Pill kind={levelKind(e.level)}>{e.level || 'error'}</Pill>,
+        },
+        {
+            key: 'source',
+            header: 'Source',
+            sortable: true,
+            type: 'enum',
+            value: (e) => e.source || '',
+            sortValue: (e) => e.source || '',
+            render: (e) => (
+                <Pill kind={e.source === 'frontend' ? 'violet' : 'cyan'} dot={false}>{e.source}</Pill>
+            ),
+        },
+        {
+            key: 'error',
+            header: 'Error',
+            sortable: true,
+            sortValue: (e) => e.exception_type || e.message || '',
+            render: (e) => (
+                <div className="sk-err__cell">
+                    <div className="sk-err__type">{e.exception_type || 'Error'}</div>
+                    <div className="sk-err__message" title={e.message}>{e.message}</div>
+                </div>
+            ),
+        },
+        {
+            key: 'endpoint',
+            header: 'Endpoint',
+            sortable: true,
+            sortValue: (e) => e.endpoint || null,
+            cellClassName: 'sk-err__endpoint',
+            render: (e) => (e.endpoint
+                ? <span title={e.endpoint}>{e.method ? `${e.method} ` : ''}{e.endpoint}</span>
+                : <span className="sk-err__muted">—</span>),
+        },
+        {
+            key: 'count',
+            header: 'Count',
+            sortable: true,
+            type: 'number',
+            value: (e) => e.count ?? 1,
+            sortValue: (e) => e.count ?? 1,
+            render: (e) => ((e.count ?? 1) > 1
+                ? <span className="sk-err__count">×{e.count}</span>
+                : <span className="sk-err__muted">1</span>),
+        },
+        {
+            key: 'last_seen',
+            header: 'Last seen',
+            sortable: true,
+            type: 'date',
+            value: (e) => e.last_seen || null,
+            sortValue: (e) => (e.last_seen ? new Date(e.last_seen).getTime() : null),
+            cellClassName: 'sk-err__when',
+            render: (e) => <span title={formatStamp(e.last_seen)}>{timeAgo(e.last_seen) || '—'}</span>,
+        },
+        {
+            key: 'resolved',
+            header: 'Status',
+            sortable: true,
+            type: 'enum',
+            value: (e) => (e.resolved ? 'Resolved' : 'Unresolved'),
+            sortValue: (e) => (e.resolved ? 'Resolved' : 'Unresolved'),
+            render: (e) => (
+                <Pill kind={e.resolved ? 'green' : 'red'}>{e.resolved ? 'Resolved' : 'Unresolved'}</Pill>
+            ),
+        },
+    ];
+
+    if (!isAdmin) {
+        return (
+            <div className="sk-tabgroup__inner errors-page">
+                <EmptyState title="Admins only." />
+            </div>
+        );
+    }
+
+    const hasFilters = Boolean(q || source !== 'all' || status !== 'all');
+    const selectedContext = selected ? contextText(selected.context) : null;
+
+    return (
+        <div className="sk-tabgroup__inner errors-page">
+            {/* Whole-table aggregates — the footer counts only the loaded page,
+                so Total / Unresolved / Last 24h come from /error-logs/stats. */}
+            {stats && (
+                <div className="stat-strip">
+                    <div className="stat-strip__item">
+                        <span className="stat-strip__label">Total</span>
+                        <span className="stat-strip__value">{stats.total ?? 0}</span>
+                    </div>
+                    <div className={`stat-strip__item${stats.unresolved ? ' is-danger' : ''}`}>
+                        <span className="stat-strip__label">Unresolved</span>
+                        <span className="stat-strip__value">
+                            <span className="stat-strip__dot" />
+                            {stats.unresolved ?? 0}
+                        </span>
+                    </div>
+                    <div className="stat-strip__item">
+                        <span className="stat-strip__label">Last 24h</span>
+                        <span className="stat-strip__value">{stats.last_24h ?? 0}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* One toolbar row: the two quick filters are SegControls, per the
+                shared ListToolbar anatomy. */}
+            <ListToolbar
+                filters={(
+                    <>
+                        <SegControl
+                            value={source}
+                            onChange={onSourceChange}
+                            options={[
+                                { value: 'all', label: 'All' },
+                                { value: 'backend', label: 'Backend', count: stats?.by_source?.backend },
+                                { value: 'frontend', label: 'Frontend', count: stats?.by_source?.frontend },
+                            ]}
+                        />
+                        <SegControl
+                            value={status}
+                            onChange={onStatusChange}
+                            options={[
+                                { value: 'all', label: 'All' },
+                                { value: 'unresolved', label: 'Unresolved' },
+                                { value: 'resolved', label: 'Resolved' },
+                            ]}
+                        />
+                    </>
+                )}
+            />
+
+            <DataTable
+                tableClassName="sk-dtable errors-table"
+                storageKey="serverkit-table-errors"
+                data={entries}
+                keyField="id"
+                columns={columns}
+                loading={loading && entries.length === 0}
+                onRowClick={openDetail}
+                rowClassName={(e) => (e.resolved ? 'is-resolved' : undefined)}
+                emptyTitle={hasFilters ? 'No errors match these filters.' : 'No errors recorded yet.'}
+                emptyMessage={hasFilters
+                    ? 'Try a different search or clear the filters.'
+                    : 'Uncaught backend and frontend exceptions will show up here, grouped by fingerprint.'}
+                footer={(
+                    <DataTableFooter
+                        shown={entries.length}
+                        total={total}
+                        noun="error"
+                        page={page}
+                        totalPages={pages}
+                        onPageChange={setPage}
+                    />
+                )}
+            />
+
+            <Drawer
+                open={Boolean(selected)}
+                onOpenChange={(open) => { if (!open) setSelected(null); }}
+                title={selected?.exception_type || 'Error'}
+                subtitle={selected ? `${selected.source} · ${selected.endpoint || 'no endpoint'}` : ''}
+                icon={<AlertOctagon size={18} />}
+                width={640}
+            >
+                {selected && (
+                    <div className="err-detail">
+                        <dl className="err-detail__rows">
+                            <div><dt>Message</dt><dd>{selected.message}</dd></div>
+                            <div>
+                                <dt>Level</dt>
+                                <dd><Pill kind={levelKind(selected.level)}>{selected.level || 'error'}</Pill></dd>
+                            </div>
+                            <div><dt>Source</dt><dd>{selected.source}</dd></div>
+                            {selected.endpoint && (
+                                <div>
+                                    <dt>Endpoint</dt>
+                                    <dd>{selected.method ? `${selected.method} ` : ''}{selected.endpoint}</dd>
+                                </div>
+                            )}
+                            {selected.user_id != null && (
+                                <div><dt>User</dt><dd>#{selected.user_id}</dd></div>
+                            )}
+                            <div><dt>Fingerprint</dt><dd><code>{selected.fingerprint}</code></dd></div>
+                            <div><dt>Occurrences</dt><dd>{selected.count ?? 1}</dd></div>
+                            <div><dt>First seen</dt><dd>{formatStamp(selected.first_seen)}</dd></div>
+                            <div><dt>Last seen</dt><dd>{formatStamp(selected.last_seen)}</dd></div>
+                            <div>
+                                <dt>Status</dt>
+                                <dd>
+                                    <Pill kind={selected.resolved ? 'green' : 'red'}>
+                                        {selected.resolved ? 'Resolved' : 'Unresolved'}
+                                    </Pill>
+                                </dd>
+                            </div>
+                        </dl>
+
+                        {selected.traceback && (
+                            <>
+                                <h4 className="err-detail__heading">Traceback</h4>
+                                <pre className="err-detail__traceback">{selected.traceback}</pre>
+                            </>
+                        )}
+
+                        {selectedContext && (
+                            <>
+                                <h4 className="err-detail__heading">Context</h4>
+                                <pre className="err-detail__context">{selectedContext}</pre>
+                            </>
+                        )}
+
+                        <div className="err-detail__actions">
+                            <Button variant="outline" size="sm" onClick={() => onToggleResolve(selected)}>
+                                {selected.resolved
+                                    ? <><Undo2 size={14} /> Mark unresolved</>
+                                    : <><CheckCheck size={14} /> Mark resolved</>}
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => onDelete(selected)}>
+                                <Trash2 size={14} /> Delete
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Drawer>
+        </div>
+    );
+}

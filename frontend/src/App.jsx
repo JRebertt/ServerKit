@@ -73,6 +73,7 @@ import Notifications from './pages/Notifications';
 import DeliveryLog from './pages/DeliveryLog';
 import Telemetry from './pages/Telemetry';
 import Jobs from './pages/Jobs';
+import Errors from './pages/Errors';
 import Monitors from './pages/Monitors';
 import MonitorDetail from './pages/MonitorDetail';
 import Incidents from './pages/Incidents';
@@ -145,6 +146,7 @@ const PAGE_TITLES = {
     '/monitoring/monitors/:monitorId': 'Monitor',
     '/monitoring/incidents': 'Incidents',
     '/monitoring/jobs': 'Jobs',
+    '/monitoring/errors': 'Errors',
     '/jobs': 'Jobs',
     '/test-sandbox': 'Test Sandbox',
 };
@@ -457,6 +459,9 @@ function AppRoutes() {
                         (the group's bar already owns the tab row). */}
                     <Route path="monitoring/jobs" element={<Jobs />} />
                     <Route path="monitoring/jobs/scheduled" element={<Jobs />} />
+                    {/* Error tracker: same class of thing as Events and Jobs —
+                        deduplicated backend/frontend exceptions. */}
+                    <Route path="monitoring/errors" element={<Errors />} />
                     <Route path="monitoring/:tab" element={<Monitoring />} />
                     <Route path="telemetry" element={<Telemetry />} />
                     {groupRoutes.monitoring}

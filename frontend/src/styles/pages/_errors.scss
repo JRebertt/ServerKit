@@ -1,0 +1,142 @@
+// ============================================
+// ERRORS — error tracker (Monitoring group tab)
+// ============================================
+// Only what the DS does not already cover lives here: the error cell's
+// type/message stack, the occurrence-count badge, and the detail drawer's
+// traceback/context pre blocks. Table, toolbar, stat strip, drawer and pills
+// are all shared primitives (.sk-dtable, .sk-listhead, .stat-strip, .sk-pill).
+
+.errors-page {
+
+    .errors-table { margin-top: 16px; }
+
+    .sk-err__cell {
+        min-width: 0;
+        max-width: 520px;
+    }
+
+    .sk-err__type {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .sk-err__message {
+        margin-top: 2px;
+        font-size: 12.5px;
+        color: var(--text-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sk-err__endpoint {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-dim);
+        white-space: nowrap;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sk-err__when {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--text-faint);
+        white-space: nowrap;
+    }
+
+    // Occurrence badge — only rendered when the same fingerprint hit >1 time.
+    .sk-err__count {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--amber);
+    }
+
+    .sk-err__muted { color: var(--text-ghost); }
+
+    // A resolved error is handled business; dim the whole row like the event
+    // log dims debug rows, so the unresolved work stands out.
+    tr.is-resolved { opacity: 0.6; }
+}
+
+// Error detail drawer body
+.err-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    &__rows {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+
+        > div {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border-soft);
+
+            &:last-child { border-bottom: none; }
+        }
+
+        dt { font-size: 12.5px; color: var(--text-faint); }
+
+        dd {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 12.5px;
+            color: var(--text-dim);
+            text-align: right;
+            word-break: break-word;
+        }
+
+        code {
+            font-family: var(--mono);
+            font-size: 11.5px;
+        }
+    }
+
+    &__heading {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+    }
+
+    // Traceback / context mono blocks — same treatment as the event drawer's
+    // payload block; the traceback gets more room because stacks are tall.
+    &__traceback,
+    &__context {
+        margin: 0;
+        overflow: auto;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-soft);
+        background: var(--surface-2);
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--text-dim);
+        white-space: pre;
+    }
+
+    &__traceback { max-height: 400px; }
+    &__context { max-height: 240px; }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+}
