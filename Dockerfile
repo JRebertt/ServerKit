@@ -157,10 +157,14 @@ COPY --chown=serverkit:serverkit backend/ ./backend/
 COPY --chown=serverkit:serverkit VERSION ./VERSION
 
 # Ship the fleet-agent installers. The panel serves these over HTTP at
-# /api/v1/servers/install.sh and /install.ps1, reading them off its own disk at
-# <tree root>/scripts — which is /app/scripts here. They were missing from the
-# image entirely, so every containerised panel answered the enrollment one-liner
-# its own UI prints with a 404 and no server could ever join the fleet (#101).
+# /api/v1/servers/install.sh and /api/v1/servers/install.ps1, reading them off
+# its own disk at <tree root>/scripts — which is /app/scripts here. Neither is
+# served at the domain root; spelling the prefix out twice is deliberate, since
+# a half-written path is what sent the #101 reporter hunting for a wrong URL.
+#
+# They were missing from the image entirely, so every containerised panel
+# answered the enrollment one-liner its own UI prints with a 404, and no server
+# could ever join the fleet (#101).
 #
 # Only these two files: both are standalone (they source nothing from
 # scripts/lib), so the rest of scripts/ — lib, keys, the test harnesses,
