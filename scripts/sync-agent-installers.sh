@@ -24,21 +24,37 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENT_REPO="${SERVERKIT_AGENT_REPO:-jhd3197/serverkit-agent}"
-# The agent repo's default branch is `master`; this repo's is `main`. Getting
-# that backwards makes the raw.githubusercontent fetch 404, which reads as
-# "cannot reach the canonical copy" rather than "wrong branch name".
-AGENT_REF="${AGENT_REF:-master}"
+AGENT_REF="${AGENT_REF:-}"
 SOURCE="${1:-}"
 
 INSTALLERS=(install.sh install.ps1)
 
 # Default source: a sibling checkout if there is one (so this works offline and
 # before the agent change is pushed), otherwise the published branch.
+# Ask the repo which branch is its default rather than hardcoding one — see the
+# same helper in scripts/test/check-installer-drift.sh. AGENT_REF pins it.
+resolve_agent_ref() {
+    if [ -n "$AGENT_REF" ]; then printf '%s' "$AGENT_REF"; return 0; fi
+
+    local declared ref
+    declared="$(curl -fsSL "https://api.github.com/repos/${AGENT_REPO}" 2>/dev/null \
+        | grep -o '"default_branch": *"[^"]*"' | head -1 | sed -e 's/.*: *"//' -e 's/"$//')"
+    if [ -n "$declared" ]; then printf '%s' "$declared"; return 0; fi
+
+    for ref in main master; do
+        if curl -fsSL -o /dev/null \
+                "https://raw.githubusercontent.com/${AGENT_REPO}/${ref}/install.sh" 2>/dev/null; then
+            printf '%s' "$ref"; return 0
+        fi
+    done
+    printf 'main'
+}
+
 if [ -z "$SOURCE" ]; then
     if [ -d "${REPO_ROOT}/../serverkit-agent" ]; then
         SOURCE="$(cd "${REPO_ROOT}/../serverkit-agent" && pwd)"
     else
-        SOURCE="https://raw.githubusercontent.com/${AGENT_REPO}/${AGENT_REF}"
+        SOURCE="https://raw.githubusercontent.com/${AGENT_REPO}/$(resolve_agent_ref)"
     fi
 fi
 
