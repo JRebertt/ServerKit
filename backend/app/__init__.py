@@ -1,6 +1,7 @@
 import os
 import sys
 from flask import Flask, send_from_directory, request, jsonify
+from werkzeug.exceptions import HTTPException
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
@@ -27,6 +28,57 @@ socketio = None
 FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'frontend', 'dist')
 
 
+# Set once per process: create_app() runs many times in a test session and
+# gunicorn imports the module before forking, so an unguarded addHandler would
+# duplicate every log line N times.
+_logging_configured = False
+
+
+def _configure_logging(app):
+    """Give the app a real logging setup.
+
+    Services across the codebase call ``logging.getLogger(__name__).warning(...)``
+    but nothing ever configured the root logger, so those records fell through to
+    logging's last-resort handler: WARNING and above only, no timestamp, no
+    logger name, INFO dropped on the floor. That is why a panel that was failing
+    to serve its own agent installer (issue #101) produced no diagnostic trail at
+    all. ``LOG_LEVEL`` overrides the default.
+    """
+    global _logging_configured
+
+    import logging
+
+    level_name = os.environ.get('LOG_LEVEL', '').upper()
+    if level_name and hasattr(logging, level_name):
+        level = getattr(logging, level_name)
+    elif app.config.get('TESTING'):
+        # TestingConfig sets DEBUG=True, so keying off DEBUG alone would move the
+        # whole test suite to DEBUG logging as a side effect of adding a handler.
+        level = logging.INFO
+    else:
+        level = logging.DEBUG if app.config.get('DEBUG') else logging.INFO
+
+    from flask.logging import default_handler
+
+    root = logging.getLogger()
+    root.setLevel(level)
+    app.logger.setLevel(level)
+
+    # Flask attaches its own handler to app.logger, which ALSO propagates to the
+    # root logger. Leaving both in place prints every app.logger record twice --
+    # once as Flask's `%(module)s` and once as ours as `%(name)s`. Drop Flask's
+    # and let the single root handler below own the output.
+    app.logger.removeHandler(default_handler)
+
+    if not _logging_configured:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter(
+            '[%(asctime)s] %(levelname)s in %(name)s: %(message)s'
+        ))
+        root.addHandler(handler)
+        _logging_configured = True
+
+
 def create_app(config_name=None):
     global socketio
 
@@ -40,6 +92,8 @@ def create_app(config_name=None):
         static_url_path=''
     )
     app.config.from_object(config[config_name])
+
+    _configure_logging(app)
 
     # Trust the reverse proxy's forwarding headers to derive the real client IP
     # (config-gated; default off). ProxyFix rewrites request.remote_addr from the
@@ -818,6 +872,35 @@ def create_app(config_name=None):
         if index and os.path.isfile(index):
             return send_from_directory(app.static_folder, 'index.html')
         return {'message': 'ServerKit API is running', 'docs': '/api/v1/'}, 200
+
+    # Unhandled exceptions. Flask only routes here when it is not propagating
+    # (so pytest and the dev server still re-raise with a full traceback);
+    # in production this is the difference between a logged, JSON-shaped 500 and
+    # a silent Werkzeug HTML page returned to an API client that wanted JSON.
+    @app.errorhandler(500)
+    def internal_error(e):
+        original = getattr(e, 'original_exception', None)
+        app.logger.exception(
+            'Unhandled exception on %s %s', request.method, request.path,
+            exc_info=original or e
+        )
+        # JSON either way: unlike a 404, there is no sensible SPA fallback for a
+        # crash, and an HTML page tells the caller nothing it can act on.
+        return {'error': 'Internal server error'}, 500
+
+    # Framework-generated HTTP errors (abort(), 405 from the router, 413 from
+    # MAX_CONTENT_LENGTH) rendered Werkzeug's HTML page even under /api/, so an
+    # API client parsing JSON got a parse error instead of the real reason.
+    # The more specific 404/500 handlers above still win for those codes.
+    @app.errorhandler(HTTPException)
+    def http_exception(e):
+        if request.path.startswith('/api/'):
+            app.logger.warning(
+                'HTTP %s on %s %s: %s', e.code, request.method, request.path, e.description
+            )
+            return {'error': e.description or e.name, 'status': e.code}, e.code
+        # Non-API paths keep Werkzeug's standard HTML error page.
+        return e.get_response()
 
     # Catch-all route for SPA - must be after all other routes
     @app.errorhandler(404)
