@@ -9,8 +9,6 @@ parsing JSON, and unhandled exceptions were never logged with their path.
 
 import logging
 
-from werkzeug.exceptions import InternalServerError
-
 
 def test_unknown_api_route_returns_json_404(client):
     response = client.get('/api/v1/this-route-does-not-exist')
@@ -52,15 +50,49 @@ def test_non_api_404_is_not_forced_into_json(client):
         assert b'<' in response.get_data()  # index.html, not a JSON error
 
 
-def test_internal_error_handler_is_registered(app):
-    """A 500 handler must exist, or API clients get an HTML page on a crash."""
-    handlers = app.error_handler_spec[None]
+def test_unhandled_exception_returns_json_500_and_logs_the_path(app, caplog):
+    """A crash must answer JSON and leave a trail naming the request.
 
-    assert 500 in handlers and handlers[500], (
-        'no 500 error handler registered; an unhandled exception returns '
-        "Werkzeug's HTML page and is never logged with its request path"
+    Driven through `app.handle_exception()` -- Flask's own entry point for an
+    unhandled exception -- rather than by reading `app.error_handler_spec`.
+    That attribute is a Flask internal whose shape has moved between releases,
+    and registration is not behaviour: a handler can be registered and still
+    return the wrong thing or log nothing.
+
+    Not done by adding a route that raises, either. The `app` fixture is
+    function-scoped but wraps a session-scoped Flask object, so a route
+    registered here would leak into every later test (and collide on the second
+    registration).
+
+    PROPAGATE_EXCEPTIONS is forced off for the call because TESTING=True turns
+    it on, which re-raises before any handler runs -- the same mechanism that
+    keeps the dev server's traceback.
+    """
+    original = app.config.get('PROPAGATE_EXCEPTIONS')
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+    try:
+        with caplog.at_level(logging.ERROR):
+            with app.test_request_context('/api/v1/boom', method='GET'):
+                response = app.handle_exception(RuntimeError('boom'))
+    finally:
+        app.config['PROPAGATE_EXCEPTIONS'] = original
+
+    assert response.status_code == 500
+    assert response.is_json, (
+        f'a crash returned {response.content_type}; API clients parse JSON'
     )
-    assert InternalServerError in handlers[500]
+    assert response.get_json()['error']
+    # Matched on this handler's own wording, not merely on the path: Flask's
+    # log_exception() already emits "Exception on /path [GET]" before any
+    # handler runs, so asserting the path alone passes even with the handler's
+    # logging deleted -- verified by mutation.
+    assert any(
+        'Unhandled exception on GET /api/v1/boom' in record.getMessage()
+        for record in caplog.records
+    ), (
+        'the 500 handler did not log the failing request; that missing trail is '
+        'what made #101 hard to diagnose'
+    )
 
 
 def test_logging_is_configured_with_a_formatter(app):
