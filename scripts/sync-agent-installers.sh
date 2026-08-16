@@ -24,7 +24,10 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AGENT_REPO="${SERVERKIT_AGENT_REPO:-jhd3197/serverkit-agent}"
-AGENT_REF="${AGENT_REF:-main}"
+# The agent repo's default branch is `master`; this repo's is `main`. Getting
+# that backwards makes the raw.githubusercontent fetch 404, which reads as
+# "cannot reach the canonical copy" rather than "wrong branch name".
+AGENT_REF="${AGENT_REF:-master}"
 SOURCE="${1:-}"
 
 INSTALLERS=(install.sh install.ps1)
