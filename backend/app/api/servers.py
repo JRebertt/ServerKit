@@ -5,6 +5,7 @@ Endpoints for managing remote servers and their agents.
 """
 
 import os
+import re
 import hashlib
 import hmac
 import requests
@@ -1856,10 +1857,65 @@ def list_terminal_sessions():
 # ==================== Installation Scripts ====================
 
 def _get_scripts_dir():
-    """Get the scripts directory path"""
+    """Resolve the directory holding the fleet-agent installer scripts.
+
+    Every shipped layout has to land on a real directory here:
+
+    * git checkout / release tarball -> ``<tree root>/scripts``
+    * Docker image                   -> ``/app/scripts``, which exists only
+      because the Dockerfile explicitly copies the two installers there.
+
+    ``SERVERKIT_SCRIPTS_DIR`` overrides the guess for layouts that split the
+    backend away from the rest of the tree.
+    """
+    override = os.environ.get('SERVERKIT_SCRIPTS_DIR')
+    if override:
+        return override
     # Go up from backend/app/api to backend, then to scripts
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
     return os.path.join(base_dir, 'scripts')
+
+
+def _load_installer(filename):
+    """Read an agent installer off disk and stamp this panel's coordinates in.
+
+    Returns ``(content, None)`` on success or ``(None, error_response)`` when the
+    file is absent, so the two endpoints below cannot drift apart.
+    """
+    script_path = os.path.join(_get_scripts_dir(), filename)
+
+    if not os.path.exists(script_path):
+        # A missing installer is a packaging fault on THIS panel, never a bad
+        # request. The old 404 asserted "no such URL", which is exactly what sent
+        # issue #101's reporter hunting for a wrong path -- they filed it as
+        # "incorrect paths in setup" -- when the file had simply never been
+        # shipped into the image. 503 says "this server is broken, not your URL",
+        # and the log line names the path actually searched so an operator can
+        # confirm it in one look instead of guessing.
+        current_app.logger.error(
+            'Agent installer %s is missing from this deployment (searched %s). '
+            'Fleet enrollment via /api/v1/servers/%s cannot work until it is '
+            'restored; see docs/ARCHITECTURE.md.',
+            filename, script_path, filename
+        )
+        return None, (jsonify({
+            'error': f'{filename} is not present on this ServerKit panel',
+            'detail': (
+                'The panel serves this installer from its own filesystem and the '
+                'file is missing, so this is a packaging/deployment problem with '
+                'this panel rather than a wrong URL. The panel log records the '
+                'exact path searched.'
+            ),
+            'searched_path': script_path,
+        }), 503)
+
+    with open(script_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Replace placeholders with actual values
+    content = content.replace('https://your-serverkit.com', _get_external_base_url())
+    content = content.replace('jhd3197/serverkit-agent', AGENT_GITHUB_REPO)
+    return content, None
 
 
 @servers_bp.route('/install.sh', methods=['GET'])
@@ -1870,22 +1926,16 @@ def get_install_script_linux():
     This endpoint serves the bash installation script for installing
     the ServerKit agent on Linux systems.
 
-    Usage:
-        curl -fsSL https://your-server/api/v1/servers/install.sh | sudo bash -s -- \\
+    Usage (download-then-run, not `curl | bash`: a pipeline reports bash's exit
+    status, so a failed download would exit 0 having installed nothing):
+        curl -fsSL https://your-server/api/v1/servers/install.sh \\
+            -o /tmp/serverkit-agent-install.sh \\
+        && sudo bash /tmp/serverkit-agent-install.sh \\
             --token "YOUR_TOKEN" --server "https://your-server"
     """
-    script_path = os.path.join(_get_scripts_dir(), 'install.sh')
-
-    if not os.path.exists(script_path):
-        return jsonify({'error': 'Installation script not found'}), 404
-
-    with open(script_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    # Replace placeholders with actual values
-    server_url = _get_external_base_url()
-    content = content.replace('https://your-serverkit.com', server_url)
-    content = content.replace('jhd3197/ServerKit', GITHUB_REPO)
+    content, error = _load_installer('install.sh')
+    if error is not None:
+        return error
 
     # Inject the agent version the panel already resolved so enrollment does
     # not depend on the installer rediscovering it via the GitHub API. Best
@@ -1922,18 +1972,9 @@ def get_install_script_windows():
         irm https://your-server/api/v1/servers/install.ps1 | iex; \\
             Install-ServerKitAgent -Token "YOUR_TOKEN" -Server "https://your-server"
     """
-    script_path = os.path.join(_get_scripts_dir(), 'install.ps1')
-
-    if not os.path.exists(script_path):
-        return jsonify({'error': 'Installation script not found'}), 404
-
-    with open(script_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    # Replace placeholders with actual values
-    server_url = _get_external_base_url()
-    content = content.replace('https://your-serverkit.com', server_url)
-    content = content.replace('jhd3197/ServerKit', GITHUB_REPO)
+    content, error = _load_installer('install.ps1')
+    if error is not None:
+        return error
 
     return Response(
         content,
@@ -1977,7 +2018,14 @@ def get_install_instructions(server_id):
 
     return jsonify({
         'linux': {
-            'one_liner': f'curl -fsSL {api_url}/install.sh | sudo bash -s -- --token "YOUR_TOKEN" --server "{base_url}"',
+            # Download-then-run rather than `curl … | sudo bash`: in a pipeline
+            # the shell reports bash's exit status, so a failed download exits 0
+            # and installs nothing without saying so (issue #101).
+            'one_liner': (
+                f'curl -fsSL {api_url}/install.sh -o /tmp/serverkit-agent-install.sh '
+                f'&& sudo bash /tmp/serverkit-agent-install.sh '
+                f'--token "YOUR_TOKEN" --server "{base_url}"'
+            ),
             'manual': [
                 f'# Download the script',
                 f'curl -fsSL {api_url}/install.sh -o install.sh',
@@ -2009,7 +2057,18 @@ _releases_cache = {
     'expires': None
 }
 
-GITHUB_REPO = os.environ.get('SERVERKIT_GITHUB_REPO', 'jhd3197/ServerKit')
+# The agent is built and released from its own repo, tagged plain `vX.Y.Z`. It
+# used to ship from this monorepo under `agent-v*` tags; when it moved out,
+# nothing here followed it, so this lookup searched a repo that has no agent
+# releases at all -- /agent/version answered 503 for every agent polling for an
+# update, and the served installer downloaded from a 404. Point both at the
+# repo that actually publishes the binaries.
+AGENT_GITHUB_REPO = os.environ.get('SERVERKIT_AGENT_GITHUB_REPO', 'jhd3197/serverkit-agent')
+
+# Matches vX.Y.Z but not the malformed release tagged just "v" that sits in the
+# agent repo's release list -- that one parses to an empty version and builds
+# download URLs like .../releases/download/v/serverkit-agent--linux-amd64.tar.gz.
+_AGENT_TAG_RE = re.compile(r'^v(\d[^\s]*)$')
 
 
 def _get_latest_agent_release():
@@ -2021,11 +2080,10 @@ def _get_latest_agent_release():
         return _releases_cache['data']
 
     try:
-        # Fetch releases from GitHub. per_page=100: agent-v* tags share this
-        # repo with panel releases, which can push them off the default
-        # 30-entry first page.
+        # Every release in the agent repo is an agent release, but ask for 100
+        # anyway so a run of pre-release tags cannot hide the newest stable one.
         response = requests.get(
-            f'https://api.github.com/repos/{GITHUB_REPO}/releases',
+            f'https://api.github.com/repos/{AGENT_GITHUB_REPO}/releases',
             headers={'Accept': 'application/vnd.github.v3+json'},
             params={'per_page': 100},
             timeout=10
@@ -2035,8 +2093,9 @@ def _get_latest_agent_release():
 
         # Find latest agent release
         for release in releases:
-            if release.get('tag_name', '').startswith('agent-v'):
-                version = release['tag_name'].replace('agent-v', '')
+            match = _AGENT_TAG_RE.match(release.get('tag_name', ''))
+            if match:
+                version = match.group(1)
 
                 # Build assets map
                 assets = {}
