@@ -1,7 +1,7 @@
 {
   "schema_version": 3,
-  "updated": "2026-08-05",
-  "note": "Bundled fallback copy of the ServerKit extension registry index. The live index is fetched from SERVERKIT_REGISTRY_URL when configured; this file is used offline and in tests. Curated via PR in the serverkit-extensions repo. Schema v3 adds optional per-entry `signature` + `publisher_key_id` (ed25519 minisign-style detached signature over the release zip, verified against the panel's pinned publisher keys at install \u2014 plan 55 D3). v1/v2 indexes without those fields remain valid; their entries are treated as unsigned.",
+  "updated": "2026-08-15",
+  "note": "Bundled fallback copy of the ServerKit extension registry index. The live index is fetched from SERVERKIT_REGISTRY_URL when configured; this file is used offline and in tests. It is a MIRROR of serverkit-extensions/index.json on main \u2014 do not hand-edit entries here, or it drifts from the artifacts it pins and installs fail checksum verification on exactly the panels that are already offline. Regenerate by copying that file's extensions array; tests/test_registry_bundled_index.py checks the two agree. Schema v3 adds optional per-entry `signature` + `publisher_key_id` (ed25519 minisign-style detached signature over the release zip, verified against the panel's pinned publisher keys at install \u2014 plan 55 D3). v1/v2 indexes without those fields remain valid; their entries are treated as unsigned.",
   "extensions": [
     {
       "slug": "serverkit-gui",
@@ -24,6 +24,42 @@
       "logo": "assets/serverkit-gui/logo.svg"
     },
     {
+      "slug": "serverkit-cloud-provision",
+      "display_name": "Cloud Provisioning",
+      "description": "Provision new servers from connected cloud providers, as the Cloud Servers tab in the Servers group.",
+      "version": "1.0.0",
+      "category": "deployment",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "network"
+      ],
+      "min_panel_version": null,
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-cloud-provision/logo.png"
+    },
+    {
+      "slug": "serverkit-cloudflare-ops",
+      "display_name": "Cloudflare Zone Ops",
+      "description": "Cloudflare zone operations on top of your existing Cloudflare DNS connection, covering zone settings, cache purge, WAF, Workers, Tunnels, and R2/KV/D1 storage. DNS records and the connection itself stay in the core Domains surface; this adds the per-zone control panel reached from a Cloudflare-managed domain.",
+      "version": "1.0.0",
+      "category": "integration",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "network"
+      ],
+      "min_panel_version": "1.7.0",
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "featured": true,
+      "feature_score": 70,
+      "logo": "assets/serverkit-cloudflare-ops/logo.png"
+    },
+    {
       "slug": "serverkit-crowdsec",
       "display_name": "CrowdSec",
       "description": "CrowdSec security engine integration. Surface active decisions and alerts, ban/unban IPs, and manage allowlists straight from the panel. Read/write via cscli on the host; shows install guidance when CrowdSec is absent (never auto-installs).",
@@ -38,7 +74,7 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-crowdsec/releases/download/v1.0.0/serverkit-crowdsec-1.0.0.zip",
-      "sha256": "4d92982a55a0ec0b5d7e34012b0d8b0b5655247d49b5dcaf075288bed664cabc",
+      "sha256": "2f5e58c6a97627213d256f6bf59d003e1842801bc6941c5998f4bb722d4d1c00",
       "repo": "https://github.com/jhd3197/serverkit-crowdsec",
       "homepage": "https://github.com/jhd3197/serverkit-crowdsec",
       "featured": false,
@@ -61,12 +97,86 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-dns-server/releases/download/v1.0.0/serverkit-dns-server-1.0.0.zip",
-      "sha256": "e17bbc19d25a01a578a085129e786d478bea7af53dfd425f130b753da09d75d3",
+      "sha256": "62d27b90f4f9357f1ba71e5e4416d9bc336e8b88c9da71ace3e830415f5564d0",
       "repo": "https://github.com/jhd3197/serverkit-dns-server",
       "homepage": "https://github.com/jhd3197/serverkit-dns-server",
       "featured": false,
       "feature_score": 0,
       "logo": "assets/serverkit-dns-server/logo.png"
+    },
+    {
+      "slug": "serverkit-email",
+      "display_name": "Email Server",
+      "description": "Full mail-server stack with Postfix/Dovecot, domains, mailboxes, aliases, DKIM/SPF/DMARC, SpamAssassin filtering, and Roundcube webmail. Most panels never run a mail server, so it ships as an opt-in extension.",
+      "version": "1.0.0",
+      "category": "integration",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "shell",
+        "filesystem",
+        "network"
+      ],
+      "min_panel_version": "1.7.0",
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-email/logo.png"
+    },
+    {
+      "slug": "serverkit-ftp",
+      "display_name": "FTP Server",
+      "description": "FTP server management (vsftpd/proftpd) with install, users, config and logs, as a tab in the Files group.",
+      "version": "1.0.0",
+      "category": "utility",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "shell",
+        "filesystem"
+      ],
+      "min_panel_version": null,
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-ftp/logo.svg"
+    },
+    {
+      "slug": "serverkit-git",
+      "display_name": "Git Server",
+      "description": "Self-hosted Git server (Gitea) exposed through the ServerKit extension system.",
+      "version": "1.0.0",
+      "category": "deployment",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "docker",
+        "filesystem"
+      ],
+      "min_panel_version": null,
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-git/logo.png"
+    },
+    {
+      "slug": "serverkit-localkit",
+      "display_name": "LocalKit Bridge",
+      "description": "API surface for the LocalKit desktop app: pair with an API key, list and create WordPress sites, and push or pull wp-content code and database dumps between local and server sites.",
+      "version": "0.2.0",
+      "category": "integration",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "filesystem",
+        "network",
+        "docker",
+        "database"
+      ],
+      "min_panel_version": "1.7.0",
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit"
     },
     {
       "slug": "serverkit-gpu",
@@ -83,7 +193,7 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-gpu/releases/download/v1.0.0/serverkit-gpu-1.0.0.zip",
-      "sha256": "c861dafadd3e5d5a72836e7d4248b18143cea1aea8c45d32d5211c83f28f9985",
+      "sha256": "3872d71f313dda7554ed2e4c6622c4a4d51c19d73f0cd30c465c3e1ea57f77ca",
       "repo": "https://github.com/jhd3197/serverkit-gpu",
       "homepage": "https://github.com/jhd3197/serverkit-gpu",
       "featured": true,
@@ -108,12 +218,70 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-mail/releases/download/v1.0.0/serverkit-mail-1.0.0.zip",
-      "sha256": "0132031e6b784bde5ebb6c70b5e0b15e085ed8a51f8c0fc65c50540824fcf294",
+      "sha256": "088b7e213fa72ccfa00abb3134a5ce06cab9670d9662f584a79699a3fe871611",
       "repo": "https://github.com/jhd3197/serverkit-mail",
       "homepage": "https://github.com/jhd3197/serverkit-mail",
       "featured": false,
       "feature_score": 0,
       "logo": "assets/serverkit-mail/logo.png"
+    },
+    {
+      "slug": "serverkit-remote-access",
+      "display_name": "Remote Access",
+      "description": "WireGuard remote-access tunnels between paired agents to expose NAT'd home services through an edge server. Fleet-wide view as a tab in the Servers group; per-server management stays on the server detail page.",
+      "version": "1.0.0",
+      "category": "integration",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [
+        "network"
+      ],
+      "min_panel_version": null,
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-remote-access/logo.png"
+    },
+    {
+      "slug": "serverkit-status",
+      "display_name": "Status Pages",
+      "description": "Public status pages backed by uptime monitors, with the management UI as a tab in the Observability group. The public /status/<slug> page itself stays core.",
+      "version": "1.0.0",
+      "category": "monitoring",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": true,
+      "permissions": [],
+      "min_panel_version": null,
+      "max_panel_version": null,
+      "repo": "https://github.com/jhd3197/ServerKit",
+      "logo": "assets/serverkit-status/logo.png"
+    },
+    {
+      "slug": "serverkit-wordpress",
+      "display_name": "WordPress",
+      "description": "The full WordPress suite: one-click site provisioning, a curated plugin library, environments and promote pipelines, update runs, security hardening, vulnerability scanning, analytics and reports. Offered during onboarding; uninstall it to slim the panel.",
+      "version": "1.0.1",
+      "category": "integration",
+      "author": "ServerKit",
+      "first_party": true,
+      "bundled": false,
+      "permissions": [
+        "shell",
+        "filesystem",
+        "network",
+        "docker",
+        "database"
+      ],
+      "min_panel_version": "1.7.81",
+      "max_panel_version": null,
+      "source": "https://github.com/jhd3197/serverkit-wordpress/releases/download/v1.0.1/serverkit-wordpress-1.0.1.zip",
+      "sha256": "2b7a9530925d4888e2a58ba0be8497d02e7ac6d31e6deec38806f311eaa179d5",
+      "repo": "https://github.com/jhd3197/serverkit-wordpress",
+      "homepage": "https://github.com/jhd3197/serverkit-wordpress",
+      "featured": true,
+      "feature_score": 80,
+      "logo": "assets/serverkit-wordpress/logo.png"
     },
     {
       "slug": "serverkit-k8s",
@@ -132,7 +300,7 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-k8s/releases/download/v1.0.0/serverkit-k8s-1.0.0.zip",
-      "sha256": "aa163f3c821a69cd7b41055407c9f2425998ff0d474957cfe5bb28b7f4547702",
+      "sha256": "ea1958c8dbc075757729d4ecf6c20f12c635542a8033bb21b886c0fe841ce709",
       "repo": "https://github.com/jhd3197/serverkit-k8s",
       "homepage": "https://github.com/jhd3197/serverkit-k8s",
       "featured": false,
@@ -157,7 +325,7 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-tramo/releases/download/v1.0.0/serverkit-tramo-1.0.0.zip",
-      "sha256": "1ee46b6db2be4e04add25ab7a705f4acd590a4358808c6c2035acb950fb03b0d",
+      "sha256": "1791eaf6ae786833002eb897e870384808cbe9ee6def6a1c1aaa1272128d8231",
       "repo": "https://github.com/jhd3197/serverkit-tramo",
       "homepage": "https://github.com/jhd3197/serverkit-tramo",
       "featured": true,
@@ -181,7 +349,7 @@
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
       "source": "https://github.com/jhd3197/serverkit-analytics/releases/download/v1.0.0/serverkit-analytics-1.0.0.zip",
-      "sha256": "9ed7a7dad6f78bca8da3abdb4f4279853ba0fe0c174e645b95d3594b70abc843",
+      "sha256": "54a7b6016884f888f36c707649f565b59dc9d9486f1ecaef39d0024aca407f99",
       "repo": "https://github.com/jhd3197/serverkit-analytics",
       "homepage": "https://github.com/jhd3197/serverkit-analytics",
       "featured": true,
@@ -209,30 +377,54 @@
       "logo": "assets/serverkit-faro/logo.png"
     },
     {
-      "slug": "serverkit-wordpress",
-      "display_name": "WordPress",
-      "description": "The full WordPress suite: one-click site provisioning, a curated plugin library, environments and promote pipelines, update runs, security hardening, vulnerability scanning, analytics and reports. Offered during onboarding; uninstall it to slim the panel.",
+      "slug": "serverkit-redis",
+      "display_name": "Redis Manager",
+      "description": "Redis server management with a key browser, key inspector, guarded CLI terminal, config viewer, slow log, and real-time server stats. Community extension (author: Paong); the listed release is built from the jhd3197 fork, which carries security hardening on top of the original.",
+      "version": "1.0.1",
+      "category": "utility",
+      "author": "Paong",
+      "first_party": false,
+      "permissions": [
+        "shell"
+      ],
+      "min_panel_version": "1.7.0",
+      "max_panel_version": null,
+      "source": "https://github.com/jhd3197/serverkit-redis/releases/download/v1.0.1/serverkit-redis-1.0.1.zip",
+      "sha256": "b1e8f6bfb4a15e5b86d40fd2e780f0b3ccd1bc38946ffdcf720e5810966f6b1c",
+      "review": {
+        "reviewer": "jhd3197",
+        "date": "2026-07-23",
+        "sha256": "b1e8f6bfb4a15e5b86d40fd2e780f0b3ccd1bc38946ffdcf720e5810966f6b1c",
+        "commit": "6d709f2",
+        "notes": "Full-file audit of v1.0.0 plus the fork's hardening diff. Fixed before stamping: admin-only RBAC on all routes (was any authenticated user), first-token command blocklist closing the CONFIG SET/EVAL/MODULE/REPLICAOF path to host code execution, slowlog input validation, and a working frontend bundle. Fixes offered upstream as farhanturu/serverkit-redis#1."
+      },
+      "repo": "https://github.com/jhd3197/serverkit-redis",
+      "homepage": "https://github.com/jhd3197/serverkit-redis",
+      "logo": "assets/serverkit-redis/logo.svg"
+    },
+    {
+      "slug": "serverkit-minecraft",
+      "display_name": "Minecraft Server",
+      "description": "Run a Minecraft server for your friends in a few clicks: Java (Vanilla/Paper/Fabric/Forge) and Bedrock, on the standard itzg community images. Live console (RCON), players, save-aware backups, scheduled restarts with in-game warnings, and a 'Share with friends' card showing exactly what to paste into the game client. First vertical of the ServerKit game-server family.",
       "version": "1.0.0",
-      "category": "integration",
+      "category": "games",
       "author": "ServerKit",
       "first_party": true,
       "bundled": false,
       "permissions": [
-        "shell",
-        "filesystem",
-        "network",
         "docker",
-        "database"
+        "filesystem",
+        "network"
       ],
-      "min_panel_version": "1.7.81",
+      "min_panel_version": "1.7.0",
       "max_panel_version": null,
-      "source": "https://github.com/jhd3197/serverkit-wordpress/releases/download/v1.0.0/serverkit-wordpress-1.0.0.zip",
-      "sha256": "96876a664e17e76f7517a644b903eae573b0b4d638bd40117fdbaf44d55796dd",
-      "repo": "https://github.com/jhd3197/serverkit-wordpress",
-      "homepage": "https://github.com/jhd3197/serverkit-wordpress",
+      "source": "https://github.com/jhd3197/serverkit-minecraft/releases/download/v1.0.0/serverkit-minecraft-1.0.0.zip",
+      "sha256": "b4cf00de9b97a9e68c8ba2e9305b4bcac94499aefd78824a1961a1991554da6a",
+      "repo": "https://github.com/jhd3197/serverkit-minecraft",
+      "homepage": "https://github.com/jhd3197/serverkit-minecraft",
       "featured": true,
-      "feature_score": 80,
-      "logo": "assets/serverkit-wordpress/logo.png"
+      "feature_score": 85,
+      "logo": "assets/serverkit-minecraft/logo.png"
     }
   ]
 }

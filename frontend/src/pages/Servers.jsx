@@ -761,7 +761,13 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
     }
 
     const connectionString = registrationData?.connection_string || '';
-    const linuxInstallScript = registrationData ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
+    // Download, then run — deliberately not `curl … | sudo bash`. In a pipe the
+    // shell reports bash's status, not curl's, so a failed download exits 0:
+    // the operator sees one line of curl noise, the shell says success, and
+    // nothing was installed. The `&&` makes a failed fetch stop the command and
+    // surface curl's non-zero exit (issue #101).
+    const linuxInstallScript = registrationData ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh -o /tmp/serverkit-agent-install.sh && \\
+  sudo bash /tmp/serverkit-agent-install.sh \\
   --server "${window.location.origin}" \\
   --token "${registrationData.registration_token}"` : '';
 

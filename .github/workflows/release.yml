@@ -136,12 +136,38 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
 
+      # Build amd64 first and boot it before anything is published. Issue #101
+      # shipped because this job went straight from `build` to `push`: the image
+      # was missing scripts/, so /api/v1/servers/install.sh 404'd in every
+      # container while the whole test suite stayed green (pytest runs against
+      # the source tree, where the file always exists). Only booting the artifact
+      # catches that. The layers are cached, so the multi-arch push below reuses
+      # this build rather than repeating it.
+      - name: Build amd64 image for smoke test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: serverkit:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+            BUILD_TIME=${{ github.event.repository.updated_at }}
+            GIT_COMMIT=${{ github.sha }}
+
+      - name: Smoke test the built image
+        run: SKIP_BUILD=1 bash scripts/test/smoke-docker-image.sh serverkit:smoke
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+          cache-from: type=gha
           tags: |
             ${{ env.DOCKER_IMAGE }}:latest
             ${{ env.DOCKER_IMAGE }}:${{ needs.version.outputs.version }}

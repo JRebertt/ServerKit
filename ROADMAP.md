@@ -620,15 +620,18 @@ happen live, and debug failures entirely from the UI.
 
 - [x] Runtime frontend loading — installed extensions render without rebuilding the panel
 - [x] Extensions plug into the panel's own surfaces — their work shows up in the deploy console, their data in backups and restore, their health on the doctor page, their objects in search, and they can run commands across the fleet
-- [ ] Signed extension releases, with explicit install consent for unsigned or third-party code
-- [ ] Remaining built-ins extracted to standalone repos (including the WordPress flagship)
+- [x] Explicit install consent for unsigned, unreviewed or third-party extension code
+- [ ] Signed extension releases — the panel verifies ed25519 signatures against a pinned publisher key, but no published release is signed yet, so every first-party install still takes the unsigned-consent path
+- [x] The WordPress flagship extracted to its own repo and installed from the Marketplace like any other extension
+- [ ] The remaining built-ins extracted to standalone repos
 - [ ] Security suite (Fail2ban, ClamAV, Lynis, auto-updates, image scanning) as installable extensions for a leaner default panel
 
 ## Game Server Hosting (new extension family)
 
-- [ ] Minecraft server extension: guided setup, live console, player management, world backups, scheduled restarts with in-game warnings
-- [ ] "Share with friends" connect card, with optional domain (SRV record) support
-- [ ] Reusable game-server framework (console, players, saves, schedules) enabling future titles
+- [x] Minecraft server extension: guided setup, live console, player management, world backups, scheduled restarts with in-game warnings
+- [x] Reusable game-server framework (console, players, saves, schedules) enabling future titles
+- [x] "Share with friends" connect card
+- [ ] Optional domain support for the connect card (SRV records)
 
 ## Fleet & Agents
 
@@ -683,5 +686,5 @@ The core is no longer taking on new features. The best way to propose new functi
 
 <p align="center">
   <strong>ServerKit Roadmap</strong><br>
-  Last updated: July 2026
+  Last updated: August 2026
 </p>

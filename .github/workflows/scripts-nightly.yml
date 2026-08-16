@@ -30,6 +30,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Asks GitHub whether the URLs the agent installer builds resolve to real
+  # assets. Every unit test stubs curl, so they prove the script is internally
+  # consistent and nothing more -- which is how the installer went on pointing
+  # at jhd3197/ServerKit and `agent-v*` tags for the entire period after the Go
+  # agent moved to its own repo (issue #101). This job is also the tripwire for
+  # the reverse case: a change to the agent's release naming or tag scheme
+  # breaking the panel's installer from the other side of the repo split.
+  agent-release-chain:
+    name: Agent download URLs resolve on GitHub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify the agent release chain
+        run: bash scripts/test/verify-agent-release-chain.sh
+
+      # scripts/install.sh is a VENDORED copy of the agent repo's canonical one
+      # (the panel has to serve it off its own disk). Two copies of one file is
+      # what caused the second half of #101: one was fixed, the other was not,
+      # and nothing compared them. Unit tests cannot see this -- they only ever
+      # exercise the copy in their own repo -- so the comparison has to be a
+      # cross-repo job. Re-vendor with scripts/sync-agent-installers.sh.
+      - name: Vendored installers match the agent repo
+        run: bash scripts/test/check-installer-drift.sh
+
   tarball-install:
     name: Install from a freshly built release tarball
     runs-on: ubuntu-latest

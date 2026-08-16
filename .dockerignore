@@ -4,7 +4,11 @@
 # file the context is ~750 MB of node_modules/.git/venvs — and the build fails
 # outright on the broken symlink at backend/.venv-wsl/lib64.
 #
-# The Dockerfile only needs: frontend/ (sources + package*.json), backend/, VERSION.
+# The Dockerfile needs: frontend/ (sources + package*.json), backend/, VERSION,
+# and scripts/install.sh + scripts/install.ps1 (the panel serves those two over
+# HTTP for fleet enrollment). Keep this list honest — it read "only frontend,
+# backend, VERSION" while the agent installers were being served from disk, and
+# that wrong-but-authoritative comment is why nobody noticed they never shipped.
 #
 # NOTE: do NOT add `!exception` patterns here. A single negation makes Docker
 # descend into every excluded directory (a nested file might be re-included),

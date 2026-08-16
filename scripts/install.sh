@@ -2,8 +2,28 @@
 #
 # ServerKit Agent Installation Script
 #
-# Usage:
-#   curl -fsSL https://your-serverkit.com/install.sh | sudo bash -s -- --token "TOKEN" --server "URL"
+# ---------------------------------------------------------------------------
+# CANONICAL SOURCE: jhd3197/serverkit-agent -> install.sh
+#
+# This file is VENDORED into the panel repo at ServerKit/scripts/install.sh,
+# which is the copy the panel serves at GET /api/v1/servers/install.sh (it has
+# to exist on the panel's own disk, so the panel cannot simply link to it).
+#
+# Edit it in the agent repo, then re-vendor with ServerKit's
+# scripts/sync-agent-installers.sh. Do not patch one copy only: they silently
+# drifted once already, and the panel spent that entire time serving an
+# installer that downloaded from a tag scheme that no longer existed
+# (ServerKit issue #101). ServerKit's nightly CI now fails on any drift.
+# ---------------------------------------------------------------------------
+#
+# Usage (the panel serves this at /api/v1/servers/install.sh, not at the domain
+# root -- the root of a ServerKit domain is the panel UI):
+#   curl -fsSL https://your-serverkit.com/api/v1/servers/install.sh \
+#     -o /tmp/serverkit-agent-install.sh \
+#     && sudo bash /tmp/serverkit-agent-install.sh --token "TOKEN" --server "URL"
+#
+# Deliberately not `curl … | sudo bash`: a pipeline reports bash's exit status,
+# not curl's, so a failed download exits 0 having installed nothing (issue #101).
 #
 # Options:
 #   --token, -t     Registration token (required)
@@ -35,7 +55,11 @@ INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/serverkit-agent"
 LOG_DIR="/var/log/serverkit-agent"
 SERVICE_USER="serverkit-agent"
-GITHUB_REPO="jhd3197/ServerKit"
+# The agent publishes its own releases from its own repo, tagged plain `vX.Y.Z`.
+# It used to live in the panel monorepo under `agent-v*` tags, and this script
+# was never updated when it moved -- so every download 404'd against a tag scheme
+# that no longer exists anywhere (ServerKit issue #101).
+GITHUB_REPO="jhd3197/serverkit-agent"
 AGENT_BINARY="serverkit-agent"
 
 # Arguments
@@ -87,7 +111,9 @@ show_help() {
     echo "  --help, -h      Show this help message"
     echo ""
     echo "Example:"
-    echo "  curl -fsSL https://your-serverkit.com/install.sh | sudo bash -s -- \\"
+    echo "  curl -fsSL https://your-serverkit.com/api/v1/servers/install.sh \\"
+    echo "    -o /tmp/serverkit-agent-install.sh \\"
+    echo "    && sudo bash /tmp/serverkit-agent-install.sh \\"
     echo "    --token 'sk_reg_xxx' \\"
     echo "    --server 'https://your-serverkit.com'"
     exit 0
@@ -195,14 +221,18 @@ get_latest_version() {
 
     log_info "Fetching latest version..."
 
-    # Agent tags share this repo with panel releases, which can push every
-    # agent-v* tag off the first page — so page through instead of trusting
-    # the default (30-entry) first page. Capped at 3 pages of 100.
+    # Every release in the agent repo is an agent release, so the first vX.Y.Z
+    # tag is the one we want. The paging kept from the monorepo era costs one
+    # extra request at most and covers a repo with many pre-release tags.
+    #
+    # The `[0-9]` is load-bearing: the repo carries a malformed release literally
+    # tagged "v", which would otherwise parse to an empty VERSION and send the
+    # download at .../releases/download/v/serverkit-agent--linux-amd64.tar.gz.
     local page releases
     VERSION=""
     for page in 1 2 3; do
         releases=$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=100&page=${page}") || break
-        VERSION=$(printf '%s\n' "$releases" | grep -o '"tag_name": *"agent-v[^"]*"' | head -1 | sed -e 's/.*agent-v//' -e 's/"$//') || true
+        VERSION=$(printf '%s\n' "$releases" | grep -o '"tag_name": *"v[0-9][^"]*"' | head -1 | sed -e 's/.*"v//' -e 's/"$//') || true
         [[ -n "$VERSION" ]] && break
         # A page with no tags at all means the release list is exhausted.
         printf '%s' "$releases" | grep -q '"tag_name"' || break
@@ -219,7 +249,7 @@ get_latest_version() {
 # but-mismatching checksum is a hard failure.
 verify_checksum() {
     local tmp_dir="$1" asset_name="$2"
-    local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/agent-v${VERSION}/checksums.txt"
+    local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/checksums.txt"
 
     if ! command -v sha256sum &> /dev/null; then
         log_warn "sha256sum not available — skipping checksum verification"
@@ -248,7 +278,7 @@ download_agent() {
     log_info "Downloading ServerKit Agent v${VERSION}..."
 
     ASSET_NAME="serverkit-agent-${VERSION}-linux-${ARCH}.tar.gz"
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/agent-v${VERSION}/${ASSET_NAME}"
+    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/${ASSET_NAME}"
     TMP_DIR=$(mktemp -d)
     ARCHIVE="${TMP_DIR}/${ASSET_NAME}"
 
