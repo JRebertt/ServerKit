@@ -400,7 +400,11 @@ export const TokenModal = ({ server, onClose, onGenerated }) => {
         toast.success('Copied to clipboard');
     }
 
-    const linuxScript = result ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh | sudo bash -s -- \\
+    // Download-then-run, not `curl … | sudo bash`: a piped curl failure is
+    // invisible (the pipeline reports bash's exit status, so a 404 still exits
+    // 0 with nothing installed). See issue #101.
+    const linuxScript = result ? `curl -fsSL ${window.location.origin}/api/v1/servers/install.sh -o /tmp/serverkit-agent-install.sh && \\
+  sudo bash /tmp/serverkit-agent-install.sh \\
   --server "${window.location.origin}" \\
   --token "${result.registration_token}"` : '';
     const windowsScript = result ? `irm ${window.location.origin}/api/v1/servers/install.ps1 | iex

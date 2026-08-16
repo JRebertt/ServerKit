@@ -109,7 +109,9 @@ function Downloads() {
             icon: LinuxIcon,
             os: 'linux',
             archKey: 'amd64',
-            command: `curl -fsSL ${getBaseUrl()}/api/v1/servers/install.sh | sudo bash -s -- --token "YOUR_TOKEN" --server "${getBaseUrl()}"`,
+            // Download-then-run: `curl … | sudo bash` reports bash's exit status,
+            // so a failed download exits 0 and installs nothing silently (#101).
+            command: `curl -fsSL ${getBaseUrl()}/api/v1/servers/install.sh -o /tmp/serverkit-agent-install.sh && sudo bash /tmp/serverkit-agent-install.sh --token "YOUR_TOKEN" --server "${getBaseUrl()}"`,
         },
         {
             id: 'linux-arm64',
@@ -118,7 +120,7 @@ function Downloads() {
             icon: LinuxIcon,
             os: 'linux',
             archKey: 'arm64',
-            command: `curl -fsSL ${getBaseUrl()}/api/v1/servers/install.sh | sudo bash -s -- --token "YOUR_TOKEN" --server "${getBaseUrl()}"`,
+            command: `curl -fsSL ${getBaseUrl()}/api/v1/servers/install.sh -o /tmp/serverkit-agent-install.sh && sudo bash /tmp/serverkit-agent-install.sh --token "YOUR_TOKEN" --server "${getBaseUrl()}"`,
         },
         {
             id: 'windows-amd64',
