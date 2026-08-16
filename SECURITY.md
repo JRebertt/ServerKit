@@ -10,7 +10,9 @@ release line and the `main` branch.
 | 1.6.x   | ✅ |
 | < 1.6   | ❌ (please upgrade) |
 
-The **agent** is versioned independently (`agent-vX.Y.Z`); always run a recent
+The **agent** ships from its own repository, `jhd3197/serverkit-agent`, and is
+versioned independently (`vX.Y.Z` — it used `agent-vX.Y.Z` while it lived in this
+monorepo); always run a recent
 agent build, as several Windows service and credential-handling fixes landed in
 the 1.6.x line.
 

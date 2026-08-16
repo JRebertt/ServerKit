@@ -70,66 +70,130 @@ set +e +u   # hand control back to the harness; tests re-arm set -e per subshell
 printf '\nagent install.sh unit tests\n\n'
 
 # --------------------------------------------------------------------------
-# T1 — paged version discovery. The repo is shared with panel releases, so a
-# first page full of v1.7.x tags must NOT break enrollment: discovery has to
-# request per_page=100 and keep paging until it finds an agent-v* tag.
+# T0 — release-coordinate contract. This is the test whose absence let the
+# installer rot: the agent moved to its own repo (plain vX.Y.Z tags) and this
+# script kept asking jhd3197/ServerKit for `agent-v*` tags that exist nowhere,
+# so every enrollment 404'd at the download step. The old T1/T2 below actively
+# encoded the dead scheme with agent-v* fixtures and stayed green throughout.
 # --------------------------------------------------------------------------
-{
-    printf '['
-    for i in $(seq 1 30); do printf '{"tag_name": "v1.7.%s"},' "$i"; done
-    printf '{"tag_name": "v1.7.99"}]'
-} > "$FIXTURES/releases_page_1.json"
-printf '[{"tag_name": "v1.6.0"},{"tag_name": "agent-v0.3.2"},{"tag_name": "agent-v0.3.1"}]' \
-    > "$FIXTURES/releases_page_2.json"
+repo_default="$(grep -m1 '^GITHUB_REPO=' "$INSTALL_SH" | cut -d'"' -f2)"
+if [ "$repo_default" = "jhd3197/serverkit-agent" ]; then
+    ok "GITHUB_REPO points at the repo that publishes agent binaries"
+else
+    bad "GITHUB_REPO=[$repo_default]; agent releases live in jhd3197/serverkit-agent"
+fi
+if grep -qE 'releases/download/v\$\{VERSION\}/\$\{ASSET_NAME\}' "$INSTALL_SH"; then
+    ok "download URL uses the published /v\${VERSION}/ tag scheme"
+else
+    bad "download URL does not use /v\${VERSION}/: $(grep -n 'releases/download' "$INSTALL_SH" | tr '\n' ' ')"
+fi
+if grep -q 'agent-v' "$INSTALL_SH"; then
+    # A prose mention in a comment is fine; a URL or a tag filter is not.
+    if grep 'agent-v' "$INSTALL_SH" | grep -qvE '^\s*#'; then
+        bad "live agent-v reference remains: $(grep -n 'agent-v' "$INSTALL_SH" | grep -vE ':\s*#' | tr '\n' ' ')"
+    else
+        ok "no live agent-v* references remain (comments only)"
+    fi
+else
+    ok "no agent-v* references remain"
+fi
+
+# --------------------------------------------------------------------------
+# T1 — version discovery picks the newest vX.Y.Z, and must SKIP the malformed
+# release tagged literally "v" that sits in the agent repo's release list.
+# Without the digit guard that tag yields an empty VERSION and the installer
+# builds .../releases/download/v/serverkit-agent--linux-amd64.tar.gz.
+# --------------------------------------------------------------------------
+printf '[{"tag_name": "v"},{"tag_name": "v1.2.0"},{"tag_name": "v1.1.0"}]' \
+    > "$FIXTURES/releases_page_1.json"
 
 : > "$CURL_LOG"
 if ! got="$(
     # && chain: set -e is suppressed inside an if-condition substitution, so
     # only an explicit chain makes get_latest_version's status gate the result.
     set -Eeuo pipefail
-    VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/ServerKit"
+    VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/serverkit-agent"
     get_latest_version >/dev/null \
         && printf '%s' "$VERSION"
 )"; then
-    bad "paged discovery aborted under set -Eeuo pipefail"
-elif [ "$got" = "0.3.2" ]; then
-    ok "paged discovery finds agent-v0.3.2 on page 2 behind a page of panel tags"
+    bad "version discovery aborted under set -Eeuo pipefail"
+elif [ "$got" = "1.2.0" ]; then
+    ok "discovery picks the newest vX.Y.Z and skips the malformed \"v\" tag"
 else
-    bad "paged discovery: VERSION=[$got], want 0.3.2"
+    bad "discovery: VERSION=[$got], want 1.2.0"
 fi
 if grep -q 'per_page=100' "$CURL_LOG"; then
     ok "release requests ask GitHub for per_page=100"
 else
     bad "per_page=100 missing from release requests"
 fi
-if grep -q 'page=2' "$CURL_LOG" && ! grep -q 'page=3' "$CURL_LOG"; then
-    ok "discovery pages forward and stops once a tag is found (no page=3 request)"
+if ! grep -q 'page=2' "$CURL_LOG"; then
+    ok "discovery stops once a tag is found (no page=2 request)"
 else
     bad "unexpected page sequence: $(tr '\n' ' ' < "$CURL_LOG")"
 fi
 
 # --------------------------------------------------------------------------
-# T2 — discovery must fail LOUDLY (exit 1), not silently, when no agent-v*
-# tag exists on any page; and an empty page ends the paging early.
+# T1b — paging still works when page 1 holds nothing usable.
+# --------------------------------------------------------------------------
+mkdir -p "$WORK/fx1b"
+printf '[{"tag_name": "v"},{"tag_name": "nightly"}]' > "$WORK/fx1b/releases_page_1.json"
+printf '[{"tag_name": "v0.9.1"}]' > "$WORK/fx1b/releases_page_2.json"
+: > "$CURL_LOG"
+if ! got="$(
+    set -Eeuo pipefail
+    FIXTURES="$WORK/fx1b"
+    VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/serverkit-agent"
+    get_latest_version >/dev/null \
+        && printf '%s' "$VERSION"
+)"; then
+    bad "paged discovery aborted under set -Eeuo pipefail"
+elif [ "$got" = "0.9.1" ]; then
+    ok "discovery pages forward past a page with no usable tags"
+else
+    bad "paged discovery: VERSION=[$got], want 0.9.1"
+fi
+
+# --------------------------------------------------------------------------
+# T2 — discovery must fail LOUDLY (exit 1), not silently, when no vX.Y.Z tag
+# exists on any page; and an empty page ends the paging early.
 # --------------------------------------------------------------------------
 mkdir -p "$WORK/fx2"
-printf '[{"tag_name": "v1.7.0"}]' > "$WORK/fx2/releases_page_1.json"
+printf '[{"tag_name": "v"},{"tag_name": "nightly"}]' > "$WORK/fx2/releases_page_1.json"
 printf '[]' > "$WORK/fx2/releases_page_2.json"
 : > "$CURL_LOG"
 if (
     set -Eeuo pipefail
     FIXTURES="$WORK/fx2"
-    VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/ServerKit"
+    VERSION="latest"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/serverkit-agent"
     get_latest_version
 ) >/dev/null 2>&1; then
-    bad "discovery must exit non-zero when no agent-v tag exists"
+    bad "discovery must exit non-zero when no vX.Y.Z tag exists"
 else
-    ok "discovery fails loudly (exit 1) when no agent-v tag exists on any page"
+    ok "discovery fails loudly (exit 1) when no vX.Y.Z tag exists on any page"
 fi
 if grep -q 'page=2' "$CURL_LOG" && ! grep -q 'page=3' "$CURL_LOG"; then
     ok "an empty release page stops the paging (no page=3 request)"
 else
     bad "empty-page stop broken: $(tr '\n' ' ' < "$CURL_LOG")"
+fi
+
+# --------------------------------------------------------------------------
+# T2b — verify_checksum must fetch checksums.txt from the /v${VERSION}/ tag.
+# Exercised for real through the curl stub, so a URL regression shows up here
+# and not only in the static grep above.
+# --------------------------------------------------------------------------
+: > "$CURL_LOG"
+(
+    set +e
+    t="$WORK/ck-url"; mkdir -p "$t"
+    VERSION="1.2.0"; GITHUB_REPO="jhd3197/serverkit-agent"
+    verify_checksum "$t" "serverkit-agent-1.2.0-linux-amd64.tar.gz"
+) >/dev/null 2>&1
+if grep -q 'serverkit-agent/releases/download/v1.2.0/checksums.txt' "$CURL_LOG"; then
+    ok "checksums.txt is fetched from <agent repo>/releases/download/v1.2.0/"
+else
+    bad "wrong checksums URL: $(tr '\n' ' ' < "$CURL_LOG")"
 fi
 
 # --------------------------------------------------------------------------
@@ -139,7 +203,7 @@ fi
 : > "$CURL_LOG"
 if ! got="$(
     set -Eeuo pipefail
-    VERSION="latest"; SERVERKIT_AGENT_VERSION="9.9.9"; GITHUB_REPO="jhd3197/ServerKit"
+    VERSION="latest"; SERVERKIT_AGENT_VERSION="9.9.9"; GITHUB_REPO="jhd3197/serverkit-agent"
     get_latest_version >/dev/null \
         && printf '%s' "$VERSION"
 )"; then
@@ -153,7 +217,7 @@ fi
 : > "$CURL_LOG"
 if ! got="$(
     set -Eeuo pipefail
-    VERSION="1.2.3"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/ServerKit"
+    VERSION="1.2.3"; SERVERKIT_AGENT_VERSION=""; GITHUB_REPO="jhd3197/serverkit-agent"
     get_latest_version >/dev/null \
         && printf '%s' "$VERSION"
 )"; then
@@ -177,7 +241,7 @@ if command -v sha256sum >/dev/null 2>&1; then
     printf '%s  %s\n' "$sha" "$asset" > "$FIXTURES/checksums.txt"
     if (
         set -Eeuo pipefail
-        VERSION="0.3.2"; GITHUB_REPO="jhd3197/ServerKit"
+        VERSION="0.3.2"; GITHUB_REPO="jhd3197/serverkit-agent"
         verify_checksum "$t" "$asset"
     ) >/dev/null 2>&1; then
         ok "verify_checksum passes on a matching sha256"
@@ -192,7 +256,7 @@ if command -v sha256sum >/dev/null 2>&1; then
         "$asset" > "$FIXTURES/checksums.txt"
     if (
         set -Eeuo pipefail
-        VERSION="0.3.2"; GITHUB_REPO="jhd3197/ServerKit"
+        VERSION="0.3.2"; GITHUB_REPO="jhd3197/serverkit-agent"
         verify_checksum "$t" "$asset"
     ) >/dev/null 2>&1; then
         bad "verify_checksum must HALT on a checksum mismatch"
@@ -205,7 +269,7 @@ if command -v sha256sum >/dev/null 2>&1; then
     rm -f "$FIXTURES/checksums.txt"
     if (
         set -Eeuo pipefail
-        VERSION="0.3.2"; GITHUB_REPO="jhd3197/ServerKit"
+        VERSION="0.3.2"; GITHUB_REPO="jhd3197/serverkit-agent"
         verify_checksum "$t" "$asset"
     ) >/dev/null 2>&1; then
         ok "missing checksums.txt is best-effort (warn + continue)"
@@ -218,7 +282,7 @@ if command -v sha256sum >/dev/null 2>&1; then
     printf '%s  some-other-file.tar.gz\n' "$sha" > "$FIXTURES/checksums.txt"
     if (
         set -Eeuo pipefail
-        VERSION="0.3.2"; GITHUB_REPO="jhd3197/ServerKit"
+        VERSION="0.3.2"; GITHUB_REPO="jhd3197/serverkit-agent"
         verify_checksum "$t" "$asset"
     ) >/dev/null 2>&1; then
         ok "checksums.txt without our asset entry is best-effort (warn + continue)"

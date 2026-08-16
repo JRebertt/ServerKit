@@ -47,7 +47,9 @@ $InstallDir = "$env:ProgramFiles\ServerKit"
 $ConfigDir = "$env:ProgramData\ServerKit\Agent"
 $LogDir = "$env:ProgramData\ServerKit\Agent\logs"
 $ServiceName = "ServerKitAgent"
-$GitHubRepo = "jhd3197/ServerKit"
+# The agent has its own repo and its own vX.Y.Z releases; it no longer ships
+# from the panel monorepo. Keep in step with scripts/install.sh.
+$GitHubRepo = "jhd3197/serverkit-agent"
 $AgentBinary = "serverkit-agent.exe"
 
 # Colors
@@ -85,7 +87,10 @@ function Get-LatestVersion {
         try {
             $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$GitHubRepo/releases" -Method Get
             foreach ($release in $releases) {
-                if ($release.tag_name -match "^agent-v(.+)$") {
+                # Plain vX.Y.Z in the dedicated agent repo (it used to be
+                # `agent-v*` back when the agent shipped from the panel monorepo).
+                # Requiring a digit skips the malformed release tagged just "v".
+                if ($release.tag_name -match "^v(\d.*)$") {
                     $script:Version = $Matches[1]
                     Write-ColorOutput "Latest version: v$Version" "Info"
                     return
@@ -107,7 +112,7 @@ function Install-Agent {
     $tempDir = Join-Path $env:TEMP "serverkit-install-$(Get-Random)"
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-    $downloadUrl = "https://github.com/$GitHubRepo/releases/download/agent-v$Version/serverkit-agent-$Version-windows-amd64.zip"
+    $downloadUrl = "https://github.com/$GitHubRepo/releases/download/v$Version/serverkit-agent-$Version-windows-amd64.zip"
     $archivePath = Join-Path $tempDir "serverkit-agent.zip"
 
     try {
