@@ -50,6 +50,19 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
         return cmd
 
     cmd = list(cmd)
+
+    # Give argv[0] an absolute path ONLY when $PATH cannot resolve it. subprocess
+    # searches $PATH and nothing else, so a tool that exists but sits outside it
+    # raises FileNotFoundError — which callers wrapping the probe in a broad
+    # `except` then report as "not installed". This is how a successfully
+    # installed ufw (in /usr/sbin, absent from the unit's PATH) surfaced in the
+    # panel as "No Firewall Installed". Left untouched when $PATH already works,
+    # so a resolvable command is passed through exactly as the caller wrote it.
+    if cmd and cmd[0] != 'sudo' and not os.path.isabs(cmd[0]) and not shutil.which(cmd[0]):
+        resolved = resolve_command(cmd[0])
+        if resolved:
+            cmd[0] = resolved
+
     if _needs_sudo() and cmd[0] != 'sudo':
         if user:
             return ['sudo', '-n', '-u', user] + cmd
@@ -108,23 +121,47 @@ def run_command(cmd: Union[List[str], str], *, timeout: int = 60,
     }
 
 
+# Searched when ``$PATH`` does not resolve a command. Ordered the way a login
+# shell would. ``/usr/sbin`` and ``/sbin`` matter most: the panel's systemd unit
+# ships a PATH of venv:/usr/local/bin:/usr/bin:/bin, so every sbin-resident tool
+# (ufw, iptables, nft) is unreachable by bare name from the service. ``/snap/bin``
+# is included because snap is the recommended install route for certbot and is
+# almost never on a service's PATH.
+_COMMAND_SEARCH_DIRS = ('/usr/local/sbin', '/usr/local/bin', '/usr/sbin',
+                        '/usr/bin', '/sbin', '/bin', '/snap/bin')
+
+
+def resolve_command(cmd: str) -> Optional[str]:
+    """Absolute path to *cmd*, or None when it cannot be found anywhere.
+
+    ``shutil.which`` first, then :data:`_COMMAND_SEARCH_DIRS`. Knowing a command
+    exists is not enough to run it: ``subprocess`` resolves argv[0] through
+    ``$PATH`` alone and raises ``FileNotFoundError`` when that misses, so a
+    caller that only checked availability would still fail to exec.
+    """
+    if os.path.isabs(cmd):
+        return cmd if os.path.exists(cmd) else None
+
+    found = shutil.which(cmd)
+    if found:
+        return found
+
+    for directory in _COMMAND_SEARCH_DIRS:
+        candidate = os.path.join(directory, cmd)
+        if os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
 def is_command_available(cmd: str) -> bool:
     """Check whether *cmd* is available on the system.
 
-    Uses ``shutil.which`` first, then falls back to checking common sbin/local
-    paths that may not be on the current ``$PATH``.  ``/snap/bin`` is included
-    because snap is the recommended install method for tools like certbot, and
-    snap's bin dir is frequently missing from a service's ``$PATH``.
+    Uses ``shutil.which`` first, then falls back to the same sbin/local paths
+    :func:`resolve_command` searches — so "available" and "runnable" can never
+    disagree.
     """
-    if shutil.which(cmd):
-        return True
-
-    for directory in ('/usr/bin', '/usr/sbin', '/usr/local/bin',
-                      '/usr/local/sbin', '/snap/bin'):
-        if os.path.exists(os.path.join(directory, cmd)):
-            return True
-
-    return False
+    return resolve_command(cmd) is not None
 
 
 def sourced_result(lines: list, source: str, source_label: str) -> dict:

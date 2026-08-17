@@ -46,43 +46,60 @@ class FirewallService:
         """Check firewalld status."""
         try:
             installed = PackageManager.is_installed('firewalld') or is_command_available('firewall-cmd')
+        except Exception:
+            installed = False
 
-            running = False
-            default_zone = None
-
-            if installed:
+        # Same separation as _check_ufw: a probe that fails must not be able to
+        # unsay an `installed` that was already determined correctly.
+        running = False
+        default_zone = None
+        if installed:
+            try:
                 result = run_privileged(['firewall-cmd', '--state'])
-                running = 'running' in result.stdout.lower()
+                running = 'running' in (result.stdout or '').lower()
 
                 if running:
                     result = run_privileged(['firewall-cmd', '--get-default-zone'])
-                    default_zone = result.stdout.strip()
+                    default_zone = (result.stdout or '').strip()
+            except Exception:
+                running = False
+                default_zone = None
 
-            return {
-                'installed': installed,
-                'running': running,
-                'default_zone': default_zone
-            }
-        except Exception:
-            return {'installed': False, 'running': False, 'default_zone': None}
+        return {
+            'installed': installed,
+            'running': running,
+            'default_zone': default_zone
+        }
 
     @classmethod
     def _check_ufw(cls) -> Dict:
-        """Check ufw status."""
+        """Check ufw status.
+
+        The two questions are answered independently on purpose. A single
+        try/except around both let a failure in the *status* probe discard an
+        ``installed`` that had already been determined correctly, so a working
+        install was reported as "No Firewall Installed" — the probe raised
+        FileNotFoundError because ufw lives in /usr/sbin, which is absent from
+        the panel unit's PATH. Not knowing whether it is running says nothing
+        about whether it is there.
+        """
         try:
             installed = PackageManager.is_installed('ufw') or is_command_available('ufw')
-
-            active = False
-            if installed:
-                result = run_privileged(['ufw', 'status'])
-                active = 'Status: active' in result.stdout
-
-            return {
-                'installed': installed,
-                'active': active
-            }
         except Exception:
-            return {'installed': False, 'active': False}
+            installed = False
+
+        active = False
+        if installed:
+            try:
+                result = run_privileged(['ufw', 'status'])
+                active = 'Status: active' in (result.stdout or '')
+            except Exception:
+                active = False
+
+        return {
+            'installed': installed,
+            'active': active
+        }
 
     @classmethod
     def enable(cls, firewall: str = None) -> Dict:
