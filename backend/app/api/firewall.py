@@ -17,17 +17,40 @@ def get_status():
     return jsonify(result), 200
 
 
+@firewall_bp.route('/ssh-preflight', methods=['GET'])
+@viewer_required
+def ssh_preflight():
+    """Would enabling the firewall cut off SSH?
+
+    Lets the UI warn before the operator clicks, rather than reporting a
+    lockout after it has already happened.
+    """
+    firewall = request.args.get('firewall') or (
+        FirewallService.get_status().get('active_firewall') or 'ufw')
+    return jsonify(FirewallService.check_ssh_lockout(firewall)), 200
+
+
 @firewall_bp.route('/enable', methods=['POST'])
 @admin_required
 def enable_firewall():
-    """Enable the firewall."""
+    """Enable the firewall.
+
+    Blocked with 409 when no rule covers the live SSH port — `ufw --force
+    enable` suppresses ufw's own "may disrupt existing ssh connections" prompt,
+    so this is the only thing standing between a click and a locked-out box.
+    Resend with force=true to override.
+    """
     data = request.get_json() or {}
     firewall = data.get('firewall')
+    force = bool(data.get('force'))
 
-    result = FirewallService.enable(firewall)
+    result = FirewallService.enable(firewall, force=force)
 
     if result.get('success'):
         return jsonify(result), 200
+    # 409, not 400: the request is well-formed, the server state conflicts.
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 

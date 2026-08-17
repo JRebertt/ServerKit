@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from app.utils.system import (
+    PROBE_TIMEOUT,
     PackageManager,
     ServiceControl,
     is_command_available,
@@ -101,19 +102,175 @@ class FirewallService:
             'active': active
         }
 
+    # ------------------------------------------------------------------
+    # SSH lockout preflight
+    # ------------------------------------------------------------------
+    #: ufw's own `enable` asks "Command may disrupt existing ssh connections.
+    #: Proceed?" — and `--force enable`, which this service uses because nothing
+    #: here is attached to a terminal, suppresses exactly that prompt. Without a
+    #: replacement check the panel will happily lock an operator out of a remote
+    #: box in one click, with no way back in.
+
     @classmethod
-    def enable(cls, firewall: str = None) -> Dict:
-        """Enable the firewall."""
+    def ssh_ports(cls) -> Optional[List[int]]:
+        """Ports sshd is actually listening on, or None if undeterminable.
+
+        ``sshd -T`` is the authority: it resolves Includes, Match blocks and
+        compiled-in defaults, which parsing sshd_config by hand does not.
+
+        Returns None — never a guessed ``[22]`` — when sshd cannot be asked. A
+        wrong guess here is a lockout, so "I don't know" has to stay a distinct
+        answer the caller can refuse to act on.
+        """
+        try:
+            result = run_privileged(['sshd', '-T'], timeout=PROBE_TIMEOUT)
+        except Exception:
+            return None
+        if result.returncode != 0:
+            return None
+
+        ports = []
+        for line in (result.stdout or '').splitlines():
+            match = re.match(r'^\s*port\s+(\d+)\s*$', line, re.I)
+            if match:
+                ports.append(int(match.group(1)))
+        return sorted(set(ports)) or None
+
+    @classmethod
+    def _ufw_default_incoming_allow(cls) -> bool:
+        """True when ufw's default inbound policy is ACCEPT (no lockout risk)."""
+        try:
+            with open('/etc/default/ufw', 'r') as handle:
+                for line in handle:
+                    match = re.match(r'^\s*DEFAULT_INPUT_POLICY\s*=\s*"?(\w+)"?',
+                                     line)
+                    if match:
+                        return match.group(1).upper() == 'ACCEPT'
+        except Exception:
+            pass
+        return False
+
+    @classmethod
+    def _ufw_allowed_ports(cls) -> set:
+        """Ports covered by a staged ufw *allow* rule.
+
+        Reads `ufw show added`, which lists rules staged while the firewall is
+        still inactive — the only rules that will exist the instant it comes up.
+        Named application profiles (``ufw allow OpenSSH``) are resolved through
+        ``ufw app info`` rather than assumed, since guessing in the permissive
+        direction is what would cause the lockout this check exists to prevent.
+        """
+        allowed = set()
+        try:
+            result = run_privileged(['ufw', 'show', 'added'], timeout=PROBE_TIMEOUT)
+        except Exception:
+            return allowed
+        if result.returncode != 0:
+            return allowed
+
+        for line in (result.stdout or '').splitlines():
+            line = line.strip()
+            if 'allow' not in line:
+                continue
+            numbers = re.findall(r'\b(\d{1,5})(?:/(?:tcp|udp))?\b', line)
+            allowed.update(int(n) for n in numbers if 0 < int(n) <= 65535)
+
+            profile = re.search(r'allow\s+([A-Za-z][\w .-]*)$', line)
+            if profile:
+                allowed.update(cls._app_profile_ports(profile.group(1).strip()))
+        return allowed
+
+    @classmethod
+    def _app_profile_ports(cls, profile: str) -> set:
+        """Ports behind a ufw application profile name."""
+        ports = set()
+        try:
+            result = run_privileged(['ufw', 'app', 'info', profile],
+                                    timeout=PROBE_TIMEOUT)
+        except Exception:
+            return ports
+        if result.returncode != 0:
+            return ports
+        for match in re.finditer(r'\b(\d{1,5})(?:/(?:tcp|udp))?\b',
+                                 (result.stdout or '')):
+            ports.add(int(match.group(1)))
+        return ports
+
+    @classmethod
+    def check_ssh_lockout(cls, firewall: str = 'ufw') -> Dict:
+        """Would enabling *firewall* right now cut off SSH?
+
+        Returns ``{'safe': bool, 'reason': str, 'ssh_ports': [...] | None,
+        'allowed_ports': [...]}``. Advisory data — ``enable()`` decides.
+        """
+        if firewall != 'ufw':
+            # firewalld's default zone keeps the ssh service open, and enabling
+            # it does not flush existing rules the way `ufw enable` applies a
+            # fresh default-deny.
+            return {'safe': True, 'reason': 'not applicable to firewalld',
+                    'ssh_ports': None, 'allowed_ports': []}
+
+        if cls._ufw_default_incoming_allow():
+            return {'safe': True, 'reason': 'default incoming policy is ACCEPT',
+                    'ssh_ports': None, 'allowed_ports': []}
+
+        ports = cls.ssh_ports()
+        allowed = cls._ufw_allowed_ports()
+
+        if ports is None:
+            return {
+                'safe': False,
+                'reason': ('Could not determine which port sshd is listening on, '
+                           'so there is no way to confirm it stays reachable.'),
+                'ssh_ports': None,
+                'allowed_ports': sorted(allowed),
+            }
+
+        uncovered = [p for p in ports if p not in allowed]
+        if uncovered:
+            listed = ', '.join(str(p) for p in uncovered)
+            return {
+                'safe': False,
+                'reason': (f'No ufw rule allows SSH on port {listed}. Enabling now '
+                           f'applies a default-deny and closes your own session. '
+                           f'Add a rule first: ufw allow {uncovered[0]}/tcp'),
+                'ssh_ports': ports,
+                'allowed_ports': sorted(allowed),
+            }
+
+        return {'safe': True, 'reason': 'SSH port is covered by an allow rule',
+                'ssh_ports': ports, 'allowed_ports': sorted(allowed)}
+
+    @classmethod
+    def enable(cls, firewall: str = None, force: bool = False) -> Dict:
+        """Enable the firewall.
+
+        Refuses when the preflight cannot prove SSH survives. ``force=True`` is
+        the operator saying they accept the risk (console access, a rule the
+        probe could not see); it is never set by default.
+        """
         if firewall is None:
             status = cls.get_status()
             firewall = status['active_firewall']
 
+        if firewall not in ('firewalld', 'ufw'):
+            return {'success': False, 'error': 'No firewall detected'}
+
+        if not force:
+            preflight = cls.check_ssh_lockout(firewall)
+            if not preflight['safe']:
+                return {
+                    'success': False,
+                    'error': preflight['reason'],
+                    'blocked_by': 'ssh_lockout',
+                    'ssh_ports': preflight['ssh_ports'],
+                    'allowed_ports': preflight['allowed_ports'],
+                    'override': 'Send force=true to enable anyway.',
+                }
+
         if firewall == 'firewalld':
             return cls._enable_firewalld()
-        elif firewall == 'ufw':
-            return cls._enable_ufw()
-        else:
-            return {'success': False, 'error': 'No firewall detected'}
+        return cls._enable_ufw()
 
     @classmethod
     def _enable_firewalld(cls) -> Dict:
