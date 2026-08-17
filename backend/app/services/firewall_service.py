@@ -843,12 +843,123 @@ class FirewallService:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    # ------------------------------------------------------------------
+    # Blocking your own address
+    # ------------------------------------------------------------------
+    #: The port-based guards do not help here: the SSH rule stays exactly as it
+    #: is, and the operator is still locked out because their *source* address
+    #: is now rejected.
+
     @classmethod
-    def block_ip(cls, ip: str, permanent: bool = True) -> Dict:
-        """Quick method to block an IP address."""
+    def active_ssh_peers(cls) -> set:
+        """Source addresses of live SSH sessions.
+
+        Read from `ss`, whose established-connection view is authoritative;
+        `who` is empty for sessions that never allocated a utmp entry.
+        """
+        ports = cls.ssh_ports() or []
+        peers = set()
+        try:
+            result = run_privileged(['ss', '-Htn', 'state', 'established'],
+                                    timeout=PROBE_TIMEOUT)
+        except Exception:
+            return peers
+        if result.returncode != 0:
+            return peers
+
+        # `0  0  146.190.213.37:22  73.244.95.52:59085` — Recv-Q, Send-Q, local,
+        # peer. The State column is absent because `state established` filtered it.
+        for line in (result.stdout or '').splitlines():
+            fields = line.split()
+            if len(fields) < 4:
+                continue
+            local, peer = fields[2], fields[3]
+            try:
+                local_port = int(local.rsplit(':', 1)[-1])
+            except (ValueError, IndexError):
+                continue
+            if ports and local_port not in ports:
+                continue
+            address = peer.rsplit(':', 1)[0].strip('[]')
+            if address:
+                peers.add(address)
+        return peers
+
+    @staticmethod
+    def _covers_address(blocked: str, address: str) -> bool:
+        """Does *blocked* (an IP or CIDR) match *address*?"""
+        import ipaddress
+        try:
+            network = ipaddress.ip_network(blocked.strip(), strict=False)
+            return ipaddress.ip_address(address.strip()) in network
+        except ValueError:
+            return blocked.strip() == address.strip()
+
+    @classmethod
+    def check_ip_block(cls, ip: str, caller_ip: str = None) -> Dict:
+        """Would blocking *ip* cut off the person doing the blocking?
+
+        ``caller_ip`` is the address of the HTTP request asking for the block —
+        passed in by the API layer rather than read here, so the service stays
+        free of request context.
+        """
+        import ipaddress
+
+        try:
+            network = ipaddress.ip_network(ip.strip(), strict=False)
+            if network.is_loopback:
+                return {
+                    'safe': False,
+                    'reason': ('Blocking loopback cuts the panel off from its own '
+                               'reverse proxy — nginx forwards to 127.0.0.1.'),
+                    'ip': ip, 'conflicts': ['loopback'],
+                }
+        except ValueError:
+            pass
+
+        conflicts = []
+        for peer in sorted(cls.active_ssh_peers()):
+            if cls._covers_address(ip, peer):
+                conflicts.append(peer)
+
+        if caller_ip and cls._covers_address(ip, caller_ip) and caller_ip not in conflicts:
+            conflicts.append(caller_ip)
+
+        if conflicts:
+            listed = ', '.join(conflicts)
+            return {
+                'safe': False,
+                'reason': (f'{ip} covers an address you are currently connected '
+                           f'from ({listed}). Blocking it ends your own session.'),
+                'ip': ip,
+                'conflicts': conflicts,
+            }
+
+        return {'safe': True, 'reason': 'not an address you are connected from',
+                'ip': ip, 'conflicts': []}
+
+    @classmethod
+    def block_ip(cls, ip: str, permanent: bool = True, force: bool = False,
+                 caller_ip: str = None) -> Dict:
+        """Quick method to block an IP address.
+
+        Refuses when the address covers a live SSH session or the caller's own
+        connection. ``force=True`` is the operator accepting the risk.
+        """
         # Validate IP format
         if not cls._is_valid_ip(ip):
             return {'success': False, 'error': 'Invalid IP address format'}
+
+        if not force:
+            preflight = cls.check_ip_block(ip, caller_ip=caller_ip)
+            if not preflight['safe']:
+                return {
+                    'success': False,
+                    'error': preflight['reason'],
+                    'blocked_by': 'ssh_lockout',
+                    'conflicts': preflight['conflicts'],
+                    'override': 'Send force=true to block it anyway.',
+                }
 
         return cls.add_rule('block_ip', ip=ip, permanent=permanent)
 
@@ -938,8 +1049,70 @@ class FirewallService:
             return {'success': False, 'error': str(e)}
 
     @classmethod
-    def set_default_zone(cls, zone: str) -> Dict:
-        """Set default firewalld zone."""
+    def check_default_zone(cls, zone: str) -> Dict:
+        """Does *zone* admit SSH?
+
+        Switching the default zone re-homes every interface that has no explicit
+        zone. A target that does not permit ssh drops the operator's session the
+        instant it applies — the rules were never touched, the zone around them
+        changed.
+        """
+        status = cls.get_status()
+        if not status.get('firewalld', {}).get('running'):
+            return {'safe': True, 'reason': 'firewalld is not running',
+                    'ssh_ports': None, 'zone': zone}
+
+        ssh = cls.ssh_ports()
+        if ssh is None:
+            return {
+                'safe': False,
+                'reason': ('Could not determine which port sshd is listening on, '
+                           f'so there is no way to confirm zone {zone} keeps it '
+                           'reachable.'),
+                'ssh_ports': None, 'zone': zone,
+            }
+
+        for flag in ('--list-services', '--list-ports'):
+            try:
+                result = run_privileged(['firewall-cmd', f'--zone={zone}', flag],
+                                        timeout=PROBE_TIMEOUT)
+            except Exception:
+                continue
+            if result.returncode != 0:
+                continue
+            for token in (result.stdout or '').split():
+                if token == 'ssh' or cls._ports_in(token) & set(ssh):
+                    return {'safe': True,
+                            'reason': f'zone {zone} admits SSH via {token}',
+                            'ssh_ports': ssh, 'zone': zone}
+
+        listed = ', '.join(str(p) for p in ssh)
+        return {
+            'safe': False,
+            'reason': (f'Zone {zone} does not permit SSH on port {listed}. Making '
+                       f'it the default drops your session as soon as it applies.'),
+            'ssh_ports': ssh, 'zone': zone,
+        }
+
+    @classmethod
+    def set_default_zone(cls, zone: str, force: bool = False) -> Dict:
+        """Set default firewalld zone.
+
+        Refuses when the target zone would not admit SSH. ``force=True`` is the
+        operator accepting the risk.
+        """
+        if not force:
+            preflight = cls.check_default_zone(zone)
+            if not preflight['safe']:
+                return {
+                    'success': False,
+                    'error': preflight['reason'],
+                    'blocked_by': 'ssh_lockout',
+                    'ssh_ports': preflight['ssh_ports'],
+                    'zone': zone,
+                    'override': 'Send force=true to switch anyway.',
+                }
+
         try:
             result = run_privileged(['firewall-cmd', f'--set-default-zone={zone}'])
             if result.returncode == 0:

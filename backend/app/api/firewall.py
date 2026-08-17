@@ -158,10 +158,18 @@ def block_ip():
 
     permanent = data.get('permanent', True)
 
-    result = FirewallService.block_ip(ip, permanent)
+    # request.remote_addr is the real client when TRUST_PROXY_HEADERS is on
+    # (ProxyFix rewrites it); otherwise it is the proxy, which is still worth
+    # refusing to block. Read here rather than in the service, so the service
+    # stays free of request context.
+    result = FirewallService.block_ip(ip, permanent,
+                                      force=bool(data.get('force')),
+                                      caller_ip=request.remote_addr)
 
     if result.get('success'):
         return jsonify(result), 201
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -273,10 +281,12 @@ def set_default_zone():
     if not zone:
         return jsonify({'success': False, 'error': 'Zone name required'}), 400
 
-    result = FirewallService.set_default_zone(zone)
+    result = FirewallService.set_default_zone(zone, force=bool(data.get('force')))
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
