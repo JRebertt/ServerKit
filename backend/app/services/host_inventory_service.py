@@ -22,6 +22,8 @@ import os
 
 import psutil
 
+from app.utils.formatting import format_size
+
 logger = logging.getLogger(__name__)
 
 #: Below this, image pulls and backups start failing before RAM is ever the
@@ -281,17 +283,6 @@ def _detect_container():
 # Diffing
 # --------------------------------------------------------------------------- #
 
-def _format_bytes(num_bytes):
-    if num_bytes is None:
-        return 'unknown'
-    step = float(num_bytes)
-    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
-        if step < 1024 or unit == 'TB':
-            return f'{step:.0f} {unit}' if step >= 10 or unit == 'B' else f'{step:.1f} {unit}'
-        step /= 1024
-    return f'{step:.1f} TB'
-
-
 #: Ignore total-size jitter below this. A filesystem's reported total can move
 #: by a few blocks across remounts without anything having actually changed.
 _SIZE_NOISE_FLOOR = 64 * 1024 ** 2  # 64 MB
@@ -310,8 +301,8 @@ def diff(previous, current):
 
     for field, label, fmt in (
         ('cpu_cores', 'CPU cores', str),
-        ('ram_bytes', 'RAM', _format_bytes),
-        ('swap_bytes', 'Swap', _format_bytes),
+        ('ram_bytes', 'RAM', format_size),
+        ('swap_bytes', 'Swap', format_size),
     ):
         before, after = previous.get(field), current.get(field)
         # A probe that failed this time must not be reported as a loss.
@@ -336,7 +327,7 @@ def diff(previous, current):
             'from': None,
             'to': mount,
             'summary': (f'New filesystem {mount} '
-                        f'({_format_bytes(entry.get("total"))}, {entry.get("device")})'),
+                        f'({format_size(entry.get("total"))}, {entry.get("device")})'),
         })
 
     for mount in sorted(before_fs.keys() - after_fs.keys()):
@@ -360,8 +351,8 @@ def diff(previous, current):
             'kind': 'resized',
             'from': before_total,
             'to': after_total,
-            'summary': (f'{mount} {_format_bytes(before_total)} → '
-                        f'{_format_bytes(after_total)}'),
+            'summary': (f'{mount} {format_size(before_total)} → '
+                        f'{format_size(after_total)}'),
         })
 
     return changes
@@ -416,8 +407,8 @@ def advisories(filesystems=None):
                 'severity': 'warning',
                 'mountpoint': short['mountpoint'],
                 'summary': (
-                    f'{short["mountpoint"]} has only {_format_bytes(short["free"])} free '
-                    f'while {spare["mountpoint"]} has {_format_bytes(spare["free"])} '
+                    f'{short["mountpoint"]} has only {format_size(short["free"])} free '
+                    f'while {spare["mountpoint"]} has {format_size(spare["free"])} '
                     f'spare. Consider relocating Docker data or backups onto it.'
                 ),
             })
@@ -430,7 +421,7 @@ def advisories(filesystems=None):
             'mountpoint': short['mountpoint'],
             'summary': (
                 f'{short["mountpoint"]} is at {short.get("percent")}% — '
-                f'{_format_bytes(short["free"])} free.'
+                f'{format_size(short["free"])} free.'
             ),
         })
 

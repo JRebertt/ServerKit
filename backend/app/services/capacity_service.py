@@ -66,16 +66,10 @@ def parse_size(value):
         return None
 
 
-def format_size(num_bytes):
-    """Bytes -> a short human string ('512 MB', '1.5 GB')."""
-    if num_bytes is None:
-        return 'unknown'
-    step = float(num_bytes)
-    for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
-        if step < 1024 or unit == 'TB':
-            return f'{step:.0f} {unit}' if step >= 10 or unit == 'B' else f'{step:.1f} {unit}'
-        step /= 1024
-    return f'{step:.1f} TB'
+# Re-exported so existing `from app.services.capacity_service import format_size`
+# callers keep working; the implementation moved to the leaf utils module when
+# host_inventory_service turned out to hold a byte-for-byte copy (plan 75 §F1).
+from app.utils.formatting import format_size  # noqa: E402,F401
 
 
 def template_footprint(template):
