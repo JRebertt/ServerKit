@@ -23,6 +23,7 @@ from app import paths
 from app.utils.system import (
     PackageManager,
     ServiceControl,
+    is_command_available,
     run_privileged,
 )
 
@@ -1515,16 +1516,26 @@ class SecurityService:
     # ==========================================
     @classmethod
     def get_lynis_status(cls) -> Dict:
-        """Check if Lynis is installed."""
+        """Check if Lynis is installed.
+
+        Presence and version are separate questions. Inferring "installed" from
+        a successful ``lynis --version`` exec makes any exec failure look like
+        absence — and Debian ships lynis in a sbin directory the panel unit's
+        PATH omits, so a bare-name call raises FileNotFoundError. Same trap as
+        FirewallService._check_ufw.
+        """
+        installed = is_command_available('lynis') or PackageManager.is_installed('lynis')
+        if not installed:
+            return {'installed': False, 'version': None}
+
+        version = None
         try:
-            result = subprocess.run(['lynis', '--version'], capture_output=True, text=True, timeout=10)
+            result = run_privileged(['lynis', '--version'], timeout=10)
             if result.returncode == 0:
-                return {'installed': True, 'version': result.stdout.strip()}
-        except FileNotFoundError:
-            pass
+                version = (result.stdout or '').strip()
         except Exception:
             pass
-        return {'installed': False, 'version': None}
+        return {'installed': True, 'version': version}
 
     @classmethod
     def install_lynis(cls) -> Dict:

@@ -111,6 +111,18 @@ def run_command(cmd: Union[List[str], str], *, timeout: int = 60,
     This is a convenience wrapper used by services that need simple dict results
     rather than a raw ``CompletedProcess`` object.
     """
+    # Same argv[0] resolution as privileged_cmd: this helper does no privilege
+    # escalation, so nothing else would find a command outside $PATH. Without
+    # it `run_command(['nginx', '-t'])` raised FileNotFoundError on every root
+    # install (nginx is /usr/sbin/nginx) and the caller reported the config as
+    # invalid. Only applied when $PATH genuinely misses the command.
+    if isinstance(cmd, (list, tuple)):
+        cmd = list(cmd)
+        if cmd and cmd[0] != 'sudo' and not os.path.isabs(cmd[0]) and not shutil.which(cmd[0]):
+            resolved = resolve_command(cmd[0])
+            if resolved:
+                cmd[0] = resolved
+
     kwargs.setdefault('capture_output', True)
     kwargs.setdefault('text', True)
     result = subprocess.run(cmd, timeout=timeout, **kwargs)

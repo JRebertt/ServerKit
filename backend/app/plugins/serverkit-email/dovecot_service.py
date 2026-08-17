@@ -4,7 +4,8 @@ import re
 import subprocess
 from typing import Dict, Optional
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged
+from app.utils.system import (PackageManager, ServiceControl, is_command_available,
+                              run_privileged)
 from app import paths
 
 
@@ -109,20 +110,30 @@ ssl_prefer_server_ciphers = yes
         running = False
         enabled = False
         version = None
+        # `which` searches $PATH only, and dovecot lives in /usr/sbin — absent
+        # from the panel unit's PATH — so it reported a false negative on a host
+        # where dovecot was installed. is_command_available() also searches the
+        # sbin dirs.
         try:
-            result = subprocess.run(['which', 'dovecot'], capture_output=True, text=True)
-            installed = result.returncode == 0
+            installed = is_command_available('dovecot')
             if not installed:
                 installed = PackageManager.is_installed('dovecot-core') or PackageManager.is_installed('dovecot')
-            if installed:
-                running = ServiceControl.is_active('dovecot')
-                enabled = ServiceControl.is_enabled('dovecot')
-                result = subprocess.run(['dovecot', '--version'], capture_output=True, text=True)
-                version_match = re.search(r'(\d+\.\d+\.\d+)', result.stdout)
+        except Exception:
+            installed = False
+
+        if installed:
+            running = ServiceControl.is_active('dovecot')
+            enabled = ServiceControl.is_enabled('dovecot')
+            # Its own try: failing to read the version says nothing about
+            # whether dovecot is installed. Collapsing the two is how
+            # FirewallService._check_ufw reported a working firewall as absent.
+            try:
+                result = run_privileged(['dovecot', '--version'])
+                version_match = re.search(r'(\d+\.\d+\.\d+)', result.stdout or '')
                 if version_match:
                     version = version_match.group(1)
-        except (subprocess.SubprocessError, FileNotFoundError):
-            pass
+            except Exception:
+                pass
 
         return {
             'installed': installed,

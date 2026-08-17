@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import re
-from app.utils.system import run_command
+from app.utils.system import run_command, run_privileged
 
 logger = logging.getLogger(__name__)
 
@@ -133,11 +133,15 @@ class NginxAdvancedService:
     @staticmethod
     def test_config():
         """Test nginx config syntax."""
+        # run_privileged, not run_command: `nginx -t` reads root-owned config
+        # and nginx lives in /usr/sbin, which the panel's unit PATH omits. The
+        # unprivileged bare-name call raised FileNotFoundError and this method
+        # reported every config as INVALID.
         try:
-            result = run_command(['nginx', '-t'], capture_stderr=True)
+            result = run_privileged(['nginx', '-t'])
             return {
-                'valid': True,
-                'output': result.get('stdout', '') + result.get('stderr', ''),
+                'valid': result.returncode == 0,
+                'output': (result.stdout or '') + (result.stderr or ''),
             }
         except Exception as e:
             return {'valid': False, 'output': str(e)}
@@ -164,7 +168,10 @@ class NginxAdvancedService:
     def reload_nginx():
         """Reload nginx configuration."""
         try:
-            run_command(['sudo', 'nginx', '-s', 'reload'])
+            result = run_privileged(['nginx', '-s', 'reload'])
+            if result.returncode != 0:
+                return {'success': False,
+                        'error': (result.stderr or 'nginx reload failed').strip()}
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}
