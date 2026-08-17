@@ -708,6 +708,20 @@ def create_app(config_name=None):
             import logging as _logging
             _logging.getLogger(__name__).warning(f'Legacy secret encryption skipped: {e}')
 
+        # Record this boot's hardware and compare it to the last one (plan 74).
+        # Boot is the right hook: a VPS resize requires a power-off, so the
+        # change and the restart are the same event — and the in-memory spec
+        # cache that used to be the only "before" value dies with the process.
+        # Skipped under TESTING: create_app() runs per test session, and a
+        # capture there would write rows and emit notifications into fixtures.
+        if not app.config.get('TESTING'):
+            try:
+                from app.services import host_snapshot_service
+                host_snapshot_service.record_snapshot()
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f'Host snapshot skipped: {e}')
+
         # Seed bundled flagship extensions (D4) — WordPress ships installed by
         # default on every panel (fresh and upgrade) unless the user uninstalled
         # it. Done BEFORE load_all_plugins so the loader registers the seeded

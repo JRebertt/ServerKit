@@ -284,6 +284,49 @@ def get_resource_tier():
     return jsonify(tier_info), 200
 
 
+@system_bp.route('/host-snapshot', methods=['GET'])
+@jwt_required()
+def get_host_snapshot():
+    """Per-filesystem inventory, storage advisories, and the last spec delta.
+
+    Unlike /disk — which lists partitions and stops — this says which
+    filesystem the panel actually writes to, which mounts are missing from
+    /etc/fstab, and what changed since the previous boot.
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if not user or user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.services import host_snapshot_service
+    return jsonify(host_snapshot_service.current_state()), 200
+
+
+@system_bp.route('/host-snapshot/history', methods=['GET'])
+@jwt_required()
+def get_host_snapshot_history():
+    """Recent host snapshots, newest first."""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if not user or user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.models.host_snapshot import HostSnapshot
+
+    try:
+        limit = min(max(int(request.args.get('limit', 20)), 1), 100)
+    except (TypeError, ValueError):
+        limit = 20
+
+    rows = (HostSnapshot.query
+            .order_by(HostSnapshot.captured_at.desc(), HostSnapshot.id.desc())
+            .limit(limit)
+            .all())
+    return jsonify({'snapshots': [row.to_dict() for row in rows]}), 200
+
+
 @system_bp.route('/capacity', methods=['GET'])
 @jwt_required()
 def get_capacity():

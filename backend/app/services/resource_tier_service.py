@@ -59,8 +59,9 @@ WORKLOAD_FOOTPRINTS_MB = {
 }
 
 # Disk below this on the data volume means image pulls and backups will fail
-# before RAM ever becomes the binding constraint.
-LOW_DISK_THRESHOLD_GB = 5
+# before RAM ever becomes the binding constraint. Defined once in
+# host_inventory_service so the panel has a single idea of "low".
+from app.services.host_inventory_service import LOW_FREE_GB as LOW_DISK_THRESHOLD_GB  # noqa: E402
 
 
 class ResourceTierService:
@@ -166,11 +167,13 @@ class ResourceTierService:
 
     @staticmethod
     def _data_path():
-        """Volume to measure free space on — where images and backups land."""
-        for path in ('/var/lib/serverkit', '/var/lib/docker', '/'):
-            if os.path.isdir(path):
-                return path
-        return os.getcwd()
+        """Volume to measure free space on — where images and backups land.
+
+        Delegates to host_inventory_service so this and capacity_service can no
+        longer answer the same question differently (plan 74).
+        """
+        from app.services import host_inventory_service
+        return host_inventory_service.data_path()
 
     @staticmethod
     def _detect_container():

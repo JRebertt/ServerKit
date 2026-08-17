@@ -16,6 +16,7 @@ from app.models.linked_panel import LinkedPanelConfig
 from app.models.system_settings import SystemSettings
 from app.models.audit_log import AuditLog
 from app.models.error_log import ErrorLog
+from app.models.host_snapshot import HostSnapshot
 from app.models.metrics_history import MetricsHistory
 from app.models.workflow import Workflow, WorkflowExecution, WorkflowLog
 from app.models.webhook import GitWebhook, WebhookLog, GitDeployment
@@ -88,7 +89,7 @@ __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
     'NotificationPreferences', 'Deployment', 'DeploymentDiff', 'DeploymentSnapshot', 'DeploymentJob', 'DeploymentJobLog', 'SystemSettings', 'AuditLog',
     'MetricsHistory', 'Workflow', 'WorkflowExecution', 'WorkflowLog', 'GitWebhook', 'WebhookLog', 'GitDeployment',
-    'ErrorLog',
+    'ErrorLog', 'HostSnapshot',
     'Server', 'ServerGroup', 'ServerMetrics', 'ServerCommand', 'AgentSession', 'AgentVersion', 'AgentRollout', 'ServerOnboardingLog', 'SecurityAlert',
     'WordPressSite', 'DatabaseSnapshot', 'SyncJob', 'WordPressVulnerability',
     'WordPressCustomPlugin', 'WordPressSitePlugin',

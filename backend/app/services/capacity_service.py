@@ -231,15 +231,22 @@ def _local_headroom():
     except ImportError:
         return result
     try:
+        from app.services import host_inventory_service
+
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        # Not hardcoded `/` any more: images, volumes and backups may live on an
+        # attached volume, and measuring root would then answer a question
+        # nobody asked. `mountpoint` records which filesystem this actually is,
+        # so an unlabelled number can never be misread again (plan 74).
+        mountpoint, disk = host_inventory_service.data_path_usage()
         result.update({
             'memory_total': memory.total,
             # `available`, not `free`: cache and buffers are reclaimable, and
             # counting them as used would call every healthy Linux box full.
             'memory_free': memory.available,
-            'disk_total': disk.total,
-            'disk_free': disk.free,
+            'disk_total': disk.total if disk else None,
+            'disk_free': disk.free if disk else None,
+            'disk_mountpoint': mountpoint,
             'measured_at': datetime.utcnow().isoformat() + 'Z',
         })
     except Exception:  # noqa: BLE001 — a probe failure is "unknown", not fatal
