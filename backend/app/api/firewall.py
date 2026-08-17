@@ -103,10 +103,25 @@ def add_rule():
     return jsonify(result), 400
 
 
+@firewall_bp.route('/rules/removal-preflight', methods=['POST'])
+@viewer_required
+def rule_removal_preflight():
+    """Would removing this rule cut off SSH? Lets the UI warn before the click."""
+    data = request.get_json() or {}
+    rule_type = data.get('type')
+    kwargs = {k: v for k, v in data.items() if k not in ('type', 'force')}
+    return jsonify(FirewallService.check_ssh_rule_removal(rule_type, **kwargs)), 200
+
+
 @firewall_bp.route('/rules', methods=['DELETE'])
 @admin_required
 def remove_rule():
-    """Remove a firewall rule."""
+    """Remove a firewall rule.
+
+    Blocked with 409 when the rule is the last one admitting SSH on a firewall
+    that is currently enforcing — deleting it would close the caller's own
+    session. Resend with force=true to override.
+    """
     data = request.get_json()
 
     if not data:
@@ -116,12 +131,15 @@ def remove_rule():
     if not rule_type:
         return jsonify({'success': False, 'error': 'Rule type required'}), 400
 
-    kwargs = {k: v for k, v in data.items() if k != 'type'}
+    force = bool(data.get('force'))
+    kwargs = {k: v for k, v in data.items() if k not in ('type', 'force')}
 
-    result = FirewallService.remove_rule(rule_type, **kwargs)
+    result = FirewallService.remove_rule(rule_type, force=force, **kwargs)
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -219,10 +237,15 @@ def deny_port():
     protocol = data.get('protocol', 'tcp')
     permanent = data.get('permanent', True)
 
-    result = FirewallService.deny_port(port, protocol, permanent)
+    # Denying a port is implemented as removing its allow rule, so this shares
+    # the SSH-lockout guard with DELETE /rules.
+    result = FirewallService.deny_port(port, protocol, permanent,
+                                       force=bool(data.get('force')))
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 

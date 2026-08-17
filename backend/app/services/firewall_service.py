@@ -547,18 +547,233 @@ class FirewallService:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    # ------------------------------------------------------------------
+    # Removal preflight — the other way to lock yourself out
+    # ------------------------------------------------------------------
+    #: enable() guards the moment the firewall comes up. This guards every
+    #: moment after it: with ufw already active and a default-deny policy,
+    #: deleting the rule that admits SSH closes the session executing the
+    #: delete. `deny_port()` routes through here too — denying a port is
+    #: implemented as removing its allow rule, so it is the same hazard.
+
     @classmethod
-    def remove_rule(cls, rule_type: str, **kwargs) -> Dict:
-        """Remove a firewall rule."""
+    def _ufw_numbered_rules(cls) -> List[Dict]:
+        """Active ufw rules with the numbers `ufw delete <n>` refers to.
+
+        Deleting by number is the dangerous spelling: the caller passes an
+        opaque index, so the only way to know what is about to be removed is to
+        resolve it here first.
+        """
+        rules = []
+        try:
+            result = run_privileged(['ufw', 'status', 'numbered'],
+                                    timeout=PROBE_TIMEOUT)
+        except Exception:
+            return rules
+        if result.returncode != 0:
+            return rules
+
+        pattern = re.compile(
+            r'^\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT|LIMIT)(?:\s+(?:IN|OUT))?\s*(.*)$'
+        )
+        for line in (result.stdout or '').splitlines():
+            match = pattern.match(line.strip())
+            if not match:
+                continue
+            rules.append({
+                'number': int(match.group(1)),
+                'to': match.group(2).strip(),
+                'action': match.group(3).upper(),
+                'from': (match.group(4) or '').strip(),
+            })
+        return rules
+
+    #: `ufw status numbered` marks IPv6 rows as `22/tcp (v6)`. Left in, the "6"
+    #: parses as a port number — harmless for SSH on 22, wrong for anyone whose
+    #: sshd listens on 6.
+    _ADDRESS_FAMILY_SUFFIX = re.compile(r'\((?:v6|v4)\)')
+
+    @classmethod
+    def _ports_in(cls, field: str) -> set:
+        """Ports named by a rule's destination, resolving app profiles."""
+        field = cls._ADDRESS_FAMILY_SUFFIX.sub('', field or '').strip()
+        ports = {int(n) for n in re.findall(r'\b(\d{1,5})(?:/(?:tcp|udp))?\b', field)
+                 if 0 < int(n) <= 65535}
+        # 'Anywhere' is ufw's wildcard destination, not an application profile —
+        # looking it up would just cost a subprocess to learn nothing.
+        if not ports and field.lower() != 'anywhere' \
+                and re.match(r'^[A-Za-z][\w .-]*$', field):
+            ports = cls._app_profile_ports(field)
+        return ports
+
+    @classmethod
+    def _firewalld_ssh_coverage(cls, ssh_ports: List[int]) -> set:
+        """What currently admits SSH under firewalld: {'service:ssh', 22, ...}."""
+        coverage = set()
+        for flag, kind in (('--list-services', 'service'), ('--list-ports', 'port')):
+            try:
+                result = run_privileged(['firewall-cmd', flag], timeout=PROBE_TIMEOUT)
+            except Exception:
+                continue
+            if result.returncode != 0:
+                continue
+            for token in (result.stdout or '').split():
+                if kind == 'service' and token == 'ssh':
+                    coverage.add('service:ssh')
+                elif kind == 'port':
+                    for port in cls._ports_in(token):
+                        if port in ssh_ports:
+                            coverage.add(port)
+        return coverage
+
+    @classmethod
+    def check_ssh_rule_removal(cls, rule_type: str = None, **kwargs) -> Dict:
+        """Would removing this rule cut off SSH *right now*?
+
+        Only meaningful while the firewall is active — on an inactive one
+        nothing is being enforced, and enable() runs its own preflight before
+        anything starts being denied.
+
+        Returns ``{'safe', 'reason', 'ssh_ports', 'targets'}``.
+        """
+        status = cls.get_status()
+        firewall = status.get('active_firewall')
+
+        if not status.get('any_active'):
+            return {'safe': True, 'reason': 'firewall is not active',
+                    'ssh_ports': None, 'targets': []}
+
+        if firewall == 'ufw' and cls._ufw_default_incoming_allow():
+            return {'safe': True, 'reason': 'default incoming policy is ACCEPT',
+                    'ssh_ports': None, 'targets': []}
+
+        ssh = cls.ssh_ports()
+        if ssh is None:
+            return {
+                'safe': False,
+                'reason': ('Could not determine which port sshd is listening on, '
+                           'so there is no way to confirm this removal keeps it '
+                           'reachable.'),
+                'ssh_ports': None,
+                'targets': [],
+            }
+
+        if firewall == 'ufw':
+            return cls._check_ufw_removal(ssh, rule_type, **kwargs)
+        if firewall == 'firewalld':
+            return cls._check_firewalld_removal(ssh, rule_type, **kwargs)
+        return {'safe': True, 'reason': 'no active firewall',
+                'ssh_ports': ssh, 'targets': []}
+
+    @classmethod
+    def _check_ufw_removal(cls, ssh: List[int], rule_type: str, **kwargs) -> Dict:
+        rules = cls._ufw_numbered_rules()
+        number = kwargs.get('number')
+
+        if number:
+            target = next((r for r in rules if r['number'] == int(number)), None)
+            if target is None:
+                # Unknown index: ufw would reject it anyway, and refusing on a
+                # rule we could not read would block harmless deletes.
+                return {'safe': True, 'reason': f'no active rule numbered {number}',
+                        'ssh_ports': ssh, 'targets': []}
+            targets = [target]
+        else:
+            port = kwargs.get('port')
+            if port is None:
+                return {'safe': True, 'reason': 'removal does not name a port',
+                        'ssh_ports': ssh, 'targets': []}
+            if int(port) not in ssh:
+                return {'safe': True, 'reason': 'port is not an SSH port',
+                        'ssh_ports': ssh, 'targets': []}
+            targets = [r for r in rules if int(port) in cls._ports_in(r['to'])]
+
+        removed_numbers = {r['number'] for r in targets}
+        covers_ssh = [r for r in targets
+                      if r['action'] == 'ALLOW' and cls._ports_in(r['to']) & set(ssh)]
+        if not covers_ssh:
+            return {'safe': True, 'reason': 'rule does not admit SSH',
+                    'ssh_ports': ssh, 'targets': [r['to'] for r in targets]}
+
+        # Another allow rule may still admit SSH after this one goes — deleting
+        # a duplicate is harmless and must not be blocked.
+        remaining = [r for r in rules
+                     if r['number'] not in removed_numbers
+                     and r['action'] == 'ALLOW'
+                     and cls._ports_in(r['to']) & set(ssh)]
+        if remaining:
+            return {'safe': True,
+                    'reason': f'SSH stays open via rule {remaining[0]["number"]} '
+                              f'({remaining[0]["to"]})',
+                    'ssh_ports': ssh, 'targets': [r['to'] for r in covers_ssh]}
+
+        listed = ', '.join(str(p) for p in ssh)
+        return {
+            'safe': False,
+            'reason': (f'This is the only active rule admitting SSH on port {listed}. '
+                       f'Removing it closes your own session — the firewall is '
+                       f'active and denying by default.'),
+            'ssh_ports': ssh,
+            'targets': [r['to'] for r in covers_ssh],
+        }
+
+    @classmethod
+    def _check_firewalld_removal(cls, ssh: List[int], rule_type: str, **kwargs) -> Dict:
+        coverage = cls._firewalld_ssh_coverage(ssh)
+        removing = set()
+
+        if rule_type == 'service' and kwargs.get('service') == 'ssh':
+            removing.add('service:ssh')
+        elif rule_type == 'port':
+            port = kwargs.get('port')
+            if port is not None and int(port) in ssh:
+                removing.add(int(port))
+
+        if not removing:
+            return {'safe': True, 'reason': 'rule does not admit SSH',
+                    'ssh_ports': ssh, 'targets': []}
+
+        if coverage - removing:
+            return {'safe': True, 'reason': 'SSH stays open via another rule',
+                    'ssh_ports': ssh, 'targets': sorted(str(t) for t in removing)}
+
+        listed = ', '.join(str(p) for p in ssh)
+        return {
+            'safe': False,
+            'reason': (f'This is the only rule admitting SSH on port {listed}. '
+                       f'Removing it closes your own session.'),
+            'ssh_ports': ssh,
+            'targets': sorted(str(t) for t in removing),
+        }
+
+    @classmethod
+    def remove_rule(cls, rule_type: str, force: bool = False, **kwargs) -> Dict:
+        """Remove a firewall rule.
+
+        Refuses when the rule is the last one admitting SSH on a firewall that
+        is currently enforcing. ``force=True`` is the operator accepting it.
+        """
         status = cls.get_status()
         firewall = status['active_firewall']
 
+        if firewall not in ('firewalld', 'ufw'):
+            return {'success': False, 'error': 'No firewall detected'}
+
+        if not force:
+            preflight = cls.check_ssh_rule_removal(rule_type, **kwargs)
+            if not preflight['safe']:
+                return {
+                    'success': False,
+                    'error': preflight['reason'],
+                    'blocked_by': 'ssh_lockout',
+                    'ssh_ports': preflight['ssh_ports'],
+                    'targets': preflight['targets'],
+                    'override': 'Send force=true to remove it anyway.',
+                }
+
         if firewall == 'firewalld':
             return cls._remove_firewalld_rule(rule_type, **kwargs)
-        elif firewall == 'ufw':
-            return cls._remove_ufw_rule(rule_type, **kwargs)
-        else:
-            return {'success': False, 'error': 'No firewall detected'}
+        return cls._remove_ufw_rule(rule_type, **kwargs)
 
     @classmethod
     def _remove_firewalld_rule(cls, rule_type: str, **kwargs) -> Dict:
@@ -648,9 +863,15 @@ class FirewallService:
         return cls.add_rule('port', port=port, protocol=protocol, permanent=permanent)
 
     @classmethod
-    def deny_port(cls, port: int, protocol: str = 'tcp', permanent: bool = True) -> Dict:
-        """Quick method to deny a port."""
-        return cls.remove_rule('port', port=port, protocol=protocol, permanent=permanent)
+    def deny_port(cls, port: int, protocol: str = 'tcp', permanent: bool = True,
+                  force: bool = False) -> Dict:
+        """Quick method to deny a port.
+
+        Routes through remove_rule, so denying the SSH port hits the same
+        lockout guard as deleting its rule — it is the same outcome.
+        """
+        return cls.remove_rule('port', force=force, port=port, protocol=protocol,
+                               permanent=permanent)
 
     @classmethod
     def get_blocked_ips(cls) -> Dict:
