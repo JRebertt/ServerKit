@@ -135,6 +135,25 @@ def _popen_sbin_guard(monkeypatch):
     yield
 
 
+@pytest.fixture
+def fake_subprocess(monkeypatch):
+    """Scriptable subprocess seam — the one door for stubbing execs (§G7).
+
+    Opt-in, not autouse: a test that does not ask for it keeps the real
+    subprocess (and the §B2 runtime guard above). Asking for it replaces every
+    exec entry point on the ``subprocess`` module, which covers BOTH the raw
+    calls services still make and the ``run_privileged`` / ``run_unprivileged``
+    helpers — they funnel through ``subprocess.run`` too. That is the point:
+    when G1 moves services onto ``run_checked()``, this fixture is the single
+    place that has to follow, instead of the 12 test files that currently
+    hand-roll the same stub.
+
+    Unscripted commands raise; see ``tests/subprocess_stub.py`` for why.
+    """
+    from subprocess_stub import ScriptedSubprocess
+    return ScriptedSubprocess().install(monkeypatch)
+
+
 @pytest.fixture(scope='session')
 def _flask_app():
     """The Flask application and the schema, built ONCE for the test process.

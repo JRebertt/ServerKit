@@ -94,20 +94,34 @@ def _routed_through_helper():
     return False
 
 
+def guard_argv(argv):
+    """Raise :class:`SbinPathError` when *argv* is a bare-name sbin-only exec.
+
+    One door for the check itself. ``GuardedPopen`` calls it before a real
+    exec; ``tests/subprocess_stub.py`` calls it before returning a *scripted*
+    result, so stubbing subprocess does not punch a hole in this guard — a
+    test that fakes ``subprocess.run`` still cannot smuggle a bare-name
+    ``ufw`` past it. That matters more than it sounds: 44 of the suite's
+    subprocess stubs mean 44 execs the runtime guard never sees.
+    """
+    head = offending_head(argv)
+    if head is None or _routed_through_helper():
+        return
+    raise SbinPathError(
+        f'{head!r} is exec\'d by bare name but only resolves through '
+        f'an sbin dir. The panel\'s systemd unit ships a PATH with no '
+        f'sbin, so this call raises FileNotFoundError in production '
+        f'while passing every dev run — plan 74\'s outage class.\n'
+        f'  called from: {_callsite()}\n'
+        f'Use run_privileged() (or run_unprivileged() when no root is '
+        f'needed); both resolve argv[0] to an absolute path when '
+        f'$PATH cannot.'
+    )
+
+
 class GuardedPopen(subprocess.Popen):
     """``subprocess.Popen`` that refuses bare-name sbin-only execs (test-time)."""
 
     def __init__(self, args, *a, **kw):
-        head = offending_head(args)
-        if head is not None and not _routed_through_helper():
-            raise SbinPathError(
-                f'{head!r} is exec\'d by bare name but only resolves through '
-                f'an sbin dir. The panel\'s systemd unit ships a PATH with no '
-                f'sbin, so this call raises FileNotFoundError in production '
-                f'while passing every dev run — plan 74\'s outage class.\n'
-                f'  called from: {_callsite()}\n'
-                f'Use run_privileged() (or run_unprivileged() when no root is '
-                f'needed); both resolve argv[0] to an absolute path when '
-                f'$PATH cannot.'
-            )
+        guard_argv(args)
         super().__init__(args, *a, **kw)
