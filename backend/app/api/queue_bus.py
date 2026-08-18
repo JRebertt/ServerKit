@@ -3,7 +3,6 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.queue_bus.service import QueueBusService, QueueBusError
-from app.models.user import User
 from app.middleware.rbac import get_current_user
 
 queue_bus_bp = Blueprint('queue_bus', __name__)
