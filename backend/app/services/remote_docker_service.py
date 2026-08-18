@@ -9,6 +9,7 @@ and returns the results.
 from typing import List, Dict, Any
 
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.models.server import Server
 from app.utils.formatting import format_bytes
 
@@ -46,7 +47,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:list',
             params={'all': all},
@@ -64,7 +65,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:inspect',
             params={'id': container_id},
@@ -82,7 +83,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:start',
             params={'id': container_id},
@@ -104,7 +105,7 @@ class RemoteDockerService:
         if timeout:
             params['timeout'] = timeout
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:stop',
             params=params,
@@ -126,7 +127,7 @@ class RemoteDockerService:
         if timeout:
             params['timeout'] = timeout
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:restart',
             params=params,
@@ -150,7 +151,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:remove',
             params={
@@ -172,7 +173,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:stats',
             params={'id': container_id},
@@ -210,7 +211,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:container:logs',
             params={
@@ -236,7 +237,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:image:list',
             params={},
@@ -254,7 +255,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:image:pull',
             params={'image': image},
@@ -273,7 +274,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:image:remove',
             params={'id': image_id, 'force': force},
@@ -293,7 +294,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:volume:list',
             params={},
@@ -311,7 +312,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:volume:remove',
             params={'name': name, 'force': force},
@@ -331,7 +332,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:network:list',
             params={},
@@ -349,7 +350,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:network:remove',
             params={'id': network_id},
@@ -458,7 +459,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=server_id,
             action='system:metrics',
             params={},
@@ -480,7 +481,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='system:info',
             params={},
@@ -582,7 +583,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:list',
             params={},
@@ -610,7 +611,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:ps',
             params={'project_path': project_path},
@@ -641,7 +642,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:up',
             params={
@@ -677,7 +678,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:down',
             params={
@@ -713,7 +714,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:logs',
             params={
@@ -748,7 +749,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:restart',
             params={
@@ -781,7 +782,7 @@ class RemoteDockerService:
             except Exception as e:
                 return {'success': False, 'error': str(e)}
 
-        return agent_registry.send_command(
+        return dispatch_agent_command(
             server_id=server_id,
             action='docker:compose:pull',
             params={
