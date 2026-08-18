@@ -29,6 +29,7 @@ import time
 from datetime import datetime
 
 from app import paths
+from app.services import db_exec
 
 logger = logging.getLogger(__name__)
 
@@ -160,22 +161,14 @@ class DbConfigTunerService:
 
     @classmethod
     def _exec_sql(cls, target, sql):
-        """Run SQL inside the target's container. Single SQL choke point.
+        """Run SQL against the target's engine — via ``db_exec`` (§G5).
 
         ``target``: {'container', 'engine', 'user', 'password'}.
         Returns {'success', 'output', 'error'} with machine-readable output
-        (tab-separated, no headers/decorations).
+        (tab-separated, no headers/decorations) — the reason this used to be a
+        private copy of the whole dispatcher rather than a call into it.
         """
-        args = ['exec']
-        if target['engine'] == 'mysql':
-            if target.get('password'):
-                args += ['-e', 'MYSQL_PWD=%s' % target['password']]
-            args += [target['container'], 'mysql', '-u', target.get('user') or 'root',
-                     '-N', '-B', '-e', sql]
-        else:
-            args += [target['container'], 'psql', '-U', target.get('user') or 'postgres',
-                     '-t', '-A', '-F', '\t', '-c', sql]
-        return cls._docker(args, timeout=30)
+        return db_exec.exec_sql(target, sql, machine_readable=True, timeout=30)
 
     @classmethod
     def _restart(cls, container):

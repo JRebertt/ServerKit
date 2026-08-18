@@ -8,10 +8,17 @@ the per-service parts stay per-service: the path, the default, and any extra
 behaviour around the write (cache invalidation, secret merging — those keep
 their own methods and may call these helpers inside).
 
-Deliberate parity with the copies they replace: plain ``open(..., 'w')``, no
-locking, no atomic rename — none of the originals had them, and adding them
-here would be a behaviour change smuggled in with a consolidation. If atomic
-writes are ever wanted, they land here, once.
+The write is atomic (plan 75 §G6). The consolidation that created this module
+deliberately kept the copies' plain ``open(..., 'w')`` so that no behaviour
+change rode along with it, and noted that atomic writes, if ever wanted, would
+land here once. This is that once: a truncating write that dies mid-``json.dump``
+— a full disk, a killed process — leaves a truncated file where a config used
+to be, and every caller's load path treats a corrupt config as "use the
+default". That is a config silently reset to defaults, which is precisely the
+class of false fact this plan exists to remove.
+
+``file_integrity_service._save_state`` already used tmp + ``os.replace`` and is
+the pattern followed here.
 """
 import copy
 import json
@@ -37,11 +44,25 @@ def load_json_config(path, default):
 
 def save_json_config(path, config):
     """dict → JSON file (indented), creating the parent dir. Returns the
-    service-dict shape every caller already returns."""
+    service-dict shape every caller already returns.
+
+    Written to a sibling temp file and ``os.replace``d into position, so a
+    reader never sees a half-written config and a failed write leaves the
+    previous one intact. ``os.replace`` is atomic on POSIX and on Windows.
+    """
+    directory = os.path.dirname(path) or '.'
+    tmp = f'{path}.tmp'
     try:
-        os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-        with open(path, 'w') as f:
+        os.makedirs(directory, exist_ok=True)
+        with open(tmp, 'w') as f:
             json.dump(config, f, indent=2)
+        os.replace(tmp, path)
         return {'success': True, 'message': 'Configuration saved'}
     except Exception as e:  # noqa: BLE001
+        # The old file is still whole; drop the partial temp so a later write
+        # is not confused by it. Cleanup failure must not mask the real error.
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
         return {'success': False, 'error': str(e)}

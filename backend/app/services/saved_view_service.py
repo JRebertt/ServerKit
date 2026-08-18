@@ -1,8 +1,8 @@
 import logging
-import re
 
 from app import db
 from app.models.saved_view import SavedView
+from app.utils.slug import slugify as _slugify, unique_slug
 
 logger = logging.getLogger(__name__)
 
@@ -10,9 +10,12 @@ MAX_VIEWS_PER_PAGE = 50
 
 
 def slugify(value):
-    """URL handle for a view name: 'SSL expiring ≤ 30d' -> 'ssl-expiring-30d'."""
-    slug = re.sub(r'[^a-z0-9]+', '-', (value or '').lower()).strip('-')
-    return slug[:140] or 'view'
+    """URL handle for a view name: 'SSL expiring ≤ 30d' -> 'ssl-expiring-30d'.
+
+    The regex lives in ``app.utils.slug``; the 140-char cap is this caller's
+    own rule (the column width) and stays here.
+    """
+    return _slugify(value)[:140] or 'view'
 
 
 def _unique_slug(user_id, page, name, exclude_id=None):
@@ -21,17 +24,15 @@ def _unique_slug(user_id, page, name, exclude_id=None):
     Scoped to live rows only: a tombstoned view must not reserve its handle
     forever, or deleting a view would burn the link name with it.
     """
-    base = slugify(name)
-    slug, n = base, 2
-    while True:
+    def taken(candidate):
         q = (SavedView.query_active()
-             .filter_by(user_id=user_id, page=page, slug=slug))
+             .filter_by(user_id=user_id, page=page, slug=candidate))
         if exclude_id is not None:
             q = q.filter(SavedView.id != exclude_id)
-        if not q.first():
-            return slug
-        slug = f'{base}-{n}'
-        n += 1
+        return q.first() is not None
+
+    # start=2 keeps the handles this service has always generated.
+    return unique_slug(slugify(name), taken, default='view', start=2)
 
 
 def get_by_slug(user_id, page, slug):

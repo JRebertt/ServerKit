@@ -23,7 +23,7 @@ def slugify(text):
     return text
 
 
-def unique_slug(base, exists, default='untitled'):
+def unique_slug(base, exists, default='untitled', start=1):
     """Return a unique slug based on `base`.
 
     `exists` is a callable that takes a slug and returns True if it is already
@@ -34,6 +34,11 @@ def unique_slug(base, exists, default='untitled'):
         base: The text or slug to start from.
         exists: Callable(slug: str) -> bool.
         default: Fallback string when `base` slugifies to something empty.
+        start: First suffix to try. `saved_view_service` numbered its
+            duplicates from 2 and kept a private copy of this loop for that one
+            difference (plan 75 §G6); a parameter is cheaper than a second
+            implementation, and changing its numbering would have renamed
+            handles users already had.
 
     Returns:
         A unique slug string.
@@ -42,7 +47,7 @@ def unique_slug(base, exists, default='untitled'):
     if not exists(base_slug):
         return base_slug
 
-    counter = 1
+    counter = start
     while True:
         candidate = f'{base_slug}-{counter}'
         if not exists(candidate):

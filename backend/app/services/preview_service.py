@@ -21,6 +21,8 @@ import logging
 import re
 from datetime import datetime, timedelta
 
+from app.utils.slug import slugify
+
 logger = logging.getLogger(__name__)
 
 # Job kinds — also registered in :meth:`PreviewService.register_jobs`.
@@ -37,10 +39,7 @@ def _slugify_branch(branch):
     non-alphanumerics collapses to a single dash, leading/trailing dashes
     trimmed. Empty input yields ``branch``.
     """
-    if not branch:
-        return 'branch'
-    label = re.sub(r'[^a-z0-9]+', '-', str(branch).lower()).strip('-')
-    return label or 'branch'
+    return slugify(branch) or 'branch'
 
 
 class PreviewService:

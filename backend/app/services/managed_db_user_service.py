@@ -17,7 +17,7 @@ from datetime import datetime
 
 from app import db
 from app.models.managed_database_user import ManagedDatabaseUser  # explicit import registers the table
-from app.services.database_service import DatabaseService
+from app.services import db_exec
 from app.utils.crypto import decrypt_secret_safe
 
 logger = logging.getLogger(__name__)
@@ -43,30 +43,7 @@ class ManagedDbUserService:
         shape of ``DatabaseService`` executors.
         """
         secret = decrypt_secret_safe(managed.admin_secret_encrypted or '') or None
-        if managed.engine == 'mysql':
-            if managed.host_kind == 'docker' and managed.container_ref:
-                return DatabaseService.docker_mysql_execute(
-                    managed.container_ref, sql,
-                    user=managed.admin_username or 'root', password=secret)
-            return DatabaseService.mysql_execute(sql, root_password=secret)
-        if managed.engine == 'postgresql':
-            if managed.host_kind == 'docker' and managed.container_ref:
-                return cls._docker_pg_execute(
-                    managed.container_ref, sql,
-                    user=managed.admin_username or 'postgres', password=secret)
-            return DatabaseService.pg_execute(sql)
-        return {'success': False, 'error': 'unsupported engine'}
-
-    @staticmethod
-    def _docker_pg_execute(container_name, sql, user='postgres', password=None):
-        """psql inside a Docker container.
-
-        ``database_service`` grew the pg twin of ``docker_mysql_execute``; this
-        stays as the named seam these callers use, with one implementation
-        underneath.
-        """
-        return DatabaseService.docker_pg_execute(
-            container_name, sql, database='postgres', user=user, password=password)
+        return db_exec.exec_sql(db_exec.target_from_managed(managed, password=secret), sql)
 
     # ── validation / quoting helpers ──
     @staticmethod

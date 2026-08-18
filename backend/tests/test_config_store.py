@@ -83,3 +83,66 @@ def test_converted_services_use_the_store(tmp_path, monkeypatch):
     assert 'webhook_secret' in default and default['apps'] == {}
     assert GitService.save_config({'apps': {'1': {}}})['success'] is True
     assert GitService.get_config() == {'apps': {'1': {}}}
+
+
+# ── atomic write (plan 75 §G6) ──────────────────────────────────────────────
+# The §F4 consolidation deliberately kept the copies' truncating write so no
+# behaviour change rode along with it. This is the follow-up it pointed at.
+
+def test_a_failed_write_leaves_the_previous_config_intact(tmp_path, monkeypatch):
+    """The reason atomicity is worth the temp file.
+
+    A truncating write that dies mid-dump leaves a truncated file, and
+    load_json_config treats a corrupt file as "use the default" — so a full
+    disk silently resets a config to defaults instead of failing.
+    """
+    path = str(tmp_path / 'cfg.json')
+    assert save_json_config(path, {'retention_days': 30})['success'] is True
+
+    def boom(*args, **kwargs):
+        raise OSError(28, 'No space left on device')
+
+    monkeypatch.setattr(json, 'dump', boom)
+    result = save_json_config(path, {'retention_days': 7})
+
+    assert result['success'] is False
+    assert 'No space left' in result['error']
+    assert load_json_config(path, {}) == {'retention_days': 30}
+
+
+def test_a_failed_write_leaves_no_temp_file_behind(tmp_path, monkeypatch):
+    path = str(tmp_path / 'cfg.json')
+    save_json_config(path, {'a': 1})
+
+    monkeypatch.setattr(json, 'dump', lambda *a, **k: (_ for _ in ()).throw(OSError('nope')))
+    save_json_config(path, {'a': 2})
+
+    assert os.listdir(tmp_path) == ['cfg.json']
+
+
+def test_the_write_goes_through_a_temp_file_then_replace(tmp_path, monkeypatch):
+    """Named so a future refactor cannot quietly drop the rename."""
+    path = str(tmp_path / 'cfg.json')
+    seen = {}
+    real_replace = os.replace
+
+    def spy(src, dst):
+        seen['src'], seen['dst'] = src, dst
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, 'replace', spy)
+    assert save_json_config(path, {'a': 1})['success'] is True
+    assert seen['dst'] == path
+    assert seen['src'] != path and seen['src'].startswith(path)
+
+
+def test_uptime_history_reports_a_failed_save(tmp_path, monkeypatch):
+    """uptime_service was `except Exception: pass` over a truncating write."""
+    from app.services.uptime_service import UptimeService
+
+    monkeypatch.setattr(UptimeService, 'DATA_DIR', str(tmp_path))
+    monkeypatch.setattr(UptimeService, 'UPTIME_FILE', str(tmp_path / 'uptime.json'))
+    assert UptimeService._save_history({'checks': []}) is True
+
+    monkeypatch.setattr(json, 'dump', lambda *a, **k: (_ for _ in ()).throw(OSError('disk full')))
+    assert UptimeService._save_history({'checks': [1]}) is False

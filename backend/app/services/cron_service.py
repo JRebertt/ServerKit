@@ -15,6 +15,8 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import json
 
+from app.utils.system import unit_is_active
+
 # Path for storing job metadata
 JOBS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'cron_jobs.json')
 
@@ -81,15 +83,10 @@ class CronService:
         """Get cron service status."""
         if cls.is_linux():
             # Check if cron daemon is running
-            try:
-                result = subprocess.run(
-                    ['systemctl', 'is-active', 'cron'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                cron_active = result.stdout.strip() == 'active'
-            except (subprocess.SubprocessError, FileNotFoundError):
+            active = unit_is_active('cron', timeout=5)
+            if active is not None:
+                cron_active = active
+            else:
                 # Try alternative check
                 try:
                     result = subprocess.run(

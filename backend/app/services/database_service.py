@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 
 from app import paths
+from app.utils.system import unit_is_active
 
 
 def _validate_identifier(name: str, max_length: int = 64) -> bool:
@@ -41,22 +42,27 @@ class DatabaseService:
 
     @staticmethod
     def mysql_is_running():
-        """Check if MySQL/MariaDB is running."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'mysql'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return True
-            # Try mariadb service name
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'mariadb'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        """Check if MySQL/MariaDB is running (either unit name)."""
+        return any(unit_is_active(unit) is True for unit in ('mysql', 'mariadb'))
+
+    @staticmethod
+    def _mysql_env(root_password):
+        """Process env with ``MYSQL_PWD`` set, or ``None`` when there is no password.
+
+        Pasted verbatim eight times in this file (plan 75 §G5). It carries a
+        real rule — the password goes in the environment, never on the argv,
+        where ``ps`` and the shell history would see it — and a rule that lives
+        in eight copies is a rule that only holds in the copies someone
+        remembered to update.
+
+        ``None`` (rather than ``os.environ.copy()``) when there is no password,
+        so ``subprocess`` inherits the parent environment exactly as before.
+        """
+        if not root_password:
+            return None
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = root_password
+        return env
 
     @staticmethod
     def mysql_execute(query, database=None, root_password=None):
@@ -67,11 +73,7 @@ class DatabaseService:
                 cmd.extend(['-D', database])
             cmd.extend(['-e', query])
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             result = subprocess.run(
                 cmd, capture_output=True, text=True, env=env
@@ -104,11 +106,7 @@ class DatabaseService:
             if database:
                 cmd.extend(['-D', database])
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Build a safe query using user-defined variables and EXECUTE
             # For simple single-param queries, we use a quoted literal approach
@@ -233,10 +231,7 @@ class DatabaseService:
         try:
             cmd = ['mysql', '-u', 'root']
 
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Hex-encode the password so it never appears as a raw string in SQL.
             # UNHEX converts it back to bytes, CAST converts to string, QUOTE wraps
@@ -334,11 +329,7 @@ class DatabaseService:
             cmd = ['mysqldump', '-u', 'root']
             cmd.append(database)
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Pipe through gzip
             with open(output_path, 'wb') as f:
@@ -368,11 +359,7 @@ class DatabaseService:
             cmd = ['mysql', '-u', 'root']
             cmd.append(database)
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             if backup_path.endswith('.gz'):
                 # Decompress and restore
@@ -444,14 +431,7 @@ class DatabaseService:
     @staticmethod
     def pg_is_running():
         """Check if PostgreSQL is running."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'postgresql'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        return unit_is_active('postgresql') is True
 
     @staticmethod
     def pg_execute(query, database='postgres', user='postgres'):
@@ -712,11 +692,7 @@ class DatabaseService:
             # Build mysql command with JSON output format
             cmd = ['mysql', '-u', 'root']
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
             cmd.extend([
                 '-D', database,
                 '-e', query,
@@ -1224,8 +1200,17 @@ class DatabaseService:
         return 'mysql'
 
     @staticmethod
-    def docker_mysql_execute(container_name, query, database=None, user='root', password=None):
-        """Execute a MySQL query inside a Docker container."""
+    def docker_mysql_execute(container_name, query, database=None, user='root',
+                             password=None, machine_readable=False, timeout=30):
+        """Execute a MySQL query inside a Docker container.
+
+        ``machine_readable`` adds ``-N -B``: no column headers, tab-separated,
+        no box drawing. Callers that parse the output need it; callers that
+        show the output to a human do not. It is a flag rather than a second
+        method because ``db_config_tuner_service`` used to keep a private copy
+        of this whole function purely to add those two characters
+        (plan 75 §G5).
+        """
         try:
             cmd = ['docker', 'exec']
 
@@ -1238,9 +1223,12 @@ class DatabaseService:
             if database:
                 cmd.extend(['-D', database])
 
+            if machine_readable:
+                cmd.extend(['-N', '-B'])
+
             cmd.extend(['-e', query])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             return {
                 'success': result.returncode == 0,
                 'output': result.stdout,
@@ -1253,7 +1241,7 @@ class DatabaseService:
 
     @staticmethod
     def docker_pg_execute(container_name, query, database='postgres', user='postgres',
-                          password=None, timeout=30):
+                          password=None, timeout=30, machine_readable=False):
         """Execute a PostgreSQL statement inside a Docker container.
 
         The psql twin of :meth:`docker_mysql_execute`, so anything that has to
@@ -1274,6 +1262,10 @@ class DatabaseService:
                         '-d', database or 'postgres',
                         '-v', 'ON_ERROR_STOP=1',
                         '-c', query, '-t', '-A'])
+            if machine_readable:
+                # tab, not the '|' default: the callers that parse this split
+                # on tabs, and a '|' is legal inside a value.
+                cmd.extend(['-F', '\t'])
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
             return {
                 'success': result.returncode == 0,
