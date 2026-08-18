@@ -11,9 +11,7 @@ import useFocusParam from '@/hooks/useFocusParam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-
-// Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
-const ACTIVE_KEY = 'active_workspace_id';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Preset views. `servers` and `users` are quota CEILINGS, not usage, so there
 // is no column to express "near capacity" against.
@@ -84,6 +82,7 @@ const formatSince = (iso) => {
 const Workspaces = () => {
     const toast = useToast();
     const navigate = useNavigate();
+    const { activeWorkspaceId } = useWorkspace();
     const [workspaces, setWorkspaces] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -92,8 +91,6 @@ const Workspaces = () => {
     // Quick-create deep link: /workspaces?focus=create:workspace opens the modal.
     useFocusParam('create', () => setShowCreateModal(true));
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
-
-    const activeId = localStorage.getItem(ACTIVE_KEY);
 
     const loadWorkspaces = useCallback(async () => {
         try {
@@ -195,12 +192,12 @@ const Workspaces = () => {
             // rule would then match nothing at all.
             value: (ws) => ws.status || 'unknown',
             // Matches the pill: the active workspace (and active status) first.
-            sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
+            sortValue: (ws) => (activeWorkspaceId === String(ws.id) || ws.status === 'active' ? 0 : 1),
             groupable: true,
             groupValue: (ws) => ws.status,
             groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (ws) => (
-                activeId === String(ws.id)
+                activeWorkspaceId === String(ws.id)
                     ? <Pill kind="green">active</Pill>
                     : <Pill kind={ws.status === 'active' ? 'green' : 'amber'}>{ws.status || 'unknown'}</Pill>
             ),

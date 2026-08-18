@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
+import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { rememberRedirect } from './utils/redirectAfterLogin';
 import { Toaster } from './components/ui/sonner';
 import ThemeSync from './components/ThemeSync';
@@ -530,25 +531,27 @@ function AppRoutes() {
 function App() {
     return (
         <Router>
-            <ThemeProvider>
-                <LayoutProvider>
-                    <AuthProvider>
-                        {/* Inside AuthProvider — PageTitleUpdater reads panelTitle/
-                            publicTitle via useAuth (branding), so it must sit under
-                            the provider. It stays inside Router for useLocation. */}
-                        <PageTitleUpdater />
-                        <ThemeSync />
-                        <ResourceTierProvider>
-                            <ToastProvider>
-                                <NotificationsProvider>
-                                    <AppRoutes />
-                                </NotificationsProvider>
-                                <Toaster />
-                            </ToastProvider>
-                        </ResourceTierProvider>
-                    </AuthProvider>
-                </LayoutProvider>
-            </ThemeProvider>
+            <WorkspaceProvider>
+                <ThemeProvider>
+                    <LayoutProvider>
+                        <AuthProvider>
+                            {/* Inside AuthProvider — PageTitleUpdater reads panelTitle/
+                                publicTitle via useAuth (branding), so it must sit under
+                                the provider. It stays inside Router for useLocation. */}
+                            <PageTitleUpdater />
+                            <ThemeSync />
+                            <ResourceTierProvider>
+                                <ToastProvider>
+                                    <NotificationsProvider>
+                                        <AppRoutes />
+                                    </NotificationsProvider>
+                                    <Toaster />
+                                </ToastProvider>
+                            </ResourceTierProvider>
+                        </AuthProvider>
+                    </LayoutProvider>
+                </ThemeProvider>
+            </WorkspaceProvider>
         </Router>
     );
 }

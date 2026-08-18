@@ -103,6 +103,13 @@ for (const path of files) {
     }
 
     if (
+        file !== 'services/workspaceStore.js'
+        && /localStorage\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*['"](?:active_workspace_id|active_workspace|workspace_accent)['"]/.test(source)
+    ) {
+        failures.push(`${file}: use WorkspaceContext/workspaceStore instead of reading or writing workspace persistence directly.`);
+    }
+
+    if (
         /(?:^|\/)ui\/dialog['"]/.test(source)
         && file !== 'components/Modal.jsx'
         && file !== 'components/ui/command.jsx'
@@ -125,4 +132,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✓ frontend boundaries: no browser confirm/raw UI fetch/token reads/new clipboard or dialog bypasses (${LEGACY_CLIPBOARD.size} clipboard files remain ratcheted).`);
+console.log(`✓ frontend boundaries: no browser confirm/raw UI fetch/token or workspace persistence reads/new clipboard or dialog bypasses (${LEGACY_CLIPBOARD.size} clipboard files remain ratcheted).`);

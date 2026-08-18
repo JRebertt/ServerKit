@@ -15,6 +15,7 @@ import { SearchField, ServiceTile } from '@/components/ds';
 import { formatRelativeTime } from '@/utils/time';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useClipboard } from '@/hooks/useClipboard';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
@@ -44,12 +45,13 @@ export default function Vaults() {
     const toast = useToast();
     const { confirm } = useConfirm();
     const { copy } = useClipboard({ successMessage: 'Copied' });
+    const { activeWorkspaceId: workspaceScopeId, isAllWorkspaces } = useWorkspace();
 
     const [vaults, setVaults] = useState([]);
     const [workspaces, setWorkspaces] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const activeWorkspaceId = localStorage.getItem('active_workspace_id') || '';
+    const activeWorkspaceId = isAllWorkspaces ? '' : workspaceScopeId;
     const [vaultForm, setVaultForm] = useState({ open: false, name: '', description: '', workspace_id: activeWorkspaceId });
     const [selectedVault, setSelectedVault] = useState(null);
     const [secretForm, setSecretForm] = useState({ open: false, name: '', value: '', description: '' });

@@ -1,12 +1,14 @@
 import SharedVariableGroups from '../components/shared/SharedVariableGroups';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 /**
  * SharedVariables — workspace-scoped management of shared variable groups
  * (the polymorphic facade: groups of variables that attach to any resource).
- * Scoped to the active workspace from localStorage; falls back to 'default'.
+ * Scoped to the active workspace context; falls back to 'default'.
  */
 const SharedVariables = () => {
-    const workspaceId = localStorage.getItem('active_workspace_id') || 'default';
+    const { activeWorkspaceId, isAllWorkspaces } = useWorkspace();
+    const workspaceId = isAllWorkspaces ? 'default' : activeWorkspaceId;
 
     // No wrapper: SharedVariableGroups renders through ResourceListPage, which
     // supplies the `sk-tabgroup__inner` box itself. Nesting a second one padded

@@ -1,4 +1,6 @@
 // Base HTTP client - constructor, token management, core request methods
+import { workspaceStore } from '../workspaceStore.js';
+
 const AUTH_EXPIRED_EVENT = 'serverkit:auth-expired';
 
 const normalizeApiBaseUrl = (url) => {
@@ -28,9 +30,10 @@ const normalizeApiBaseUrl = (url) => {
 // setup has an origin CORS does not expect. Socket.IO is unaffected: it stays
 // on window.location.origin in dev (see services/socket.js) because a WebSocket
 // upgrades out of the HTTP connection pool anyway.
-const API_BASE_URL = (import.meta.env.DEV && import.meta.env.VITE_API_PROXY === 'true')
+const viteEnv = import.meta.env || {};
+const API_BASE_URL = (viteEnv.DEV && viteEnv.VITE_API_PROXY === 'true')
     ? '/api/v1'
-    : normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
+    : normalizeApiBaseUrl(viteEnv.VITE_API_URL);
 
 // Requests that are safe to share with a concurrent identical caller: a plain
 // GET with no body, no custom headers (X-DB-Password and friends change what
@@ -56,8 +59,9 @@ const isCoalescable = (options) => (
 );
 
 class ApiClient {
-    constructor() {
+    constructor({ workspace = workspaceStore } = {}) {
         this.baseUrl = API_BASE_URL;
+        this.workspace = workspace;
         // In-flight GET coalescing. Two callers asking for the same URL at the
         // same moment share one network request instead of racing.
         //
@@ -89,9 +93,7 @@ class ApiClient {
     clearTokens() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        localStorage.removeItem('active_workspace_id');  // drop workspace context on logout
-        localStorage.removeItem('active_workspace');
-        localStorage.removeItem('workspace_accent');
+        this.workspace.clearActiveWorkspace();  // drop workspace context on logout
     }
 
     request(endpoint, options = {}) {
@@ -99,7 +101,8 @@ class ApiClient {
 
         // Scope the key by workspace: the same path returns different rows
         // under a different X-Workspace-Id.
-        const key = `${localStorage.getItem('active_workspace_id') || ''}|${endpoint}`;
+        const { activeWorkspaceId } = this.workspace.getSnapshot();
+        const key = `${activeWorkspaceId}|${endpoint}`;
         const existing = this._inflight.get(key);
         if (existing) return existing.then(cloneResult);
 
@@ -125,7 +128,7 @@ class ApiClient {
         // Active workspace context (#33). Sent ambiently so the backend can scope
         // resources; endpoints that don't honor it ignore it. A stale value is safe
         // — the backend resolves it leniently (falls back to no scope).
-        const activeWorkspace = localStorage.getItem('active_workspace_id');
+        const { activeWorkspaceId } = this.workspace.getSnapshot();
 
         // Spread `...options` FIRST, then set merged headers LAST — otherwise a
         // call passing custom `headers` (e.g. X-DB-Password) would clobber the
@@ -136,7 +139,7 @@ class ApiClient {
             headers: {
                 ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
                 ...(token && { Authorization: `Bearer ${token}` }),
-                ...(activeWorkspace && activeWorkspace !== 'all' && { 'X-Workspace-Id': activeWorkspace }),
+                ...(activeWorkspaceId !== 'all' && { 'X-Workspace-Id': activeWorkspaceId }),
                 ...fetchOptions.headers,
             },
         };
