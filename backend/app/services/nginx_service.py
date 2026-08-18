@@ -4,7 +4,8 @@ import re
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from app.utils.system import ServiceControl, run_privileged, is_command_available
+from app.utils.system import (ServiceControl, is_command_available,
+                             run_privileged, write_privileged_file)
 
 
 def _validate_domain(domain: str) -> bool:
@@ -643,9 +644,9 @@ location /p/ {{
             run_privileged(['mkdir', '-p',
                             os.path.join(cls.MICROCACHE_DIR, 'proxy'),
                             os.path.join(cls.MICROCACHE_DIR, 'fastcgi')])
-            process = run_privileged(['tee', conf_path], input=cls.MICROCACHE_ZONE_SNIPPET)
-            if process.returncode != 0:
-                return {'success': False, 'error': process.stderr}
+            written = write_privileged_file(conf_path, cls.MICROCACHE_ZONE_SNIPPET)
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
             return {'success': True, 'changed': True, 'path': conf_path,
                     'message': 'Micro-cache zone configured'}
         except Exception as e:
@@ -709,13 +710,9 @@ location /p/ {{
         # Write config file
         config_path = os.path.join(cls.SITES_AVAILABLE, name)
         try:
-            # Use sudo to write
-            process = run_privileged(
-                ['tee', config_path],
-                input=config,
-            )
-            if process.returncode != 0:
-                return {'success': False, 'error': process.stderr}
+            written = write_privileged_file(config_path, config)
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
 
             return {'success': True, 'message': f'Site {name} created', 'path': config_path}
         except Exception as e:
@@ -749,6 +746,86 @@ location /p/ {{
         """Path of the per-site nginx error log for site ``name`` (companion to
         :meth:`site_access_log_path`)."""
         return f'{cls.LOG_DIR}/{name}.error.log'
+
+    @classmethod
+    def read_vhost(cls, name: str) -> Optional[str]:
+        """The vhost's current content, or ``None`` if it cannot be read.
+
+        ``None`` means "could not determine", never "empty file" (§A). Callers
+        that need to distinguish a missing vhost from an unreadable one check
+        ``os.path.exists`` themselves.
+        """
+        try:
+            result = run_privileged(['cat', os.path.join(cls.SITES_AVAILABLE, name)])
+        except Exception:  # noqa: BLE001 - no cat, no permission, timeout
+            return None
+        return result.stdout if result.returncode == 0 else None
+
+    @classmethod
+    def write_vhost(cls, name: str, content: str, *, enable: bool = True) -> Dict:
+        """Write, enable, config-test, roll back on failure, reload. One door (§G4).
+
+        ``environment_domain_service`` re-implemented this whole sequence with
+        raw ``sudo`` calls, and ``nginx_advanced_service`` wrote the file with a
+        plain unprivileged ``open()``. Both bypass every guard NginxService
+        already owns: the sudo-vs-root decision, argv[0] resolution for an
+        sbin-resident nginx, and the config test.
+
+        The rollback is the part a copy never has. Writing a broken vhost and
+        *then* discovering ``nginx -t`` fails leaves the file on disk and
+        symlinked; the next unrelated reload — a certificate renewal, another
+        site going live — picks it up and fails, and the blame lands on
+        whatever triggered that reload. Restoring the previous content (or
+        removing a file that did not exist before) keeps the failure local to
+        the caller that caused it.
+
+        Returns ``{'success', 'path'}`` or ``{'success': False, 'error'}``.
+        """
+        available_path = os.path.join(cls.SITES_AVAILABLE, name)
+        enabled_path = os.path.join(cls.SITES_ENABLED, name)
+        previous = cls.read_vhost(name)
+        was_enabled = os.path.exists(enabled_path)
+
+        written = write_privileged_file(available_path, content)
+        if not written['success']:
+            return {'success': False, 'error': written['error']}
+
+        if enable and not was_enabled:
+            link = run_privileged(['ln', '-sf', available_path, enabled_path])
+            if link.returncode != 0:
+                cls._restore_vhost(name, previous, was_enabled)
+                return {'success': False,
+                        'error': (link.stderr or f'failed to enable {name}').strip()}
+
+        test = cls.test_config()
+        if not test['success']:
+            cls._restore_vhost(name, previous, was_enabled)
+            return {'success': False,
+                    'error': f"Config test failed: {test.get('message') or test.get('error')}"}
+
+        reloaded = cls.reload()
+        if not reloaded['success']:
+            return reloaded
+        return {'success': True, 'path': available_path}
+
+    @classmethod
+    def _restore_vhost(cls, name: str, previous: Optional[str], was_enabled: bool) -> None:
+        """Undo a :meth:`write_vhost` that did not survive the config test.
+
+        Best-effort by nature — the write already failed, and a failure to
+        clean up must not mask the error the caller is about to be told about.
+        """
+        available_path = os.path.join(cls.SITES_AVAILABLE, name)
+        enabled_path = os.path.join(cls.SITES_ENABLED, name)
+        try:
+            if previous is None:
+                run_privileged(['rm', '-f', available_path])
+            else:
+                write_privileged_file(available_path, previous)
+            if not was_enabled:
+                run_privileged(['rm', '-f', enabled_path])
+        except Exception:  # noqa: BLE001 - never mask the original failure
+            pass
 
     @classmethod
     def enable_site(cls, name: str) -> Dict:
@@ -834,14 +911,10 @@ location /p/ {{
             final_content = redirect_block + '\n' + new_content
 
             # Write updated config
-            process = run_privileged(
-                ['tee', config_path],
-                input=final_content,
-            )
-
-            if process.returncode == 0:
-                return cls.reload()
-            return {'success': False, 'error': process.stderr}
+            written = write_privileged_file(config_path, final_content)
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
+            return cls.reload()
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -1080,9 +1153,9 @@ location /p/ {{
 
             # Write location snippet to serverkit-locations dir
             config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.PRIVATE_URL_CONFIG_NAME}.conf')
-            process = run_privileged(['tee', config_path], input=config)
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
+            written = write_privileged_file(config_path, config)
+            if not written['success']:
+                return {'success': False, 'error': f"Failed to write config: {written['error']}"}
 
             # Clean up legacy separate server block if it exists
             cls._remove_legacy_site(cls.PRIVATE_URL_CONFIG_NAME)
@@ -1164,9 +1237,9 @@ location /p/ {{
             config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.GITEA_CONFIG_NAME}.conf')
 
             # Write location snippet (no separate server block, no sites-enabled symlink)
-            process = run_privileged(['tee', config_path], input=config)
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
+            written = write_privileged_file(config_path, config)
+            if not written['success']:
+                return {'success': False, 'error': f"Failed to write config: {written['error']}"}
 
             # Clean up legacy separate server block if it exists
             cls._remove_legacy_site(cls.GITEA_CONFIG_NAME)
@@ -1239,9 +1312,9 @@ location /p/ {{
             config_path = os.path.join(cls.LOCATIONS_DIR, f'{cls.WORDPRESS_CONFIG_NAME}.conf')
 
             # Write location snippet (no separate server block, no sites-enabled symlink)
-            process = run_privileged(['tee', config_path], input=config)
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
+            written = write_privileged_file(config_path, config)
+            if not written['success']:
+                return {'success': False, 'error': f"Failed to write config: {written['error']}"}
 
             # Clean up legacy separate server block if it exists
             cls._remove_legacy_site(cls.WORDPRESS_CONFIG_NAME)

@@ -4,7 +4,8 @@ import re
 import subprocess
 from typing import Dict
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged
+from app.utils.system import (PackageManager, ServiceControl, run_privileged,
+                             write_privileged_file)
 from app import paths
 
 
@@ -186,12 +187,12 @@ mailbox_size_limit = 0
             )
 
             # Append to main.cf
-            run_privileged(['tee', '-a', cls.POSTFIX_MAIN_CF], input=additions)
+            write_privileged_file(cls.POSTFIX_MAIN_CF, additions, append=True)
 
             # Enable submission port in master.cf
             result = run_privileged(['cat', cls.POSTFIX_MASTER_CF])
             if 'submission' not in (result.stdout or ''):
-                run_privileged(['tee', '-a', cls.POSTFIX_MASTER_CF], input=cls.SUBMISSION_CONF)
+                write_privileged_file(cls.POSTFIX_MASTER_CF, cls.SUBMISSION_CONF, append=True)
 
             # Restart
             ServiceControl.restart('postfix', timeout=30)
@@ -207,7 +208,7 @@ mailbox_size_limit = 0
             result = run_privileged(['cat', cls.VIRTUAL_DOMAINS_FILE])
             content = result.stdout or ''
             if domain not in content:
-                run_privileged(['tee', '-a', cls.VIRTUAL_DOMAINS_FILE], input=f'{domain} OK\n')
+                write_privileged_file(cls.VIRTUAL_DOMAINS_FILE, f'{domain} OK\n', append=True)
                 run_privileged(['postmap', cls.VIRTUAL_DOMAINS_FILE])
                 run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -220,19 +221,19 @@ mailbox_size_limit = 0
         try:
             result = run_privileged(['cat', cls.VIRTUAL_DOMAINS_FILE])
             lines = [l for l in (result.stdout or '').splitlines() if not l.startswith(f'{domain} ')]
-            run_privileged(['tee', cls.VIRTUAL_DOMAINS_FILE], input='\n'.join(lines) + '\n')
+            write_privileged_file(cls.VIRTUAL_DOMAINS_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_DOMAINS_FILE])
 
             # Also remove mailboxes for this domain
             result = run_privileged(['cat', cls.VIRTUAL_MAILBOXES_FILE])
             lines = [l for l in (result.stdout or '').splitlines() if not l.endswith(f'@{domain}') and f'@{domain} ' not in l]
-            run_privileged(['tee', cls.VIRTUAL_MAILBOXES_FILE], input='\n'.join(lines) + '\n')
+            write_privileged_file(cls.VIRTUAL_MAILBOXES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_MAILBOXES_FILE])
 
             # Remove aliases for this domain
             result = run_privileged(['cat', cls.VIRTUAL_ALIASES_FILE])
             lines = [l for l in (result.stdout or '').splitlines() if f'@{domain}' not in l]
-            run_privileged(['tee', cls.VIRTUAL_ALIASES_FILE], input='\n'.join(lines) + '\n')
+            write_privileged_file(cls.VIRTUAL_ALIASES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_ALIASES_FILE])
 
             run_privileged(['postfix', 'reload'])
@@ -245,7 +246,7 @@ mailbox_size_limit = 0
         """Add a mailbox to the virtual mailbox map."""
         try:
             mailbox_path = f'{domain}/{username}/Maildir/'
-            run_privileged(['tee', '-a', cls.VIRTUAL_MAILBOXES_FILE], input=f'{email} {mailbox_path}\n')
+            write_privileged_file(cls.VIRTUAL_MAILBOXES_FILE, f'{email} {mailbox_path}\n', append=True)
             run_privileged(['postmap', cls.VIRTUAL_MAILBOXES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -258,7 +259,7 @@ mailbox_size_limit = 0
         try:
             result = run_privileged(['cat', cls.VIRTUAL_MAILBOXES_FILE])
             lines = [l for l in (result.stdout or '').splitlines() if not l.startswith(f'{email} ')]
-            run_privileged(['tee', cls.VIRTUAL_MAILBOXES_FILE], input='\n'.join(lines) + '\n')
+            write_privileged_file(cls.VIRTUAL_MAILBOXES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_MAILBOXES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -269,7 +270,7 @@ mailbox_size_limit = 0
     def add_alias(cls, source: str, destination: str) -> Dict:
         """Add a virtual alias."""
         try:
-            run_privileged(['tee', '-a', cls.VIRTUAL_ALIASES_FILE], input=f'{source} {destination}\n')
+            write_privileged_file(cls.VIRTUAL_ALIASES_FILE, f'{source} {destination}\n', append=True)
             run_privileged(['postmap', cls.VIRTUAL_ALIASES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -282,7 +283,7 @@ mailbox_size_limit = 0
         try:
             result = run_privileged(['cat', cls.VIRTUAL_ALIASES_FILE])
             lines = [l for l in (result.stdout or '').splitlines() if not l.startswith(f'{source} ')]
-            run_privileged(['tee', cls.VIRTUAL_ALIASES_FILE], input='\n'.join(lines) + '\n')
+            write_privileged_file(cls.VIRTUAL_ALIASES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_ALIASES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -411,8 +412,8 @@ mailbox_size_limit = 0
                 run_privileged(['postconf', '-e', 'smtp_sasl_auth_enable=yes'])
                 run_privileged(['postconf', '-e', f'smtp_sasl_password_maps=hash:{cls.POSTFIX_SASL_PASSWD}'])
                 run_privileged(['postconf', '-e', 'smtp_sasl_security_options=noanonymous'])
-                run_privileged(['tee', cls.POSTFIX_SASL_PASSWD], input=f'{relay} {username}:{password or ""}\n')
-                run_privileged(['chmod', '600', cls.POSTFIX_SASL_PASSWD])
+                write_privileged_file(cls.POSTFIX_SASL_PASSWD,
+                                      f'{relay} {username}:{password or ""}\n', mode='600')
                 run_privileged(['postmap', cls.POSTFIX_SASL_PASSWD])
             run_privileged(['postconf', '-e', f'smtp_tls_security_level={"encrypt" if use_tls else "may"}'])
             run_privileged(['postfix', 'reload'])

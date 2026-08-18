@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
-from app.utils.system import ServiceControl, run_privileged, PackageManager, is_command_available
+from app.utils.system import (PackageManager, ServiceControl, is_command_available,
+                             run_privileged, write_privileged_file)
 
 
 # Candidate locations for the certbot binary when it isn't on $PATH. Snap is
@@ -512,7 +513,7 @@ class SSLService:
             cron_job = '0 0,12 * * * root certbot renew --quiet --post-hook "systemctl reload nginx"'
             cron_file = '/etc/cron.d/certbot-renewal'
 
-            run_privileged(['tee', cron_file], input=cron_job + '\n')
+            write_privileged_file(cron_file, cron_job + '\n')
 
             return {'success': True, 'message': 'Auto-renewal configured via cron'}
 

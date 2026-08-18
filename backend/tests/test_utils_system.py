@@ -41,6 +41,8 @@ privileged_cmd = _module.privileged_cmd
 is_command_available = _module.is_command_available
 PackageManager = _module.PackageManager
 ServiceControl = _module.ServiceControl
+write_privileged_file = _module.write_privileged_file
+unit_is_active = _module.unit_is_active
 
 
 # ---------------------------------------------------------------------------
@@ -454,3 +456,153 @@ class TestResultDict:
         proc = subprocess.CompletedProcess([], 1, stdout='', stderr='')
         assert ServiceControl.result_dict(proc, 'ok', fallback='Restart failed') == {
             'success': False, 'error': 'Restart failed'}
+
+
+# ---------------------------------------------------------------------------
+# write_privileged_file
+# ---------------------------------------------------------------------------
+class TestWritePrivilegedFile:
+    """The one privileged-write door (plan 75 §G2).
+
+    Fifteen call sites in two competing forms collapsed into this, so the
+    properties they each hand-rolled are asserted once, here.
+    """
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_writes_via_tee_with_content_on_stdin(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        assert write_privileged_file('/etc/nginx/sites-available/x', 'server {}') == {
+            'success': True, 'path': '/etc/nginx/sites-available/x'}
+        argv, kwargs = mock_run.call_args[0][0], mock_run.call_args[1]
+        assert argv == ['tee', '/etc/nginx/sites-available/x']
+        # content never lands on the argv
+        assert kwargs['input'] == 'server {}'
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_append_uses_tee_dash_a(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        write_privileged_file('/etc/postfix/main.cf', 'x=1\n', append=True)
+        assert mock_run.call_args[0][0] == ['tee', '-a', '/etc/postfix/main.cf']
+
+    @patch('app.utils.system.os.name', 'posix')
+    @patch('app.utils.system.shutil.which', return_value='/usr/bin/sudo')
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_sudo_is_decided_by_needs_sudo_not_hardcoded(self, _euid, mock_run, *_):
+        """The drift this helper exists to remove.
+
+        environment_domain_service hardcoded ``['sudo', 'tee', path]``, which
+        fails on a panel already running as root in a container with no sudo
+        binary — plan 74's outage shape. Going through run_privileged means the
+        decision is made once, by _needs_sudo().
+        """
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        write_privileged_file('/etc/x', 'c')
+        assert mock_run.call_args[0][0] == ['sudo', '-n', 'tee', '/etc/x']
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_nonzero_exit_reports_stderr(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 1, stdout='', stderr='Permission denied\n')
+        result = write_privileged_file('/etc/x', 'c')
+        assert result['success'] is False
+        assert result['error'] == 'Permission denied'
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_empty_stderr_still_yields_an_error_string(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 1, stdout='', stderr='')
+        result = write_privileged_file('/etc/x', 'c')
+        assert result['success'] is False
+        assert '/etc/x' in result['error']
+
+    @patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError())
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_missing_tee_is_a_failure_not_a_silent_success(self, _euid, _run):
+        """§A: a write that could not run must never report as one that did."""
+        result = write_privileged_file('/etc/x', 'c')
+        assert result['success'] is False
+        assert 'tee' in result['error']
+
+    @patch('app.utils.system.subprocess.run',
+           side_effect=subprocess.TimeoutExpired('tee', 300))
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_timeout_is_a_failure_not_a_silent_success(self, _euid, _run):
+        result = write_privileged_file('/etc/x', 'c')
+        assert result['success'] is False
+        assert 'timed out' in result['error']
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_mode_and_owner_are_applied_after_the_write(self, _euid, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        write_privileged_file('/etc/postfix/sasl_passwd', 'x', mode='600', owner='root:root')
+        assert [c[0][0] for c in mock_run.call_args_list] == [
+            ['tee', '/etc/postfix/sasl_passwd'],
+            ['chmod', '600', '/etc/postfix/sasl_passwd'],
+            ['chown', 'root:root', '/etc/postfix/sasl_passwd'],
+        ]
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_a_failed_chmod_fails_the_write(self, _euid, mock_run):
+        """A secrets file written world-readable is not a successful write."""
+        mock_run.side_effect = [
+            subprocess.CompletedProcess([], 0, stdout='', stderr=''),
+            subprocess.CompletedProcess([], 1, stdout='', stderr='chmod: no such file'),
+        ]
+        result = write_privileged_file('/etc/x', 'c', mode='600')
+        assert result['success'] is False
+        assert 'chmod' in result['error']
+
+
+# ---------------------------------------------------------------------------
+# unit_is_active
+# ---------------------------------------------------------------------------
+class TestUnitIsActive:
+    """Tri-state systemd probe (plan 75 §G6).
+
+    Five services re-inlined `systemctl is-active` and every one of them
+    collapsed "could not ask" into "not running". None means could-not-tell.
+    """
+
+    @patch('app.utils.system.subprocess.run')
+    def test_active(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='active\n', stderr='')
+        assert unit_is_active('nginx') is True
+
+    @patch('app.utils.system.subprocess.run')
+    def test_inactive_is_false_not_none(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 3, stdout='inactive\n', stderr='')
+        assert unit_is_active('nginx') is False
+
+    @patch('app.utils.system.subprocess.run')
+    def test_failed_unit_is_false(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 3, stdout='failed\n', stderr='')
+        assert unit_is_active('nginx') is False
+
+    @patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError())
+    def test_no_systemctl_is_none_never_false(self, _run):
+        """A host without systemd has not told us the service is down."""
+        assert unit_is_active('nginx') is None
+
+    @patch('app.utils.system.subprocess.run',
+           side_effect=subprocess.TimeoutExpired('systemctl', 10))
+    def test_timeout_is_none(self, _run):
+        assert unit_is_active('nginx') is None
+
+    @patch('app.utils.system.subprocess.run')
+    def test_empty_answer_is_none(self, mock_run):
+        """systemctl answering nothing is not systemctl answering "no"."""
+        mock_run.return_value = subprocess.CompletedProcess([], 1, stdout='', stderr='')
+        assert unit_is_active('nginx') is None
+
+    @patch('app.utils.system.subprocess.run')
+    def test_probe_is_not_privileged(self, mock_run):
+        """is-active needs no root; adding sudo would make it fail where the
+        sudoers policy is tight, for no benefit."""
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='active', stderr='')
+        unit_is_active('nginx')
+        assert mock_run.call_args[0][0] == ['systemctl', 'is-active', 'nginx']

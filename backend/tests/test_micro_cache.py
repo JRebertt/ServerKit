@@ -16,20 +16,14 @@ Proving points:
   save-only note when not; POST .../purge wipes the shared cache dir
   (Linux-guarded); both require auth
 """
-from types import SimpleNamespace
-
 import pytest
 
 from app import db
 from app.models import Application, User
 from app.models.domain import Domain
-from app.services import nginx_service
 from app.services.nginx_service import NginxService
 from app.services.site_domain_service import SiteDomainService
-
-
-def _proc(returncode=0, stdout='', stderr=''):
-    return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+from subprocess_stub import FakeProc
 
 
 BYPASS_MARKERS = [
@@ -134,56 +128,57 @@ def test_zone_snippet_declares_shared_zones():
     assert snippet.count('/var/cache/nginx/serverkit-microcache') == 2
 
 
-def test_ensure_cache_zone_writes_once_and_is_idempotent(tmp_path, monkeypatch):
+def _tee_to_disk(fake):
+    """Make the scripted `tee` actually write, so idempotence is observable.
+
+    Scripted through the shared seam (plan 75 §G7) rather than by patching
+    `nginx_service.run_privileged`: the write now goes through
+    `write_privileged_file`, and a stub pinned to one module's imported name
+    would silently stop intercepting it — which is exactly how a test keeps a
+    bypass route alive.
+    """
     import os as _os
+
+    def write(argv, kwargs):
+        path = argv[2] if argv[1] == '-a' else argv[1]
+        _os.makedirs(_os.path.dirname(path), exist_ok=True)
+        with open(path, 'a' if argv[1] == '-a' else 'w') as fh:
+            fh.write(kwargs.get('input', ''))
+        return FakeProc()
+
+    fake.when(['tee'], write)
+    return fake
+
+
+def test_ensure_cache_zone_writes_once_and_is_idempotent(tmp_path, fake_subprocess, monkeypatch):
     conf_dir = tmp_path / 'nginx'
     monkeypatch.setattr(NginxService, 'NGINX_CONF_DIR', str(conf_dir))
-
-    calls = []
-
-    def fake_run(cmd, **kw):
-        calls.append(list(cmd))
-        if cmd[0] == 'tee':
-            path = cmd[1]
-            _os.makedirs(_os.path.dirname(path), exist_ok=True)
-            with open(path, 'w') as f:
-                f.write(kw.get('input', ''))
-        return _proc()
-
-    monkeypatch.setattr(nginx_service, 'run_privileged', fake_run)
+    fake_subprocess.script(['mkdir'])
+    _tee_to_disk(fake_subprocess)
 
     first = NginxService.ensure_cache_zone()
     assert first['success'] is True and first['changed'] is True
     conf_path = conf_dir / 'conf.d' / 'serverkit-microcache.conf'
     assert conf_path.read_text() == NginxService.MICROCACHE_ZONE_SNIPPET
-    tees = [c for c in calls if c[0] == 'tee']
-    assert len(tees) == 1
+    assert len([c for c in fake_subprocess.commands() if c[0] == 'tee']) == 1
 
     second = NginxService.ensure_cache_zone()
     assert second['success'] is True and second['changed'] is False
-    assert len([c for c in calls if c[0] == 'tee']) == 1   # no rewrite
+    assert len([c for c in fake_subprocess.commands() if c[0] == 'tee']) == 1  # no rewrite
 
 
-def test_create_site_ensures_zone_when_enabled(tmp_path, monkeypatch):
+def test_create_site_ensures_zone_when_enabled(tmp_path, fake_subprocess, monkeypatch):
     monkeypatch.setattr(NginxService, 'SITES_AVAILABLE', str(tmp_path))
     ensured = []
     monkeypatch.setattr(NginxService, 'ensure_cache_zone',
                         classmethod(lambda cls: ensured.append(True) or {'success': True}))
-    written = {}
-
-    def fake_run(cmd, **kw):
-        if cmd[0] == 'tee':
-            written['path'] = cmd[1]
-            written['content'] = kw.get('input', '')
-        return _proc()
-
-    monkeypatch.setattr(nginx_service, 'run_privileged', fake_run)
+    fake_subprocess.script(['tee'])
 
     res = NginxService.create_site('shop', 'docker', ['shop.lvh.me'],
                                    root_path=None, port=8300, micro_cache=True)
     assert res['success'] is True
     assert ensured == [True]
-    assert 'proxy_cache serverkit_microcache;' in written['content']
+    assert 'proxy_cache serverkit_microcache;' in fake_subprocess.kwargs_for(['tee'])['input']
 
     # Disabled writes never touch the zone.
     NginxService.create_site('shop', 'docker', ['shop.lvh.me'],
@@ -365,27 +360,26 @@ def test_api_purge_failure_is_500_with_error(client, auth_headers, app, monkeypa
 
 # ── purge service ────────────────────────────────────────────────────────────
 
-def test_purge_wipes_and_recreates_cache_dirs(monkeypatch):
+def test_purge_wipes_and_recreates_cache_dirs(fake_subprocess, monkeypatch):
     import os as _os
     monkeypatch.setattr(_os, 'name', 'posix')   # force the Linux branch
-    calls = []
-    monkeypatch.setattr(nginx_service, 'run_privileged',
-                        lambda cmd, **kw: calls.append(list(cmd)) or _proc())
+    fake_subprocess.script(['rm'])
+    fake_subprocess.script(['mkdir'])
 
     res = NginxService.purge_micro_cache()
     assert res['success'] is True
     assert 'shared' in res['note']              # documents the full-zone tradeoff
-    rm, mkdir = calls
+    rm, mkdir = fake_subprocess.commands()
     assert rm[:2] == ['rm', '-rf']
     assert f'{NginxService.MICROCACHE_DIR}/proxy'.replace('/', _os.sep) in [p.replace('/', _os.sep) for p in rm]
     assert mkdir[:2] == ['mkdir', '-p']
 
 
-def test_purge_is_linux_guarded(monkeypatch):
+def test_purge_is_linux_guarded(fake_subprocess, monkeypatch):
     import os as _os
     monkeypatch.setattr(_os, 'name', 'nt')
-    monkeypatch.setattr(nginx_service, 'run_privileged',
-                        lambda *a, **kw: (_ for _ in ()).throw(AssertionError('must not run')))
+    # Nothing is scripted: any exec at all would raise UnscriptedCommand.
     res = NginxService.purge_micro_cache()
     assert res['success'] is False
     assert 'Linux' in res['error']
+    assert fake_subprocess.commands() == []

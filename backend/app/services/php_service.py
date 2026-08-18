@@ -4,7 +4,8 @@ import re
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged, is_command_available
+from app.utils.system import (PackageManager, ServiceControl, is_command_available,
+                             run_privileged, write_privileged_file)
 
 
 class PHPService:
@@ -321,14 +322,13 @@ env[TEMP] = /tmp
             run_privileged(['mkdir', '-p', '/var/log/php'])
 
             # Write pool config
-            process = run_privileged(['tee', pool_file], input=pool_content)
+            written = write_privileged_file(pool_file, pool_content)
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
 
-            if process.returncode == 0:
-                # Restart FPM
-                cls.restart_fpm(version)
-                return {'success': True, 'message': f'Pool {pool_name} created', 'file': pool_file}
-
-            return {'success': False, 'error': process.stderr}
+            # Restart FPM
+            cls.restart_fpm(version)
+            return {'success': True, 'message': f'Pool {pool_name} created', 'file': pool_file}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

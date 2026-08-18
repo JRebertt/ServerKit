@@ -29,7 +29,8 @@ import os
 import re
 import logging
 
-from app.utils.system import run_privileged, is_command_available, ServiceControl
+from app.utils.system import (ServiceControl, is_command_available,
+                             run_privileged, write_privileged_file)
 from app.services.nginx_service import NginxService
 
 logger = logging.getLogger(__name__)
@@ -145,14 +146,8 @@ bantime = {bantime}
 
     @staticmethod
     def _write_file(path, content):
-        """Write *content* to *path* with privilege (sudo tee), like NginxService."""
-        try:
-            proc = run_privileged(['tee', path], input=content)
-            if proc.returncode != 0:
-                return {'success': False, 'error': (proc.stderr or 'write failed').strip()}
-            return {'success': True, 'path': path}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        """Write *content* to *path* with privilege — the shared door (plan 75 §G2)."""
+        return write_privileged_file(path, content)
 
     @staticmethod
     def _ensure_logpath(logpath):

@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import re
+from app.services.nginx_service import NginxService
 from app.utils.system import run_unprivileged, run_privileged
 
 logger = logging.getLogger(__name__)
@@ -10,9 +11,12 @@ logger = logging.getLogger(__name__)
 class NginxAdvancedService:
     """Advanced Nginx configuration: reverse proxy, load balancing, caching, rate limiting."""
 
-    NGINX_CONF_DIR = '/etc/nginx'
-    SITES_AVAILABLE = '/etc/nginx/sites-available'
-    SITES_ENABLED = '/etc/nginx/sites-enabled'
+    # NginxService owns these (plan 75 §G4). Hardcoding them here meant an
+    # NGINX_CONF_DIR override — the env var NginxService honours, and what
+    # tests redirect — silently did not apply to this service.
+    NGINX_CONF_DIR = NginxService.NGINX_CONF_DIR
+    SITES_AVAILABLE = NginxService.SITES_AVAILABLE
+    SITES_ENABLED = NginxService.SITES_ENABLED
 
     @staticmethod
     def get_proxy_rules(domain):
@@ -123,28 +127,28 @@ class NginxAdvancedService:
 
         config = '\n'.join(lines)
 
-        # Write config
-        conf_path = os.path.join(NginxAdvancedService.SITES_AVAILABLE, domain)
-        with open(conf_path, 'w') as f:
-            f.write(config)
+        # Write config through the shared vhost door (plan 75 §G4). This was a
+        # plain `open(conf_path, 'w')`: unprivileged, so it raises
+        # PermissionError against a root-owned /etc/nginx/sites-available, and
+        # it neither config-tested nor reloaded what it wrote.
+        result = NginxService.write_vhost(domain, config)
+        if not result['success']:
+            return {'error': result['error'], 'domain': domain}
 
-        return {'domain': domain, 'config': config, 'path': conf_path}
+        return {'domain': domain, 'config': config, 'path': result['path']}
 
     @staticmethod
     def test_config():
-        """Test nginx config syntax."""
-        # run_privileged, not run_unprivileged: `nginx -t` reads root-owned config
-        # and nginx lives in /usr/sbin, which the panel's unit PATH omits. The
-        # unprivileged bare-name call raised FileNotFoundError and this method
-        # reported every config as INVALID.
-        try:
-            result = run_privileged(['nginx', '-t'])
-            return {
-                'valid': result.returncode == 0,
-                'output': (result.stdout or '') + (result.stderr or ''),
-            }
-        except Exception as e:
-            return {'valid': False, 'output': str(e)}
+        """Test nginx config syntax — NginxService owns the call (plan 75 §G4).
+
+        Kept as a distinct method because its result shape (``valid``/
+        ``output``) is what this service's API consumers read.
+        """
+        result = NginxService.test_config()
+        return {
+            'valid': result['success'],
+            'output': result.get('message') or result.get('error') or '',
+        }
 
     @staticmethod
     def preview_diff(domain, new_config):
@@ -166,15 +170,13 @@ class NginxAdvancedService:
 
     @staticmethod
     def reload_nginx():
-        """Reload nginx configuration."""
-        try:
-            result = run_privileged(['nginx', '-s', 'reload'])
-            if result.returncode != 0:
-                return {'success': False,
-                        'error': (result.stderr or 'nginx reload failed').strip()}
-            return {'success': True}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        """Reload nginx — NginxService owns it (plan 75 §G4).
+
+        The private version ran `nginx -s reload` with no config test first, so
+        a broken vhost written by this same service reloaded straight into
+        production instead of being refused.
+        """
+        return NginxService.reload()
 
     @staticmethod
     def get_vhost_logs(domain, log_type='access', lines=100):

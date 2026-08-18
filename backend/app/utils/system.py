@@ -144,6 +144,65 @@ def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
     }
 
 
+def write_privileged_file(path: str, content: str, *, append: bool = False,
+                          mode: Optional[str] = None,
+                          owner: Optional[str] = None) -> dict:
+    """Write *content* to *path* with privilege escalation. One door (plan 75 §G2).
+
+    The write-a-root-owned-file sequence was pasted at 15+ call sites in **two
+    competing forms**: ``run_privileged(['tee', path], input=content)`` and a
+    raw ``subprocess.run(['sudo', 'tee', path], ...)``. The second form is the
+    drift this plan exists to remove — it hardcodes ``sudo`` instead of asking
+    :func:`_needs_sudo`, so it fails on a panel already running as root (no
+    sudo binary in a minimal container) exactly the way plan 74's outage did.
+
+    Returns a result dict rather than a ``CompletedProcess`` because every one
+    of those call sites immediately converted one into the other:
+
+        {'success': bool, 'path': str, 'error': str}   # 'error' only on failure
+
+    ``success`` is never True on a write that did not demonstrably happen — a
+    ``FileNotFoundError`` (no ``tee``) or a timeout reports the failure instead
+    of being swallowed into a cheerful return (§A, probe honesty).
+
+    *mode* and *owner* are applied after the write (``chmod`` / ``chown``); a
+    failure there is reported, because a config written with the wrong
+    ownership is not a config that works.
+
+    Still ``tee`` under the hood, deliberately: this change is a collapse, not
+    a behaviour change. Having one door is what makes a later atomic write
+    (tmp + ``os.replace``) a single edit instead of fifteen.
+    """
+    argv = ['tee', '-a', path] if append else ['tee', path]
+    try:
+        result = run_privileged(argv, input=content)
+    except FileNotFoundError:
+        return {'success': False, 'path': path,
+                'error': "'tee' not found - cannot write privileged file"}
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'path': path,
+                'error': f'timed out writing {path}'}
+    except Exception as exc:  # noqa: BLE001 - reported, never converted to success
+        return {'success': False, 'path': path, 'error': str(exc)}
+
+    if result.returncode != 0:
+        return {'success': False, 'path': path,
+                'error': (result.stderr or f'failed to write {path}').strip()}
+
+    follow_ups = ([['chmod', mode, path]] if mode else []) + \
+                 ([['chown', owner, path]] if owner else [])
+    for step_argv in follow_ups:
+        try:
+            step = run_privileged(step_argv)
+        except Exception as exc:  # noqa: BLE001
+            return {'success': False, 'path': path, 'error': str(exc)}
+        if step.returncode != 0:
+            return {'success': False, 'path': path,
+                    'error': (step.stderr or f'{step_argv[0]} failed on {path}').strip()}
+
+    return {'success': True, 'path': path}
+
+
 # Searched when ``$PATH`` does not resolve a command. Ordered the way a login
 # shell would. ``/usr/sbin`` and ``/sbin`` matter most: the panel's systemd unit
 # ships a PATH of venv:/usr/local/bin:/usr/bin:/bin, so every sbin-resident tool
@@ -152,6 +211,33 @@ def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
 # almost never on a service's PATH.
 _COMMAND_SEARCH_DIRS = ('/usr/local/sbin', '/usr/local/bin', '/usr/sbin',
                         '/usr/bin', '/sbin', '/bin', '/snap/bin')
+
+
+def unit_is_active(unit: str, *, timeout: int = 10) -> Optional[bool]:
+    """Tri-state systemd unit probe: ``True``, ``False``, or ``None`` (§G6).
+
+    ``None`` means *could not determine* — no systemctl, no systemd, a probe
+    that timed out — and is deliberately not ``False``. The five hand-rolled
+    copies of this ``systemctl is-active`` call all collapsed those cases into
+    "not running", which is how a working service gets reported as down on a
+    host the panel simply could not ask (plan 74's outage, one layer up).
+
+    Callers that genuinely want two states write ``unit_is_active(u) is True``
+    and are then saying so out loud.
+    """
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', unit],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    # systemctl prints one word: active / inactive / failed / unknown. An empty
+    # stdout means it answered nothing useful, which is not the same as "no".
+    answer = (result.stdout or '').strip()
+    if not answer:
+        return None
+    return answer == 'active'
 
 
 def resolve_command(cmd: str) -> Optional[str]:
