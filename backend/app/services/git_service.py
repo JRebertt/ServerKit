@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
 from app.utils.git_security import (
     git_argv,
     git_env,
@@ -28,28 +29,15 @@ class GitService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get deployment configuration."""
-        if os.path.exists(cls.DEPLOY_CONFIG):
-            try:
-                with open(cls.DEPLOY_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.DEPLOY_CONFIG, {
             'apps': {},  # app_id -> deployment config
             'webhook_secret': cls._generate_secret()
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save deployment configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.DEPLOY_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.DEPLOY_CONFIG, config)
 
     @staticmethod
     def _generate_secret() -> str:

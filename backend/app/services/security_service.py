@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .notification_service import NotificationService
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
 from app.utils.system import (
     PackageManager,
     ServiceControl,
@@ -44,14 +45,7 @@ class SecurityService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get security configuration."""
-        if os.path.exists(cls.SECURITY_CONFIG):
-            try:
-                with open(cls.SECURITY_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.SECURITY_CONFIG, {
             'clamav': {
                 'enabled': True,
                 'scan_paths': ['/var/www', '/home'],
@@ -84,18 +78,12 @@ class SecurityService:
                 'on_suspicious_activity': True,
                 'severity': 'critical'
             }
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save security configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.SECURITY_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.SECURITY_CONFIG, config)
 
     # ==========================================
     # CLAMAV INTEGRATION

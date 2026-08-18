@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
 
 
 class NotificationService:
@@ -40,14 +41,7 @@ class NotificationService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get notification configuration."""
-        if os.path.exists(cls.NOTIFICATIONS_CONFIG):
-            try:
-                with open(cls.NOTIFICATIONS_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.NOTIFICATIONS_CONFIG, {
             'discord': {
                 'enabled': False,
                 'webhook_url': '',
@@ -87,18 +81,12 @@ class NotificationService:
                 'headers': {},
                 'notify_on': ['critical', 'warning']
             }
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save notification configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.NOTIFICATIONS_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.NOTIFICATIONS_CONFIG, config)
 
     @classmethod
     def update_channel_config(cls, channel: str, settings: Dict) -> Dict:

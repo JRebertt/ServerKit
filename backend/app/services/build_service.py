@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Callable, Generator
 from pathlib import Path
 
 from app import paths
+from app.utils.config_store import load_json_config
 
 
 class BuildService:
@@ -68,13 +69,7 @@ class BuildService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get build configuration."""
-        if os.path.exists(cls.BUILD_CONFIG):
-            try:
-                with open(cls.BUILD_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {'apps': {}}
+        return load_json_config(cls.BUILD_CONFIG, {'apps': {}})
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:

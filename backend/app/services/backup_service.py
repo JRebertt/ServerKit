@@ -15,6 +15,7 @@ import schedule
 
 from app import paths
 from app.utils import backup_crypto
+from app.utils.config_store import load_json_config, save_json_config
 from app.utils.formatting import format_bytes
 from app.utils.system import is_command_available
 from app.services.telemetry_service import TelemetryService, generate_correlation_id
@@ -53,14 +54,7 @@ class BackupService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get backup configuration."""
-        if os.path.exists(cls.BACKUP_CONFIG):
-            try:
-                with open(cls.BACKUP_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.BACKUP_CONFIG, {
             'enabled': False,
             'retention_days': 30,
             'encrypt_backups': False,
@@ -70,18 +64,12 @@ class BackupService:
                 'on_failure': True,
                 'email': ''
             }
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save backup configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.BACKUP_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.BACKUP_CONFIG, config)
 
     @classmethod
     def backup_application(cls, app_name: str, app_path: str,
