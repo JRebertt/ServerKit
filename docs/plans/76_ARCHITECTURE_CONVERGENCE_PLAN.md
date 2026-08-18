@@ -95,6 +95,47 @@ docker / nginx / SQL-exec doors are plan 75 Round 2 (§G); model mixins,
 encrypted-secret handling, the status vocabulary, realtime stream/channel
 convergence, and shared infra utilities are plan 77.
 
+### Second-wave execution — milestone A identity and admin rows (2026-08-18)
+
+Both rows are closed. They were taken first because rule 2 classes them as
+fixes rather than refactors, and the audit turned out to have *understated*
+them.
+
+| Row | Baseline | Now | Commit |
+|---|---|---|---|
+| `rbac.get_current_user()` | 70 inline + 8 private helpers | 0 direct; 87 indirect ratcheted; **0 API-key-capable** | `fe02ce8e` |
+| `@admin_required` mid-route | 5 private `_require_admin()`, 3 contracts | 0; one `require_admin_user()` | `6cd2ee6b` |
+
+Corrections to the audit's measurements, all verified by test:
+
+- **The API-key failure is a 500, not a `None`.** `auth_required()` skips
+  `verify_jwt_in_request()` once the key middleware has authenticated, so
+  `get_jwt_identity()` has no context to read and *raises*. Nine handlers
+  behind API-key-capable policy decorators returned 500 to every API-key
+  caller. Where a blanket `except Exception` wrapped the lookup (three service
+  helpers) the raise degraded silently to `user_id=None` instead — the write
+  landed and the audit trail lost the actor.
+- **The inline population has two shapes, not one.** Beyond the 73 direct
+  `User.query.get(get_jwt_identity())` sites there are 87 of the two-line
+  `uid = get_jwt_identity()` variant. All 87 remaining are on
+  `@jwt_required()`-only routes, where reading the JWT is correct today — they
+  are ratcheted rather than migrated, because they are exactly what breaks when
+  the rest of milestone A moves those routes onto policy decorators.
+- **There is a sixth `_require_admin()`**, in the cloudflare-ops extension
+  source (29 gates, jobs.py's inverted contract). It was invisible to a
+  `backend/app/` census because the extension has no installed live copy.
+- **12 of the 19 private helpers were named `get_current_user`** — shadowing
+  the real door, so the call sites already read as if they were correct.
+
+Ratchets added: `tests/identity_door_census.py` +
+`tests/test_identity_door_ratchet.py` (ceiling 87, and a separate assertion
+holding the API-key-capable population at zero). The first wave's
+controller-boundary baseline dropped 593 -> 519 persistence crossings as a
+side effect.
+
+Still open on milestone A: the 605 `@jwt_required()` routes that have not moved
+to `auth_required()`, and the 28 inline role checks.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
