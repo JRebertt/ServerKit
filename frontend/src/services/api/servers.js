@@ -916,12 +916,12 @@ export async function getServerTemplateAssignments(serverId) {
 }
 
 // Workspaces endpoints
-export async function getWorkspaces(params = {}) {
+export async function getWorkspaces(params = {}, options = {}) {
     const query = new URLSearchParams();
     if (params.all) query.append('all', 'true');
     if (params.include_archived) query.append('include_archived', 'true');
     const qs = query.toString();
-    return this.request(`/workspaces/${qs ? '?' + qs : ''}`);
+    return this.request(`/workspaces/${qs ? '?' + qs : ''}`, options);
 }
 
 export async function getWorkspace(id) {
