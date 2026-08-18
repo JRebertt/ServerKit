@@ -9,6 +9,12 @@ _backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _backend not in sys.path:
     sys.path.insert(0, _backend)
 
+# And this directory, so sibling helper modules (popen_guard) import cleanly
+# regardless of pytest's import mode.
+_tests = os.path.dirname(os.path.abspath(__file__))
+if _tests not in sys.path:
+    sys.path.insert(0, _tests)
+
 os.environ.setdefault('FLASK_ENV', 'testing')
 
 # Keep the suite offline: unset SERVERKIT_REGISTRY_URL now means "use the
@@ -103,6 +109,30 @@ def pytest_configure(config):
         'STRUCTURE — Flask cannot unregister a blueprint or a url rule, so such '
         'a mutation would leak into every later test on a shared app.',
     )
+
+
+@pytest.fixture(autouse=True)
+def _popen_sbin_guard(monkeypatch):
+    """Route every subprocess exec through the runtime sbin guard (plan 75 §B2).
+
+    The static guard in test_sbin_command_guard.py reads literal argv lists —
+    at most 57% of raw subprocess sites. This fixture sees the actual argv of
+    every exec the suite performs (variables, f-strings, concatenation — the
+    43% AST cannot), and fails any bare-name call that only resolves through
+    an sbin dir: the plan 74 outage class, where a call works in dev and dies
+    under the panel unit's sbin-less PATH.
+
+    Tests that patch subprocess.run/Popen themselves replace this wrapper for
+    their duration — the guard only judges execs that really happen. POSIX
+    only; sbin semantics do not exist on a Windows dev box.
+    """
+    if os.name != 'posix':
+        yield
+        return
+    import subprocess
+    from popen_guard import GuardedPopen
+    monkeypatch.setattr(subprocess, 'Popen', GuardedPopen)
+    yield
 
 
 @pytest.fixture(scope='session')
