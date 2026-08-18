@@ -122,8 +122,20 @@ ssl_prefer_server_ciphers = yes
             installed = False
 
         if installed:
-            running = ServiceControl.is_active('dovecot')
-            enabled = ServiceControl.is_enabled('dovecot')
+            try:
+                running = ServiceControl.is_active('dovecot')
+                enabled = ServiceControl.is_enabled('dovecot')
+            except (subprocess.SubprocessError, FileNotFoundError):
+                # No systemctl (container, non-systemd init), or systemd not
+                # answering inside PROBE_TIMEOUT: "could not check", not "not
+                # running" — and never a 500. Wider than FileNotFoundError on
+                # purpose: is_enabled already swallows the missing binary, but
+                # the probe timeout in both wrappers still raises
+                # TimeoutExpired straight through get_status and out of
+                # /api/v1/email/status. The sibling services in this extension
+                # catch the same pair.
+                running = None
+                enabled = None
             # Its own try: failing to read the version says nothing about
             # whether dovecot is installed. Collapsing the two is how
             # FirewallService._check_ufw reported a working firewall as absent.

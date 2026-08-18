@@ -36,7 +36,11 @@ class EmailService:
         spam = SpamAssassinService.get_status()
 
         all_installed = postfix['installed'] and dovecot['installed']
-        all_running = postfix.get('running', False) and dovecot.get('running', False)
+        # bool(): a component whose probe could not run reports running=None
+        # (see DovecotService.get_status), and `True and None` is None — the
+        # top-level flag is documented as a boolean, so keep it one. The
+        # honest per-component tri-state is still in the nested dicts.
+        all_running = bool(postfix.get('running', False) and dovecot.get('running', False))
 
         return {
             'installed': all_installed,
