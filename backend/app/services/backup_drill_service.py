@@ -263,6 +263,12 @@ class BackupDrillService:
             db.session.commit()
             logger.warning('drill %s skipped: need %s bytes, %s free',
                            drill_id, required, free)
+            # A log line is not a notification. Without this the operator learns
+            # nothing, and the policy still reads as recently drilled.
+            cls._notify_failed(
+                policy.id, run_id,
+                f'needs {required} bytes of scratch space, {free} free',
+                status='skipped_no_space')
             return {'status': 'skipped_no_space', 'drill_id': drill_id,
                     'bytes_required': int(required), 'bytes_free': int(free)}
 
@@ -612,15 +618,22 @@ class BackupDrillService:
         policy.last_drill_status = status
 
     @classmethod
-    def _notify_failed(cls, policy_id, run_id, error):
+    def _notify_failed(cls, policy_id, run_id, error, status='failed'):
+        """Alert on a drill that did not prove the backup.
+
+        ``status`` is passed through because ``BackupAlertService`` already
+        treats ``skipped_no_space`` as a failed outcome — that branch was simply
+        never reached, since only the exception path called this. A drill that
+        could not run left no trace beyond a log line.
+        """
         try:
             from app.models.backup_policy import BackupPolicy
             from app.services.backup_alert_service import BackupAlertService
             policy = BackupPolicy.query.get(policy_id)
             if policy:
-                BackupAlertService.on_drill_result(policy, status='failed', error=error)
+                BackupAlertService.on_drill_result(policy, status=status, error=error)
         except Exception as exc:  # noqa: BLE001 — alerts are best-effort
-            logger.debug('drill-failed alert skipped: %s', exc)
+            logger.debug('drill-%s alert skipped: %s', status, exc)
 
     @classmethod
     def _notify_recovered(cls, policy_id, run_id):

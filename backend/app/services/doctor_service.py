@@ -568,6 +568,20 @@ class DoctorService:
                           "The last restore drill is older than this policy's "
                           'cadence — run a fresh drill.',
                           repairable=True, repair_ref=repair_ref)
+        if badge == 'skipped':
+            # "Could not run" is its own answer. It used to render as ok, which
+            # told the operator a drill that never happened had proved the
+            # backup restores.
+            return _check(key, title, 'warn',
+                          'The last restore drill could not run — not enough '
+                          'scratch space to restore into. Nothing has been '
+                          'proven about this backup; free space and re-run.',
+                          repairable=True, repair_ref=repair_ref)
+        if badge == 'unknown':
+            return _check(key, title, 'warn',
+                          'The last restore drill finished in a state the panel '
+                          'does not recognise, so this backup is unproven.',
+                          repairable=True, repair_ref=repair_ref)
         detail = ('This backup has never been restore-drilled.'
                   if badge == 'never'
                   else 'The last restore drill failed — the backup may not restore.')

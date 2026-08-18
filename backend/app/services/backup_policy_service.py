@@ -946,13 +946,36 @@ class BackupPolicyService:
 
     @classmethod
     def _drill_badge(cls, policy):
-        """One-word restore-proof state derived from the policy's drill cache:
-        ``never`` (never drilled), ``failed`` (last drill failed), ``stale``
-        (last success older than 1.5x the cadence interval), else ``ok``."""
+        """One-word restore-proof state from the policy's drill cache.
+
+        ``never`` | ``failed`` | ``skipped`` | ``unknown`` | ``stale`` | ``ok``.
+
+        **``ok`` must be positively earned.** This used to return ``ok`` for any
+        status that was not literally ``'failed'``, so a drill skipped for lack
+        of scratch space — which records ``skipped_no_space`` and stamps
+        ``last_drill_at`` — fell through every branch and the doctor reported
+        "A recent restore drill proved this backup restores." A drill that never
+        ran had become proof that the backup restores.
+
+        It also self-perpetuated: each skip refreshed ``last_drill_at``, so a
+        policy permanently short of scratch space could never even go ``stale``.
+
+        Staleness is only meaningful for a drill that actually succeeded, so it
+        is evaluated after the status is known good.
+        """
         if not policy.last_drill_at:
             return 'never'
-        if policy.last_drill_status == 'failed':
+
+        status = policy.last_drill_status
+        if status == 'failed':
             return 'failed'
+        if status == 'skipped_no_space':
+            return 'skipped'
+        if status != 'success':
+            # An unrecognised status is not evidence of anything. Reporting it
+            # as ok is how this went wrong the first time.
+            return 'unknown'
+
         from app.services.backup_drill_service import CADENCE_DAYS
         days = CADENCE_DAYS.get(policy.drill_cadence or 'off')
         if days is not None:
