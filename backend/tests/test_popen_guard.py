@@ -140,3 +140,53 @@ def test_a_real_resolvable_exec_still_runs():
 def test_a_real_missing_binary_still_raises_file_not_found():
     with pytest.raises(FileNotFoundError):
         subprocess.run(['definitely-not-installed-anywhere-75', '-t'])
+
+
+# --------------------------------------------------------------------------- #
+# The door itself is trusted — the guard hunts bypasses, not the helpers
+# --------------------------------------------------------------------------- #
+
+def test_calls_routed_through_the_helper_module_are_not_condemned(tmp_path):
+    """run_privileged/run_unprivileged absolutize argv[0] exactly when $PATH
+    cannot — under the unit's sbin-less PATH the same call resolves. Real-exec
+    integration suites (the §D matrix) drive the helpers for real; the guard
+    must not fire on the door it exists to route traffic through."""
+    import importlib.util
+
+    helper_dir = tmp_path / 'app' / 'utils'
+    helper_dir.mkdir(parents=True)
+    helper = helper_dir / 'system.py'
+    helper.write_text(
+        'import subprocess\n'
+        'def call(args):\n'
+        '    return subprocess.Popen(args)\n'
+    )
+    spec = importlib.util.spec_from_file_location('fake_helper', helper)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with patch('popen_guard.shutil.which', side_effect=_which_only_in_sbin):
+        # The guard stays silent; the real Popen runs and reports the honest
+        # FileNotFoundError for a binary absent on this machine.
+        with pytest.raises(FileNotFoundError):
+            mod.call(['ufw', 'status'])
+
+
+def test_a_bypass_from_anywhere_else_still_fires(tmp_path):
+    """The trust is scoped to the helper module — a raw call one frame away
+    from it is still a second door."""
+    import importlib.util
+
+    caller = tmp_path / 'service.py'
+    caller.write_text(
+        'import subprocess\n'
+        'def call(args):\n'
+        '    return subprocess.Popen(args)\n'
+    )
+    spec = importlib.util.spec_from_file_location('fake_service', caller)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    with patch('popen_guard.shutil.which', side_effect=_which_only_in_sbin):
+        with pytest.raises(SbinPathError):
+            mod.call(['ufw', 'status'])

@@ -79,12 +79,27 @@ def _callsite():
     return '<unknown>'
 
 
+def _routed_through_helper():
+    """True when the exec came through the one-door helper module.
+
+    ``run_privileged``/``run_unprivileged`` absolutize argv[0] exactly when
+    $PATH cannot — under the panel unit's sbin-less PATH the very call this
+    guard is looking at resolves to an absolute path. Firing on their
+    pass-through in an sbin-ful environment (every real-exec integration
+    test) would condemn the door itself; the guard hunts *bypasses* of it.
+    """
+    for frame in traceback.extract_stack():
+        if frame.filename.replace('\\', '/').endswith('app/utils/system.py'):
+            return True
+    return False
+
+
 class GuardedPopen(subprocess.Popen):
     """``subprocess.Popen`` that refuses bare-name sbin-only execs (test-time)."""
 
     def __init__(self, args, *a, **kw):
         head = offending_head(args)
-        if head is not None:
+        if head is not None and not _routed_through_helper():
             raise SbinPathError(
                 f'{head!r} is exec\'d by bare name but only resolves through '
                 f'an sbin dir. The panel\'s systemd unit ships a PATH with no '
