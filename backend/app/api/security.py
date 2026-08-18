@@ -27,7 +27,6 @@ def get_security_status():
 
 
 @security_bp.route('/config', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_config():
     """Get security configuration."""
@@ -36,7 +35,6 @@ def get_config():
 
 
 @security_bp.route('/config', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_config():
     """Update security configuration."""
@@ -67,7 +65,6 @@ def get_clamav_status():
 
 
 @security_bp.route('/clamav/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_clamav():
     """Install ClamAV packages."""
@@ -76,7 +73,6 @@ def install_clamav():
 
 
 @security_bp.route('/clamav/update', methods=['POST'])
-@jwt_required()
 @admin_required
 def update_definitions():
     """Update ClamAV virus definitions."""
@@ -85,7 +81,6 @@ def update_definitions():
 
 
 @security_bp.route('/clamav/start', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_clamav():
     """Start the ClamAV daemon (one-click posture fix)."""
@@ -94,7 +89,6 @@ def start_clamav():
 
 
 @security_bp.route('/scan/file', methods=['POST'])
-@jwt_required()
 @admin_required
 def scan_file():
     """Scan a single file for malware."""
@@ -107,7 +101,6 @@ def scan_file():
 
 
 @security_bp.route('/scan/directory', methods=['POST'])
-@jwt_required()
 @admin_required
 def scan_directory():
     """Start a directory scan (runs in background)."""
@@ -121,7 +114,6 @@ def scan_directory():
 
 
 @security_bp.route('/scan/app/<int:app_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def scan_app(app_id):
     """Enqueue a job-backed malware scan (YARA + ClamAV) of an app's docroot."""
@@ -134,7 +126,6 @@ def scan_app(app_id):
 
 
 @security_bp.route('/scan/job', methods=['POST'])
-@jwt_required()
 @admin_required
 def scan_path_job():
     """Enqueue a job-backed malware scan of an arbitrary path."""
@@ -157,7 +148,6 @@ def get_scan_status():
 
 
 @security_bp.route('/scan/cancel', methods=['POST'])
-@jwt_required()
 @admin_required
 def cancel_scan():
     """Cancel running scan."""
@@ -178,7 +168,6 @@ def get_scan_history():
 # QUARANTINE
 # ==========================================
 @security_bp.route('/quarantine', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_quarantined_files():
     """List quarantined files."""
@@ -187,7 +176,6 @@ def get_quarantined_files():
 
 
 @security_bp.route('/quarantine', methods=['POST'])
-@jwt_required()
 @admin_required
 def quarantine_file():
     """Move a file to quarantine."""
@@ -200,7 +188,6 @@ def quarantine_file():
 
 
 @security_bp.route('/quarantine/<filename>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_quarantined_file(filename):
     """Permanently delete a quarantined file."""
@@ -209,7 +196,6 @@ def delete_quarantined_file(filename):
 
 
 @security_bp.route('/quarantine/<filename>/restore', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_quarantined_file(filename):
     """Restore a quarantined file to its recorded original location."""
@@ -221,7 +207,6 @@ def restore_quarantined_file(filename):
 # YARA RULES (web-shell pass)
 # ==========================================
 @security_bp.route('/yara/rules', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_yara_rules():
     """List builtin (curated) and custom YARA rule files."""
@@ -229,7 +214,6 @@ def list_yara_rules():
 
 
 @security_bp.route('/yara/rules', methods=['POST'])
-@jwt_required()
 @admin_required
 def upload_yara_rule():
     """Upload a custom .yar rule file (size-capped; requires real yara to run)."""
@@ -243,7 +227,6 @@ def upload_yara_rule():
 
 
 @security_bp.route('/yara/rules/<filename>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_yara_rule(filename):
     """Delete a custom .yar rule file."""
@@ -257,7 +240,6 @@ def delete_yara_rule(filename):
 # FILE INTEGRITY
 # ==========================================
 @security_bp.route('/integrity/initialize', methods=['POST'])
-@jwt_required()
 @admin_required
 def initialize_integrity():
     """Create baseline for file integrity monitoring."""
@@ -268,7 +250,6 @@ def initialize_integrity():
 
 
 @security_bp.route('/integrity/check', methods=['GET'])
-@jwt_required()
 @admin_required
 def check_integrity():
     """Check files against integrity database."""
@@ -280,7 +261,6 @@ def check_integrity():
 # SUSPICIOUS ACTIVITY
 # ==========================================
 @security_bp.route('/failed-logins', methods=['GET'])
-@jwt_required()
 @admin_required
 def check_failed_logins():
     """Check for failed login attempts."""
@@ -305,7 +285,6 @@ def get_security_events():
 # QUICK SCAN PRESETS
 # ==========================================
 @security_bp.route('/scan/quick', methods=['POST'])
-@jwt_required()
 @admin_required
 def quick_scan():
     """Run a quick scan on common web directories."""
@@ -326,7 +305,6 @@ def quick_scan():
 
 
 @security_bp.route('/scan/full', methods=['POST'])
-@jwt_required()
 @admin_required
 def full_scan():
     """Run a full system scan."""
@@ -338,7 +316,6 @@ def full_scan():
 # FAIL2BAN
 # ==========================================
 @security_bp.route('/fail2ban/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_fail2ban_status():
     """Get Fail2ban status."""
@@ -347,7 +324,6 @@ def get_fail2ban_status():
 
 
 @security_bp.route('/fail2ban/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_fail2ban():
     """Install Fail2ban."""
@@ -356,7 +332,6 @@ def install_fail2ban():
 
 
 @security_bp.route('/fail2ban/jails/<jail>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_jail_status(jail):
     """Get status of a specific jail."""
@@ -365,7 +340,6 @@ def get_jail_status(jail):
 
 
 @security_bp.route('/fail2ban/bans', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_all_bans():
     """Get all banned IPs across all jails."""
@@ -374,7 +348,6 @@ def get_all_bans():
 
 
 @security_bp.route('/fail2ban/unban', methods=['POST'])
-@jwt_required()
 @admin_required
 def unban_ip():
     """Unban an IP address."""
@@ -388,7 +361,6 @@ def unban_ip():
 
 
 @security_bp.route('/fail2ban/ban', methods=['POST'])
-@jwt_required()
 @admin_required
 def ban_ip():
     """Manually ban an IP address."""
@@ -405,7 +377,6 @@ def ban_ip():
 # SSH KEYS
 # ==========================================
 @security_bp.route('/ssh-keys', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_ssh_keys():
     """Get SSH authorized keys."""
@@ -415,7 +386,6 @@ def get_ssh_keys():
 
 
 @security_bp.route('/ssh-keys', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_ssh_key():
     """Add an SSH public key."""
@@ -429,7 +399,6 @@ def add_ssh_key():
 
 
 @security_bp.route('/ssh-keys/<int:key_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_ssh_key(key_id):
     """Remove an SSH key."""
@@ -442,7 +411,6 @@ def remove_ssh_key(key_id):
 # IP ALLOWLIST/BLOCKLIST
 # ==========================================
 @security_bp.route('/ip-lists', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_ip_lists():
     """Get IP allowlist and blocklist."""
@@ -451,7 +419,6 @@ def get_ip_lists():
 
 
 @security_bp.route('/ip-lists/<list_type>', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_to_ip_list(list_type):
     """Add IP to allowlist or blocklist."""
@@ -465,7 +432,6 @@ def add_to_ip_list(list_type):
 
 
 @security_bp.route('/ip-lists/<list_type>/<ip>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_from_ip_list(list_type, ip):
     """Remove IP from allowlist or blocklist."""
@@ -477,7 +443,6 @@ def remove_from_ip_list(list_type, ip):
 # SECURITY AUDIT
 # ==========================================
 @security_bp.route('/audit', methods=['GET'])
-@jwt_required()
 @admin_required
 def generate_audit():
     """Generate a security audit report."""
@@ -489,7 +454,6 @@ def generate_audit():
 # VULNERABILITY SCANNING (Lynis)
 # ==========================================
 @security_bp.route('/lynis/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_lynis_status():
     """Get Lynis installation status."""
@@ -498,7 +462,6 @@ def get_lynis_status():
 
 
 @security_bp.route('/lynis/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_lynis():
     """Install Lynis."""
@@ -507,7 +470,6 @@ def install_lynis():
 
 
 @security_bp.route('/lynis/scan', methods=['POST'])
-@jwt_required()
 @admin_required
 def run_lynis_scan():
     """Start a Lynis security scan."""
@@ -516,7 +478,6 @@ def run_lynis_scan():
 
 
 @security_bp.route('/lynis/scan/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_lynis_scan_status():
     """Get Lynis scan status."""
@@ -528,7 +489,6 @@ def get_lynis_scan_status():
 # AUTOMATIC UPDATES
 # ==========================================
 @security_bp.route('/auto-updates/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_auto_updates_status():
     """Get automatic updates status."""
@@ -537,7 +497,6 @@ def get_auto_updates_status():
 
 
 @security_bp.route('/auto-updates/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_auto_updates():
     """Install automatic updates package."""
@@ -546,7 +505,6 @@ def install_auto_updates():
 
 
 @security_bp.route('/auto-updates/enable', methods=['POST'])
-@jwt_required()
 @admin_required
 def enable_auto_updates():
     """Enable automatic security updates."""
@@ -555,7 +513,6 @@ def enable_auto_updates():
 
 
 @security_bp.route('/auto-updates/disable', methods=['POST'])
-@jwt_required()
 @admin_required
 def disable_auto_updates():
     """Disable automatic security updates."""
@@ -567,7 +524,6 @@ def disable_auto_updates():
 # IMAGE VULNERABILITY SCANNING
 # ==========================================
 @security_bp.route('/image-scans/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_image_scanner():
     """Install grype and syft scanner binaries."""
@@ -578,7 +534,6 @@ def install_image_scanner():
 
 
 @security_bp.route('/image-scans/applications/<int:application_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def scan_application_image(application_id):
     """Trigger a CVE scan for an application image."""
@@ -588,7 +543,6 @@ def scan_application_image(application_id):
 
 
 @security_bp.route('/image-scans/applications/<int:application_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_application_image_scans(application_id):
     """Get scan history for an application."""
@@ -603,7 +557,6 @@ def get_application_image_scans(application_id):
 
 
 @security_bp.route('/image-scans/<int:scan_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_image_scan(scan_id):
     """Get a single scan with findings."""
@@ -615,7 +568,6 @@ def get_image_scan(scan_id):
 
 
 @security_bp.route('/image-scans/applications/<int:application_id>/deploy-gate', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_image_deploy_gate(application_id):
     """Check whether the latest scan passes the deploy gate."""
@@ -629,7 +581,6 @@ def get_image_deploy_gate(application_id):
 # SBOM GENERATION
 # ==========================================
 @security_bp.route('/sboms/applications/<int:application_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def generate_application_sbom(application_id):
     """Generate an SPDX SBOM for an application image."""
@@ -639,7 +590,6 @@ def generate_application_sbom(application_id):
 
 
 @security_bp.route('/sboms/applications/<int:application_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_application_sboms(application_id):
     """List generated SBOMs for an application."""
@@ -650,7 +600,6 @@ def get_application_sboms(application_id):
 
 
 @security_bp.route('/sboms/<int:sbom_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_sbom(sbom_id):
     """Download an SPDX SBOM JSON."""
@@ -677,7 +626,6 @@ def get_fim_status():
 
 
 @security_bp.route('/fim/<scope>/baseline', methods=['POST'])
-@jwt_required()
 @admin_required
 def fim_baseline(scope):
     """Create (or recreate) the baseline for a scope."""
@@ -696,7 +644,6 @@ def fim_baseline(scope):
 
 
 @security_bp.route('/fim/<scope>/check', methods=['POST'])
-@jwt_required()
 @admin_required
 def fim_check(scope):
     """Diff the scope against its baseline."""
@@ -713,7 +660,6 @@ def fim_check(scope):
 
 
 @security_bp.route('/fim/<scope>/accept', methods=['POST'])
-@jwt_required()
 @admin_required
 def fim_accept(scope):
     """Accept current state (re-baseline the scope)."""
@@ -730,7 +676,6 @@ def fim_accept(scope):
 
 
 @security_bp.route('/fim/apps', methods=['PUT'])
-@jwt_required()
 @admin_required
 def fim_set_app_optins():
     """Set the per-app FIM opt-in list: {app_ids: [1, 2, ...]}."""

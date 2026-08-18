@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 from app.middleware.rbac import admin_required
 from app.services.process_service import ProcessService
 
@@ -7,7 +6,6 @@ processes_bp = Blueprint('processes', __name__)
 
 
 @processes_bp.route('', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_processes():
     """Get list of running processes."""
@@ -19,7 +17,6 @@ def get_processes():
 
 
 @processes_bp.route('/<int:pid>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_process(pid):
     """Get detailed information about a process."""
@@ -30,7 +27,6 @@ def get_process(pid):
 
 
 @processes_bp.route('/<int:pid>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def kill_process(pid):
     """Kill a process by PID."""
@@ -40,7 +36,6 @@ def kill_process(pid):
 
 
 @processes_bp.route('/services', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_services():
     """Get status of monitored services."""
@@ -49,7 +44,6 @@ def get_services():
 
 
 @processes_bp.route('/services/<service_name>', methods=['POST'])
-@jwt_required()
 @admin_required
 def control_service(service_name):
     """Control a system service."""
@@ -64,7 +58,6 @@ def control_service(service_name):
 
 
 @processes_bp.route('/services/<service_name>/logs', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_service_logs(service_name):
     """Get logs for a service."""

@@ -16,7 +16,6 @@ def get_status():
 
 
 @linked_panel_bp.route('', methods=['POST'])
-@jwt_required()
 @developer_required
 def link():
     """Link this panel to a master ServerKit panel.
@@ -38,7 +37,6 @@ def link():
 
 
 @linked_panel_bp.route('', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def unlink():
     """Stop the embedded agent and forget the master credentials."""

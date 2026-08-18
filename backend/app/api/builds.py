@@ -45,7 +45,6 @@ def get_build_config(app_id):
 
 
 @builds_bp.route('/apps/<int:app_id>/build-config', methods=['POST'])
-@jwt_required()
 @admin_required
 def configure_build(app_id):
     """Configure build settings for an app."""
@@ -75,7 +74,6 @@ def configure_build(app_id):
 
 
 @builds_bp.route('/apps/<int:app_id>/build-config', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_build_config(app_id):
     """Remove build configuration for an app."""
@@ -188,7 +186,6 @@ def get_build_log_detail(app_id, timestamp):
 
 
 @builds_bp.route('/apps/<int:app_id>/clear-cache', methods=['POST'])
-@jwt_required()
 @admin_required
 def clear_build_cache(app_id):
     """Clear build cache for an app."""

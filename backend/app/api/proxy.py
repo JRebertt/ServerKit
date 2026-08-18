@@ -103,7 +103,6 @@ def compose_preview(server_id):
 
 
 @proxy_bp.route('/<server_id>/proxy/configure', methods=['POST'])
-@jwt_required()
 @developer_required
 def configure_proxy(server_id):
     """Update proxy type and/or custom snippet for a server.
@@ -136,7 +135,6 @@ def configure_proxy(server_id):
 
 
 @proxy_bp.route('/<server_id>/proxy/regenerate', methods=['POST'])
-@jwt_required()
 @developer_required
 def regenerate_proxy(server_id):
     """Rewrite the proxy config and best-effort hot-reload the stack."""
@@ -152,7 +150,6 @@ def regenerate_proxy(server_id):
 
 
 @proxy_bp.route('/<server_id>/proxy/switch', methods=['POST'])
-@jwt_required()
 @developer_required
 def switch_proxy(server_id):
     """Switch a server to a different proxy type (nginx/traefik/caddy)."""

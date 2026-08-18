@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 from app.middleware.rbac import admin_required
 from app.services.php_service import PHPService
 
@@ -7,7 +6,6 @@ php_bp = Blueprint('php', __name__)
 
 
 @php_bp.route('/versions', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_versions():
     """Get installed PHP versions."""
@@ -21,7 +19,6 @@ def get_versions():
 
 
 @php_bp.route('/versions/<version>/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_version(version):
     """Install a PHP version."""
@@ -30,7 +27,6 @@ def install_version(version):
 
 
 @php_bp.route('/versions/default', methods=['POST'])
-@jwt_required()
 @admin_required
 def set_default_version():
     """Set default PHP version."""
@@ -45,7 +41,6 @@ def set_default_version():
 
 
 @php_bp.route('/versions/<version>/extensions', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_extensions(version):
     """Get installed extensions for a PHP version."""
@@ -54,7 +49,6 @@ def get_extensions(version):
 
 
 @php_bp.route('/versions/<version>/extensions', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_extension(version):
     """Install a PHP extension."""
@@ -69,7 +63,6 @@ def install_extension(version):
 
 
 @php_bp.route('/versions/<version>/pools', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_pools(version):
     """Get FPM pools for a PHP version."""
@@ -78,7 +71,6 @@ def get_pools(version):
 
 
 @php_bp.route('/versions/<version>/pools', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_pool(version):
     """Create a new FPM pool."""
@@ -92,7 +84,6 @@ def create_pool(version):
 
 
 @php_bp.route('/versions/<version>/pools/<pool_name>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_pool(version, pool_name):
     """Delete an FPM pool."""
@@ -101,7 +92,6 @@ def delete_pool(version, pool_name):
 
 
 @php_bp.route('/versions/<version>/fpm/restart', methods=['POST'])
-@jwt_required()
 @admin_required
 def restart_fpm(version):
     """Restart PHP-FPM service."""
@@ -110,7 +100,6 @@ def restart_fpm(version):
 
 
 @php_bp.route('/versions/<version>/fpm/reload', methods=['POST'])
-@jwt_required()
 @admin_required
 def reload_fpm(version):
     """Reload PHP-FPM service."""
@@ -119,7 +108,6 @@ def reload_fpm(version):
 
 
 @php_bp.route('/versions/<version>/fpm/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_fpm_status(version):
     """Get PHP-FPM service status."""
@@ -128,7 +116,6 @@ def get_fpm_status(version):
 
 
 @php_bp.route('/versions/<version>/info', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_php_info(version):
     """Get PHP configuration info."""

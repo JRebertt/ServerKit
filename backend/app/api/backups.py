@@ -56,7 +56,6 @@ def list_target_types():
 
 
 @backups_bp.route('', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_backups():
     """List all backups."""
@@ -66,7 +65,6 @@ def list_backups():
 
 
 @backups_bp.route('/stats', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_stats():
     """Get backup statistics."""
@@ -75,7 +73,6 @@ def get_stats():
 
 
 @backups_bp.route('/policies', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_policies():
     """Global list of policy-driven backup schedules across every target type
@@ -113,7 +110,6 @@ def list_policies():
 
 
 @backups_bp.route('/runs', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_runs():
     """Global, queryable list of backup runs across every policy (§8).
@@ -161,7 +157,6 @@ def list_runs():
 # --------------------------------------------------------------------------- #
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_target_policy(target_type, target_id):
     """Protection policy + status for any target (creates a default if absent)."""
@@ -174,7 +169,6 @@ def get_target_policy(target_type, target_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_target_policy(target_type, target_id):
     """Update a policy. Body may include target_subtype/target_meta (needed to
@@ -192,7 +186,6 @@ def update_target_policy(target_type, target_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>/run', methods=['POST'])
-@jwt_required()
 @admin_required
 def run_target_policy(target_type, target_id):
     """Enqueue a one-off backup for any target."""
@@ -206,7 +199,6 @@ def run_target_policy(target_type, target_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>/runs', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_target_runs(target_type, target_id):
     try:
@@ -218,7 +210,6 @@ def list_target_runs(target_type, target_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>/runs/<int:run_id>/restore', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_target_run(target_type, target_id, run_id):
     try:
@@ -231,7 +222,6 @@ def restore_target_run(target_type, target_id, run_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>/runs/<int:run_id>/verify', methods=['POST'])
-@jwt_required()
 @admin_required
 def verify_target_run(target_type, target_id, run_id):
     try:
@@ -244,7 +234,6 @@ def verify_target_run(target_type, target_id, run_id):
 
 
 @backups_bp.route('/policies/<target_type>/<int:target_id>/runs/<int:run_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_target_run(target_type, target_id, run_id):
     try:
@@ -257,7 +246,6 @@ def delete_target_run(target_type, target_id, run_id):
 
 
 @backups_bp.route('/config', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_config():
     """Get backup configuration."""
@@ -266,7 +254,6 @@ def get_config():
 
 
 @backups_bp.route('/config', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_config():
     """Update backup configuration."""
@@ -281,7 +268,6 @@ def update_config():
 
 
 @backups_bp.route('/cost-rates', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_cost_rates():
     """Storage-cost rates ($/GB/month). 'local' is the operator's own server
@@ -291,7 +277,6 @@ def get_cost_rates():
 
 
 @backups_bp.route('/cost-rates', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_cost_rates():
     """Update storage-cost rates. Accepts {rates:{local,s3,b2}} or the flat dict."""
@@ -302,7 +287,6 @@ def update_cost_rates():
 
 
 @backups_bp.route('/cost-summary', methods=['GET'])
-@jwt_required()
 @admin_required
 def cost_summary():
     """Aggregate storage cost across all protection backups (BackupRun rows),
@@ -346,7 +330,6 @@ def cost_summary():
 
 
 @backups_bp.route('/application', methods=['POST'])
-@jwt_required()
 @admin_required
 def backup_application():
     """Backup an application."""
@@ -374,7 +357,6 @@ def backup_application():
 
 
 @backups_bp.route('/database', methods=['POST'])
-@jwt_required()
 @admin_required
 def backup_database():
     """Backup a database."""
@@ -400,7 +382,6 @@ def backup_database():
 
 
 @backups_bp.route('/files', methods=['POST'])
-@jwt_required()
 @admin_required
 def backup_files():
     """Backup specific files and directories."""
@@ -422,7 +403,6 @@ def backup_files():
 
 
 @backups_bp.route('/restore/application', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_application():
     """Restore an application from backup."""
@@ -440,7 +420,6 @@ def restore_application():
 
 
 @backups_bp.route('/restore/database', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_database():
     """Restore a database from backup."""
@@ -467,7 +446,6 @@ def restore_database():
 
 
 @backups_bp.route('/<path:backup_path>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_backup(backup_path):
     """Delete a backup."""
@@ -480,7 +458,6 @@ def delete_backup(backup_path):
 
 
 @backups_bp.route('/cleanup', methods=['POST'])
-@jwt_required()
 @admin_required
 def cleanup_backups():
     """Clean up old backups."""
@@ -494,7 +471,6 @@ def cleanup_backups():
 # --- Schedules ---
 
 @backups_bp.route('/schedules', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_schedules():
     """List backup schedules."""
@@ -503,7 +479,6 @@ def list_schedules():
 
 
 @backups_bp.route('/schedules', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_schedule():
     """Add a backup schedule."""
@@ -530,7 +505,6 @@ def add_schedule():
 
 
 @backups_bp.route('/schedules/<schedule_id>', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_schedule(schedule_id):
     """Update a backup schedule."""
@@ -543,7 +517,6 @@ def update_schedule(schedule_id):
 
 
 @backups_bp.route('/schedules/<schedule_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_schedule(schedule_id):
     """Remove a backup schedule."""
@@ -554,7 +527,6 @@ def remove_schedule(schedule_id):
 # --- Remote Storage ---
 
 @backups_bp.route('/storage', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_storage_config():
     """Get storage provider configuration (secrets masked)."""
@@ -563,7 +535,6 @@ def get_storage_config():
 
 
 @backups_bp.route('/storage', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_storage_config():
     """Update storage provider configuration."""
@@ -576,7 +547,6 @@ def update_storage_config():
 
 
 @backups_bp.route('/storage/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_storage_connection():
     """Test connection to storage provider."""
@@ -588,7 +558,6 @@ def test_storage_connection():
 
 
 @backups_bp.route('/upload', methods=['POST'])
-@jwt_required()
 @admin_required
 def upload_to_remote():
     """Upload a local backup to remote storage."""
@@ -612,7 +581,6 @@ def upload_to_remote():
 
 
 @backups_bp.route('/verify', methods=['POST'])
-@jwt_required()
 @admin_required
 def verify_remote_backup():
     """Verify a backup exists and matches on remote storage."""
@@ -635,7 +603,6 @@ def verify_remote_backup():
 
 
 @backups_bp.route('/remote', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_remote_backups():
     """List backups on remote storage."""
@@ -645,7 +612,6 @@ def list_remote_backups():
 
 
 @backups_bp.route('/remote/download', methods=['POST'])
-@jwt_required()
 @admin_required
 def download_from_remote():
     """Download a backup from remote storage to local."""
