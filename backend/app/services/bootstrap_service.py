@@ -36,21 +36,17 @@ class BootstrapService:
     @staticmethod
     def _docker_run(app, service: str, command: str,
                     timeout_seconds: Optional[int]) -> Dict[str, Any]:
-        import subprocess
+        from app.utils.system import run_checked
         root = getattr(app, 'root_path', None)
         if not root:
             return {'success': False,
                     'error': 'app has no deployed compose project to run bootstrap in'}
         cmd = ['docker', 'compose', 'run', '--rm', service] + shlex.split(command)
-        try:
-            proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True,
-                                  timeout=timeout_seconds or 300)
-        except subprocess.TimeoutExpired:
+        proc = run_checked(cmd, cwd=root, timeout=timeout_seconds or 300)
+        if proc['returncode'] is None:
+            # timed out, or docker is absent
+            return {'success': False, 'error': proc['error']}
+        if not proc['success']:
             return {'success': False,
-                    'error': f'bootstrap timed out after {timeout_seconds or 300}s'}
-        except Exception as exc:  # docker missing, etc.
-            return {'success': False, 'error': str(exc)}
-        if proc.returncode != 0:
-            return {'success': False,
-                    'error': (proc.stderr or proc.stdout or 'bootstrap failed').strip()[:500]}
-        return {'success': True, 'output': (proc.stdout or '').strip()[:500]}
+                    'error': (proc['error'] or proc['output'] or 'bootstrap failed')[:500]}
+        return {'success': True, 'output': proc['output'].strip()[:500]}

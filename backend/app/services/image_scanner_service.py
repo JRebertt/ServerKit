@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from app import db
+from app.utils.system import run_checked
 from app.models import Application, ImageVulnerabilityScan, SbomArtifact
 
 logger = logging.getLogger(__name__)
@@ -57,17 +58,25 @@ class ImageScannerService:
             url = f'https://github.com/anchore/grype/releases/download/{version}/grype_{version.lstrip("v")}_linux_{arch}.tar.gz'
             tmp_tar = '/tmp/serverkit-grype.tar.gz'
             try:
-                subprocess.run(['curl', '-fsSL', url, '-o', tmp_tar], check=True, capture_output=True)
-                subprocess.run(['tar', '-xzf', tmp_tar, '-C', SCANNERS_DIR, 'grype'], check=True, capture_output=True)
+                download = run_checked(['curl', '-fsSL', url, '-o', tmp_tar],
+                                       timeout=None)
+                if not download['success']:
+                    return {'success': False,
+                            'error': f"Failed to download grype: {download['error'][:200]}"}
+                extract = run_checked(
+                    ['tar', '-xzf', tmp_tar, '-C', SCANNERS_DIR, 'grype'],
+                    timeout=None)
+                if not extract['success']:
+                    return {'success': False,
+                            'error': f"Failed to unpack grype: {extract['error'][:200]}"}
                 os.chmod(GRYPE_BIN, 0o755)
-                version_out = subprocess.run([GRYPE_BIN, 'version'], capture_output=True, text=True)
+                version_out = run_checked([GRYPE_BIN, 'version'], timeout=None)
                 return {
                     'success': True,
                     'message': 'grype installed',
-                    'version': version_out.stdout.strip().splitlines()[0] if version_out.returncode == 0 else version
+                    'version': (version_out['output'].strip().splitlines() or [version])[0]
+                               if version_out['success'] else version,
                 }
-            except subprocess.CalledProcessError as e:
-                return {'success': False, 'error': f'Failed to install grype: {e.stderr.decode(errors="ignore")[:200]}'}
             finally:
                 if os.path.exists(tmp_tar):
                     os.remove(tmp_tar)
@@ -84,17 +93,25 @@ class ImageScannerService:
             url = f'https://github.com/anchore/syft/releases/download/{version}/syft_{version.lstrip("v")}_linux_{arch}.tar.gz'
             tmp_tar = '/tmp/serverkit-syft.tar.gz'
             try:
-                subprocess.run(['curl', '-fsSL', url, '-o', tmp_tar], check=True, capture_output=True)
-                subprocess.run(['tar', '-xzf', tmp_tar, '-C', SCANNERS_DIR, 'syft'], check=True, capture_output=True)
+                download = run_checked(['curl', '-fsSL', url, '-o', tmp_tar],
+                                       timeout=None)
+                if not download['success']:
+                    return {'success': False,
+                            'error': f"Failed to download syft: {download['error'][:200]}"}
+                extract = run_checked(
+                    ['tar', '-xzf', tmp_tar, '-C', SCANNERS_DIR, 'syft'],
+                    timeout=None)
+                if not extract['success']:
+                    return {'success': False,
+                            'error': f"Failed to unpack syft: {extract['error'][:200]}"}
                 os.chmod(SYFT_BIN, 0o755)
-                version_out = subprocess.run([SYFT_BIN, 'version'], capture_output=True, text=True)
+                version_out = run_checked([SYFT_BIN, 'version'], timeout=None)
                 return {
                     'success': True,
                     'message': 'syft installed',
-                    'version': version_out.stdout.strip().splitlines()[0] if version_out.returncode == 0 else version
+                    'version': (version_out['output'].strip().splitlines() or [version])[0]
+                               if version_out['success'] else version,
                 }
-            except subprocess.CalledProcessError as e:
-                return {'success': False, 'error': f'Failed to install syft: {e.stderr.decode(errors="ignore")[:200]}'}
             finally:
                 if os.path.exists(tmp_tar):
                     os.remove(tmp_tar)
@@ -106,19 +123,17 @@ class ImageScannerService:
             if not install['success']:
                 return install
         try:
-            result = subprocess.run(
+            result = run_checked(
                 [GRYPE_BIN, image_ref, '-o', 'json', '--quiet'],
-                capture_output=True,
-                text=True,
                 timeout=600,
-                env={**os.environ, 'GRYPE_DB_CACHE_DIR': os.path.join(SCANNERS_DIR, 'grype-db')}
-            )
-            if result.returncode not in (0, 1):
-                return {'success': False, 'error': result.stderr[:500] or f'grype exited {result.returncode}'}
-            data = json.loads(result.stdout)
+                env={**os.environ,
+                     'GRYPE_DB_CACHE_DIR': os.path.join(SCANNERS_DIR, 'grype-db')})
+            # 0 = clean, 1 = vulnerabilities FOUND. Only anything else is a
+            # failed scan — read the code, not result['success'].
+            if result['returncode'] not in (0, 1):
+                return {'success': False, 'error': result['error'][:500]}
+            data = json.loads(result['output'])
             return {'success': True, 'data': data}
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'grype scan timed out after 10 minutes'}
         except json.JSONDecodeError as e:
             return {'success': False, 'error': f'Failed to parse grype output: {e}'}
         except Exception as e:
@@ -131,18 +146,11 @@ class ImageScannerService:
             if not install['success']:
                 return install
         try:
-            result = subprocess.run(
-                [SYFT_BIN, image_ref, '-o', 'spdx-json'],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr[:500] or f'syft exited {result.returncode}'}
-            data = json.loads(result.stdout)
+            result = run_checked([SYFT_BIN, image_ref, '-o', 'spdx-json'], timeout=300)
+            if not result['success']:
+                return {'success': False, 'error': result['error'][:500]}
+            data = json.loads(result['output'])
             return {'success': True, 'data': data}
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'syft scan timed out after 5 minutes'}
         except json.JSONDecodeError as e:
             return {'success': False, 'error': f'Failed to parse syft output: {e}'}
         except Exception as e:

@@ -3,8 +3,7 @@
   "policy": "Exact reviewed inventory of direct persistence, subprocess, and filesystem mutation calls in Flask API controllers. New calls are forbidden; remove entries as controllers delegate to services.",
   "counts": {
     "filesystem": 11,
-    "persistence": 595,
-    "subprocess": 6
+    "persistence": 595
   },
   "owners": {
     "api/admin.py": {
@@ -602,12 +601,6 @@
     "api/docker.py::cleanup_all_apps::persistence::db.session.rollback()::1",
     "api/docker.py::create_docker_app::persistence::db.session.add(app)::1",
     "api/docker.py::create_docker_app::persistence::db.session.commit()::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'image', 'prune', '-f'], capture_output=True, text=True)::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'network', 'prune', '-f'], capture_output=True, text=True)::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'ps', '-a', '--format', '{{.ID}} {{.Names}}'], capture_output=True, text=True)::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'ps', '-a', '-q', '-f', 'status=exited'], capture_output=True, text=True)::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'rm'] + stopped_ids, capture_output=True, text=True)::1",
-    "api/docker.py::docker_cleanup::subprocess::subprocess.run(['docker', 'volume', 'prune', '-f'], capture_output=True, text=True)::1",
     "api/domains.py::create_domain::persistence::Application.query_active().filter_by(id=application_id).first()::1",
     "api/domains.py::create_domain::persistence::Domain.query_active().filter_by(application_id=application_id, is_primary=True).update({'is_primary': False}, synchronize_session=False)::1",
     "api/domains.py::create_domain::persistence::Domain.query_active().filter_by(name=name).first()::1",

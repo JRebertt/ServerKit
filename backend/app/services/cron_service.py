@@ -120,14 +120,9 @@ class CronService:
             else:
                 # Try alternative check
                 try:
-                    result = subprocess.run(
-                        ['pgrep', '-x', 'cron'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    cron_active = result.returncode == 0
-                except (subprocess.SubprocessError, FileNotFoundError):
+                    cron_active = run_checked(['pgrep', '-x', 'cron'],
+                                              timeout=5)['success']
+                except Exception:  # noqa: BLE001 - fallback probe
                     cron_active = False
 
             return {
@@ -155,15 +150,10 @@ class CronService:
         if cls.is_linux():
             try:
                 # Get current user's crontab
-                result = subprocess.run(
-                    ['crontab', '-l'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+                current = cls._read_crontab()
 
-                if result.returncode == 0:
-                    lines = result.stdout.strip().split('\n')
+                if current is not None:
+                    lines = current.strip().split('\n')
                     for i, line in enumerate(lines):
                         line = line.strip()
                         # Skip empty lines and comments
@@ -594,12 +584,7 @@ class CronService:
         started = datetime.now()
         try:
             # Run the command
-            result = subprocess.run(
-                ['bash', '-c', command],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            result = run_checked(['bash', '-c', command], timeout=60)
 
             # Record the run in history too (#18) — a manual "Run now" is a real
             # execution, so it shows up alongside cron-triggered runs. Best-effort:
@@ -608,21 +593,25 @@ class CronService:
                 job_id,
                 started=started,
                 finished=datetime.now(),
-                exit_code=result.returncode,
-                output_tail=(result.stdout or '') + (result.stderr or ''),
+                exit_code=result['returncode'],
+                output_tail=result['output'] + result['stderr'],
             )
+
+            if result['returncode'] is None:
+                # No exit code means the job never ran (no bash, or it outlived
+                # the 60s bound) — reporting exit_code None as a run would put a
+                # fabricated success in the history.
+                return {'success': False, 'error': result['error']}
 
             return {
                 'success': True,
-                'exit_code': result.returncode,
-                'stdout': result.stdout,
-                'stderr': result.stderr,
+                'exit_code': result['returncode'],
+                'stdout': result['output'],
+                'stderr': result['stderr'],
                 'message': 'Job executed'
             }
 
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Job execution timed out (60s limit)'}
-        except subprocess.SubprocessError as e:
+        except Exception as e:  # noqa: BLE001
             return {'success': False, 'error': str(e)}
 
     @classmethod

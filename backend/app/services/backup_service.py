@@ -17,7 +17,7 @@ from app import paths
 from app.utils import backup_crypto
 from app.utils.config_store import load_json_config, save_json_config
 from app.utils.formatting import format_bytes
-from app.utils.system import is_command_available
+from app.utils.system import is_command_available, run_checked
 from app.services.telemetry_service import TelemetryService, generate_correlation_id
 
 # Unified job kind for asynchronous scheduled backups (see register_jobs).
@@ -200,10 +200,11 @@ class BackupService:
                 cmd.append(db_name)
 
                 with gzip.open(backup_file, 'wt') as f:
-                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+                    result = run_checked(cmd, stdout=f, stderr=subprocess.PIPE,
+                                         timeout=None)
 
-                if result.returncode != 0:
-                    return {'success': False, 'error': result.stderr}
+                if not result['success']:
+                    return {'success': False, 'error': result['error']}
 
             elif db_type == 'postgresql':
                 if not is_command_available('pg_dump'):
@@ -221,10 +222,11 @@ class BackupService:
                 cmd.append(db_name)
 
                 with gzip.open(backup_file, 'wt') as f:
-                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True, env=env)
+                    result = run_checked(cmd, stdout=f, stderr=subprocess.PIPE,
+                                         env=env, timeout=None)
 
-                if result.returncode != 0:
-                    return {'success': False, 'error': result.stderr}
+                if not result['success']:
+                    return {'success': False, 'error': result['error']}
 
             return {'success': True, 'path': backup_file}
 
@@ -455,7 +457,7 @@ class BackupService:
                 cmd.append(db_name)
 
                 with gzip.open(backup_path, 'rt') as f:
-                    result = subprocess.run(cmd, stdin=f, capture_output=True, text=True)
+                    result = run_checked(cmd, stdin=f, timeout=None)
 
             elif db_type == 'postgresql':
                 if not is_command_available('psql'):
@@ -473,13 +475,13 @@ class BackupService:
                 cmd.extend(['-d', db_name])
 
                 with gzip.open(backup_path, 'rt') as f:
-                    result = subprocess.run(cmd, stdin=f, capture_output=True, text=True, env=env)
+                    result = run_checked(cmd, stdin=f, env=env, timeout=None)
 
             else:
                 return {'success': False, 'error': f'Unknown database type: {db_type}'}
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             return {'success': True, 'message': f'Database {db_name} restored'}
 
@@ -846,9 +848,9 @@ class BackupService:
         cmd.append(f'--listed-incremental={snar_path}')
         cmd += ['-cf', archive, '-C', os.path.dirname(source_path) or '/', os.path.basename(source_path)]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-        if result.returncode != 0:
-            raise RuntimeError(f'tar failed: {(result.stderr or "").strip()[:300]}')
+        result = run_checked(cmd, timeout=1800)
+        if not result['success']:
+            raise RuntimeError(f"tar failed: {result['error'][:300]}")
         return {'archive': archive, 'size': os.path.getsize(archive),
                 'compression': program, 'kind': kind, 'incremental': kind == 'incremental', 'ext': ext}
 
@@ -866,9 +868,9 @@ class BackupService:
             if not os.path.exists(archive):
                 raise RuntimeError(f'Backup archive missing: {archive}')
             cmd = ['tar', '--listed-incremental=/dev/null', '-xf', archive, '-C', parent]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-            if result.returncode != 0:
-                raise RuntimeError(f'tar restore failed: {(result.stderr or "").strip()[:300]}')
+            result = run_checked(cmd, timeout=1800)
+            if not result['success']:
+                raise RuntimeError(f"tar restore failed: {result['error'][:300]}")
         return {'success': True, 'restore_path': restore_path}
 
     # --- Scheduler (unified job system) ---

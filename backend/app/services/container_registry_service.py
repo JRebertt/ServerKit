@@ -17,6 +17,7 @@ import subprocess
 from datetime import datetime
 
 from app import db
+from app.utils.system import run_checked
 from app.models.container_registry import ContainerRegistry
 from app.utils.crypto import encrypt_secret, decrypt_secret_safe
 
@@ -114,19 +115,16 @@ class ContainerRegistryService:
         host = registry.login_host()
         # Secret goes on stdin via --password-stdin, NEVER on argv.
         cmd = ['docker', 'login', host, '-u', username, '--password-stdin']
-        try:
-            result = subprocess.run(cmd, input=password, capture_output=True, text=True)
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        result = run_checked(cmd, input=password, timeout=None)
 
-        if result.returncode == 0:
+        if result['success']:
             try:
                 registry.last_used_at = datetime.utcnow()
                 db.session.commit()
             except Exception:
                 db.session.rollback()
             return {'success': True}
-        return {'success': False, 'error': (result.stderr or 'docker login failed').strip()}
+        return {'success': False, 'error': result['error'] or 'docker login failed'}
 
     @staticmethod
     def logout(host):
@@ -134,7 +132,7 @@ class ContainerRegistryService:
         if not host:
             return
         try:
-            subprocess.run(['docker', 'logout', host], capture_output=True, text=True)
+            run_checked(['docker', 'logout', host], timeout=None)
         except Exception:
             pass
 
@@ -175,12 +173,10 @@ class ContainerRegistryService:
             cmd = ['aws', 'ecr', 'get-login-password']
             if region:
                 cmd += ['--region', region]
-            result = subprocess.run(cmd, capture_output=True, text=True, env=env)
-            if result.returncode == 0:
-                return result.stdout.strip()
-            logger.debug('aws ecr get-login-password failed: %s', (result.stderr or '').strip())
-        except FileNotFoundError:
-            logger.debug('aws CLI not found; cannot exchange ECR token')
+            result = run_checked(cmd, env=env, timeout=None)
+            if result['success']:
+                return result['output'].strip()
+            logger.debug('aws ecr get-login-password failed: %s', result['error'])
         except Exception as e:  # pragma: no cover - defensive
             logger.debug('ECR password exchange error: %s', e)
         return None

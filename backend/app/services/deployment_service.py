@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Callable
 
 from app import db
-from app.utils.system import ServiceControl
+from app.utils.system import ServiceControl, run_checked
 from app.models.deployment import Deployment, DeploymentDiff
 from app.models.application import Application
 from app.services.build_service import BuildService
@@ -502,14 +502,11 @@ class DeploymentService:
                 log_callback(f"Checking out commit {target.commit_hash[:8]}...")
 
             # Checkout the specific commit
-            result = subprocess.run(
-                ['git', '-C', app_path, 'checkout', target.commit_hash],
-                capture_output=True,
-                text=True
-            )
+            result = run_checked(['git', '-C', app_path, 'checkout', target.commit_hash],
+                                 timeout=None)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Run post-deploy script if configured
             deploy_config = GitService.get_app_config(app.id)
@@ -551,21 +548,18 @@ class DeploymentService:
             app_path = app.root_path
 
             # Get git diff
-            result = subprocess.run(
+            result = run_checked(
                 ['git', '-C', app_path, 'diff', '--name-status',
-                 previous.commit_hash, deployment.commit_hash],
-                capture_output=True,
-                text=True
-            )
+                 previous.commit_hash, deployment.commit_hash], timeout=None)
 
-            if result.returncode != 0:
+            if not result['success']:
                 return
 
             files_added = []
             files_removed = []
             files_modified = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if not line:
                     continue
                 parts = line.split('\t')
@@ -579,19 +573,16 @@ class DeploymentService:
                         files_modified.append(filepath)
 
             # Get diff stats
-            stat_result = subprocess.run(
+            stat_result = run_checked(
                 ['git', '-C', app_path, 'diff', '--shortstat',
-                 previous.commit_hash, deployment.commit_hash],
-                capture_output=True,
-                text=True
-            )
+                 previous.commit_hash, deployment.commit_hash], timeout=None)
 
             additions = 0
             deletions = 0
-            if stat_result.returncode == 0 and stat_result.stdout:
+            if stat_result['success'] and stat_result['output']:
                 import re
-                add_match = re.search(r'(\d+) insertion', stat_result.stdout)
-                del_match = re.search(r'(\d+) deletion', stat_result.stdout)
+                add_match = re.search(r'(\d+) insertion', stat_result['output'])
+                del_match = re.search(r'(\d+) deletion', stat_result['output'])
                 if add_match:
                     additions = int(add_match.group(1))
                 if del_match:

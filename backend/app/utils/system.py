@@ -35,6 +35,24 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
 
     Pass *user* to run the command as a specific user (``sudo -u <user>``).
 
+    .. warning::
+
+       *user* is only correct for privilege ESCALATION, not for identity
+       SWITCHING. When :func:`_needs_sudo` is False — most importantly when the
+       process is already root — the whole ``sudo -n -u <user>`` prefix is
+       dropped and the command runs as the current user, not as *user*.
+
+       That is right for "give me root, I am not root"; it is wrong for
+       "run this as postgres". ``database_service`` needs the second, because
+       PostgreSQL's local peer auth maps the OS user to the DB role, so a root
+       panel silently connecting as role ``root`` fails authentication. Its
+       five ``psql``/``pg_dump`` sites therefore spell ``sudo -u postgres``
+       out themselves and go through :func:`run_checked` unprivileged.
+
+       *user* currently has no callers. Before giving it one, decide what
+       should happen as root — ``runuser``/``su`` rather than dropping the
+       switch — and test it on a root install.
+
     ``sudo -n`` (non-interactive) is always used: nothing here runs attached to a
     human terminal, and callers capture output, so a password prompt would be
     invisible AND unanswerable — sudo would simply block forever, hanging the
@@ -200,8 +218,11 @@ def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
         # capture_output and an explicit stderr= are mutually exclusive.
         kwargs.setdefault('stdout', subprocess.PIPE)
         kwargs.setdefault('stderr', subprocess.STDOUT)
-    else:
+    elif 'stdout' not in kwargs and 'stderr' not in kwargs:
         kwargs.setdefault('capture_output', True)
+    # else: the caller is directing the streams itself (writing straight to a
+    # log file, say). Adding capture_output on top would raise ValueError, and
+    # silently overriding their redirect would throw the output away.
     kwargs.setdefault('text', True)
 
     try:

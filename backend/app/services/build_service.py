@@ -12,6 +12,8 @@ Supports:
 
 import os
 import subprocess
+
+from app.utils.system import run_checked
 import json
 import shutil
 import hashlib
@@ -439,9 +441,7 @@ class BuildService:
             image_tag = f"serverkit-app-{app_id}:latest"
 
         # Check if nixpacks is installed
-        try:
-            subprocess.run(['nixpacks', '--version'], capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        if not run_checked(['nixpacks', '--version'], timeout=None)['success']:
             return {
                 'success': False,
                 'error': 'Nixpacks not installed. Install with: curl -sSL https://nixpacks.com/install.sh | bash'
@@ -774,14 +774,11 @@ class BuildService:
     def get_nixpacks_plan(cls, app_path: str) -> Dict:
         """Get Nixpacks build plan for an application."""
         try:
-            result = subprocess.run(
-                ['nixpacks', 'plan', app_path, '--format', 'json'],
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'plan': json.loads(result.stdout)}
-            return {'success': False, 'error': result.stderr}
+            result = run_checked(['nixpacks', 'plan', app_path, '--format', 'json'],
+                                 timeout=None)
+            if result['success']:
+                return {'success': True, 'plan': json.loads(result['output'])}
+            return {'success': False, 'error': result['error']}
         except FileNotFoundError:
             return {'success': False, 'error': 'Nixpacks not installed'}
         except Exception as e:

@@ -12,6 +12,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from app.utils.system import run_checked
 import sys
 import tempfile
 import zipfile
@@ -1199,13 +1201,15 @@ def _install_requirements(req_content, plugin_name):
 
     try:
         logger.info(f'Installing requirements for plugin {plugin_name}')
-        subprocess.check_call(
+        install = run_checked(
             [sys.executable, '-m', 'pip', 'install', '-r', req_path, '--quiet'],
             timeout=300,
         )
-    except subprocess.CalledProcessError as e:
-        logger.error(f'Failed to install requirements for {plugin_name}: {e}')
-        raise ValueError(f'Failed to install Python dependencies: {e}')
+        if not install['success']:
+            logger.error('Failed to install requirements for %s: %s',
+                         plugin_name, install['error'])
+            raise ValueError(
+                f"Failed to install Python dependencies: {install['error']}")
     finally:
         os.unlink(req_path)
 

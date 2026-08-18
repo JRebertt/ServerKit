@@ -476,11 +476,9 @@ def docker_cleanup():
     # Get list of protected container IDs (ServerKit)
     protected_ids = set()
     try:
-        list_result = subprocess.run(
-            ['docker', 'ps', '-a', '--format', '{{.ID}} {{.Names}}'],
-            capture_output=True, text=True
-        )
-        for line in list_result.stdout.strip().split('\n'):
+        list_result = DockerService.run(['ps', '-a', '--format', '{{.ID}} {{.Names}}'],
+                                        timeout=None)
+        for line in list_result['output'].strip().split('\n'):
             if line:
                 parts = line.split(' ', 1)
                 if len(parts) == 2:
@@ -493,20 +491,16 @@ def docker_cleanup():
     # Remove stopped containers (except protected ones)
     try:
         # Get stopped containers
-        result = subprocess.run(
-            ['docker', 'ps', '-a', '-q', '-f', 'status=exited'],
-            capture_output=True, text=True
-        )
-        stopped_ids = [id for id in result.stdout.strip().split('\n') if id and id not in protected_ids]
+        result = DockerService.run(['ps', '-a', '-q', '-f', 'status=exited'],
+                                   timeout=None)
+        stopped_ids = [id for id in result['output'].strip().split('\n')
+                       if id and id not in protected_ids]
 
         if stopped_ids:
-            remove_result = subprocess.run(
-                ['docker', 'rm'] + stopped_ids,
-                capture_output=True, text=True
-            )
+            remove_result = DockerService.run(['rm'] + stopped_ids, timeout=None)
             results['containers'] = {
                 'removed': len(stopped_ids),
-                'success': remove_result.returncode == 0
+                'success': remove_result['success']
             }
         else:
             results['containers'] = {'removed': 0, 'success': True}
@@ -515,26 +509,20 @@ def docker_cleanup():
 
     # Remove dangling images
     try:
-        result = subprocess.run(
-            ['docker', 'image', 'prune', '-f'],
-            capture_output=True, text=True
-        )
+        result = DockerService.run(['image', 'prune', '-f'], timeout=None)
         results['images'] = {
-            'success': result.returncode == 0,
-            'output': result.stdout.strip()
+            'success': result['success'],
+            'output': result['output'].strip()
         }
     except Exception as e:
         results['images'] = {'error': str(e)}
 
     # Remove unused networks
     try:
-        result = subprocess.run(
-            ['docker', 'network', 'prune', '-f'],
-            capture_output=True, text=True
-        )
+        result = DockerService.run(['network', 'prune', '-f'], timeout=None)
         results['networks'] = {
-            'success': result.returncode == 0,
-            'output': result.stdout.strip()
+            'success': result['success'],
+            'output': result['output'].strip()
         }
     except Exception as e:
         results['networks'] = {'error': str(e)}
@@ -542,13 +530,10 @@ def docker_cleanup():
     # Remove unused volumes (optional)
     if include_volumes:
         try:
-            result = subprocess.run(
-                ['docker', 'volume', 'prune', '-f'],
-                capture_output=True, text=True
-            )
+            result = DockerService.run(['volume', 'prune', '-f'], timeout=None)
             results['volumes'] = {
-                'success': result.returncode == 0,
-                'output': result.stdout.strip()
+                'success': result['success'],
+                'output': result['output'].strip()
             }
         except Exception as e:
             results['volumes'] = {'error': str(e)}

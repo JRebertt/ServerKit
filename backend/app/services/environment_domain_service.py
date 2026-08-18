@@ -13,7 +13,7 @@ from typing import Dict
 
 from app.services.nginx_service import NginxService
 from app.utils.slug import slugify as _slugify
-from app.utils.system import run_privileged, write_privileged_file
+from app.utils.system import run_checked, run_privileged, write_privileged_file
 
 
 class EnvironmentDomainService:
@@ -194,14 +194,13 @@ class EnvironmentDomainService:
             run_privileged(['mkdir', '-p', cls.HTPASSWD_DIR])
 
             # Generate password hash using openssl
-            hash_result = subprocess.run(
-                ['openssl', 'passwd', '-apr1', password],
-                capture_output=True, text=True, timeout=10
-            )
-            if hash_result.returncode != 0:
-                return {'success': False, 'error': f'Failed to hash password: {hash_result.stderr}'}
+            hash_result = run_checked(['openssl', 'passwd', '-apr1', password],
+                                      timeout=10)
+            if not hash_result['success']:
+                return {'success': False,
+                        'error': f"Failed to hash password: {hash_result['error']}"}
 
-            password_hash = hash_result.stdout.strip()
+            password_hash = hash_result['output'].strip()
             htpasswd_content = f'{username}:{password_hash}\n'
 
             # Write htpasswd file

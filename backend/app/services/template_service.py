@@ -28,6 +28,7 @@ from pathlib import Path
 import requests
 
 from app import paths
+from app.utils.system import run_checked
 
 
 class TemplateService:
@@ -1105,16 +1106,11 @@ class TemplateService:
         """Get all ports currently mapped by Docker containers."""
         used_ports = set()
         try:
-            result = subprocess.run(
-                ['docker', 'ps', '--format', '{{.Ports}}'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode == 0:
+            result = run_checked(['docker', 'ps', '--format', '{{.Ports}}'], timeout=10)
+            if result['success']:
                 # Parse port mappings like "0.0.0.0:8080->80/tcp, 127.0.0.1:3306->3306/tcp"
                 import re
-                for line in result.stdout.strip().split('\n'):
+                for line in result['output'].strip().split('\n'):
                     if line:
                         # Find all host ports in the format "host:port->container"
                         matches = re.findall(r'(?:[\d.]+:)?(\d+)->', line)
@@ -2180,23 +2176,16 @@ class TemplateService:
             env = os.environ.copy()
             env.update(variables)
 
-            result = subprocess.run(
-                ['bash', '-c', script],
-                cwd=cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+            result = run_checked(['bash', '-c', script], cwd=cwd, env=env, timeout=300)
 
-            if result.returncode != 0:
+            if not result['success']:
                 return {
                     'success': False,
-                    'error': f"Script failed: {result.stderr}",
-                    'output': result.stdout
+                    'error': f"Script failed: {result['error']}",
+                    'output': result['output'],
                 }
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Script timed out'}

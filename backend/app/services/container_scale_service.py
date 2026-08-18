@@ -7,6 +7,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 from app import db
+from app.utils.system import run_checked
 from app.models import Application
 from app.models.container_scale_policy import ContainerScalePolicy
 
@@ -51,14 +52,15 @@ class ContainerScaleService:
             ps_cmd = ['docker', 'compose', '-f', _compose_path(app), 'ps', '-q']
             if policy.service_name:
                 ps_cmd.append(policy.service_name)
-            ps = subprocess.run(ps_cmd, cwd=app.root_path, capture_output=True, text=True, timeout=15)
-            ids = [line.strip() for line in ps.stdout.splitlines() if line.strip()]
+            ps = run_checked(ps_cmd, cwd=app.root_path, timeout=15)
+            ids = [line.strip() for line in ps['output'].splitlines() if line.strip()]
             if not ids:
                 return None
-            stats = subprocess.run(['docker', 'stats', '--no-stream', '--format', '{{.CPUPerc}}'] + ids,
-                                   capture_output=True, text=True, timeout=15)
+            stats = run_checked(
+                ['docker', 'stats', '--no-stream', '--format', '{{.CPUPerc}}'] + ids,
+                timeout=15)
             values = []
-            for line in stats.stdout.splitlines():
+            for line in stats['output'].splitlines():
                 try:
                     values.append(float(line.strip().rstrip('%')))
                 except ValueError:
@@ -74,12 +76,12 @@ class ContainerScaleService:
         if not (app.app_type == 'docker' and app.root_path and policy.service_name):
             return {'success': False, 'error': 'Scaling requires a docker-compose app with a service_name set'}
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['docker', 'compose', '-f', _compose_path(app), 'up', '-d', '--no-recreate',
                  '--scale', f'{policy.service_name}={replicas}'],
-                cwd=app.root_path, capture_output=True, text=True, timeout=120)
-            if result.returncode != 0:
-                return {'success': False, 'error': (result.stderr or 'scale failed')[:300]}
+                cwd=app.root_path, timeout=120)
+            if not result['success']:
+                return {'success': False, 'error': result['error'][:300]}
             return {'success': True}
         except Exception as e:
             return {'success': False, 'error': str(e)}

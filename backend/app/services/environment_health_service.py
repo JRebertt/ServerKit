@@ -12,6 +12,7 @@ from typing import Dict, Optional
 
 from app import db
 from app.models.wordpress_site import WordPressSite
+from app.utils.system import run_checked
 from app.services.environment_docker_service import EnvironmentDockerService
 from app.services.environment_pipeline_service import EnvironmentPipelineService
 from app.utils.formatting import format_bytes
@@ -330,15 +331,12 @@ class EnvironmentHealthService:
     def _check_wordpress_http(cls, port: int) -> Dict:
         """Check WordPress HTTP response on localhost."""
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}',
                  '--max-time', '5', f'http://127.0.0.1:{port}/wp-login.php'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+                timeout=10)
 
-            status_code = result.stdout.strip()
+            status_code = result['output'].strip()
             if status_code in ('200', '302', '301'):
                 return {'status': 'healthy', 'message': f'HTTP {status_code}'}
             elif status_code == '401':
@@ -357,14 +355,9 @@ class EnvironmentHealthService:
     def _get_dir_size(cls, path: str) -> int:
         """Get total size of a directory in bytes."""
         try:
-            result = subprocess.run(
-                ['du', '-sb', path],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return int(result.stdout.split()[0])
+            result = run_checked(['du', '-sb', path], timeout=30)
+            if result['success'] and result['output'].strip():
+                return int(result['output'].split()[0])
         except Exception:
             pass
 

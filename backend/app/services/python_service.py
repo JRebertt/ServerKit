@@ -5,7 +5,7 @@ import json
 import secrets
 from pathlib import Path
 
-from app.utils.system import ServiceControl
+from app.utils.system import ServiceControl, run_checked
 
 
 class PythonService:
@@ -74,12 +74,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
             python_path = shutil.which(f'python{version}')
             if python_path:
                 try:
-                    result = subprocess.run(
-                        [python_path, '--version'],
-                        capture_output=True, text=True
-                    )
-                    if result.returncode == 0:
-                        full_version = result.stdout.strip().replace('Python ', '')
+                    result = run_checked([python_path, '--version'], timeout=None)
+                    if result['success']:
+                        full_version = result['output'].strip().replace('Python ', '')
                         versions.append({
                             'version': version,
                             'full_version': full_version,
@@ -103,12 +100,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
         python_path = shutil.which('python3')
         if python_path:
             try:
-                result = subprocess.run(
-                    [python_path, '--version'],
-                    capture_output=True, text=True
-                )
-                if result.returncode == 0:
-                    return result.stdout.strip().replace('Python ', '')
+                result = run_checked([python_path, '--version'], timeout=None)
+                if result['success']:
+                    return result['output'].strip().replace('Python ', '')
             except Exception:
                 pass
         return None
@@ -125,20 +119,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
         try:
             # Create venv
-            result = subprocess.run(
-                [python_bin, '-m', 'venv', venv_path],
-                capture_output=True, text=True
-            )
+            result = run_checked([python_bin, '-m', 'venv', venv_path], timeout=None)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Upgrade pip
             pip_path = os.path.join(venv_path, 'bin', 'pip')
-            subprocess.run(
-                [pip_path, 'install', '--upgrade', 'pip'],
-                capture_output=True, text=True
-            )
+            run_checked([pip_path, 'install', '--upgrade', 'pip'], timeout=None)
 
             return {
                 'success': True,
@@ -163,24 +151,19 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
                 # Install from list
                 if isinstance(requirements, str):
                     requirements = [requirements]
-                result = subprocess.run(
-                    [pip_path, 'install'] + requirements,
-                    capture_output=True, text=True
-                )
+                result = run_checked([pip_path, 'install'] + requirements, timeout=None)
             else:
                 # Install from requirements.txt
                 req_file = os.path.join(app_path, 'requirements.txt')
                 if not os.path.exists(req_file):
                     return {'success': False, 'error': 'requirements.txt not found'}
-                result = subprocess.run(
-                    [pip_path, 'install', '-r', req_file],
-                    capture_output=True, text=True
-                )
+                result = run_checked([pip_path, 'install', '-r', req_file], timeout=None)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr, 'output': result.stdout}
+            if not result['success']:
+                return {'success': False, 'error': result['error'],
+                        'output': result['output']}
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -194,12 +177,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
             return []
 
         try:
-            result = subprocess.run(
-                [pip_path, 'list', '--format=json'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return json.loads(result.stdout)
+            result = run_checked([pip_path, 'list', '--format=json'], timeout=None)
+            if result['success']:
+                return json.loads(result['output'])
             return []
         except Exception:
             return []
@@ -214,16 +194,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
             return {'success': False, 'error': 'Virtual environment not found'}
 
         try:
-            result = subprocess.run(
-                [pip_path, 'freeze'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = run_checked([pip_path, 'freeze'], timeout=None)
+            if result['success']:
                 req_file = os.path.join(app_path, 'requirements.txt')
                 with open(req_file, 'w') as f:
-                    f.write(result.stdout)
-                return {'success': True, 'requirements': result.stdout}
-            return {'success': False, 'error': result.stderr}
+                    f.write(result['output'])
+                return {'success': True, 'requirements': result['output']}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -297,23 +274,18 @@ SECRET_KEY={secrets.token_hex(32)}
             python_path = os.path.join(venv_path, 'bin', 'python')
 
             # Install Django and Gunicorn
-            subprocess.run(
-                [pip_path, 'install', 'django', 'gunicorn', 'python-dotenv'],
-                capture_output=True, text=True
-            )
+            run_checked([pip_path, 'install', 'django', 'gunicorn', 'python-dotenv'],
+                        timeout=None)
 
             # Create Django project
             django_admin = os.path.join(venv_path, 'bin', 'django-admin')
             project_name = app_name.replace('-', '_').replace(' ', '_').lower()
 
-            result = subprocess.run(
-                [django_admin, 'startproject', project_name, '.'],
-                cwd=app_path,
-                capture_output=True, text=True
-            )
+            result = run_checked([django_admin, 'startproject', project_name, '.'],
+                                 cwd=app_path, timeout=None)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Build ALLOWED_HOSTS: local addresses plus the panel domain and its
             # subdomains so Django accepts requests behind nginx on a real domain.
@@ -353,11 +325,7 @@ application = get_wsgi_application()
                 f.write(wsgi_content)
 
             # Run migrations
-            subprocess.run(
-                [python_path, 'manage.py', 'migrate'],
-                cwd=app_path,
-                capture_output=True, text=True
-            )
+            run_checked([python_path, 'manage.py', 'migrate'], cwd=app_path, timeout=None)
 
             # Collect static files directory
             os.makedirs(os.path.join(app_path, 'staticfiles'), exist_ok=True)
@@ -466,14 +434,13 @@ application = get_wsgi_application()
             status = 'active' if ServiceControl.is_active(service_name) else 'inactive'
 
             # Get more details
-            details_result = subprocess.run(
+            details_result = run_checked(
                 ['systemctl', 'show', service_name,
                  '--property=ActiveState,SubState,MainPID,MemoryCurrent'],
-                capture_output=True, text=True
-            )
+                timeout=None)
 
             details = {}
-            for line in details_result.stdout.strip().split('\n'):
+            for line in details_result['output'].strip().split('\n'):
                 if '=' in line:
                     key, value = line.split('=', 1)
                     details[key] = value
@@ -566,23 +533,20 @@ application = get_wsgi_application()
             env_vars = PythonService.get_env_vars(app_path)
             env.update(env_vars)
 
-            result = subprocess.run(
-                ['bash', '-c', command],
-                cwd=app_path,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+            result = run_checked(['bash', '-c', command], cwd=app_path, env=env,
+                                 timeout=300)
+
+            if result['returncode'] is None:
+                # Never ran (no bash, or it outlived the 300s bound) — do not
+                # hand back a return_code the command never produced.
+                return {'success': False, 'error': result['error']}
 
             return {
-                'success': result.returncode == 0,
-                'stdout': result.stdout,
-                'stderr': result.stderr,
-                'return_code': result.returncode
+                'success': result['success'],
+                'stdout': result['output'],
+                'stderr': result['stderr'],
+                'return_code': result['returncode'],
             }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Command timed out'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

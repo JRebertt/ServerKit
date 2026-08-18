@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from app import db
 from app.models.email import EmailDomain, EmailAccount, EmailAlias, EmailForwardingRule
 from app.services.postfix_service import PostfixService
-from app.utils.system import PackageManager, ServiceControl
+from app.utils.system import PackageManager, ServiceControl, run_checked
 from .dovecot_service import DovecotService
 from .dkim_service import DKIMService
 from .spamassassin_service import SpamAssassinService
@@ -229,21 +229,21 @@ class EmailService:
 
         # Check MX record
         try:
-            result = subprocess.run(['dig', '+short', 'MX', name], capture_output=True, text=True, timeout=10)
+            result = run_checked(['dig', '+short', 'MX', name], timeout=10)
             results['mx'] = {
-                'found': bool(result.stdout.strip()),
-                'value': result.stdout.strip() or None,
+                'found': bool(result['output'].strip()),
+                'value': result['output'].strip() or None,
             }
         except Exception:
             results['mx'] = {'found': False, 'error': 'DNS lookup failed'}
 
         # Check SPF record
         try:
-            result = subprocess.run(['dig', '+short', 'TXT', name], capture_output=True, text=True, timeout=10)
-            spf_found = 'v=spf1' in (result.stdout or '')
+            result = run_checked(['dig', '+short', 'TXT', name], timeout=10)
+            spf_found = 'v=spf1' in result['output']
             results['spf'] = {
                 'found': spf_found,
-                'value': result.stdout.strip() or None,
+                'value': result['output'].strip() or None,
             }
         except Exception:
             results['spf'] = {'found': False, 'error': 'DNS lookup failed'}
@@ -252,11 +252,11 @@ class EmailService:
         selector = domain.dkim_selector or 'default'
         try:
             dkim_name = f'{selector}._domainkey.{name}'
-            result = subprocess.run(['dig', '+short', 'TXT', dkim_name], capture_output=True, text=True, timeout=10)
-            dkim_found = 'v=DKIM1' in (result.stdout or '')
+            result = run_checked(['dig', '+short', 'TXT', dkim_name], timeout=10)
+            dkim_found = 'v=DKIM1' in result['output']
             results['dkim'] = {
                 'found': dkim_found,
-                'value': result.stdout.strip() or None,
+                'value': result['output'].strip() or None,
                 'name': dkim_name,
             }
         except Exception:
@@ -265,11 +265,11 @@ class EmailService:
         # Check DMARC record
         try:
             dmarc_name = f'_dmarc.{name}'
-            result = subprocess.run(['dig', '+short', 'TXT', dmarc_name], capture_output=True, text=True, timeout=10)
-            dmarc_found = 'v=DMARC1' in (result.stdout or '')
+            result = run_checked(['dig', '+short', 'TXT', dmarc_name], timeout=10)
+            dmarc_found = 'v=DMARC1' in result['output']
             results['dmarc'] = {
                 'found': dmarc_found,
-                'value': result.stdout.strip() or None,
+                'value': result['output'].strip() or None,
             }
         except Exception:
             results['dmarc'] = {'found': False, 'error': 'DNS lookup failed'}

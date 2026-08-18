@@ -23,6 +23,7 @@ import subprocess
 from app import db
 from app.models.app_volume import AppVolume
 from app.services.docker_service import DockerService
+from app.utils.system import run_checked
 
 logger = logging.getLogger(__name__)
 
@@ -138,13 +139,12 @@ class VolumeService:
         if os.name != 'posix':
             return None
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['docker', 'run', '--rm', '-v', f'{volume.docker_volume_name}:/data:ro',
                  cls.HELPER_IMAGE, 'du', '-sb', '/data'],
-                capture_output=True, text=True, timeout=120,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                size = int(result.stdout.split()[0])
+                timeout=120)
+            if result['success'] and result['output'].strip():
+                size = int(result['output'].split()[0])
                 volume.size_bytes = size
                 db.session.commit()
                 return size
@@ -165,13 +165,12 @@ class VolumeService:
         host_path = os.path.abspath(host_path or '')
         if host_path and os.path.isdir(host_path) and os.name == 'posix':
             try:
-                subprocess.run(
+                run_checked(
                     ['docker', 'run', '--rm',
                      '-v', f'{host_path}:/src:ro',
                      '-v', f'{volume.docker_volume_name}:/dst',
                      cls.HELPER_IMAGE, 'sh', '-c', 'cp -a /src/. /dst/'],
-                    capture_output=True, text=True, timeout=600,
-                )
+                    timeout=600)
             except Exception as e:  # pragma: no cover - best-effort/defensive
                 logger.warning('Bind-mount data copy failed for %s: %s', volume.docker_volume_name, e)
         return volume

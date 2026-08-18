@@ -24,6 +24,8 @@ import os
 import shlex
 import subprocess
 
+from app.utils.system import run_checked
+
 from .base import BaseSiteImporter
 
 
@@ -141,14 +143,9 @@ class GenericSshImporter(BaseSiteImporter):
         ssh_cmd = 'ssh ' + ' '.join(shlex.quote(o) for o in ssh_opts)
         src = f"{remote}:{docroot.rstrip('/')}/"
         cmd = ['rsync', '-az', '--delete', '-e', ssh_cmd, src, dest + os.sep]
-        try:
-            subprocess.run(cmd, check=True, capture_output=True,
-                           timeout=cls._RSYNC_TIMEOUT)
-        except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or b'').decode('utf-8', 'replace').strip()
-            raise SshImportError(f'Failed to pull docroot over SSH: {stderr}')
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise SshImportError(f'Failed to pull docroot over SSH: {exc}')
+        result = run_checked(cmd, timeout=cls._RSYNC_TIMEOUT, errors='replace')
+        if not result['success']:
+            raise SshImportError(f"Failed to pull docroot over SSH: {result['error']}")
 
     @classmethod
     def _dump_database(cls, remote, source, ssh_opts, out_path):
@@ -165,15 +162,16 @@ class GenericSshImporter(BaseSiteImporter):
             f'-h {shlex.quote(db_host)} -u {shlex.quote(db_user)} '
             f'{shlex.quote(db_name)}')
         cmd = ['ssh'] + ssh_opts + [remote, remote_cmd]
-        try:
-            with open(out_path, 'wb') as fh:
-                proc = subprocess.run(
-                    cmd, input=(password + '\n').encode(), stdout=fh,
-                    stderr=subprocess.PIPE, timeout=cls._DUMP_TIMEOUT)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise SshImportError(f'Failed to dump remote database: {exc}')
-        if proc.returncode != 0:
-            stderr = (proc.stderr or b'').decode('utf-8', 'replace').strip()
+        with open(out_path, 'wb') as fh:
+            # text=False: the dump itself is written straight to a binary file
+            # handle; only stderr is captured, and it is decoded below.
+            proc = run_checked(
+                cmd, input=(password + '\n').encode(), stdout=fh,
+                stderr=subprocess.PIPE, timeout=cls._DUMP_TIMEOUT, text=False)
+        if proc['returncode'] is None:
+            raise SshImportError(f"Failed to dump remote database: {proc['error']}")
+        if not proc['success']:
+            stderr = (proc['stderr'] or b'').decode('utf-8', 'replace').strip()
             raise SshImportError(f'Remote mysqldump failed: {stderr}')
 
     # ── analysis (built from the source + pull result) ──
@@ -260,15 +258,11 @@ class GenericSshImporter(BaseSiteImporter):
             f'test -f {shlex.quote(docroot.rstrip("/") + "/wp-config.php")} '
             '&& echo __HAS_WP_CONFIG__')
         cmd = ['ssh'] + ssh_opts + [remote, remote_cmd]
-        try:
-            proc = subprocess.run(cmd, capture_output=True,
-                                  timeout=cls._CONNECT_TIMEOUT + 10)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            return {'reachable': False, 'error': str(exc)}
-        if proc.returncode != 0:
-            stderr = (proc.stderr or b'').decode('utf-8', 'replace').strip()
-            return {'reachable': False, 'error': stderr or 'SSH connection failed'}
-        lines = (proc.stdout or b'').decode('utf-8', 'replace').splitlines()
+        proc = run_checked(cmd, timeout=cls._CONNECT_TIMEOUT + 10, errors='replace')
+        if not proc['success']:
+            return {'reachable': False,
+                    'error': proc['error'] or 'SSH connection failed'}
+        lines = proc['output'].splitlines()
         has_wp = '__HAS_WP_CONFIG__' in lines
         files = [ln for ln in lines
                  if ln and ln != '__HAS_WP_CONFIG__' and ln not in ('.', '..')]

@@ -766,3 +766,27 @@ class TestRunChecked:
         mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
         run_checked(['crontab', '-'], input='* * * * * true\n')
         assert mock_run.call_args[1]['input'] == '* * * * * true\n'
+
+
+class TestPrivilegedCmdUserIsEscalationNotIdentity:
+    """The trap documented on privileged_cmd's `user=` parameter.
+
+    Asserting the CURRENT behaviour, not endorsing it: `user=` has no callers,
+    and the next person to reach for it needs to see that it does not do what
+    its name suggests when the process is already root.
+    """
+
+    @patch('app.utils.system.os.name', 'posix')
+    @patch('app.utils.system.shutil.which', return_value='/usr/bin/sudo')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_non_root_switches_user(self, _euid, _which):
+        assert privileged_cmd(['psql', '-c', 'x'], user='postgres') == [
+            'sudo', '-n', '-u', 'postgres', 'psql', '-c', 'x']
+
+    @patch('app.utils.system.os.geteuid', return_value=0, create=True)
+    def test_as_root_the_user_switch_is_DROPPED(self, _euid):
+        """Not a typo in the test: running as root, `user=` vanishes entirely
+        and the command runs as root. For postgres that means connecting as DB
+        role "root" under peer auth — which is why database_service spells
+        `sudo -u postgres` out itself instead of using this."""
+        assert privileged_cmd(['psql', '-c', 'x'], user='postgres') == ['psql', '-c', 'x']

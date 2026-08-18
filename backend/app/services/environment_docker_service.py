@@ -10,6 +10,8 @@ import os
 import json
 import shutil
 import subprocess
+
+from app.utils.system import run_checked
 from typing import Dict
 from app.services.template_service import TemplateService
 from app import paths
@@ -164,17 +166,13 @@ networks:
             Dict with success status
         """
         try:
-            result = subprocess.run(
-                ['docker', 'compose', '-f', compose_path, 'up', '-d'],
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
+            result = run_checked(
+                ['docker', 'compose', '-f', compose_path, 'up', '-d'], timeout=120)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Docker compose up timed out'}
@@ -192,17 +190,13 @@ networks:
             Dict with success status
         """
         try:
-            result = subprocess.run(
-                ['docker', 'compose', '-f', compose_path, 'down'],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            result = run_checked(
+                ['docker', 'compose', '-f', compose_path, 'down'], timeout=60)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Docker compose down timed out'}
@@ -241,22 +235,17 @@ networks:
             if remove_volumes:
                 cmd.append('-v')
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            result = run_checked(cmd, timeout=60)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Remove the environment directory
             env_dir = os.path.dirname(compose_path)
             if os.path.exists(env_dir):
                 shutil.rmtree(env_dir)
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Docker compose down timed out'}
@@ -274,20 +263,17 @@ networks:
             Dict with running status and container details
         """
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['docker', 'compose', '-f', compose_path, 'ps', '--format', 'json'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+                timeout=30)
 
-            if result.returncode != 0:
-                return {'success': False, 'running': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'running': False, 'error': result['error']}
 
             containers = []
-            if result.stdout.strip():
+            if result['output'].strip():
                 # docker compose ps --format json outputs one JSON object per line
-                for line in result.stdout.strip().split('\n'):
+                for line in result['output'].strip().split('\n'):
                     line = line.strip()
                     if line:
                         try:
@@ -324,17 +310,14 @@ networks:
             Dict with success status and logs
         """
         try:
-            result = subprocess.run(
-                ['docker', 'compose', '-f', compose_path, 'logs', '--tail', str(lines), service],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            result = run_checked(
+                ['docker', 'compose', '-f', compose_path, 'logs', '--tail', str(lines),
+                 service], timeout=30)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
-            return {'success': True, 'logs': result.stdout}
+            return {'success': True, 'logs': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Log retrieval timed out'}
@@ -354,17 +337,15 @@ networks:
             Dict with success status and output
         """
         try:
-            result = subprocess.run(
-                ['docker', 'compose', '-f', compose_path, 'exec', '-T', service] + command.split(),
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
+            result = run_checked(
+                ['docker', 'compose', '-f', compose_path, 'exec', '-T', service]
+                + command.split(), timeout=120)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr, 'output': result.stdout}
+            if not result['success']:
+                return {'success': False, 'error': result['error'],
+                        'output': result['output']}
 
-            return {'success': True, 'output': result.stdout}
+            return {'success': True, 'output': result['output']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Command execution timed out'}

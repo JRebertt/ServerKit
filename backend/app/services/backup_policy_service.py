@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app import db
+from app.utils.system import run_checked
 from app.utils.formatting import format_bytes
 
 logger = logging.getLogger(__name__)
@@ -332,16 +333,18 @@ class BackupPolicyService:
         env['SERVERKIT_TARGET_NAME'] = target['name']
         env['SERVERKIT_TARGET_PATH'] = target['root_path'] or ''
         try:
-            result = subprocess.run(
+            # shell=True stays: this is an operator-authored hook, and running
+            # it through a shell is the documented contract (plan 75 anti-goal).
+            result = run_checked(
                 hook, shell=True, cwd=target['root_path'] or None, env=env,
-                capture_output=True, text=True, timeout=600,
+                timeout=600,
             )
         except Exception as exc:
             raise BackupPolicyError(f'{label} hook error: {exc}')
-        if result.returncode != 0:
+        if not result['success']:
             raise BackupPolicyError(
-                f'{label} hook failed (exit {result.returncode}): '
-                f'{(result.stderr or result.stdout or "").strip()[:300]}'
+                f"{label} hook failed (exit {result['returncode']}): "
+                f"{(result['error'] or result['output'])[:300]}"
             )
 
     @classmethod

@@ -535,14 +535,14 @@ class CloudProvisioningService:
     @staticmethod
     def _install_agent(server):
         """SSH into server and run the ServerKit agent install script."""
-        import subprocess
+        from app.utils.system import run_checked
         if not server.ip_address:
             raise ValueError('Server has no IP address')
         # Use ssh with strict host key checking disabled for fresh servers
         install_cmd = 'curl -fsSL https://get.serverkit.dev/agent.sh | bash'
-        result = subprocess.run(
+        result = run_checked(
             ['ssh', '-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=30',
              f'root@{server.ip_address}', install_cmd],
-            capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            raise RuntimeError(f'Agent install failed: {result.stderr}')
+            timeout=120)
+        if not result['success']:
+            raise RuntimeError(f"Agent install failed: {result['error']}")

@@ -4,7 +4,8 @@ import re
 import subprocess
 from typing import Dict
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged
+from app.utils.system import (PackageManager, ServiceControl, run_checked,
+                             run_privileged)
 
 
 class SpamAssassinService:
@@ -58,8 +59,8 @@ internal_networks 127.0.0.0/8
             if installed:
                 running = ServiceControl.is_active('spamassassin')
                 enabled = ServiceControl.is_enabled('spamassassin')
-                result = subprocess.run(['spamassassin', '--version'], capture_output=True, text=True)
-                match = re.search(r'version\s+(\S+)', result.stdout)
+                result = run_checked(['spamassassin', '--version'], timeout=None)
+                match = re.search(r'version\s+(\S+)', result['output'])
                 if match:
                     version = match.group(1)
 

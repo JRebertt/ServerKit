@@ -2,7 +2,7 @@
 import subprocess
 from typing import Dict
 
-from app.utils.system import run_privileged, is_command_available
+from app.utils.system import run_checked, run_privileged, is_command_available
 
 
 class RoundcubeService:
@@ -20,14 +20,13 @@ class RoundcubeService:
             return {'installed': False, 'running': False, 'error': 'Docker not available'}
 
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['docker', 'inspect', '--format', '{{.State.Status}}', cls.CONTAINER_NAME],
-                capture_output=True, text=True,
-            )
-            if result.returncode != 0:
+                timeout=None)
+            if not result['success']:
                 return {'installed': False, 'running': False}
 
-            status = result.stdout.strip()
+            status = result['output'].strip()
             return {
                 'installed': True,
                 'running': status == 'running',
@@ -47,19 +46,13 @@ class RoundcubeService:
 
         try:
             # Remove existing container if any
-            subprocess.run(
-                ['docker', 'rm', '-f', cls.CONTAINER_NAME],
-                capture_output=True, text=True,
-            )
+            run_checked(['docker', 'rm', '-f', cls.CONTAINER_NAME], timeout=None)
 
             # Create volume
-            subprocess.run(
-                ['docker', 'volume', 'create', cls.VOLUME_NAME],
-                capture_output=True, text=True,
-            )
+            run_checked(['docker', 'volume', 'create', cls.VOLUME_NAME], timeout=None)
 
             # Run container
-            result = subprocess.run([
+            result = run_checked([
                 'docker', 'run', '-d',
                 '--name', cls.CONTAINER_NAME,
                 '--restart', 'unless-stopped',
@@ -73,10 +66,11 @@ class RoundcubeService:
                 '-e', 'ROUNDCUBEMAIL_SKIN=elastic',
                 '-v', f'{cls.VOLUME_NAME}:/var/roundcube/db',
                 cls.IMAGE,
-            ], capture_output=True, text=True)
+            ], timeout=None)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr or 'Failed to start container'}
+            if not result['success']:
+                return {'success': False,
+                        'error': result['error'] or 'Failed to start container'}
 
             # Build a public URL: prefer a supplied domain, then auto-generate
             # webmail.<panel_domain>, and only fall back to localhost:port.
@@ -120,7 +114,7 @@ class RoundcubeService:
     def uninstall(cls) -> Dict:
         """Stop and remove Roundcube container."""
         try:
-            subprocess.run(['docker', 'rm', '-f', cls.CONTAINER_NAME], capture_output=True, text=True)
+            run_checked(['docker', 'rm', '-f', cls.CONTAINER_NAME], timeout=None)
             return {'success': True, 'message': 'Roundcube uninstalled'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -129,13 +123,10 @@ class RoundcubeService:
     def start(cls) -> Dict:
         """Start Roundcube container."""
         try:
-            result = subprocess.run(
-                ['docker', 'start', cls.CONTAINER_NAME],
-                capture_output=True, text=True,
-            )
-            if result.returncode == 0:
+            result = run_checked(['docker', 'start', cls.CONTAINER_NAME], timeout=None)
+            if result['success']:
                 return {'success': True, 'message': 'Roundcube started'}
-            return {'success': False, 'error': result.stderr or 'Start failed'}
+            return {'success': False, 'error': result['error'] or 'Start failed'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -143,13 +134,10 @@ class RoundcubeService:
     def stop(cls) -> Dict:
         """Stop Roundcube container."""
         try:
-            result = subprocess.run(
-                ['docker', 'stop', cls.CONTAINER_NAME],
-                capture_output=True, text=True,
-            )
-            if result.returncode == 0:
+            result = run_checked(['docker', 'stop', cls.CONTAINER_NAME], timeout=None)
+            if result['success']:
                 return {'success': True, 'message': 'Roundcube stopped'}
-            return {'success': False, 'error': result.stderr or 'Stop failed'}
+            return {'success': False, 'error': result['error'] or 'Stop failed'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -157,13 +145,10 @@ class RoundcubeService:
     def restart(cls) -> Dict:
         """Restart Roundcube container."""
         try:
-            result = subprocess.run(
-                ['docker', 'restart', cls.CONTAINER_NAME],
-                capture_output=True, text=True,
-            )
-            if result.returncode == 0:
+            result = run_checked(['docker', 'restart', cls.CONTAINER_NAME], timeout=None)
+            if result['success']:
                 return {'success': True, 'message': 'Roundcube restarted'}
-            return {'success': False, 'error': result.stderr or 'Restart failed'}
+            return {'success': False, 'error': result['error'] or 'Restart failed'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

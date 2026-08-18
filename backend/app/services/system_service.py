@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 
 from app.utils.formatting import format_bytes
-from app.utils.system import run_privileged
+from app.utils.system import run_checked, run_privileged
 
 
 class SystemService:
@@ -333,12 +333,10 @@ class SystemService:
         # Fallback: try timedatectl on systemd systems
         if not timezone_id:
             try:
-                result = subprocess.run(
-                    ['timedatectl', 'show', '--property=Timezone', '--value'],
-                    capture_output=True, text=True, timeout=5
-                )
-                if result.returncode == 0:
-                    timezone_id = result.stdout.strip()
+                result = run_checked(
+                    ['timedatectl', 'show', '--property=Timezone', '--value'], timeout=5)
+                if result['success']:
+                    timezone_id = result['output'].strip()
             except Exception:
                 pass
 
@@ -380,12 +378,9 @@ class SystemService:
         """Get list of available timezones."""
         try:
             # Use timedatectl to list timezones on systemd systems
-            result = subprocess.run(
-                ['timedatectl', 'list-timezones'],
-                capture_output=True, text=True, timeout=10
-            )
-            if result.returncode == 0:
-                return result.stdout.strip().split('\n')
+            result = run_checked(['timedatectl', 'list-timezones'], timeout=10)
+            if result['success']:
+                return result['output'].strip().split('\n')
         except Exception:
             pass
 

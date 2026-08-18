@@ -26,6 +26,8 @@ import logging
 import os
 import shutil
 import subprocess
+
+from app.utils.system import run_checked
 import time
 
 logger = logging.getLogger(__name__)
@@ -186,15 +188,18 @@ def _docker_usable():
     if not _binary_present('docker'):
         return False
     try:
-        result = subprocess.run(
-            ['docker', 'info', '--format', '{{.ServerVersion}}'],
-            capture_output=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except Exception as e:
+        result = run_checked(['docker', 'info', '--format', '{{.ServerVersion}}'],
+                             timeout=5)
+    except Exception as e:  # noqa: BLE001 - the probe must never raise
         logger.debug(f'Docker probe failed: {e}')
         return None
+    if result['returncode'] is None:
+        # The probe never ran (exec failure, timeout). run_checked reports that
+        # as success=False, but False here would mean "docker is not usable" —
+        # a fact nobody established. This is what returncode-is-None is for.
+        logger.debug("Docker probe failed: %s", result['error'])
+        return None
+    return result['success']
 
 
 def get_capabilities(force_refresh=False):

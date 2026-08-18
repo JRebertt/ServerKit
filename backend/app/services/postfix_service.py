@@ -4,7 +4,8 @@ import re
 import subprocess
 from typing import Dict
 
-from app.utils.system import (PackageManager, ServiceControl, run_privileged,
+from app.utils.system import (PackageManager, ServiceControl, run_checked,
+                             run_privileged,
                              write_privileged_file)
 from app import paths
 
@@ -99,8 +100,8 @@ mailbox_size_limit = 0
         hostname = None
 
         try:
-            result = subprocess.run(['which', 'postfix'], capture_output=True, text=True)
-            installed = result.returncode == 0
+            result = run_checked(['which', 'postfix'], timeout=None)
+            installed = result['success']
             if not installed:
                 installed = PackageManager.is_installed('postfix')
 
@@ -108,13 +109,13 @@ mailbox_size_limit = 0
                 running = ServiceControl.is_active('postfix')
                 enabled = ServiceControl.is_enabled('postfix')
 
-                result = subprocess.run(['postconf', 'mail_version'], capture_output=True, text=True)
-                match = re.search(r'mail_version\s*=\s*(\S+)', result.stdout)
+                result = run_checked(['postconf', 'mail_version'], timeout=None)
+                match = re.search(r'mail_version\s*=\s*(\S+)', result['output'])
                 if match:
                     version = match.group(1)
 
-                result = subprocess.run(['postconf', 'myhostname'], capture_output=True, text=True)
-                match = re.search(r'myhostname\s*=\s*(\S+)', result.stdout)
+                result = run_checked(['postconf', 'myhostname'], timeout=None)
+                match = re.search(r'myhostname\s*=\s*(\S+)', result['output'])
                 if match:
                     hostname = match.group(1)
         except (subprocess.SubprocessError, FileNotFoundError):
@@ -294,8 +295,8 @@ mailbox_size_limit = 0
     def get_queue(cls) -> Dict:
         """Get the Postfix mail queue."""
         try:
-            result = subprocess.run(['mailq'], capture_output=True, text=True)
-            output = result.stdout or ''
+            result = run_checked(['mailq'], timeout=None)
+            output = result['output']
 
             if 'Mail queue is empty' in output:
                 return {'success': True, 'queue': [], 'total': 0}

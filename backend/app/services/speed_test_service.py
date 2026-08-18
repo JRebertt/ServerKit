@@ -18,6 +18,8 @@ import logging
 import os
 import socket
 import subprocess
+
+from app.utils.system import run_checked
 import time
 from datetime import datetime
 
@@ -118,14 +120,12 @@ class SpeedTestService:
             return None
 
         try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=CLI_TIMEOUT
-            )
-            if proc.returncode != 0:
-                logger.warning('speedtest CLI exited %s: %s',
-                               proc.returncode, (proc.stderr or '')[:500])
+            proc = run_checked(cmd, timeout=CLI_TIMEOUT)
+            if not proc['success']:
+                logger.warning('speedtest CLI failed (%s): %s',
+                               proc['returncode'], proc['error'][:500])
                 return None  # fall through to the pure-Python tier
-            data = json.loads(proc.stdout)
+            data = json.loads(proc['output'])
         except (subprocess.SubprocessError, OSError, json.JSONDecodeError) as exc:
             logger.warning('speedtest CLI failed (%s); using fallback', exc)
             return None
