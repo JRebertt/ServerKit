@@ -32,9 +32,11 @@ class SystemService:
             'count_physical': cpu_count,
             'count_logical': cpu_count_logical,
             'frequency': {
-                'current': cpu_freq.current if cpu_freq else 0,
-                'min': cpu_freq.min if cpu_freq else 0,
-                'max': cpu_freq.max if cpu_freq else 0
+                # None when the platform can't report frequency — 0 MHz would
+                # read as a real measurement.
+                'current': cpu_freq.current if cpu_freq else None,
+                'min': cpu_freq.min if cpu_freq else None,
+                'max': cpu_freq.max if cpu_freq else None
             },
             'per_cpu': per_cpu
         }
@@ -45,8 +47,8 @@ class SystemService:
         memory = psutil.virtual_memory()
         swap = psutil.swap_memory()
 
-        # Get cached memory (available on Linux)
-        cached = getattr(memory, 'cached', 0)
+        # Get cached memory (available on Linux only; None = not determined)
+        cached = getattr(memory, 'cached', None)
 
         return {
             'ram': {
@@ -58,7 +60,7 @@ class SystemService:
                 'total_human': cls.get_size(memory.total),
                 'available_human': cls.get_size(memory.available),
                 'used_human': cls.get_size(memory.used),
-                'cached_human': cls.get_size(cached)
+                'cached_human': cls.get_size(cached) if cached is not None else None
             },
             'swap': {
                 'total': swap.total,
@@ -113,18 +115,46 @@ class SystemService:
 
     @classmethod
     def get_network_metrics(cls):
-        """Get network usage metrics."""
-        net_io = psutil.net_io_counters()
-        net_if = psutil.net_if_addrs()
-        net_stats = psutil.net_if_stats()
+        """Get network usage metrics.
+
+        Probe honesty (plan 75 §A3): mirrors the disk I/O block — when
+        net_io_counters/net_if_* fail or return nothing, the corresponding
+        section is None/empty rather than raising (which would kill the whole
+        live metrics broadcast) or fabricating zeros.
+        """
+        try:
+            net_io = psutil.net_io_counters()
+            if net_io is not None:
+                io_stats = {
+                    'bytes_sent': net_io.bytes_sent,
+                    'bytes_recv': net_io.bytes_recv,
+                    'packets_sent': net_io.packets_sent,
+                    'packets_recv': net_io.packets_recv,
+                    'bytes_sent_human': cls.get_size(net_io.bytes_sent),
+                    'bytes_recv_human': cls.get_size(net_io.bytes_recv),
+                }
+            else:
+                io_stats = None
+        except Exception:
+            io_stats = None
+
+        try:
+            net_if = psutil.net_if_addrs()
+        except Exception:
+            net_if = {}
+        try:
+            net_stats = psutil.net_if_stats()
+        except Exception:
+            net_stats = {}
 
         interfaces = []
         for name, addrs in net_if.items():
             stats = net_stats.get(name)
             interface = {
                 'name': name,
-                'is_up': stats.isup if stats else False,
-                'speed': stats.speed if stats else 0,
+                # None = could not determine; False/0 would assert "down"/"0 Mbps"
+                'is_up': stats.isup if stats else None,
+                'speed': stats.speed if stats else None,
                 'addresses': []
             }
             for addr in addrs:
@@ -135,27 +165,14 @@ class SystemService:
                 })
             interfaces.append(interface)
 
-        # Wrap I/O stats in 'io' object for frontend compatibility
-        io_stats = {
-            'bytes_sent': net_io.bytes_sent,
-            'bytes_recv': net_io.bytes_recv,
-            'packets_sent': net_io.packets_sent,
-            'packets_recv': net_io.packets_recv,
-            'bytes_sent_human': cls.get_size(net_io.bytes_sent),
-            'bytes_recv_human': cls.get_size(net_io.bytes_recv),
-        }
-
-        return {
+        result = {
             'io': io_stats,
-            # Keep flat values for backwards compatibility
-            'bytes_sent': net_io.bytes_sent,
-            'bytes_recv': net_io.bytes_recv,
-            'packets_sent': net_io.packets_sent,
-            'packets_recv': net_io.packets_recv,
-            'bytes_sent_human': cls.get_size(net_io.bytes_sent),
-            'bytes_recv_human': cls.get_size(net_io.bytes_recv),
             'interfaces': interfaces
         }
+        if io_stats is not None:
+            # Keep flat values for backwards compatibility
+            result.update(io_stats)
+        return result
 
     @classmethod
     def get_load_average(cls):
@@ -168,8 +185,9 @@ class SystemService:
                 '15min': round(load[2], 2)
             }
         except (AttributeError, OSError):
-            # Windows doesn't support getloadavg
-            return {'1min': 0, '5min': 0, '15min': 0}
+            # Windows doesn't support getloadavg — None = not determined,
+            # never a fake zero load.
+            return {'1min': None, '5min': None, '15min': None}
 
     @classmethod
     def get_system_info(cls):
@@ -438,14 +456,26 @@ class SystemService:
 
     @classmethod
     def get_all_metrics(cls):
-        """Get all system metrics at once."""
-        return {
-            'cpu': cls.get_cpu_metrics(),
-            'memory': cls.get_memory_metrics(),
-            'disk': cls.get_disk_metrics(),
-            'network': cls.get_network_metrics(),
-            'load_average': cls.get_load_average(),
-            'system': cls.get_system_info(),
-            'time': cls.get_server_time(),
-            'timestamp': datetime.utcnow().isoformat()
-        }
+        """Get all system metrics at once.
+
+        Each section is collected independently: one failed probe blanks only
+        its own section (None), never the others — a single psutil failure
+        must not freeze every chart.
+        """
+        sections = (
+            ('cpu', cls.get_cpu_metrics),
+            ('memory', cls.get_memory_metrics),
+            ('disk', cls.get_disk_metrics),
+            ('network', cls.get_network_metrics),
+            ('load_average', cls.get_load_average),
+            ('system', cls.get_system_info),
+            ('time', cls.get_server_time),
+        )
+        metrics = {}
+        for key, collector in sections:
+            try:
+                metrics[key] = collector()
+            except Exception:
+                metrics[key] = None
+        metrics['timestamp'] = datetime.utcnow().isoformat()
+        return metrics

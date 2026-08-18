@@ -121,13 +121,14 @@ class MetricsHistoryService:
         # Convert to list of dicts
         data = [r.to_dict() for r in records]
 
-        # Calculate summary
+        # Calculate summary — an empty window has no average; None, not 0
+        # (matches ServerMetricsService._calculate_summary).
         if records:
-            cpu_avg = sum(r.cpu_percent for r in records) / len(records)
-            memory_avg = sum(r.memory_percent for r in records) / len(records)
-            disk_avg = sum(r.disk_percent for r in records) / len(records)
+            cpu_avg = round(sum(r.cpu_percent for r in records) / len(records), 1)
+            memory_avg = round(sum(r.memory_percent for r in records) / len(records), 1)
+            disk_avg = round(sum(r.disk_percent for r in records) / len(records), 1)
         else:
-            cpu_avg = memory_avg = disk_avg = 0
+            cpu_avg = memory_avg = disk_avg = None
 
         return {
             'period': period,
@@ -135,9 +136,9 @@ class MetricsHistoryService:
             'points': len(data),
             'data': data,
             'summary': {
-                'cpu_avg': round(cpu_avg, 1),
-                'memory_avg': round(memory_avg, 1),
-                'disk_avg': round(disk_avg, 1)
+                'cpu_avg': cpu_avg,
+                'memory_avg': memory_avg,
+                'disk_avg': disk_avg
             }
         }
 

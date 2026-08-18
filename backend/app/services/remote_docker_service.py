@@ -371,13 +371,28 @@ class RemoteDockerService:
         # for callers that still consume them (ServerDetail MetricsTab).
         if not isinstance(flat, dict):
             return flat
-        h = cls._human_bytes
-        mem_total = flat.get('memory_total', 0) or 0
-        mem_used = flat.get('memory_used', 0) or 0
-        mem_avail = max(mem_total - mem_used, 0)
+
+        def h(value):
+            # Probe honesty (plan 75 §A3): a counter the agent could not
+            # determine stays None — never 0, which would render as a real
+            # reading — and gets no human string.
+            return cls._human_bytes(value) if value is not None else None
+
+        mem_total = flat.get('memory_total')
+        mem_used = flat.get('memory_used')
+        mem_avail = (max(mem_total - mem_used, 0)
+                     if mem_total is not None and mem_used is not None else None)
+        disk_total = flat.get('disk_total')
+        disk_used = flat.get('disk_used')
+        disk_free = (max(disk_total - disk_used, 0)
+                     if disk_total is not None and disk_used is not None else None)
+        swap_total = flat.get('swap_total')
+        swap_used = flat.get('swap_used')
+        net_tx = flat.get('network_tx')
+        net_rx = flat.get('network_rx')
         nested = {
             'cpu': {
-                'percent': flat.get('cpu_percent', 0),
+                'percent': flat.get('cpu_percent'),
                 'count_logical': len(flat.get('cpu_per_core') or []) or None,
                 'per_cpu': flat.get('cpu_per_core') or [],
             },
@@ -386,45 +401,45 @@ class RemoteDockerService:
                     'total': mem_total,
                     'used': mem_used,
                     'available': mem_avail,
-                    'cached': 0,
-                    'percent': flat.get('memory_percent', 0),
+                    'cached': None,  # agents do not report cached memory
+                    'percent': flat.get('memory_percent'),
                     'total_human': h(mem_total),
                     'used_human': h(mem_used),
                     'available_human': h(mem_avail),
-                    'cached_human': h(0),
+                    'cached_human': None,
                 },
                 'swap': {
-                    'total': flat.get('swap_total', 0),
-                    'used': flat.get('swap_used', 0),
-                    'percent': flat.get('swap_percent', 0),
-                    'total_human': h(flat.get('swap_total', 0)),
-                    'used_human': h(flat.get('swap_used', 0)),
+                    'total': swap_total,
+                    'used': swap_used,
+                    'percent': flat.get('swap_percent'),
+                    'total_human': h(swap_total),
+                    'used_human': h(swap_used),
                 },
             },
             'disk': {
                 'partitions': [{
                     'mountpoint': '/',
-                    'total': flat.get('disk_total', 0),
-                    'used': flat.get('disk_used', 0),
-                    'free': max((flat.get('disk_total', 0) or 0) - (flat.get('disk_used', 0) or 0), 0),
-                    'percent': flat.get('disk_percent', 0),
-                    'total_human': h(flat.get('disk_total', 0)),
-                    'used_human': h(flat.get('disk_used', 0)),
-                    'free_human': h(max((flat.get('disk_total', 0) or 0) - (flat.get('disk_used', 0) or 0), 0)),
+                    'total': disk_total,
+                    'used': disk_used,
+                    'free': disk_free,
+                    'percent': flat.get('disk_percent'),
+                    'total_human': h(disk_total),
+                    'used_human': h(disk_used),
+                    'free_human': h(disk_free),
                 }],
             },
             'network': {
                 'io': {
-                    'bytes_sent': flat.get('network_tx', 0),
-                    'bytes_recv': flat.get('network_rx', 0),
-                    'bytes_sent_human': h(flat.get('network_tx', 0)),
-                    'bytes_recv_human': h(flat.get('network_rx', 0)),
+                    'bytes_sent': net_tx,
+                    'bytes_recv': net_rx,
+                    'bytes_sent_human': h(net_tx),
+                    'bytes_recv_human': h(net_rx),
                 },
             },
             'load_average': {
-                '1min': flat.get('load_avg_1', 0),
-                '5min': flat.get('load_avg_5', 0),
-                '15min': flat.get('load_avg_15', 0),
+                '1min': flat.get('load_avg_1'),
+                '5min': flat.get('load_avg_5'),
+                '15min': flat.get('load_avg_15'),
             },
         }
         # Merge — flat keys preserved for legacy consumers

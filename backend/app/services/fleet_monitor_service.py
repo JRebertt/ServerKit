@@ -550,6 +550,15 @@ class FleetMonitorService:
         lines.append('# HELP serverkit_server_up Server online status')
         lines.append('# TYPE serverkit_server_up gauge')
         for server in servers:
+            # Honesty rule (plan 75 §A4): the up-series is exported only for
+            # servers whose connectivity was actually determined. A server
+            # that was never probed — status pending/connecting, or never
+            # seen (last_seen NULL) — emits NO series: exporting 0 would page
+            # external alertmanagers on a box we never checked. 0 is kept
+            # only for determined-not-online states (offline, error,
+            # maintenance).
+            if server.status in ('pending', 'connecting') or server.last_seen is None:
+                continue
             val = 1 if server.status == 'online' else 0
             safe_name = server.name.replace('"', '\\"')
             lines.append(

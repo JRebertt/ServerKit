@@ -49,14 +49,18 @@ class MetricsHistory(db.Model):
     )
 
     def to_dict(self):
-        """Convert to dictionary for API response."""
+        """Convert to dictionary for API response.
+
+        `is not None` everywhere — a real 0.0 reading (idle CPU, zero load)
+        must not collapse to "no data".
+        """
         return {
             'timestamp': self.timestamp.isoformat() + 'Z',
             'level': self.level,
             'cpu': {
                 'percent': round(self.cpu_percent, 1),
-                'min': round(self.cpu_percent_min, 1) if self.cpu_percent_min else None,
-                'max': round(self.cpu_percent_max, 1) if self.cpu_percent_max else None
+                'min': round(self.cpu_percent_min, 1) if self.cpu_percent_min is not None else None,
+                'max': round(self.cpu_percent_max, 1) if self.cpu_percent_max is not None else None
             },
             'memory': {
                 'percent': round(self.memory_percent, 1),
@@ -73,9 +77,9 @@ class MetricsHistory(db.Model):
                 'total_gb': round(self.disk_total_bytes / (1024**3), 2)
             },
             'load': {
-                '1m': round(self.load_1m, 2) if self.load_1m else None,
-                '5m': round(self.load_5m, 2) if self.load_5m else None,
-                '15m': round(self.load_15m, 2) if self.load_15m else None
+                '1m': round(self.load_1m, 2) if self.load_1m is not None else None,
+                '5m': round(self.load_5m, 2) if self.load_5m is not None else None,
+                '15m': round(self.load_15m, 2) if self.load_15m is not None else None
             },
             'sample_count': self.sample_count
         }

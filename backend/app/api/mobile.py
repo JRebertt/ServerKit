@@ -71,8 +71,11 @@ def execute_quick_action(action_id):
     data = request.get_json() or {}
 
     if action_id == 'view_stats':
-        from app.services.server_metrics_service import ServerMetricsService
-        metrics = ServerMetricsService.get_current_metrics()
+        # MonitoringService owns the live-metrics probe; ServerMetricsService
+        # (history rollups) has no get_current_metrics — calling it here used
+        # to raise AttributeError and 500 every time.
+        from app.services.monitoring_service import MonitoringService
+        metrics = MonitoringService.get_current_metrics()
         return jsonify({'action': 'view_stats', 'result': metrics})
 
     elif action_id == 'acknowledge_alert':
@@ -87,8 +90,8 @@ def execute_quick_action(action_id):
 def get_mobile_summary():
     """Get a compact summary for mobile dashboard."""
     try:
-        from app.services.server_metrics_service import ServerMetricsService
-        metrics = ServerMetricsService.get_current_metrics()
+        from app.services.monitoring_service import MonitoringService
+        metrics = MonitoringService.get_current_metrics()
     except Exception:
         metrics = {}
 
@@ -98,11 +101,13 @@ def get_mobile_summary():
     server_count = Server.query.count()
     active_alerts = SecurityAlert.query.filter_by(resolved=False).count() if hasattr(SecurityAlert, 'resolved') else 0
 
+    # MonitoringService returns nested sections; a section that could not be
+    # probed surfaces as None, never 0 (0 would read as a real measurement).
     return jsonify({
         'metrics': {
-            'cpu': metrics.get('cpu_percent', 0),
-            'memory': metrics.get('memory_percent', 0),
-            'disk': metrics.get('disk_percent', 0),
+            'cpu': (metrics.get('cpu') or {}).get('percent'),
+            'memory': (metrics.get('memory') or {}).get('percent'),
+            'disk': (metrics.get('disk') or {}).get('percent'),
         },
         'servers': server_count,
         'active_alerts': active_alerts,
