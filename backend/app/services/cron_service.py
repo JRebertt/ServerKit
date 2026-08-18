@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import json
 
-from app.utils.system import unit_is_active
+from app.utils.system import run_checked, unit_is_active
 
 # Path for storing job metadata
 JOBS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'cron_jobs.json')
@@ -77,6 +77,37 @@ class CronService:
     def is_linux(cls) -> bool:
         """Check if running on Linux."""
         return platform.system() == 'Linux'
+
+    # ── the crontab door (plan 75 §G1) ────────────────────────────────────
+    # `crontab -l` followed by a Popen-with-stdin `crontab -` was written out
+    # five times in this file, each with its own capture_output/text/timeout
+    # boilerplate and its own error wording. Two helpers, one run_checked.
+
+    @classmethod
+    def _read_crontab(cls) -> Optional[str]:
+        """The current user's crontab, or ``None`` if it could not be read.
+
+        ``None`` is "could not read", never "empty crontab" (§A). An empty
+        crontab is ``''`` and ``crontab -l`` exits non-zero for it on some
+        implementations, so callers that install a replacement treat a failed
+        read as "start from nothing" only where that was already the behaviour.
+        """
+        result = run_checked(['crontab', '-l'], timeout=10)
+        return result['output'] if result['success'] else None
+
+    @classmethod
+    def _install_crontab(cls, content: str) -> Optional[Dict]:
+        """Install *content* as the crontab. ``None`` on success, error dict on failure.
+
+        The five copies of this all built a Popen by hand purely to put the new
+        crontab on stdin; ``run_checked(..., input=...)`` is the same thing
+        without the five chances to forget a timeout.
+        """
+        result = run_checked(['crontab', '-'], input=content, timeout=10)
+        if result['success']:
+            return None
+        return {'success': False,
+                'error': result['error'] or 'Failed to install crontab'}
 
     @classmethod
     def get_status(cls) -> Dict:
@@ -304,37 +335,16 @@ class CronService:
         metadata = cls._load_jobs_metadata()
 
         if cls.is_linux():
-            try:
-                # Get current crontab
-                result = subprocess.run(
-                    ['crontab', '-l'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+            current_crontab = cls._read_crontab() or ''
 
-                current_crontab = result.stdout if result.returncode == 0 else ''
+            # Add comment and new job
+            comment = f"# ServerKit Job: {name or job_id}"
+            new_line = f"{schedule} {command}"
+            new_crontab = f"{current_crontab.rstrip()}\n{comment}\n{new_line}\n"
 
-                # Add comment and new job
-                comment = f"# ServerKit Job: {name or job_id}"
-                new_line = f"{schedule} {command}"
-                new_crontab = f"{current_crontab.rstrip()}\n{comment}\n{new_line}\n"
-
-                # Install new crontab
-                process = subprocess.Popen(
-                    ['crontab', '-'],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                stdout, stderr = process.communicate(input=new_crontab, timeout=10)
-
-                if process.returncode != 0:
-                    return {'success': False, 'error': stderr or 'Failed to install crontab'}
-
-            except subprocess.SubprocessError as e:
-                return {'success': False, 'error': str(e)}
+            failure = cls._install_crontab(new_crontab)
+            if failure:
+                return failure
 
         # Save metadata
         metadata['jobs'][job_id] = {
@@ -368,51 +378,29 @@ class CronService:
         job_data = metadata.get('jobs', {}).get(job_id)
 
         if cls.is_linux() and job_data:
-            try:
-                # Get current crontab
-                result = subprocess.run(
-                    ['crontab', '-l'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+            current = cls._read_crontab()
+            if current is not None:
+                lines = current.split('\n')
+                command = job_data.get('command', '')
+                schedule = job_data.get('schedule', '')
 
-                if result.returncode == 0:
-                    lines = result.stdout.split('\n')
-                    command = job_data.get('command', '')
-                    schedule = job_data.get('schedule', '')
+                # Filter out the job and its comment
+                new_lines = []
+                skip_next = False
+                for line in lines:
+                    if skip_next:
+                        skip_next = False
+                        continue
+                    if f"# ServerKit Job:" in line and job_id in line:
+                        skip_next = True
+                        continue
+                    if command and schedule and f"{schedule} {command}" in line:
+                        continue
+                    new_lines.append(line)
 
-                    # Filter out the job and its comment
-                    new_lines = []
-                    skip_next = False
-                    for line in lines:
-                        if skip_next:
-                            skip_next = False
-                            continue
-                        if f"# ServerKit Job:" in line and job_id in line:
-                            skip_next = True
-                            continue
-                        if command and schedule and f"{schedule} {command}" in line:
-                            continue
-                        new_lines.append(line)
-
-                    new_crontab = '\n'.join(new_lines)
-
-                    # Install updated crontab
-                    process = subprocess.Popen(
-                        ['crontab', '-'],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-                    stdout, stderr = process.communicate(input=new_crontab, timeout=10)
-
-                    if process.returncode != 0:
-                        return {'success': False, 'error': stderr or 'Failed to update crontab'}
-
-            except subprocess.SubprocessError as e:
-                return {'success': False, 'error': str(e)}
+                failure = cls._install_crontab('\n'.join(new_lines))
+                if failure:
+                    return failure
 
         # Remove from metadata
         if job_id in metadata.get('jobs', {}):
@@ -432,51 +420,31 @@ class CronService:
         job_data = metadata['jobs'][job_id]
 
         if cls.is_linux():
-            try:
-                result = subprocess.run(
-                    ['crontab', '-l'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+            current = cls._read_crontab()
+            if current is not None:
+                lines = current.split('\n')
+                command = job_data.get('command', '')
+                schedule = job_data.get('schedule', '')
+                job_line = f"{schedule} {command}"
 
-                if result.returncode == 0:
-                    lines = result.stdout.split('\n')
-                    command = job_data.get('command', '')
-                    schedule = job_data.get('schedule', '')
-                    job_line = f"{schedule} {command}"
-
-                    new_lines = []
-                    for line in lines:
-                        if job_line in line:
-                            if enabled:
-                                # Remove leading # if present
-                                new_lines.append(line.lstrip('# '))
-                            else:
-                                # Add # to comment out
-                                if not line.startswith('#'):
-                                    new_lines.append(f"# {line}")
-                                else:
-                                    new_lines.append(line)
+                new_lines = []
+                for line in lines:
+                    if job_line in line:
+                        if enabled:
+                            # Remove leading # if present
+                            new_lines.append(line.lstrip('# '))
                         else:
-                            new_lines.append(line)
+                            # Add # to comment out
+                            if not line.startswith('#'):
+                                new_lines.append(f"# {line}")
+                            else:
+                                new_lines.append(line)
+                    else:
+                        new_lines.append(line)
 
-                    new_crontab = '\n'.join(new_lines)
-
-                    process = subprocess.Popen(
-                        ['crontab', '-'],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-                    stdout, stderr = process.communicate(input=new_crontab, timeout=10)
-
-                    if process.returncode != 0:
-                        return {'success': False, 'error': stderr}
-
-            except subprocess.SubprocessError as e:
-                return {'success': False, 'error': str(e)}
+                failure = cls._install_crontab('\n'.join(new_lines))
+                if failure:
+                    return failure
 
         # Update metadata
         metadata['jobs'][job_id]['enabled'] = enabled
@@ -571,41 +539,22 @@ class CronService:
 
         # Update crontab on Linux if schedule or command changed
         if cls.is_linux() and (new_schedule != old_schedule or new_command != old_command):
-            try:
-                result = subprocess.run(
-                    ['crontab', '-l'],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+            current = cls._read_crontab()
+            if current is not None:
+                tracked = bool(job_data.get('tracked', False))
+                old_line = f"{old_schedule} {cls._crontab_command(old_command, tracked, job_id)}"
+                new_line = f"{new_schedule} {cls._crontab_command(new_command, tracked, job_id)}"
+                lines = current.split('\n')
+                new_lines = []
+                for line in lines:
+                    if old_line in line:
+                        new_lines.append(new_line)
+                    else:
+                        new_lines.append(line)
 
-                if result.returncode == 0:
-                    tracked = bool(job_data.get('tracked', False))
-                    old_line = f"{old_schedule} {cls._crontab_command(old_command, tracked, job_id)}"
-                    new_line = f"{new_schedule} {cls._crontab_command(new_command, tracked, job_id)}"
-                    lines = result.stdout.split('\n')
-                    new_lines = []
-                    for line in lines:
-                        if old_line in line:
-                            new_lines.append(new_line)
-                        else:
-                            new_lines.append(line)
-
-                    new_crontab = '\n'.join(new_lines)
-                    process = subprocess.Popen(
-                        ['crontab', '-'],
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
-                    )
-                    stdout, stderr = process.communicate(input=new_crontab, timeout=10)
-
-                    if process.returncode != 0:
-                        return {'success': False, 'error': stderr or 'Failed to update crontab'}
-
-            except subprocess.SubprocessError as e:
-                return {'success': False, 'error': str(e)}
+                failure = cls._install_crontab('\n'.join(new_lines))
+                if failure:
+                    return failure
 
         # Update metadata
         if name is not None:
@@ -759,32 +708,12 @@ class CronService:
     def _replace_crontab_line(cls, old_line: str, new_line: str) -> Optional[Dict]:
         """Swap one line in the current user's crontab. Returns None on success
         or an error dict. Linux-only (callers guard with is_linux)."""
-        try:
-            result = subprocess.run(
-                ['crontab', '-l'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return None
-            lines = result.stdout.split('\n')
-            new_lines = [new_line if line == old_line else line for line in lines]
-            new_crontab = '\n'.join(new_lines)
-
-            process = subprocess.Popen(
-                ['crontab', '-'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            _, stderr = process.communicate(input=new_crontab, timeout=10)
-            if process.returncode != 0:
-                return {'success': False, 'error': stderr or 'Failed to update crontab'}
-        except subprocess.SubprocessError as e:
-            return {'success': False, 'error': str(e)}
-        return None
+        current = cls._read_crontab()
+        if current is None:
+            return None
+        lines = current.split('\n')
+        new_lines = [new_line if line == old_line else line for line in lines]
+        return cls._install_crontab('\n'.join(new_lines))
 
     # ------------------------------------------------------------------ #
     # Application attribution (member-facing surface)

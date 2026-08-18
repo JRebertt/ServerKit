@@ -43,6 +43,7 @@ PackageManager = _module.PackageManager
 ServiceControl = _module.ServiceControl
 write_privileged_file = _module.write_privileged_file
 unit_is_active = _module.unit_is_active
+run_checked = _module.run_checked
 
 
 # ---------------------------------------------------------------------------
@@ -606,3 +607,121 @@ class TestUnitIsActive:
         mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='active', stderr='')
         unit_is_active('nginx')
         assert mock_run.call_args[0][0] == ['systemctl', 'is-active', 'nginx']
+
+
+# ---------------------------------------------------------------------------
+# run_checked
+# ---------------------------------------------------------------------------
+class TestRunChecked:
+    """The result-shaped door (plan 75 §G1).
+
+    Around the raw subprocess calls it replaces sit 220 copies of
+    capture_output/text, 56 hand-rolled TimeoutExpired handlers, 19
+    FileNotFoundError handlers, and 1,164 literal error dicts. Each is a place
+    an exec failure can become a false fact; the properties that stop that are
+    asserted once, here.
+    """
+
+    @patch('app.utils.system.subprocess.run')
+    def test_success_shape(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='hi\n', stderr='')
+        assert run_checked(['echo', 'hi']) == {
+            'success': True, 'output': 'hi\n', 'error': None, 'returncode': 0}
+
+    @patch('app.utils.system.subprocess.run')
+    def test_capture_and_text_are_applied_for_the_caller(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['echo'])
+        assert mock_run.call_args[1]['capture_output'] is True
+        assert mock_run.call_args[1]['text'] is True
+
+    @patch('app.utils.system.subprocess.run')
+    def test_nonzero_exit_carries_stderr_and_the_code(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 2, stdout='', stderr='nope\n')
+        result = run_checked(['false'])
+        assert result['success'] is False
+        assert result['error'] == 'nope'
+        assert result['returncode'] == 2
+
+    @patch('app.utils.system.subprocess.run')
+    def test_nonzero_exit_with_silent_stderr_still_explains_itself(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 3, stdout='', stderr='')
+        assert '3' in run_checked(['false'])['error']
+
+    # ---- the distinction the hand-rolled handlers keep losing --------------
+    # patch.object on _module, not @patch('app.utils.system.resolve_command'):
+    # this file loads system.py under its own spec, so the string path can
+    # resolve to a DIFFERENT module object than the one run_checked closes
+    # over, depending on what imported `app` earlier in the session. `shutil`
+    # is a singleton so patching through it is identity-safe; a module-level
+    # function of system.py is not.
+    @patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError('no ufw'))
+    @patch('app.utils.system.shutil.which', return_value=None)
+    @patch.object(_module, 'resolve_command', return_value=None)
+    def test_missing_command_has_no_returncode(self, _resolve, _which, _run):
+        """Exit 1 means the command answered "no"; no exit code at all means
+        nobody answered. A caller rendering "not installed" must be able to
+        tell those apart — plan 74's outage in one assertion."""
+        result = run_checked(['ufw', 'status'])
+        assert result['success'] is False
+        assert result['returncode'] is None
+        assert 'ufw' in result['error']
+
+    @patch('app.utils.system.subprocess.run',
+           side_effect=subprocess.TimeoutExpired('sleep', 60))
+    def test_timeout_has_no_returncode_and_names_the_limit(self, _run):
+        result = run_checked(['sleep', '999'], timeout=60)
+        assert result['returncode'] is None
+        assert 'timed out' in result['error'] and '60' in result['error']
+
+    @patch('app.utils.system.subprocess.run', side_effect=PermissionError('denied'))
+    def test_permission_error_is_reported_not_raised(self, _run):
+        result = run_checked(['/root/thing'])
+        assert result['success'] is False and result['returncode'] is None
+        assert 'permission denied' in result['error']
+
+    @patch('app.utils.system.subprocess.run')
+    def test_a_timeout_is_applied_by_default(self, mock_run):
+        """No timeout + captured output = a wedged request, silently, forever."""
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['echo'])
+        assert mock_run.call_args[1]['timeout'] == 60
+
+    @patch('app.utils.system.subprocess.run')
+    def test_timeout_none_is_honoured_when_asked_for(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['echo'], timeout=None)
+        assert mock_run.call_args[1]['timeout'] is None
+
+    # ---- privilege + PATH, decided in one place ---------------------------
+    @patch('app.utils.system.os.name', 'posix')
+    @patch('app.utils.system.shutil.which', return_value='/usr/bin/sudo')
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.os.geteuid', return_value=1000, create=True)
+    def test_privileged_goes_through_run_privileged(self, _euid, mock_run, *_):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['systemctl', 'restart', 'nginx'], privileged=True)
+        assert mock_run.call_args[0][0][:2] == ['sudo', '-n']
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.shutil.which', return_value=None)
+    @patch.object(_module, 'resolve_command', return_value='/usr/sbin/nginx')
+    def test_unprivileged_still_resolves_an_sbin_binary(self, _resolve, _which, mock_run):
+        """The sbin outage does not become survivable only when you ask for
+        root — an unprivileged `nginx -t` needs the same resolution."""
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['nginx', '-t'])
+        assert mock_run.call_args[0][0] == ['/usr/sbin/nginx', '-t']
+
+    @patch('app.utils.system.subprocess.run')
+    @patch('app.utils.system.shutil.which', return_value='/usr/bin/git')
+    def test_a_command_on_path_is_left_alone(self, _which, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['git', 'status'])
+        assert mock_run.call_args[0][0] == ['git', 'status']
+
+    @patch('app.utils.system.subprocess.run')
+    def test_input_is_forwarded(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        run_checked(['crontab', '-'], input='* * * * * true\n')
+        assert mock_run.call_args[1]['input'] == '* * * * * true\n'

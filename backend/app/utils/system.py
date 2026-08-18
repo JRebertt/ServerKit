@@ -144,6 +144,86 @@ def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
     }
 
 
+def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
+                timeout: Optional[int] = 60, input: Optional[str] = None,
+                cwd: Optional[str] = None, env: Optional[dict] = None,
+                **kwargs) -> dict:
+    """Run a command and get a result, not a ``CompletedProcess`` (plan 75 §G1).
+
+    The result-shaped door. Around ``backend/app``'s raw ``subprocess`` calls
+    sit 220 copies of ``capture_output=True, text=True``, 56 hand-rolled
+    ``except subprocess.TimeoutExpired`` handlers, 19 hand-rolled
+    ``except FileNotFoundError`` handlers, and 1,164 literal
+    ``{'success': False, 'error': ...}`` constructions. Each of those is a
+    place where an exec failure can be — and per plan 74 has been — converted
+    into a false fact about the operator's server.
+
+    Returns::
+
+        {'success': bool, 'output': str, 'error': str|None, 'returncode': int|None}
+
+    ``returncode`` is ``None`` when the command never ran, which is the
+    distinction the hand-rolled handlers keep losing: exit code 1 means the
+    command answered "no", while no exit code at all means nobody answered.
+    A caller that renders "not installed" must check ``returncode is not None``
+    first, and now it can.
+
+    ``privileged=True`` routes through :func:`run_privileged` — same sudo-vs-root
+    decision, same argv[0] resolution, so no caller re-implements either.
+
+    ``timeout`` defaults to 60s rather than ``None`` on purpose: with output
+    captured and no terminal, a command that never returns takes its caller
+    with it, silently and forever. Pass ``timeout=None`` to opt out
+    deliberately.
+    """
+    if input is not None:
+        kwargs['input'] = input
+    if cwd is not None:
+        kwargs['cwd'] = cwd
+    if env is not None:
+        kwargs['env'] = env
+    kwargs.setdefault('capture_output', True)
+    kwargs.setdefault('text', True)
+
+    try:
+        if privileged:
+            result = run_privileged(cmd, timeout=timeout, **kwargs)
+        else:
+            resolved = cmd
+            if isinstance(cmd, (list, tuple)):
+                resolved = list(cmd)
+                if (resolved and not os.path.isabs(resolved[0])
+                        and not shutil.which(resolved[0])):
+                    # Same argv[0] resolution privileged_cmd does: a bare name
+                    # that $PATH cannot find is the sbin outage, not a missing
+                    # binary. Only applied when $PATH genuinely misses it.
+                    absolute = resolve_command(resolved[0])
+                    if absolute:
+                        resolved[0] = absolute
+            result = subprocess.run(resolved, timeout=timeout, **kwargs)
+    except FileNotFoundError as exc:
+        name = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else cmd
+        return {'success': False, 'output': '', 'returncode': None,
+                'error': f'{name} not found: {exc}'}
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'output': '', 'returncode': None,
+                'error': f'timed out after {timeout}s'}
+    except PermissionError as exc:
+        return {'success': False, 'output': '', 'returncode': None,
+                'error': f'permission denied: {exc}'}
+    except OSError as exc:
+        return {'success': False, 'output': '', 'returncode': None,
+                'error': str(exc)}
+
+    return {
+        'success': result.returncode == 0,
+        'output': result.stdout or '',
+        'returncode': result.returncode,
+        'error': ((result.stderr or '').strip() or f'command failed (exit {result.returncode})')
+                 if result.returncode != 0 else None,
+    }
+
+
 def write_privileged_file(path: str, content: str, *, append: bool = False,
                           mode: Optional[str] = None,
                           owner: Optional[str] = None) -> dict:
