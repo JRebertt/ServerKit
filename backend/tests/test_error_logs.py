@@ -253,3 +253,44 @@ def test_500_handler_does_not_commit_the_crashed_request_work(client, app):
     # ...but the crash itself was still recorded.
     assert ErrorLog.query.filter_by(
         endpoint='/api/v1/__test_partial_write').count() == 1
+
+
+# --------------------------------------------------------------------------- #
+# Client ingestion: attribution
+# --------------------------------------------------------------------------- #
+
+def test_client_report_is_attributed_when_a_token_is_sent(client, auth_headers):
+    """The frontend attaches Authorization so the row is not anonymous.
+
+    ErrorLog.user_id, to_dict()['username'] and the "User #N" row in
+    pages/Errors.jsx were dead end-to-end while reportClientError sent no
+    header: every frontend row was anonymous no matter who was logged in.
+    """
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'boom in the browser'},
+                      headers=auth_headers)
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is not None
+    assert entry.to_dict()['username'] == 'testadmin'
+
+
+def test_client_report_without_a_token_is_anonymous_not_rejected(client):
+    """Reporting must still work with no session -- that is when crashes happen."""
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'anonymous browser crash'})
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is None
+
+
+def test_client_report_with_a_junk_token_is_anonymous_not_a_500(client):
+    """verify_jwt_in_request(optional=True) tolerates a MISSING token only --
+    a malformed or expired one raises, and the route's except is what turns
+    that into an anonymous report instead of a crash."""
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'stale session crash'},
+                      headers={'Authorization': 'Bearer not.a.jwt'})
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is None
