@@ -3,7 +3,8 @@
 import pytest
 
 from app.api._query import (
-    QueryParseError, apply_query, parse_filter, parse_orderby, parse_select,
+    ListQuery, QueryParseError, apply_query, parse_filter, parse_orderby,
+    parse_select,
 )
 from app.models import Application
 
@@ -128,6 +129,30 @@ def test_select_rejects_underived_unknown_field(app):
 
 # ------------------------------------------------------------- apply_query
 
+def test_list_query_parses_and_caps_paging():
+    parsed = ListQuery.from_args({
+        '$select': 'id,name',
+        '$filter': "name eq 'demo'",
+        '$orderby': 'name desc',
+        '$skip': '4',
+        '$top': '99999',
+    })
+
+    assert parsed == ListQuery(
+        select='id,name',
+        filter="name eq 'demo'",
+        orderby='name desc',
+        skip=4,
+        top=500,
+    )
+
+
+def test_list_query_rejects_invalid_paging_before_touching_orm():
+    with pytest.raises(QueryParseError):
+        ListQuery.from_args({'$top': 'many'})
+    with pytest.raises(QueryParseError):
+        ListQuery.from_args({'$skip': '-1'})
+
 def test_apply_query_is_a_noop_without_params(app):
     """Adoption must not change any existing caller's response."""
     with app.app_context():
@@ -157,6 +182,18 @@ def test_apply_query_counts_before_paging(app):
         result = apply_query(Application.query, Application, FakeRequest(**{'$top': '1'}))
         assert result.total is not None
         assert result.top == 1
+
+
+def test_apply_query_accepts_typed_query_without_flask_request(app):
+    with app.app_context():
+        result = apply_query(
+            Application.query,
+            Application,
+            ListQuery(orderby='name desc', top=1),
+        )
+
+        assert result.top == 1
+        assert result.total is not None
 
 
 # ------------------------------------------------- to_dict field narrowing
