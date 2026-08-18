@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app.middleware.rbac import admin_required
 from app.services.security_service import SecurityService
+from app.services.image_scanner_service import ImageScannerService
 from app.services.malware_scan_service import MalwareScanService
 from app.services.yara_scan_service import YaraScanService
 
@@ -13,6 +14,8 @@ security_bp = Blueprint('security', __name__)
 # imported by create_app); registration is idempotent and also re-asserted on
 # every enqueue.
 MalwareScanService.register_jobs()
+ImageScannerService.register_jobs()
+SecurityService.register_jobs()
 
 
 # ==========================================
@@ -527,7 +530,6 @@ def disable_auto_updates():
 @admin_required
 def install_image_scanner():
     """Install grype and syft scanner binaries."""
-    from app.services.image_scanner_service import ImageScannerService
     grype = ImageScannerService.install_grype()
     syft = ImageScannerService.install_syft()
     return jsonify({'grype': grype, 'syft': syft}), 200
@@ -537,7 +539,6 @@ def install_image_scanner():
 @admin_required
 def scan_application_image(application_id):
     """Trigger a CVE scan for an application image."""
-    from app.services.image_scanner_service import ImageScannerService
     result = ImageScannerService.scan_application(application_id)
     return jsonify(result), 200 if result['success'] else 400
 
@@ -546,7 +547,6 @@ def scan_application_image(application_id):
 @admin_required
 def get_application_image_scans(application_id):
     """Get scan history for an application."""
-    from app.services.image_scanner_service import ImageScannerService
     limit = request.args.get('limit', 20, type=int)
     scans = ImageScannerService.scan_history(application_id, limit=limit)
     latest = ImageScannerService.latest_scan(application_id)

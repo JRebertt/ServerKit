@@ -28,6 +28,8 @@ from app.utils.system import (
     run_privileged,
 )
 
+LYNIS_SCAN_JOB_KIND = 'security.lynis_scan'
+
 
 class SecurityService:
     """Service for security scanning and monitoring."""
@@ -1546,12 +1548,18 @@ class SecurityService:
             return {'success': False, 'error': str(e)}
 
     _lynis_scan = None
-    _lynis_thread = None
 
     @classmethod
     def run_lynis_scan(cls) -> Dict:
-        """Run a Lynis security audit scan."""
-        if cls._lynis_thread and cls._lynis_thread.is_alive():
+        """Queue a durable Lynis security audit scan."""
+        from app.jobs.models import Job
+        from app.jobs.service import JobService
+
+        active = Job.query.filter(
+            Job.kind == LYNIS_SCAN_JOB_KIND,
+            Job.status.in_((Job.STATUS_PENDING, Job.STATUS_RUNNING)),
+        ).order_by(Job.created_at.desc()).first()
+        if active:
             return {'success': False, 'error': 'A scan is already in progress'}
 
         status = cls.get_lynis_status()
@@ -1567,14 +1575,45 @@ class SecurityService:
             'hardening_index': None
         }
 
-        cls._lynis_thread = threading.Thread(target=cls._run_lynis_scan_thread, daemon=True)
-        cls._lynis_thread.start()
+        cls.register_jobs()
+        job = JobService.enqueue(
+            LYNIS_SCAN_JOB_KIND,
+            payload={},
+            owner_type='system',
+            owner_id='host',
+        )
+        cls._lynis_scan['job_id'] = job.id
+        cls._lynis_scan['kind'] = job.kind
 
-        return {'success': True, 'message': 'Lynis scan started'}
+        return {
+            'success': True,
+            'message': 'Lynis scan started',
+            'job_id': job.id,
+            'kind': job.kind,
+            'status': 'running',
+        }
 
     @classmethod
-    def _run_lynis_scan_thread(cls) -> None:
-        """Execute Lynis scan in background thread."""
+    def run_lynis_scan_job(cls, job) -> Dict:
+        """Unified-job handler for a Lynis audit."""
+        cls._lynis_scan = {
+            'status': 'running',
+            'started_at': datetime.now().isoformat(),
+            'output': '',
+            'warnings': [],
+            'suggestions': [],
+            'hardening_index': None,
+            'job_id': job.id,
+            'kind': job.kind,
+        }
+        result = cls._execute_lynis_scan()
+        if result['status'] != 'completed':
+            raise RuntimeError(result.get('error') or f"Lynis scan {result['status']}")
+        return result
+
+    @classmethod
+    def _execute_lynis_scan(cls) -> Dict:
+        """Execute Lynis and update the compatibility status snapshot."""
         try:
             result = subprocess.run(
                 ['lynis', 'audit', 'system', '--quick', '--no-colors'],
@@ -1605,13 +1644,40 @@ class SecurityService:
         except Exception as e:
             cls._lynis_scan['status'] = 'error'
             cls._lynis_scan['error'] = str(e)
+        return cls._lynis_scan.copy()
 
     @classmethod
     def get_lynis_scan_status(cls) -> Dict:
-        """Get current Lynis scan status."""
-        if cls._lynis_scan is None:
+        """Get current Lynis status, backed by the latest persisted job."""
+        from app.jobs.models import Job
+
+        job = (Job.query.filter_by(kind=LYNIS_SCAN_JOB_KIND)
+               .order_by(Job.created_at.desc()).first())
+        if job is None and cls._lynis_scan is None:
             return {'status': 'idle', 'message': 'No scan in progress'}
-        return cls._lynis_scan.copy()
+
+        status = cls._lynis_scan.copy() if cls._lynis_scan else {}
+        if job:
+            status.update({'job_id': job.id, 'kind': job.kind,
+                           'job_status': job.status})
+            if job.status == Job.STATUS_SUCCEEDED and job.get_result():
+                status.update(job.get_result())
+            elif job.status in (Job.STATUS_PENDING, Job.STATUS_RUNNING):
+                status['status'] = 'running'
+                status.setdefault('started_at',
+                                  (job.started_at or job.created_at).isoformat())
+            elif job.status == Job.STATUS_FAILED:
+                status['status'] = 'error'
+                status['error'] = job.error_message or 'Lynis scan failed'
+            elif job.status == Job.STATUS_CANCELLED:
+                status['status'] = 'cancelled'
+        return status
+
+    @classmethod
+    def register_jobs(cls) -> None:
+        """Register the durable Lynis handler (safe to call repeatedly)."""
+        from app.jobs import registry
+        registry.register(LYNIS_SCAN_JOB_KIND, cls.run_lynis_scan_job, replace=True)
 
     # ==========================================
     # AUTOMATIC SECURITY UPDATES
