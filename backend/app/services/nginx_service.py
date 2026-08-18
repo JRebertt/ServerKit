@@ -424,10 +424,8 @@ location /p/ {{
 
         try:
             result = ServiceControl.restart('nginx', timeout=30)
-            return {
-                'success': result.returncode == 0,
-                'message': 'Nginx restarted successfully' if result.returncode == 0 else result.stderr
-            }
+            return ServiceControl.result_dict(
+                result, 'Nginx restarted successfully', error_key='message')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

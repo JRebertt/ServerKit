@@ -389,9 +389,8 @@ mailbox_size_limit = 0
         """Restart Postfix."""
         try:
             result = ServiceControl.restart('postfix', timeout=30)
-            if result.returncode == 0:
-                return {'success': True, 'message': 'Postfix restarted'}
-            return {'success': False, 'error': result.stderr or 'Restart failed'}
+            return ServiceControl.result_dict(result, 'Postfix restarted',
+                                              fallback='Restart failed')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

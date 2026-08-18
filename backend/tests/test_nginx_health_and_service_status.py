@@ -91,6 +91,11 @@ class TestRestartTestsConfigFirst:
                 patch('app.services.nginx_service.ServiceControl') as control:
             control.restart.return_value = subprocess.CompletedProcess(
                 [], 0, stdout='', stderr='')
+            # The whole class is mocked, so the result translation is too —
+            # give it the real one's behavior (tested in test_utils_system).
+            control.result_dict.side_effect = (
+                lambda proc, msg, **kw: {'success': proc.returncode == 0,
+                                         'message': msg})
             result = NginxService.restart()
 
         assert result['success'] is True

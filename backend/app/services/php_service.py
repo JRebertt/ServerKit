@@ -363,11 +363,8 @@ env[TEMP] = /tmp
 
         try:
             result = ServiceControl.restart(service, timeout=30)
-
-            return {
-                'success': result.returncode == 0,
-                'message': f'{service} restarted' if result.returncode == 0 else result.stderr
-            }
+            return ServiceControl.result_dict(result, f'{service} restarted',
+                                              error_key='message')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -378,11 +375,8 @@ env[TEMP] = /tmp
 
         try:
             result = ServiceControl.reload(service, timeout=30)
-
-            return {
-                'success': result.returncode == 0,
-                'message': f'{service} reloaded' if result.returncode == 0 else result.stderr
-            }
+            return ServiceControl.result_dict(result, f'{service} reloaded',
+                                              error_key='message')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

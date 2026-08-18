@@ -320,6 +320,20 @@ class ServiceControl:
         return run_privileged(['systemctl', 'daemon-reload'], **kwargs)
 
     @staticmethod
+    def result_dict(proc, ok_message, error_key='error',
+                    fallback='Operation failed'):
+        """CompletedProcess → the service-dict shape every *Service returns.
+
+        The translation was re-implemented per service with subtly divergent
+        failure shapes ('error' vs 'message' carrying stderr); keep the key
+        and fallback parametrized so converting a site is parity, not a
+        contract change (plan 75 §F5).
+        """
+        if proc.returncode == 0:
+            return {'success': True, 'message': ok_message}
+        return {'success': False, error_key: proc.stderr or fallback}
+
+    @staticmethod
     def is_active(service: str) -> bool:
         """Return ``True`` when the service is active.  No sudo needed.
 

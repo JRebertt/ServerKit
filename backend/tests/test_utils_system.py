@@ -430,3 +430,27 @@ class TestServiceControl:
     @patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError)
     def test_is_enabled_missing_systemctl(self, _run):
         assert ServiceControl.is_enabled('nginx') is False
+
+
+class TestResultDict:
+    """The one CompletedProcess -> service-dict translation (plan 75 §F5)."""
+
+    def test_success_shape(self):
+        proc = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        assert ServiceControl.result_dict(proc, 'Postfix restarted') == {
+            'success': True, 'message': 'Postfix restarted'}
+
+    def test_failure_carries_stderr_under_the_error_key_by_default(self):
+        proc = subprocess.CompletedProcess([], 1, stdout='', stderr='boom')
+        assert ServiceControl.result_dict(proc, 'ok') == {
+            'success': False, 'error': 'boom'}
+
+    def test_failure_key_is_parametrized_for_message_shaped_services(self):
+        proc = subprocess.CompletedProcess([], 1, stdout='', stderr='boom')
+        assert ServiceControl.result_dict(proc, 'ok', error_key='message') == {
+            'success': False, 'message': 'boom'}
+
+    def test_empty_stderr_uses_the_fallback(self):
+        proc = subprocess.CompletedProcess([], 1, stdout='', stderr='')
+        assert ServiceControl.result_dict(proc, 'ok', fallback='Restart failed') == {
+            'success': False, 'error': 'Restart failed'}
