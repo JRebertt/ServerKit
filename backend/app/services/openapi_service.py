@@ -1,5 +1,8 @@
 """Service for generating OpenAPI 3.0 specification."""
 import re
+
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import current_app
 
 
@@ -89,11 +92,19 @@ class OpenAPIService:
                 'schemas': {
                     'Error': {
                         'type': 'object',
+                        'required': ['error', 'status', 'code', 'request_id'],
                         'properties': {
                             'error': {
                                 'type': 'string',
                                 'description': 'Error message',
                             },
+                            'status': {'type': 'integer'},
+                            'code': {'type': 'string'},
+                            'details': {
+                                'type': 'object',
+                                'additionalProperties': True,
+                            },
+                            'request_id': {'type': 'string'},
                         },
                     },
                     'Message': {
@@ -144,6 +155,39 @@ class OpenAPIService:
         # Collect tags and paths from registered routes
         tags_seen = set()
         paths = {}
+        marshmallow_plugin = MarshmallowPlugin()
+        schema_spec = APISpec(
+            title='ServerKit endpoint schemas',
+            version='1.0.0',
+            openapi_version='3.0.3',
+            plugins=[marshmallow_plugin],
+        )
+
+        def schema_ref(schema_type):
+            """Register a Marshmallow schema once and return its OpenAPI ref."""
+            name = schema_type.__name__
+            # The Marshmallow plugin registers nested schemas recursively, so
+            # consult the component registry itself rather than a parallel set.
+            if name not in schema_spec.components.schemas:
+                schema_spec.components.schema(name, schema=schema_type)
+            generated = schema_spec.to_dict().get('components', {}).get('schemas', {})
+            spec['components']['schemas'].update(generated)
+            return {'$ref': f'#/components/schemas/{name}'}
+
+        def query_parameters(schema_type):
+            """Expand a query-object schema into ordinary OpenAPI parameters."""
+            schema_ref(schema_type)
+            document = spec['components']['schemas'][schema_type.__name__]
+            required = set(document.get('required', ()))
+            return [
+                {
+                    'name': name,
+                    'in': 'query',
+                    'required': name in required,
+                    'schema': field_schema,
+                }
+                for name, field_schema in document.get('properties', {}).items()
+            ]
 
         for rule in app.url_map.iter_rules():
             # Only include API routes
@@ -169,6 +213,7 @@ class OpenAPIService:
 
             # Get view function docstring
             view_func = app.view_functions.get(rule.endpoint)
+            contract = getattr(view_func, '__api_contract__', None)
             description = ''
             if view_func and view_func.__doc__:
                 description = view_func.__doc__.strip()
@@ -197,6 +242,18 @@ class OpenAPIService:
                     },
                 }
 
+                if contract and contract.responses:
+                    operation['responses'].pop('200', None)
+                    for status, response_contract in contract.responses.items():
+                        operation['responses'][str(status)] = {
+                            'description': response_contract.description,
+                            'content': {
+                                'application/json': {
+                                    'schema': schema_ref(response_contract.schema),
+                                },
+                            },
+                        }
+
                 # Add path parameters
                 params = re.findall(r'\{(\w+)\}', path)
                 if params:
@@ -209,8 +266,22 @@ class OpenAPIService:
                             'schema': {'type': 'integer' if param.endswith('_id') or param == 'id' else 'string'},
                         })
 
+                if contract and contract.query:
+                    operation.setdefault('parameters', []).extend(
+                        query_parameters(contract.query)
+                    )
+
                 # Add request body for POST/PUT/PATCH
-                if method in ('post', 'put', 'patch'):
+                if contract and contract.body:
+                    operation['requestBody'] = {
+                        'required': True,
+                        'content': {
+                            'application/json': {
+                                'schema': schema_ref(contract.body),
+                            },
+                        },
+                    }
+                elif method in ('post', 'put', 'patch'):
                     operation['requestBody'] = {
                         'content': {
                             'application/json': {

@@ -5,9 +5,12 @@ core entity types (services, servers, domains, databases, WordPress sites, cron
 jobs, extensions, vaults). Business logic lives in SearchService; this blueprint
 just validates the term, resolves the user, and shapes the JSON.
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from app.api.contracts import api_contract
+from app.api.responses import list_response
+from app.api.schemas.search import SearchQuerySchema, SearchResponseSchema
 from app.models.user import User
 from app.services.search_service import SearchService
 
@@ -16,13 +19,14 @@ search_bp = Blueprint('search', __name__)
 
 @search_bp.route('', methods=['GET'])
 @jwt_required()
-def search():
-    """Search entities by name. ?q=<term> (>= 2 chars). Returns {'results': [...]}."""
-    q = request.args.get('q', '').strip()
+@api_contract(query=SearchQuerySchema, responses={200: SearchResponseSchema})
+def search(query):
+    """Search entities by name. ``q`` terms shorter than two chars return none."""
+    q = query['q']
     if len(q) < 2:
-        return jsonify({'results': []}), 200
+        return list_response([], legacy_key='results')
 
     user = User.query.get(get_jwt_identity())
-    workspace = request.headers.get('X-Workspace-Id') or request.args.get('workspace_id')
+    workspace = request.headers.get('X-Workspace-Id') or query['workspace_id']
     rows = SearchService.search(user, q, workspace)
-    return jsonify({'results': rows}), 200
+    return list_response(rows, legacy_key='results')
