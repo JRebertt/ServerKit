@@ -52,24 +52,38 @@ class FirewallService:
 
         # Same separation as _check_ufw: a probe that fails must not be able to
         # unsay an `installed` that was already determined correctly.
-        running = False
+        #
+        # running is tri-state. `firewall-cmd --state` answers rc=0 + "running"
+        # when up; a non-zero rc with a dbus/not-running error means the daemon
+        # is down — a *determined* not-running (verified on Rocky 9: rc=36,
+        # DBUS_ERROR on stderr). Any other failure shape is "could not check":
+        # None, never a fabricated inactive.
+        running = None if installed else False
+        error = None
         default_zone = None
         if installed:
             try:
                 result = run_privileged(['firewall-cmd', '--state'])
-                running = 'running' in (result.stdout or '').lower()
-
+                if result.returncode == 0:
+                    running = 'running' in (result.stdout or '').lower()
+                else:
+                    evidence = ((result.stderr or '') + (result.stdout or '')).lower()
+                    if 'not running' in evidence or 'dbus' in evidence:
+                        running = False
+                    else:
+                        error = ((result.stderr or result.stdout or '')
+                                 .strip()[:200] or 'firewall-cmd --state failed')
                 if running:
                     result = run_privileged(['firewall-cmd', '--get-default-zone'])
                     default_zone = (result.stdout or '').strip()
-            except Exception:
-                running = False
-                default_zone = None
+            except Exception as e:  # noqa: BLE001
+                error = str(e)
 
         return {
             'installed': installed,
             'running': running,
-            'default_zone': default_zone
+            'default_zone': default_zone,
+            'error': error,
         }
 
     @classmethod
@@ -89,17 +103,29 @@ class FirewallService:
         except Exception:
             installed = False
 
-        active = False
+        # active is tri-state. `ufw status` answers rc=0 with "Status:
+        # active|inactive" — both determined. A non-zero rc (e.g. an
+        # unprivileged LXC, where ufw exists and is on PATH but fails on
+        # dropped CAP_NET_ADMIN) or an exception is "could not check": None,
+        # never a fabricated inactive — the shape plan 74 warned about,
+        # verified live in the §D capability-restricted container.
+        active = None if installed else False
+        error = None
         if installed:
             try:
                 result = run_privileged(['ufw', 'status'])
-                active = 'Status: active' in (result.stdout or '')
-            except Exception:
-                active = False
+                if result.returncode == 0:
+                    active = 'Status: active' in (result.stdout or '')
+                else:
+                    error = ((result.stderr or result.stdout or '')
+                             .strip()[:200] or 'ufw status failed')
+            except Exception as e:  # noqa: BLE001
+                error = str(e)
 
         return {
             'installed': installed,
-            'active': active
+            'active': active,
+            'error': error,
         }
 
     # ------------------------------------------------------------------

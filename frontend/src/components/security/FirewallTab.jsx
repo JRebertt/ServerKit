@@ -420,11 +420,11 @@ const FirewallTab = () => {
                 <>
                     <div className="firewall-header">
                         <div className="firewall-status-row">
-                            <div className={`status-indicator ${isActive ? 'active' : 'inactive'}`}>
+                            <div className={`status-indicator ${isActive == null ? 'unknown' : isActive ? 'active' : 'inactive'}`}>
                                 <span className="sec-shield">
                                     <Shield size={17} />
                                 </span>
-                                <span className="status-indicator__label">{isActive ? 'Firewall Active' : 'Firewall Inactive'}</span>
+                                <span className="status-indicator__label">{isActive == null ? 'Firewall Status Unknown' : isActive ? 'Firewall Active' : 'Firewall Inactive'}</span>
                                 <span className="firewall-type">{activeFirewall?.toUpperCase()}</span>
                             </div>
                             <div className="firewall-actions">

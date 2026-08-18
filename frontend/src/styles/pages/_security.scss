@@ -749,6 +749,11 @@
             color: var(--red);
         }
 
+        &.unknown .sec-shield {
+            background: var(--amber-bg);
+            color: var(--amber);
+        }
+
         &__label {
             font-size: 13.5px;
             font-weight: $font-weight-semibold;
