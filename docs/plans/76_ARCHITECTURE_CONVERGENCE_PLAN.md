@@ -136,6 +136,25 @@ side effect.
 Still open on milestone A: the 605 `@jwt_required()` routes that have not moved
 to `auth_required()`, and the 28 inline role checks.
 
+### Second-wave execution — milestone F3 clipboard row (2026-08-18)
+
+| Row | Baseline | Now | Commit |
+|---|---|---|---|
+| clipboard helper | 25 files / 33 raw `navigator.clipboard` sites | 0; ratchet baseline emptied | `a75f435f` |
+
+The row was scheduled as a fix for the reason the audit gave — `navigator.
+clipboard` is undefined in an insecure context and SSL is optional by policy,
+so those copy buttons did nothing on an HTTP-served panel — and the shape
+matched milestone A's exactly: **two of the bypasses were local functions named
+`copyToClipboard`**, so their call sites read as already-converged. The
+frontend boundary ratchet already carried an exact per-file baseline; it is now
+`new Map()` and documented as needing to stay empty.
+
+Note for the remaining F3 work: `.then(onOk, onErr)` chains cannot be
+mechanically repointed at the helper. `copyToClipboard` resolves `false` rather
+than rejecting, so the error callback silently stops running; four sites needed
+`.then(ok => ...)` instead.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
