@@ -157,7 +157,11 @@ def create_app(config_name=None):
         app,
         origins=cors_origins,
         supports_credentials=True,
-        allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
+        allow_headers=[
+            'Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key',
+            'X-Request-ID',
+        ],
+        expose_headers=['X-Request-ID'],
         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         # Every panel request carries an Authorization header, which makes it a
         # non-simple cross-origin request: without Access-Control-Max-Age the
@@ -167,6 +171,11 @@ def create_app(config_name=None):
         # value at 2h, Firefox at 24h, and both take the smaller of the two.
         max_age=3600,
     )
+
+    # Assign one diagnostic ID at the outer API boundary. Downstream handlers,
+    # logs and jobs can reuse g.request_id without inventing independent IDs.
+    from app.middleware.request_id import register_request_id
+    register_request_id(app)
 
     # Register security headers middleware
     from app.middleware.security import register_security_headers
@@ -891,6 +900,20 @@ def create_app(config_name=None):
             return send_from_directory(app.static_folder, 'index.html')
         return {'message': 'ServerKit API is running', 'docs': '/api/v1/'}, 200
 
+    # Expected application failures. Services raise these typed errors and the
+    # HTTP boundary owns their public shape and status-code mapping.
+    from app.exceptions import ApplicationError
+    from app.middleware.request_id import get_request_id
+
+    @app.errorhandler(ApplicationError)
+    def application_error(e):
+        request_id = get_request_id(create=True)
+        app.logger.info(
+            'Application error %s on %s %s [request_id=%s]: %s',
+            e.code, request.method, request.path, request_id, e.message,
+        )
+        return e.to_dict(request_id=request_id), e.status_code
+
     # Unhandled exceptions. Flask only routes here when it is not propagating
     # (so pytest and the dev server still re-raise with a full traceback);
     # in production this is the difference between a logged, JSON-shaped 500 and
@@ -899,8 +922,10 @@ def create_app(config_name=None):
     def internal_error(e):
         original = getattr(e, 'original_exception', None)
         exc = original or e
+        request_id = get_request_id(create=True)
         app.logger.exception(
-            'Unhandled exception on %s %s', request.method, request.path,
+            'Unhandled exception on %s %s [request_id=%s]',
+            request.method, request.path, request_id,
             exc_info=exc
         )
         # Roll the failing request's session back BEFORE recording. The 500
@@ -938,12 +963,18 @@ def create_app(config_name=None):
                 endpoint=request.path,
                 method=request.method,
                 user_id=user_id,
+                context={'request_id': request_id},
             )
         except Exception:  # noqa: BLE001
             pass
         # JSON either way: unlike a 404, there is no sensible SPA fallback for a
         # crash, and an HTML page tells the caller nothing it can act on.
-        return {'error': 'Internal server error'}, 500
+        return {
+            'error': 'Internal server error',
+            'status': 500,
+            'code': 'internal_error',
+            'request_id': request_id,
+        }, 500
 
     # Framework-generated HTTP errors (abort(), 405 from the router, 413 from
     # MAX_CONTENT_LENGTH) rendered Werkzeug's HTML page even under /api/, so an
@@ -952,10 +983,17 @@ def create_app(config_name=None):
     @app.errorhandler(HTTPException)
     def http_exception(e):
         if request.path.startswith('/api/'):
+            request_id = get_request_id(create=True)
             app.logger.warning(
-                'HTTP %s on %s %s: %s', e.code, request.method, request.path, e.description
+                'HTTP %s on %s %s [request_id=%s]: %s',
+                e.code, request.method, request.path, request_id, e.description,
             )
-            return {'error': e.description or e.name, 'status': e.code}, e.code
+            return {
+                'error': e.description or e.name,
+                'status': e.code,
+                'code': (e.name or 'http_error').lower().replace(' ', '_'),
+                'request_id': request_id,
+            }, e.code
         # Non-API paths keep Werkzeug's standard HTML error page.
         return e.get_response()
 
@@ -964,7 +1002,12 @@ def create_app(config_name=None):
     def not_found(e):
         from flask import request
         if request.path.startswith('/api/'):
-            return {'error': 'Not found'}, 404
+            return {
+                'error': 'Not found',
+                'status': 404,
+                'code': 'not_found',
+                'request_id': get_request_id(create=True),
+            }, 404
         # Serve SPA index.html if it exists, otherwise JSON 404
         index = os.path.join(app.static_folder, 'index.html') if app.static_folder else None
         if index and os.path.isfile(index):

@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from app import db
+from app.exceptions import ValidationError
 from app.models.status_page import (
     StatusComponent, HealthCheck, StatusIncident, StatusIncidentUpdate,
 )
@@ -124,23 +125,23 @@ class MonitorService:
             return
         from app.models.wordpress_site import WordPressSite
         if not WordPressSite.query.get(site_id):
-            raise ValueError(
+            raise ValidationError(
                 'wordpress_site_id does not match an existing WordPress site '
                 '(is the WordPress extension installed?)')
 
     @staticmethod
     def create(data):
         if not data.get('name'):
-            raise ValueError('Monitor name is required')
+            raise ValidationError('Monitor name is required')
         check_type = data.get('check_type', 'http')
         if check_type not in StatusComponent.CHECK_TYPES:
-            raise ValueError(f'Unknown check type: {check_type}')
+            raise ValidationError(f'Unknown check type: {check_type}')
         if check_type == 'keyword' and not data.get('keyword'):
-            raise ValueError('A keyword check needs a keyword to look for')
+            raise ValidationError('A keyword check needs a keyword to look for')
         # A monitor needs something to probe unless it is driven by a managed
         # site's health verdict instead of the network.
         if not data.get('check_target') and not data.get('wordpress_site_id'):
-            raise ValueError('Monitor needs a check target or a bound site')
+            raise ValidationError('Monitor needs a check target or a bound site')
         MonitorService._validate_site_binding(data.get('wordpress_site_id'))
 
         monitor = StatusComponent(
@@ -171,7 +172,7 @@ class MonitorService:
         if not monitor:
             return None
         if 'check_type' in data and data['check_type'] not in StatusComponent.CHECK_TYPES:
-            raise ValueError(f"Unknown check type: {data['check_type']}")
+            raise ValidationError(f"Unknown check type: {data['check_type']}")
         if data.get('wordpress_site_id') is not None:
             MonitorService._validate_site_binding(data['wordpress_site_id'])
         for field in MonitorService.WRITABLE_FIELDS:
