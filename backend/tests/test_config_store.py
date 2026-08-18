@@ -18,11 +18,17 @@ def test_missing_file_reads_as_the_default(tmp_path):
 
 
 def test_the_default_is_not_shared_between_calls(tmp_path):
-    """Callers mutate what they get back; a shared default would leak."""
-    default = {'items': []}
-    first = load_json_config(str(tmp_path / 'cfg.json'), default)
+    """Callers mutate what they get back; a shared default would leak —
+    including a default the caller keeps on a class/module, not just a
+    literal (PR review)."""
+    shared = {'items': [], 'nested': {'flag': False}}
+    first = load_json_config(str(tmp_path / 'cfg.json'), shared)
     first['items'].append('x')
-    assert load_json_config(str(tmp_path / 'cfg.json'), default) == default
+    first['nested']['flag'] = True
+
+    second = load_json_config(str(tmp_path / 'cfg.json'), shared)
+    assert second == {'items': [], 'nested': {'flag': False}}
+    assert shared == {'items': [], 'nested': {'flag': False}}  # and the caller's own copy is untouched
 
 
 def test_corrupt_file_reads_as_the_default_never_raises(tmp_path):

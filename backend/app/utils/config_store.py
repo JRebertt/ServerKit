@@ -13,6 +13,7 @@ locking, no atomic rename — none of the originals had them, and adding them
 here would be a behaviour change smuggled in with a consolidation. If atomic
 writes are ever wanted, they land here, once.
 """
+import copy
 import json
 import os
 
@@ -21,7 +22,9 @@ def load_json_config(path, default):
     """JSON file → dict; *default* on missing or corrupt.
 
     A corrupt config reads as the default, never raises — the same contract
-    the hand-rolled copies had, and the one callers rely on at boot.
+    the hand-rolled copies had, and the one callers rely on at boot. The
+    fallback is a deep copy: callers mutate what they get back, and a shared
+    default object would leak those mutations into every later call.
     """
     if os.path.exists(path):
         try:
@@ -29,7 +32,7 @@ def load_json_config(path, default):
                 return json.load(f)
         except Exception:  # noqa: BLE001
             pass
-    return default
+    return copy.deepcopy(default)
 
 
 def save_json_config(path, config):
