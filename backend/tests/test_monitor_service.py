@@ -184,7 +184,7 @@ def test_probe_never_raises_on_transport_error(app):
 
 def test_ping_failure_is_down_not_up(app):
     monitor = _monitor(check_type='ping', check_target='10.255.255.1')
-    with patch('app.utils.system.run_command',
+    with patch('app.utils.system.run_unprivileged',
                return_value={'returncode': 1, 'stdout': '', 'stderr': '100% packet loss'}):
         result = MonitorService._perform_check(monitor)
     assert result['status'] == 'down'
@@ -193,14 +193,14 @@ def test_ping_failure_is_down_not_up(app):
 
 def test_ping_success_is_up(app):
     monitor = _monitor(check_type='ping', check_target='127.0.0.1')
-    with patch('app.utils.system.run_command',
+    with patch('app.utils.system.run_unprivileged',
                return_value={'returncode': 0, 'stdout': '1 received', 'stderr': ''}):
         assert MonitorService._perform_check(monitor)['status'] == 'up'
 
 
 def test_ping_uses_platform_appropriate_flags(app):
     monitor = _monitor(check_type='ping', check_target='127.0.0.1', check_timeout=3)
-    with patch('app.utils.system.run_command',
+    with patch('app.utils.system.run_unprivileged',
                return_value={'returncode': 0, 'stdout': '', 'stderr': ''}) as run:
         with patch('app.services.monitor_service.os.name', 'nt'):
             MonitorService._perform_check(monitor)

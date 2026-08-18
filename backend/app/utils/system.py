@@ -104,18 +104,29 @@ def run_privileged(cmd: Union[List[str], str], *, user: Optional[str] = None, **
     return subprocess.run(cmd, **kwargs)
 
 
-def run_command(cmd: Union[List[str], str], *, timeout: int = 60,
-                capture_stderr: bool = False, **kwargs) -> dict:
-    """Run a shell command and return a dict with stdout/stderr/returncode.
+def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
+                     capture_stderr: bool = False, **kwargs) -> dict:
+    """Run a command WITHOUT privilege escalation; dict with stdout/stderr/rc.
 
-    This is a convenience wrapper used by services that need simple dict results
-    rather than a raw ``CompletedProcess`` object.
+    Named for what it does not do. It was called ``run_command`` — a name that
+    described nothing and sat one autocomplete away from
+    :func:`run_privileged`, so ``nginx -t`` went through it and could neither
+    read root-owned config nor find /usr/sbin/nginx. The caller reported every
+    config as invalid. ``run_unprivileged(['nginx', '-t'])`` reads as obviously
+    wrong; ``run_command(['nginx', '-t'])`` did not.
+
+    The old name was also ambiguous across the codebase: ``PythonService`` has
+    an unrelated method of the same name.
+
+    Use :func:`run_privileged` unless the command genuinely must not gain root.
+    That is the common case — this helper has a handful of callers and they are
+    all reads that work fine as the invoking user.
     """
     # Same argv[0] resolution as privileged_cmd: this helper does no privilege
     # escalation, so nothing else would find a command outside $PATH. Without
-    # it `run_command(['nginx', '-t'])` raised FileNotFoundError on every root
-    # install (nginx is /usr/sbin/nginx) and the caller reported the config as
-    # invalid. Only applied when $PATH genuinely misses the command.
+    # it `run_unprivileged(['nginx', '-t'])` raised FileNotFoundError on every
+    # root install (nginx is /usr/sbin/nginx). Only applied when $PATH
+    # genuinely misses the command.
     if isinstance(cmd, (list, tuple)):
         cmd = list(cmd)
         if cmd and cmd[0] != 'sudo' and not os.path.isabs(cmd[0]) and not shutil.which(cmd[0]):

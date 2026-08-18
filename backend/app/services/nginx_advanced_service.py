@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import re
-from app.utils.system import run_command, run_privileged
+from app.utils.system import run_unprivileged, run_privileged
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class NginxAdvancedService:
     @staticmethod
     def test_config():
         """Test nginx config syntax."""
-        # run_privileged, not run_command: `nginx -t` reads root-owned config
+        # run_privileged, not run_unprivileged: `nginx -t` reads root-owned config
         # and nginx lives in /usr/sbin, which the panel's unit PATH omits. The
         # unprivileged bare-name call raised FileNotFoundError and this method
         # reported every config as INVALID.
@@ -193,7 +193,7 @@ class NginxAdvancedService:
             return {'lines': [], 'error': 'Log file not found'}
 
         try:
-            result = run_command(['tail', '-n', str(lines), log_file])
+            result = run_unprivileged(['tail', '-n', str(lines), log_file])
             log_lines = result.get('stdout', '').strip().split('\n')
             return {'lines': log_lines, 'file': log_file}
         except Exception as e:

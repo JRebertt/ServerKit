@@ -18,7 +18,7 @@ is exactly why the failure looked feature-specific instead of systemic.
 
 Two layers keep it dead:
 
-  1. `privileged_cmd` and `run_command` resolve argv[0] to an absolute path
+  1. `privileged_cmd` and `run_unprivileged` resolve argv[0] to an absolute path
      when $PATH cannot (verified below against a PATH with no sbin).
   2. this static scan, so a NEW raw `subprocess` call cannot reintroduce it by
      bypassing both helpers.
@@ -32,7 +32,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.utils.system import privileged_cmd, resolve_command, run_command
+from app.utils.system import privileged_cmd, resolve_command, run_unprivileged
 
 APP_ROOT = Path(__file__).resolve().parent.parent / 'app'
 
@@ -71,7 +71,7 @@ def _first_arg_command(node):
 
 
 def _is_raw_subprocess(node):
-    """`subprocess.<fn>(...)` — not run_privileged / run_command."""
+    """`subprocess.<fn>(...)` — not run_privileged / run_unprivileged."""
     func = node.func
     return (isinstance(func, ast.Attribute)
             and func.attr in RAW_SUBPROCESS_FUNCS
@@ -110,7 +110,7 @@ def test_no_bare_sbin_command_in_raw_subprocess_calls():
         'These commands live in /usr/sbin or /sbin, which the panel unit\'s '
         'PATH may omit — subprocess would raise FileNotFoundError:\n  '
         + '\n  '.join(found)
-        + '\n\nUse run_privileged() (or run_command() when no root is needed); '
+        + '\n\nUse run_privileged() (or run_unprivileged() when no root is needed); '
           'both resolve argv[0] to an absolute path when $PATH cannot.'
     )
 
@@ -141,22 +141,39 @@ def test_helpers_resolve_every_sbin_command_without_sbin_on_path(command):
 @patch('app.utils.system.subprocess.run')
 @patch('app.utils.system.os.path.exists')
 @patch('app.utils.system.shutil.which', return_value=None)
-def test_run_command_resolves_too(_which, exists, mock_run):
+def test_run_unprivileged_resolves_too(_which, exists, mock_run):
     """The sibling helper had the same gap — `nginx -t` went through it."""
     exists.side_effect = lambda p: p == '/usr/sbin/nginx'
     mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
 
-    run_command(['nginx', '-t'])
+    run_unprivileged(['nginx', '-t'])
 
     assert mock_run.call_args[0][0] == ['/usr/sbin/nginx', '-t']
 
 
 @patch('app.utils.system.subprocess.run')
 @patch('app.utils.system.shutil.which', return_value='/usr/bin/git')
-def test_run_command_leaves_resolvable_commands_alone(_which, mock_run):
+def test_run_unprivileged_leaves_resolvable_commands_alone(_which, mock_run):
     """A working $PATH must not have its argv rewritten underneath callers."""
     mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='', stderr='')
 
-    run_command(['git', 'status'])
+    run_unprivileged(['git', 'status'])
 
     assert mock_run.call_args[0][0] == ['git', 'status']
+
+
+def test_the_ambiguous_name_stays_gone():
+    """`run_command` said nothing about privilege and sat one autocomplete from
+    `run_privileged`. `nginx -t` went through it and reported every config
+    invalid. Re-adding the name re-adds the second door this rename closed.
+
+    (`PythonService.run_command` is unrelated and keeps its name — the collision
+    is part of why the utils one had to change.)
+    """
+    import app.utils.system as system
+
+    assert not hasattr(system, 'run_command'), (
+        'app.utils.system.run_command is back. Use run_privileged() or the '
+        'explicit run_unprivileged() — a name that does not say whether it '
+        'escalates is how nginx -t ended up unprivileged.'
+    )

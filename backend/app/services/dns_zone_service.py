@@ -539,8 +539,8 @@ class DNSZoneService:
         results = []
         for ns_name, ns_ip in nameservers:
             try:
-                from app.utils.system import run_command
-                result = run_command(['dig', f'@{ns_ip}', domain, record_type, '+short'], timeout=5)
+                from app.utils.system import run_unprivileged
+                result = run_unprivileged(['dig', f'@{ns_ip}', domain, record_type, '+short'], timeout=5)
                 stdout = result.get('stdout', '').strip()
                 results.append({
                     'nameserver': ns_name,

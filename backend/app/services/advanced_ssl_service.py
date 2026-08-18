@@ -2,7 +2,7 @@ import json
 import logging
 import subprocess
 from datetime import datetime
-from app.utils.system import run_command
+from app.utils.system import run_unprivileged
 from app.services.ssl_service import resolve_certbot_bin
 
 
@@ -79,7 +79,7 @@ class AdvancedSSLService:
             }
 
         try:
-            result = run_command(cmd, **run_kwargs)
+            result = run_unprivileged(cmd, **run_kwargs)
             return {
                 'success': True, 'domain': domain, 'type': 'wildcard',
                 'certificate_path': f'/etc/letsencrypt/live/{domain}/fullchain.pem',
@@ -101,7 +101,7 @@ class AdvancedSSLService:
             cmd.extend(['-d', d])
 
         try:
-            result = run_command(cmd)
+            result = run_unprivileged(cmd)
             return {'success': True, 'domains': domains, 'type': 'san', 'output': result.get('stdout', '')}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -206,7 +206,7 @@ class AdvancedSSLService:
         for cert_path in cert_paths:
             try:
                 domain = os.path.basename(os.path.dirname(cert_path))
-                result = run_command(['openssl', 'x509', '-enddate', '-noout', '-in', cert_path])
+                result = run_unprivileged(['openssl', 'x509', '-enddate', '-noout', '-in', cert_path])
                 stdout = result.get('stdout', '')
                 if 'notAfter=' in stdout:
                     date_str = stdout.split('notAfter=')[1].strip()

@@ -407,13 +407,13 @@ class MonitorService:
     def _ping(monitor):
         """One ICMP echo. The previous implementation ignored the return code
         entirely, so a ping check could only ever report 'up'."""
-        from app.utils.system import run_command
+        from app.utils.system import run_unprivileged
         timeout = monitor.check_timeout or 10
         if os.name == 'nt':
             cmd = ['ping', '-n', '1', '-w', str(int(timeout) * 1000), monitor.check_target]
         else:
             cmd = ['ping', '-c', '1', '-W', str(int(timeout)), monitor.check_target]
-        res = run_command(cmd, timeout=timeout + 5)
+        res = run_unprivileged(cmd, timeout=timeout + 5)
         if res.get('returncode') == 0:
             return {'status': 'up'}
         return {

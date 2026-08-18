@@ -87,7 +87,7 @@ def test_issue_wildcard_cert_route53(monkeypatch):
         captured['kw'] = kw
         return {'stdout': 'Congratulations'}
 
-    monkeypatch.setattr(mod, 'run_command', fake_run)
+    monkeypatch.setattr(mod, 'run_unprivileged', fake_run)
 
     res = AdvancedSSLService.issue_wildcard_cert('example.com', 'route53',
                                                  {'api_key': 'AK', 'api_secret': 'SK'},
