@@ -603,15 +603,32 @@ class DoctorService:
             return None
         key = f'backup_unverified.{policy.id}'
         title = f'Backup verification: {cls._policy_label(policy)}'
+        repair_ref = {'kind': 'backup_verify', 'policy_id': policy.id,
+                      'run_id': run.id}
         level = run.effective_verify_level()
+        err = (run.verify_error or '').strip()
+        if err and (level == 'none' or err.lower().startswith('checksum mismatch')):
+            # Verification RAN and came back bad — an unreadable archive, or a
+            # checksum that disagrees with the manifest. That is positive
+            # evidence the backup may not restore, not an absence of evidence;
+            # it used to render as ok ("Latest backup verified (listed).").
+            return _check(key, title, 'fail',
+                          f'The latest backup failed verification: {err}',
+                          repairable=True, repair_ref=repair_ref)
+        if err:
+            # Readable archive, but no stored checksum to compare against —
+            # 'listed' here is "couldn't check", not "verified".
+            return _check(key, title, 'warn',
+                          'The latest backup is readable, but there is no '
+                          'stored checksum to verify it against — it is '
+                          'unproven.',
+                          repairable=True, repair_ref=repair_ref)
         if level == 'none':
             return _check(
                 key, title, 'warn',
                 'The latest backup has not been verified (no integrity check or '
                 'restore drill has run against it yet).',
-                repairable=True,
-                repair_ref={'kind': 'backup_verify', 'policy_id': policy.id,
-                            'run_id': run.id})
+                repairable=True, repair_ref=repair_ref)
         return _check(key, title, 'ok', f'Latest backup verified ({level}).')
 
     @classmethod
