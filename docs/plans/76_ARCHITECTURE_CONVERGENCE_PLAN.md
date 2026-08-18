@@ -50,6 +50,51 @@ This plan turns the structural review of ServerKit into an executable migration.
 It is deliberately incremental: each milestone leaves the repository deployable,
 has a focused verification gate, and is committed independently.
 
+---
+
+## Second wave — measured adoption debt (2026-08-18 audit)
+
+An 11-agent duplication audit (2026-08-18; full report in the "Twenty Doors"
+artifact, memory `project_dry_audit_twenty_doors`) measured exactly how much
+legacy traffic still walks around each door the first wave built. These numbers
+were re-verified by direct grep on 2026-08-18 and are the baselines the second
+wave ratchets against. "Migrate when touched" remains the rule for most
+domains; the rows marked **drift/bug** justify proactive migration because the
+bypass is not merely repetition — it behaves differently.
+
+| Milestone | Door built | Measured bypass (baseline) | Note |
+|---|---|---|---|
+| A (auth) | `auth_required()` policy layer | **605 `@jwt_required()` vs 5 files on `auth_required`** | decorator-stack work is complete; the raw decorator population remains |
+| A (auth) | `rbac.get_current_user()` | **70 inline `User.query.get(get_jwt_identity())` + 8 private `_current_user()` defs** (dns_cutover, environments, modules, projects, queue_bus, registrars, secrets_webhooks, themes) | **drift/bug: these return `None` for API-key callers** — only rbac checks `g.api_key_user`, so bypassing routes 404/401 API-key requests and misattribute actions. Violates invariant 2 today |
+| A (auth) | `@admin_required` | 5 private `_require_admin()` defs with **three incompatible return contracts** (jobs.py's is inverted vs dns_cutover's); 28 inline role checks; `is_admin` vs `role != 'admin'` truth-source drift | add `require_admin_user()` (raises typed PermissionDenied) for mid-route gating, delete the five |
+| B (errors) | `app/exceptions.py` + global handler | **2 of 103 api files import it; 1,211 hand-shaped `jsonify({'error': ...})`; 125 blanket `except Exception` (75 leak `str(e)`)** | drift/bug: locally-swallowed exceptions skip the 500 handler's logging **and the error tracker added 2026-08-17** — those crashes never appear in /monitoring/errors |
+| B (errors) | typed raises in services | **238 `raise ValueError` in 43 service files → 83 per-route `except ValueError` with drifting codes** (same class → 400/403/404 by file) | `ValidationError` already subclasses `ValueError`, `NotFoundError` subclasses `LookupError` — incremental conversion is safe by design |
+| C (schemas) | `@api_contract` + `api/schemas/` | **2 adopter files; 241 hand-rolled "X is required" 400s in 54 files; bool coercion in 3 incompatible variants** (`?enabled=yes` truthy on 11 endpoints, falsy on 24) | add interim `require_fields()` + `parse_bool_arg`/`parse_int_arg` next to contracts.py for low-churn routes |
+| C (envelopes) | one failure/success shape | **84 services return `{'success': bool}` dicts; 383 `result.get('success')` translations in 30 api files, with status codes chosen by error-string sniffing** (`files.py:62`: `403 if 'denied' in error else 400`) | this tunneling protocol was not named in the first wave; converging it is what makes milestone B's contract reachable — services raise, routes return data |
+| C (list queries) | `_query.py` / `ListQuery` | 6 files still hand-parse `page`/`per_page` (admin, source_connections, telemetry, error_logs, git, views) | small; the envelope's last bypass routes |
+| Remote execution | `dispatch_agent_command` seam | **24 direct `agent_registry.send_command` callers outside the dispatcher** (api/servers.py ×4, terminal_service ×4, fleet services, tunnel broker/publish) | the seam exists; ratchet it to exactly the dispatcher + queued-delivery path |
+| E1 (server state) | `useServerQuery`/`useServerMutation` + queryClient | **1 of 63 pages adopted; 44 pages hand-roll the identical fetch scaffold; the mutate→toast→reload triple hand-written ~90×; 148 per-page `toast.error(err.message)` extractions** | convert Vaults, Monitors, Projects, CronJobs as templates, then ratchet |
+| E2 (live resources) | visibility-aware polling convention | **45 `setInterval` sites, zero pages with an in-flight guard, `visibilitychange` in one file repo-wide** | drift/bug: this is the documented poller-stampede shape; a `refetchInterval` on useServerQuery gets dedupe for free |
+| F2 (forms) | `useForm`/`formState` + `FormField` | **1 adopter vs 330 `form-group` blocks in 59 files; 66 local saving/busy flags**; Modal's `footer` prop bypassed by 28 files (submit must live inside `<form>`); native `<select>` ×114 vs `ui/select` in 20 files | give Modal a form/onSubmit mode first — it removes the reason the footer is bypassed |
+| F3 (primitives) | clipboard/confirm/blob helpers | 25 files still call `navigator.clipboard` raw (**undefined on HTTP-served panels — SSL is optional by policy**, so those copy buttons are broken there); blob-download ritual pasted in 15 components | the lint ratchet exists; extend it to these two APIs |
+| C4-interim (bindings) | — | **~800 of 1,262 functions in `services/api/*` are 1–3-line CRUD wrappers; PUT-vs-PATCH drift (73 vs 11); 57 hand-rolled URLSearchParams blocks + 102 raw `?k=${v}` interpolations with an encoded-vs-raw lottery; dead 494-line `services/wordpress.js` (zero importers)** | until C4's generated bindings land, a `crudResource(basePath)` factory + `buildQuery()` + encoding `apiPath` template in client.js is the cheap interim; delete the dead file now |
+| G (styles) | mixins/tokens | card surface hand-rolled 107× vs 7 `card-base` includes; ~300 color literals outside the token files (each one a spot runtime skins cannot recolor); 176 raw media queries vs 2 `respond-to`; `.empty-state` defined 3 competing times; `@keyframes spin` ×8 | mechanical sweeps + stylelint/CI greps per recipe |
+
+Two second-wave rules:
+
+1. **Every row above gets a ratchet before its migration starts** — a count
+   that can only go down, in the style of the existing controller-boundary and
+   error-contract ratchets. A migration without a ratchet regrows.
+2. **The drift/bug rows (API-key identity, swallowed exceptions, status-code
+   sniffing, unguarded pollers, raw clipboard) are not "when touched" — they
+   are behavior differences shipping today** and should be scheduled like
+   fixes, not like refactors.
+
+Out of scope for this plan (owned elsewhere): the services-layer subprocess /
+docker / nginx / SQL-exec doors are plan 75 Round 2 (§G); model mixins,
+encrypted-secret handling, the status vocabulary, realtime stream/channel
+convergence, and shared infra utilities are plan 77.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
