@@ -22,6 +22,16 @@ Two layers keep it dead:
      when $PATH cannot (verified below against a PATH with no sbin).
   2. this static scan, so a NEW raw `subprocess` call cannot reintroduce it by
      bypassing both helpers.
+
+WHAT THIS FILE IS NOT: coverage. This scan only sees *literal* argv lists —
+164 of the 288 raw `subprocess.*` sites in `backend/app` (57%), and only for
+the hardcoded names in SBIN_COMMANDS. The other 43% (variables, f-strings,
+concatenation) are invisible to AST, and a bare-name exec of a binary NOT in
+SBIN_COMMANDS passes silently at any site. A green run means "no known sbin
+command is exec'd by literal bare name", never "no bare sbin calls exist".
+The runtime layer — `tests/popen_guard.py`, installed autouse by conftest —
+watches the actual argv of every exec the suite performs and covers the sites
+this scan cannot read (plan 75 §B2).
 """
 
 import ast
@@ -112,6 +122,10 @@ def test_no_bare_sbin_command_in_raw_subprocess_calls():
         + '\n  '.join(found)
         + '\n\nUse run_privileged() (or run_unprivileged() when no root is needed); '
           'both resolve argv[0] to an absolute path when $PATH cannot.'
+        + '\n\nReminder: this scan is a tripwire, not coverage — it reads only '
+          'literal argv lists (~57% of raw subprocess sites) and only the names '
+          'in SBIN_COMMANDS. A green run does not prove no bare sbin execs '
+          'exist; the runtime guard (tests/popen_guard.py) watches actual argv.'
     )
 
 
