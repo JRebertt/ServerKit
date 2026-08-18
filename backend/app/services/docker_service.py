@@ -49,6 +49,55 @@ class DockerService:
         return cls._get_compose_cmd() == ['docker', 'compose']
 
     @staticmethod
+    def run(args, timeout=60):
+        """Run ``docker <args>``; one result shape for every caller (§G3).
+
+        Three services kept private ``_docker()`` wrappers around this exact
+        call, and the three had already drifted into three *different* return
+        contracts: one dict that mapped FileNotFoundError to "Docker not
+        found", one dict that collapsed every failure into ``str(e)``, and one
+        that handed back a raw ``CompletedProcess``. A caller reading
+        ``result['success']`` against the third silently got a ``KeyError``
+        rather than an answer.
+
+        Returns ``{'success': bool, 'output': str, 'error': str|None}``.
+        ``error`` distinguishes the three things that are not "the command said
+        no": docker absent, docker too slow, and everything else. A caller that
+        cannot tell those apart is the caller that reports "not installed"
+        because a probe timed out (§A).
+        """
+        try:
+            result = subprocess.run(['docker', *args], capture_output=True,
+                                    text=True, timeout=timeout)
+        except FileNotFoundError:
+            return {'success': False, 'output': '', 'error': 'Docker not found'}
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'output': '',
+                    'error': f'Docker command timed out after {timeout}s'}
+        except Exception as e:  # noqa: BLE001
+            return {'success': False, 'output': '', 'error': str(e)}
+        return {
+            'success': result.returncode == 0,
+            'output': result.stdout or '',
+            'error': ((result.stderr or '').strip() or 'docker command failed')
+                     if result.returncode != 0 else None,
+        }
+
+    @classmethod
+    def available(cls):
+        """True when the docker daemon answers. Never raises.
+
+        Asks the daemon, not just the binary: ``docker version --format
+        {{.Server.Version}}`` fails when the CLI is installed but the daemon is
+        down, which is the state a "docker is available" check actually cares
+        about.
+        """
+        if os.name == 'nt':
+            return False
+        return cls.run(['version', '--format', '{{.Server.Version}}'],
+                       timeout=10)['success']
+
+    @staticmethod
     def is_docker_installed():
         """Check if Docker is installed and running."""
         try:

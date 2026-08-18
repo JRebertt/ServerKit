@@ -145,19 +145,14 @@ class DbConfigTunerService:
 
     @classmethod
     def _docker(cls, args, timeout=60):
-        """Run a docker CLI command. Single shell choke point."""
-        import subprocess
-        try:
-            result = subprocess.run(['docker'] + list(args),
-                                    capture_output=True, text=True, timeout=timeout)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': (result.stderr.strip() or 'docker command failed')
-                         if result.returncode != 0 else None,
-            }
-        except Exception as e:
-            return {'success': False, 'output': '', 'error': str(e)}
+        """Run a docker CLI command — via DockerService.run (§G3).
+
+        The named seam stays (tests stub it). The private copy collapsed a
+        missing docker and a timed-out docker into the same ``str(e)``, so a
+        caller could not tell "not installed" from "too slow".
+        """
+        from app.services.docker_service import DockerService
+        return DockerService.run(args, timeout=timeout)
 
     @classmethod
     def _exec_sql(cls, target, sql):
