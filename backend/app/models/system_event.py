@@ -9,9 +9,10 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class SystemEvent(db.Model):
+class SystemEvent(JsonColumnMixin, db.Model):
     """A single event in the unified telemetry stream."""
 
     __tablename__ = 'system_events'
@@ -83,12 +84,7 @@ class SystemEvent(db.Model):
 
     def get_payload(self):
         """Return parsed payload JSON."""
-        if self.payload_json:
-            try:
-                return json.loads(self.payload_json)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        return self._json_read('payload_json')
 
     def set_payload(self, payload_dict):
         """Set payload from a dictionary."""

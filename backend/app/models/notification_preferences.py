@@ -6,10 +6,11 @@ Stores per-user notification preferences for receiving alerts.
 
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class NotificationPreferences(db.Model):
+class NotificationPreferences(JsonColumnMixin, db.Model):
     __tablename__ = 'notification_preferences'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -59,10 +60,7 @@ class NotificationPreferences(db.Model):
 
     def get_channels(self):
         """Get the list of enabled channels."""
-        try:
-            return json.loads(self.channels) if self.channels else ['email']
-        except (json.JSONDecodeError, TypeError):
-            return ['email']
+        return self._json_read('channels', ['email'])
 
     def set_channels(self, channels_list):
         """Set the list of enabled channels."""
@@ -70,10 +68,7 @@ class NotificationPreferences(db.Model):
 
     def get_severities(self):
         """Get the list of enabled severity levels."""
-        try:
-            return json.loads(self.severities) if self.severities else ['critical', 'warning']
-        except (json.JSONDecodeError, TypeError):
-            return ['critical', 'warning']
+        return self._json_read('severities', ['critical', 'warning'])
 
     def set_severities(self, severities_list):
         """Set the list of enabled severity levels."""
@@ -81,15 +76,12 @@ class NotificationPreferences(db.Model):
 
     def get_categories(self):
         """Get notification category preferences."""
-        try:
-            return json.loads(self.categories) if self.categories else {
-                'system': True,
-                'security': True,
-                'backups': True,
-                'apps': True
-            }
-        except (json.JSONDecodeError, TypeError):
-            return {'system': True, 'security': True, 'backups': True, 'apps': True}
+        return self._json_read('categories', {
+            'system': True,
+            'security': True,
+            'backups': True,
+            'apps': True,
+        })
 
     def set_categories(self, categories_dict):
         """Set notification category preferences."""

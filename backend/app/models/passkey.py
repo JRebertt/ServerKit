@@ -1,7 +1,7 @@
-import json
 import base64
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
 def _b64decode_url(value: str) -> bytes:
@@ -14,7 +14,7 @@ def _b64decode_url(value: str) -> bytes:
     return base64.urlsafe_b64decode(value)
 
 
-class PasskeyCredential(db.Model):
+class PasskeyCredential(JsonColumnMixin, db.Model):
     """Stored WebAuthn credential for a user."""
     __tablename__ = 'passkey_credentials'
 
@@ -32,15 +32,10 @@ class PasskeyCredential(db.Model):
     user = db.relationship('User', backref=db.backref('passkeys', lazy='dynamic'))
 
     def get_transports(self):
-        if not self.transports:
-            return []
-        try:
-            return json.loads(self.transports)
-        except Exception:
-            return []
+        return self._json_read('transports', [])
 
     def set_transports(self, transports):
-        self.transports = json.dumps(list(transports)) if transports else None
+        self._json_write('transports', list(transports) if transports else None)
 
     def to_dict(self):
         return {

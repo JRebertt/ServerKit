@@ -1,9 +1,9 @@
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class AuditLog(db.Model):
+class AuditLog(JsonColumnMixin, db.Model):
     """Audit log for tracking user actions."""
     __tablename__ = 'audit_logs'
 
@@ -65,19 +65,11 @@ class AuditLog(db.Model):
 
     def get_details(self):
         """Return parsed details JSON."""
-        if self.details:
-            try:
-                return json.loads(self.details)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        return self._json_read('details')
 
     def set_details(self, details_dict):
         """Set details from a dictionary."""
-        if details_dict:
-            self.details = json.dumps(details_dict)
-        else:
-            self.details = None
+        self._json_write('details', details_dict)
 
     def to_dict(self):
         return {

@@ -1,10 +1,10 @@
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ManagedDatabaseUser(db.Model):
+class ManagedDatabaseUser(JsonColumnMixin, db.Model):
     """A database user/grant ServerKit created on a managed database.
 
     Live engines forget nothing, but ServerKit used to: users created through
@@ -45,14 +45,10 @@ class ManagedDatabaseUser(db.Model):
     )
 
     def get_grants(self):
-        try:
-            grants = json.loads(self.grants or '[]')
-            return grants if isinstance(grants, list) else []
-        except (ValueError, TypeError):
-            return []
+        return self._json_read('grants', [], expect=list)
 
     def set_grants(self, grants):
-        self.grants = json.dumps(list(grants or []))
+        self._json_write('grants', list(grants or []), falsy='[]')
 
     @property
     def is_expired(self):

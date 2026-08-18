@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import validates
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class User(db.Model):
+class User(JsonColumnMixin, db.Model):
     __tablename__ = 'users'
 
     # Role constants
@@ -181,16 +182,12 @@ class User(db.Model):
 
     def get_sidebar_config(self):
         """Return sidebar config dict, or default."""
-        if self.sidebar_config:
-            try:
-                return json.loads(self.sidebar_config)
-            except (json.JSONDecodeError, TypeError):
-                pass
-        return {'preset': 'full', 'hiddenItems': []}
+        return self._json_read('sidebar_config',
+                               {'preset': 'full', 'hiddenItems': []})
 
     def set_sidebar_config(self, config):
         """Store sidebar config as JSON."""
-        self.sidebar_config = json.dumps(config) if config else None
+        self._json_write('sidebar_config', config)
 
     def to_dict(self):
         return {
@@ -214,12 +211,7 @@ class User(db.Model):
 
     def get_backup_codes(self):
         """Get the list of backup code hashes."""
-        if not self.backup_codes:
-            return []
-        try:
-            return json.loads(self.backup_codes)
-        except (json.JSONDecodeError, TypeError):
-            return []
+        return self._json_read('backup_codes', [])
 
     def set_backup_codes(self, codes_hashes):
         """Store backup code hashes."""

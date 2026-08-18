@@ -6,14 +6,14 @@ stored Fernet-encrypted (per-field) in ``credentials_json``; the public
 ``to_dict`` never exposes them. Follows the Connections pattern used by DNS /
 cloud / registrar providers.
 """
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.utils.crypto import decrypt_secret_safe
 
 
-class EmailProviderConnection(db.Model):
+class EmailProviderConnection(JsonColumnMixin, db.Model):
     __tablename__ = 'email_provider_connections'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -43,10 +43,7 @@ class EmailProviderConnection(db.Model):
     last_test_ok = db.Column(db.Boolean)
 
     def raw_credentials(self):
-        try:
-            return json.loads(self.credentials_json) if self.credentials_json else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('credentials_json')
 
     def credentials(self):
         """Decrypted credentials for use at send/test time (never serialized)."""

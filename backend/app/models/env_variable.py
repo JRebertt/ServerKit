@@ -1,12 +1,13 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from cryptography.fernet import Fernet
 import os
 import base64
 import hashlib
 
 
-class EnvironmentVariable(db.Model):
+class EnvironmentVariable(JsonColumnMixin, db.Model):
     """
     Stores environment variables for applications with encrypted values.
     Supports versioning for history tracking.
@@ -83,17 +84,10 @@ class EnvironmentVariable(db.Model):
 
     def get_reference(self):
         """Parsed value_from reference, or None for a plain value."""
-        if not self.value_from:
-            return None
-        import json
-        try:
-            return json.loads(self.value_from)
-        except Exception:
-            return None
+        return self._json_read('value_from', None)
 
     def set_reference(self, ref):
-        import json
-        self.value_from = json.dumps(ref) if ref else None
+        self._json_write('value_from', ref)
 
     def to_dict(self, include_value=True, mask_secrets=False):
         """Convert to dictionary, optionally masking secret values."""

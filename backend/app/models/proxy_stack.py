@@ -8,13 +8,13 @@ config snippet for one server. It is intentionally keyed 1:1 on server_id
 (unique) — a server runs at most one managed proxy stack at a time.
 """
 import uuid
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ProxyStack(db.Model):
+class ProxyStack(JsonColumnMixin, db.Model):
     """One managed reverse-proxy stack per server."""
     __tablename__ = 'proxy_stacks'
 
@@ -56,13 +56,7 @@ class ProxyStack(db.Model):
 
     def networks_list(self):
         """Decode the networks JSON column to a list (empty on missing/bad)."""
-        if not self.networks:
-            return []
-        try:
-            data = json.loads(self.networks)
-            return data if isinstance(data, list) else []
-        except (TypeError, ValueError):
-            return []
+        return self._json_read('networks', [], expect=list)
 
     def to_dict(self):
         return {

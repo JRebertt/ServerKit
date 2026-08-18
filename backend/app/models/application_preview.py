@@ -9,13 +9,13 @@ Two tables:
   * ``application_previews``         — one row per live PR preview.
   * ``application_preview_settings`` — per-application opt-in + domain template.
 """
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ApplicationPreview(db.Model):
+class ApplicationPreview(JsonColumnMixin, db.Model):
     """A single PR preview environment for an application."""
     __tablename__ = 'application_previews'
 
@@ -52,16 +52,10 @@ class ApplicationPreview(db.Model):
 
     def get_container_ids(self):
         """The provisioned container ids as a list (empty when unset/invalid)."""
-        if not self.container_ids:
-            return []
-        try:
-            val = json.loads(self.container_ids)
-            return val if isinstance(val, list) else []
-        except (ValueError, TypeError):
-            return []
+        return self._json_read('container_ids', [], expect=list)
 
     def set_container_ids(self, ids):
-        self.container_ids = json.dumps(list(ids or []))
+        self._json_write('container_ids', list(ids or []), falsy='[]')
 
     def to_dict(self):
         return {

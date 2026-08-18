@@ -15,12 +15,12 @@ git diffs). Snapshots are about *configuration*, not source files.
 """
 
 from datetime import datetime
-import json
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class DeploymentSnapshot(db.Model):
+class DeploymentSnapshot(JsonColumnMixin, db.Model):
     """An immutable snapshot of an application's resolved configuration."""
     __tablename__ = 'deployment_snapshots'
 
@@ -67,10 +67,7 @@ class DeploymentSnapshot(db.Model):
 
     def get_config(self):
         """Return the parsed config dict (empty dict on any parse error)."""
-        try:
-            return json.loads(self.config_json) if self.config_json else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('config_json')
 
     def to_dict(self, include_config=True):
         """Convert to dictionary for API responses."""

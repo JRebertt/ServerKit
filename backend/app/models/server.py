@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
 class ServerGroup(db.Model):
@@ -50,7 +51,7 @@ class ServerGroup(db.Model):
         return f'<ServerGroup {self.name}>'
 
 
-class Server(db.Model):
+class Server(JsonColumnMixin, db.Model):
     """Represents a remote server managed by ServerKit"""
     __tablename__ = 'servers'
 
@@ -427,14 +428,7 @@ class Server(db.Model):
         Returns an empty list when unset or malformed so the API/UI never
         crash on legacy/partial data.
         """
-        if not self.onboarding_progress:
-            return []
-        try:
-            import json
-            data = json.loads(self.onboarding_progress)
-            return data if isinstance(data, list) else []
-        except (TypeError, ValueError):
-            return []
+        return self._json_read('onboarding_progress', [], expect=list)
 
     # Emitted by to_dict but not mapped columns: each costs a relationship load
     # or a JSON walk, so `$select` has to know they exist in order to decline

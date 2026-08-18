@@ -10,10 +10,11 @@ Supports:
 
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class Deployment(db.Model):
+class Deployment(JsonColumnMixin, db.Model):
     """Represents a single deployment of an application."""
     __tablename__ = 'deployments'
 
@@ -63,10 +64,7 @@ class Deployment(db.Model):
 
     def get_metadata(self):
         """Get metadata as dict."""
-        try:
-            return json.loads(self.extra_data) if self.extra_data else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('extra_data')
 
     def set_metadata(self, data):
         """Set metadata from dict."""
