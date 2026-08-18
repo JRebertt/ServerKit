@@ -63,7 +63,6 @@ def list_database_engines():
 
 
 @database_engines_bp.route('', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_database_engine():
     """Install an engine by installing its template.
@@ -169,7 +168,6 @@ def list_instance_extensions(app_id):
 
 
 @database_engines_bp.route('/<int:app_id>/extensions', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_engine_extension(app_id):
     """Install an extension into a database on this engine.

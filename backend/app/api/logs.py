@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 from app.middleware.rbac import admin_required
 from app.services.log_service import LogService
 
@@ -7,7 +6,6 @@ logs_bp = Blueprint('logs', __name__)
 
 
 @logs_bp.route('', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_log_files():
     """List available log files."""
@@ -16,7 +14,6 @@ def list_log_files():
 
 
 @logs_bp.route('/read', methods=['GET'])
-@jwt_required()
 @admin_required
 def read_log():
     """Read lines from a log file."""
@@ -32,7 +29,6 @@ def read_log():
 
 
 @logs_bp.route('/search', methods=['GET'])
-@jwt_required()
 @admin_required
 def search_log():
     """Search log file for a pattern."""
@@ -48,7 +44,6 @@ def search_log():
 
 
 @logs_bp.route('/app/<app_name>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_app_logs(app_name):
     """Get logs for a specific application."""
@@ -60,7 +55,6 @@ def get_app_logs(app_name):
 
 
 @logs_bp.route('/journal', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_journal_logs():
     """Get logs from systemd journal."""
@@ -74,7 +68,6 @@ def get_journal_logs():
 
 
 @logs_bp.route('/clear', methods=['POST'])
-@jwt_required()
 @admin_required
 def clear_log():
     """Clear/truncate a log file."""
@@ -89,7 +82,6 @@ def clear_log():
 
 
 @logs_bp.route('/rotate', methods=['POST'])
-@jwt_required()
 @admin_required
 def rotate_logs():
     """Trigger log rotation."""

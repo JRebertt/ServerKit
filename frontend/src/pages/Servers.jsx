@@ -13,6 +13,8 @@ import {
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useClipboard } from '@/hooks/useClipboard';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -730,7 +732,7 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
     const [registrationData, setRegistrationData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const toast = useToast();
+    const { copy } = useClipboard();
 
     async function handleCreateServer(e) {
         e.preventDefault();
@@ -753,11 +755,6 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
         } finally {
             setLoading(false);
         }
-    }
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard');
     }
 
     const connectionString = registrationData?.connection_string || '';
@@ -895,7 +892,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <ConnectionStringField
                                 value={connectionString}
-                                onCopy={() => copyToClipboard(connectionString)}
+                                onCopy={() => copy(connectionString)}
                             />
 
                             <details className="install-fallback">
@@ -906,14 +903,14 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                         description="curl, tar, sudo, and systemd"
                                         icon={<TerminalIcon />}
                                         script={linuxInstallScript}
-                                        onCopy={() => copyToClipboard(linuxInstallScript)}
+                                        onCopy={() => copy(linuxInstallScript)}
                                     />
                                     <InstallTab
                                         title="Windows (PowerShell)"
                                         description="Run as Administrator"
                                         icon={<WindowsIcon />}
                                         script={windowsInstallScript}
-                                        onCopy={() => copyToClipboard(windowsInstallScript)}
+                                        onCopy={() => copy(windowsInstallScript)}
                                     />
                                 </div>
                             </details>
@@ -976,6 +973,7 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
 };
 
 const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
+    const { confirm } = useConfirm();
     const [groupList, setGroupList] = useState(groups);
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroup, setEditingGroup] = useState(null);
@@ -1015,7 +1013,11 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
     }
 
     async function handleDeleteGroup(groupId) {
-        if (!confirm('Delete this group? Servers in this group will become ungrouped.')) return;
+        if (!await confirm({
+            title: 'Delete server group',
+            message: 'Delete this group? Servers in it will become ungrouped.',
+            confirmText: 'Delete group',
+        })) return;
 
         try {
             await api.deleteServerGroup(groupId);

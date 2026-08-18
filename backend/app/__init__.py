@@ -157,7 +157,11 @@ def create_app(config_name=None):
         app,
         origins=cors_origins,
         supports_credentials=True,
-        allow_headers=['Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key'],
+        allow_headers=[
+            'Content-Type', 'Authorization', 'X-Requested-With', 'X-API-Key',
+            'X-Request-ID',
+        ],
+        expose_headers=['X-Request-ID'],
         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         # Every panel request carries an Authorization header, which makes it a
         # non-simple cross-origin request: without Access-Control-Max-Age the
@@ -167,6 +171,11 @@ def create_app(config_name=None):
         # value at 2h, Firefox at 24h, and both take the smaller of the two.
         max_age=3600,
     )
+
+    # Assign one diagnostic ID at the outer API boundary. Downstream handlers,
+    # logs and jobs can reuse g.request_id without inventing independent IDs.
+    from app.middleware.request_id import register_request_id
+    register_request_id(app)
 
     # Register security headers middleware
     from app.middleware.security import register_security_headers
@@ -201,463 +210,15 @@ def create_app(config_name=None):
     from app.agent_gateway import init_agent_gateway
     init_agent_gateway(socketio)
 
-    # Register blueprints - Auth
-    from app.api.auth import auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-
-    # Agent polling fallback transport (REST equivalent of the WS gateway,
-    # used when tunnels mangle WebSocket frames).
-    from app.api.agent_poll import agent_poll_bp
-    app.register_blueprint(agent_poll_bp, url_prefix='/api/v1/agent')
-
-    # ServerKit-to-ServerKit peering: this panel linked to a master panel
-    # (embedded agent mode — no standalone Go agent required).
-    from app.api.linked_panel import linked_panel_bp
-    app.register_blueprint(linked_panel_bp, url_prefix='/api/v1/linked-panel')
-
-    # Register blueprints - Core
-    from app.api.apps import apps_bp
-    from app.api.domains import domains_bp
-    from app.api.private_urls import private_urls_bp
-    app.register_blueprint(apps_bp, url_prefix='/api/v1/apps')
-    # "Services" is the user-facing term for Applications (§1 unification).
-    # Mount the same blueprint under /api/v1/services as a true alias so the
-    # canonical `apps` routes and any `services` callers resolve identically.
-    app.register_blueprint(apps_bp, url_prefix='/api/v1/services', name='services')
-    app.register_blueprint(domains_bp, url_prefix='/api/v1/domains')
-    app.register_blueprint(private_urls_bp, url_prefix='/api/v1/apps')
-    # Per-app managed volumes — same dual mount as apps (/apps + /services alias).
-    from app.api.app_volumes import app_volumes_bp
-    app.register_blueprint(app_volumes_bp, url_prefix='/api/v1/apps')
-    app.register_blueprint(app_volumes_bp, url_prefix='/api/v1/services', name='app_volumes_services')
-
-    # Register blueprints - System
-    from app.api.system import system_bp
-    from app.api.processes import processes_bp
-    from app.api.logs import logs_bp
-    app.register_blueprint(system_bp, url_prefix='/api/v1/system')
-    app.register_blueprint(processes_bp, url_prefix='/api/v1/processes')
-    app.register_blueprint(logs_bp, url_prefix='/api/v1/logs')
-
-    # Register blueprints - Infrastructure
-    from app.api.nginx import nginx_bp
-    from app.api.ssl import ssl_bp
-    app.register_blueprint(nginx_bp, url_prefix='/api/v1/nginx')
-    app.register_blueprint(ssl_bp, url_prefix='/api/v1/ssl')
-
-    # Register blueprints - PHP
-    from app.api.php import php_bp
-    app.register_blueprint(php_bp, url_prefix='/api/v1/php')
-    # WordPress is the standalone `serverkit-wordpress` extension (plan 52
-    # Phase 5 — it left the tree into its own repo and installs from the
-    # registry; the setup wizard offers it from the bundled index entry).
-    # Its blueprints (wordpress / wordpress_sites / environment_pipeline,
-    # keeping the /api/v1/wordpress[/projects|/pipelines] prefixes per D3,
-    # incl. the /pipelines alias) are registered from the extension by the
-    # plugin loader when installed. The old `wordpress` module toggle is
-    # retired; the plugin status guard is the gate.
-
-    # Register blueprints - Python
-    from app.api.python import python_bp
-    app.register_blueprint(python_bp, url_prefix='/api/v1/python')
-
-    # Register blueprints - Docker
-    from app.api.docker import docker_bp
-    app.register_blueprint(docker_bp, url_prefix='/api/v1/docker')
-
-    # Register blueprints - Databases
-    from app.api.databases import databases_bp
-    app.register_blueprint(databases_bp, url_prefix='/api/v1/databases')
-
-    # Register blueprints - Database engine catalog (composed from templates)
-    from app.api.database_engines import database_engines_bp
-    app.register_blueprint(database_engines_bp, url_prefix='/api/v1/databases/engines')
-
-    # Register blueprints - Managed DB users + Adminer SSO
-    from app.api.managed_db_users import managed_db_users_bp
-    app.register_blueprint(managed_db_users_bp, url_prefix='/api/v1/managed-databases')
-
-    # Register blueprints - Curated DB config tuner
-    from app.api.db_tuner import db_tuner_bp
-    app.register_blueprint(db_tuner_bp, url_prefix='/api/v1/db-tuner')
-
-    # Register blueprints - Monitoring & Alerts
-    from app.api.monitoring import monitoring_bp
-    app.register_blueprint(monitoring_bp, url_prefix='/api/v1/monitoring')
-
-    # Register blueprints - Container status aggregator
-    from app.api.container_status import container_status_bp
-    app.register_blueprint(container_status_bp, url_prefix='/api/v1/status')
-
-    # Register blueprints - Build packs (zero-Dockerfile detection)
-    from app.api.buildpacks import buildpacks_bp
-    app.register_blueprint(buildpacks_bp, url_prefix='/api/v1/buildpacks')
-
-    # Register blueprints - Deployment config snapshots + diff
-    from app.api.snapshots import snapshots_bp
-    app.register_blueprint(snapshots_bp, url_prefix='/api/v1/apps')
-
-    # Register blueprints - Declarative serverkit.yaml manifest
-    from app.api.manifests import manifests_bp
-    app.register_blueprint(manifests_bp, url_prefix='/api/v1/manifests')
-
-    # Register blueprints - Projects & Environments hierarchy
-    from app.api.projects import projects_bp
-    app.register_blueprint(projects_bp, url_prefix='/api/v1/projects')
-    from app.api.environments import environments_bp
-    app.register_blueprint(environments_bp, url_prefix='/api/v1/environments')
-
-    # Register blueprints - Polymorphic shared resources (tags + variable groups)
-    from app.api.shared_resources import shared_resources_bp
-    app.register_blueprint(shared_resources_bp, url_prefix='/api/v1/shared')
-
-    # Register blueprints - PR preview environments
-    from app.api.previews import previews_bp
-    app.register_blueprint(previews_bp, url_prefix='/api/v1/apps')
-    from app.api.webhooks import webhooks_bp
-    app.register_blueprint(webhooks_bp, url_prefix='/api/v1/webhooks')
-
-    # Register blueprints - Per-server managed proxy stack
-    from app.api.proxy import proxy_bp
-    app.register_blueprint(proxy_bp, url_prefix='/api/v1/servers')
-
-    # Register blueprints - Notifications
-    from app.api.notifications import notifications_bp
-    app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
-
-    # Register blueprints - Backups
-    from app.api.backups import backups_bp
-    app.register_blueprint(backups_bp, url_prefix='/api/v1/backups')
-
-    # Register blueprints - Git Deployment
-    from app.api.deploy import deploy_bp
-    app.register_blueprint(deploy_bp, url_prefix='/api/v1/deploy')
-
-    # Register blueprints - Builds & Deployments
-    from app.api.builds import builds_bp
-    from app.api.deployment_jobs import deployment_jobs_bp
-    from app.api.deployments import deployments_bp
-    app.register_blueprint(builds_bp, url_prefix='/api/v1/builds')
-    app.register_blueprint(deployment_jobs_bp, url_prefix='/api/v1/deployment-jobs')
-    # §3 unification: one /api/v1/deployments surface. Federated history/detail
-    # live in deployments_bp; the canonical execution records (DeploymentJob)
-    # are also mounted here under /deployments/jobs (alias of /deployment-jobs).
-    app.register_blueprint(deployments_bp, url_prefix='/api/v1/deployments')
-    app.register_blueprint(deployment_jobs_bp, url_prefix='/api/v1/deployments/jobs',
-                           name='deployment_jobs_unified')
-
-    # Register blueprints - Templates
-    from app.api.templates import templates_bp
-    app.register_blueprint(templates_bp, url_prefix='/api/v1/templates')
-
-    # Register blueprints - File Manager
-    from app.api.files import files_bp
-    app.register_blueprint(files_bp, url_prefix='/api/v1/files')
-
-    # FTP Server is an opt-in builtin extension (serverkit-ftp, plan 47) — its
-    # blueprint loads from builtin-extensions/serverkit-ftp/ when installed, not
-    # from core. A fresh panel that never touches FTP loads none of it.
-
-    # Register blueprints - Firewall
-    from app.api.firewall import firewall_bp
-    app.register_blueprint(firewall_bp, url_prefix='/api/v1/firewall')
-
-    # Register blueprints - Git Server
-    from app.api.git import git_bp
-    app.register_blueprint(git_bp, url_prefix='/api/v1/git')
-
-    # Register blueprints - Security (ClamAV, File Integrity, etc.)
-    from app.api.security import security_bp
-    app.register_blueprint(security_bp, url_prefix='/api/v1/security')
-
-    # Register blueprints - Secrets manager + inbound webhook gateway
-    from app.api.secrets_webhooks import bp as secrets_webhooks_bp
-    app.register_blueprint(secrets_webhooks_bp, url_prefix='/api/v1')
-
-    # Register blueprints - Cron Jobs
-    from app.api.cron import cron_bp
-    app.register_blueprint(cron_bp, url_prefix='/api/v1/cron')
-
-    # Email Server is now the serverkit-email builtin extension (Phase 4, #32):
-    # its /api/v1/email blueprint + Postfix/Dovecot/DKIM/SpamAssassin/Roundcube
-    # services live in builtin-extensions/serverkit-email/ and are registered by
-    # the plugin loader when installed. The outbound relay (email_relay_service)
-    # and all email models stay core (notifications SMTP + shared Postfix relay).
-
-    # Register blueprints - Uptime Tracking
-    from app.api.uptime import uptime_bp
-    app.register_blueprint(uptime_bp, url_prefix='/api/v1/uptime')
-
-    # Register blueprints - Monitors (synthetic checks + their incidents).
-    # Core: watching a site must not depend on the status-page extension.
-    from app.api.monitors import monitors_bp
-    app.register_blueprint(monitors_bp, url_prefix='/api/v1/monitors')
-
-    # Register blueprints - Environment Variables
-    from app.api.env_vars import env_vars_bp
-    app.register_blueprint(env_vars_bp, url_prefix='/api/v1/apps')
-
-    # Register blueprints - Two-Factor Authentication
-    from app.api.two_factor import two_factor_bp
-    app.register_blueprint(two_factor_bp, url_prefix='/api/v1/auth/2fa')
-
-    # Register blueprints - SSO / OAuth
-    from app.api.sso import sso_bp
-    app.register_blueprint(sso_bp, url_prefix='/api/v1/sso')
-
-    # Register blueprints - Source provider connections
-    from app.api.source_connections import source_connections_bp
-    app.register_blueprint(source_connections_bp, url_prefix='/api/v1/source-connections')
-
-    # Register blueprints - Domain registrar connections (portfolio + expiry)
-    from app.api.registrars import registrars_bp
-    app.register_blueprint(registrars_bp, url_prefix='/api/v1/registrars')
-
-    # Register blueprints - Unified connection registry (read-only "all connections")
-    from app.api.connections import connections_bp
-    app.register_blueprint(connections_bp, url_prefix='/api/v1/connections')
-
-    # Register blueprints - Database Migrations
-    from app.api.migrations import migrations_bp
-    app.register_blueprint(migrations_bp, url_prefix='/api/v1/migrations')
-
-    # Register blueprints - API Enhancements
-    from app.api.api_keys import api_keys_bp
-    from app.api.api_analytics import api_analytics_bp
-    from app.api.event_subscriptions import event_subscriptions_bp
-    from app.api.docs import docs_bp
-    app.register_blueprint(api_keys_bp, url_prefix='/api/v1/api-keys')
-    app.register_blueprint(api_analytics_bp, url_prefix='/api/v1/api-analytics')
-    app.register_blueprint(event_subscriptions_bp, url_prefix='/api/v1/event-subscriptions')
-    app.register_blueprint(docs_bp, url_prefix='/api/v1/docs')
-
-    # Register blueprints - Admin (User Management, Settings, Audit Logs)
-    from app.api.admin import admin_bp
-    app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
-
-    # Register blueprints - Invitations
-    from app.api.invitations import invitations_bp
-    app.register_blueprint(invitations_bp, url_prefix='/api/v1/admin/invitations')
-
-    # Register blueprints - Historical Metrics
-    from app.api.metrics import metrics_bp
-    app.register_blueprint(metrics_bp, url_prefix='/api/v1/metrics')
-
-    # The /api/v1/workflows blueprint (React-Flow Workflow Builder) was retired
-    # in plan 45 Phase 4 -- the Automations extension (tramo) replaces it.
-
-    # Register blueprints - Servers (Multi-server management)
-    from app.api.servers import servers_bp
-    app.register_blueprint(servers_bp, url_prefix='/api/v1/servers')
-
-    # Register blueprints - Server Survey (read-only "flights" over a paired agent)
-    from app.api.survey import survey_bp
-    app.register_blueprint(survey_bp, url_prefix='/api/v1/servers')
-
-    # Register blueprints - Fleet Monitor (Cross-server monitoring)
-    from app.api.fleet_monitor import fleet_monitor_bp
-    app.register_blueprint(fleet_monitor_bp, url_prefix='/api/v1/fleet-monitor')
-
-    # Register blueprints - Fleet (target picker, capability discovery)
-    from app.api.fleet import fleet_bp
-    app.register_blueprint(fleet_bp, url_prefix='/api/v1/fleet')
-
-    # Register blueprints - Agent Plugins
-    from app.api.agent_plugins import agent_plugins_bp
-    app.register_blueprint(agent_plugins_bp, url_prefix='/api/v1/agent-plugins')
-
-    # Register blueprints - Server Templates
-    from app.api.server_templates import server_templates_bp
-    app.register_blueprint(server_templates_bp, url_prefix='/api/v1/server-templates')
-
-    # Register blueprints - Workspaces
-    from app.api.workspaces import workspaces_bp
-    app.register_blueprint(workspaces_bp, url_prefix='/api/v1/workspaces')
-
-    # Register blueprints - Advanced SSL
-    # §5 unification: one SSL surface. The advanced cert operations (wildcard,
-    # SAN, custom upload, profiles, health, expiry alerts) mount under the same
-    # /api/v1/ssl prefix as the basic certbot routes (no path collisions). The
-    # original /api/v1/ssl/advanced prefix is kept as a deprecated alias.
-    from app.api.advanced_ssl import advanced_ssl_bp
-    app.register_blueprint(advanced_ssl_bp, url_prefix='/api/v1/ssl/advanced')
-    app.register_blueprint(advanced_ssl_bp, url_prefix='/api/v1/ssl', name='advanced_ssl_unified')
-
-    # Register blueprints - DNS Zones
-    from app.api.dns_zones import dns_zones_bp
-    app.register_blueprint(dns_zones_bp, url_prefix='/api/v1/dns')
-
-    # Register blueprints - Reversible DNS cutover (snapshot/cutover/verify/revert
-    # a migration's DNS switch; backs the /domains cutover drawer)
-    from app.api.dns_cutover import dns_cutover_bp
-    app.register_blueprint(dns_cutover_bp, url_prefix='/api/v1/dns-cutover')
-
-    from app.api.setup_health import setup_health_bp
-    app.register_blueprint(setup_health_bp, url_prefix='/api/v1/setup-health')
-
-    # Register blueprints - Cloudflare operations (zone settings/cache/WAF on top
-    # of the existing Cloudflare DNS connection)
-    # Cloudflare zone-ops moved into the bundled, default-installed
-    # `serverkit-cloudflare-ops` extension (#36). Its blueprint (kept at
-    # /api/v1/cloudflare, D9) is registered from the extension by the plugin
-    # loader — seeded as a flagship in create_app. DNS records + the Cloudflare
-    # connection stay core (they back /domains); the extension borrows the single
-    # core CloudflareClient, never a duplicate.
-
-    # Register blueprints - DNS provider connections. Core (they back the
-    # Settings -> Connections DNS tiles and wildcard TLS), but kept at the
-    # historical /api/v1/email/dns-providers paths from before the email
-    # extraction so existing frontends keep working.
-    from app.api.dns_providers import dns_providers_bp
-    app.register_blueprint(dns_providers_bp, url_prefix='/api/v1/email')
-
-    # Register blueprints - Dynamic DNS
-    from app.api.ddns import ddns_bp
-    app.register_blueprint(ddns_bp, url_prefix='/api/v1/ddns')
-
-    # Register blueprints - Image update checks
-    from app.api.image_updates import image_updates_bp
-    app.register_blueprint(image_updates_bp, url_prefix='/api/v1/image-updates')
-
-    # Register blueprints - Per-application WAF (ModSecurity + OWASP CRS)
-    from app.api.waf import waf_bp
-    app.register_blueprint(waf_bp, url_prefix='/api/v1/waf')
-
-    # GPU monitoring lives in the standalone serverkit-gpu extension (own repo,
-    # installed from the registry). Its blueprint mounts at /api/v1/gpu when
-    # installed; the core app.api.gpu / app.services.gpu_service modules are gone.
-
-    # Register blueprints - Nginx Advanced
-    from app.api.nginx_advanced import nginx_advanced_bp
-    app.register_blueprint(nginx_advanced_bp, url_prefix='/api/v1/nginx/advanced')
-
-    # Status Pages is an opt-in builtin extension (serverkit-status, plan 47) —
-    # its blueprint (public + management routes) loads from builtin-extensions/
-    # when installed, not from core. The StatusPage/StatusComponent models stay
-    # core (G2); the WordPress health-check job reaches the extension's sync
-    # helper via get_installed_extension_attr only when installed.
-
-    # Cloud Provisioning is an opt-in builtin extension (serverkit-cloud-provision,
-    # plan 47) — its blueprint loads from builtin-extensions/ when installed, not
-    # from core. The CloudProvider/CloudServer models stay core (G2).
-
-    # Remote Access (WireGuard tunnels) is an opt-in builtin extension
-    # (serverkit-remote-access, plan 47) — its blueprint loads from
-    # builtin-extensions/ when installed, not from core. The Tunnel/ExposedService
-    # models stay core (G2); the agent gateway reaches its reconcile helper via
-    # get_installed_extension_attr only when the extension is present.
-
-    # Register blueprints - Performance
-    from app.api.performance import performance_bp
-    app.register_blueprint(performance_bp, url_prefix='/api/v1/performance')
-
-    # Register blueprints - Mobile
-    from app.api.mobile import mobile_bp
-    app.register_blueprint(mobile_bp, url_prefix='/api/v1/mobile')
-
-    # Register blueprints - Marketplace
-    from app.api.marketplace import marketplace_bp
-    app.register_blueprint(marketplace_bp, url_prefix='/api/v1/marketplace')
-
-    # Register blueprints - Themes (plan 60)
-    from app.api.themes import themes_bp
-    app.register_blueprint(themes_bp, url_prefix='/api/v1/themes')
-    from app.api.views import views_bp
-    app.register_blueprint(views_bp, url_prefix='/api/v1/views')
-
-    from app.api.recycle_bin import recycle_bin_bp
-    app.register_blueprint(recycle_bin_bp, url_prefix='/api/v1/recycle-bin')
-
-    # Register blueprints - Centralized error log tracking
-    from app.api.error_logs import error_logs_bp
-    app.register_blueprint(error_logs_bp, url_prefix='/api/v1/error-logs')
-    # Teach the bin which models it can restore. Import-time registration keeps
-    # the API type-agnostic: adding a soft-deletable model touches only this list.
+    # Core routes are an explicit, ordered manifest. Extension blueprints stay
+    # outside this registry and are loaded after migrations below.
+    from app.core_blueprints import register_core_blueprints
+    register_core_blueprints(app)
+
+    # Register the core restore handlers after their models and API modules
+    # have been imported by the blueprint registry.
     from app.services import recycle_bin_service
     recycle_bin_service.register_builtin_types()
-
-    # Register blueprints - Dashboard boards (plan 62, per-user widget grid)
-    from app.api.dashboards import dashboards_bp
-    app.register_blueprint(dashboards_bp, url_prefix='/api/v1/dashboards')
-
-    # Register blueprints - Plugins
-    from app.api.plugins import plugins_bp
-    app.register_blueprint(plugins_bp, url_prefix='/api/v1/plugins')
-
-    # Register blueprints - Unified entity omnisearch
-    from app.api.search import search_bp
-    app.register_blueprint(search_bp, url_prefix='/api/v1/search')
-
-    # Register blueprints - Modules (core-vertical toggles)
-    from app.api.modules import modules_bp
-    app.register_blueprint(modules_bp, url_prefix='/api/v1/modules')
-
-    # Register blueprints - Queue Bus
-    from app.api.queue_bus import queue_bus_bp
-    app.register_blueprint(queue_bus_bp, url_prefix='/api/v1/queue')
-
-    # Register blueprints - Unified Jobs (work orchestration on the Queue Bus)
-    from app.api.jobs import jobs_bp
-    app.register_blueprint(jobs_bp, url_prefix='/api/v1/jobs')
-
-    # Register blueprints - Telemetry / System Event Stream
-    from app.api.telemetry import telemetry_bp
-    app.register_blueprint(telemetry_bp, url_prefix='/api/v1/telemetry')
-
-    # §4 unification: one observability namespace. The monitoring / metrics /
-    # telemetry / uptime / fleet / status-page read surfaces are re-mounted under
-    # /api/v1/observability/<domain> as true aliases (same blueprints, distinct
-    # names) so callers have a single front door. The original prefixes remain,
-    # and the PUBLIC status page route (/api/v1/status/public/<slug>) is
-    # unchanged — its canonical mount is untouched.
-    app.register_blueprint(monitoring_bp, url_prefix='/api/v1/observability/monitoring', name='obs_monitoring')
-    app.register_blueprint(metrics_bp, url_prefix='/api/v1/observability/metrics', name='obs_metrics')
-    app.register_blueprint(telemetry_bp, url_prefix='/api/v1/observability/events', name='obs_events')
-    app.register_blueprint(uptime_bp, url_prefix='/api/v1/observability/uptime', name='obs_uptime')
-    app.register_blueprint(fleet_monitor_bp, url_prefix='/api/v1/observability/fleet', name='obs_fleet')
-    # status-pages observability alias dropped with the serverkit-status
-    # extraction (plan 47) — it was unused by the frontend; status pages mount at
-    # /api/v1/status from the extension when installed.
-
-    # Register blueprints - Agent Pairing (RustDesk-style short-code flow)
-    from app.api.pairing import pairing_bp
-    app.register_blueprint(pairing_bp, url_prefix='/api/v1/pairing')
-
-    # Register blueprints - AI Assistant (core primitive, powered by Prompture)
-    from app.api.ai import ai_bp
-    app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
-
-    # Register blueprints - Server speed test (Monitoring card)
-    from app.api.speed_test import speedtest_bp
-    app.register_blueprint(speedtest_bp, url_prefix='/api/v1/speedtest')
-
-    # Register blueprints - Site imports (panel migration pipeline)
-    from app.api.site_imports import site_imports_bp
-    app.register_blueprint(site_imports_bp, url_prefix='/api/v1/imports')
-
-    # Register blueprints - Drift detection + doctor sweep
-    from app.api.doctor import doctor_bp
-    app.register_blueprint(doctor_bp, url_prefix='/api/v1/doctor')
-
-    # Register blueprints - Fleet doctor (the same sweep across the agent fleet)
-    from app.api.fleet_doctor import fleet_doctor_bp
-    app.register_blueprint(fleet_doctor_bp, url_prefix='/api/v1/doctor/fleet')
-
-    # Register blueprints - Diagnostic support bundle
-    from app.api.support_bundle import support_bundle_bp
-    app.register_blueprint(support_bundle_bp, url_prefix='/api/v1/support-bundle')
-
-    # Register blueprints - Per-site bandwidth accounting
-    from app.api.bandwidth import bandwidth_bp
-    app.register_blueprint(bandwidth_bp, url_prefix='/api/v1/bandwidth')
-
-    # Register blueprints - .htaccess -> nginx converter (apps-prefixed tool)
-    from app.api.htaccess_tools import htaccess_tools_bp
-    app.register_blueprint(htaccess_tools_bp, url_prefix='/api/v1/apps')
-
-    # Register blueprints - Test Sandbox (distro test matrix in Docker)
-    from app.api.test_sandbox import test_sandbox_bp
-    app.register_blueprint(test_sandbox_bp, url_prefix='/api/v1/test-sandbox')
 
     # Handle database migrations (Alembic) — must run before plugin loader
     # since the loader queries the installed_plugins table.
@@ -891,6 +452,20 @@ def create_app(config_name=None):
             return send_from_directory(app.static_folder, 'index.html')
         return {'message': 'ServerKit API is running', 'docs': '/api/v1/'}, 200
 
+    # Expected application failures. Services raise these typed errors and the
+    # HTTP boundary owns their public shape and status-code mapping.
+    from app.exceptions import ApplicationError
+    from app.middleware.request_id import get_request_id
+
+    @app.errorhandler(ApplicationError)
+    def application_error(e):
+        request_id = get_request_id(create=True)
+        app.logger.info(
+            'Application error %s on %s %s [request_id=%s]: %s',
+            e.code, request.method, request.path, request_id, e.message,
+        )
+        return e.to_dict(request_id=request_id), e.status_code
+
     # Unhandled exceptions. Flask only routes here when it is not propagating
     # (so pytest and the dev server still re-raise with a full traceback);
     # in production this is the difference between a logged, JSON-shaped 500 and
@@ -899,8 +474,10 @@ def create_app(config_name=None):
     def internal_error(e):
         original = getattr(e, 'original_exception', None)
         exc = original or e
+        request_id = get_request_id(create=True)
         app.logger.exception(
-            'Unhandled exception on %s %s', request.method, request.path,
+            'Unhandled exception on %s %s [request_id=%s]',
+            request.method, request.path, request_id,
             exc_info=exc
         )
         # Roll the failing request's session back BEFORE recording. The 500
@@ -938,12 +515,18 @@ def create_app(config_name=None):
                 endpoint=request.path,
                 method=request.method,
                 user_id=user_id,
+                context={'request_id': request_id},
             )
         except Exception:  # noqa: BLE001
             pass
         # JSON either way: unlike a 404, there is no sensible SPA fallback for a
         # crash, and an HTML page tells the caller nothing it can act on.
-        return {'error': 'Internal server error'}, 500
+        return {
+            'error': 'Internal server error',
+            'status': 500,
+            'code': 'internal_error',
+            'request_id': request_id,
+        }, 500
 
     # Framework-generated HTTP errors (abort(), 405 from the router, 413 from
     # MAX_CONTENT_LENGTH) rendered Werkzeug's HTML page even under /api/, so an
@@ -952,10 +535,17 @@ def create_app(config_name=None):
     @app.errorhandler(HTTPException)
     def http_exception(e):
         if request.path.startswith('/api/'):
+            request_id = get_request_id(create=True)
             app.logger.warning(
-                'HTTP %s on %s %s: %s', e.code, request.method, request.path, e.description
+                'HTTP %s on %s %s [request_id=%s]: %s',
+                e.code, request.method, request.path, request_id, e.description,
             )
-            return {'error': e.description or e.name, 'status': e.code}, e.code
+            return {
+                'error': e.description or e.name,
+                'status': e.code,
+                'code': (e.name or 'http_error').lower().replace(' ', '_'),
+                'request_id': request_id,
+            }, e.code
         # Non-API paths keep Werkzeug's standard HTML error page.
         return e.get_response()
 
@@ -964,7 +554,12 @@ def create_app(config_name=None):
     def not_found(e):
         from flask import request
         if request.path.startswith('/api/'):
-            return {'error': 'Not found'}, 404
+            return {
+                'error': 'Not found',
+                'status': 404,
+                'code': 'not_found',
+                'request_id': get_request_id(create=True),
+            }, 404
         # Serve SPA index.html if it exists, otherwise JSON 404
         index = os.path.join(app.static_folder, 'index.html') if app.static_folder else None
         if index and os.path.isfile(index):

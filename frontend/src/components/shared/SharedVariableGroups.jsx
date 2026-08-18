@@ -10,6 +10,7 @@ import Modal from '@/components/Modal';
 import ResourceListPage from '../layouts/ResourceListPage';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { SearchField, Pill, ServiceTile } from '@/components/ds';
+import { useConfirm } from '@/hooks/useConfirm';
 
 const RESOURCE_TYPES = ['application', 'database', 'service', 'wordpress', 'server'];
 
@@ -45,6 +46,7 @@ const GROUP_VIEWS = [
  */
 const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) => {
     const toast = useToast();
+    const { confirm } = useConfirm();
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState(null);
@@ -111,7 +113,11 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
     }
 
     async function handleDeleteGroup(groupId) {
-        if (!confirm('Delete this variable group? Attachments will be removed.')) return;
+        if (!await confirm({
+            title: 'Delete variable group',
+            message: 'Delete this variable group? Its attachments will be removed.',
+            confirmText: 'Delete group',
+        })) return;
         try {
             await api.deleteVariableGroup(groupId);
             toast.success('Group deleted');

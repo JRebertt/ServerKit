@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 from app.middleware.rbac import admin_required
 from app.services.nginx_service import NginxService
 
@@ -7,7 +6,6 @@ nginx_bp = Blueprint('nginx', __name__)
 
 
 @nginx_bp.route('/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_status():
     """Get Nginx service status."""
@@ -16,7 +14,6 @@ def get_status():
 
 
 @nginx_bp.route('/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_config():
     """Test Nginx configuration syntax."""
@@ -25,7 +22,6 @@ def test_config():
 
 
 @nginx_bp.route('/reload', methods=['POST'])
-@jwt_required()
 @admin_required
 def reload_nginx():
     """Reload Nginx configuration."""
@@ -34,7 +30,6 @@ def reload_nginx():
 
 
 @nginx_bp.route('/restart', methods=['POST'])
-@jwt_required()
 @admin_required
 def restart_nginx():
     """Restart Nginx service."""
@@ -43,7 +38,6 @@ def restart_nginx():
 
 
 @nginx_bp.route('/sites', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_sites():
     """List all Nginx sites."""
@@ -52,7 +46,6 @@ def list_sites():
 
 
 @nginx_bp.route('/sites', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_site():
     """Create a new Nginx site configuration."""
@@ -79,7 +72,6 @@ def create_site():
 
 
 @nginx_bp.route('/sites/<name>/enable', methods=['POST'])
-@jwt_required()
 @admin_required
 def enable_site(name):
     """Enable a site."""
@@ -88,7 +80,6 @@ def enable_site(name):
 
 
 @nginx_bp.route('/sites/<name>/disable', methods=['POST'])
-@jwt_required()
 @admin_required
 def disable_site(name):
     """Disable a site."""
@@ -97,7 +88,6 @@ def disable_site(name):
 
 
 @nginx_bp.route('/sites/<name>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_site(name):
     """Delete a site configuration."""
@@ -106,7 +96,6 @@ def delete_site(name):
 
 
 @nginx_bp.route('/sites/<name>/ssl', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_ssl_to_site(name):
     """Add SSL configuration to a site."""

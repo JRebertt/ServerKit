@@ -8,6 +8,8 @@
 // from the app's hooks. `suggested: true` surfaces the action on the empty-query
 // screen. Every action still passes the Phase-1 authz filter (adminOnly + nav).
 
+import { copyToClipboard } from '@/utils/clipboard';
+
 export const COMMAND_ACTIONS = [
     {
         id: 'new-service',
@@ -69,9 +71,7 @@ export const COMMAND_ACTIONS = [
                     ? api.getSystemInfo()
                     : api.getSystemSettings())) || {};
                 const version = data.version || data.app_version || data.panel_version;
-                if (version && navigator.clipboard) {
-                    await navigator.clipboard.writeText(String(version));
-                }
+                if (version) await copyToClipboard(version);
             } catch {
                 /* best-effort clipboard copy — never surface an error */
             }

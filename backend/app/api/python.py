@@ -47,7 +47,6 @@ def get_versions():
 
 # Application creation
 @python_bp.route('/apps/flask', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_flask_app():
     """Create a new Flask application."""
@@ -107,7 +106,6 @@ def create_flask_app():
 
 
 @python_bp.route('/apps/django', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_django_app():
     """Create a new Django application."""
@@ -169,7 +167,6 @@ def create_django_app():
 
 # Virtual environment management
 @python_bp.route('/apps/<int:app_id>/venv', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_venv(app_id):
     """Create or recreate virtual environment."""
@@ -196,7 +193,6 @@ def get_packages(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/packages', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_packages(app_id):
     """Install packages."""
@@ -213,7 +209,6 @@ def install_packages(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/requirements', methods=['POST'])
-@jwt_required()
 @admin_required
 def freeze_requirements(app_id):
     """Freeze requirements to requirements.txt."""
@@ -251,7 +246,6 @@ def get_env_vars(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/env', methods=['PUT'])
-@jwt_required()
 @admin_required
 def set_env_vars(app_id):
     """Set environment variables."""
@@ -269,7 +263,6 @@ def set_env_vars(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/env/<key>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_env_var(app_id, key):
     """Delete an environment variable."""
@@ -284,7 +277,6 @@ def delete_env_var(app_id, key):
 
 # Process control
 @python_bp.route('/apps/<int:app_id>/start', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_app(app_id):
     """Start the application."""
@@ -302,7 +294,6 @@ def start_app(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/stop', methods=['POST'])
-@jwt_required()
 @admin_required
 def stop_app(app_id):
     """Stop the application."""
@@ -320,7 +311,6 @@ def stop_app(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/restart', methods=['POST'])
-@jwt_required()
 @admin_required
 def restart_app(app_id):
     """Restart the application."""
@@ -365,7 +355,6 @@ def get_gunicorn_config(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/gunicorn', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_gunicorn_config(app_id):
     """Update Gunicorn configuration."""
@@ -384,7 +373,6 @@ def update_gunicorn_config(app_id):
 
 # Django-specific
 @python_bp.route('/apps/<int:app_id>/migrate', methods=['POST'])
-@jwt_required()
 @admin_required
 def run_migrations(app_id):
     """Run database migrations."""
@@ -398,7 +386,6 @@ def run_migrations(app_id):
 
 
 @python_bp.route('/apps/<int:app_id>/collectstatic', methods=['POST'])
-@jwt_required()
 @admin_required
 def collect_static(app_id):
     """Collect static files (Django only)."""
@@ -416,7 +403,6 @@ def collect_static(app_id):
 
 # Command execution
 @python_bp.route('/apps/<int:app_id>/run', methods=['POST'])
-@jwt_required()
 @admin_required
 def run_command(app_id):
     """Run a command in the app context."""
@@ -441,7 +427,6 @@ def run_command(app_id):
 
 # Delete application
 @python_bp.route('/apps/<int:app_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_app(app_id):
     """Delete a Python application."""

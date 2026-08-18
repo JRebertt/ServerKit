@@ -8,6 +8,7 @@
 //
 // After sync this file lives at frontend/src/plugins/serverkit-remote-access/
 // so the relative import resolves against the host's pages directory.
+import './styles/remote-access.scss';
 import RemoteAccess from '../../pages/RemoteAccess';
 
 export function RemoteAccessPage() {

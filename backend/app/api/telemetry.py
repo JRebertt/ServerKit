@@ -110,7 +110,6 @@ def list_event_types():
 
 
 @telemetry_bp.route('/events', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def cleanup_events():
     """Delete events older than the specified number of days (admin only)."""
@@ -120,7 +119,6 @@ def cleanup_events():
 
 
 @telemetry_bp.route('/events/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def emit_test_event():
     """Emit a test telemetry event (admin only)."""

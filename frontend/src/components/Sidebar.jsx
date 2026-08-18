@@ -13,11 +13,13 @@ import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
 import useDevMode from '../hooks/useDevMode';
 import QuickCreate from './QuickCreate';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
     const { user, logout, updateUser, hasPermission } = useAuth();
     const { theme, resolvedTheme, setTheme, whiteLabel } = useTheme();
     const { layout, setLayout } = useLayout();
+    const { activeWorkspace } = useWorkspace();
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
     const [wpInstalled, setWpInstalled] = useState(false);
@@ -204,17 +206,8 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         // Apply workspace-level nav permissions if an active workspace is set
         // and it defines a nav map. This lets a workspace restrict which sidebar
         // items its members see based on their effective workspace role.
-        const activeWorkspaceRaw = localStorage.getItem('active_workspace');
-        let activeWorkspace = null;
-        if (activeWorkspaceRaw) {
-            try {
-                activeWorkspace = JSON.parse(activeWorkspaceRaw);
-            } catch {
-                activeWorkspace = null;
-            }
-        }
         return applyWorkspaceNavPermissions(items, activeWorkspace, user);
-    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, devMode, user, hasPermission]);
+    }, [user?.sidebar_config, pluginNav, pluginTabs, wpInstalled, gpuAvailable, wordpressEnabled, devMode, user, hasPermission, activeWorkspace]);
 
     // Group visible items by category
     const groupedItems = useMemo(() => {

@@ -89,7 +89,6 @@ def get_thresholds():
 
 
 @fleet_monitor_bp.route('/thresholds', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_threshold():
     """Create or update an alert threshold."""
@@ -101,7 +100,6 @@ def create_threshold():
 
 
 @fleet_monitor_bp.route('/thresholds/<threshold_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_threshold(threshold_id):
     """Delete an alert threshold."""

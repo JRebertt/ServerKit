@@ -1,0 +1,256 @@
+// ============================================
+// REMOTE ACCESS  (/remote-access — a tab in the Servers group)
+// ============================================
+// Compiled through the extension's module graph (imported by index.jsx).
+// The baked copy lives at frontend/src/plugins/serverkit-remote-access/, so
+// this sync-safe path resolves to the host's Sass design-token partial.
+@import '../../../styles/variables';
+
+// WireGuard tunnels between two agents + the services published over them.
+// Page-local `.ra-*` classes built on the infra-console tokens (sk-* siblings).
+// Deliberately NOT the shadcn <Card>: its unlayered `.ui-card-content` zeroes
+// top padding and can't be reliably overridden by Tailwind utilities, which sit
+// in a lower-priority @layer — that's what made the old page look unpadded.
+
+.ra-page {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+}
+
+.ra-intro {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-4;
+    margin: -2px 0 0;
+    max-width: 72ch;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-dim);
+
+    p { margin: 0; }
+
+    .ra-intro__actions {
+        flex-shrink: 0;
+    }
+}
+
+@media (max-width: $breakpoint-md) {
+    .ra-intro {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: $space-3;
+    }
+}
+
+.ra-loading {
+    display: flex;
+    justify-content: center;
+    padding: $space-10 0;
+}
+
+.ra-list {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+// ---- Tunnel card --------------------------------------------------
+.ra-tunnel {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.15s;
+
+    &:hover { border-color: var(--border-strong); }
+}
+
+.ra-tunnel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $space-4;
+    padding: $space-4 $space-5;
+}
+
+.ra-tunnel__info { min-width: 0; }
+
+.ra-tunnel__route {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text);
+
+    .ra-node {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+
+            &:hover {
+                color: var(--accent-bright);
+                text-decoration: underline;
+            }
+        }
+
+        .ra-node__tag {
+            flex-shrink: 0;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: var(--accent-bg);
+            color: var(--accent-bright);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+    }
+
+    .ra-node__ico {
+        width: 27px;
+        height: 27px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        background: var(--surface-2);
+        color: var(--text-dim);
+    }
+
+    .ra-arrow {
+        color: var(--text-faint);
+        flex-shrink: 0;
+    }
+}
+
+.ra-tunnel__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 9px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-faint);
+
+    .ra-dot { opacity: 0.55; }
+}
+
+.ra-tunnel__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.ra-tunnel__warn {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0 $space-5 $space-4;
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: var(--amber-bg);
+    color: var(--amber);
+    font-size: 12px;
+    line-height: 1.45;
+
+    svg { flex-shrink: 0; margin-top: 1px; }
+}
+
+// ---- Published services -------------------------------------------
+.ra-svcs {
+    border-top: 1px solid var(--border-soft);
+}
+
+.ra-svc {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    padding: 12px $space-5;
+    transition: background 0.12s;
+
+    & + .ra-svc { border-top: 1px solid var(--border-soft); }
+    &:hover { background: var(--surface-2); }
+}
+
+.ra-svc__main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.ra-svc__ico {
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+
+.ra-svc__host {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13.5px;
+    font-weight: 550;
+    color: var(--text);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    svg { color: var(--text-faint); flex-shrink: 0; }
+
+    // Only linkable (published) hosts get the hover affordance.
+    &:where(a):hover {
+        color: var(--accent-bright);
+        text-decoration: underline;
+        svg { color: var(--accent-bright); }
+    }
+}
+
+.ra-svc__port {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+}
+
+.ra-svc__flags {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    color: var(--text-faint);
+
+    .ra-flag--ssl { color: var(--green); }
+}
+
+.ra-svc__right {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-3;
+    flex-shrink: 0;
+}
+
+@media (max-width: $breakpoint-md) {
+    .ra-tunnel__head { flex-direction: column; gap: $space-3; }
+    .ra-tunnel__actions { width: 100%; }
+
+    .ra-svc {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .ra-svc__right { width: 100%; justify-content: space-between; }
+}

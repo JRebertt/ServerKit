@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { BUNDLED_THEMES, BUNDLED_THEME_MAP, DEFAULT_THEME_SLUG } from '../data/bundledThemes';
 import { applySkin } from '../utils/applySkin';
 import api from '../services/api';
+import { useWorkspace } from './WorkspaceContext';
 
 const ThemeContext = createContext(null);
 
@@ -83,6 +84,7 @@ function computeEffectiveAccent({ workspaceAccent, hasCustomAccent, accentColor,
 }
 
 export function ThemeProvider({ children }) {
+    const { workspaceAccent } = useWorkspace();
     const [theme, setThemeState] = useState(() => {
         return localStorage.getItem('theme') || 'dark';
     });
@@ -126,11 +128,8 @@ export function ThemeProvider({ children }) {
         }
     });
 
-    // Active-workspace branding (#33): when a workspace is selected, its accent
-    // color (written to localStorage by the WorkspaceSwitcher) takes precedence
-    // over the user's personal accent. It only changes on reload — the switcher
-    // reloads on switch — so a one-time read is deterministic and sufficient.
-    const workspaceAccent = localStorage.getItem('workspace_accent') || null;
+    // Active-workspace branding (#33) takes precedence over the user's personal
+    // accent and now reacts to same-tab and cross-tab workspace changes.
 
     // All selectable themes (bundled seeds + installed), keyed by slug.
     const themesMap = useMemo(

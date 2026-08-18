@@ -11,6 +11,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Zap, Radar, FolderSearch, Download, Box, FileCode2, Trash2, Search } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { useConfirm } from '@/hooks/useConfirm';
 
 const SEVERITY_TONE = {
     critical: 'red',
@@ -122,6 +123,7 @@ const HISTORY_VIEWS = [
 ];
 
 const ScannerTab = () => {
+    const { confirm } = useConfirm();
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
     const [scanPath, setScanPath] = useState('/var/www');
     const [scanning, setScanning] = useState(false);
@@ -330,7 +332,11 @@ const ScannerTab = () => {
     }
 
     async function handleDeleteRule(name) {
-        if (!confirm(`Delete custom rule file ${name}?`)) return;
+        if (!await confirm({
+            title: 'Delete scanner rule',
+            message: `Delete custom rule file ${name}?`,
+            confirmText: 'Delete rule',
+        })) return;
         try {
             await api.deleteYaraRule(name);
             loadRules();

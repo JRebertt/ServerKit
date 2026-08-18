@@ -8,6 +8,7 @@ parsing JSON, and unhandled exceptions were never logged with their path.
 """
 
 import logging
+import re
 
 
 def test_unknown_api_route_returns_json_404(client):
@@ -15,7 +16,10 @@ def test_unknown_api_route_returns_json_404(client):
 
     assert response.status_code == 404
     assert response.is_json
-    assert response.get_json()['error'] == 'Not found'
+    payload = response.get_json()
+    assert payload['error'] == 'Not found'
+    assert payload['code'] == 'not_found'
+    assert payload['request_id'] == response.headers['X-Request-ID']
 
 
 def test_method_not_allowed_on_api_returns_json_not_html(client):
@@ -35,6 +39,59 @@ def test_method_not_allowed_on_api_returns_json_not_html(client):
     payload = response.get_json()
     assert payload['status'] == 405
     assert payload['error']
+    assert payload['request_id'] == response.headers['X-Request-ID']
+
+
+def test_api_request_id_is_propagated(client):
+    response = client.get(
+        '/api/v1/this-route-does-not-exist',
+        headers={'X-Request-ID': 'operator-trace_123'},
+    )
+
+    assert response.headers['X-Request-ID'] == 'operator-trace_123'
+    assert response.get_json()['request_id'] == 'operator-trace_123'
+
+
+def test_unsafe_api_request_id_is_replaced(client):
+    response = client.get(
+        '/api/v1/this-route-does-not-exist',
+        headers={'X-Request-ID': 'x' * 129},
+    )
+
+    request_id = response.headers['X-Request-ID']
+    assert request_id != 'x' * 129
+    assert re.fullmatch(r'[0-9a-f]{32}', request_id)
+    assert response.get_json()['request_id'] == request_id
+
+
+def test_typed_validation_error_keeps_stable_shape(client, auth_headers):
+    response = client.post('/api/v1/monitors', json={}, headers={
+        **auth_headers,
+        'X-Request-ID': 'monitor-create-test',
+    })
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        'error': 'Monitor name is required',
+        'status': 400,
+        'code': 'validation_error',
+        'request_id': 'monitor-create-test',
+    }
+    assert response.headers['X-Request-ID'] == 'monitor-create-test'
+
+
+def test_typed_not_found_error_has_resource_code(client, auth_headers):
+    response = client.get(
+        '/api/v1/monitors/999999',
+        headers=auth_headers,
+    )
+
+    payload = response.get_json()
+    assert response.status_code == 404
+    assert payload['error'] == 'Monitor not found'
+    assert payload['status'] == 404
+    assert payload['code'] == 'monitor_not_found'
+    assert payload['request_id'] == response.headers['X-Request-ID']
 
 
 def test_non_api_404_is_not_forced_into_json(client):
@@ -81,7 +138,10 @@ def test_unhandled_exception_returns_json_500_and_logs_the_path(app, caplog):
     assert response.is_json, (
         f'a crash returned {response.content_type}; API clients parse JSON'
     )
-    assert response.get_json()['error']
+    payload = response.get_json()
+    assert payload['error']
+    assert payload['code'] == 'internal_error'
+    assert payload['request_id']
     # Matched on this handler's own wording, not merely on the path: Flask's
     # log_exception() already emits "Exception on /path [GET]" before any
     # handler runs, so asserting the path alone passes even with the handler's

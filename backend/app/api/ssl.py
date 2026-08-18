@@ -20,7 +20,6 @@ def acme_contact():
 
 
 @ssl_bp.route('/certificates', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_certificates():
     """List all SSL certificates."""
@@ -29,7 +28,6 @@ def list_certificates():
 
 
 @ssl_bp.route('/certificates/<domain>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_certificate(domain):
     """Get details for a specific certificate."""
@@ -40,7 +38,6 @@ def get_certificate(domain):
 
 
 @ssl_bp.route('/certificates', methods=['POST'])
-@jwt_required()
 @admin_required
 def obtain_certificate():
     """Obtain a new SSL certificate from Let's Encrypt."""
@@ -71,7 +68,6 @@ def obtain_certificate():
 
 
 @ssl_bp.route('/certificates/<domain>/renew', methods=['POST'])
-@jwt_required()
 @admin_required
 def renew_certificate(domain):
     """Renew a specific certificate."""
@@ -80,7 +76,6 @@ def renew_certificate(domain):
 
 
 @ssl_bp.route('/certificates/renew-all', methods=['POST'])
-@jwt_required()
 @admin_required
 def renew_all_certificates():
     """Renew all certificates that need renewal."""
@@ -89,7 +84,6 @@ def renew_all_certificates():
 
 
 @ssl_bp.route('/certificates/<domain>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def revoke_certificate(domain):
     """Revoke and delete a certificate."""
@@ -98,7 +92,6 @@ def revoke_certificate(domain):
 
 
 @ssl_bp.route('/certificates/<domain>/check', methods=['GET'])
-@jwt_required()
 @admin_required
 def check_certificate_expiry(domain):
     """Check if a certificate is expiring soon."""
@@ -107,7 +100,6 @@ def check_certificate_expiry(domain):
 
 
 @ssl_bp.route('/auto-renewal', methods=['POST'])
-@jwt_required()
 @admin_required
 def setup_auto_renewal():
     """Set up automatic certificate renewal."""
@@ -116,7 +108,6 @@ def setup_auto_renewal():
 
 
 @ssl_bp.route('/install-certbot', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_certbot():
     """Install certbot if not already installed."""
@@ -128,7 +119,6 @@ def install_certbot():
 
 
 @ssl_bp.route('/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_ssl_status():
     """Get overall SSL status."""

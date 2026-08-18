@@ -11,6 +11,7 @@ import GitlabRepoPicker from './GitlabRepoPicker';
 import BitbucketRepoPicker from './BitbucketRepoPicker';
 import GiteaRepoPicker from './GiteaRepoPicker';
 import PathSelector from './PathSelector';
+import { useConfirm } from '@/hooks/useConfirm';
 
 // Canonical "connect a repository" form, shared across ServerKit's surfaces
 // (WordPress Git settings, the New Service page, the service connect modal).
@@ -48,6 +49,7 @@ const RepoConnectForm = ({
     idPrefix = 'repo',
     enableGithub = true,
 }) => {
+    const { confirm } = useConfirm();
     const [formData, setFormData] = useState({
         repoUrl: '',
         branch: 'main',
@@ -114,7 +116,11 @@ const RepoConnectForm = ({
     }
 
     async function handleDisconnect() {
-        if (!confirm('Disconnect Git repository? This will not delete any files.')) return;
+        if (!await confirm({
+            title: 'Disconnect repository',
+            message: 'Disconnect this Git repository? This will not delete any files.',
+            confirmText: 'Disconnect',
+        })) return;
         setLoading(true);
         try {
             await onDisconnect();

@@ -184,7 +184,13 @@ def test_500_handler_records_error_and_keeps_response(client, app):
 
     res = client.get('/api/v1/__test_boom')
     assert res.status_code == 500
-    assert res.get_json() == {'error': 'Internal server error'}
+    request_id = res.headers['X-Request-ID']
+    assert res.get_json() == {
+        'error': 'Internal server error',
+        'status': 500,
+        'code': 'internal_error',
+        'request_id': request_id,
+    }
 
     entry = ErrorLog.query.filter_by(source='backend').first()
     assert entry is not None

@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField, FormRow } from '../FormField';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import { useConfirm } from '@/hooks/useConfirm';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
@@ -39,6 +40,7 @@ const normalizeManaged = (r) => ({
 export default function DomainDnsPanel({ domain, isAdmin }) {
     const navigate = useNavigate();
     const toast = useToast();
+    const { confirm } = useConfirm();
     const isCloudflare = domain?.provider === 'cloudflare';
     const canLive = isCloudflare && !!domain?.provider_zone_id && !!domain?.config_id;
     const base = norm(domain?.name);
@@ -181,7 +183,11 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
     }
 
     async function handleStopDynamic(host) {
-        if (!confirm(`Disable Dynamic DNS for ${host.hostname}? Its update token will stop working.`)) return;
+        if (!await confirm({
+            title: 'Disable Dynamic DNS',
+            message: `Disable Dynamic DNS for ${host.hostname}? Its update token will stop working.`,
+            confirmText: 'Disable Dynamic DNS',
+        })) return;
         try {
             await api.deleteDdnsHost(host.id);
             if (revealedHost?.id === host.id) setRevealedHost(null);

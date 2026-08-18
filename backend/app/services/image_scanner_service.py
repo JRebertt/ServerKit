@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 SCANNERS_DIR = '/var/lib/serverkit/scanners'
 GRYPE_BIN = os.path.join(SCANNERS_DIR, 'grype')
 SYFT_BIN = os.path.join(SCANNERS_DIR, 'syft')
+IMAGE_SCAN_JOB_KIND = 'security.image_scan'
 
 
 class ImageScannerService:
@@ -180,8 +181,15 @@ class ImageScannerService:
 
     @classmethod
     def scan_application(cls, application_id: int) -> Dict:
-        """Run a CVE scan for the Docker image of an application."""
-        # query_active: a scan spawns Grype and pulls from the registry.
+        """Queue a CVE scan for the Docker image of an application.
+
+        ``scan_id`` and ``status`` are retained for callers of the legacy
+        thread-backed surface; ``job_id`` and ``kind`` expose the durable job
+        that now owns execution, retries, and observability.
+        """
+        from app.jobs.service import JobService
+
+        # query_active: a queued scan pulls from the registry after this request.
         app = Application.query_active().filter_by(id=application_id).first()
         if not app:
             return {'success': False, 'error': 'Application not found'}
@@ -197,30 +205,87 @@ class ImageScannerService:
         db.session.add(scan)
         db.session.commit()
 
-        def _run():
-            try:
-                result = cls._run_grype(image_ref)
-                scan.completed_at = datetime.utcnow()
-                if not result['success']:
-                    scan.status = 'failed'
-                    scan.error_message = result.get('error')
-                else:
-                    data = result['data']
-                    scan.status = 'completed'
-                    scan.scanner_version = data.get('descriptor', {}).get('version')
-                    scan.set_counts(cls._parse_grype_counts(data))
-                    scan.set_findings(cls._normalize_findings(data))
-                db.session.commit()
-            except Exception as e:
-                logger.exception('Image scan failed')
-                scan.status = 'failed'
-                scan.error_message = str(e)
-                scan.completed_at = datetime.utcnow()
-                db.session.commit()
+        cls.register_jobs()
+        try:
+            job = JobService.enqueue(
+                IMAGE_SCAN_JOB_KIND,
+                payload={
+                    'scan_id': scan.id,
+                    'application_id': application_id,
+                    'image_ref': image_ref,
+                },
+                owner_type='application',
+                owner_id=application_id,
+            )
+        except Exception as exc:
+            scan.status = 'failed'
+            scan.error_message = f'Could not enqueue image scan: {exc}'
+            scan.completed_at = datetime.utcnow()
+            db.session.commit()
+            logger.exception('Could not enqueue image scan %s', scan.id)
+            return {'success': False, 'error': scan.error_message, 'scan_id': scan.id}
 
-        thread = threading.Thread(target=_run, daemon=True)
-        thread.start()
-        return {'success': True, 'scan_id': scan.id, 'status': 'running'}
+        return {
+            'success': True,
+            'scan_id': scan.id,
+            'status': 'running',
+            'job_id': job.id,
+            'kind': job.kind,
+        }
+
+    @classmethod
+    def run_image_scan_job(cls, job) -> Dict:
+        """Execute one persisted image scan job."""
+        payload = job.get_payload() or {}
+        scan_id = payload.get('scan_id')
+        if scan_id is None:
+            raise ValueError('security.image_scan payload requires scan_id')
+
+        scan = db.session.get(ImageVulnerabilityScan, scan_id)
+        if not scan:
+            raise ValueError(f'Image scan {scan_id} not found')
+
+        image_ref = payload.get('image_ref') or scan.image_ref
+        scan.status = 'running'
+        scan.error_message = None
+        scan.completed_at = None
+        db.session.commit()
+
+        try:
+            result = cls._run_grype(image_ref)
+            if not result.get('success'):
+                raise RuntimeError(result.get('error') or 'Image scanner failed')
+
+            data = result['data']
+            scan.status = 'completed'
+            scan.scanner_version = data.get('descriptor', {}).get('version')
+            scan.set_counts(cls._parse_grype_counts(data))
+            scan.set_findings(cls._normalize_findings(data))
+            scan.completed_at = datetime.utcnow()
+            db.session.commit()
+            return {
+                'success': True,
+                'scan_id': scan.id,
+                'application_id': scan.application_id,
+                'status': scan.status,
+                'severity_counts': scan.get_counts(),
+            }
+        except Exception as exc:
+            db.session.rollback()
+            scan = db.session.get(ImageVulnerabilityScan, scan_id)
+            if scan:
+                scan.status = 'failed'
+                scan.error_message = str(exc)
+                scan.completed_at = datetime.utcnow()
+                db.session.commit()
+            logger.exception('Image scan %s failed', scan_id)
+            raise
+
+    @classmethod
+    def register_jobs(cls) -> None:
+        """Register the durable image-scan handler (safe to call repeatedly)."""
+        from app.jobs import registry
+        registry.register(IMAGE_SCAN_JOB_KIND, cls.run_image_scan_job, replace=True)
 
     @classmethod
     def generate_sbom(cls, application_id: int) -> Dict:

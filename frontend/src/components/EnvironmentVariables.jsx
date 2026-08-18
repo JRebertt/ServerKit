@@ -19,6 +19,8 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useClipboard } from '@/hooks/useClipboard';
 
 // What a masked value renders as. Unchanged from the list this table replaces:
 // every env var is stored as a secret, so every value is dots until the row's
@@ -65,6 +67,8 @@ const ENV_VIEWS = [
 
 const EnvironmentVariables = ({ appId }) => {
     const toast = useToast();
+    const { confirm } = useConfirm();
+    const { copy } = useClipboard();
     const [envVars, setEnvVars] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -190,7 +194,11 @@ const EnvironmentVariables = ({ appId }) => {
     }
 
     async function handleDelete(key) {
-        if (!confirm(`Delete environment variable "${key}"?`)) return;
+        if (!await confirm({
+            title: 'Delete environment variable',
+            message: `Delete environment variable "${key}"?`,
+            confirmText: 'Delete variable',
+        })) return;
 
         try {
             await api.deleteEnvVar(appId, key);
@@ -294,8 +302,16 @@ const EnvironmentVariables = ({ appId }) => {
     }
 
     async function handleClearAll() {
-        if (!confirm('Delete ALL environment variables? This cannot be undone.')) return;
-        if (!confirm('Are you absolutely sure?')) return;
+        if (!await confirm({
+            title: 'Clear environment variables',
+            message: 'Delete all environment variables? This cannot be undone.',
+            confirmText: 'Continue',
+        })) return;
+        if (!await confirm({
+            title: 'Confirm deletion',
+            message: 'Are you absolutely sure?',
+            confirmText: 'Delete all variables',
+        })) return;
 
         try {
             await api.clearEnvVars(appId);
@@ -304,11 +320,6 @@ const EnvironmentVariables = ({ appId }) => {
         } catch (err) {
             toast.error('Failed to clear');
         }
-    }
-
-    function copyToClipboard(value) {
-        navigator.clipboard.writeText(value);
-        toast.success('Copied to clipboard');
     }
 
     // The search box narrows the rows before any column rule sees them, over
@@ -442,7 +453,7 @@ const EnvironmentVariables = ({ appId }) => {
                     <button
                         type="button"
                         className="btn-icon"
-                        onClick={() => copyToClipboard(ev.value)}
+                        onClick={() => copy(ev.value)}
                         title="Copy value"
                     >
                         <Copy size={16} />

@@ -306,12 +306,7 @@ const RoutingDiagnosticsPanel = ({ appId }) => {
     async function runDiagnostics() {
         setLoading(true);
         try {
-            const response = await fetch(`/api/v1/domains/debug/diagnose/${appId}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            });
-            const data = await response.json();
+            const data = await api.getDomainRoutingDiagnostics(appId);
             setDiagnostics(data);
             setLastChecked(new Date());
         } catch (err) {

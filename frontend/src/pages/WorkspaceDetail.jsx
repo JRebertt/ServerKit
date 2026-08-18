@@ -22,9 +22,7 @@ import WorkspaceServicesTab from '../components/workspaces/WorkspaceServicesTab'
 import WorkspaceSitesTab from '../components/workspaces/WorkspaceSitesTab';
 import WorkspaceMembersTab from '../components/workspaces/WorkspaceMembersTab';
 import WorkspaceSettingsTab from '../components/workspaces/WorkspaceSettingsTab';
-
-const ACTIVE_KEY = 'active_workspace_id';
-const ACCENT_KEY = 'workspace_accent';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 const VALID_TABS = ['overview', 'servers', 'services', 'sites', 'members', 'settings'];
 
@@ -53,6 +51,12 @@ const WorkspaceDetail = () => {
     const navigate = useNavigate();
     const toast = useToast();
     const { user } = useAuth();
+    const {
+        activeWorkspaceId,
+        clearActiveWorkspace,
+        refreshActiveWorkspace,
+        setActiveWorkspace: selectWorkspace,
+    } = useWorkspace();
     const [activeTab, setActiveTab] = useTabParam(`/workspaces/${id}`, VALID_TABS, 'overview');
 
     const [ws, setWs] = useState(null);
@@ -79,6 +83,7 @@ const WorkspaceDetail = () => {
                 api.getUsers().catch(() => ({ users: [] })),
             ]);
             setWs(wsData);
+            refreshActiveWorkspace(wsData);
             setMembers(mData.members || []);
             setApps(appData.apps || []);
             setServers(asServerList(srvData));
@@ -89,17 +94,14 @@ const WorkspaceDetail = () => {
         } finally {
             setLoading(false);
         }
-    }, [wsId, toast]);
+    }, [wsId, toast, refreshActiveWorkspace]);
 
     useEffect(() => { setLoading(true); load(); }, [load]);
 
-    const isCurrent = localStorage.getItem(ACTIVE_KEY) === String(wsId);
+    const isCurrent = activeWorkspaceId === String(wsId);
 
     const setActiveWorkspace = () => {
-        localStorage.setItem(ACTIVE_KEY, String(wsId));
-        localStorage.setItem('active_workspace', JSON.stringify(ws));
-        if (ws?.primary_color) localStorage.setItem(ACCENT_KEY, ws.primary_color);
-        else localStorage.removeItem(ACCENT_KEY);
+        selectWorkspace(ws);
         window.location.reload();
     };
 
@@ -122,6 +124,7 @@ const WorkspaceDetail = () => {
     const handleDelete = async () => {
         try {
             await api.deleteWorkspace(wsId);
+            if (isCurrent) clearActiveWorkspace();
             toast.success('Workspace deleted');
             navigate('/workspaces');
         } catch (err) { toast.error(err.message); }

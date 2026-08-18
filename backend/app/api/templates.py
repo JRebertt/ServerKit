@@ -310,7 +310,6 @@ def catalog_schema():
 # ==================== TEMPLATE INSTALLATION ====================
 
 @templates_bp.route('/<template_id>/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_template(template_id):
     """Install a template as a new application."""
@@ -524,7 +523,6 @@ def check_app_update(app_id):
 
 
 @templates_bp.route('/apps/<int:app_id>/update', methods=['POST'])
-@jwt_required()
 @admin_required
 def update_app(app_id):
     """Update an app to the latest template version."""
@@ -570,7 +568,6 @@ def list_repositories():
 
 
 @templates_bp.route('/repos', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_repository():
     """Add a template repository."""
@@ -590,7 +587,6 @@ def add_repository():
 
 
 @templates_bp.route('/repos', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_repository():
     """Remove a template repository."""
@@ -605,7 +601,6 @@ def remove_repository():
 
 
 @templates_bp.route('/sync', methods=['POST'])
-@jwt_required()
 @admin_required
 def sync_templates():
     """Sync templates from all repositories."""
@@ -625,7 +620,6 @@ def repo_index():
 
 
 @templates_bp.route('/repos/index/export', methods=['POST'])
-@jwt_required()
 @admin_required
 def export_repo_index():
     """Write index.json next to the bundled templates so the directory can be
@@ -637,7 +631,6 @@ def export_repo_index():
 # ==================== LOCAL TEMPLATE MANAGEMENT ====================
 
 @templates_bp.route('/local', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_local_template():
     """Create a local template."""
@@ -651,7 +644,6 @@ def create_local_template():
 
 
 @templates_bp.route('/local/<template_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_local_template(template_id):
     """Delete a local template."""
