@@ -6,13 +6,27 @@
 // baseline so this can land without a risky all-at-once UI rewrite; the exact
 // counts deliberately make every cleanup update (and shrink) the baseline.
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const src = resolve(root, 'src');
+const repoRoot = resolve(root, '..');
+
+// Styles owned by a builtin extension must enter the bundle through that
+// extension's module graph, not through core styles/main.scss. Keeping this
+// declaration here makes ownership executable: both the source-of-truth and
+// its checked-in pre-bundled copy must expose the same style entry, while core
+// is forbidden from quietly taking the page partial back.
+const EXTENSION_OWNED_STYLES = [
+    {
+        slug: 'serverkit-remote-access',
+        importPath: './styles/remote-access.scss',
+        forbiddenCoreImports: ['pages/_remote-access', 'pages/remote-access'],
+    },
+];
 
 const LEGACY_CLIPBOARD = new Map(Object.entries({
     'components/cloudflare/TunnelsPanel.jsx': 1,
@@ -125,6 +139,41 @@ for (const file of LEGACY_CLIPBOARD.keys()) {
     }
 }
 
+const mainStylesPath = resolve(src, 'styles', 'main.scss');
+const mainStyles = readFileSync(mainStylesPath, 'utf8');
+for (const ownership of EXTENSION_OWNED_STYLES) {
+    for (const importPath of ownership.forbiddenCoreImports) {
+        const escaped = importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (new RegExp(`@(?:import|use)\\s+['\"]${escaped}['\"]`).test(mainStyles)) {
+            failures.push(
+                `styles/main.scss: ${ownership.slug} owns ${importPath}; import its styles from the extension entry instead.`,
+            );
+        }
+    }
+
+    const entryPaths = [
+        resolve(repoRoot, 'builtin-extensions', ownership.slug, 'frontend', 'index.jsx'),
+        resolve(src, 'plugins', ownership.slug, 'index.jsx'),
+    ];
+    for (const entryPath of entryPaths) {
+        const displayPath = relative(repoRoot, entryPath).replaceAll('\\', '/');
+        if (!existsSync(entryPath)) {
+            failures.push(`${displayPath}: missing extension frontend entry.`);
+            continue;
+        }
+        const entry = readFileSync(entryPath, 'utf8');
+        const escaped = ownership.importPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!new RegExp(`import\\s+['\"]${escaped}['\"]`).test(entry)) {
+            failures.push(`${displayPath}: must import ${ownership.importPath}.`);
+        }
+
+        const stylePath = resolve(dirname(entryPath), ownership.importPath);
+        if (!existsSync(stylePath)) {
+            failures.push(`${relative(repoRoot, stylePath).replaceAll('\\', '/')}: missing extension-owned stylesheet.`);
+        }
+    }
+}
+
 if (failures.length) {
     console.error('\nFrontend boundary check failed:\n');
     failures.forEach((failure) => console.error(`  - ${failure}`));
@@ -132,4 +181,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✓ frontend boundaries: no browser confirm/raw UI fetch/token or workspace persistence reads/new clipboard or dialog bypasses (${LEGACY_CLIPBOARD.size} clipboard files remain ratcheted).`);
+console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard files remain ratcheted).`);
