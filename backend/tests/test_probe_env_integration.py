@@ -43,6 +43,16 @@ pytestmark = pytest.mark.skipif(
 # firewall_service.py imports only stdlib + app.utils.system, so registering
 # the app/app.utils/app.services package skeleton in sys.modules first is
 # enough for `from app.utils.system import ...` to resolve.
+#
+# Two shapes, deliberately:
+# * Full backend suite (Flask installed): import the REAL modules. Registering
+#   a second copy under 'app.services.firewall_service' here would replace the
+#   sys.modules entry at collection time, and @patch('app.services.
+#   firewall_service.*') in later tests would then land on THIS copy while the
+#   test modules imported the real one during collection — mocks silently not
+#   firing (the full-suite firewall red this module once caused).
+# * Container legs (no Flask deps): shim, but load firewall_service under a
+#   NON-COLLIDING name so a later real import can never find two copies.
 import importlib
 import types
 
@@ -58,17 +68,18 @@ def _load_module(modname, *relpath):
     return module
 
 
-for _pkg in ('app', 'app.utils', 'app.services'):
-    if _pkg not in sys.modules:
-        sys.modules[_pkg] = types.ModuleType(_pkg)
-
-_system = _load_module('app.utils.system', 'app', 'utils', 'system.py')
-sys.modules['app'].utils = sys.modules['app.utils']
-sys.modules['app.utils'].system = _system
-_firewall = _load_module(
-    'app.services.firewall_service', 'app', 'services', 'firewall_service.py')
-sys.modules['app'].services = sys.modules['app.services']
-sys.modules['app.services'].firewall_service = _firewall
+try:
+    from app.utils import system as _system
+    from app.services import firewall_service as _firewall
+except ImportError:
+    for _pkg in ('app', 'app.utils', 'app.services'):
+        if _pkg not in sys.modules:
+            sys.modules[_pkg] = types.ModuleType(_pkg)
+    _system = _load_module('app.utils.system', 'app', 'utils', 'system.py')
+    sys.modules['app'].utils = sys.modules['app.utils']
+    sys.modules['app.utils'].system = _system
+    _firewall = _load_module('_probe_env_firewall_service',
+                             'app', 'services', 'firewall_service.py')
 
 PackageManager = _system.PackageManager
 resolve_command = _system.resolve_command
