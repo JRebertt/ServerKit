@@ -117,7 +117,8 @@ class TestProbeFailureIsolation:
         ufw = FirewallService._check_ufw()
 
         assert ufw['installed'] is True     # was False — the whole bug
-        assert ufw['active'] is False       # genuinely unknown, reported as off
+        assert ufw['active'] is None        # genuinely unknown, reported as unknown
+        assert ufw['error']                 # ...with the failure carried alongside
 
     @patch('app.services.firewall_service.run_privileged')
     @patch('app.services.firewall_service.is_command_available')
@@ -150,7 +151,7 @@ class TestProbeFailureIsolation:
 
         assert status['any_installed'] is True
         assert status['any_active'] is False
-        assert status['ufw'] == {'installed': True, 'active': False}
+        assert status['ufw'] == {'installed': True, 'active': False, 'error': None}
 
     @patch('app.services.firewall_service.run_privileged')
     @patch('app.services.firewall_service.is_command_available', return_value=True)
@@ -182,8 +183,9 @@ class TestProbeFailureIsolation:
         firewalld = FirewallService._check_firewalld()
 
         assert firewalld['installed'] is True
-        assert firewalld['running'] is False
+        assert firewalld['running'] is None   # could not check, never a fabricated "off"
         assert firewalld['default_zone'] is None
+        assert firewalld['error']
 
     @pytest.mark.parametrize('failure', [
         subprocess.TimeoutExpired(cmd=['ufw', 'status'], timeout=30),
