@@ -903,6 +903,19 @@ def create_app(config_name=None):
             'Unhandled exception on %s %s', request.method, request.path,
             exc_info=exc
         )
+        # Roll the failing request's session back BEFORE recording. The 500
+        # handler shares the app-context-scoped db.session with the view that
+        # just crashed, so without this a crash caused by a DB error leaves the
+        # session in a failed transaction and record_error's very first query
+        # raises PendingRollbackError — swallowed by its own contract, which
+        # means database-caused 500s never reach the error log at all. It also
+        # stops record_error's commit() from flushing any ORM work the crashed
+        # view had left pending. Flask-SQLAlchemy's teardown rolls this session
+        # back moments later regardless, so a clean request is unaffected.
+        try:
+            db.session.rollback()
+        except Exception:  # noqa: BLE001 - must never change the 500 response
+            pass
         # Record into the centralized error log. error_log_service never raises
         # by contract, but belt-and-braces: a recording failure must never
         # change this response.
