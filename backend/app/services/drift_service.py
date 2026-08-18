@@ -204,7 +204,17 @@ class DriftService:
                     'checked_at': datetime.utcnow().isoformat() + 'Z',
                 })
                 continue
-            for resource_id, name in resources:
+            for resource in resources:
+                if isinstance(resource, dict):
+                    # list_resources may report a per-resource probe failure
+                    # inline (an app it could not even inspect) — pass it
+                    # through as an error entry instead of dropping the app.
+                    resource.setdefault('type', check['type'])
+                    resource.setdefault('checked_at',
+                                        datetime.utcnow().isoformat() + 'Z')
+                    results.append(resource)
+                    continue
+                resource_id, name = resource
                 results.append(cls.check_resource(check, resource_id, name))
         return results
 
@@ -387,6 +397,22 @@ register_check({
 })
 
 
+def _list_error_entry(check_type, resource_id, name, detail):
+    """An inline 'could not check this resource' entry for list_resources to
+    return alongside healthy (id, name) tuples — same shape check_all builds
+    for a whole-check failure, so a resource one app could not inspect is
+    reported as an error instead of vanishing from the sweep."""
+    return {
+        'type': check_type,
+        'id': resource_id,
+        'name': name,
+        'status': 'error',
+        'diff': None,
+        'detail': detail,
+        'checked_at': datetime.utcnow().isoformat() + 'Z',
+    }
+
+
 def _compose_list_resources():
     """Managed apps that live in a project dir (candidate compose apps)."""
     from app.models.application import Application
@@ -398,8 +424,10 @@ def _compose_list_resources():
             if app.root_path and os.path.isdir(app.root_path) and \
                     ComposeEnvService.find_base_compose(app.root_path, app.compose_file):
                 out.append((app.id, app.name))
-        except Exception:  # noqa: BLE001 — skip unreadable roots
-            continue
+        except Exception as e:  # noqa: BLE001 — an unreadable app is an error, not an absence
+            out.append(_list_error_entry(
+                'compose_override', app.id, app.name,
+                f'Could not inspect this app: {e}'))
     return out
 
 
@@ -470,8 +498,10 @@ def _manifest_list_resources():
         try:
             if ManifestApplyService.resolved_for_app(app) is not None:
                 out.append((app.id, app.name))
-        except Exception:  # noqa: BLE001 — skip apps we can't resolve
-            continue
+        except Exception as e:  # noqa: BLE001 — an unresolvable app is an error, not an absence
+            out.append(_list_error_entry(
+                'manifest', app.id, app.name,
+                f'Could not resolve this app\'s manifest: {e}'))
     return out
 
 

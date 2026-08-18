@@ -178,6 +178,10 @@ def _docker_usable():
     An installed binary proves nothing — inside LXC the client is often present
     while the daemon has never started, which is exactly the case the Minimal
     profile exists for.
+
+    Returns ``None`` when the probe itself could not run (exec failure,
+    timeout): "unknown", not "absent" — callers that skip Docker on a
+    Dockerless box must not treat a broken probe as proof of absence.
     """
     if not _binary_present('docker'):
         return False
@@ -190,7 +194,7 @@ def _docker_usable():
         return result.returncode == 0
     except Exception as e:
         logger.debug(f'Docker probe failed: {e}')
-        return False
+        return None
 
 
 def get_capabilities(force_refresh=False):
@@ -212,12 +216,16 @@ def get_capabilities(force_refresh=False):
 
     docker = _docker_usable()
     capabilities = {
+        # Tri-state: True / False / None (probe failed = unknown). Consumers
+        # that skip Docker on a Dockerless box must key off `is False`, never
+        # falsiness — an unknown probe is not proof of absence.
         'docker': docker,
         'node': _binary_present('node'),
         'nginx': _binary_present('nginx'),
         'git': _binary_present('git'),
-        # The panel is only useful for hosting apps if containers work.
-        'can_host_apps': docker,
+        # A positive capability claim: True must be positively earned, so an
+        # unknown (None) probe does not advertise app hosting.
+        'can_host_apps': docker is True,
     }
 
     _capability_cache['data'] = capabilities

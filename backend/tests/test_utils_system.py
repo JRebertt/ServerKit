@@ -412,7 +412,10 @@ class TestServiceControl:
 
     @patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError)
     def test_is_active_missing_systemctl(self, _run):
-        assert ServiceControl.is_active('nginx') is False
+        """A host without systemctl is "could not check", not "not running" —
+        the error propagates so the doctor can render a warn row."""
+        with pytest.raises(FileNotFoundError):
+            ServiceControl.is_active('nginx')
 
     @patch('app.utils.system.subprocess.run')
     def test_is_enabled_true(self, mock_run):

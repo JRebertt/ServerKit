@@ -38,6 +38,13 @@ from app.services.fleet_sweep import fleet_sweep
 
 logger = logging.getLogger(__name__)
 
+# getaddrinfo errnos that mean "the name does not exist" — anything else is a
+# resolver-side failure and must read as "could not check", never NXDOMAIN.
+_EAI_UNRESOLVED = tuple(
+    code for code in (getattr(socket, 'EAI_NONAME', None),
+                      getattr(socket, 'EAI_NODATA', None))
+    if code is not None)
+
 FLEET_DOCTOR_JOB_KIND = 'doctor.fleet.run'
 FLEET_DOCTOR_SCHEDULE_NAME = 'fleet-doctor'
 
@@ -155,15 +162,28 @@ class FleetDoctorService:
         units = data.get('units') or {}
         for unit in DOCTOR_UNITS:
             info = units.get(unit) if isinstance(units, dict) else None
-            active = bool(info.get('active')) if isinstance(info, dict) else False
+            active = info.get('active') if isinstance(info, dict) else None
+            if not isinstance(active, bool):
+                # A successful probe that didn't report a state is "could not
+                # check" — rendering it fail made a malformed payload page as
+                # a stopped service (persisted, counted, repairable).
+                checks.append(_row(
+                    f'service.{unit}', f'{unit} service', 'error',
+                    'Agent did not report a state for this unit.'))
+                continue
             checks.append(cls._service_row(server_id, unit, active, restartable))
 
+        disk_row = None
         disk = data.get('disk') if isinstance(data.get('disk'), dict) else None
         if disk is not None and disk.get('percent') is not None:
             try:
-                checks.append(cls._disk_row(100.0 - float(disk['percent'])))
+                disk_row = cls._disk_row(100.0 - float(disk['percent']))
             except (TypeError, ValueError):
-                pass
+                disk_row = None
+        if disk_row is None:
+            disk_row = _row('disk.headroom', 'Disk headroom', 'warn',
+                            'Metrics probe failed — disk headroom unknown.')
+        checks.append(disk_row)
         return checks
 
     @classmethod
@@ -184,19 +204,29 @@ class FleetDoctorService:
                     f'Status probe failed: {(res or {}).get("error") or "no response"}'))
                 continue
             data = res.get('data') or {}
-            active = bool(data.get('active')) if isinstance(data, dict) else False
+            active = data.get('active') if isinstance(data, dict) else None
+            if not isinstance(active, bool):
+                checks.append(_row(
+                    f'service.{unit}', f'{unit} service', 'error',
+                    'Agent did not report a state for this unit.'))
+                continue
             checks.append(cls._service_row(server_id, unit, active, restartable))
 
         # Disk headroom from system:metrics (disk_percent = used %).
+        disk_row = None
         res = agent_registry.send_command(
             server_id, 'system:metrics', {}, timeout=per_agent_timeout)
         if res and res.get('success') and isinstance(res.get('data'), dict):
             used = res['data'].get('disk_percent')
             if used is not None:
                 try:
-                    checks.append(cls._disk_row(100.0 - float(used)))
+                    disk_row = cls._disk_row(100.0 - float(used))
                 except (TypeError, ValueError):
-                    pass
+                    disk_row = None
+        if disk_row is None:
+            disk_row = _row('disk.headroom', 'Disk headroom', 'warn',
+                            'Metrics probe failed — disk headroom unknown.')
+        checks.append(disk_row)
         return checks
 
     @staticmethod
@@ -236,7 +266,17 @@ class FleetDoctorService:
                         f'{host}: server IP is unknown, cannot verify DNS.')
         try:
             ips = _resolve_host_ips(host)
-        except Exception:  # noqa: BLE001
+        except socket.gaierror as e:
+            if e.errno in _EAI_UNRESOLVED:
+                return _row(key, title, 'fail',
+                            f'{host} does not resolve to any address.')
+            # A resolver-side failure is "could not check", not NXDOMAIN.
+            return _row(key, title, 'warn',
+                        f'{host}: DNS lookup failed ({e}) — could not check.')
+        except Exception as e:  # noqa: BLE001
+            return _row(key, title, 'warn',
+                        f'{host}: DNS lookup failed ({e}) — could not check.')
+        if not ips:
             return _row(key, title, 'fail',
                         f'{host} does not resolve to any address.')
         if ip in ips:
@@ -266,7 +306,7 @@ class FleetDoctorService:
             if row is None:
                 row = FleetDoctorResult(server_id=server_id, check_key=key)
                 db.session.add(row)
-            row.status = c.get('status') or FleetDoctorResult.STATUS_OK
+            row.status = c.get('status') or FleetDoctorResult.STATUS_ERROR
             row.title = c.get('title')
             row.detail = c.get('detail')
             row.repairable = bool(c.get('repairable'))
@@ -322,6 +362,13 @@ class FleetDoctorService:
             res = probe.get(server.id) or {'status': 'offline', 'checks': []}
             statuses[res.get('status', 'ok')] = statuses.get(res.get('status', 'ok'), 0) + 1
             rows = list(res.get('checks', []))
+            if res.get('status') in ('failed', 'timeout'):
+                # The sweep produced no check rows — persist a synthetic error
+                # row so this server's last (possibly all-ok) rows don't keep
+                # standing as its current health. 'offline' deliberately keeps
+                # the stale rows (the report already marks it disconnected).
+                rows.append(_row('sweep', 'Agent sweep', 'error',
+                                 res.get('error') or 'Probe failed'))
             # DNS-vs-IP runs for every server, connected or not.
             rows.append(cls._dns_check_for_server(server))
             written += cls._persist(server.id, rows, ran_at=ran_at)
@@ -389,7 +436,7 @@ class FleetDoctorService:
             ran_at = None
             checks = []
             for row in rows:
-                status = row.get('status') or 'ok'
+                status = row.get('status') or 'error'
                 counts[status] = counts.get(status, 0) + 1
                 if row.get('ran_at') and (ran_at is None or row['ran_at'] > ran_at):
                     ran_at = row['ran_at']

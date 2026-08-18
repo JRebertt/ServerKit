@@ -321,15 +321,19 @@ class ServiceControl:
 
     @staticmethod
     def is_active(service: str) -> bool:
-        """Return ``True`` when the service is active.  No sudo needed."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', service],
-                capture_output=True, text=True, timeout=PROBE_TIMEOUT,
-            )
-            return result.stdout.strip() == 'active'
-        except FileNotFoundError:
-            return False
+        """Return ``True`` when the service is active.  No sudo needed.
+
+        Raises ``FileNotFoundError`` when ``systemctl`` itself is missing: a
+        host without systemd is "could not check", not "not running" — the
+        doctor converts that to a warn row, and swallowing it here made every
+        such host read as a repairable failure. Callers that want the old
+        leniency guard their own call (php/postfix/security services do).
+        """
+        result = subprocess.run(
+            ['systemctl', 'is-active', service],
+            capture_output=True, text=True, timeout=PROBE_TIMEOUT,
+        )
+        return result.stdout.strip() == 'active'
 
     @staticmethod
     def is_enabled(service: str) -> bool:

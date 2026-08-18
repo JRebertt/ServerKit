@@ -49,12 +49,24 @@ _DNS_SKIP_SUFFIXES = (
 )
 
 
+# getaddrinfo errnos that mean "the name does not exist" (NXDOMAIN-ish), as
+# opposed to a resolver-side failure (no DNS server reachable, timeout, …).
+# Only the former may read as "does not resolve"; the latter is "could not
+# check". EAI_NODATA is absent on some platforms (Windows), hence the getattr.
+_EAI_UNRESOLVED = tuple(
+    code for code in (getattr(socket, 'EAI_NONAME', None),
+                      getattr(socket, 'EAI_NODATA', None))
+    if code is not None)
+
+
 def _resolve_host_ips(host):
     """Return the list of IP addresses ``host`` resolves to (A + AAAA).
 
-    Raises ``socket.gaierror`` (or another ``OSError``) when the name does not
-    resolve — callers treat that as an unresolved domain. Split out as a
-    module-level function so tests can stub the resolver.
+    Raises ``socket.gaierror`` when the name does not resolve *or* the
+    resolver itself failed — callers must distinguish (see
+    ``_EAI_UNRESOLVED``): only a genuine NXDOMAIN is an unresolved domain,
+    anything else is "could not check". Split out as a module-level function
+    so tests can stub the resolver.
     """
     ips = []
     for info in socket.getaddrinfo(host, None):
@@ -206,12 +218,16 @@ class DoctorService:
                 continue
             try:
                 unexpected = ips.get_profile() == ips.PROFILE_MINIMAL
-                absent = not ips.get_capabilities().get('docker')
+                docker_state = ips.get_capabilities().get('docker')
             except Exception:  # noqa: BLE001
                 # Never let profile resolution suppress a real health check.
                 services.append(name)
                 continue
-            if not (unexpected and absent):
+            if docker_state is None:
+                # The probe itself failed — 'unknown' is not 'absent', so the
+                # box still gets probed (and reports a warn, not a green skip).
+                services.append(name)
+            elif not (unexpected and not docker_state):
                 services.append(name)
         return services
 
@@ -293,8 +309,12 @@ class DoctorService:
             return _check('certs.expiry', 'Certificate expiry', 'warn',
                           f'Could not read certificate data: {e}')
         if not rows:
-            return _check('certs.expiry', 'Certificate expiry', 'ok',
-                          'No certificates tracked.')
+            # Nothing in production writes Domain.ssl_expires_at yet, so an
+            # empty table does not mean "nothing expiring" — it means expiry
+            # is not being monitored at all. ok must be positively earned.
+            return _check('certs.expiry', 'Certificate expiry', 'warn',
+                          'No certificate expiry data is being collected — '
+                          'expiry is not being monitored.')
         now = datetime.utcnow()
         soon = [d for d in rows if d.ssl_expires_at <= now + timedelta(days=CERT_WARN_DAYS)]
         expired = [d for d in soon if d.ssl_expires_at <= now]
@@ -348,15 +368,17 @@ class DoctorService:
     @classmethod
     def _site_domains(cls):
         """Hostnames of every managed-site domain (Domain rows attached to an
-        Application)."""
+        Application), or ``None`` when the query itself fails — an unreadable
+        Domain table is 'could not check', never 'no domains'."""
         try:
             from app.models.domain import Domain
             # query_active: tombstones became permanent red 'does not resolve'
             # rows, and this same set is the allowlist for one-click DNS repair --
             # so Repair would create a record for a deleted domain.
             rows = Domain.query_active().filter(Domain.application_id.isnot(None)).all()
-        except Exception:  # noqa: BLE001
-            return []
+        except Exception as e:  # noqa: BLE001
+            logger.warning('could not read site domains: %s', e)
+            return None
         return [d.name for d in rows if d.name]
 
     @classmethod
@@ -377,7 +399,12 @@ class DoctorService:
         are no public site domains to verify."""
         from app.services.site_domain_service import SiteDomainService
 
-        public = [h for h in cls._site_domains() if _is_public_site_host(h)]
+        domains = cls._site_domains()
+        if domains is None:
+            return [_check('dns.resolve', 'Site DNS', 'warn',
+                           'Could not read site domains — the DNS sweep could '
+                           'not run this time.')]
+        public = [h for h in domains if _is_public_site_host(h)]
         if not public:
             return [_check('dns.resolve', 'Site DNS', 'ok',
                            'No public site domains to check.')]
@@ -408,8 +435,18 @@ class DoctorService:
         title = f'DNS: {host}'
         try:
             ips = _resolve_host_ips(host)
-        except Exception:  # noqa: BLE001 — any resolver error = unresolved
-            ips = None
+        except socket.gaierror as e:
+            if e.errno in _EAI_UNRESOLVED:
+                ips = None  # a genuine NXDOMAIN — the existing fail path
+            else:
+                # A resolver-side failure (no DNS server, timeout, …) is not
+                # proof the domain is gone — paging admins over our own outage
+                # is exactly the false-NXDOMAIN bug this branch exists to kill.
+                return _check(key, title, 'warn',
+                              f'DNS lookup failed: {e} — could not check.')
+        except Exception as e:  # noqa: BLE001 — same rule for non-gaierror
+            return _check(key, title, 'warn',
+                          f'DNS lookup failed: {e} — could not check.')
         if not ips:
             return cls._dns_unresolved(key, title, host, server_ip, provider_available)
         if server_ip and server_ip in ips:
@@ -463,7 +500,8 @@ class DoctorService:
         host = (host or '').strip().lower().rstrip('.')
         if not host:
             return {'success': False, 'error': 'No host given for DNS repair.'}
-        managed = {(h or '').strip().lower().rstrip('.') for h in cls._site_domains()}
+        managed = {(h or '').strip().lower().rstrip('.')
+                   for h in (cls._site_domains() or [])}
         if host not in managed:
             return {'success': False, 'error': f'Not a managed site domain: {host}'}
 
@@ -541,12 +579,18 @@ class DoctorService:
             return [_check('backup.proof', 'Backup restore proof', 'warn',
                            f'Could not read backup policies: {e}')]
         for policy in policies:
-            stale = cls._backup_drill_stale_check(policy)
-            if stale is not None:
-                checks.append(stale)
-            unverified = cls._backup_unverified_check(policy)
-            if unverified is not None:
-                checks.append(unverified)
+            try:
+                stale = cls._backup_drill_stale_check(policy)
+                if stale is not None:
+                    checks.append(stale)
+                unverified = cls._backup_unverified_check(policy)
+                if unverified is not None:
+                    checks.append(unverified)
+            except Exception as e:  # noqa: BLE001 — one bad row must not 500 the sweep
+                pid = getattr(policy, 'id', 'unknown')
+                checks.append(_check(
+                    f'backup_proof.{pid}', 'Backup restore proof', 'warn',
+                    f'Could not evaluate backup policy {pid}: {e}'))
         return checks
 
     @classmethod
@@ -592,17 +636,20 @@ class DoctorService:
     def _backup_unverified_check(cls, policy):
         """Verification state of the latest successful run for one policy, or
         ``None`` when the policy has no successful run yet."""
+        key = f'backup_unverified.{policy.id}'
+        title = f'Backup verification: {cls._policy_label(policy)}'
         try:
             from app.models.backup_run import BackupRun
             run = (BackupRun.query
                    .filter_by(policy_id=policy.id, status='success')
                    .order_by(BackupRun.started_at.desc()).first())
-        except Exception:  # noqa: BLE001
-            return None
+        except Exception as e:  # noqa: BLE001
+            # The check silently vanished before — "couldn't check" is its own
+            # answer and must be visible.
+            return _check(key, title, 'warn',
+                          f'Could not read backup runs: {e}')
         if not run:
             return None
-        key = f'backup_unverified.{policy.id}'
-        title = f'Backup verification: {cls._policy_label(policy)}'
         repair_ref = {'kind': 'backup_verify', 'policy_id': policy.id,
                       'run_id': run.id}
         level = run.effective_verify_level()
@@ -640,7 +687,8 @@ class DoctorService:
             return list(SetupHealthService.doctor_checks())
         except Exception as e:  # noqa: BLE001
             logger.warning('setup-health doctor section failed: %s', e)
-            return []
+            return [_check('setup.health', 'Setup health', 'warn',
+                           f'Could not run setup-health checks: {e}')]
 
     @classmethod
     def _extension_checks(cls):
@@ -653,7 +701,8 @@ class DoctorService:
             return list(doctor_check_registry.collect())
         except Exception as e:  # noqa: BLE001
             logger.warning('extension doctor section failed: %s', e)
-            return []
+            return [_check('extensions.checks', 'Extension checks', 'warn',
+                           f'Could not collect extension checks: {e}')]
 
     # ------------------------------------------------------------------ #
     # Sweep
