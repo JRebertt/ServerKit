@@ -2,7 +2,49 @@
 
 ## Status
 
-In progress on `refactor/architecture-convergence`.
+Foundation implemented on `refactor/architecture-convergence`; broad domain
+adoption remains incremental. The first execution wave completed the shared
+doors and ratchets below without attempting a risky repository-wide rewrite.
+
+## Execution ledger
+
+| Boundary | Delivered in this wave | State |
+|---|---|---|
+| Authentication | One policy decorator per route; redundant-stack AST guard | Complete |
+| API errors | Typed application errors, centralized mapping, request IDs | Complete foundation |
+| Schemas and envelopes | Marshmallow endpoint contracts, real OpenAPI metadata, compatibility envelopes | Reference endpoints complete |
+| List queries | Typed `ListQuery` over the shared query helper | Complete foundation |
+| App composition | Curated 108-blueprint registry with parity guard | Complete |
+| Transactions | Unit-of-work convention and subscription use-case extraction | Reference domain complete |
+| Durable work | Image and Lynis scans on `JobService`; all remaining raw threads classified | Reference jobs complete |
+| Remote execution | One agent-command transport boundary for all remote feature services | Complete transport seam |
+| Controller boundaries | Exact owned inventory plus invitations service extraction | Ratchet active; legacy debt remains |
+| Browser boundaries | Shared confirms, clipboard, blob/auth fetches, and lint ratchet | Complete foundation |
+| Workspace context | One store/provider with cross-tab sync and API injection | Complete |
+| Server state | Workspace-aware query lifecycle and Workspaces list/create migration | Reference domain complete |
+| Navigation | 96-route manifest, title parity, lazy page registry | Complete |
+| Forms | Shared lifecycle and create/edit user migration | Reference domain complete |
+| Extension styles | Remote-access page style moved behind its extension entry point | Reference extension complete |
+
+The commits are intentionally domain-sized. “Reference domain complete” means
+the convention is executable, tested, and used by a real flow; older domains
+should migrate when touched rather than being mechanically rewritten.
+
+## Final verification for the first wave
+
+- Frontend Node tests: 61 passed.
+- Frontend lint and architecture checks: 0 errors; 955 pre-existing warnings.
+- Frontend production build: 2,910 modules transformed with route-level page chunks.
+- Backend full Windows run: 3,859 passed and 79 skipped. One stale error-contract
+  assertion found by that run was corrected and its combined error suites then
+  passed 27 tests.
+- The remaining 37 Windows failures were confined to five Linux service-layer
+  test files (`/usr/sbin`, fstab/POSIX path, `gaierror`, and `getloadavg`
+  assumptions). The complete set passed 98 tests under WSL/Linux, ServerKit's
+  supported host-management platform.
+- Focused gates for authentication, typed API contracts, transactions,
+  blueprint parity, jobs, controller debt, remote dispatch, workspace state,
+  routing, forms, and extension sync all passed.
 
 This plan turns the structural review of ServerKit into an executable migration.
 It is deliberately incremental: each milestone leaves the repository deployable,
@@ -366,4 +408,3 @@ The plan is complete when:
 - backend tests, frontend tests/lint/build, and architecture checks pass; and
 - the completion record names the commits and any intentionally retained
   semantic duplication.
-
