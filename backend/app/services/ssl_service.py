@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import json
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 from app.utils.system import ServiceControl, run_privileged, PackageManager, is_command_available
@@ -306,14 +306,32 @@ class SSLService:
 
     @classmethod
     def list_certificates(cls) -> List[Dict]:
-        """List all installed certificates."""
-        certificates = []
+        """List all installed certificates.
+
+        Inventory probe failures are dropped here for backward compatibility;
+        callers that need to distinguish "no certificates" from "inventory
+        unavailable" should use :meth:`list_certificates_report`.
+        """
+        certificates, _errors = cls.list_certificates_report()
+        return certificates
+
+    @classmethod
+    def list_certificates_report(cls) -> Tuple[List[Dict], List[str]]:
+        """List all installed certificates, plus any inventory probe failures.
+
+        Returns ``(certificates, errors)``. certbot missing/erroring (or an
+        unreadable custom cert) used to vanish into an empty list, so the
+        status endpoint reported "0 certificates, nothing expiring" with
+        HTTP 200 when the inventory probe itself had failed.
+        """
+        certificates: List[Dict] = []
+        errors: List[str] = []
 
         try:
             result = run_privileged([cls.certbot_bin(), 'certificates'], timeout=60)
 
-            # Parse certbot output (skip on a non-zero exit, but still surface the
-            # custom-installed certs below).
+            # Parse certbot output (skip on a non-zero exit, but still surface
+            # the custom-installed certs below — and record the failure).
             if result.returncode == 0:
                 current_cert = None
                 for line in result.stdout.split('\n'):
@@ -344,18 +362,22 @@ class SSLService:
 
                 if current_cert:
                     certificates.append(current_cert)
+            else:
+                detail = (result.stderr or result.stdout or '').strip()
+                errors.append('certbot inventory failed'
+                              + (f': {detail[:200]}' if detail else ''))
 
-        except Exception:
-            pass
+        except Exception as e:
+            errors.append(f'certbot inventory failed: {e}')
 
         # Also surface custom-installed certs (e.g. Cloudflare Origin CA), which
         # certbot doesn't track. Parse the x509 issuer to badge them.
-        certificates.extend(cls._list_serverkit_certificates())
+        certificates.extend(cls._list_serverkit_certificates(errors))
 
-        return certificates
+        return certificates, errors
 
     @classmethod
-    def _list_serverkit_certificates(cls) -> List[Dict]:
+    def _list_serverkit_certificates(cls, errors: Optional[List[str]] = None) -> List[Dict]:
         """Walk the custom-cert install dir (``/etc/ssl/serverkit/<domain>/cert.pem``)
         and describe each cert, badging Cloudflare Origin CA certs as proxy-only."""
         import glob
@@ -387,7 +409,9 @@ class SSLService:
                     'badge': 'Origin CA (proxy-only)' if is_origin_ca else None,
                     'expiry': expiry.strftime('%Y-%m-%d %H:%M:%S%z') if expiry else None,
                 })
-            except Exception:
+            except Exception as e:
+                if errors is not None:
+                    errors.append(f'unreadable certificate {cert_path}: {e}')
                 continue
         return out
 
@@ -446,6 +470,17 @@ class SSLService:
             expiry_date = None
             if date_result.returncode == 0:
                 expiry_date = date_result.stdout.replace('notAfter=', '').strip()
+
+            # `-checkend` exits non-zero BOTH when the cert expires within the
+            # window AND when it cannot be read at all (missing/corrupt PEM,
+            # permission denied). With no parsed expiry date the failure is
+            # "unreadable", not "expiring" — report unknown instead of a
+            # phantom "needs renewal".
+            if expiring_soon and not expiry_date:
+                return {
+                    'domain': domain,
+                    'error': (result.stderr or 'certificate unreadable').strip(),
+                }
 
             return {
                 'domain': domain,

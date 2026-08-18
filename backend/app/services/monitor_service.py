@@ -277,7 +277,10 @@ class MonitorService:
             monitor.cert_checked_at = result['cert_checked_at']
         if result.get('cert_issuer'):
             monitor.cert_issuer = result['cert_issuer']
-        if result.get('cert_expires_at'):
+        if 'cert_expires_at' in result:
+            # A cert probe that ran hands back either a fresh expiry or None
+            # (failed/unparseable read) — None clears the stale value so the
+            # UI falls back to n/a instead of a weeks-old green "valid" chip.
             monitor.cert_expires_at = result['cert_expires_at']
 
         if check_status == 'up':
@@ -449,9 +452,14 @@ class MonitorService:
                 target, monitor.check_timeout or 10, bool(monitor.verify_tls))
         except Exception as e:
             logger.debug('Certificate probe failed for monitor %s: %s', monitor.id, e)
-            return
+            cert = None
         if cert:
             result.update(cert)
+        if not (cert or {}).get('cert_expires_at'):
+            # The probe ran but produced no expiry (failed read, no peer cert,
+            # unparseable notAfter). Clear the stale expiry downstream so the
+            # UI shows n/a until a successful probe repopulates it.
+            result['cert_expires_at'] = None
 
     @staticmethod
     def _probe_certificate(url, timeout, verify=True):

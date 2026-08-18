@@ -189,6 +189,11 @@ class AdvancedSSLService:
                         result['grade'] = 'C'
 
         except Exception as e:
+            # The probe could not determine anything — report unknown, never
+            # the template's valid: False / grade: 'F' (a determined
+            # "terrible TLS config" for what may be a DNS timeout).
+            result['valid'] = None
+            result['grade'] = None
             result['error'] = str(e)
 
         return result
@@ -204,8 +209,8 @@ class AdvancedSSLService:
         cert_paths += glob.glob('/etc/ssl/serverkit/*/cert.pem')
 
         for cert_path in cert_paths:
+            domain = os.path.basename(os.path.dirname(cert_path))
             try:
-                domain = os.path.basename(os.path.dirname(cert_path))
                 result = run_unprivileged(['openssl', 'x509', '-enddate', '-noout', '-in', cert_path])
                 stdout = result.get('stdout', '')
                 if 'notAfter=' in stdout:
@@ -219,7 +224,16 @@ class AdvancedSSLService:
                             'days_remaining': days,
                             'severity': 'critical' if days <= 7 else 'warning',
                         })
-            except Exception:
-                continue
+            except Exception as e:
+                # An unprobeable cert is not "not expiring" — surface it as
+                # unknown instead of dropping it from the alert list.
+                alerts.append({
+                    'domain': domain,
+                    'expires_at': None,
+                    'days_remaining': None,
+                    'severity': 'unknown',
+                    'error': str(e),
+                })
 
-        return sorted(alerts, key=lambda x: x.get('days_remaining', 999))
+        return sorted(alerts, key=lambda x: (
+            x['days_remaining'] if x.get('days_remaining') is not None else 999))

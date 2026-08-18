@@ -133,17 +133,24 @@ def install_certbot():
 def get_ssl_status():
     """Get overall SSL status."""
     is_installed = SSLService.is_certbot_installed()
-    certificates = SSLService.list_certificates()
+    certificates, list_errors = SSLService.list_certificates_report()
 
     expiring_soon = []
+    check_errors = []
     for cert in certificates:
         check = SSLService.check_expiry(cert['name'])
-        if check.get('expiring_soon'):
+        if check.get('error'):
+            # A failed check must be visible as failed, not vanish from the
+            # expiring list and read as "not expiring".
+            check_errors.append({'name': cert['name'], 'error': check['error']})
+        elif check.get('expiring_soon'):
             expiring_soon.append(cert['name'])
 
     return jsonify({
         'certbot_installed': is_installed,
         'total_certificates': len(certificates),
         'expiring_soon': expiring_soon,
+        'check_errors': check_errors,
+        'list_errors': list_errors,
         'certificates': certificates
     }), 200
