@@ -11,6 +11,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatBytes } from '@/utils/formatBytes';
+import { useConfirm } from '@/hooks/useConfirm';
 
 // Built-in saved views. Three, because the quarantine list only ever answers
 // three questions: what did the last scan catch, what is filling the
@@ -60,6 +61,7 @@ const QUARANTINE_VIEWS = [
 ];
 
 const QuarantineTab = () => {
+    const { confirm } = useConfirm();
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState(null);
@@ -84,7 +86,11 @@ const QuarantineTab = () => {
     }
 
     async function handleDelete(filename) {
-        if (!confirm(`Permanently delete ${filename}? This cannot be undone.`)) return;
+        if (!await confirm({
+            title: 'Delete quarantined file',
+            message: `Permanently delete ${filename}? This cannot be undone.`,
+            confirmText: 'Delete file',
+        })) return;
 
         try {
             await api.deleteQuarantinedFile(filename);
@@ -97,7 +103,12 @@ const QuarantineTab = () => {
 
     async function handleRestore(file) {
         const target = file.original_path || 'its original location';
-        if (!confirm(`Restore ${file.name} to ${target}? Only do this for false positives.`)) return;
+        if (!await confirm({
+            title: 'Restore quarantined file',
+            message: `Restore ${file.name} to ${target}? Only do this for false positives.`,
+            confirmText: 'Restore file',
+            variant: 'warning',
+        })) return;
 
         try {
             const result = await api.restoreQuarantinedFile(file.name);

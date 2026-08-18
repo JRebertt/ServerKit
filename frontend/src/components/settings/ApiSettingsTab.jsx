@@ -21,6 +21,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
+import { useConfirm } from '@/hooks/useConfirm';
 
 const ApiSettingsTab = () => {
     const { isAdmin } = useAuth();
@@ -91,6 +92,7 @@ const API_KEY_VIEWS = [
 ];
 
 const ApiKeysSection = () => {
+    const { confirm } = useConfirm();
     const register = useSettingFocus();
     const [keys, setKeys] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -123,13 +125,22 @@ const ApiKeysSection = () => {
     };
 
     const handleRevoke = async (keyId) => {
-        if (!confirm('Revoke this API key? This cannot be undone.')) return;
+        if (!await confirm({
+            title: 'Revoke API key',
+            message: 'Revoke this API key? This cannot be undone.',
+            confirmText: 'Revoke key',
+        })) return;
         await api.revokeApiKey(keyId);
         loadKeys();
     };
 
     const handleRotate = async (keyId) => {
-        if (!confirm('Rotate this key? The old key will stop working immediately.')) return;
+        if (!await confirm({
+            title: 'Rotate API key',
+            message: 'Rotate this key? The old key will stop working immediately.',
+            confirmText: 'Rotate key',
+            variant: 'warning',
+        })) return;
         const result = await api.rotateApiKey(keyId);
         setCreatedKey(result.raw_key);
         setShowModal(true);
@@ -486,6 +497,7 @@ const DELIVERY_COLUMNS = [
 ];
 
 const WebhookSection = () => {
+    const { confirm } = useConfirm();
     const register = useSettingFocus();
     const [subscriptions, setSubscriptions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -516,7 +528,11 @@ const WebhookSection = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Delete this subscription?')) return;
+        if (!await confirm({
+            title: 'Delete webhook subscription',
+            message: 'Delete this subscription?',
+            confirmText: 'Delete subscription',
+        })) return;
         await api.deleteEventSubscription(id);
         loadSubscriptions();
     };

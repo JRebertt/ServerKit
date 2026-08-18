@@ -75,6 +75,10 @@ export async function checkDNSPropagation(domain, type = 'A') {
     return this.request(`/dns/propagation/${domain}?type=${type}`);
 }
 
+export async function getDomainRoutingDiagnostics(appId) {
+    return this.request(`/domains/debug/diagnose/${appId}`);
+}
+
 export async function exportDNSZone(zoneId) {
     return this.request(`/dns/${zoneId}/export`);
 }

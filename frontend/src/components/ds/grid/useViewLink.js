@@ -3,6 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import {
     copyableLink, handleFor, readViewParams, resolveView, withViewParam,
 } from './viewLinks';
+import { copyToClipboard } from '@/utils/clipboard';
 
 /**
  * Keeps a list page's URL and its active view in sync, both ways.
@@ -77,12 +78,8 @@ export function useViewLink({ views, apply, capture, enabled = true, scope = '' 
             state: capture ? capture() : {},
             scope,
         });
-        try {
-            await navigator.clipboard.writeText(url);
-            return { url, copied: true };
-        } catch {
-            return { url, copied: false };   // clipboard blocked: hand back the URL
-        }
+        const copied = await copyToClipboard(url);
+        return { url, copied }; // clipboard blocked: hand back the URL
     }, [location.pathname, activeView, views?.isDirty, capture, scope]);
 
     return { copyLink, searchParams };

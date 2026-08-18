@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { copyToClipboard } from '@/utils/clipboard';
 
 /**
  * Copy-to-clipboard button with built-in success feedback.
@@ -23,13 +24,11 @@ export function CopyButton({
     const [copied, setCopied] = useState(false);
 
     const handleCopy = useCallback(async () => {
-        try {
-            await navigator.clipboard.writeText(String(value));
+        const ok = await copyToClipboard(value);
+        if (ok) {
             setCopied(true);
             onCopy?.(value);
             setTimeout(() => setCopied(false), timeout);
-        } catch {
-            // Ignore copy errors; caller can handle via onCopy if needed.
         }
     }, [value, onCopy, timeout]);
 

@@ -20,11 +20,7 @@ export default function ImageThumb({ path, fallback, className = 'thumb-image', 
                     if (!cancelled) setSrc(res.url);
                     return;
                 }
-                const token = api.getToken();
-                const url = `${api.baseUrl}/files/download?path=${encodeURIComponent(path)}`;
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-                if (!res.ok) throw new Error('thumb fetch failed');
-                const blob = await res.blob();
+                const blob = await api.getFileBlob(path);
                 blobUrl = URL.createObjectURL(blob);
                 if (!cancelled) setSrc(blobUrl);
             } catch {

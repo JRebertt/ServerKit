@@ -109,13 +109,18 @@ class ApiClient {
         return pending;
     }
 
+    requestBlob(endpoint, options = {}) {
+        return this._request(endpoint, { ...options, responseType: 'blob' });
+    }
+
     async _request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
         const token = this.getToken();
+        const { responseType = 'json', ...fetchOptions } = options;
 
         // FormData uploads need browser-built Content-Type (with boundary)
         // and must NOT be JSON-stringified. Detect and bypass both.
-        const isFormData = options.body instanceof FormData;
+        const isFormData = fetchOptions.body instanceof FormData;
 
         // Active workspace context (#33). Sent ambiently so the backend can scope
         // resources; endpoints that don't honor it ignore it. A stale value is safe
@@ -127,12 +132,12 @@ class ApiClient {
         // whole merged set, dropping Content-Type/Authorization and triggering
         // 415 (no application/json) on JSON POSTs.
         const config = {
-            ...options,
+            ...fetchOptions,
             headers: {
                 ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
                 ...(token && { Authorization: `Bearer ${token}` }),
                 ...(activeWorkspace && activeWorkspace !== 'all' && { 'X-Workspace-Id': activeWorkspace }),
-                ...options.headers,
+                ...fetchOptions.headers,
             },
         };
 
@@ -162,7 +167,7 @@ class ApiClient {
                 if (refreshed) {
                     config.headers.Authorization = `Bearer ${this.getToken()}`;
                     const retryResponse = await fetch(url, config);
-                    return this.handleResponse(retryResponse);
+                    return this.handleResponse(retryResponse, responseType);
                 }
                 this.clearTokens();
                 window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
@@ -174,11 +179,15 @@ class ApiClient {
             // server's error message verbatim, with status attached.
         }
 
-        return this.handleResponse(response);
+        return this.handleResponse(response, responseType);
     }
 
-    async handleResponse(response) {
-        const data = await response.json().catch(() => ({}));
+    async handleResponse(response, responseType = 'json') {
+        // Error bodies stay JSON even for binary endpoints so callers receive
+        // the backend's useful message instead of an opaque Blob.
+        const data = response.ok && responseType === 'blob'
+            ? await response.blob()
+            : await response.json().catch(() => ({}));
         if (!response.ok) {
             // No server-provided message means the route itself misbehaved
             // (404 unknown endpoint, 405 SPA catch-all, 502 proxy...) — name

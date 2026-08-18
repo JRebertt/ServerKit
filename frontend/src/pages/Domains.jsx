@@ -23,6 +23,7 @@ import {
     useGridConfig, useGridRows, exportRows,
 } from '@/components/ds/grid';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useConfirm } from '@/hooks/useConfirm';
 import useFocusParam from '@/hooks/useFocusParam';
 import RegistrarPortfolio from '../components/domains/RegistrarPortfolio';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
@@ -120,6 +121,7 @@ const BUILTIN_VIEWS = [
 ];
 
 const Domains = () => {
+    const { confirm } = useConfirm();
     const toast = useToast();
     const { isAdmin } = useAuth();
     const [domains, setDomains] = useState([]);
@@ -238,7 +240,11 @@ const Domains = () => {
     }
 
     async function handleDeleteDomain(domain) {
-        if (!confirm(`Are you sure you want to delete ${domain.name}?`)) return;
+        if (!await confirm({
+            title: 'Delete domain',
+            message: `Delete ${domain.name}?`,
+            confirmText: 'Delete domain',
+        })) return;
         try {
             await api.deleteDomain(domain.id);
             loadData();
@@ -268,7 +274,11 @@ const Domains = () => {
     }
 
     async function handleDisableSsl(domain) {
-        if (!confirm(`Disable SSL for ${domain.name}?`)) return;
+        if (!await confirm({
+            title: 'Disable SSL',
+            message: `Disable SSL for ${domain.name}?`,
+            confirmText: 'Disable SSL',
+        })) return;
         try {
             await api.disableSsl(domain.id);
             loadData();

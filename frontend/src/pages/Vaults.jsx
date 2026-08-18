@@ -13,6 +13,8 @@ import ResourceListPage from '../components/layouts/ResourceListPage';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { SearchField, ServiceTile } from '@/components/ds';
 import { formatRelativeTime } from '@/utils/time';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useClipboard } from '@/hooks/useClipboard';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
@@ -40,6 +42,8 @@ const VAULT_VIEWS = [
  */
 export default function Vaults() {
     const toast = useToast();
+    const { confirm } = useConfirm();
+    const { copy } = useClipboard({ successMessage: 'Copied' });
 
     const [vaults, setVaults] = useState([]);
     const [workspaces, setWorkspaces] = useState([]);
@@ -91,7 +95,11 @@ export default function Vaults() {
     }
 
     async function deleteVault(id) {
-        if (!confirm('Delete this vault and all its secrets?')) return;
+        if (!await confirm({
+            title: 'Delete vault',
+            message: 'Delete this vault and all its secrets?',
+            confirmText: 'Delete vault',
+        })) return;
         try {
             await api.deleteVault(id);
             if (selectedVault?.id === id) setSelectedVault(null);
@@ -139,7 +147,11 @@ export default function Vaults() {
     }
 
     async function deleteSecret(id) {
-        if (!confirm('Delete this secret?')) return;
+        if (!await confirm({
+            title: 'Delete secret',
+            message: 'Delete this secret?',
+            confirmText: 'Delete secret',
+        })) return;
         try {
             await api.deleteSecret(id);
             openVault(selectedVault.id);
@@ -300,7 +312,7 @@ export default function Vaults() {
                         <Button variant="ghost" size="icon" onClick={() => (revealed ? setRevealSecretId(null) : revealSecret(s))} title={revealed ? 'Hide' : 'Reveal'}>
                             {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
                         </Button>
-                        <Button variant="ghost" size="icon" title="Copy" onClick={() => { navigator.clipboard.writeText(revealed ? revealedValue : s.value); toast.success('Copied'); }}>
+                        <Button variant="ghost" size="icon" title="Copy" onClick={() => copy(revealed ? revealedValue : s.value)}>
                             <Copy size={14} />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" title="Delete" onClick={() => deleteSecret(s.id)}>

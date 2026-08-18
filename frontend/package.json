@@ -6,9 +6,10 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "lint": "eslint . && node scripts/check-settings-index.mjs && node scripts/check-theme-tokens.mjs && node ../scripts/check-html-sinks.mjs",
+        "lint": "eslint . && node scripts/check-settings-index.mjs && node scripts/check-theme-tokens.mjs && node scripts/check-frontend-boundaries.mjs && node ../scripts/check-html-sinks.mjs",
         "lint:settings-index": "node scripts/check-settings-index.mjs",
         "lint:html-sinks": "node ../scripts/check-html-sinks.mjs",
+        "lint:frontend-boundaries": "node scripts/check-frontend-boundaries.mjs",
         "capture:skeletons": "node scripts/capture-skeletons.mjs",
         "preview": "vite preview"
     },
