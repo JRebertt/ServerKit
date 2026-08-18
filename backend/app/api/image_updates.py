@@ -1,17 +1,17 @@
 # Bucket: PER-APP (plan 29 #9). The registry-check trigger stays admin; the
 # latest-check read is scoped to callers who can access the app (can_access_app).
 from flask import Blueprint, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models.user import User
+from flask_jwt_extended import jwt_required
 from app.models.application import Application
 from app.services.image_update_service import ImageUpdateService
 from app.services.resource_grant_service import ResourceGrantService
+from app.middleware.rbac import get_current_user
 
 image_updates_bp = Blueprint('image_updates', __name__)
 
 
 def _admin():
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     return user if user and user.is_admin else None
 
 
@@ -36,7 +36,7 @@ def latest(app_id):
     Scoped to the app's workspace visibility (plan 29 #9) — a foreign caller
     gets a sealed 404."""
     app = Application.query_active().filter_by(id=app_id).first()
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if app is None or not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Not found'}), 404
     check_row = ImageUpdateService.latest_check(app_id)

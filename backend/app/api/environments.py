@@ -4,17 +4,13 @@ Environments are children of a project; access is derived from the parent
 project's workspace, mirroring projects.py.
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models.user import User
 from app.services.project_service import ProjectService
 from app.services.workspace_service import WorkspaceService
+from app.middleware.rbac import get_current_user
 
 environments_bp = Blueprint('environments', __name__)
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
 
 
 def _accessible_workspace_ids(user):
@@ -46,7 +42,7 @@ def _project_for_write(user, project_id):
 @jwt_required()
 def create_environment():
     """Create an environment under a project. Body: {project_id, name, is_default?}."""
-    user = _current_user()
+    user = get_current_user()
     data = request.get_json() or {}
     project_id = data.get('project_id')
     if not project_id:
@@ -72,7 +68,7 @@ def create_environment():
 @environments_bp.route('/<int:environment_id>', methods=['PUT'])
 @jwt_required()
 def update_environment(environment_id):
-    user = _current_user()
+    user = get_current_user()
     env = ProjectService.get_environment(environment_id)
     if not env:
         return jsonify({'error': 'Environment not found'}), 404
@@ -91,7 +87,7 @@ def update_environment(environment_id):
 def delete_environment(environment_id):
     """Delete an environment. Refuses (409) if it's the project's only one;
     detaches assigned apps (environment_id -> NULL) otherwise."""
-    user = _current_user()
+    user = get_current_user()
     env = ProjectService.get_environment(environment_id)
     if not env:
         return jsonify({'error': 'Environment not found'}), 404
@@ -109,7 +105,7 @@ def delete_environment(environment_id):
 @jwt_required()
 def reorder_environments():
     """Reorder a project's environments. Body: {project_id, ordered_ids:[...]}"""
-    user = _current_user()
+    user = get_current_user()
     data = request.get_json() or {}
     project_id = data.get('project_id')
     ordered_ids = data.get('ordered_ids')

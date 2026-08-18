@@ -2,14 +2,9 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app.services.cache_service import CacheService
 from app.jobs.service import JobService
+from app.middleware.rbac import get_current_user
 
 performance_bp = Blueprint('performance', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 @performance_bp.route('/cache/stats', methods=['GET'])

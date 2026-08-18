@@ -5,15 +5,9 @@ from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
 # The workspace guards now live in middleware/rbac.py so any resource blueprint
 # can reuse them (plan 19 Decision 2). Re-exported here for existing callers.
-from app.middleware.rbac import require_workspace_access, require_workspace_role
+from app.middleware.rbac import get_current_user, require_workspace_access, require_workspace_role
 
 workspaces_bp = Blueprint('workspaces', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 @workspaces_bp.route('/', methods=['GET'])

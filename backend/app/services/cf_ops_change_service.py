@@ -19,10 +19,15 @@ class CfOpsChangeService:
 
     @staticmethod
     def _current_user_id():
-        """Best-effort current user id (None outside a request/JWT context)."""
+        """Best-effort current user id (None outside a request context).
+
+        Via rbac.get_current_user() so an API-key caller is attributed to the
+        key's owner; reading the JWT directly raises for those requests and
+        the blanket except turned that into a silent None."""
         try:
-            from flask_jwt_extended import get_jwt_identity
-            return get_jwt_identity()
+            from app.middleware.rbac import get_current_user
+            user = get_current_user()
+            return user.id if user else None
         except Exception:
             return None
 

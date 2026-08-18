@@ -43,6 +43,7 @@ from app.services.upload_service import (
     get_current_version,
 )
 from app import paths
+from app.middleware.rbac import get_current_user
 
 apps_bp = Blueprint('apps', __name__)
 
@@ -499,7 +500,7 @@ def set_app_workspace(app_id):
     null/'default' target moves it back to the default workspace."""
     from app.models.workspace import Workspace
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -547,7 +548,7 @@ def move_apps_to_project():
     from app.models.project import Project
     from app.models.environment import Environment
 
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     data = request.get_json() or {}
 
     raw_ids = data.get('app_ids')
@@ -684,7 +685,7 @@ def _can_edit_app(user, app):
 @apps_bp.route('/<int:app_id>', methods=['GET'])
 @jwt_required()
 def get_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
@@ -705,7 +706,7 @@ def get_compose_services(app_id):
     Lets the env-var editor offer a per-service targeting choice. Empty for
     non-compose apps or when the base compose can't be read.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -723,7 +724,7 @@ def get_compose_services(app_id):
 def list_app_grants(app_id):
     """List who has been granted access to this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -738,7 +739,7 @@ def list_app_grants(app_id):
 def grant_app_access(app_id):
     """Grant a user access to this app (owner-or-admin). Body: {user_id, role?}."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -766,7 +767,7 @@ def grant_app_access(app_id):
 def revoke_app_access(app_id, grant_id):
     """Revoke a grant on this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1614,7 +1615,7 @@ def apply_image_update(app_id):
 @apps_bp.route('/<int:app_id>/sleep-policy', methods=['GET'])
 @jwt_required()
 def get_sleep_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1626,7 +1627,7 @@ def get_sleep_policy(app_id):
 @apps_bp.route('/<int:app_id>/sleep-policy', methods=['PUT'])
 @jwt_required()
 def update_sleep_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1641,7 +1642,7 @@ def update_sleep_policy(app_id):
 @apps_bp.route('/<int:app_id>/sleep', methods=['POST'])
 @jwt_required()
 def sleep_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1656,7 +1657,7 @@ def sleep_app(app_id):
 @apps_bp.route('/<int:app_id>/wake', methods=['POST'])
 @jwt_required()
 def wake_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1673,7 +1674,7 @@ def wake_app(app_id):
 def sweep_idle_apps():
     """Sleep all enabled apps that have been idle past their timeout. Intended
     to be hit periodically (cron or a scheduler)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not (user and user.is_admin):
         return jsonify({'error': 'Admin access required'}), 403
     return jsonify(ContainerSleepService.sweep_idle())
@@ -1714,7 +1715,7 @@ def _parse_docker_stats(stats):
 @jwt_required()
 def get_app_resources(app_id):
     """The app's configured CPU/memory limits plus best-effort live usage."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1747,7 +1748,7 @@ def update_app_resources(app_id):
     the limits) and recreates changed containers; otherwise the limits are
     saved and take effect on the next restart/redeploy.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1804,7 +1805,7 @@ def set_micro_cache(app_id):
     config drift. When the app has no domains yet, the flag is save-only and
     takes effect on first publish.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1853,7 +1854,7 @@ def purge_micro_cache(app_id):
     wipes cached entries for every opted-in site. With the 10-second TTL this
     is near-harmless, and no nginx reload is needed.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1874,7 +1875,7 @@ def purge_micro_cache(app_id):
 @apps_bp.route('/<int:app_id>/scale-policy', methods=['GET'])
 @jwt_required()
 def get_scale_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1886,7 +1887,7 @@ def get_scale_policy(app_id):
 @apps_bp.route('/<int:app_id>/scale-policy', methods=['PUT'])
 @jwt_required()
 def update_scale_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1900,7 +1901,7 @@ def update_scale_policy(app_id):
 @apps_bp.route('/<int:app_id>/scale', methods=['POST'])
 @jwt_required()
 def scale_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1918,7 +1919,7 @@ def scale_app(app_id):
 @apps_bp.route('/<int:app_id>/scale/evaluate', methods=['POST'])
 @jwt_required()
 def evaluate_scale(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1934,7 +1935,7 @@ def evaluate_scale(app_id):
 @jwt_required()
 def scale_sweep():
     """Evaluate every enabled auto-scaling policy. Intended for cron/scheduler."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not (user and user.is_admin):
         return jsonify({'error': 'Admin access required'}), 403
     return jsonify(ContainerScaleService.sweep())
@@ -2029,7 +2030,7 @@ def get_app_related(app_id):
     disabled feature degrades that section to empty rather than failing the
     whole card.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2360,7 +2361,7 @@ def get_app_status(app_id):
 
 def _load_app_for_backup(app_id, edit=False):
     """Load an app the current user may access (or edit). Returns (app, error)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)

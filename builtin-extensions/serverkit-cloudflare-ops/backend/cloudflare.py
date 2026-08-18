@@ -7,18 +7,12 @@ available to any authenticated user; writes require admin. Every mutating call i
 captured by the global audit fallback (method, route args, sanitized body).
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
+from app.middleware.rbac import require_admin_user
 from .cloudflare_service import CloudflareService, CloudflareError
 
 cloudflare_bp = Blueprint('cloudflare', __name__)
-
-
-def _require_admin():
-    """Return the current user if admin, else ``None``."""
-    from app.models.user import User
-    user = User.query.get(get_jwt_identity())
-    return user if (user and user.is_admin) else None
 
 
 def _service_response(res):
@@ -45,8 +39,7 @@ def get_zone_settings(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/settings/apply-preset', methods=['POST'])
 @jwt_required()
 def apply_preset(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.apply_recommended(zone_id)
     except CloudflareError as e:
@@ -69,8 +62,7 @@ def get_zone_setting(zone_id, setting_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/settings/<setting_id>', methods=['PATCH'])
 @jwt_required()
 def update_zone_setting(zone_id, setting_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     if 'value' not in data:
         return jsonify({'error': 'A "value" field is required'}), 400
@@ -86,8 +78,7 @@ def update_zone_setting(zone_id, setting_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/purge-cache', methods=['POST'])
 @jwt_required()
 def purge_cache(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.purge_cache(
@@ -115,8 +106,7 @@ def list_waf_rules(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/waf/rules', methods=['POST'])
 @jwt_required()
 def add_waf_rule(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.add_waf_rule(
@@ -133,8 +123,7 @@ def add_waf_rule(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/waf/presets/<preset_key>', methods=['POST'])
 @jwt_required()
 def apply_waf_preset(zone_id, preset_key):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.apply_waf_preset(zone_id, preset_key, data.get('params') or {})
@@ -147,8 +136,7 @@ def apply_waf_preset(zone_id, preset_key):
                      methods=['PATCH'])
 @jwt_required()
 def update_waf_rule(zone_id, ruleset_id, rule_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.update_waf_rule(zone_id, ruleset_id, rule_id, data)
@@ -161,8 +149,7 @@ def update_waf_rule(zone_id, ruleset_id, rule_id):
                      methods=['DELETE'])
 @jwt_required()
 def delete_waf_rule(zone_id, ruleset_id, rule_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_waf_rule(zone_id, ruleset_id, rule_id)
     except CloudflareError as e:
@@ -185,8 +172,7 @@ def list_workers(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/workers', methods=['POST'])
 @jwt_required()
 def deploy_worker(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.deploy_worker(
@@ -203,8 +189,7 @@ def deploy_worker(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/workers/routes', methods=['POST'])
 @jwt_required()
 def add_worker_route(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.add_worker_route(zone_id, data.get('pattern'), data.get('script'))
@@ -216,8 +201,7 @@ def add_worker_route(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/workers/routes/<route_id>', methods=['DELETE'])
 @jwt_required()
 def delete_worker_route(zone_id, route_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_worker_route(zone_id, route_id)
     except CloudflareError as e:
@@ -230,8 +214,7 @@ def delete_worker_route(zone_id, route_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/workers/<name>', methods=['DELETE'])
 @jwt_required()
 def delete_worker(zone_id, name):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_worker(zone_id, name)
     except CloudflareError as e:
@@ -254,8 +237,7 @@ def list_tunnels(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/tunnels', methods=['POST'])
 @jwt_required()
 def create_tunnel(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.create_tunnel(zone_id, data.get('name'))
@@ -267,8 +249,7 @@ def create_tunnel(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/tunnels/<tunnel_id>/install', methods=['GET'])
 @jwt_required()
 def tunnel_install(zone_id, tunnel_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.get_tunnel_install(zone_id, tunnel_id)
     except CloudflareError as e:
@@ -289,8 +270,7 @@ def tunnel_hostnames(zone_id, tunnel_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/tunnels/<tunnel_id>/hostnames', methods=['POST'])
 @jwt_required()
 def add_tunnel_hostname(zone_id, tunnel_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.add_tunnel_hostname(
@@ -303,8 +283,7 @@ def add_tunnel_hostname(zone_id, tunnel_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/tunnels/<tunnel_id>/hostnames', methods=['DELETE'])
 @jwt_required()
 def remove_tunnel_hostname(zone_id, tunnel_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.remove_tunnel_hostname(zone_id, tunnel_id, data.get('hostname'))
@@ -316,8 +295,7 @@ def remove_tunnel_hostname(zone_id, tunnel_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/tunnels/<tunnel_id>', methods=['DELETE'])
 @jwt_required()
 def delete_tunnel(zone_id, tunnel_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_tunnel(zone_id, tunnel_id)
     except CloudflareError as e:
@@ -340,8 +318,7 @@ def list_storage(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/r2', methods=['POST'])
 @jwt_required()
 def create_r2_bucket(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.create_r2_bucket(zone_id, data.get('name'))
@@ -353,8 +330,7 @@ def create_r2_bucket(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/r2/<bucket>', methods=['DELETE'])
 @jwt_required()
 def delete_r2_bucket(zone_id, bucket):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_r2_bucket(zone_id, bucket)
     except CloudflareError as e:
@@ -365,8 +341,7 @@ def delete_r2_bucket(zone_id, bucket):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/kv', methods=['POST'])
 @jwt_required()
 def create_kv_namespace(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.create_kv_namespace(zone_id, data.get('title'))
@@ -378,8 +353,7 @@ def create_kv_namespace(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/kv/<namespace_id>', methods=['DELETE'])
 @jwt_required()
 def delete_kv_namespace(zone_id, namespace_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_kv_namespace(zone_id, namespace_id)
     except CloudflareError as e:
@@ -390,8 +364,7 @@ def delete_kv_namespace(zone_id, namespace_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/d1', methods=['POST'])
 @jwt_required()
 def create_d1_database(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.create_d1_database(zone_id, data.get('name'))
@@ -403,8 +376,7 @@ def create_d1_database(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/storage/d1/<database_id>', methods=['DELETE'])
 @jwt_required()
 def delete_d1_database(zone_id, database_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_d1_database(zone_id, database_id)
     except CloudflareError as e:
@@ -427,8 +399,7 @@ def get_dnssec(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/dnssec', methods=['PATCH'])
 @jwt_required()
 def set_dnssec(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     if 'enabled' not in data:
         return jsonify({'error': 'An "enabled" boolean is required'}), 400
@@ -454,8 +425,7 @@ def list_origin_certificates(zone_id):
 @cloudflare_bp.route('/zones/<int:zone_id>/origin-certificates', methods=['POST'])
 @jwt_required()
 def issue_origin_certificate(zone_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.issue_origin_certificate(
@@ -474,8 +444,7 @@ def issue_origin_certificate(zone_id):
                      methods=['DELETE'])
 @jwt_required()
 def revoke_origin_certificate(zone_id, certificate_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.revoke_origin_certificate(zone_id, certificate_id)
     except CloudflareError as e:
@@ -498,8 +467,7 @@ def list_rules(zone_id, slug):
 @cloudflare_bp.route('/zones/<int:zone_id>/rules/<slug>', methods=['POST'])
 @jwt_required()
 def add_rule(zone_id, slug):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.add_rule(
@@ -517,8 +485,7 @@ def add_rule(zone_id, slug):
 @cloudflare_bp.route('/zones/<int:zone_id>/rules/<slug>/presets/<preset_key>', methods=['POST'])
 @jwt_required()
 def apply_rule_preset(zone_id, slug, preset_key):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.apply_rule_preset(zone_id, slug, preset_key, data.get('params') or {})
@@ -531,8 +498,7 @@ def apply_rule_preset(zone_id, slug, preset_key):
                      methods=['PATCH'])
 @jwt_required()
 def update_rule(zone_id, slug, ruleset_id, rule_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         res = CloudflareService.update_rule(zone_id, slug, ruleset_id, rule_id, data)
@@ -545,8 +511,7 @@ def update_rule(zone_id, slug, ruleset_id, rule_id):
                      methods=['DELETE'])
 @jwt_required()
 def delete_rule(zone_id, slug, ruleset_id, rule_id):
-    if not _require_admin():
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
     try:
         res = CloudflareService.delete_rule(zone_id, slug, ruleset_id, rule_id)
     except CloudflareError as e:

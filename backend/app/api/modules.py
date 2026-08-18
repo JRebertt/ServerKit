@@ -9,14 +9,9 @@ from flask_jwt_extended import jwt_required
 from app.services import module_service
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
+from app.middleware.rbac import get_current_user
 
 modules_bp = Blueprint('modules', __name__)
-
-
-def _current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 @modules_bp.route('', methods=['GET'])
@@ -29,7 +24,7 @@ def list_modules():
 @modules_bp.route('/<name>', methods=['PUT'])
 @jwt_required()
 def set_module(name):
-    user = _current_user()
+    user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
 

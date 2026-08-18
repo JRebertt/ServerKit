@@ -22,7 +22,7 @@ from app.services.agent_registry import agent_registry
 from app.services.agent_fleet_service import fleet_service
 from app.services.discovery_service import discovery_service
 from app.services import connection_string as connection_string_codec
-from app.middleware.rbac import admin_required, developer_required
+from app.middleware.rbac import admin_required, developer_required, get_current_user
 
 
 # Default token lifetime when the caller doesn't specify one. 7 days is
@@ -267,7 +267,7 @@ def list_servers():
     # context this stays unfiltered; with a workspace context it filters to it.
     from app.models import User
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
     query = WorkspaceService.scope_query(Server.query, Server, user,
@@ -348,7 +348,10 @@ def create_server():
       allowed_ips: passed through unchanged.
     """
     data = request.get_json() or {}
-    user_id = get_jwt_identity()
+    # Through the one identity door: @developer_required admits API-key
+    # callers, for whom reading the JWT directly raises.
+    creator = get_current_user()
+    user_id = creator.id if creator else None
 
     # Generate registration token
     registration_token = Server.generate_registration_token()
@@ -368,9 +371,8 @@ def create_server():
     expires_at = _resolve_token_expiry(data.get('expires_in'))
 
     # Stamp the workspace (#33): the requested one (membership-checked) or the default.
-    from app.models import User
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(user_id)
+    user = creator
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
     # Role reconciliation (#33): a workspace 'viewer' member has read-only access to
@@ -437,7 +439,7 @@ def set_server_workspace(server_id):
     from app.models import User
     from app.models.workspace import Workspace
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     server = Server.query.get(server_id)
     if not server:
         return jsonify({'error': 'Server not found'}), 404

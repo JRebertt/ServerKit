@@ -6,13 +6,13 @@ jobs, extensions, vaults). Business logic lives in SearchService; this blueprint
 just validates the term, resolves the user, and shapes the JSON.
 """
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.api.contracts import api_contract
 from app.api.responses import list_response
 from app.api.schemas.search import SearchQuerySchema, SearchResponseSchema
-from app.models.user import User
 from app.services.search_service import SearchService
+from app.middleware.rbac import get_current_user
 
 search_bp = Blueprint('search', __name__)
 
@@ -26,7 +26,7 @@ def search(query):
     if len(q) < 2:
         return list_response([], legacy_key='results')
 
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     workspace = request.headers.get('X-Workspace-Id') or query['workspace_id']
     rows = SearchService.search(user, q, workspace)
     return list_response(rows, legacy_key='results')

@@ -2,9 +2,9 @@
 from datetime import datetime
 
 from flask import Blueprint, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 
-from app.middleware.rbac import require_workspace_access, require_workspace_role
+from app.middleware.rbac import get_current_user, require_workspace_access, require_workspace_role
 from app.services.secret_vault_service import SecretService, SecretVaultService
 from app.services.webhook_gateway_service import WebhookGatewayService
 from app.services.workspace_service import WorkspaceService
@@ -14,8 +14,10 @@ bp = Blueprint('secrets_webhooks', __name__)
 
 
 def _current_user_id() -> int:
-    identity = get_jwt_identity()
-    return int(identity) if identity else None
+    """The acting user's id, via the one identity door so an API-key
+    caller is attributed to the key's owner rather than to nobody."""
+    user = get_current_user()
+    return user.id if user else None
 
 
 def _resolve_ws_value():
@@ -30,7 +32,7 @@ def _resolve_ws():
     None rather than erroring."""
     from app.models import User
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     return WorkspaceService.resolve_workspace_id(user, _resolve_ws_value())
 
 
@@ -39,10 +41,6 @@ def _json_or_form() -> dict:
     if request.is_json:
         return request.get_json(silent=True) or {}
     return {}
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
 
 
 # Workspace roles allowed to mutate vault/webhook resources and to expose secret
@@ -54,7 +52,7 @@ _WS_WRITE_ROLES = ('owner', 'admin')
 def _ws_visible(workspace_id, roles=None):
     """True when the caller is a panel admin or a workspace member (any role for
     reads; owner/admin when `roles` is given)."""
-    user = _current_user()
+    user = get_current_user()
     guard = (require_workspace_role(workspace_id, user, roles) if roles
              else require_workspace_access(workspace_id, user))
     return guard is None
@@ -115,7 +113,7 @@ def create_vault():
     name = data.get('name')
     if not name:
         return {'error': 'name is required'}, 400
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     # Explicit workspace_id in the body takes precedence over the active context,
     # but the caller must be a member of that workspace.
     explicit_ws = data.get('workspace_id')

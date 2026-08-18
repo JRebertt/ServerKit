@@ -23,8 +23,8 @@ import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app.middleware.rbac import admin_required
-from app.models import Application, User
+from app.middleware.rbac import admin_required, get_current_user
+from app.models import Application
 from app.services.resource_grant_service import ResourceGrantService
 from app.services import database_engine_extension_service as extensions
 from app.services import database_engine_service as engines
@@ -134,7 +134,7 @@ def _require_app_access(app_id):
     load — all facts about someone's application, so a bare `@jwt_required()`
     would have let any signed-in user enumerate them across the whole panel.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user:
         return {'error': 'Unauthorized'}, 401
     app = Application.query_active().filter_by(id=app_id).first()

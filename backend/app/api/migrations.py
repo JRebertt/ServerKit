@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.models import User
 from app.services.migration_service import MigrationService
+from app.middleware.rbac import get_current_user
 
 migrations_bp = Blueprint('migrations', __name__)
 
@@ -18,7 +19,7 @@ def get_migration_status():
 @jwt_required()
 def create_backup():
     """Create a database backup before applying migrations. Admin only."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or user.role != User.ROLE_ADMIN:
         return jsonify({'error': 'Admin access required'}), 403
 
@@ -32,7 +33,7 @@ def create_backup():
 @jwt_required()
 def apply_migrations():
     """Apply all pending migrations. Admin only."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or user.role != User.ROLE_ADMIN:
         return jsonify({'error': 'Admin access required'}), 403
 
@@ -46,7 +47,7 @@ def apply_migrations():
 @jwt_required()
 def get_migration_history():
     """Return all migration revisions. Admin only."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or user.role != User.ROLE_ADMIN:
         return jsonify({'error': 'Admin access required'}), 403
 

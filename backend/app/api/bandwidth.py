@@ -5,7 +5,7 @@
 Mounted at /api/v1/bandwidth (registered in app/__init__.py).
 """
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity
+from app.middleware.rbac import get_current_user
 
 from ..middleware.rbac import admin_required, viewer_required
 from ..models import User, Application
@@ -34,7 +34,7 @@ def get_app_bandwidth(app_id):
     """Full daily series (default 90 days) + current-month total for one app,
     scoped to the app's workspace visibility (plan 29 #9 — foreign caller 404)."""
     app = Application.query_active().filter_by(id=app_id).first()
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if app is None or not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Not found'}), 404
     try:

@@ -5,12 +5,12 @@ from flask_jwt_extended import (
     create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 )
 from app import db
-from app.models import User, AuditLog
+from app.models import AuditLog
 from app.models.oauth_identity import OAuthIdentity
 from app.services import sso_service
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, get_current_user
 
 sso_bp = Blueprint('sso', __name__)
 
@@ -199,7 +199,7 @@ def unlink_provider(provider):
 @admin_required
 def get_sso_config():
     """All SSO settings (secrets redacted)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
 
     config = {}
     for key in SettingsService.DEFAULT_SETTINGS:
@@ -218,7 +218,7 @@ def get_sso_config():
 @admin_required
 def update_provider_config(provider):
     """Update a provider's SSO config."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
 
     if provider not in VALID_PROVIDERS:
         return jsonify({'error': f'Invalid provider: {provider}'}), 400
@@ -257,7 +257,7 @@ def test_provider(provider):
 @admin_required
 def update_general_settings():
     """Update general SSO settings (auto_provision, force_sso, etc.)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
 
     data = request.get_json() or {}
     general_keys = ['sso_auto_provision', 'sso_default_role', 'sso_force_sso', 'sso_allowed_domains']

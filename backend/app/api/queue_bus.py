@@ -1,21 +1,12 @@
 """REST API for the ServerKit Queue Bus."""
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.queue_bus.service import QueueBusService, QueueBusError
 from app.models.user import User
+from app.middleware.rbac import get_current_user
 
 queue_bus_bp = Blueprint('queue_bus', __name__)
-
-
-def _current_user():
-    uid = get_jwt_identity()
-    if uid is None:
-        return None
-    try:
-        return User.query.get(int(uid))
-    except (TypeError, ValueError):
-        return None
 
 
 def _is_admin(user):
@@ -47,7 +38,7 @@ def _ensure_group_accessible(group_slug):
     group = QueueBusService.get_group(group_slug)
     if not group:
         return  # missing group — the service call below raises the 404
-    user = _current_user()
+    user = get_current_user()
     if _is_admin(user):
         return
     if (group.get('owner_type') == 'user' and user is not None
@@ -100,7 +91,7 @@ def create_group():
         if not slug and not name:
             return jsonify({'error': 'name or slug is required'}), 400
 
-        user = _current_user()
+        user = get_current_user()
         if not _is_admin(user):
             # Non-admins create under their own user ownership.
             owner_type = 'user'

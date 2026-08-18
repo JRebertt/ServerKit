@@ -13,7 +13,7 @@ from app.models import User, Application
 from app.services.database_service import DatabaseService
 from app.services.db_process_service import DbProcessService
 from app.services.managed_database_service import ManagedDatabaseService
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, get_current_user, require_admin_user
 from app.services.resource_grant_service import ResourceGrantService
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def _persist_provisioned(engine, name, result, data):
     additive — a persistence failure never fails the provisioning that succeeded."""
     try:
         from app.services.workspace_service import WorkspaceService
-        user = User.query.get(get_jwt_identity())
+        user = get_current_user()
         ws_id = WorkspaceService.resolve_workspace_id(
             user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
         ManagedDatabaseService.record_provisioned(
@@ -460,11 +460,7 @@ def execute_mysql_query(name):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.mysql_execute_query(
         database=name,
@@ -499,11 +495,7 @@ def execute_pg_query(name):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.pg_execute_query(
         database=name,
@@ -539,11 +531,7 @@ def execute_sqlite_query():
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.sqlite_execute_query(
         db_path=db_path,
@@ -746,10 +734,7 @@ def execute_docker_query(container, database):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        user_obj = User.query.get(current_user_id)
-        if not user_obj or user_obj.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.docker_mysql_execute_query(
         container_name=container,
@@ -771,7 +756,7 @@ def execute_docker_query(container, database):
 
 def _workspace_id():
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     return WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
 

@@ -4,8 +4,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from requests import HTTPError
 
-from app.models import User
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, get_current_user
 from app.services.source_connection_service import SourceConnectionService
 
 source_connections_bp = Blueprint('source_connections', __name__)
@@ -124,7 +123,7 @@ def github_admin_config():
 @source_connections_bp.route('/admin/github', methods=['PUT'])
 @admin_required
 def update_github_admin_config():
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     result = SourceConnectionService.update_github_config(
         request.get_json() or {},
         user_id=user.id if user else None,
@@ -150,7 +149,7 @@ def github_app_manifest():
 @admin_required
 def complete_github_app_manifest():
     """Convert the manifest code GitHub returned into a stored GitHub App."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     data = request.get_json() or {}
     try:
         result = SourceConnectionService.complete_github_app_manifest(
@@ -289,7 +288,7 @@ def gitlab_admin_config():
 @source_connections_bp.route('/admin/gitlab', methods=['PUT'])
 @admin_required
 def update_gitlab_admin_config():
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     result = SourceConnectionService.update_gitlab_config(
         request.get_json() or {},
         user_id=user.id if user else None,
@@ -421,7 +420,7 @@ def bitbucket_admin_config():
 @source_connections_bp.route('/admin/bitbucket', methods=['PUT'])
 @admin_required
 def update_bitbucket_admin_config():
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     result = SourceConnectionService.update_bitbucket_config(
         request.get_json() or {},
         user_id=user.id if user else None,
