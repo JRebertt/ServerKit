@@ -626,7 +626,48 @@ class TestRunChecked:
     def test_success_shape(self, mock_run):
         mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='hi\n', stderr='')
         assert run_checked(['echo', 'hi']) == {
-            'success': True, 'output': 'hi\n', 'error': None, 'returncode': 0}
+            'success': True, 'output': 'hi\n', 'stderr': '',
+            'error': None, 'returncode': 0}
+
+    @patch('app.utils.system.subprocess.run')
+    def test_stderr_on_a_SUCCESSFUL_command_is_not_an_error(self, mock_run):
+        """git, docker exec and friends write to stderr and still succeed.
+
+        Folding the stream into the verdict would invent failures, so
+        `stderr` (the stream) and `error` (the verdict) are separate keys.
+        """
+        mock_run.return_value = subprocess.CompletedProcess(
+            [], 0, stdout='', stderr='Cloning into ...\n')
+        result = run_checked(['git', 'clone', 'x'])
+        assert result['success'] is True
+        assert result['error'] is None
+        assert result['stderr'] == 'Cloning into ...\n'
+
+    @patch('app.utils.system.subprocess.run')
+    def test_stderr_is_raw_while_error_is_stripped(self, mock_run):
+        mock_run.return_value = subprocess.CompletedProcess([], 1, stdout='', stderr=' boom \n')
+        result = run_checked(['false'])
+        assert result['stderr'] == ' boom \n'
+        assert result['error'] == 'boom'
+
+    @patch('app.utils.system.subprocess.run')
+    def test_merge_stderr_interleaves_into_output(self, mock_run):
+        """`docker logs` needs it: a container's stderr is part of its log,
+        not an error about fetching the log."""
+        mock_run.return_value = subprocess.CompletedProcess([], 0, stdout='a\nb\n', stderr=None)
+        result = run_checked(['docker', 'logs', 'x'], merge_stderr=True)
+        assert result['output'] == 'a\nb\n'
+        kwargs = mock_run.call_args[1]
+        assert kwargs['stderr'] is subprocess.STDOUT
+        assert 'capture_output' not in kwargs   # mutually exclusive with stderr=
+
+    def test_a_command_that_never_ran_still_has_every_key(self):
+        """A caller destructuring the result must not KeyError on the failure
+        path — that is how an exec failure becomes a 500 instead of a message."""
+        with patch('app.utils.system.subprocess.run', side_effect=FileNotFoundError('x')), \
+                patch('app.utils.system.shutil.which', return_value='/bin/x'):
+            result = run_checked(['x'])
+        assert set(result) == {'success', 'output', 'stderr', 'error', 'returncode'}
 
     @patch('app.utils.system.subprocess.run')
     def test_capture_and_text_are_applied_for_the_caller(self, mock_run):

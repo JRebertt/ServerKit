@@ -39,23 +39,26 @@ class TestIsProtectedName:
 
 
 class TestListContainersAnnotation:
-    def _fake_ps(self, names):
-        lines = '\n'.join(
+    @staticmethod
+    def _ps_output(names):
+        return '\n'.join(
             '{"ID": "abc%d", "Names": "%s", "Image": "img", "Status": "Up", '
             '"State": "running", "Ports": "", "CreatedAt": "now", "Size": "0B"}'
             % (i, n)
             for i, n in enumerate(names)
         )
 
-        class _Result:
-            returncode = 0
-            stdout = lines
-
-        return _Result()
-
-    def test_protected_flag_set_per_container(self):
-        with patch('subprocess.run', return_value=self._fake_ps(['serverkit-backend', 'nginx'])):
-            containers = DockerService.list_containers()
+    def test_protected_flag_set_per_container(self, fake_subprocess):
+        # Scripted through the shared stub kit (plan 75 §G7). The private fake
+        # this replaced had only `returncode` and `stdout`; once list_containers
+        # went through run_checked, reading `.stderr` off it raised
+        # AttributeError, the caller's blanket except swallowed it, and the
+        # test saw an empty container list instead of an error. A hand-rolled
+        # CompletedProcess stand-in is only correct until something reads the
+        # attribute it forgot.
+        fake_subprocess.script(['docker', 'ps'],
+                               stdout=self._ps_output(['serverkit-backend', 'nginx']))
+        containers = DockerService.list_containers()
 
         by_name = {c['name']: c for c in containers}
         assert by_name['serverkit-backend']['protected'] is True

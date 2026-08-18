@@ -147,7 +147,7 @@ def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
 def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
                 timeout: Optional[int] = 60, input: Optional[str] = None,
                 cwd: Optional[str] = None, env: Optional[dict] = None,
-                **kwargs) -> dict:
+                merge_stderr: bool = False, **kwargs) -> dict:
     """Run a command and get a result, not a ``CompletedProcess`` (plan 75 §G1).
 
     The result-shaped door. Around ``backend/app``'s raw ``subprocess`` calls
@@ -160,13 +160,27 @@ def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
 
     Returns::
 
-        {'success': bool, 'output': str, 'error': str|None, 'returncode': int|None}
+        {'success': bool, 'output': str, 'stderr': str,
+         'error': str|None, 'returncode': int|None}
 
     ``returncode`` is ``None`` when the command never ran, which is the
     distinction the hand-rolled handlers keep losing: exit code 1 means the
     command answered "no", while no exit code at all means nobody answered.
     A caller that renders "not installed" must check ``returncode is not None``
     first, and now it can.
+
+    ``stderr`` is the raw stream; ``error`` is the verdict — a human-facing
+    message, ``None`` on success. They are separate because plenty of commands
+    write to stderr and still succeed (``docker exec``, ``git``), so folding
+    the stream into the verdict would invent failures. Callers that show
+    command output want ``stderr``; callers that report a problem want
+    ``error``.
+
+    ``merge_stderr=True`` interleaves stderr into ``output`` the way a terminal
+    would (``stderr=STDOUT``). ``docker logs`` needs it — a container's stderr
+    is part of its log, not an error about fetching the log — and hand-rolled
+    ``result.stdout + result.stderr`` concatenation is not the same thing: it
+    loses the ordering.
 
     ``privileged=True`` routes through :func:`run_privileged` — same sudo-vs-root
     decision, same argv[0] resolution, so no caller re-implements either.
@@ -182,7 +196,12 @@ def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
         kwargs['cwd'] = cwd
     if env is not None:
         kwargs['env'] = env
-    kwargs.setdefault('capture_output', True)
+    if merge_stderr:
+        # capture_output and an explicit stderr= are mutually exclusive.
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.STDOUT)
+    else:
+        kwargs.setdefault('capture_output', True)
     kwargs.setdefault('text', True)
 
     try:
@@ -203,25 +222,32 @@ def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
             result = subprocess.run(resolved, timeout=timeout, **kwargs)
     except FileNotFoundError as exc:
         name = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else cmd
-        return {'success': False, 'output': '', 'returncode': None,
-                'error': f'{name} not found: {exc}'}
+        return _never_ran(f'{name} not found: {exc}')
     except subprocess.TimeoutExpired:
-        return {'success': False, 'output': '', 'returncode': None,
-                'error': f'timed out after {timeout}s'}
+        return _never_ran(f'timed out after {timeout}s')
     except PermissionError as exc:
-        return {'success': False, 'output': '', 'returncode': None,
-                'error': f'permission denied: {exc}'}
+        return _never_ran(f'permission denied: {exc}')
     except OSError as exc:
-        return {'success': False, 'output': '', 'returncode': None,
-                'error': str(exc)}
+        return _never_ran(str(exc))
 
+    stderr = result.stderr or ''
     return {
         'success': result.returncode == 0,
         'output': result.stdout or '',
+        'stderr': stderr,
         'returncode': result.returncode,
-        'error': ((result.stderr or '').strip() or f'command failed (exit {result.returncode})')
+        'error': (stderr.strip() or f'command failed (exit {result.returncode})')
                  if result.returncode != 0 else None,
     }
+
+
+def _never_ran(error: str) -> dict:
+    """The result shape for a command that never produced an exit code.
+
+    ``returncode is None`` is the whole point — see :func:`run_checked`.
+    """
+    return {'success': False, 'output': '', 'stderr': '',
+            'returncode': None, 'error': error}
 
 
 def write_privileged_file(path: str, content: str, *, append: bool = False,

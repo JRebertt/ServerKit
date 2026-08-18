@@ -21,8 +21,20 @@ from app.services.docker_service import DockerService
 class TestResultShape:
     def test_success_carries_stdout(self, fake_subprocess):
         fake_subprocess.script(['docker', 'ps'], stdout='CONTAINER\n')
-        assert DockerService.run(['ps']) == {
-            'success': True, 'output': 'CONTAINER\n', 'error': None}
+        # DockerService.run sits on run_checked (§G1), so the shape is the
+        # shared one — asserted by key here rather than by whole-dict equality,
+        # which would have to be edited in every suite each time the door
+        # gains a field.
+        result = DockerService.run(['ps'])
+        assert result['success'] is True
+        assert result['output'] == 'CONTAINER\n'
+        assert result['error'] is None
+        assert result['returncode'] == 0
+
+    def test_the_shape_is_run_checkeds(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'ps'])
+        assert set(DockerService.run(['ps'])) == {
+            'success', 'output', 'stderr', 'error', 'returncode'}
 
     def test_failure_carries_stderr(self, fake_subprocess):
         fake_subprocess.script(['docker'], returncode=1, stderr='No such container\n')
@@ -110,5 +122,98 @@ class TestTheWrappersDelegate:
         service = getattr(importlib.import_module(module_path), attr)
         fake_subprocess.script(['docker'], stdout='ok\n')
         result = service._docker(['ps'])
-        assert set(result) == {'success', 'output', 'error'}
+        assert {'success', 'output', 'error'} <= set(result)
         assert result['success'] is True and result['output'] == 'ok\n'
+
+
+class TestLongOperationsAreNotCapped:
+    """The one way this migration could have broken a real deployment.
+
+    `run_checked` defaults to a 60s timeout. Every docker call in
+    docker_service is unbounded today, and `compose up --build` on a small VPS
+    routinely runs longer than a minute — inheriting the default would have
+    turned working deploys into timeouts. These pin the opt-out at the sites
+    where it matters.
+    """
+
+    def _timeout_for(self, fake, prefix):
+        return fake.kwargs_for(prefix).get('timeout')
+
+    def test_pull_image_is_unbounded(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'pull'])
+        DockerService.pull_image('nginx', tag='latest')
+        assert self._timeout_for(fake_subprocess, ['docker', 'pull']) is None
+
+    def test_build_image_is_unbounded(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'build'])
+        DockerService.build_image('/srv/app', 'app:latest')
+        assert self._timeout_for(fake_subprocess, ['docker', 'build']) is None
+
+    def test_run_container_is_unbounded(self, fake_subprocess):
+        """`docker run` pulls the image when it is absent."""
+        fake_subprocess.script(['docker', 'run'], stdout='cid\n')
+        DockerService.run_container('nginx')
+        assert self._timeout_for(fake_subprocess, ['docker', 'run']) is None
+
+    def test_prune_is_unbounded(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'system'])
+        DockerService.prune_system()
+        assert self._timeout_for(fake_subprocess, ['docker', 'system']) is None
+
+    def test_run_compose_defaults_to_unbounded(self, fake_subprocess):
+        fake_subprocess.script(['docker-compose'])
+        DockerService.run_compose(['docker-compose', 'up', '-d'], cwd='/srv/x')
+        assert self._timeout_for(fake_subprocess, ['docker-compose']) is None
+
+    def test_exec_command_keeps_its_60s_bound(self, fake_subprocess):
+        """The one site that DID have a timeout keeps it."""
+        fake_subprocess.script(['docker', 'exec'])
+        DockerService.exec_command('c1', 'ls')
+        assert self._timeout_for(fake_subprocess, ['docker', 'exec']) == 60
+
+
+class TestLogsKeepInterleaving:
+    def test_container_logs_merge_stderr_rather_than_concatenating(self, fake_subprocess):
+        """A container writes its log to both streams. `stdout + stderr`
+        concatenation put the crash tail above the lines that led to it."""
+        fake_subprocess.script(['docker', 'logs'], stdout='one\ntwo\n')
+        result = DockerService.get_container_logs('c1')
+        assert result['logs'] == 'one\ntwo\n'
+        assert fake_subprocess.kwargs_for(['docker', 'logs'])['stderr'] is not None
+
+
+class TestExecCommandHonesty:
+    def test_a_real_nonzero_exit_reports_the_code(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'exec'], returncode=2, stderr='nope')
+        result = DockerService.exec_command('c1', 'false')
+        assert result['success'] is False
+        assert result['return_code'] == 2
+        assert result['stderr'] == 'nope'
+
+    def test_stderr_on_a_successful_exec_is_not_an_error(self, fake_subprocess):
+        fake_subprocess.script(['docker', 'exec'], stdout='out', stderr='warn')
+        result = DockerService.exec_command('c1', 'thing')
+        assert result['success'] is True
+        assert result['stdout'] == 'out' and result['stderr'] == 'warn'
+
+    def test_a_command_that_never_ran_claims_no_return_code(self, fake_subprocess):
+        """Reporting return_code here would say the container answered."""
+        fake_subprocess.script(['docker'], raises=FileNotFoundError)
+        result = DockerService.exec_command('c1', 'ls')
+        assert result['success'] is False
+        assert 'return_code' not in result
+        assert result['error']
+
+
+class TestProbesStillFallBack:
+    def test_compose_detection_never_raises_into_its_caller(self, fake_subprocess,
+                                                            monkeypatch):
+        """Dropping this guard made a broken probe surface as `compose up`
+        exit_code -1 instead of a v1 fallback — caught by test_deploy_console."""
+        monkeypatch.setattr(DockerService, '_compose_cmd', None)
+
+        def explode(argv, kwargs):
+            raise RuntimeError('probe blew up')
+
+        fake_subprocess.when(['docker'], explode)
+        assert DockerService._get_compose_cmd() == ['docker-compose']
