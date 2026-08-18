@@ -49,6 +49,7 @@ import * as dashboardMethods from './dashboards.js';
 import * as monitorMethods from './monitors.js';
 import * as viewMethods from './views.js';
 import * as recycleBinMethods from './recycleBin.js';
+import * as errorLogMethods from './errorLogs.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -105,6 +106,7 @@ class ApiService extends ApiClient {
             monitorMethods,
             viewMethods,
             recycleBinMethods,
+            errorLogMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

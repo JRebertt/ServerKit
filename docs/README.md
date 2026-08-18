@@ -12,7 +12,7 @@ Welcome to the ServerKit documentation. This guide will help you install, config
 | [Architecture](ARCHITECTURE.md) | System design, request flow, and diagrams |
 | [Deployment Guide](DEPLOYMENT.md) | Production deployment, CLI commands, and configuration |
 | [Local Development](LOCAL_DEVELOPMENT.md) | Run the panel locally for development |
-| [API Reference](API.md) | REST API documentation with examples |
+| [API Reference](API.md) | Curated REST API examples (see note below about auto-generated docs) |
 | [Multi-Environment Guide](MULTI_ENVIRONMENT.md) | Set up prod/dev WordPress pairs with shared database |
 | [Multi-Server & Agent](https://github.com/jhd3197/serverkit-agent/blob/main/README.md) | Install the agent and connect remote servers (see also [pairing](pairing.md)) |
 
@@ -221,7 +221,40 @@ curl http://localhost:47927/api/v1/system/stats \
   -H "Authorization: Bearer <token>"
 ```
 
-See [API Reference](API.md) for complete documentation.
+See [API Reference](API.md) for curated examples.
+
+> **Auto-generated API docs:** the running panel generates an OpenAPI 3.0 spec from
+> the actual routes and serves Swagger UI at **`/api/v1/docs`** (raw spec at
+> `/api/v1/docs/openapi.json`). That is always in sync with the code — prefer it
+> over `API.md` when the two disagree.
+
+---
+
+## Documentation Map
+
+The `docs/` folder mixes three audiences. Use this map to find what you need:
+
+**User / operator docs** (stable, safe to rely on):
+[Installation](INSTALLATION.md) · [Deployment](DEPLOYMENT.md) ·
+[Local Development](LOCAL_DEVELOPMENT.md) · [Architecture](ARCHITECTURE.md) ·
+[Backup & Protection](BACKUP_PROTECTION.md) ·
+[Multi-Environment](MULTI_ENVIRONMENT.md) · [Agent Pairing](pairing.md) ·
+[MCP Server Access](MCP_SERVER_ACCESS.md) ·
+[Cloudflare Token Scopes](CLOUDFLARE_TOKEN_SCOPES.md) ·
+[Coexistence](COEXISTENCE.md) · [Runbooks](runbooks/)
+
+**Extension & platform author docs**:
+[Extensions](EXTENSIONS.md) · [Extensions CI](EXTENSIONS_CI.md) ·
+[Extensions Registry](EXTENSIONS_REGISTRY.md) · [Registries](REGISTRIES.md) ·
+[serverkit.yaml](SERVERKIT_YAML.md) ·
+[Template Catalog Schema](TEMPLATE_CATALOG_SCHEMA.md) · [Theming](THEMING.md) ·
+[Fleet Contract](FLEET_CONTRACT.md) · [Workspace Scoping](WORKSPACE_SCOPING.md) ·
+[Notifications Contract](NOTIFICATIONS_CONTRACT.md) · [ADRs](adr/)
+
+**Internal working docs** (dev plans, specs, audits — may be stale or
+aspirational, not user documentation):
+[plans/](plans/) · [audits/](audits/) · roadmap and spec files at this level
+(`*_ROADMAP.md`, `*_SPEC.md`, `ENHANCEMENTS.md`, `NEW_FEATURES.md`, etc.)
 
 ---
 

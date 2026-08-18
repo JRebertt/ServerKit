@@ -567,6 +567,10 @@ def create_app(config_name=None):
 
     from app.api.recycle_bin import recycle_bin_bp
     app.register_blueprint(recycle_bin_bp, url_prefix='/api/v1/recycle-bin')
+
+    # Register blueprints - Centralized error log tracking
+    from app.api.error_logs import error_logs_bp
+    app.register_blueprint(error_logs_bp, url_prefix='/api/v1/error-logs')
     # Teach the bin which models it can restore. Import-time registration keeps
     # the API type-agnostic: adding a soft-deletable model touches only this list.
     from app.services import recycle_bin_service
@@ -880,10 +884,36 @@ def create_app(config_name=None):
     @app.errorhandler(500)
     def internal_error(e):
         original = getattr(e, 'original_exception', None)
+        exc = original or e
         app.logger.exception(
             'Unhandled exception on %s %s', request.method, request.path,
-            exc_info=original or e
+            exc_info=exc
         )
+        # Record into the centralized error log. error_log_service never raises
+        # by contract, but belt-and-braces: a recording failure must never
+        # change this response.
+        try:
+            import traceback as _traceback
+            from flask_jwt_extended import get_jwt_identity
+            from app.services import error_log_service
+            user_id = None
+            try:
+                user_id = get_jwt_identity()
+            except Exception:  # noqa: BLE001 - anonymous crashes still count
+                pass
+            error_log_service.record_error(
+                source='backend',
+                exception_type=type(exc).__name__,
+                message=str(exc),
+                traceback=''.join(
+                    _traceback.format_exception(type(exc), exc, exc.__traceback__)
+                ),
+                endpoint=request.path,
+                method=request.method,
+                user_id=user_id,
+            )
+        except Exception:  # noqa: BLE001
+            pass
         # JSON either way: unlike a 404, there is no sensible SPA fallback for a
         # crash, and an HTML page tells the caller nothing it can act on.
         return {'error': 'Internal server error'}, 500
