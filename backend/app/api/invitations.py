@@ -1,7 +1,6 @@
 """Invitation API endpoints for team invitations."""
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
-from app import db
 from app.models import AuditLog
 from app.middleware.rbac import admin_required
 from app.services.invitation_service import InvitationService
@@ -70,7 +69,6 @@ def create_invitation():
         target_id=invitation.id,
         details={'email': email, 'role': role, 'email_sent': email_sent}
     )
-    db.session.commit()
 
     return jsonify({
         'message': 'Invitation created successfully',
@@ -97,7 +95,6 @@ def revoke_invitation(invitation_id):
         target_type='invitation',
         target_id=invitation_id,
     )
-    db.session.commit()
 
     return jsonify({'message': 'Invitation revoked'}), 200
 
@@ -106,16 +103,11 @@ def revoke_invitation(invitation_id):
 @admin_required
 def resend_invitation(invitation_id):
     """Resend invitation email."""
-    from app.models import Invitation
-    invitation = Invitation.query.get(invitation_id)
-    if not invitation:
-        return jsonify({'error': 'Invitation not found'}), 404
-
-    if invitation.status != Invitation.STATUS_PENDING:
-        return jsonify({'error': 'Can only resend pending invitations'}), 400
-
-    if not invitation.email:
-        return jsonify({'error': 'Invitation has no email address'}), 400
+    candidate = InvitationService.get_resend_candidate(invitation_id)
+    if not candidate['success']:
+        status = 404 if candidate['reason'] == 'not_found' else 400
+        return jsonify({'error': candidate['error']}), status
+    invitation = candidate['invitation']
 
     base_url = request.host_url.rstrip('/')
     result = InvitationService.send_invitation_email(invitation, base_url)

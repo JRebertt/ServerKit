@@ -91,6 +91,37 @@ class InvitationService:
         return {'success': True}
 
     @staticmethod
+    def get_resend_candidate(invitation_id):
+        """Return an invitation that is eligible for another email delivery.
+
+        Keeping the lookup and invitation-state rules here prevents transport
+        handlers from reaching into the ORM just to prepare a resend.
+        """
+        invitation = db.session.get(Invitation, invitation_id)
+        if not invitation:
+            return {
+                'success': False,
+                'reason': 'not_found',
+                'error': 'Invitation not found',
+            }
+
+        if invitation.status != Invitation.STATUS_PENDING:
+            return {
+                'success': False,
+                'reason': 'not_pending',
+                'error': 'Can only resend pending invitations',
+            }
+
+        if not invitation.email:
+            return {
+                'success': False,
+                'reason': 'missing_email',
+                'error': 'Invitation has no email address',
+            }
+
+        return {'success': True, 'invitation': invitation}
+
+    @staticmethod
     def list_invitations(status=None):
         """List invitations, optionally filtered by status."""
         query = Invitation.query.order_by(Invitation.created_at.desc())
