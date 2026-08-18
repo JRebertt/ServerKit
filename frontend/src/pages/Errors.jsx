@@ -6,7 +6,7 @@
 // are SegControls in the one ListToolbar, and the list is a server-paginated
 // DataTable whose footer owns the count and the pager. A row click opens the
 // detail Drawer; resolve/delete live there, not in row actions.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertOctagon, CheckCheck, RefreshCw, Trash2, Undo2 } from 'lucide-react';
 import api from '../services/api';
 import {
@@ -72,20 +72,35 @@ export default function Errors() {
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
 
+    // Only the newest query may paint. Changing a filter (or the page) while a
+    // load is in flight fires a second request against different params, and
+    // the two can settle out of order — the older one would otherwise repaint
+    // the table with rows the toolbar no longer describes. The same token
+    // guards setLoading(false), so the first of two overlapping responses
+    // cannot stop the Refresh spinner while the second is still running.
+    //
+    // Identical back-to-back loads (Refresh clicked twice) never get this far:
+    // ApiService coalesces in-flight GETs by URL — see services/api/client.js.
+    // Same shape as the drawer's own stale-response check in openDetail below.
+    const reqSeq = useRef(0);
+
     const load = useCallback(async () => {
+        const seq = ++reqSeq.current;
+        setLoading(true);
         try {
             const params = { page, per_page: PAGE_SIZE };
             if (source !== 'all') params.source = source;
             if (status !== 'all') params.resolved = status === 'resolved';
             if (q) params.search = q;
             const data = await api.getErrorLogs(params);
+            if (seq !== reqSeq.current) return;
             setEntries(data.items || []);
             setTotal(data.total ?? (data.items?.length || 0));
             setPages(data.pages ?? 1);
         } catch {
             // Keep the last good list on screen rather than blanking the page.
         } finally {
-            setLoading(false);
+            if (seq === reqSeq.current) setLoading(false);
         }
     }, [page, source, status, q]);
 
