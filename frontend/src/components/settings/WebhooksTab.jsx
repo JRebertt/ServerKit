@@ -13,6 +13,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Plus, MoreVertical, Copy, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import EmptyState from '../EmptyState';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
@@ -274,7 +275,7 @@ export default function WebhooksTab() {
                         <Label>Secret</Label>
                         <div className="flex gap-2">
                             <Input readOnly type="text" value={regeneratedSecret?.secret || ''} />
-                            <Button variant="outline" onClick={() => { navigator.clipboard.writeText(regeneratedSecret?.secret || ''); toast.success('Copied') }}>
+                            <Button variant="outline" onClick={() => { copyToClipboard(regeneratedSecret?.secret || ''); toast.success('Copied') }}>
                                 <Copy size={14} />
                             </Button>
                         </div>

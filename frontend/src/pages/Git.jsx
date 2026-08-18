@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const VALID_TABS = ['overview', 'repositories', 'access', 'webhooks', 'deployments', 'settings'];
 
@@ -697,7 +698,7 @@ function Git({ basePath = '/git' }) {
     const copyWebhookUrl = (webhook) => {
         const baseUrl = window.location.origin;
         const url = `${baseUrl}/api${webhook.webhook_url}`;
-        navigator.clipboard.writeText(url);
+        copyToClipboard(url);
         toast.success('Webhook URL copied');
     };
 
@@ -1070,7 +1071,7 @@ function Git({ basePath = '/git' }) {
                     <div className="sk-spec-card__label">Quick actions</div>
                     <div className="git-quick-actions" style={{ marginTop: 8 }}>
                         <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>Open Gitea</Button>
-                        <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(`git clone ssh://git@${window.location.hostname}:${status?.ssh_port}/user/repo.git`); toast.success('SSH URL copied'); }}>
+                        <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`git clone ssh://git@${window.location.hostname}:${status?.ssh_port}/user/repo.git`); toast.success('SSH URL copied'); }}>
                             Copy SSH URL
                         </Button>
                     </div>
@@ -1165,7 +1166,7 @@ function Git({ basePath = '/git' }) {
                     <div className="sk-spec-card__value" style={{ fontSize: 13 }}>{getGiteaUrl()}</div>
                     <div className="sk-spec-card__sub">Web browser access</div>
                     <div className="git-quick-actions" style={{ marginTop: 12 }}>
-                        <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(getGiteaUrl()); toast.success('URL copied'); }}>Copy URL</Button>
+                        <Button variant="outline" size="sm" onClick={() => { copyToClipboard(getGiteaUrl()); toast.success('URL copied'); }}>Copy URL</Button>
                         <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>Open Gitea</Button>
                     </div>
                 </div>
@@ -1174,7 +1175,7 @@ function Git({ basePath = '/git' }) {
                     <div className="sk-spec-card__value" style={{ fontSize: 13 }}>ssh://git@{window.location.hostname}:{status?.ssh_port}/username/repo.git</div>
                     <div className="sk-spec-card__sub">Clone repositories via SSH</div>
                     <div className="git-quick-actions" style={{ marginTop: 12 }}>
-                        <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(`ssh://git@${window.location.hostname}:${status?.ssh_port}/username/repo.git`); toast.success('SSH URL copied'); }}>Copy SSH URL</Button>
+                        <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`ssh://git@${window.location.hostname}:${status?.ssh_port}/username/repo.git`); toast.success('SSH URL copied'); }}>Copy SSH URL</Button>
                     </div>
                 </div>
                 <div className="sk-spec-card">
@@ -1483,7 +1484,7 @@ function Git({ basePath = '/git' }) {
                                 <ExternalLink size={14} /> Open in Gitea
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => {
-                                navigator.clipboard.writeText(`${getGiteaUrl()}/${selectedRepo.owner.login}/${selectedRepo.name}`);
+                                copyToClipboard(`${getGiteaUrl()}/${selectedRepo.owner.login}/${selectedRepo.name}`);
                                 toast.success('Repository URL copied');
                             }}>
                                 Copy URL
@@ -1875,7 +1876,7 @@ function Git({ basePath = '/git' }) {
                             </div>
                             <div className="secret-display">
                                 <code>{webhookSecret}</code>
-                                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(webhookSecret); toast.success('Secret copied'); }}>Copy</Button>
+                                <Button size="sm" variant="outline" onClick={() => { copyToClipboard(webhookSecret); toast.success('Secret copied'); }}>Copy</Button>
                             </div>
                             <p className="text-muted">Use this secret when configuring the webhook in your repository settings.</p>
                         <div className="modal-actions">

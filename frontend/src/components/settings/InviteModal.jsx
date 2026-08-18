@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const InviteModal = ({ onClose, onCreated }) => {
     const [email, setEmail] = useState('');
@@ -60,9 +61,8 @@ const InviteModal = ({ onClose, onCreated }) => {
         }
     }
 
-    function copyLink() {
-        if (result?.invite_url) {
-            navigator.clipboard.writeText(result.invite_url);
+    async function copyLink() {
+        if (result?.invite_url && await copyToClipboard(result.invite_url)) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }

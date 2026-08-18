@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Pill } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { copyToClipboard } from '@/utils/clipboard';
 import {
     Activity,
     CheckCircle2,
@@ -295,12 +296,8 @@ const StatusPages = () => {
 
     const handleCopyUrl = async () => {
         if (!selectedUrl) return;
-        try {
-            await navigator.clipboard.writeText(selectedUrl);
-            toast.success('Status page URL copied');
-        } catch {
-            toast.error('Could not copy URL');
-        }
+        if (await copyToClipboard(selectedUrl)) toast.success('Status page URL copied');
+        else toast.error('Could not copy URL');
     };
 
     const handleConfirmDelete = async () => {

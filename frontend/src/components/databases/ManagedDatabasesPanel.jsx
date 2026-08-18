@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Pill } from '../ds';
 import AdminerSsoButton from './AdminerSsoButton';
 import DbUsersPanel from './DbUsersPanel';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Durable list of the databases ServerKit tracks (provisioned or adopted),
 // beside the live explorer. Reveal/copy a real connection string (audited),
@@ -38,8 +39,7 @@ export default function ManagedDatabasesPanel() {
         try {
             const data = await api.revealManagedConnectionUri(row.id);
             const uri = data?.connection_uri;
-            if (uri && navigator.clipboard) {
-                await navigator.clipboard.writeText(uri);
+            if (uri && await copyToClipboard(uri)) {
                 toast.success('Connection string copied (reveal was audited)');
             } else if (uri) {
                 toast.info(uri);

@@ -25,6 +25,7 @@ import PreviewDrawer from '../components/file-manager/PreviewDrawer';
 import ContextMenu from '../components/file-manager/ContextMenu';
 import TargetPicker from '../components/TargetPicker';
 import { TREE_ROOTS, getFileType, formatBytes } from '../components/file-manager/fileTypes';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Demo rail shortcuts (Quick access) — one-click jumps to the paths people
 // actually visit on a ServerKit host. "Stack" starts at the default install
@@ -850,8 +851,8 @@ function FileManager() {
     };
 
     const copyPathToClipboard = async (path) => {
-        try { await navigator.clipboard.writeText(path); toast.success('Path copied'); }
-        catch { toast.error('Could not copy path'); }
+        if (await copyToClipboard(path)) toast.success('Path copied');
+        else toast.error('Could not copy path');
     };
 
     const downloadSelected = () => {

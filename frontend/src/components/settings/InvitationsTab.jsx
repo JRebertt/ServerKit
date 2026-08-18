@@ -11,6 +11,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // A pending invite whose window has closed still carries status 'pending' in
 // the database — the row only becomes 'expired' on screen. One accessor for
@@ -112,9 +113,9 @@ const InvitationsTab = () => {
         }
     }
 
-    function copyLink(token) {
+    async function copyLink(token) {
         const url = `${window.location.origin}/register?invite=${token}`;
-        navigator.clipboard.writeText(url);
+        if (!await copyToClipboard(url)) return;
         setCopied(token);
         setTimeout(() => setCopied(null), 2000);
     }

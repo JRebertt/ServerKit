@@ -1,6 +1,7 @@
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Gauge } from '../ds';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Server status → ds Pill tone (shared by the header pill and the
 // Overview "Status" row).
@@ -120,7 +121,7 @@ export const CopyChip = ({ label, value, title, mono }) => {
         e.preventDefault();
         e.stopPropagation();
         if (!value) return;
-        navigator.clipboard.writeText(value);
+        copyToClipboard(value);
         toast.success(`${label[0].toUpperCase()}${label.slice(1)} copied`);
     };
     return (

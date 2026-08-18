@@ -34,6 +34,7 @@ import {
     engineBrandKey, engineInstanceKey, engineTreeStatus, engineUnit, singular,
 } from '../components/databases/engineHelpers';
 import { listTables, connKey, connLabel, quoteIdent, ENGINE_META } from '../components/databases/dbAdapter';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const SIDEBAR_KEY = 'serverkit-dbx-sidebar';
 
@@ -562,10 +563,9 @@ export default function Databases() {
     }
 
     function copyName(node) {
-        navigator.clipboard?.writeText(node.label).then(
-            () => toast.success('Copied name'),
-            () => toast.error('Could not copy'),
-        );
+        copyToClipboard(node.label).then((ok) => (ok
+            ? toast.success('Copied name')
+            : toast.error('Could not copy')));
     }
 
     function ctxActions(node) {

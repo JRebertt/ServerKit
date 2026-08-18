@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Platform icons as SVG components
 const LinuxIcon = () => (
@@ -83,14 +84,10 @@ function Downloads() {
         }
     };
 
-    const copyToClipboard = async (text, commandId) => {
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopiedCommand(commandId);
-            setTimeout(() => setCopiedCommand(null), 2000);
-        } catch (err) {
-            console.error('Failed to copy:', err);
-        }
+    const copyCommand = async (text, commandId) => {
+        if (!await copyToClipboard(text)) return;
+        setCopiedCommand(commandId);
+        setTimeout(() => setCopiedCommand(null), 2000);
     };
 
     const getBaseUrl = () => {
@@ -255,7 +252,7 @@ function Downloads() {
                                     </pre>
                                     <button type="button"
                                         className="copy-btn"
-                                        onClick={() => copyToClipboard(platforms[0].command, 'linux')}
+                                        onClick={() => copyCommand(platforms[0].command, 'linux')}
                                         title="Copy to clipboard"
                                     >
                                         {copiedCommand === 'linux' ? <CheckIcon /> : <CopyIcon />}
@@ -274,7 +271,7 @@ function Downloads() {
                                     </pre>
                                     <button type="button"
                                         className="copy-btn"
-                                        onClick={() => copyToClipboard(platforms[2].command, 'windows')}
+                                        onClick={() => copyCommand(platforms[2].command, 'windows')}
                                         title="Copy to clipboard"
                                     >
                                         {copiedCommand === 'windows' ? <CheckIcon /> : <CopyIcon />}

@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Users ServerKit created on a managed database (tracked rows merged with the
 // live engine list). Create returns the password exactly once — it is shown
@@ -70,8 +71,7 @@ export default function DbUsersPanel({ databaseId }) {
     }
 
     async function copySecret() {
-        if (oneTimeSecret && navigator.clipboard) {
-            await navigator.clipboard.writeText(oneTimeSecret.password);
+        if (oneTimeSecret && await copyToClipboard(oneTimeSecret.password)) {
             toast.success('Password copied');
         }
     }

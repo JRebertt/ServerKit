@@ -8,6 +8,7 @@ import DeploymentJobProgress from '../DeploymentJobProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
@@ -148,7 +149,7 @@ const LogsTab = ({ app }) => {
     }
 
     function handleCopy() {
-        navigator.clipboard.writeText(rawLogs);
+        copyToClipboard(rawLogs);
     }
 
     const matchCount = searchTerm ? filteredLines.length : null;

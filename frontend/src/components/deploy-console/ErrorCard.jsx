@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import { AlertTriangle, RefreshCw, Copy, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 import { AIContext } from '../../contexts/AIContext';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Pinned failure card (plan 51 §1.1): failed step name, the one-line error, a
 // plain-language hint when a heuristic matched, actions (Retry / Copy / Ask AI)
@@ -27,7 +28,7 @@ export default function ErrorCard({ failedStepName, failureTail, hint, errorMess
             errorMessage ? `Error: ${errorMessage}` : null,
             tailText ? `\n${tailText}` : null,
         ].filter(Boolean).join('\n');
-        navigator.clipboard?.writeText(blob);
+        copyToClipboard(blob);
     };
 
     const askAI = () => {

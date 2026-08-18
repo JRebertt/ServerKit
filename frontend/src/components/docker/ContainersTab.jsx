@@ -39,6 +39,7 @@ import {
     getContainerProjectName,
 } from './dockerHelpers';
 import { ContainerResourceBars } from './dockerShared';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Action Buttons
 export const RunContainerButton = () => {
@@ -923,12 +924,8 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
     const projectName = getContainerProjectName(container, details);
 
     async function copyContainerId() {
-        try {
-            await navigator.clipboard.writeText(containerId);
-            toast.success('Container ID copied');
-        } catch {
-            toast.error('Could not copy container ID');
-        }
+        if (await copyToClipboard(containerId)) toast.success('Container ID copied');
+        else toast.error('Could not copy container ID');
     }
 
     return (

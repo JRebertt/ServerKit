@@ -3,6 +3,7 @@ import { ShieldCheck, Copy, Download, AlertTriangle, Check, Loader } from 'lucid
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '../../services/api';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Enrolment is a three-beat flow. Offer is the default so someone who just
 // wants a dashboard is one click from moving on — 2FA is offered here because
@@ -73,7 +74,7 @@ const SetupStepSecurity = ({ onComplete }) => {
     }
 
     function copyCodes() {
-        navigator.clipboard?.writeText(backupCodes.join('\n'));
+        copyToClipboard(backupCodes.join('\n'));
         setSavedCodes(true);
     }
 

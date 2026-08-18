@@ -28,33 +28,11 @@ const EXTENSION_OWNED_STYLES = [
     },
 ];
 
-const LEGACY_CLIPBOARD = new Map(Object.entries({
-    'components/cloudflare/TunnelsPanel.jsx': 1,
-    'components/databases/CreateTableModal.jsx': 2,
-    'components/databases/DbUsersPanel.jsx': 2,
-    'components/databases/EngineInstallDrawer.jsx': 1,
-    'components/databases/ManagedDatabasesPanel.jsx': 2,
-    'components/deploy-console/ErrorCard.jsx': 1,
-    'components/docker/ContainersTab.jsx': 1,
-    'components/serverdetail/CloudflaredTab.jsx': 1,
-    'components/serverdetail/serverDetailShared.jsx': 1,
-    'components/serverdetail/ServerSettingsTab.jsx': 1,
-    'components/service-detail/LogsTab.jsx': 1,
-    'components/settings/ApiKeyModal.jsx': 1,
-    'components/settings/IconReferenceTab.jsx': 1,
-    'components/settings/InvitationsTab.jsx': 1,
-    'components/settings/InviteModal.jsx': 1,
-    'components/settings/LoginLinksSection.jsx': 1,
-    'components/settings/SecuritySettingsTab.jsx': 1,
-    'components/settings/WebhooksTab.jsx': 1,
-    'components/setup/SetupStepSecurity.jsx': 1,
-    'pages/Databases.jsx': 1,
-    'pages/DeployConsole.jsx': 1,
-    'pages/Downloads.jsx': 1,
-    'pages/FileManager.jsx': 1,
-    'pages/Git.jsx': 6,
-    'pages/StatusPages.jsx': 1,
-}));
+// Emptied 2026-08-18 (plan 76, F3): every call site now goes through
+// copyToClipboard/useClipboard, whose execCommand fallback is what makes copy
+// buttons work on an HTTP-served panel — navigator.clipboard is undefined in an
+// insecure context, and SSL is optional by policy. This map must stay empty.
+const LEGACY_CLIPBOARD = new Map();
 
 // These are purpose-built experiences whose geometry/content is intentionally
 // richer than the ordinary Modal contract. Any new exception needs review.

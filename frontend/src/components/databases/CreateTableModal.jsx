@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { EngineIcon } from '../icons/DatabaseBrands';
 import EngineGlyph from './EngineGlyph';
 import { runQuery, connKey, ENGINE_META } from './dbAdapter';
+import { copyToClipboard } from '@/utils/clipboard';
 import {
     engineBrandKey, engineInitialDatabase, engineInstanceKey, engineMeta,
     engineTreeStatus, engineUnit, singular,
@@ -236,18 +237,15 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
     }
 
     function copy() {
-        if (!navigator.clipboard) {
-            setResult({ ok: false, message: 'This browser will not give the page clipboard access. Select the statement and copy it manually.' });
-            return;
-        }
-        navigator.clipboard.writeText(statement).then(
-            () => {
-                setCopied(true);
-                clearTimeout(copyTimer.current);
-                copyTimer.current = setTimeout(() => setCopied(false), COPY_RESET_MS);
-            },
-            () => setResult({ ok: false, message: 'Could not copy to the clipboard.' }),
-        );
+        copyToClipboard(statement).then((ok) => {
+            if (!ok) {
+                setResult({ ok: false, message: 'Could not copy to the clipboard.' });
+                return;
+            }
+            setCopied(true);
+            clearTimeout(copyTimer.current);
+            copyTimer.current = setTimeout(() => setCopied(false), COPY_RESET_MS);
+        });
     }
 
     const footer = (

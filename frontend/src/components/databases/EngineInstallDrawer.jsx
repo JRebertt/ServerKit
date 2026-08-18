@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '../../contexts/ToastContext';
 import EngineGlyph from './EngineGlyph';
+import { copyToClipboard } from '@/utils/clipboard';
 import {
     engineMeta, engineVersions, generatePassword, partitionVariables, seedVariables,
     singular, slugifyIdent, slugifyService,
@@ -37,10 +38,9 @@ function SecretRow({ password, onRegenerate, disabled }) {
     const [revealed, setRevealed] = useState(false);
 
     const copy = () => {
-        navigator.clipboard?.writeText(password).then(
-            () => toast.success('Password copied'),
-            () => toast.error('Could not copy the password'),
-        );
+        copyToClipboard(password).then((ok) => (ok
+            ? toast.success('Password copied')
+            : toast.error('Could not copy the password')));
     };
 
     return (

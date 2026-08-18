@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { copyToClipboard } from '@/utils/clipboard';
 
 function InstallBox({ command }) {
     const toast = useToast();
@@ -15,12 +16,8 @@ function InstallBox({ command }) {
     }
 
     const handleCopy = async () => {
-        try {
-            await navigator.clipboard?.writeText(command);
-            toast.success('Copied');
-        } catch (err) {
-            toast.error(err.message);
-        }
+        if (await copyToClipboard(command)) toast.success('Copied');
+        else toast.error('Could not copy the install command');
     };
 
     return (

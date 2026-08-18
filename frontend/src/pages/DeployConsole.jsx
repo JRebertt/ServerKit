@@ -10,6 +10,7 @@ import LogPane from '../components/deploy-console/LogPane';
 import ErrorCard from '../components/deploy-console/ErrorCard';
 import SuccessBanner from '../components/deploy-console/SuccessBanner';
 import { sourceRef } from '../utils/deployActivity';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const STATUS_META = {
     pending: { label: 'Queued', icon: Clock, cls: 'pending' },
@@ -189,7 +190,7 @@ export default function DeployConsole() {
 
     const copyLogs = useCallback(() => {
         const text = lines.map((l) => l.message).join('\n');
-        navigator.clipboard?.writeText(text);
+        copyToClipboard(text);
     }, [lines]);
 
     const downloadLogs = useCallback(() => {

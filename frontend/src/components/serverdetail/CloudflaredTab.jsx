@@ -15,6 +15,7 @@ import EmptyState from '../EmptyState';
 import { Cloud } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
+import { copyToClipboard } from '@/utils/clipboard';
 import {
     OfflineIcon,
     TrashIcon,
@@ -600,7 +601,7 @@ const CloudflaredLoginCard = ({ login, onCancel }) => {
                     <button
                         type="button"
                         className="btn btn-outline"
-                        onClick={() => navigator.clipboard?.writeText(login.authUrl)}
+                        onClick={() => copyToClipboard(login.authUrl)}
                     >
                         Copy URL
                     </button>
