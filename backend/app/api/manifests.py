@@ -6,17 +6,17 @@ audit-logged.
 """
 
 from flask import Blueprint, jsonify, request, Response
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app import db
 from app.models.application import Application
 from app.models.application_manifest import ApplicationManifest, STATUS_PENDING
 from app.models.project import Project
-from app.models.user import User
 from app.services.manifest_scaffold_service import ManifestScaffoldService
 from app.services.manifest_spec_service import ManifestSpecService, ManifestError
 from app.services.manifest_apply_service import ManifestApplyService
 from app.services.manifest_persistence_service import ManifestPersistenceService
+from app.middleware.rbac import require_admin_user
 
 manifests_bp = Blueprint('manifests', __name__)
 
@@ -42,20 +42,11 @@ def _load_normalized(data):
     return None, None, (jsonify({'error': 'Provide `content`/`manifest`, or store one first'}), 400)
 
 
-def _require_admin():
-    user = User.query.get(get_jwt_identity())
-    if not user or user.role != 'admin':
-        return None, (jsonify({'error': 'Admin access required'}), 403)
-    return user, None
-
-
 @manifests_bp.route('/scaffold', methods=['GET'])
 @jwt_required()
 def scaffold_manifest():
     """GET /api/v1/manifests/scaffold?app_id=&format=json|yaml"""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
 
     app_id = request.args.get('app_id', type=int)
     if not app_id:
@@ -79,9 +70,7 @@ def scaffold_manifest():
 @jwt_required()
 def validate_manifest():
     """POST /api/v1/manifests/validate  { content | manifest } -> normalized summary."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
 
     data = request.get_json(silent=True) or {}
     try:
@@ -105,9 +94,7 @@ def validate_manifest():
 @jwt_required()
 def get_manifest():
     """GET /api/v1/manifests?project_id= -> the stored manifest for a project."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     project_id = request.args.get('project_id', type=int)
     if not project_id:
         return jsonify({'error': 'project_id is required'}), 400
@@ -121,9 +108,7 @@ def get_manifest():
 @jwt_required()
 def plan_manifest():
     """POST /api/v1/manifests/plan {project_id, content|manifest?} -> dry-run plan."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     data = request.get_json(silent=True) or {}
     project = Project.query.get(data.get('project_id')) if data.get('project_id') else None
     if not project:
@@ -141,9 +126,7 @@ def plan_manifest():
 @jwt_required()
 def apply_manifest():
     """POST /api/v1/manifests/apply {project_id, content|manifest?} -> apply."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     data = request.get_json(silent=True) or {}
     project = Project.query.get(data.get('project_id')) if data.get('project_id') else None
     if not project:
@@ -187,9 +170,7 @@ def reset_bootstrap():
     Destructive-ish (the bootstrap may regenerate config), so it requires
     typing the app name in `confirm`.
     """
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     data = request.get_json(silent=True) or {}
     app = (Application.query_active().filter_by(id=data.get('app_id')).first()
            if data.get('app_id') else None)

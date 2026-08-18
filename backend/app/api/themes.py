@@ -12,27 +12,16 @@ import json
 import logging
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models.user import User
 from app.services import theme_service
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
+from app.middleware.rbac import require_admin_user
 
 logger = logging.getLogger(__name__)
 
 themes_bp = Blueprint('themes', __name__)
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
-
-
-def _require_admin():
-    user = _current_user()
-    if not user or not user.is_admin:
-        return None, (jsonify({'error': 'Admin access required'}), 403)
-    return user, None
 
 
 @themes_bp.route('/installed', methods=['GET'])
@@ -64,9 +53,7 @@ def import_theme():
     ``{"theme": {...}}``, or a multipart upload under ``file``. The token
     whitelist + value validators run server-side before anything is stored.
     """
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
 
     raw = None
     upload = request.files.get('file')
@@ -103,9 +90,7 @@ def import_theme():
 @jwt_required()
 def delete_theme(slug):
     """Uninstall an installed theme (admin). Bundled seeds cannot be removed."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     ok, derr = theme_service.delete_theme(slug)
     if not ok:
         code = 404 if derr == 'Theme not found' else 400
@@ -131,9 +116,7 @@ def get_default():
 def set_default():
     """Set the panel-wide default theme (admin) — what login/setup and new
     users get before picking their own."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     body = request.get_json(silent=True) or {}
     slug = body.get('slug')
     if not isinstance(slug, str) or not slug:
@@ -168,9 +151,7 @@ def list_registry():
 def install_registry(slug):
     """Install a theme from the registry by slug (admin). Fetches the theme.json,
     validates it server-side, and stores it — no zips, no checksums."""
-    user, err = _require_admin()
-    if err:
-        return err
+    user = require_admin_user()
     from app.services import theme_registry_service
     theme, ierr = theme_registry_service.install(slug)
     if ierr:

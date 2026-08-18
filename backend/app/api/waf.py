@@ -12,22 +12,9 @@ from flask_jwt_extended import jwt_required
 from app.models.application import Application
 from app.services.waf_service import WafService
 from app.services.resource_grant_service import ResourceGrantService
+from app.middleware.rbac import get_current_user, require_admin_user
 
 waf_bp = Blueprint('waf', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
-
-
-def _require_admin():
-    """Return None if the caller is an admin, else a (response, status) tuple."""
-    user = get_current_user()
-    if not user or not user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
-    return None
 
 
 def _get_application_or_404(app_id):
@@ -55,9 +42,7 @@ def get_policy(app_id):
 @waf_bp.route('/applications/<int:app_id>/policy', methods=['PUT'])
 @jwt_required()
 def update_policy(app_id):
-    admin_err = _require_admin()
-    if admin_err:
-        return admin_err
+    require_admin_user()
     _, err = _get_application_or_404(app_id)
     if err:
         return err
@@ -89,9 +74,7 @@ def update_policy(app_id):
 @waf_bp.route('/applications/<int:app_id>/apply', methods=['POST'])
 @jwt_required()
 def apply_policy(app_id):
-    admin_err = _require_admin()
-    if admin_err:
-        return admin_err
+    require_admin_user()
     _, err = _get_application_or_404(app_id)
     if err:
         return err
@@ -124,9 +107,7 @@ def status():
 @waf_bp.route('/install', methods=['POST'])
 @jwt_required()
 def install():
-    admin_err = _require_admin()
-    if admin_err:
-        return admin_err
+    require_admin_user()
     result = WafService.install_modsecurity()
     status_code = 200 if result.get('success') else 400
     return jsonify(result), status_code
