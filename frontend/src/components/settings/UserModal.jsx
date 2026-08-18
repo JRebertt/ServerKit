@@ -8,44 +8,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import FormField, { FormRow } from '../FormField';
+import useForm from '../../hooks/useForm';
+import { userPayload, validateUser, valuesForUser } from './userForm';
 
 const UserModal = ({ user, onSave, onClose }) => {
-    const [formData, setFormData] = useState({
-        email: '',
-        username: '',
-        password: '',
-        confirmPassword: '',
-        role: 'developer',
-        is_active: true
-    });
     const [permissions, setPermissions] = useState({});
     const [showPermissions, setShowPermissions] = useState(false);
     const [templates, setTemplates] = useState({});
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
     const { user: currentUser } = useAuth();
 
     const isEditing = !!user;
     const isSelf = user?.id === currentUser?.id;
+    const form = useForm({
+        initialValues: valuesForUser(user),
+        validate: (values) => validateUser(values, { isEditing }),
+        onSubmit: async (values) => {
+            await onSave(userPayload(values, {
+                permissions,
+                includePermissions: showPermissions,
+            }));
+        },
+    });
+    const resetForm = form.reset;
 
     useEffect(() => {
-        if (user) {
-            setFormData({
-                email: user.email || '',
-                username: user.username || '',
-                password: '',
-                confirmPassword: '',
-                role: user.role || 'developer',
-                is_active: user.is_active !== false
-            });
-            if (user.permissions) {
-                setPermissions(user.permissions);
-                // Show permissions section if user has custom permissions set
-                const hasCustom = user.permissions && Object.keys(user.permissions).length > 0;
-                setShowPermissions(hasCustom);
-            }
-        }
-    }, [user]);
+        resetForm(valuesForUser(user));
+        const nextPermissions = user?.permissions || {};
+        setPermissions(nextPermissions);
+        // Show permissions section if user has custom permissions set
+        setShowPermissions(Object.keys(nextPermissions).length > 0);
+    }, [user, resetForm]);
 
     useEffect(() => {
         api.getPermissionTemplates().then(data => {
@@ -53,144 +46,75 @@ const UserModal = ({ user, onSave, onClose }) => {
         }).catch(() => {});
     }, []);
 
-    function handleChange(e) {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-        // When role changes, load template defaults for the permissions editor
-        if (name === 'role' && templates[value]) {
-            setPermissions(templates[value]);
-        }
-    }
-
     function handleRoleChange(newRole) {
-        setFormData(prev => ({ ...prev, role: newRole }));
+        form.setValue('role', newRole);
         if (templates[newRole]) {
             setPermissions(templates[newRole]);
         }
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
-        setError('');
-
-        // Validation
-        if (!formData.email || !formData.username) {
-            setError('Email and username are required');
-            return;
-        }
-
-        if (!isEditing && !formData.password) {
-            setError('Password is required for new users');
-            return;
-        }
-
-        if (formData.password && formData.password.length < 8) {
-            setError('Password must be at least 8 characters');
-            return;
-        }
-
-        if (formData.password && formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            const userData = {
-                email: formData.email,
-                username: formData.username,
-                role: formData.role,
-                is_active: formData.is_active
-            };
-
-            // Only include password if it's been set
-            if (formData.password) {
-                userData.password = formData.password;
-            }
-
-            // Include custom permissions if editor is open and role isn't admin
-            if (showPermissions && formData.role !== 'admin') {
-                userData.permissions = permissions;
-            }
-
-            await onSave(userData);
-        } catch (err) {
-            setError(err.message || 'Failed to save user');
-        } finally {
-            setLoading(false);
-        }
-    }
-
     return (
         <Modal open={true} onClose={onClose} title={isEditing ? 'Edit User' : 'Add New User'} size="md">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={form.handleSubmit}>
                     <div className="modal-body">
-                        {error && <div className="error-message">{error}</div>}
+                        {form.submitError && <div className="error-message" role="alert">{form.submitError}</div>}
 
-                        <div className="form-group">
-                            <Label htmlFor="email">Email</Label>
+                        <FormField label="Email" htmlFor="email" required error={form.getFieldError('email')}>
                             <Input
+                                {...form.getFieldProps('email')}
                                 type="email"
                                 id="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
                                 placeholder="user@example.com"
                                 required
                             />
-                        </div>
+                        </FormField>
 
-                        <div className="form-group">
-                            <Label htmlFor="username">Username</Label>
+                        <FormField label="Username" htmlFor="username" required error={form.getFieldError('username')}>
                             <Input
+                                {...form.getFieldProps('username')}
                                 type="text"
                                 id="username"
-                                name="username"
-                                value={formData.username}
-                                onChange={handleChange}
                                 placeholder="Enter username"
                                 required
                             />
-                        </div>
+                        </FormField>
 
-                        <div className="form-row">
-                            <div className="form-group">
-                                <Label htmlFor="password">
-                                    {isEditing ? 'New Password (leave blank to keep current)' : 'Password'}
-                                </Label>
+                        <FormRow>
+                            <FormField
+                                label={isEditing ? 'New Password (leave blank to keep current)' : 'Password'}
+                                htmlFor="password"
+                                required={!isEditing}
+                                error={form.getFieldError('password')}
+                            >
                                 <Input
+                                    {...form.getFieldProps('password')}
                                     type="password"
                                     id="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
                                     placeholder={isEditing ? 'Leave blank to keep current' : 'At least 8 characters'}
                                     required={!isEditing}
                                 />
-                            </div>
+                            </FormField>
 
-                            <div className="form-group">
-                                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                            <FormField
+                                label="Confirm Password"
+                                htmlFor="confirmPassword"
+                                required={Boolean(form.values.password)}
+                                error={form.getFieldError('confirmPassword')}
+                            >
                                 <Input
+                                    {...form.getFieldProps('confirmPassword')}
                                     type="password"
                                     id="confirmPassword"
-                                    name="confirmPassword"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
                                     placeholder="Confirm password"
-                                    required={!!formData.password}
+                                    required={Boolean(form.values.password)}
                                 />
-                            </div>
-                        </div>
+                            </FormField>
+                        </FormRow>
 
                         <div className="form-group">
                             <Label htmlFor="role">Role</Label>
                             <Select
-                                value={formData.role}
+                                value={form.values.role}
                                 onValueChange={handleRoleChange}
                                 disabled={isSelf}
                             >
@@ -212,8 +136,8 @@ const UserModal = ({ user, onSave, onClose }) => {
                             <label className="checkbox-label">
                                 <Checkbox
                                     name="is_active"
-                                    checked={formData.is_active}
-                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
+                                    checked={form.values.is_active}
+                                    onCheckedChange={(checked) => form.setValue('is_active', Boolean(checked))}
                                     disabled={isSelf}
                                 />
                                 <span className="checkbox-text">Account is active</span>
@@ -239,21 +163,21 @@ const UserModal = ({ user, onSave, onClose }) => {
                             </div>
                         </div>
 
-                        {formData.role !== 'admin' && (
+                        {form.values.role !== 'admin' && (
                             <div className="customize-permissions-section">
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
-                                        if (!showPermissions && templates[formData.role]) {
-                                            setPermissions(templates[formData.role]);
+                                        if (!showPermissions && templates[form.values.role]) {
+                                            setPermissions(templates[form.values.role]);
                                         }
                                         setShowPermissions(!showPermissions);
                                     }}
                                 >
                                     {showPermissions ? 'Hide' : 'Customize'} Permissions
-                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2" style={{ marginLeft: 4 }}>
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                         {showPermissions
                                             ? <polyline points="18 15 12 9 6 15"/>
                                             : <polyline points="6 9 12 15 18 9"/>
@@ -274,8 +198,8 @@ const UserModal = ({ user, onSave, onClose }) => {
                         <Button type="button" variant="ghost" onClick={onClose}>
                             Cancel
                         </Button>
-                        <Button type="submit" variant="default" disabled={loading}>
-                            {loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create User')}
+                        <Button type="submit" variant="default" disabled={form.isSubmitting}>
+                            {form.isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create User')}
                         </Button>
                     </div>
                 </form>

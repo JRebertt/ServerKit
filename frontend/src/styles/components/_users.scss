@@ -443,6 +443,10 @@
 
     > .btn {
         margin-bottom: $space-2;
+
+        svg {
+            margin-left: $space-1;
+        }
     }
 }
 
