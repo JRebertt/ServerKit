@@ -72,7 +72,7 @@ bypass is not merely repetition — it behaves differently.
 | C (schemas) | `@api_contract` + `api/schemas/` | **2 adopter files; 241 hand-rolled "X is required" 400s in 54 files; bool coercion in 3 incompatible variants** (`?enabled=yes` truthy on 11 endpoints, falsy on 24) | add interim `require_fields()` + `parse_bool_arg`/`parse_int_arg` next to contracts.py for low-churn routes |
 | C (envelopes) | one failure/success shape | **84 services return `{'success': bool}` dicts; 383 `result.get('success')` translations in 30 api files, with status codes chosen by error-string sniffing** (`files.py:62`: `403 if 'denied' in error else 400`) | this tunneling protocol was not named in the first wave; converging it is what makes milestone B's contract reachable — services raise, routes return data |
 | C (list queries) | `_query.py` / `ListQuery` | 6 files still hand-parse `page`/`per_page` (admin, source_connections, telemetry, error_logs, git, views) | small; the envelope's last bypass routes |
-| Remote execution | `dispatch_agent_command` seam | **24 direct `agent_registry.send_command` callers outside the dispatcher** (api/servers.py ×4, terminal_service ×4, fleet services, tunnel broker/publish) | the seam exists; ratchet it to exactly the dispatcher + queued-delivery path |
+| Remote execution | `dispatch_agent_command` seam | ~~24 direct `agent_registry.send_command` callers outside the dispatcher~~ **0 — closed 2026-08-18**; tree-wide AST ratchet holds the door as the only transport caller | the queued-delivery path now goes through the dispatcher too; the plugins SDK `agents.run()` keeps its permission gate and delegates the send |
 | E1 (server state) | `useServerQuery`/`useServerMutation` + queryClient | **1 of 63 pages adopted; 44 pages hand-roll the identical fetch scaffold; the mutate→toast→reload triple hand-written ~90×; 148 per-page `toast.error(err.message)` extractions** | convert Vaults, Monitors, Projects, CronJobs as templates, then ratchet |
 | E2 (live resources) | visibility-aware polling convention | **45 `setInterval` sites, zero pages with an in-flight guard, `visibilitychange` in one file repo-wide** | drift/bug: this is the documented poller-stampede shape; a `refetchInterval` on useServerQuery gets dedupe for free |
 | F2 (forms) | `useForm`/`formState` + `FormField` | **1 adopter vs 330 `form-group` blocks in 59 files; 66 local saving/busy flags**; Modal's `footer` prop bypassed by 28 files (submit must live inside `<form>`); native `<select>` ×114 vs `ui/select` in 20 files | give Modal a form/onSubmit mode first — it removes the reason the footer is bypassed |
@@ -290,6 +290,34 @@ Findings worth carrying forward:
   inline role checks left `current_user_id` referenced-but-unbound in four
   handlers. Tests caught two; the other two had no coverage and were found by
   scanning for names used but never assigned.
+
+### Second-wave execution — remote-execution seam closed (2026-08-18)
+
+| Row / item | Baseline | Now | Notes |
+|---|---|---|---|
+| Remote execution | 20 direct `agent_registry.send_command` call sites in 10 files | **0** | api/servers ×3, terminal_service ×4, fleet doctor/repair/fleet ×5 (incl. the upgrade fan-out `Thread` target), deployment_runner, survey, tunnel broker/publish ×5, plugins SDK |
+
+The migration is behavior-identical — the dispatcher is a pure pass-through to
+the same singleton — so every existing monkeypatch of
+`agent_registry.send_command` keeps working. Three things were not mechanical:
+
+- **The ratchet was widened, not added.** `test_remote_command_dispatcher.py`
+  already policed `remote_*_service.py`; it now scans all of `app/` **and**
+  `builtin-extensions/` for any `*.send_command(` call or bare
+  `agent_registry.send_command` reference (the Thread-target shape), with the
+  transport and the door as the only exemptions. `send_command` has exactly one
+  definition, so the name alone is precise.
+- **The remote-access extension lives twice.** Its live `app/plugins` copy is
+  git-ignored and synced from `builtin-extensions/serverkit-remote-access/`;
+  both copies were edited and verified byte-identical.
+- **One test faked the transport with the wrong signature.** The survey test's
+  `send_command` stub used positional-only names; the dispatcher calls with
+  keywords, which is the transport's real contract. The stub was corrected to
+  match the method it replaces — the ratchet's normalization test is what
+  makes this class of drift visible.
+
+The `thread_ownership` registry key for the upgrade fan-out was renamed with
+its target (`…:upgrade_servers:dispatch_agent_command`).
 
 ## Second-wave status after 2026-08-18
 
