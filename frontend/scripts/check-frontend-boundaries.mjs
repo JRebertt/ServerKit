@@ -49,7 +49,6 @@ const LEGACY_POLLERS = new Map(Object.entries({
     'components/monitoring/DoctorPanel.jsx': 1,
     'components/security/ScannerTab.jsx': 2,
     'components/server/OnboardingWizard.jsx': 2,
-    'components/serverdetail/ServicesTab.jsx': 1,
     'hooks/useContainerStatus.js': 1,
     'hooks/useDeployJobStream.js': 1,
     'hooks/useMetrics.js': 1,
@@ -57,10 +56,8 @@ const LEGACY_POLLERS = new Map(Object.entries({
     'pages/DeployConsole.jsx': 1,
     'pages/ImportWizard.jsx': 1,
     'pages/Monitors.jsx': 1,
-    'pages/Terminal.jsx': 3,
     'pages/TestSandbox.jsx': 2,
     'plugins/serverkit-gui/components/ServerGui.jsx': 1,
-    'plugins/serverkit-gui/components/SyntheticDesktop.jsx': 1,
 }));
 
 // The polling door itself, plus the query hook that wraps it.

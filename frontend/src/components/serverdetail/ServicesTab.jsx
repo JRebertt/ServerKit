@@ -13,6 +13,11 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Unit log tail cadence while auto-refresh is on.
+const LOG_TAIL_MS = 3000;
+
 
 // Built-in saved views. These are the four buttons that used to sit in the
 // toolbar (All / Active / Failed / Inactive) — they narrowed the AGENT query
@@ -139,7 +144,6 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
     const [logWrap, setLogWrap] = useState(true);
     const [logAutoRefresh, setLogAutoRefresh] = useState(false);
     const logContentRef = useRef(null);
-    const logIntervalRef = useRef(null);
 
     // One unfiltered fetch. The state buckets are column rules now, so asking
     // the agent for a subset would only hide rows from the rules — and from the
@@ -243,12 +247,11 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         }
     }, [isLocal, serverId, logLineCount]);
 
-    useEffect(() => {
-        if (logAutoRefresh && logsFor) {
-            logIntervalRef.current = setInterval(() => loadLogs(logsFor.unit, { spinner: false }), 3000);
-        }
-        return () => { if (logIntervalRef.current) clearInterval(logIntervalRef.current); };
-    }, [logAutoRefresh, logsFor, loadLogs]);
+    usePolling(
+        () => loadLogs(logsFor.unit, { spinner: false }),
+        LOG_TAIL_MS,
+        { enabled: logAutoRefresh && Boolean(logsFor), immediate: false },
+    );
 
     function openLogs(unit) {
         setLogsFor({ unit });
