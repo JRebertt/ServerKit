@@ -219,6 +219,54 @@ Remaining E2 work is the other 41 sites, of which a minority are genuine
 non-fetching timers (clock ticks, countdowns) that can stay listed rather than
 migrated.
 
+### Second-wave — milestone C status-sniffing row: ratchet only (2026-08-18)
+
+| Row | Baseline | Now | Commit |
+|---|---|---|---|
+| status by error-string sniffing | ~"status codes chosen by error-string sniffing" | **23 sites measured, ratcheted; not migrated** | `b2fd1198` |
+
+Measured exactly: 23 sites in 8 files, 12 of them in `files.py` alone, all of
+the form `403 if 'denied' in result.get('error','').lower() else 400`.
+
+**Deliberately not migrated, and this is the interesting part of the row.** The
+sniffing is a symptom, not the disease. Converging it means services raising
+typed errors instead of returning `{'success': False, 'error': <prose>}` — and
+`file_service`, which owns 12 of the 23, has **eight callers**. Converting it to
+raise while `servers.py`, `system.py`, `doctor_service`, `host_snapshot_service`,
+`remote_file_service`, and `resource_tier_service` still expect a dict would
+leave two contracts on one service, which is precisely the failure mode this
+whole plan is about. That is the C1/C2 envelope decision, which the plan's own
+execution order puts after A and B.
+
+So the ratchet lands alone, per rule 1, to stop the pattern spreading while the
+envelope is decided. The status quo's real cost is worth restating for whoever
+picks C up: **the status code is coupled to the wording of the message.**
+Rephrasing "Access denied: path not in allowed directories" turns a 403 into a
+400, and nothing anywhere fails.
+
+---
+
+## Second-wave status after 2026-08-18
+
+Of the plan's five drift/bug rows: **four migrated and closed** (A identity, A
+admin gate, B crash reporting, F3 clipboard), **one door-built-and-ratcheted**
+(E2 polling, 4 of 45 sites migrated as references), **one ratcheted only**
+(C status sniffing, blocked on the envelope decision).
+
+Ratchets now in place, all mutation-checked:
+
+| Ratchet | Ceiling | Meaning |
+|---|---:|---|
+| `identity_door_census` | 87 | JWT-only routes; API-key-capable population held at 0 |
+| `unreported_crash_census` | 0 | an invariant, not a countdown |
+| `status_sniffing_census` | 23 | pre-migration hold |
+| `LEGACY_POLLERS` (frontend) | 41 / 31 files | exact per-file counts |
+| `LEGACY_CLIPBOARD` (frontend) | 0 | emptied |
+
+Next by the plan's execution order: finish A (605 `@jwt_required()` routes onto
+`auth_required()` — the identity ratchet now makes that safe), then C1/C2, which
+unblocks the status-sniffing row and the 56 swallow-and-answer-200 handlers.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
