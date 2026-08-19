@@ -4,6 +4,12 @@ import os
 
 import pytest
 
+from app.exceptions import (
+    DependencyUnavailableError,
+    NotFoundError,
+    ValidationError,
+)
+
 from app.services.db_config_tuner_service import (
     CURATED_SETTINGS, MYSQL_DROPIN_PATH, DbConfigTunerService as S,
 )
@@ -111,10 +117,10 @@ def test_validate_accepts_and_coerces():
 
 
 def test_apply_surfaces_validation_error(tuner):
-    result = S.apply(MYSQL_TARGET, {'not_a_setting': 1})
-    assert 'error' in result and 'not_a_setting' in result['error']
-    result = S.apply(MYSQL_TARGET, {'innodb_buffer_pool_size': 1})  # below 128MB floor
-    assert 'error' in result
+    with pytest.raises(ValidationError, match='not_a_setting'):
+        S.apply(MYSQL_TARGET, {'not_a_setting': 1})
+    with pytest.raises(ValidationError):
+        S.apply(MYSQL_TARGET, {'innodb_buffer_pool_size': 1})  # below 128MB floor
 
 
 # ── drop-in rendering ────────────────────────────────────────────────────────
@@ -200,15 +206,17 @@ def test_inspect_pg_parses_pg_settings_units(tuner):
 
 def test_inspect_engine_query_failure_is_clean_error(tuner):
     tuner['sql'] = lambda t, sql: {'success': False, 'output': '', 'error': 'access denied'}
-    result = S.inspect(MYSQL_TARGET)
-    assert result == {'error': 'access denied'}
+    with pytest.raises(DependencyUnavailableError, match='access denied'):
+        S.inspect(MYSQL_TARGET)
 
 
 def test_non_linux_is_clean_error(tuner, monkeypatch):
     monkeypatch.setattr(S, '_linux_supported', classmethod(lambda cls: False))
-    assert 'error' in S.inspect(MYSQL_TARGET)
-    assert 'error' in S.apply(MYSQL_TARGET, {'max_connections': 300})
-    assert 'error' in S.rollback(MYSQL_TARGET)
+    for op in (lambda: S.inspect(MYSQL_TARGET),
+               lambda: S.apply(MYSQL_TARGET, {'max_connections': 300}),
+               lambda: S.rollback(MYSQL_TARGET)):
+        with pytest.raises(ValidationError, match='Linux'):
+            op()
 
 
 # ── apply / rollback flow (mysql) ────────────────────────────────────────────
@@ -262,8 +270,8 @@ def test_apply_mysql_ping_failure_rolls_back(tuner):
     _mysql_docker_stub(tuner, existing_dropin='[mysqld]\nold = 1\n')
     tuner['sql'] = lambda t, sql: {'success': False, 'output': '', 'error': 'down'}
 
-    result = S.apply(MYSQL_TARGET, {'max_connections': 300})
-    assert 'error' in result and 'restored' in result['error']
+    with pytest.raises(DependencyUnavailableError, match='restored'):
+        S.apply(MYSQL_TARGET, {'max_connections': 300})
     # Restarted twice: once for the apply, once after restoring the backup.
     assert tuner['restarts'] == ['app-db-1', 'app-db-1']
     # The backup was cp'd back into the container.
@@ -276,8 +284,8 @@ def test_apply_mysql_ping_failure_rolls_back(tuner):
 def test_apply_mysql_restart_failure_restores_file(tuner):
     _mysql_docker_stub(tuner, existing_dropin='[mysqld]\nold = 1\n')
     tuner['restart_ok'] = False
-    result = S.apply(MYSQL_TARGET, {'max_connections': 300})
-    assert 'error' in result and 'restored' in result['error']
+    with pytest.raises(DependencyUnavailableError, match='restored'):
+        S.apply(MYSQL_TARGET, {'max_connections': 300})
 
 
 def test_rollback_mysql_restores_and_consumes_backup(tuner):
@@ -290,7 +298,8 @@ def test_rollback_mysql_restores_and_consumes_backup(tuner):
     assert tuner['restarts'] == ['app-db-1']
     # Backup consumed — nothing further to roll back to.
     assert S._latest_backup(MYSQL_TARGET) is None
-    assert 'error' in S.rollback(MYSQL_TARGET)
+    with pytest.raises(NotFoundError):
+        S.rollback(MYSQL_TARGET)
 
 
 def test_rollback_mysql_absent_marker_deletes_dropin(tuner):
@@ -303,7 +312,8 @@ def test_rollback_mysql_absent_marker_deletes_dropin(tuner):
 
 
 def test_rollback_without_backup_is_clean_error(tuner):
-    assert 'error' in S.rollback(MYSQL_TARGET)
+    with pytest.raises(NotFoundError):
+        S.rollback(MYSQL_TARGET)
 
 
 # ── apply / rollback flow (postgresql) ───────────────────────────────────────
@@ -345,8 +355,8 @@ def test_apply_pg_happy_path(tuner, tmp_path):
 
 def test_apply_pg_alter_failure_restores_conf_without_restart(tuner):
     _pg_sql_stub(tuner, alter_ok=False)
-    result = S.apply(PG_TARGET, {'shared_buffers': 1024})
-    assert 'error' in result and 'ALTER SYSTEM' in result['error']
+    with pytest.raises(DependencyUnavailableError, match='ALTER SYSTEM'):
+        S.apply(PG_TARGET, {'shared_buffers': 1024})
     assert tuner['restarts'] == []   # nothing took effect, no restart
 
 

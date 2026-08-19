@@ -28,6 +28,11 @@ import sys
 import time
 from datetime import datetime
 
+from app.exceptions import (
+    DependencyUnavailableError,
+    NotFoundError,
+    ValidationError,
+)
 from app import paths
 from app.services import db_exec
 
@@ -188,14 +193,13 @@ class DbConfigTunerService:
 
     @classmethod
     def _guard(cls, target):
-        """Common precondition check → error string or None."""
+        """Common precondition check; raises ValidationError."""
         if not cls._linux_supported():
-            return 'The config tuner is only available on Linux hosts running Docker'
+            raise ValidationError('The config tuner is only available on Linux hosts running Docker')
         if not target.get('container'):
-            return 'A Docker container target is required'
+            raise ValidationError('A Docker container target is required')
         if target.get('engine') not in CURATED_SETTINGS:
-            return 'engine must be mysql or postgresql'
-        return None
+            raise ValidationError('engine must be mysql or postgresql')
 
     @classmethod
     def _ram_mb(cls, container):
@@ -394,13 +398,11 @@ class DbConfigTunerService:
     def inspect(cls, target, is_dedicated=False):
         """Current vs suggested for every curated setting. Read-only —
         suggestions are NEVER applied automatically."""
-        err = cls._guard(target)
-        if err:
-            return {'error': err}
+        cls._guard(target)
 
         current, err = cls._read_current(target)
         if err:
-            return {'error': err}
+            raise DependencyUnavailableError(err)
 
         engine = target['engine']
         ram_mb, ram_source = cls._ram_mb(target['container'])
@@ -440,13 +442,11 @@ class DbConfigTunerService:
         """Apply an explicit, operator-chosen settings dict. Backs up the
         previous state, restarts the container, verifies the engine came back,
         and rolls back automatically if it didn't."""
-        err = cls._guard(target)
-        if err:
-            return {'error': err}
+        cls._guard(target)
         settings = dict(settings or {})
         err = cls.validate_settings(target['engine'], settings)
         if err:
-            return {'error': err}
+            raise ValidationError(err)
 
         if target['engine'] == 'mysql':
             return cls._apply_mysql(target, settings)
@@ -464,7 +464,8 @@ class DbConfigTunerService:
             fh.write(cls.render_mysql_dropin(settings))
         res = cls._docker(['cp', staged, f'{container}:{MYSQL_DROPIN_PATH}'], timeout=30)
         if not res['success']:
-            return {'error': f"Could not write the drop-in into the container: {res['error']}"}
+            raise DependencyUnavailableError(
+                f"Could not write the drop-in into the container: {res['error']}")
 
         return cls._restart_and_verify(target, backup, MYSQL_DROPIN_PATH, settings)
 
@@ -474,11 +475,12 @@ class DbConfigTunerService:
         # rollback even when the engine won't boot back up.
         res = cls._exec_sql(target, 'SHOW data_directory;')
         if not res['success']:
-            return {'error': res.get('error') or 'Could not determine the data directory'}
+            raise DependencyUnavailableError(
+                res.get('error') or 'Could not determine the data directory')
         data_dir = (res['output'] or '').strip().splitlines()
         data_dir = data_dir[0].strip() if data_dir else ''
         if not data_dir:
-            return {'error': 'Could not determine the data directory'}
+            raise DependencyUnavailableError('Could not determine the data directory')
         auto_conf = data_dir.rstrip('/') + '/postgresql.auto.conf'
 
         backup = cls._snapshot_container_file(target, auto_conf, '.auto.conf')
@@ -491,7 +493,8 @@ class DbConfigTunerService:
                 # Nothing took effect yet (needs a restart) — restore the conf
                 # so no partial ALTERs linger, and bail.
                 cls._restore_container_file(target, backup, auto_conf)
-                return {'error': f"ALTER SYSTEM failed for '{key}': {res['error']}"}
+                raise DependencyUnavailableError(
+                    f"ALTER SYSTEM failed for '{key}': {res['error']}")
 
         # Remember where auto.conf lives so rollback works without SQL.
         with open(os.path.join(cls._state_dir(target, create=True), 'applied.json'), 'w') as fh:
@@ -506,14 +509,16 @@ class DbConfigTunerService:
         res = cls._restart(container)
         if not res.get('success'):
             cls._restore_container_file(target, backup, container_path)
-            return {'error': f"Container restart failed: {res.get('error')}; previous config restored"}
+            raise DependencyUnavailableError(
+                f"Container restart failed: {res.get('error')}; previous config restored")
 
         if not cls._wait_ready(target):
             cls._restore_container_file(target, backup, container_path)
             cls._restart(container)
             cls._wait_ready(target)
-            return {'error': 'Engine did not come back after the restart; '
-                             'previous config restored and container restarted again'}
+            raise DependencyUnavailableError(
+                'Engine did not come back after the restart; '
+                'previous config restored and container restarted again')
 
         return {'success': True, 'applied': settings, 'restarted': True,
                 'backup': os.path.basename(backup)}
@@ -521,12 +526,10 @@ class DbConfigTunerService:
     @classmethod
     def rollback(cls, target):
         """Restore the most recent pre-apply config and restart the engine."""
-        err = cls._guard(target)
-        if err:
-            return {'error': err}
+        cls._guard(target)
         backup = cls._latest_backup(target)
         if not backup:
-            return {'error': 'No previous configuration to roll back to'}
+            raise NotFoundError('No previous configuration to roll back to')
 
         if target['engine'] == 'mysql':
             container_path = MYSQL_DROPIN_PATH
@@ -536,17 +539,21 @@ class DbConfigTunerService:
                 with open(applied) as fh:
                     container_path = json.load(fh)['auto_conf']
             except (OSError, ValueError, KeyError):
-                return {'error': 'Rollback metadata is missing; cannot locate postgresql.auto.conf'}
+                raise NotFoundError(
+                    'Rollback metadata is missing; cannot locate postgresql.auto.conf')
 
         res = cls._restore_container_file(target, backup, container_path)
         if not res['success']:
-            return {'error': f"Could not restore the previous config: {res['error']}"}
+            raise DependencyUnavailableError(
+                f"Could not restore the previous config: {res['error']}")
 
         restart = cls._restart(target['container'])
         if not restart.get('success'):
-            return {'error': f"Config restored but the restart failed: {restart.get('error')}"}
+            raise DependencyUnavailableError(
+                f"Config restored but the restart failed: {restart.get('error')}")
         if not cls._wait_ready(target):
-            return {'error': 'Config restored but the engine did not come back; check the container logs'}
+            raise DependencyUnavailableError(
+                'Config restored but the engine did not come back; check the container logs')
 
         # Consume the backup so can_rollback reflects reality.
         try:

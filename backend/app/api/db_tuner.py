@@ -66,8 +66,7 @@ def inspect_target(target):
     if err:
         return err
     dedicated = str(request.args.get('dedicated', '')).lower() in ('1', 'true', 'yes')
-    result = DbConfigTunerService.inspect(resolved, is_dedicated=dedicated)
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.inspect(resolved, is_dedicated=dedicated)), 200
 
 
 @db_tuner_bp.route('/<target>/apply', methods=['POST'])
@@ -80,8 +79,7 @@ def apply_target(target):
     resolved, err = _build_target(target, data)
     if err:
         return err
-    result = DbConfigTunerService.apply(resolved, data['settings'])
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.apply(resolved, data['settings'])), 200
 
 
 @db_tuner_bp.route('/<target>/rollback', methods=['POST'])
@@ -92,5 +90,4 @@ def rollback_target(target):
     resolved, err = _build_target(target, data)
     if err:
         return err
-    result = DbConfigTunerService.rollback(resolved)
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.rollback(resolved)), 200

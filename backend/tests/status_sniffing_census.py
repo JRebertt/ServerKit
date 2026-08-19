@@ -12,13 +12,14 @@ type checker, not a lint rule.
 
 The fix is milestone C's: services raise typed errors from ``app.exceptions``
 and routes return data, so nobody re-derives what the service already knew.
-That is deliberately NOT done yet — ``file_service`` alone has eight callers,
-and converting one service to raise while its other callers still expect a dict
-leaves two contracts, which is the disease rather than the cure.
+The migration is COMPLETE (2026-08-19): all 23 baseline sites across 8 files
+were converted domain by domain, and the ceiling is 0. (The 'eight callers'
+blocker recorded here earlier was a substring-grep artifact — ``file_service``
+had exactly one consumer.)
 
-So this is the ratchet that comes first (second-wave rule 1): the count may only
-go down. It exists to stop the pattern spreading while the envelope decision is
-made.
+The ratchet now holds an invariant, not a countdown: any new site that chooses
+a status by inspecting message text — or by probing for an 'error' key, the
+same coupling one step removed — fails this census.
 
 A site is counted when a conditional expression chooses between two HTTP status
 codes, and its test inspects string content — ``in``, ``.lower()``,
