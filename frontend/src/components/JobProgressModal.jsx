@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
 import { Button } from '@/components/ui/button';
-import socketService from '../services/socket';
-import { rooms } from '@/constants/events';
+import { rooms, SOCKET_EVENTS } from '@/constants/events';
+import { useServerStream } from '@/hooks/useServerStream';
 
 // Subscribes to a remote agent's job:<id> stream channel and renders
 // the live log output. Used by PackagesTab and ServicesTab for
@@ -25,45 +25,31 @@ export default function JobProgressModal({
     const [done, setDone] = useState(null); // null | { exitCode, error, extra }
     const logEndRef = useRef(null);
 
-    useEffect(() => {
-        if (!open || !channel || !serverId) return;
-        const room = rooms.serverChannel(serverId, channel);
-        const socket = socketService.socket;
-        if (!socket) {
-            // Connect lazily — happens once per panel session normally.
-            socketService.connect();
+    const onStream = useCallback((msg) => {
+        if (msg?.channel !== channel) return;
+        const ev = msg.data || {};
+        if (Array.isArray(ev.lines) && ev.lines.length) {
+            setLines((prev) => [...prev, ...ev.lines]);
+        } else if (ev.message) {
+            setLines((prev) => [...prev, ev.message]);
         }
+        if (ev.phase === 'done') {
+            const exitCode = typeof ev.exit_code === 'number' ? ev.exit_code : null;
+            setDone({
+                exitCode,
+                error: ev.error || '',
+                extra: ev.extra || null,
+            });
+            if (onComplete) onComplete(ev);
+        }
+    }, [channel, onComplete]);
 
-        const activeSocket = socketService.socket;
-        if (!activeSocket) return;
-
-        const onStream = (msg) => {
-            if (msg?.channel !== channel) return;
-            const ev = msg.data || {};
-            if (Array.isArray(ev.lines) && ev.lines.length) {
-                setLines((prev) => [...prev, ...ev.lines]);
-            } else if (ev.message) {
-                setLines((prev) => [...prev, ev.message]);
-            }
-            if (ev.phase === 'done') {
-                const exitCode = typeof ev.exit_code === 'number' ? ev.exit_code : null;
-                setDone({
-                    exitCode,
-                    error: ev.error || '',
-                    extra: ev.extra || null,
-                });
-                if (onComplete) onComplete(ev);
-            }
-        };
-
-        activeSocket.emit('join_room', { room });
-        activeSocket.on('server_stream', onStream);
-
-        return () => {
-            activeSocket.emit('leave_room', { room });
-            activeSocket.off('server_stream', onStream);
-        };
-    }, [open, channel, serverId, onComplete]);
+    useServerStream(
+        serverId && channel ? rooms.serverChannel(serverId, channel) : null,
+        SOCKET_EVENTS.SERVER_STREAM,
+        onStream,
+        { enabled: open },
+    );
 
     // Reset state on close so the next job starts fresh.
     useEffect(() => {
