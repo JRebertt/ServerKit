@@ -22,26 +22,34 @@ MASK = '••••••••'
 REVEAL_SCOPE = 'secrets:read'
 
 # Substrings that mark a dict key as sensitive. Matched case-insensitively
-# against the key name. Kept as a module-level constant so callers/tests can
-# inspect or extend it.
-SENSITIVE_KEY_PATTERNS = [
+# against the key name. THE union of every sink's former private list
+# (plan 77 F3): response filter, audit_service, middleware/audit (the only
+# one that covered totp/otp/csrf/session), telemetry. A keyword added here
+# is redacted by ALL sinks; adding one to a single sink again is ratcheted
+# by tests/test_redaction_one_door.py.
+SENSITIVE_KEY_PARTS = (
     'password',
     'passwd',
-    'secret',
+    'secret',        # subsumes secret_key / client_secret
     'token',
     'credential',
-    'private_key',
-    'privatekey',
+    'private',       # subsumes private_key / privatekey
+    'certificate',
     'api_key',
     'apikey',
     'key_hash',
     'access_key',
-    'secret_key',
-    'client_secret',
-    'session_key',
-    'auth',
+    'auth',          # subsumes authorization
     'passphrase',
-]
+    'cookie',
+    'session',       # subsumes session_key
+    'totp',
+    'otp',
+    'csrf',
+)
+
+# Backwards-compat alias (older callers/tests import the list name).
+SENSITIVE_KEY_PATTERNS = list(SENSITIVE_KEY_PARTS)
 
 # Keys that *contain* a sensitive substring but are safe to keep (false
 # positives we explicitly allow through). e.g. "is_secret" is a boolean flag,
@@ -58,9 +66,24 @@ _SAFE_KEY_EXCEPTIONS = {
     'authorized',
     'authentication',
     'authorization_url',
+    # identifier/metadata keys the union parts would otherwise swallow:
+    'sessions',
+    'session_count',
+    'totp_enabled',
+    'otp_enabled',
+    'certificate',        # public cert material/metadata, not a secret
+    'certificates',
+    'total_certificates',
+    'private_slug',
+    'private_url',
+    'private_url_enabled',
+    'private_wg_ip',
+    'private_server_name',
+    'private_server_id',
+    'private_pubkey',     # a PUBLIC key
 }
 
-_PATTERN_RE = re.compile('|'.join(re.escape(p) for p in SENSITIVE_KEY_PATTERNS), re.IGNORECASE)
+_PATTERN_RE = re.compile('|'.join(re.escape(p) for p in SENSITIVE_KEY_PARTS), re.IGNORECASE)
 
 
 def is_sensitive_key(key):
@@ -140,3 +163,27 @@ def _mask(value, sensitive):
     if sensitive and value is not None:
         return MASK
     return value
+
+
+# Mask used by the LOG sinks (audit middleware / audit_service / telemetry).
+REDACTED = '[redacted]'
+
+
+def mask_payload(data, mask=REDACTED, max_depth=6):
+    """Unconditionally redact sensitive values in ``data`` (no scope logic).
+
+    The log-sink twin of :func:`mask_sensitive`: audit and telemetry writers
+    must never reveal secrets regardless of the caller's scopes. Depth-capped
+    against pathological nesting; scalars pass through.
+    """
+    if max_depth < 0:
+        return mask
+    if isinstance(data, dict):
+        return {
+            k: (mask if is_sensitive_key(k)
+                else mask_payload(v, mask, max_depth - 1))
+            for k, v in data.items()
+        }
+    if isinstance(data, (list, tuple)):
+        return [mask_payload(v, mask, max_depth - 1) for v in data]
+    return data
