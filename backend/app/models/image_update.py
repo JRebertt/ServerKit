@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import SerializableMixin
 
 
-class ImageUpdateCheck(db.Model):
+class ImageUpdateCheck(SerializableMixin, db.Model):
     """Result of comparing an application's running image digest against the
     current digest for the same tag in its registry."""
     __tablename__ = 'image_update_checks'
@@ -21,15 +22,3 @@ class ImageUpdateCheck(db.Model):
         'image_update_checks', lazy='dynamic',
         order_by='ImageUpdateCheck.checked_at.desc()'))
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'application_id': self.application_id,
-            'image_ref': self.image_ref,
-            'current_digest': self.current_digest,
-            'latest_digest': self.latest_digest,
-            'update_available': self.update_available,
-            'status': self.status,
-            'error_message': self.error_message,
-            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
-        }

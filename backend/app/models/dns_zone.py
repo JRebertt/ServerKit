@@ -1,7 +1,7 @@
 from datetime import datetime
 from app import db
 from app.models.json_column_mixin import JsonColumnMixin
-from app.models.mixins import TimestampMixin
+from app.models.mixins import TimestampMixin, SerializableMixin
 import json
 
 
@@ -49,7 +49,7 @@ class DNSZone(JsonColumnMixin, TimestampMixin, db.Model):
         }
 
 
-class DNSRecord(TimestampMixin, db.Model):
+class DNSRecord(SerializableMixin, TimestampMixin, db.Model):
     """Individual DNS record within a zone."""
     __tablename__ = 'dns_records'
 
@@ -66,16 +66,3 @@ class DNSRecord(TimestampMixin, db.Model):
     provider_record_id = db.Column(db.String(128))
 
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'zone_id': self.zone_id,
-            'record_type': self.record_type,
-            'name': self.name,
-            'content': self.content,
-            'ttl': self.ttl,
-            'priority': self.priority,
-            'proxied': self.proxied,
-            'provider_record_id': self.provider_record_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

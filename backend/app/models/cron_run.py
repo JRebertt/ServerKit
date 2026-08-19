@@ -8,6 +8,7 @@ created outside the panel (or with tracking off) never produce rows.
 from datetime import datetime
 
 from app import db
+from app.models.mixins import SerializableMixin
 
 OUTPUT_TAIL_LIMIT = 8 * 1024  # 8 KB cap on stored output tail
 
@@ -16,7 +17,7 @@ STATUS_SUCCESS = 'success'
 STATUS_FAILURE = 'failure'
 
 
-class CronRun(db.Model):
+class CronRun(SerializableMixin, db.Model):
     __tablename__ = 'cron_runs'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -36,15 +37,5 @@ class CronRun(db.Model):
             return max(0.0, (self.finished_at - self.started_at).total_seconds())
         return None
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'job_id': self.job_id,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'finished_at': self.finished_at.isoformat() if self.finished_at else None,
-            'exit_code': self.exit_code,
-            'status': self.status,
-            'duration_seconds': self.duration_seconds,
-            'output_tail': self.output_tail,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
+    def serialize_extra(self):
+        return {'duration_seconds': self.duration_seconds}

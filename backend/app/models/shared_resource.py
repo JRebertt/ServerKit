@@ -17,6 +17,7 @@ source the rest of the panel already uses.
 from datetime import datetime
 
 from app import db
+from app.models.mixins import SerializableMixin
 from app.models.env_variable import EnvironmentVariable
 
 # The mask used in place of a redacted secret value. Matches the convention in
@@ -24,7 +25,7 @@ from app.models.env_variable import EnvironmentVariable
 SECRET_MASK = '••••••••'
 
 
-class ResourceTag(db.Model):
+class ResourceTag(SerializableMixin, db.Model):
     """A free-form tag attached to any resource via (resource_type, resource_id)."""
     __tablename__ = 'resource_tags'
 
@@ -40,14 +41,6 @@ class ResourceTag(db.Model):
         db.Index('ix_resource_tag_resource', 'resource_type', 'resource_id'),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'resource_type': self.resource_type,
-            'resource_id': self.resource_id,
-            'tag': self.tag,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
 
     def __repr__(self):
         return f'<ResourceTag {self.resource_type}:{self.resource_id} #{self.tag}>'
@@ -167,7 +160,7 @@ class SharedVariable(db.Model):
         return f'<SharedVariable {self.key}>'
 
 
-class SharedVariableGroupAttachment(db.Model):
+class SharedVariableGroupAttachment(SerializableMixin, db.Model):
     """Links a :class:`SharedVariableGroup` to a resource polymorphically."""
     __tablename__ = 'shared_variable_group_attachments'
 
@@ -184,14 +177,6 @@ class SharedVariableGroupAttachment(db.Model):
         db.Index('ix_group_attachment_resource', 'resource_type', 'resource_id'),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'group_id': self.group_id,
-            'resource_type': self.resource_type,
-            'resource_id': self.resource_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
 
     def __repr__(self):
         return (f'<SharedVariableGroupAttachment g{self.group_id} '

@@ -1,10 +1,10 @@
 from datetime import datetime
 
 from app import db
-from app.models.mixins import EncryptedSecret
+from app.models.mixins import EncryptedSecret, SerializableMixin
 
 
-class SourceConnection(db.Model):
+class SourceConnection(SerializableMixin, db.Model):
     """External source-code provider connection for repository imports.
 
     The ``provider`` column is a plain string and accepts any supported
@@ -34,16 +34,6 @@ class SourceConnection(db.Model):
         db.UniqueConstraint('user_id', 'provider', name='uq_source_connection_user_provider'),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'provider': self.provider,
-            'provider_account_id': self.provider_account_id,
-            'provider_username': self.provider_username,
-            'display_name': self.display_name,
-            'avatar_url': self.avatar_url,
-            'scope': self.scope,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('user_id',)

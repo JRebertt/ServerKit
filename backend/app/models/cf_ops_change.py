@@ -1,9 +1,10 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import SerializableMixin
 
 
-class CfOpsChange(db.Model):
+class CfOpsChange(SerializableMixin, db.Model):
     """Audit trail of every Cloudflare *operations* write ServerKit makes to a zone
     (settings, DNSSEC, WAF, redirect/transform rules, Origin CA, Workers, Tunnels,
     R2/KV/D1) — the ops-layer sibling of :class:`DnsChange`, which only covers DNS
@@ -30,16 +31,3 @@ class CfOpsChange(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'dns_provider_config_id': self.dns_provider_config_id,
-            'provider_zone_id': self.provider_zone_id,
-            'product': self.product,
-            'action': self.action,
-            'target': self.target,
-            'result': self.result,
-            'error': self.error,
-            'user_id': self.user_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

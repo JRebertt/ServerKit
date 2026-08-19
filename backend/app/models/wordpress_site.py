@@ -10,7 +10,7 @@ Extended models for WordPress-specific functionality including:
 from datetime import datetime
 from app import db
 from app.models.json_column_mixin import JsonColumnMixin
-from app.models.mixins import TimestampMixin
+from app.models.mixins import TimestampMixin, SerializableMixin
 
 # DatabaseSnapshot + SyncJob were relocated to app/models/db_snapshot.py
 # (plan 52 Phase 1 — generic snapshot/sync machinery no longer owned by the WP
@@ -193,7 +193,7 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
         return f'<WordPressSite {self.id} app={self.application_id}>'
 
 
-class WordPressVulnerability(db.Model):
+class WordPressVulnerability(SerializableMixin, db.Model):
     """A known vulnerability found in a WordPress site's plugin, theme, or core."""
 
     __tablename__ = 'wordpress_vulnerabilities'
@@ -217,22 +217,6 @@ class WordPressVulnerability(db.Model):
 
     detected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'site_id': self.site_id,
-            'source': self.source,
-            'slug': self.slug,
-            'name': self.name,
-            'installed_version': self.installed_version,
-            'advisory_id': self.advisory_id,
-            'title': self.title,
-            'severity': self.severity,
-            'cvss_score': self.cvss_score,
-            'fixed_in': self.fixed_in,
-            'reference_url': self.reference_url,
-            'detected_at': self.detected_at.isoformat() if self.detected_at else None,
-        }
 
     def __repr__(self):
         return f'<WordPressVulnerability {self.id} {self.source}:{self.slug} {self.severity}>'

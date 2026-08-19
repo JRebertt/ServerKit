@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
-from app.models.mixins import EncryptedSecret, uuid_pk, TimestampMixin
+from app.models.mixins import EncryptedSecret, uuid_pk, TimestampMixin, SerializableMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 
@@ -482,7 +482,7 @@ class Server(TimestampMixin, JsonColumnMixin, db.Model):
         return f'<Server {self.name}>'
 
 
-class ServerMetrics(db.Model):
+class ServerMetrics(SerializableMixin, db.Model):
     """Historical metrics from servers"""
     __tablename__ = 'server_metrics'
 
@@ -521,27 +521,9 @@ class ServerMetrics(db.Model):
         db.Index('ix_server_metrics_server_time', 'server_id', 'timestamp'),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'cpu_percent': self.cpu_percent,
-            'memory_percent': self.memory_percent,
-            'memory_used': self.memory_used,
-            'disk_percent': self.disk_percent,
-            'disk_used': self.disk_used,
-            'network_rx': self.network_rx,
-            'network_tx': self.network_tx,
-            'network_rx_rate': self.network_rx_rate,
-            'network_tx_rate': self.network_tx_rate,
-            'container_count': self.container_count,
-            'container_running': self.container_running,
-            'extra': self.extra,
-        }
 
 
-class ServerCommand(db.Model):
+class ServerCommand(SerializableMixin, db.Model):
     """Audit log of commands executed on servers"""
     __tablename__ = 'server_commands'
 
@@ -574,27 +556,12 @@ class ServerCommand(db.Model):
 
     server = db.relationship('Server', back_populates='commands')
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'user_id': self.user_id,
-            'command_type': self.command_type,
-            'command_data': self.command_data,
-            'status': self.status,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
-            'result': self.result,
-            'error': self.error,
-            'exit_code': self.exit_code,
-            'retry_count': self.retry_count,
-            'max_retries': self.max_retries,
-            'queued': self.queued,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('backoff_seconds', 'next_retry_at')
 
 
-class AgentSession(db.Model):
+class AgentSession(SerializableMixin, db.Model):
     """Active agent WebSocket sessions"""
     __tablename__ = 'agent_sessions'
 
@@ -632,19 +599,9 @@ class AgentSession(db.Model):
             self.avg_latency_ms = alpha * latency_ms + (1 - alpha) * self.avg_latency_ms
             self.latency_samples += 1
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'connected_at': self.connected_at.isoformat() if self.connected_at else None,
-            'last_heartbeat': self.last_heartbeat.isoformat() if self.last_heartbeat else None,
-            'ip_address': self.ip_address,
-            'heartbeat_latency_ms': self.heartbeat_latency_ms,
-            'avg_latency_ms': self.avg_latency_ms,
-            'is_active': self.is_active,
-            'disconnected_at': self.disconnected_at.isoformat() if self.disconnected_at else None,
-            'disconnect_reason': self.disconnect_reason,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('latency_samples', 'session_token', 'socket_id', 'user_agent')
 
 
 class AgentRollout(TimestampMixin, db.Model):

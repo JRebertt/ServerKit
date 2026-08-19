@@ -256,3 +256,43 @@ class RunLifecycleMixin:
                     setattr(self, dattr, (when - started).total_seconds())
                     break
         return self
+
+
+class SerializableMixin:
+    """Opt-in ``to_dict()`` for models whose serialization is purely
+    mechanical (plan 77 B2).
+
+    Introspects ``__table__.columns``: DateTime values auto-isoformat (the
+    ternary previously pasted ~266 times), ``*_encrypted`` columns and any
+    name in ``__serialize_exclude__`` are dropped, and ``serialize_extra()`` merges
+    computed fields on top. A model whose dict genuinely differs from its
+    columns (renames, nesting, per-caller options) keeps its hand-written
+    ``to_dict`` — this mixin is never forced (plan 75 §F's ruling stands).
+
+    Interplay with api/_query.py field selection: the mixin produces the
+    FULL dict; response shaping stays _query's job.
+    """
+
+    __serialize_exclude__ = ()
+
+    def to_dict(self):
+        out = {}
+        exclude = set(self.__serialize_exclude__)
+        for column in self.__table__.columns:
+            name = column.name
+            if name in exclude or name.endswith('_encrypted'):
+                continue
+            value = getattr(self, name)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            out[name] = value
+        out.update(self.serialize_extra())
+        return out
+
+    def serialize_extra(self):
+        """Computed fields merged over the column dict. Override per model.
+
+        Named to never collide with a column (ServerMetrics has a column
+        literally called ``extra``).
+        """
+        return {}

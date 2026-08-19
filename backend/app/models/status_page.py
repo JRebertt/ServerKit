@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from app import db
-from app.models.mixins import TimestampMixin
+from app.models.mixins import TimestampMixin, SerializableMixin
 import json
 
 
@@ -165,7 +165,7 @@ class StatusComponent(db.Model):
         }
 
 
-class HealthCheck(db.Model):
+class HealthCheck(SerializableMixin, db.Model):
     """Individual health check result."""
     __tablename__ = 'health_checks'
 
@@ -177,16 +177,6 @@ class HealthCheck(db.Model):
     error = db.Column(db.Text)
     checked_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'component_id': self.component_id,
-            'status': self.status,
-            'response_time': self.response_time,
-            'status_code': self.status_code,
-            'error': self.error,
-            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
-        }
 
 
 class StatusIncident(TimestampMixin, db.Model):
@@ -233,7 +223,7 @@ class StatusIncident(TimestampMixin, db.Model):
         }
 
 
-class StatusIncidentUpdate(db.Model):
+class StatusIncidentUpdate(SerializableMixin, db.Model):
     """Timeline update for an incident."""
     __tablename__ = 'status_incident_updates'
 
@@ -243,11 +233,3 @@ class StatusIncidentUpdate(db.Model):
     body = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'incident_id': self.incident_id,
-            'status': self.status,
-            'body': self.body,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
