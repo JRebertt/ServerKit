@@ -17,6 +17,16 @@ LIFECYCLE_DURABLE_CANDIDATE = 'durable_candidate'
 
 
 THREAD_OWNERSHIP = {
+    'app/utils/background_loop.py:start:self._run': {
+        'owner': 'BackgroundLoop helper (plan 77 E5)',
+        'lifecycle': LIFECYCLE_PROCESS_LOOP,
+        'rationale': (
+            'The ONE spawn site for Event-stopped process polling loops; '
+            'individual loops (socket metrics/container-status broadcasters, '
+            'future adopters) are covered by this entry instead of one row '
+            'per hand-rolled thread.'
+        ),
+    },
     'app/api/ai.py:chat_stream:producer': {
         'owner': 'AI SSE response',
         'lifecycle': LIFECYCLE_REQUEST_STREAM,
@@ -156,16 +166,6 @@ THREAD_OWNERSHIP = {
         'owner': 'Socket.IO container log subscription',
         'lifecycle': LIFECYCLE_REQUEST_STREAM,
         'rationale': 'Emitter lifetime is coupled to one socket subscription.',
-    },
-    'app/sockets.py:handle_subscribe_metrics:broadcast_metrics': {
-        'owner': 'Socket.IO metrics subscription',
-        'lifecycle': LIFECYCLE_REQUEST_STREAM,
-        'rationale': 'Broadcaster lifetime is coupled to an active socket subscription set.',
-    },
-    'app/sockets.py:handle_subscribe_container_status:broadcast_container_status': {
-        'owner': 'Socket.IO container status subscription',
-        'lifecycle': LIFECYCLE_REQUEST_STREAM,
-        'rationale': 'Broadcaster lifetime is coupled to an active socket subscription set.',
     },
 }
 
