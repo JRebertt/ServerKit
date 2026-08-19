@@ -21,6 +21,7 @@ import zipfile
 import requests
 
 from app import db
+from app.utils.env import env_bool
 from app.models.plugin import InstalledPlugin
 
 logger = logging.getLogger(__name__)
@@ -355,7 +356,7 @@ def _assert_url_safe(url):
     if scheme == 'http':
         raise ValueError(
             'Plain-http extension downloads are only allowed for loopback dev hosts')
-    if os.environ.get('SERVERKIT_ALLOW_PRIVATE_DOWNLOADS', '').lower() in ('1', 'true', 'yes'):
+    if env_bool('SERVERKIT_ALLOW_PRIVATE_DOWNLOADS'):
         return
     bad = sorted(ip for ip in ips if not _ip_is_public(ip))
     if bad:
@@ -1796,7 +1797,7 @@ _MAX_REQUIREMENTS_BYTES = 64 * 1024
 
 def plugin_pip_enabled():
     """Whether the operator has opted into installing plugin Python deps."""
-    return os.environ.get(PLUGIN_PIP_ENV, '').lower() in ('1', 'true', 'yes')
+    return env_bool(PLUGIN_PIP_ENV)
 
 
 def pending_requirements(plugin):

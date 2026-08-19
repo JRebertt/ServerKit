@@ -1,4 +1,5 @@
 import os
+from app.utils.env import env_bool
 import time
 import urllib.request
 import json
@@ -164,7 +165,7 @@ def health_check():
     # Staging instances (plan 37 testbed) run with SERVERKIT_STAGING set. Echo
     # it here so the verify step can prove WHICH instance answered and the UI
     # can show its STAGING banner.
-    staging = os.environ.get('SERVERKIT_STAGING', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    staging = env_bool('SERVERKIT_STAGING')
 
     return jsonify({
         'status': 'healthy',

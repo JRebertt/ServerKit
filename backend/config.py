@@ -32,21 +32,9 @@ def is_insecure_secret(value):
     )
 
 
-def _env_bool(name, default=False):
-    """Parse a boolean env var. Accepts the usual truthy spellings; anything
-    else (including unset) falls back to ``default``."""
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in ('1', 'true', 'yes', 'on')
-
-
-def _env_int(name, default):
-    """Parse an int env var, falling back to ``default`` on unset/garbage."""
-    try:
-        return int(os.environ.get(name, default))
-    except (TypeError, ValueError):
-        return default
+# Env parsing lives in app/utils/env.py (plan 77 F4) — one parser for the
+# whole app; the historical private names stay importable from here.
+from app.utils.env import env_bool as _env_bool, env_int as _env_int  # noqa: E402
 
 
 def _resolve_ssl_mode():
