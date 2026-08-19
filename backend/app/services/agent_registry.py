@@ -964,6 +964,31 @@ class AgentRegistry:
             sorted(k for k, v in clean_caps.items() if v),
         )
 
+        self._schedule_tunnel_reconcile(server_id, clean_caps)
+
+    def _schedule_tunnel_reconcile(self, server_id: str, caps: Dict[str, bool]):
+        """Panel-authoritative tunnel reconcile (#19): if this agent can
+        drive WireGuard, re-apply (in the background) any tunnel config it
+        participates in, so tunnels self-heal after an agent or panel
+        restart. Lives here — on the shared capability-ingest path — so it
+        fires for BOTH transports (WS on_capabilities and the long-poll
+        /poll body), not just WebSocket. See docs/REMOTE_ACCESS_ROADMAP.md.
+        """
+        if not caps.get('wireguard'):
+            return
+        try:
+            # TunnelBrokerService lives in the serverkit-remote-access
+            # extension (plan 47); reach it only when installed, no-op
+            # otherwise.
+            from app.services.plugin_service import get_installed_extension_attr
+            TunnelBrokerService = get_installed_extension_attr(
+                'serverkit-remote-access', 'tunnel_broker_service',
+                'TunnelBrokerService')
+            if TunnelBrokerService is not None:
+                TunnelBrokerService.schedule_reconcile(server_id)
+        except Exception:
+            logger.debug("tunnel reconcile scheduling skipped", exc_info=True)
+
     def get_capabilities(self, server_id: str) -> Optional[Dict[str, bool]]:
         """Return the capability map for a connected agent, or None if
         the agent is not connected. Returns an empty dict if the agent

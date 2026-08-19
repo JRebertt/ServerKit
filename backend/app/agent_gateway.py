@@ -297,25 +297,10 @@ class AgentNamespace(Namespace):
             })
             return
 
+        # Capability side-effects (incl. the WireGuard tunnel reconcile)
+        # happen inside update_capabilities so both transports — this WS
+        # handler and the long-poll /poll body — share one ingest path.
         agent_registry.update_capabilities(agent.server_id, data or {})
-
-        # Panel-authoritative tunnel reconcile (#19): if this agent can
-        # drive WireGuard, re-apply (in the background) any tunnel config
-        # it participates in, so tunnels self-heal after an agent or panel
-        # restart. See docs/REMOTE_ACCESS_ROADMAP.md.
-        try:
-            caps = (data or {}).get('capabilities') or {}
-            if caps.get('wireguard'):
-                # TunnelBrokerService now lives in the serverkit-remote-access
-                # extension (plan 47); reach it only when installed, no-op otherwise.
-                from app.services.plugin_service import get_installed_extension_attr
-                TunnelBrokerService = get_installed_extension_attr(
-                    'serverkit-remote-access', 'tunnel_broker_service',
-                    'TunnelBrokerService')
-                if TunnelBrokerService is not None:
-                    TunnelBrokerService.schedule_reconcile(agent.server_id)
-        except Exception:
-            logger.debug("tunnel reconcile scheduling skipped", exc_info=True)
 
     def on_stream(self, data):
         """
