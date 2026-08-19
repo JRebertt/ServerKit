@@ -439,3 +439,17 @@ def append_log(job, level: str, message: str, data: Any = None,
     stream = RunLogStream.for_job(job)
     stream.log(level, message, step_index=step_index, data=data)
     stream.flush()
+
+
+def list_run_logs(run_kind: str, run_id, after_id: Optional[int] = None,
+                  limit: int = 2000) -> List[dict]:
+    """Persisted run-envelope lines for (run_kind, run_id), id-ordered.
+
+    The service half of the ``GET /api/v1/runs/<kind>/<id>/logs?after_id``
+    resync twin — the API layer never touches the model directly.
+    """
+    from app.models.run_log import RunLogEntry
+    query = RunLogEntry.query.filter_by(run_kind=run_kind, run_id=str(run_id))
+    if after_id:
+        query = query.filter(RunLogEntry.id > after_id)
+    return [row.to_dict() for row in query.order_by(RunLogEntry.id.asc()).limit(limit).all()]

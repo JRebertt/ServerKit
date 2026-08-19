@@ -26,6 +26,7 @@ ALLOWED = {
     'services/manifest_apply_service.py',
     'services/secret_vault_service.py', # owns SecretVault writes by design
     'services/settings_service.py',
+    'services/sso_service.py',    # C2 fold-in: token crypto with legacy dual-read lives here
     'services/storage_provider_service.py',
     'services/source_connection_service.py',  # SettingsService-held PEM/webhook secret
     'api/ai.py',
