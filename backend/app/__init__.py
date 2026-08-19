@@ -346,9 +346,8 @@ def create_app(config_name=None):
             os.path.basename(sys.argv[0] or '').startswith('flask')
             and (len(sys.argv) < 2 or sys.argv[1] != 'run')
         )
-        _skip_background = (
-            os.environ.get('SERVERKIT_SKIP_BACKGROUND') == '1' or _cli_one_shot
-        )
+        from app.utils.env import env_bool
+        _skip_background = env_bool('SERVERKIT_SKIP_BACKGROUND') or _cli_one_shot
         if not _skip_background:
             # Start metrics history collection in background
             from app.services.metrics_history_service import MetricsHistoryService
