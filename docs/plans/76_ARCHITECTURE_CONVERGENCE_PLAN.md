@@ -246,26 +246,80 @@ Rephrasing "Access denied: path not in allowed directories" turns a 403 into a
 
 ---
 
+### Second-wave execution — E2 completed, F3 blob, G, A role checks (2026-08-18)
+
+| Row / item | Baseline | Now | Commits |
+|---|---|---|---|
+| E2 polling | 45 sites / 35 files | **11 / 10, all deliberate** | `3ac566cb` `f9657d38` `89c3896e` `0bfcf69c` `89c2e132` |
+| F3 blob download | 14 files hand-rolling the anchor ritual | 0; ratchet at zero | `375677ab` |
+| C4 dead file | `services/wordpress.js`, 494 lines, 0 importers | deleted | `375677ab` |
+| G `@keyframes` | 8 `spin`, plus 3 more duplicated names | 1 each; ratchet | `0b385482` |
+| G class ownership | 114 defs sharing 50 names | ratcheted (not merged) | `b182deaf` |
+| A inline role checks | 23 | 0 | `107fdbdf` |
+
+The 11 polling sites left are 5 clock ticks, 3 socket-fallback hooks whose
+imperative `startPolling()`/`stopPolling()` needs a real restructure, and 3 in
+the serverkit-gui extension (sibling-repo source, already in-flight-guarded).
+
+Findings worth carrying forward:
+
+- **`@keyframes` names are global and last-definition-wins.** Seven of the eight
+  `spin` copies were already dead — deleting them left the compiled CSS
+  byte-for-byte identical, which is the proof. But `pulse-dot` was defined twice
+  with *genuinely different* animations, and `pages/_services` being imported
+  after `components/_uptime` meant the uptime dot had been running the wrong
+  one. Fixed by scoping; the uptime dot now scales as its stylesheet always said.
+- **Class ownership was ratcheted, not merged.** `.empty-state` compiles to five
+  competing top-level rules whose merge nobody wrote. Unlike the keyframes
+  sweep there is no byte-identical proof available for a merge, so it needs eyes
+  on the pages — invariant 9.
+- **The blob-download ritual had drifted where it matters.** Only 3 of 14 copies
+  appended the anchor to the document (Firefox does not reliably click a
+  detached one) and most revoked the object URL on the line after `click()`,
+  racing the download.
+- **A mechanical removal needs an AST scan, not just the suite.** Migrating the
+  inline role checks left `current_user_id` referenced-but-unbound in four
+  handlers. Tests caught two; the other two had no coverage and were found by
+  scanning for names used but never assigned.
+
 ## Second-wave status after 2026-08-18
 
-Of the plan's five drift/bug rows: **four migrated and closed** (A identity, A
-admin gate, B crash reporting, F3 clipboard), **one door-built-and-ratcheted**
-(E2 polling, 4 of 45 sites migrated as references), **one ratcheted only**
-(C status sniffing, blocked on the envelope decision).
+All five drift/bug rows are addressed: **four migrated and closed** (A identity,
+A admin gate, B crash reporting, F3 clipboard+blob), **one migrated to a
+deliberate residue** (E2 polling), **one ratcheted pending C** (status
+sniffing). Milestone A's inline role checks are also closed.
 
 Ratchets now in place, all mutation-checked:
 
 | Ratchet | Ceiling | Meaning |
 |---|---:|---|
-| `identity_door_census` | 87 | JWT-only routes; API-key-capable population held at 0 |
+| `identity_door_census` | 69 | JWT-only routes; API-key-capable population held at 0 |
 | `unreported_crash_census` | 0 | an invariant, not a countdown |
 | `status_sniffing_census` | 23 | pre-migration hold |
-| `LEGACY_POLLERS` (frontend) | 41 / 31 files | exact per-file counts |
+| `api_controller_boundary` | 510 calls | first-wave ratchet, down from 593 |
+| `LEGACY_POLLERS` (frontend) | 11 / 10 files | exact per-file counts |
 | `LEGACY_CLIPBOARD` (frontend) | 0 | emptied |
+| `.download =` outside the helper | 0 | invariant |
+| duplicate `@keyframes` | 0 | invariant, 66 unique names |
+| `STYLE_OWNERSHIP_CEILING` | 114 | pre-migration hold |
 
-Next by the plan's execution order: finish A (605 `@jwt_required()` routes onto
-`auth_required()` — the identity ratchet now makes that safe), then C1/C2, which
+Next by the plan's execution order: the 605 `@jwt_required()` routes onto
+`auth_required()` — see the note below before starting — then C1/C2, which
 unblocks the status-sniffing row and the 56 swallow-and-answer-200 handlers.
+
+### Before migrating the 605 `@jwt_required()` routes
+
+This is not a mechanical swap and should not be treated as one. `auth_required()`
+accepts an API key where `@jwt_required()` does not, so converting a route
+**grants API-key callers access to it**. That is a deliberate expansion of the
+authenticated surface, not a refactor, and it needs a decision about which
+routes should be API-key reachable at all — `api_scope_middleware` mediates
+scopes, but only `agent.command:*` is genuinely enforced today (see the
+extension-permissions note in the memory index).
+
+The identity ratchet's third assertion is what makes the migration *safe* once
+that decision is made: it fails the moment a route becomes API-key-capable while
+still resolving its caller from the JWT.
 
 ## Thesis
 
