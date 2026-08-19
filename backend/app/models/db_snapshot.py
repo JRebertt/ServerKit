@@ -15,6 +15,7 @@ stable core-managed schema seam, not a reason to keep them in the WP file.
 
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
@@ -87,7 +88,7 @@ class DatabaseSnapshot(db.Model):
         return f'<DatabaseSnapshot {self.id} "{self.name}">'
 
 
-class SyncJob(db.Model):
+class SyncJob(TimestampMixin, db.Model):
     """Scheduled database synchronization jobs between WordPress environments."""
 
     __tablename__ = 'sync_jobs'
@@ -117,8 +118,6 @@ class SyncJob(db.Model):
     run_count = db.Column(db.Integer, default=0)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

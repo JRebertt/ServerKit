@@ -1,11 +1,12 @@
 """Event subscription and delivery models for webhook system."""
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 import secrets
 
 
-class EventSubscription(JsonColumnMixin, db.Model):
+class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     """Webhook subscription for event notifications."""
     __tablename__ = 'event_subscriptions'
 
@@ -19,8 +20,6 @@ class EventSubscription(JsonColumnMixin, db.Model):
     headers = db.Column(db.Text, nullable=True)  # JSON dict of custom headers
     retry_count = db.Column(db.Integer, default=3)
     timeout_seconds = db.Column(db.Integer, default=10)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = db.relationship('User', foreign_keys=[user_id])
     deliveries = db.relationship('EventDelivery', back_populates='subscription',

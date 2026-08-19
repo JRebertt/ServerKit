@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
 def _new_id() -> str:
@@ -26,7 +27,7 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-class AiConversation(db.Model):
+class AiConversation(TimestampMixin, db.Model):
     """A single AI chat thread owned by a user."""
     __tablename__ = 'ai_conversations'
 
@@ -40,8 +41,6 @@ class AiConversation(db.Model):
     model_name = db.Column(db.String(128))           # 'provider/model' snapshot at creation
     export_json = db.Column(db.Text)                 # Prompture conv.export(strip_images=True)
     last_page = db.Column(db.String(256))            # last route the assistant saw (for resume context)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     messages = db.relationship(
         'AiMessage', backref='conversation', cascade='all, delete-orphan',

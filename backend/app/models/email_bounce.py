@@ -9,9 +9,10 @@ webhook (``POST /api/v1/notifications/inbound/email``).
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class EmailBounceState(db.Model):
+class EmailBounceState(TimestampMixin, db.Model):
     __tablename__ = 'email_bounce_state'
 
     KIND_BOUNCE = 'bounce'
@@ -30,8 +31,6 @@ class EmailBounceState(db.Model):
     last_reason = db.Column(db.String(500), nullable=True)
     last_event_at = db.Column(db.DateTime, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

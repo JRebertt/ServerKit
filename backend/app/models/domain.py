@@ -1,9 +1,9 @@
 from datetime import datetime
 from app import db
-from app.models.mixins import SoftDeleteMixin
+from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 
-class Domain(SoftDeleteMixin, db.Model):
+class Domain(TimestampMixin, SoftDeleteMixin, db.Model):
     __tablename__ = 'domains'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -23,8 +23,6 @@ class Domain(SoftDeleteMixin, db.Model):
     ssl_auto_renew = db.Column(db.Boolean, default=True)
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Foreign keys
     application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)

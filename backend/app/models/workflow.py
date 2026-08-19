@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class Workflow(db.Model):
+class Workflow(TimestampMixin, db.Model):
     __tablename__ = 'workflows'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -23,8 +24,6 @@ class Workflow(db.Model):
     last_status = db.Column(db.String(20), nullable=True)  # success, failed
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

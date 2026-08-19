@@ -1,9 +1,10 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class AppVolume(db.Model):
+class AppVolume(TimestampMixin, db.Model):
     """A first-class, tracked persistent volume attached to an application.
 
     Replaces ad-hoc **relative bind mounts** (``./mysql-data:/var/lib/mysql``)
@@ -30,8 +31,6 @@ class AppVolume(db.Model):
     read_only = db.Column(db.Boolean, nullable=False, default=False)
     size_bytes = db.Column(db.BigInteger, nullable=True)      # denormalized last-measured size
     declared_size = db.Column(db.String(40), nullable=True)   # operator/manifest-declared size cap, e.g. "10Gi" (plan 35)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Deleting the app removes its volume rows (ORM cascade); the underlying
     # Docker volumes are intentionally left on disk so an app delete never nukes

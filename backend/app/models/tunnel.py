@@ -1,10 +1,10 @@
-import uuid
 from datetime import datetime
 
 from app import db
+from app.models.mixins import uuid_pk, TimestampMixin
 
 
-class Tunnel(db.Model):
+class Tunnel(TimestampMixin, db.Model):
     """A WireGuard pairing between two ServerKit agents: a public-IP
     "edge" and a NAT'd "private" host. The data plane is kernel WireGuard
     running on the agents; this row is the panel's brokered record of it.
@@ -14,7 +14,7 @@ class Tunnel(db.Model):
     """
     __tablename__ = 'tunnels'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     name = db.Column(db.String(120))
 
     # Two FKs to servers → relationships must name foreign_keys explicitly.
@@ -36,8 +36,6 @@ class Tunnel(db.Model):
     last_handshake_at = db.Column(db.DateTime)
     last_error = db.Column(db.Text)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     edge_server = db.relationship('Server', foreign_keys=[edge_server_id])
     private_server = db.relationship('Server', foreign_keys=[private_server_id])

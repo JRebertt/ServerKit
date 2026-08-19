@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class ServerTemplate(db.Model):
+class ServerTemplate(TimestampMixin, db.Model):
     """Defines expected state for a server — packages, services, firewall rules, users, files."""
     __tablename__ = 'server_templates'
 
@@ -32,8 +33,6 @@ class ServerTemplate(db.Model):
     remediation_approval_required = db.Column(db.Boolean, default=True)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     assignments = db.relationship('ServerTemplateAssignment', backref='template', lazy='dynamic')
 

@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ManagedDatabaseUser(JsonColumnMixin, db.Model):
+class ManagedDatabaseUser(TimestampMixin, JsonColumnMixin, db.Model):
     """A database user/grant ServerKit created on a managed database.
 
     Live engines forget nothing, but ServerKit used to: users created through
@@ -29,8 +30,6 @@ class ManagedDatabaseUser(JsonColumnMixin, db.Model):
     grants = db.Column(db.Text, nullable=False, default='["ALL"]')
     is_shadow = db.Column(db.Boolean, nullable=False, default=False)
     expires_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Deleting the managed database removes its user rows (ORM cascade); the
     # engine-side users are dropped explicitly by the service, never implicitly.

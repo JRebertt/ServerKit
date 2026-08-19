@@ -9,11 +9,12 @@ cloud / registrar providers.
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 from app.utils.crypto import decrypt_secret_safe
 
 
-class EmailProviderConnection(JsonColumnMixin, db.Model):
+class EmailProviderConnection(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'email_provider_connections'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -37,8 +38,6 @@ class EmailProviderConnection(JsonColumnMixin, db.Model):
     relay_priority = db.Column(db.Integer, default=0, nullable=False)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_tested_at = db.Column(db.DateTime)
     last_test_ok = db.Column(db.Boolean)
 

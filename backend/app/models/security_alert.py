@@ -4,16 +4,16 @@ Security Alert Model for ServerKit.
 Stores security alerts from anomaly detection.
 """
 
-import uuid
 from datetime import datetime
 from app import db
+from app.models.mixins import uuid_pk
 
 
 class SecurityAlert(db.Model):
     """Security alerts from anomaly detection"""
     __tablename__ = 'security_alerts'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True, index=True)
 
     # Alert classification

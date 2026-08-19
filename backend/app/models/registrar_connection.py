@@ -1,9 +1,9 @@
 from datetime import datetime
 from app import db
-from app.models.mixins import EncryptedSecret
+from app.models.mixins import EncryptedSecret, TimestampMixin
 
 
-class RegistrarConnection(db.Model):
+class RegistrarConnection(TimestampMixin, db.Model):
     """A connected domain-registrar account (GoDaddy, …) used to read the domain
     portfolio: registration status, expiry dates, auto-renew and nameservers.
 
@@ -24,8 +24,6 @@ class RegistrarConnection(db.Model):
     account_label = db.Column(db.String(180), nullable=True)  # e.g. domain count / shopper id
     config_json = db.Column(db.Text, nullable=True)  # provider-specific non-secret extras (e.g. Namecheap username + client_ip)
     last_synced_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     @property
     def config(self):

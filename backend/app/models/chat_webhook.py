@@ -14,11 +14,12 @@ Per kind, ``credentials_json`` holds:
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 from app.utils.crypto import decrypt_secret_safe
 
 
-class ChatWebhookConnection(JsonColumnMixin, db.Model):
+class ChatWebhookConnection(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'chat_webhook_connections'
 
     KINDS = ('discord', 'slack', 'telegram', 'webhook')
@@ -42,8 +43,6 @@ class ChatWebhookConnection(JsonColumnMixin, db.Model):
     imported = db.Column(db.Boolean, default=False)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_tested_at = db.Column(db.DateTime)
     last_test_ok = db.Column(db.Boolean)
 

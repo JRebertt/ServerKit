@@ -4,10 +4,11 @@ import hashlib
 import base64
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 
-class WebhookEndpoint(JsonColumnMixin, db.Model):
+class WebhookEndpoint(TimestampMixin, JsonColumnMixin, db.Model):
     """Inbound webhook endpoint configuration."""
     __tablename__ = 'webhook_endpoints'
 
@@ -22,8 +23,6 @@ class WebhookEndpoint(JsonColumnMixin, db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     # Workspace scoping (#33): backfilled to the Default workspace by migration 021.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     deliveries = db.relationship('WebhookDelivery', backref='endpoint', lazy='dynamic', cascade='all, delete-orphan')
 

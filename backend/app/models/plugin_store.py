@@ -20,9 +20,10 @@ state, written at runtime by the plugin itself.
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class PluginStore(db.Model):
+class PluginStore(TimestampMixin, db.Model):
     """One key/value pair belonging to one installed plugin."""
 
     __tablename__ = 'plugin_store'
@@ -35,8 +36,6 @@ class PluginStore(db.Model):
     key = db.Column(db.String(255), nullable=False)
     value = db.Column(db.JSON)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         db.UniqueConstraint('plugin_slug', 'key', name='uq_plugin_store_slug_key'),

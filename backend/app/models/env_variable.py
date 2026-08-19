@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 from cryptography.fernet import Fernet
 import os
@@ -7,7 +8,7 @@ import base64
 import hashlib
 
 
-class EnvironmentVariable(JsonColumnMixin, db.Model):
+class EnvironmentVariable(TimestampMixin, JsonColumnMixin, db.Model):
     """
     Stores environment variables for applications with encrypted values.
     Supports versioning for history tracking.
@@ -30,8 +31,6 @@ class EnvironmentVariable(JsonColumnMixin, db.Model):
     # {"kind":"service","service":"db","property":"connectionString"}.
     value_from = db.Column(db.Text, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Unique constraint: one key per application

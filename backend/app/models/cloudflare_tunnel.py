@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class CloudflareTunnel(db.Model):
+class CloudflareTunnel(TimestampMixin, db.Model):
     """A Cloudflare Tunnel (cloudflared / cfd_tunnel) ServerKit created.
 
     Distinct from the WireGuard remote-access ``Tunnel`` model — this is a
@@ -23,8 +24,6 @@ class CloudflareTunnel(db.Model):
         db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
     token_encrypted = db.Column(db.Text)     # cloudflared connector token (encrypted)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         # Never serialize the token here — it's revealed only at creation time and

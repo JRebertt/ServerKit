@@ -1,5 +1,4 @@
 from datetime import datetime
-from uuid import uuid4
 from app import db
 from app.models.json_column_mixin import JsonColumnMixin
 

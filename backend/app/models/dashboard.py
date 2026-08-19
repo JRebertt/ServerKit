@@ -21,9 +21,10 @@ the geometry fields before storing anything.
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class DashboardBoard(db.Model):
+class DashboardBoard(TimestampMixin, db.Model):
     """One dashboard tab belonging to one user."""
 
     __tablename__ = 'dashboard_boards'
@@ -44,8 +45,6 @@ class DashboardBoard(db.Model):
     position = db.Column(db.Integer, nullable=False, default=0)
     widgets = db.Column(db.JSON, nullable=False, default=list)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

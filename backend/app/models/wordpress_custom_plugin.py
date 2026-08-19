@@ -11,9 +11,10 @@ A thin global layer on top of the existing per-site WP-CLI plugin management:
 
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class WordPressCustomPlugin(db.Model):
+class WordPressCustomPlugin(TimestampMixin, db.Model):
     """An operator-owned plugin in the global library."""
 
     __tablename__ = 'wordpress_custom_plugins'
@@ -41,8 +42,6 @@ class WordPressCustomPlugin(db.Model):
     last_synced_at = db.Column(db.DateTime)
     sync_error = db.Column(db.Text)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     installations = db.relationship(
         'WordPressSitePlugin',

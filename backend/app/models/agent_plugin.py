@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class AgentPlugin(db.Model):
+class AgentPlugin(TimestampMixin, db.Model):
     """Represents a plugin that can be installed on agents."""
     __tablename__ = 'agent_plugins'
 
@@ -36,8 +37,6 @@ class AgentPlugin(db.Model):
     STATUS_DEPRECATED = 'deprecated'
     status = db.Column(db.String(32), default=STATUS_AVAILABLE)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     installations = db.relationship('AgentPluginInstall', backref='plugin', lazy='dynamic')

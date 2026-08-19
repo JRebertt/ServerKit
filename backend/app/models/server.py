@@ -3,15 +3,15 @@ import secrets
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
-from app.models.mixins import EncryptedSecret
+from app.models.mixins import EncryptedSecret, uuid_pk, TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ServerGroup(db.Model):
+class ServerGroup(TimestampMixin, db.Model):
     """Group servers for organization"""
     __tablename__ = 'server_groups'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     color = db.Column(db.String(7), default='#6366f1')  # Hex color for UI
@@ -22,8 +22,6 @@ class ServerGroup(db.Model):
     auto_upgrade = db.Column(db.Boolean, default=False)
     upgrade_channel = db.Column(db.String(20), default='stable')  # stable, beta
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     # Use 'subquery' to eagerly load servers in a single query, avoiding N+1
@@ -52,7 +50,7 @@ class ServerGroup(db.Model):
         return f'<ServerGroup {self.name}>'
 
 
-class Server(JsonColumnMixin, db.Model):
+class Server(TimestampMixin, JsonColumnMixin, db.Model):
     """Represents a remote server managed by ServerKit"""
     __tablename__ = 'servers'
 
@@ -77,7 +75,7 @@ class Server(JsonColumnMixin, db.Model):
         'agent:update',
     }
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
 
     # Basic Info
     name = db.Column(db.String(100), nullable=False)
@@ -168,8 +166,6 @@ class Server(JsonColumnMixin, db.Model):
     capabilities_at = db.Column(db.DateTime)            # when the snapshot was last refreshed
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     group = db.relationship('ServerGroup', back_populates='servers')
@@ -549,7 +545,7 @@ class ServerCommand(db.Model):
     """Audit log of commands executed on servers"""
     __tablename__ = 'server_commands'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
@@ -602,7 +598,7 @@ class AgentSession(db.Model):
     """Active agent WebSocket sessions"""
     __tablename__ = 'agent_sessions'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
 
     session_token = db.Column(db.String(256))  # Current session token
@@ -651,11 +647,11 @@ class AgentSession(db.Model):
         }
 
 
-class AgentRollout(db.Model):
+class AgentRollout(TimestampMixin, db.Model):
     """Tracks staged rollout progress"""
     __tablename__ = 'agent_rollouts'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     version_id = db.Column(db.String(36), db.ForeignKey('agent_versions.id'), nullable=False)
     group_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -679,8 +675,6 @@ class AgentRollout(db.Model):
 
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     version = db.relationship('AgentVersion')
 
@@ -707,11 +701,11 @@ class AgentRollout(db.Model):
         }
 
 
-class AgentVersion(db.Model):
+class AgentVersion(TimestampMixin, db.Model):
     """Available agent versions and compatibility matrix"""
     __tablename__ = 'agent_versions'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     version = db.Column(db.String(20), nullable=False, unique=True)
     channel = db.Column(db.String(20), default='stable')  # stable, beta
     
@@ -727,8 +721,6 @@ class AgentVersion(db.Model):
     # Assets (mapped by platform: linux-amd64, windows-amd64, etc.)
     assets = db.Column(db.JSON)  # {"linux-amd64": "url", "checksums": "url"}
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

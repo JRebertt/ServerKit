@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class DNSZone(db.Model):
+class DNSZone(TimestampMixin, db.Model):
     """DNS zone for a domain with provider integration."""
     __tablename__ = 'dns_zones'
 
@@ -22,8 +23,6 @@ class DNSZone(db.Model):
     status = db.Column(db.String(32), default='active')
     last_sync_at = db.Column(db.DateTime)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     records = db.relationship('DNSRecord', backref='zone', lazy='dynamic', cascade='all, delete-orphan')
 
@@ -49,7 +48,7 @@ class DNSZone(db.Model):
         }
 
 
-class DNSRecord(db.Model):
+class DNSRecord(TimestampMixin, db.Model):
     """Individual DNS record within a zone."""
     __tablename__ = 'dns_records'
 
@@ -65,8 +64,6 @@ class DNSRecord(db.Model):
 
     provider_record_id = db.Column(db.String(128))
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

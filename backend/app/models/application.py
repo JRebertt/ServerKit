@@ -7,14 +7,14 @@ from app import db
 # FK targets resolvable regardless of import order.
 from app.models import project as _project  # noqa: F401
 from app.models import environment as _environment  # noqa: F401
-from app.models.mixins import SoftDeleteMixin
+from app.models.mixins import SoftDeleteMixin, TimestampMixin
 from app.utils.ingress import (
     default_ingress_plane as _default_ingress_plane,
     proxy_eligible as _proxy_eligible,
 )
 
 
-class Application(SoftDeleteMixin, db.Model):
+class Application(TimestampMixin, SoftDeleteMixin, db.Model):
     """A managed app.
 
     SOFT DELETED (plan 70). `Application.query` therefore returns TOMBSTONES —
@@ -117,8 +117,6 @@ class Application(SoftDeleteMixin, db.Model):
     shared_config = db.Column(db.Text, nullable=True)  # JSON string for shared resources
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_deployed_at = db.Column(db.DateTime, nullable=True)
 
     # Foreign keys

@@ -1,15 +1,15 @@
 """Models for fleet-wide metric monitoring and alerting."""
 
-import uuid
 from datetime import datetime
 from app import db
+from app.models.mixins import uuid_pk, TimestampMixin
 
 
-class ServerAlertThreshold(db.Model):
+class ServerAlertThreshold(TimestampMixin, db.Model):
     """Per-server or global alert threshold configuration."""
     __tablename__ = 'server_alert_thresholds'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True, index=True)
     # null = global default
 
@@ -19,8 +19,6 @@ class ServerAlertThreshold(db.Model):
     duration_seconds = db.Column(db.Integer, default=300)  # sustained for N seconds
     enabled = db.Column(db.Boolean, default=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     server = db.relationship('Server', backref='alert_thresholds')
 
@@ -42,7 +40,7 @@ class MetricAlert(db.Model):
     """Alert triggered when server metrics exceed thresholds."""
     __tablename__ = 'metric_alerts'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
 
     metric = db.Column(db.String(20), nullable=False)  # cpu, memory, disk

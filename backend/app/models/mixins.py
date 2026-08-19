@@ -27,6 +27,7 @@ just deleted). Those constraints have to become PARTIAL unique indexes with a
 See migration 083 for the pattern.
 """
 import logging
+import uuid
 from datetime import datetime
 
 from app import db
@@ -151,3 +152,47 @@ class EncryptedSecret:
     def is_set(self, obj) -> bool:
         """True when ciphertext is stored — the `has_secret` masking flag."""
         return bool(getattr(obj, self.column_name))
+
+
+def uuid_pk():
+    """The ONE uuid primary-key shape: String(36), dashed uuid4 text.
+
+    Every uuid-keyed model uses this factory (plan 77 B3) so the format
+    decision is made once — a second format (e.g. 32-char hex) would break
+    FK joins against String(36) columns. The lone pre-existing deviant is
+    ai.py's String(64) hex ids, grandfathered until a data migration.
+
+        class Server(db.Model):
+            id = uuid_pk()
+    """
+    return db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+
+class TimestampMixin:
+    """created_at / updated_at in the ONE house shape (plan 77 B1).
+
+    Byte-identical to the hand-written pair::
+
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    so adoption needs NO schema migration — it only centralizes the
+    ``datetime.utcnow`` default, making the eventual tz-aware migration
+    (utcnow is deprecated on Python 3.13) a one-file edit instead of ~270.
+    Set ``__timestamp_index__ = True`` on the model for the indexed
+    created_at variant. Models with only created_at, or a deviant shape
+    (e.g. sanitization_profile's default-less updated_at), keep their own
+    columns — adding a column via mixin WOULD be a schema change.
+    """
+
+    __timestamp_index__ = False
+
+    @db.declared_attr
+    def created_at(cls):  # noqa: N805
+        return db.Column(db.DateTime, default=datetime.utcnow,
+                         index=bool(getattr(cls, '__timestamp_index__', False)))
+
+    @db.declared_attr
+    def updated_at(cls):  # noqa: N805
+        return db.Column(db.DateTime, default=datetime.utcnow,
+                         onupdate=datetime.utcnow)

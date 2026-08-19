@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class ManagedDnsRecord(db.Model):
+class ManagedDnsRecord(TimestampMixin, db.Model):
     """Ledger of DNS records ServerKit created in an external provider zone.
 
     The single source of truth for "we own this record". It's written whenever the
@@ -28,8 +29,6 @@ class ManagedDnsRecord(db.Model):
     source = db.Column(db.String(40))                                # zone|ddns|preset|wordpress|email
     app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

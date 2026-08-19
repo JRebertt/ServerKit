@@ -6,11 +6,12 @@ Stores per-user notification preferences for receiving alerts.
 
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class NotificationPreferences(JsonColumnMixin, db.Model):
+class NotificationPreferences(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'notification_preferences'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -52,8 +53,6 @@ class NotificationPreferences(JsonColumnMixin, db.Model):
     quiet_hours_start = db.Column(db.String(5), default='22:00')  # HH:MM format
     quiet_hours_end = db.Column(db.String(5), default='08:00')
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship
     user = db.relationship('User', backref=db.backref('notification_preferences', uselist=False))

@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from app import db
+from app.models.mixins import TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 # Every CORE data-protection target the unified policy system can back up (§8).
@@ -27,7 +28,7 @@ def _num(value):
     return value
 
 
-class BackupPolicy(JsonColumnMixin, db.Model):
+class BackupPolicy(TimestampMixin, JsonColumnMixin, db.Model):
     """Automated backup ("protection") policy for a single target.
 
     A target is a generic application (``target_type='application'``), a
@@ -88,8 +89,6 @@ class BackupPolicy(JsonColumnMixin, db.Model):
     last_cost_remote = db.Column(db.Numeric(10, 4), nullable=True)
     last_job_id = db.Column(db.String(36), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     runs = db.relationship(
         'BackupRun',

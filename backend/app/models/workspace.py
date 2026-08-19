@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class Workspace(db.Model):
+class Workspace(TimestampMixin, db.Model):
     """Isolated container for servers, users, and settings."""
     __tablename__ = 'workspaces'
 
@@ -33,8 +34,6 @@ class Workspace(db.Model):
     billing_notes = db.Column(db.Text)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     members = db.relationship('WorkspaceMember', backref='workspace', lazy='dynamic')
     api_keys = db.relationship('WorkspaceApiKey', backref='workspace', lazy='dynamic')

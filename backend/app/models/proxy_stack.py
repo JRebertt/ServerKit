@@ -7,14 +7,14 @@ Compose stack. This table records that choice + the on-disk compose path and
 config snippet for one server. It is intentionally keyed 1:1 on server_id
 (unique) — a server runs at most one managed proxy stack at a time.
 """
-import uuid
 from datetime import datetime
 
 from app import db
+from app.models.mixins import uuid_pk, TimestampMixin
 from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ProxyStack(JsonColumnMixin, db.Model):
+class ProxyStack(TimestampMixin, JsonColumnMixin, db.Model):
     """One managed reverse-proxy stack per server."""
     __tablename__ = 'proxy_stacks'
 
@@ -24,7 +24,7 @@ class ProxyStack(JsonColumnMixin, db.Model):
     PROXY_TRAEFIK = 'traefik'
     PROXY_CADDY = 'caddy'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
 
     # 1:1 with a server. Unique so get_or_create never creates duplicates;
     # indexed for the per-server lookup the API does on every request.
@@ -51,8 +51,6 @@ class ProxyStack(JsonColumnMixin, db.Model):
 
     last_regenerated_at = db.Column(db.DateTime)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def networks_list(self):
         """Decode the networks JSON column to a list (empty on missing/bad)."""

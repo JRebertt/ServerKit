@@ -14,9 +14,10 @@ falling back to the ``sites_base_domain`` setting / ``SITES_BASE_DOMAIN`` config
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class SiteBaseDomain(db.Model):
+class SiteBaseDomain(TimestampMixin, db.Model):
     __tablename__ = 'site_base_domains'
 
     DNS_MODES = ('wildcard', 'per-site')
@@ -37,8 +38,6 @@ class SiteBaseDomain(db.Model):
         db.ForeignKey('dns_provider_configs.id', ondelete='SET NULL'),
         nullable=True,
     )
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

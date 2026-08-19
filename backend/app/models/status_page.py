@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 
-class StatusPage(db.Model):
+class StatusPage(TimestampMixin, db.Model):
     """Public-facing status page configuration."""
     __tablename__ = 'status_pages'
 
@@ -22,8 +23,6 @@ class StatusPage(db.Model):
     show_uptime = db.Column(db.Boolean, default=True)
     show_history = db.Column(db.Boolean, default=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     components = db.relationship('StatusComponent', backref='status_page', lazy='dynamic',
                                  order_by='StatusComponent.sort_order', cascade='all, delete-orphan')
@@ -190,7 +189,7 @@ class HealthCheck(db.Model):
         }
 
 
-class StatusIncident(db.Model):
+class StatusIncident(TimestampMixin, db.Model):
     """An incident on the status page."""
     __tablename__ = 'status_incidents'
 
@@ -212,8 +211,6 @@ class StatusIncident(db.Model):
     scheduled_end = db.Column(db.DateTime)
 
     resolved_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     updates = db.relationship('StatusIncidentUpdate', backref='incident', lazy='dynamic',
                               order_by='StatusIncidentUpdate.created_at.desc()', cascade='all, delete-orphan')

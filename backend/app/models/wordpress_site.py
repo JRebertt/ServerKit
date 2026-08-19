@@ -9,6 +9,7 @@ Extended models for WordPress-specific functionality including:
 
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 import json
 
 # DatabaseSnapshot + SyncJob were relocated to app/models/db_snapshot.py
@@ -19,7 +20,7 @@ import json
 from app.models.db_snapshot import DatabaseSnapshot, SyncJob  # noqa: F401
 
 
-class WordPressSite(db.Model):
+class WordPressSite(TimestampMixin, db.Model):
     """Extended WordPress-specific data linked to Application."""
 
     __tablename__ = 'wordpress_sites'
@@ -97,8 +98,6 @@ class WordPressSite(db.Model):
     auto_sync_enabled = db.Column(db.Boolean, default=False)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     application = db.relationship('Application', backref=db.backref('wp_site', uselist=False))
