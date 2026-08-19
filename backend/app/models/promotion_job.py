@@ -7,10 +7,10 @@ Tracks code/data promotions between WordPress environments
 
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class PromotionJob(db.Model):
+class PromotionJob(JsonColumnMixin, db.Model):
     """Track code/data promotions between environments."""
 
     __tablename__ = 'promotion_jobs'
@@ -54,7 +54,7 @@ class PromotionJob(db.Model):
             'target_site_id': self.target_site_id,
             'user_id': self.user_id,
             'promotion_type': self.promotion_type,
-            'config': json.loads(self.config) if self.config else None,
+            'config': self._json_read('config', None),
             'status': self.status,
             'pre_promotion_snapshot_id': self.pre_promotion_snapshot_id,
             'error_message': self.error_message,

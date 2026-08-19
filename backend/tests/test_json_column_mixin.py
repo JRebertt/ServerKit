@@ -89,12 +89,67 @@ def test_falsy_writes_the_columns_empty_form_when_declared():
 def test_converted_models_inherit_the_mixin():
     """A model converted back to a hand-rolled copy is the second door
     reopening — the plan's thesis. Pin the opt-in list."""
+    from app.models.agent_plugin import AgentPlugin, AgentPluginInstall
+    from app.models.ai import AiConversation, AiMessage, AiPendingAction
+    from app.models.application import Application
     from app.models.audit_log import AuditLog
     from app.models.backup_run import BackupRun
+    from app.models.cloud_server import CloudServer
+    from app.models.db_snapshot import DatabaseSnapshot, SyncJob
+    from app.models.deployment import DeploymentDiff
+    from app.models.deployment_job import DeploymentJob, DeploymentJobLog
+    from app.models.dns_zone import DNSZone
+    from app.models.environment_activity import EnvironmentActivity
+    from app.models.host_snapshot import HostSnapshot
+    from app.models.image_scan import SbomArtifact
+    from app.models.plugin import InstalledPlugin
+    from app.models.project import Project
+    from app.models.promotion_job import PromotionJob
+    from app.models.registrar_connection import RegistrarConnection
+    from app.models.server_onboarding_log import ServerOnboardingLog
+    from app.models.server_survey import ServerSurvey
+    from app.models.server_template import ServerTemplate, ServerTemplateAssignment
+    from app.models.site_import import SiteImport
+    from app.models.system_settings import SystemSettings
     from app.models.user import User
+    from app.models.wordpress_site import (
+        WordPressReport,
+        WordPressSite,
+        WordPressUpdateRun,
+    )
+    from app.models.workflow import Workflow, WorkflowExecution
+    from app.models.workspace import Workspace, WorkspaceApiKey
 
-    for model in (AuditLog, BackupRun, User):
-        assert issubclass(model, JsonColumnMixin)
+    adopters = (
+        AgentPlugin, AgentPluginInstall,
+        AiConversation, AiMessage, AiPendingAction,
+        Application,
+        AuditLog,
+        BackupRun,
+        CloudServer,
+        DatabaseSnapshot, SyncJob,
+        DeploymentDiff,
+        DeploymentJob, DeploymentJobLog,
+        DNSZone,
+        EnvironmentActivity,
+        HostSnapshot,
+        SbomArtifact,
+        InstalledPlugin,
+        Project,
+        PromotionJob,
+        RegistrarConnection,
+        ServerOnboardingLog,
+        ServerSurvey,
+        ServerTemplate, ServerTemplateAssignment,
+        SiteImport,
+        SystemSettings,
+        User,
+        WordPressSite, WordPressUpdateRun, WordPressReport,
+        Workflow, WorkflowExecution,
+        Workspace, WorkspaceApiKey,
+    )
+    for model in adopters:
+        assert issubclass(model, JsonColumnMixin), model.__name__
 
 
 def test_a_converted_model_end_to_end(app):

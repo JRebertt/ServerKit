@@ -1,10 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
 import json
 
 
-class Workspace(TimestampMixin, db.Model):
+class Workspace(JsonColumnMixin, TimestampMixin, db.Model):
     """Isolated container for servers, users, and settings."""
     __tablename__ = 'workspaces'
 
@@ -40,7 +41,7 @@ class Workspace(TimestampMixin, db.Model):
 
     @property
     def settings(self):
-        return json.loads(self.settings_json) if self.settings_json else {}
+        return self._json_read('settings_json')
 
     @settings.setter
     def settings(self, v):
@@ -102,7 +103,7 @@ class WorkspaceMember(db.Model):
         }
 
 
-class WorkspaceApiKey(db.Model):
+class WorkspaceApiKey(JsonColumnMixin, db.Model):
     """API keys scoped to a single workspace."""
     __tablename__ = 'workspace_api_keys'
 
@@ -120,7 +121,7 @@ class WorkspaceApiKey(db.Model):
 
     @property
     def scopes(self):
-        return json.loads(self.scopes_json) if self.scopes_json else []
+        return self._json_read('scopes_json', [])
 
     @scopes.setter
     def scopes(self, v):

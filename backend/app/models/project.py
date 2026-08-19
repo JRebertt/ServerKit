@@ -1,10 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
 import json
 
 
-class Project(TimestampMixin, db.Model):
+class Project(JsonColumnMixin, TimestampMixin, db.Model):
     """A Project groups applications under a Workspace.
 
     Hierarchy: Workspace -> Project -> Environment -> Applications.
@@ -38,7 +39,7 @@ class Project(TimestampMixin, db.Model):
 
     @property
     def metadata_(self):
-        return json.loads(self.metadata_json) if self.metadata_json else {}
+        return self._json_read('metadata_json')
 
     @metadata_.setter
     def metadata_(self, v):

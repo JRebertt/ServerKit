@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import EncryptedSecret, TimestampMixin
 
 
-class RegistrarConnection(TimestampMixin, db.Model):
+class RegistrarConnection(JsonColumnMixin, TimestampMixin, db.Model):
     """A connected domain-registrar account (GoDaddy, …) used to read the domain
     portfolio: registration status, expiry dates, auto-renew and nameservers.
 
@@ -27,13 +28,7 @@ class RegistrarConnection(TimestampMixin, db.Model):
 
     @property
     def config(self):
-        import json
-        if not self.config_json:
-            return {}
-        try:
-            return json.loads(self.config_json)
-        except Exception:
-            return {}
+        return self._json_read('config_json')
 
     @config.setter
     def config(self, value):

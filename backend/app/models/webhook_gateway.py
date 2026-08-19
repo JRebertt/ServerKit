@@ -1,4 +1,3 @@
-import json
 import hmac
 import hashlib
 import base64
@@ -88,7 +87,7 @@ class WebhookDelivery(JsonColumnMixin, db.Model):
             'id': self.id,
             'endpoint_id': self.endpoint_id,
             'event_id': self.event_id,
-            'payload': json.loads(self.payload) if self.payload else None,
+            'payload': self._json_read('payload', None),
             'signature_valid': self.signature_valid,
             'status': self.status,
             'response_status': self.response_status,

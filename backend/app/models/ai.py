@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
 
 
@@ -27,7 +28,7 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-class AiConversation(TimestampMixin, db.Model):
+class AiConversation(JsonColumnMixin, TimestampMixin, db.Model):
     """A single AI chat thread owned by a user."""
     __tablename__ = 'ai_conversations'
 
@@ -52,7 +53,7 @@ class AiConversation(TimestampMixin, db.Model):
 
     @property
     def export(self) -> dict:
-        return json.loads(self.export_json) if self.export_json else {}
+        return self._json_read('export_json')
 
     @export.setter
     def export(self, value) -> None:
@@ -75,7 +76,7 @@ class AiConversation(TimestampMixin, db.Model):
         return data
 
 
-class AiMessage(db.Model):
+class AiMessage(JsonColumnMixin, db.Model):
     """One persisted turn in a conversation (user, assistant, or tool)."""
     __tablename__ = 'ai_messages'
 
@@ -95,7 +96,7 @@ class AiMessage(db.Model):
 
     @property
     def tool_calls(self) -> list:
-        return json.loads(self.tool_calls_json) if self.tool_calls_json else []
+        return self._json_read('tool_calls_json', [])
 
     @tool_calls.setter
     def tool_calls(self, value) -> None:
@@ -103,7 +104,7 @@ class AiMessage(db.Model):
 
     @property
     def usage(self) -> dict:
-        return json.loads(self.usage_json) if self.usage_json else {}
+        return self._json_read('usage_json')
 
     @usage.setter
     def usage(self, value) -> None:
@@ -121,7 +122,7 @@ class AiMessage(db.Model):
         }
 
 
-class AiPendingAction(db.Model):
+class AiPendingAction(JsonColumnMixin, db.Model):
     """A guarded write-tool action awaiting human confirmation.
 
     Live approve/deny is coordinated in-memory by the streaming worker; this
@@ -154,7 +155,7 @@ class AiPendingAction(db.Model):
 
     @property
     def params(self) -> dict:
-        return json.loads(self.params_json) if self.params_json else {}
+        return self._json_read('params_json')
 
     @params.setter
     def params(self, value) -> None:
@@ -162,7 +163,7 @@ class AiPendingAction(db.Model):
 
     @property
     def result(self):
-        return json.loads(self.result_json) if self.result_json else None
+        return self._json_read('result_json', None)
 
     @result.setter
     def result(self, value) -> None:

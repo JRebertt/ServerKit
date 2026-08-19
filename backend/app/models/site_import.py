@@ -10,6 +10,7 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 # Formats the importer registry may grow to support. 'cpanel' ships first;
 # the others plug into the same pipeline (see app/services/site_importers/).
@@ -22,7 +23,7 @@ VALID_STATUSES = (
 )
 
 
-class SiteImport(db.Model):
+class SiteImport(JsonColumnMixin, db.Model):
     __tablename__ = 'site_imports'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -48,35 +49,26 @@ class SiteImport(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow,
                            onupdate=datetime.utcnow)
 
-    # ── JSON helpers ──
-    @staticmethod
-    def _loads(raw, default):
-        try:
-            value = json.loads(raw) if raw else default
-        except (ValueError, TypeError):
-            return default
-        return value if isinstance(value, type(default)) else default
-
     def get_source(self):
-        return self._loads(self.source, {})
+        return self._json_read('source', expect=dict)
 
     def set_source(self, value):
         self.source = json.dumps(value or {})
 
     def get_options(self):
-        return self._loads(self.options, {})
+        return self._json_read('options', expect=dict)
 
     def set_options(self, value):
         self.options = json.dumps(value or {})
 
     def get_analysis(self):
-        return self._loads(self.analysis, {})
+        return self._json_read('analysis', expect=dict)
 
     def set_analysis(self, value):
         self.analysis = json.dumps(value or {})
 
     def get_result(self):
-        return self._loads(self.result, {})
+        return self._json_read('result', expect=dict)
 
     def set_result(self, value):
         self.result = json.dumps(value or {})

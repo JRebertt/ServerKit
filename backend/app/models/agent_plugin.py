@@ -1,10 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
 import json
 
 
-class AgentPlugin(TimestampMixin, db.Model):
+class AgentPlugin(JsonColumnMixin, TimestampMixin, db.Model):
     """Represents a plugin that can be installed on agents."""
     __tablename__ = 'agent_plugins'
 
@@ -43,7 +44,7 @@ class AgentPlugin(TimestampMixin, db.Model):
 
     @property
     def manifest(self):
-        return json.loads(self.manifest_json) if self.manifest_json else {}
+        return self._json_read('manifest_json')
 
     @manifest.setter
     def manifest(self, value):
@@ -51,7 +52,7 @@ class AgentPlugin(TimestampMixin, db.Model):
 
     @property
     def capabilities(self):
-        return json.loads(self.capabilities_json) if self.capabilities_json else []
+        return self._json_read('capabilities_json', [])
 
     @capabilities.setter
     def capabilities(self, value):
@@ -59,7 +60,7 @@ class AgentPlugin(TimestampMixin, db.Model):
 
     @property
     def dependencies(self):
-        return json.loads(self.dependencies_json) if self.dependencies_json else []
+        return self._json_read('dependencies_json', [])
 
     @dependencies.setter
     def dependencies(self, value):
@@ -67,7 +68,7 @@ class AgentPlugin(TimestampMixin, db.Model):
 
     @property
     def permissions(self):
-        return json.loads(self.permissions_json) if self.permissions_json else []
+        return self._json_read('permissions_json', [])
 
     @permissions.setter
     def permissions(self, value):
@@ -98,7 +99,7 @@ class AgentPlugin(TimestampMixin, db.Model):
         return f'<AgentPlugin {self.name}@{self.version}>'
 
 
-class AgentPluginInstall(db.Model):
+class AgentPluginInstall(JsonColumnMixin, db.Model):
     """Tracks plugin installations on specific agents/servers."""
     __tablename__ = 'agent_plugin_installs'
 
@@ -130,7 +131,7 @@ class AgentPluginInstall(db.Model):
 
     @property
     def config(self):
-        return json.loads(self.config_json) if self.config_json else {}
+        return self._json_read('config_json')
 
     @config.setter
     def config(self, value):
@@ -138,7 +139,7 @@ class AgentPluginInstall(db.Model):
 
     @property
     def metrics(self):
-        return json.loads(self.metrics_json) if self.metrics_json else {}
+        return self._json_read('metrics_json')
 
     def to_dict(self):
         return {

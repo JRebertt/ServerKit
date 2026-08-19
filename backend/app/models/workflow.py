@@ -1,10 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
-import json
 
 
-class Workflow(TimestampMixin, db.Model):
+class Workflow(JsonColumnMixin, TimestampMixin, db.Model):
     __tablename__ = 'workflows'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -37,26 +37,26 @@ class Workflow(TimestampMixin, db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'nodes': json.loads(self.nodes) if self.nodes else [],
-            'edges': json.loads(self.edges) if self.edges else [],
-            'viewport': json.loads(self.viewport) if self.viewport else None,
+            'nodes': self._json_read('nodes', []),
+            'edges': self._json_read('edges', []),
+            'viewport': self._json_read('viewport', None),
             'is_active': self.is_active,
             'trigger_type': self.trigger_type,
-            'trigger_config': json.loads(self.trigger_config) if self.trigger_config else {},
+            'trigger_config': self._json_read('trigger_config'),
             'last_run_at': self.last_run_at.isoformat() if self.last_run_at else None,
             'last_status': self.last_status,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'user_id': self.user_id,
-            'node_count': len(json.loads(self.nodes)) if self.nodes else 0,
-            'edge_count': len(json.loads(self.edges)) if self.edges else 0
+            'node_count': len(self._json_read('nodes', [])),
+            'edge_count': len(self._json_read('edges', []))
         }
 
     def __repr__(self):
         return f'<Workflow {self.name}>'
 
 
-class WorkflowExecution(db.Model):
+class WorkflowExecution(JsonColumnMixin, db.Model):
     __tablename__ = 'workflow_executions'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -77,8 +77,8 @@ class WorkflowExecution(db.Model):
             'workflow_id': self.workflow_id,
             'status': self.status,
             'trigger_type': self.trigger_type,
-            'context': json.loads(self.context) if self.context else {},
-            'results': json.loads(self.results) if self.results else {},
+            'context': self._json_read('context'),
+            'results': self._json_read('results'),
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'duration': (self.completed_at - self.started_at).total_seconds() if self.completed_at else None

@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class SystemSettings(db.Model):
+class SystemSettings(JsonColumnMixin, db.Model):
     """Key-value store for system-wide settings."""
     __tablename__ = 'system_settings'
 
@@ -26,8 +27,8 @@ class SystemSettings(db.Model):
         if self.value_type == 'integer':
             return int(self.value)
         if self.value_type == 'json':
-            import json
-            return json.loads(self.value)
+            # Corrupt JSON degrades to None instead of raising (plan 77 B4).
+            return self._json_read('value', None)
         return self.value
 
     def set_typed_value(self, value):

@@ -7,6 +7,7 @@ from app import db
 # FK targets resolvable regardless of import order.
 from app.models import project as _project  # noqa: F401
 from app.models import environment as _environment  # noqa: F401
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import SoftDeleteMixin, TimestampMixin
 from app.utils.ingress import (
     default_ingress_plane as _default_ingress_plane,
@@ -14,7 +15,7 @@ from app.utils.ingress import (
 )
 
 
-class Application(TimestampMixin, SoftDeleteMixin, db.Model):
+class Application(JsonColumnMixin, TimestampMixin, SoftDeleteMixin, db.Model):
     """A managed app.
 
     SOFT DELETED (plan 70). `Application.query` therefore returns TOMBSTONES —
@@ -200,7 +201,6 @@ class Application(TimestampMixin, SoftDeleteMixin, db.Model):
         `fields=None` keeps the full legacy payload, so every existing caller
         is unaffected.
         """
-        import json
         want = fields.__contains__ if fields is not None else (lambda _key: True)
         result = {
             'id': self.id,
@@ -218,8 +218,8 @@ class Application(TimestampMixin, SoftDeleteMixin, db.Model):
             'cpu_limit': self.cpu_limit,
             'memory_limit': self.memory_limit,
             'buildpack_type': self.buildpack_type,
-            'buildpack_plan': json.loads(self.buildpack_plan) if self.buildpack_plan else None,
-            'buildpack_overrides': json.loads(self.buildpack_overrides) if self.buildpack_overrides else None,
+            'buildpack_plan': self._json_read('buildpack_plan', None),
+            'buildpack_overrides': self._json_read('buildpack_overrides', None),
             'source': self.source,
             'compose_file': self.compose_file,
             'systemd_unit': self.systemd_unit,
@@ -231,7 +231,7 @@ class Application(TimestampMixin, SoftDeleteMixin, db.Model):
             'micro_cache_enabled': bool(self.micro_cache_enabled),
             'environment_type': self.environment_type,
             'linked_app_id': self.linked_app_id,
-            'shared_config': json.loads(self.shared_config) if self.shared_config else None,
+            'shared_config': self._json_read('shared_config', None),
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'last_deployed_at': self.last_deployed_at.isoformat() if self.last_deployed_at else None,

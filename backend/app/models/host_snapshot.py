@@ -13,9 +13,10 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class HostSnapshot(db.Model):
+class HostSnapshot(JsonColumnMixin, db.Model):
     """One reading of the panel host's specs and filesystems."""
     __tablename__ = 'host_snapshots'
 
@@ -45,16 +46,8 @@ class HostSnapshot(db.Model):
     # a state transition instead of nagging every boot.
     advisories_json = db.Column(db.Text, nullable=True)
 
-    def _load(self, raw, default):
-        if not raw:
-            return default
-        try:
-            return json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            return default
-
     def get_filesystems(self):
-        return self._load(self.filesystems_json, [])
+        return self._json_read('filesystems_json', [])
 
     def set_filesystems(self, value):
         self.filesystems_json = json.dumps(value) if value else None
@@ -63,13 +56,13 @@ class HostSnapshot(db.Model):
         """Deltas vs the previous snapshot, or None if this is the first."""
         if self.changes_json is None:
             return None
-        return self._load(self.changes_json, [])
+        return self._json_read('changes_json', [])
 
     def set_changes(self, value):
         self.changes_json = json.dumps(value) if value is not None else None
 
     def get_advisories(self):
-        return self._load(self.advisories_json, [])
+        return self._json_read('advisories_json', [])
 
     def set_advisories(self, value):
         self.advisories_json = json.dumps(value) if value else None

@@ -7,9 +7,10 @@ from datetime import datetime
 import json
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class DeploymentJob(db.Model):
+class DeploymentJob(JsonColumnMixin, db.Model):
     """A runnable deployment job with status, target, plan, and result."""
 
     __tablename__ = 'deployment_jobs'
@@ -65,10 +66,7 @@ class DeploymentJob(db.Model):
     )
 
     def get_plan(self):
-        try:
-            return json.loads(self.plan) if self.plan else {}
-        except (TypeError, json.JSONDecodeError):
-            return {}
+        return self._json_read('plan')
 
     def set_plan(self, plan):
         self.plan = json.dumps(plan)
@@ -76,10 +74,7 @@ class DeploymentJob(db.Model):
         self.total_steps = len(steps)
 
     def get_result(self):
-        try:
-            return json.loads(self.result) if self.result else {}
-        except (TypeError, json.JSONDecodeError):
-            return {}
+        return self._json_read('result')
 
     def set_result(self, result):
         self.result = json.dumps(result or {})
@@ -137,7 +132,7 @@ class DeploymentJob(db.Model):
         return data
 
 
-class DeploymentJobLog(db.Model):
+class DeploymentJobLog(JsonColumnMixin, db.Model):
     """A timestamped deployment job log entry."""
 
     __tablename__ = 'deployment_job_logs'
@@ -160,10 +155,7 @@ class DeploymentJobLog(db.Model):
     job = db.relationship('DeploymentJob', back_populates='logs')
 
     def get_data(self):
-        try:
-            return json.loads(self.data) if self.data else None
-        except (TypeError, json.JSONDecodeError):
-            return None
+        return self._json_read('data', None)
 
     def to_dict(self):
         return {

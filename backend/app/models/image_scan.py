@@ -59,7 +59,7 @@ class ImageVulnerabilityScan(JsonColumnMixin, db.Model):
         }
 
 
-class SbomArtifact(db.Model):
+class SbomArtifact(JsonColumnMixin, db.Model):
     """Generated SPDX SBOM for a Docker image."""
     __tablename__ = 'sbom_artifacts'
 
@@ -83,5 +83,5 @@ class SbomArtifact(db.Model):
             'generator_version': self.generator_version,
             'format': self.format,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'sbom': json.loads(self.sbom_json) if include_sbom and self.sbom_json else None,
+            'sbom': self._json_read('sbom_json', None) if include_sbom else None,
         }

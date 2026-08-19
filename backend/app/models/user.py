@@ -161,11 +161,9 @@ class User(JsonColumnMixin, db.Model):
         """Return resolved permissions: custom if set, otherwise role template."""
         if self.role == self.ROLE_ADMIN:
             return self.ROLE_PERMISSION_TEMPLATES['admin']
-        if self.permissions:
-            try:
-                return json.loads(self.permissions)
-            except (json.JSONDecodeError, TypeError):
-                pass
+        custom = self._json_read('permissions', None)
+        if custom is not None:
+            return custom
         return self.ROLE_PERMISSION_TEMPLATES.get(self.role, {})
 
     def set_permissions(self, perms_dict):

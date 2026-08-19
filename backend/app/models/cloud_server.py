@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
@@ -28,7 +29,7 @@ class CloudProvider(db.Model):
         }
 
 
-class CloudServer(db.Model):
+class CloudServer(JsonColumnMixin, db.Model):
     """A cloud server provisioned through ServerKit."""
     __tablename__ = 'cloud_servers'
 
@@ -74,7 +75,7 @@ class CloudServer(db.Model):
 
     @property
     def server_metadata(self):
-        return json.loads(self.metadata_json) if self.metadata_json else {}
+        return self._json_read('metadata_json')
 
     @server_metadata.setter
     def server_metadata(self, v):

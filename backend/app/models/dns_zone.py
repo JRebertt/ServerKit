@@ -1,10 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import TimestampMixin
 import json
 
 
-class DNSZone(TimestampMixin, db.Model):
+class DNSZone(JsonColumnMixin, TimestampMixin, db.Model):
     """DNS zone for a domain with provider integration."""
     __tablename__ = 'dns_zones'
 
@@ -28,7 +29,7 @@ class DNSZone(TimestampMixin, db.Model):
 
     @property
     def provider_config(self):
-        return json.loads(self.provider_config_json) if self.provider_config_json else {}
+        return self._json_read('provider_config_json')
 
     @provider_config.setter
     def provider_config(self, v):

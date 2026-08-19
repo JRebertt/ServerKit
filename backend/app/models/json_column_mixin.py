@@ -25,9 +25,12 @@ optional shape check, falsy-on-write.
 
 Corrupt JSON reads as the default, never raises: a hand-edited or
 partially-written row must not 500 every endpoint that serializes the model.
-This is the dominant in-tree convention; the handful of models that let
-``json.loads`` raise on corrupt data are deliberately NOT converted (that
-would be a behaviour change, not a consolidation).
+This is the tree-wide convention as of plan 77 B4, which reversed the earlier
+ruling that unprotected ``json.loads`` sites were out of scope: the sites that
+used to let corrupt data raise were converted too, so a corrupt row now
+degrades to the accessor's default instead of failing every request that
+touches it. No model file hand-rolls ``json.loads`` any more (ratcheted by
+``tests/test_models_json_one_door.py``).
 """
 import json
 
