@@ -225,6 +225,7 @@ class RunLifecycleMixin:
     __status_failed__ = _status.FAILED
     __status_cancelled__ = _status.CANCELLED
     __completed_at_attr__ = 'completed_at'
+    __error_attr__ = 'error'
 
     def mark_running(self, when=None):
         self.status = self.__status_running__
@@ -236,8 +237,8 @@ class RunLifecycleMixin:
 
     def mark_failed(self, error=None, when=None):
         self._finish(self.__status_failed__, when)
-        if error is not None and 'error' in self.__table__.columns:
-            self.error = str(error)
+        if error is not None and self.__error_attr__ in self.__table__.columns:
+            setattr(self, self.__error_attr__, str(error))
         return self
 
     def mark_cancelled(self, when=None):

@@ -8,12 +8,18 @@ import json
 
 from app import db
 from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import RunLifecycleMixin
 
 
-class DeploymentJob(JsonColumnMixin, db.Model):
+class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
     """A runnable deployment job with status, target, plan, and result."""
 
     __tablename__ = 'deployment_jobs'
+
+    # Stored spelling predates the canonical vocabulary (plan 77 D1);
+    # override until this domain's data migration rewrites 'succeeded'.
+    __status_success__ = 'succeeded'
+    __error_attr__ = 'error_message'
 
     id = db.Column(db.String(36), primary_key=True)
     kind = db.Column(db.String(50), nullable=False, index=True)
