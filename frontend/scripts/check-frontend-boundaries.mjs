@@ -49,11 +49,9 @@ const LEGACY_POLLERS = new Map(Object.entries({
     'hooks/useContainerStatus.js': 1,
     'hooks/useDeployJobStream.js': 1,
     'hooks/useMetrics.js': 1,
-    'pages/Dashboard.jsx': 4,
+    'pages/Dashboard.jsx': 2,
     'pages/DeployConsole.jsx': 1,
-    'pages/ImportWizard.jsx': 1,
     'pages/Monitors.jsx': 1,
-    'pages/TestSandbox.jsx': 2,
     'plugins/serverkit-gui/components/ServerGui.jsx': 1,
 }));
 

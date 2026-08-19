@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Spinner from '../components/Spinner';
+import { usePolling } from '@/hooks/usePolling';
 
 const POLL_MS = 2000;
 
@@ -218,20 +219,20 @@ function ImportWizard() {
 
     // Poll the active import every 2s while the backend is working on it.
     const status = imp?.status;
-    useEffect(() => {
-        if (!imp?.id || (status !== 'analyzing' && status !== 'running' && status !== 'created')) return undefined;
-        // 'created' is only polled right after we fire analyze, so a slow
-        // status flip to 'analyzing' doesn't strand the wizard.
-        const timer = setInterval(async () => {
-            try {
-                const data = await api.getImport(imp.id);
-                if (data.import) setImp(data.import);
-            } catch {
-                // transient poll failure — keep polling
-            }
-        }, POLL_MS);
-        return () => clearInterval(timer);
-    }, [imp?.id, status]);
+    // 'created' is only polled right after we fire analyze, so a slow status
+    // flip to 'analyzing' doesn't strand the wizard.
+    usePolling(async () => {
+        try {
+            const data = await api.getImport(imp.id);
+            if (data.import) setImp(data.import);
+        } catch {
+            // transient poll failure — keep polling
+        }
+    }, POLL_MS, {
+        enabled: Boolean(imp?.id)
+            && (status === 'analyzing' || status === 'running' || status === 'created'),
+        immediate: false,
+    });
 
     // Autoscroll the live log pane as new lines arrive.
     const logText = imp?.log_text;

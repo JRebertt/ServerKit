@@ -7,6 +7,7 @@ import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { timeAgo, formatDuration } from '../utils/time';
+import { usePolling } from '@/hooks/usePolling';
 import {
     FlaskConical, Play, Square, ChevronDown, ChevronRight,
     Zap, Package, AlertTriangle, RefreshCw,
@@ -189,32 +190,27 @@ const TestSandbox = () => {
     }, []);
 
     // Poll the active run until it leaves the 'running' state.
-    useEffect(() => {
-        if (!activeRun || activeRun.status !== 'running') return undefined;
-        let stopped = false;
-        const tick = async () => {
-            try {
-                const res = await api.getTestSandboxRun(activeRun.id);
-                if (stopped) return;
-                setActiveRun(res.run);
-                if (res.run.status !== 'running') {
-                    const { passed, failed, total } = summarizeRun(res.run);
-                    if (res.run.status === 'done') {
-                        toast[failed > 0 ? 'error' : 'success'](
-                            `Run finished: ${passed}/${total} passed${failed ? ` (${failed} failed)` : ''}`
-                        );
-                    } else if (res.run.status === 'error') {
-                        toast.error(res.run.error || 'Run failed');
-                    }
-                    loadRuns();
-                }
-            } catch (err) {
-                if (!stopped) toast.error(err.message);
+    usePolling(async () => {
+        try {
+            const res = await api.getTestSandboxRun(activeRun.id);
+            setActiveRun(res.run);
+            if (res.run.status === 'running') return;
+            const { passed, failed, total } = summarizeRun(res.run);
+            if (res.run.status === 'done') {
+                toast[failed > 0 ? 'error' : 'success'](
+                    `Run finished: ${passed}/${total} passed${failed ? ` (${failed} failed)` : ''}`
+                );
+            } else if (res.run.status === 'error') {
+                toast.error(res.run.error || 'Run failed');
             }
-        };
-        const id = setInterval(tick, POLL_MS);
-        return () => { stopped = true; clearInterval(id); };
-    }, [activeRun?.id, activeRun?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+            loadRuns();
+        } catch (err) {
+            toast.error(err.message);
+        }
+    }, POLL_MS, {
+        enabled: activeRun?.status === 'running',
+        immediate: false,
+    });
 
     const fetchLog = useCallback(async (runId, distroKey, { silent = false } = {}) => {
         const key = `${runId}:${distroKey}`;
@@ -234,22 +230,25 @@ const TestSandbox = () => {
     }, []);
 
     // Auto-refresh open logs for distros still executing in the active run.
-    useEffect(() => {
-        if (!activeRun || activeRun.status !== 'running') return undefined;
-        const id = setInterval(() => {
-            for (const key of openLogsRef.current) {
-                const sep = key.indexOf(':');
-                const runId = key.slice(0, sep);
-                const distroKey = key.slice(sep + 1);
-                if (runId !== String(activeRun.id)) continue;
-                const status = activeRun.results?.[distroKey]?.status;
-                if (status === 'running' || status === 'queued') {
-                    fetchLog(runId, distroKey, { silent: true });
-                }
+    usePolling(() => {
+        const pending = [];
+        for (const key of openLogsRef.current) {
+            const sep = key.indexOf(':');
+            const runId = key.slice(0, sep);
+            const distroKey = key.slice(sep + 1);
+            if (runId !== String(activeRun.id)) continue;
+            const status = activeRun.results?.[distroKey]?.status;
+            if (status === 'running' || status === 'queued') {
+                pending.push(fetchLog(runId, distroKey, { silent: true }));
             }
-        }, POLL_MS);
-        return () => clearInterval(id);
-    }, [activeRun, fetchLog]);
+        }
+        // One promise for the whole fan-out, so the in-flight guard waits for
+        // every open log rather than reporting done after the first.
+        return Promise.all(pending);
+    }, POLL_MS, {
+        enabled: activeRun?.status === 'running',
+        immediate: false,
+    });
 
     const toggleLog = useCallback((runId, distroKey) => {
         const key = `${runId}:${distroKey}`;

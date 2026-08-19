@@ -23,6 +23,7 @@ import {
 } from '../components/dashboard/grid/layout';
 import { useWidgetTypes, getWidgetType } from '../components/dashboard/widgets/registry';
 import { RANGES } from '../components/dashboard/widgets/metrics';
+import { usePolling } from '@/hooks/usePolling';
 
 // Auto-refresh choices, in seconds. 0 means "don't".
 const REFRESH_OPTIONS = [
@@ -129,12 +130,15 @@ const Dashboard = () => {
         if (!isRemote) {
             setRemoteMetrics(null);
             setRemoteSystemInfo(null);
-            return undefined;
+            return;
         }
         fetchRemote();
-        const id = refreshInterval > 0 ? setInterval(fetchRemote, refreshInterval * 1000) : null;
-        return () => { if (id) clearInterval(id); };
-    }, [fetchRemote, isRemote, refreshInterval]);
+    }, [fetchRemote, isRemote]);
+
+    usePolling(fetchRemote, refreshInterval * 1000, {
+        enabled: isRemote && refreshInterval > 0,
+        immediate: false,
+    });
 
     // Board-wide refresh pulse: every widget watches ctx.tick.
     useEffect(() => {
@@ -144,11 +148,10 @@ const Dashboard = () => {
     }, [refreshInterval]);
 
     // HTTP polling fallback for live metrics when the socket is down.
-    useEffect(() => {
-        if (!refreshInterval || connected || isRemote) return undefined;
-        const id = setInterval(() => refreshMetrics(), refreshInterval * 1000);
-        return () => clearInterval(id);
-    }, [refreshInterval, connected, refreshMetrics, isRemote]);
+    usePolling(refreshMetrics, refreshInterval * 1000, {
+        enabled: Boolean(refreshInterval) && !connected && !isRemote,
+        immediate: false,
+    });
 
     useEffect(() => {
         const uptime = metrics?.system?.uptime_seconds;
