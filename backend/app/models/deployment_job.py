@@ -16,6 +16,9 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
 
     __tablename__ = 'deployment_jobs'
 
+    # Run envelope kind (plan 77 E1): rooms/events key on (run_kind, id).
+    __run_kind__ = 'deploy'
+
     # Stored spelling predates the canonical vocabulary (plan 77 D1);
     # override until this domain's data migration rewrites 'succeeded'.
     __status_success__ = 'succeeded'

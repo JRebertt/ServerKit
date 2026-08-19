@@ -451,6 +451,52 @@ def emit_deploy_status(job_id: str, status: dict):
     }, room=rooms.deploy_room(job_id))
 
 
+# ==================== GENERALIZED RUN ENVELOPE (plan 77 E1) ====================
+#
+# One event pair for every run kind, keyed by (run_kind, run_id) in the room
+# run_<kind>_<id>. The deploy kind dual-emits the legacy deploy_log /
+# deploy_status pair above during the migration window so existing Deploy
+# Console listeners keep working.
+
+def emit_run_log(run_kind: str, run_id, lines: list):
+    """Emit a batch of persisted run log lines to the run's envelope room."""
+    socketio.emit('run_log', {
+        'run_kind': run_kind,
+        'run_id': run_id,
+        'lines': lines,
+    }, room=rooms.run_room(run_kind, run_id))
+    if run_kind == 'deploy':
+        emit_deploy_log(run_id, lines)
+
+
+def emit_run_status(run_kind: str, run_id, status: dict):
+    """Emit a run's status summary to the run's envelope room."""
+    socketio.emit('run_status', {
+        'run_kind': run_kind,
+        'run_id': run_id,
+        'status': status,
+    }, room=rooms.run_room(run_kind, run_id))
+    if run_kind == 'deploy':
+        emit_deploy_status(run_id, status)
+
+
+def _run_channel_room(data):
+    run_kind = data.get('run_kind')
+    run_id = data.get('run_id')
+    if not run_kind or run_id in (None, ''):
+        raise ChannelError('run_kind and run_id required')
+    return rooms.run_room(run_kind, run_id)
+
+
+# Auth mirrors the deploy channel: any authenticated user may watch — run ids
+# are unguessable and the REST twin exposes the same data the same way.
+register_channel(
+    'run',
+    room_fn=_run_channel_room,
+    ack=lambda data: {'run_kind': data.get('run_kind'), 'run_id': data.get('run_id')},
+)
+
+
 # ==================== CONTAINER LOG STREAMING ====================
 
 @socketio.on('subscribe_container_logs')

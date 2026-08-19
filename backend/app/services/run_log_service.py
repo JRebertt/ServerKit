@@ -106,27 +106,41 @@ def match_hint(tail_text: str) -> Optional[str]:
     return None
 
 
-def _default_emit_log(job_id: str, lines: List[dict]) -> None:
+def _make_default_emit_log(run_kind: str) -> Callable:
     """Lazy default emitter — resolves the socket helper at call time so this
     module never imports sockets eagerly and stays safe when sockets aren't
-    wired (tests, CLI)."""
-    try:
-        from app.sockets import emit_deploy_log
-        emit_deploy_log(job_id, lines)
-    except Exception:
-        pass
+    wired (tests, CLI). Emits the generalized run envelope; the deploy kind
+    dual-emits the legacy deploy_log inside emit_run_log."""
+    def _emit(run_id, lines: List[dict]) -> None:
+        try:
+            from app.sockets import emit_run_log
+            emit_run_log(run_kind, run_id, lines)
+        except Exception:
+            pass
+    return _emit
 
 
-def _default_emit_status(job_id: str, status: dict) -> None:
-    try:
-        from app.sockets import emit_deploy_status
-        emit_deploy_status(job_id, status)
-    except Exception:
-        pass
+def _make_default_emit_status(run_kind: str) -> Callable:
+    def _emit(run_id, status: dict) -> None:
+        try:
+            from app.sockets import emit_run_status
+            emit_run_status(run_kind, run_id, status)
+        except Exception:
+            pass
+    return _emit
 
 
 class RunLogStream:
-    """Batched, crash-proof log writer for one DeploymentJob."""
+    """Batched, crash-proof log writer for one run.
+
+    Generalized (plan 77 E1) over any model implementing the small RunLike
+    protocol: an ``id``, a ``__run_kind__`` class attribute, a ``to_dict()``
+    for status emits, and — optionally — ``get_result``/``set_result`` (for
+    close-time enrichment) and ``current_step``/``current_step_name`` (for
+    step tracking). DeploymentJob keeps its dedicated log table; every other
+    kind persists to the generic ``run_log_entries`` table under the same
+    ``(run_kind, run_id)`` key the socket room and the REST resync twin use.
+    """
 
     FLUSH_LINES = 50
     FLUSH_INTERVAL = 0.3      # seconds
@@ -141,13 +155,15 @@ class RunLogStream:
         clock: Callable[[], float] = time.monotonic,
     ):
         self.job = job
+        self.run_kind = getattr(job, '__run_kind__', 'deploy')
+        self._is_deploy = isinstance(job, DeploymentJob)
         self._buffer: List[dict] = []
         self._clock = clock
         self._last_flush = clock()
         self._tail = deque(maxlen=self.TAIL_SIZE)
         self._cap_hit = False
-        self._emit_log = emit_log or _default_emit_log
-        self._emit_status = emit_status or _default_emit_status
+        self._emit_log = emit_log or _make_default_emit_log(self.run_kind)
+        self._emit_status = emit_status or _make_default_emit_status(self.run_kind)
 
         # Per-step timing: index -> {'name', 'started'}; finalized into a list.
         self._step_started_at: Optional[float] = None
@@ -155,16 +171,43 @@ class RunLogStream:
         self._step_started_name: Optional[str] = None
         self._step_timings: List[dict] = []
 
-        # How many rows already exist for this job (retries make fresh jobs, but
-        # a reconciled/resumed job could carry rows) — the cap is per job.
+        # How many rows already exist for this run (retries make fresh runs, but
+        # a reconciled/resumed one could carry rows) — the cap is per run.
         try:
-            self._rows_written = DeploymentJobLog.query.filter_by(job_id=job.id).count()
+            self._rows_written = self._row_query().count()
         except Exception:
             self._rows_written = 0
 
     @classmethod
-    def for_job(cls, job: DeploymentJob, **kwargs) -> 'RunLogStream':
+    def for_job(cls, job, **kwargs) -> 'RunLogStream':
         return cls(job, **kwargs)
+
+    # ------------------------------------------------------------- storage
+    def _row_query(self):
+        if self._is_deploy:
+            return DeploymentJobLog.query.filter_by(job_id=self.job.id)
+        from app.models.run_log import RunLogEntry
+        return RunLogEntry.query.filter_by(
+            run_kind=self.run_kind, run_id=str(self.job.id))
+
+    def _new_row(self, row: dict):
+        if self._is_deploy:
+            return DeploymentJobLog(
+                job_id=self.job.id,
+                step_index=row['step_index'],
+                level=row['level'],
+                message=row['message'],
+                data=row['data'],
+            )
+        from app.models.run_log import RunLogEntry
+        return RunLogEntry(
+            run_kind=self.run_kind,
+            run_id=str(self.job.id),
+            step_index=row['step_index'],
+            level=row['level'],
+            message=row['message'],
+            data=row['data'],
+        )
 
     # ------------------------------------------------------------------ log
     def log(self, level: str, message: str, step_index: Optional[int] = None,
@@ -231,8 +274,9 @@ class RunLogStream:
             self._step_started_index = index
             self._step_started_name = name
 
-            self.job.current_step = index
-            self.job.current_step_name = name
+            if hasattr(self.job, 'current_step'):
+                self.job.current_step = index
+                self.job.current_step_name = name
             db.session.commit()
             self._emit_status_safe()
         except Exception:
@@ -250,17 +294,18 @@ class RunLogStream:
             self._flush()
             self._finalize_current_step()
 
-            result = self.job.get_result() or {}
-            if self._step_timings:
-                result['step_timings'] = self._step_timings
-            if status == 'failed':
-                tail = list(self._tail)
-                result['failure_tail'] = tail
-                hint = match_hint('\n'.join(tail))
-                if hint:
-                    result['hint'] = hint
-            self.job.set_result(result)
-            db.session.commit()
+            if hasattr(self.job, 'get_result') and hasattr(self.job, 'set_result'):
+                result = self.job.get_result() or {}
+                if self._step_timings:
+                    result['step_timings'] = self._step_timings
+                if status == 'failed':
+                    tail = list(self._tail)
+                    result['failure_tail'] = tail
+                    hint = match_hint('\n'.join(tail))
+                    if hint:
+                        result['hint'] = hint
+                self.job.set_result(result)
+                db.session.commit()
         except Exception:
             try:
                 db.session.rollback()
@@ -278,16 +323,7 @@ class RunLogStream:
         pending = self._buffer
         self._buffer = []
         try:
-            entries = [
-                DeploymentJobLog(
-                    job_id=self.job.id,
-                    step_index=row['step_index'],
-                    level=row['level'],
-                    message=row['message'],
-                    data=row['data'],
-                )
-                for row in pending
-            ]
+            entries = [self._new_row(row) for row in pending]
             db.session.add_all(entries)
             db.session.commit()
             self._rows_written += len(entries)
@@ -315,7 +351,7 @@ class RunLogStream:
             try:
                 from app.services.telemetry_service import TelemetryService
                 TelemetryService.emit(
-                    source='deployment',
+                    source='deployment' if self._is_deploy else 'runs',
                     event_type='deployment.log_flush_failed',
                     message='Deploy log flush failed; dropped a buffered batch',
                     severity='warning',
@@ -348,6 +384,11 @@ class RunLogStream:
             self._step_started_at = None
             self._step_started_name = None
 
+    def emit_status(self) -> None:
+        """Public status emit for transitions that happen outside close()
+        (e.g. the job consumer announcing 'running')."""
+        self._emit_status_safe()
+
     def _emit_status_safe(self) -> None:
         try:
             self._emit_status(self.job.id, self.job.to_dict())
@@ -370,7 +411,7 @@ def _trim_data(data: Any) -> Any:
 _STREAM_ATTR = '_run_log_stream'
 
 
-def stream_for(job: DeploymentJob) -> RunLogStream:
+def stream_for(job) -> RunLogStream:
     """Return the one stream for *job*, creating it on first use.
 
     Used where the logging and the terminal ``close()`` sit in different places:
@@ -390,7 +431,7 @@ def stream_for(job: DeploymentJob) -> RunLogStream:
     return stream
 
 
-def append_log(job: DeploymentJob, level: str, message: str, data: Any = None,
+def append_log(job, level: str, message: str, data: Any = None,
                step_index: Optional[int] = None) -> None:
     """Immediate, persisted single log line for fire-and-forget annotations
     (e.g. post-install notes) where no long-lived stream is open. Flushes at

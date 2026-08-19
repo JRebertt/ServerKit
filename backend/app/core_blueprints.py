@@ -117,6 +117,7 @@ CORE_BLUEPRINTS: tuple[BlueprintSpec, ...] = (
         '/api/v1/deployments/jobs',
         name='deployment_jobs_unified',
     ),
+    BlueprintSpec('app.api.runs', 'runs_bp', '/api/v1/runs'),
     BlueprintSpec('app.api.templates', 'templates_bp', '/api/v1/templates'),
     BlueprintSpec('app.api.files', 'files_bp', '/api/v1/files'),
     BlueprintSpec('app.api.firewall', 'firewall_bp', '/api/v1/firewall'),

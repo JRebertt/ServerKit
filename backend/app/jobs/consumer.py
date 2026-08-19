@@ -104,6 +104,16 @@ class JobConsumer:
         job.queue_message_id = message['id']
         db.session.commit()
 
+        # Live run envelope (plan 77 E1): unified jobs stream through the same
+        # RunLogStream seam as deploys — run_log/run_status into run_job_<id>,
+        # resumable over GET /api/v1/runs/job/<id>/logs?after_id. Handlers can
+        # log through stream_for(job) themselves; these frames bracket the run.
+        from app.services.run_log_service import stream_for
+        stream = stream_for(job)
+        stream.log('info', f'Job started: {job.kind} (attempt {job.attempts + 1})')
+        stream.flush()
+        stream.emit_status()
+
         try:
             result = handler(job)
             job = Job.query.get(job_id)  # handler may have committed/expired the row
@@ -113,6 +123,8 @@ class JobConsumer:
             job.error_message = None
             db.session.commit()
             QueueBusService.complete(GROUP_SLUG, QUEUE_SLUG, message['id'])
+            stream.log('info', f'Job succeeded: {job.kind}')
+            stream.close(Job.STATUS_SUCCEEDED)
             self._emit(job, 'job.succeeded')
         except Exception as e:
             logger.error(f'Job {job_id} ({job.kind}) failed: {e}')
@@ -120,7 +132,9 @@ class JobConsumer:
                 db.session.rollback()
             except Exception:
                 pass
+            stream.log('error', f'Job failed: {e}')
             self._fail(job_id, message, str(e))
+            stream.close('failed')
 
     def _fail(self, job_id, message, error):
         outcome = None
