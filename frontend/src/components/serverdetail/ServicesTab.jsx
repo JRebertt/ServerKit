@@ -12,6 +12,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // Built-in saved views. These are the four buttons that used to sit in the
 // toolbar (All / Active / Failed / Inactive) — they narrowed the AGENT query
@@ -277,12 +278,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
 
     function downloadLogs() {
         if (!logText || !logsFor) return;
-        const url = URL.createObjectURL(new Blob([logText], { type: 'text/plain' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${logsFor.unit}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logText, `${logsFor.unit}-${Date.now()}.log`);
     }
 
     // Units table columns. Cell markup and classNames are identical to the

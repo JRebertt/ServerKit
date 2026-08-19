@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
@@ -139,13 +140,7 @@ const LogsTab = ({ app }) => {
     }
 
     function handleDownload() {
-        const blob = new Blob([rawLogs], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${app.name}-logs-${new Date().toISOString().slice(0, 10)}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(rawLogs, `${app.name}-logs-${new Date().toISOString().slice(0, 10)}.txt`);
     }
 
     function handleCopy() {

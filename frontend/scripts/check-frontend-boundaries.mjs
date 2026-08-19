@@ -133,6 +133,16 @@ for (const path of files) {
         if (expected) seenPollers.add(file);
     }
 
+    // Saving a file to disk belongs to utils/downloadBlob. The six-line anchor
+    // ritual it replaces had been pasted into 14 components and had drifted:
+    // only 3 appended the anchor to the document (Firefox does not reliably
+    // click a detached one) and most revoked the object URL on the line after
+    // click(), which races the download it just started. An `.download =`
+    // assignment outside the helper is that ritual coming back.
+    if (file !== 'utils/downloadBlob.js' && /\.\s*download\s*=/.test(source)) {
+        failures.push(`${file}: use downloadBlob() instead of building a download anchor by hand.`);
+    }
+
     if (/(?:(?:window|globalThis)\s*\.\s*)?confirm\s*\(\s*['"`]/m.test(source)) {
         failures.push(`${file}: use useConfirm() instead of the browser confirm dialog.`);
     }

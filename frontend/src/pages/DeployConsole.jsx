@@ -11,6 +11,7 @@ import ErrorCard from '../components/deploy-console/ErrorCard';
 import SuccessBanner from '../components/deploy-console/SuccessBanner';
 import { sourceRef } from '../utils/deployActivity';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 const STATUS_META = {
     pending: { label: 'Queued', icon: Clock, cls: 'pending' },
@@ -198,13 +199,7 @@ export default function DeployConsole() {
             const ts = l.ts || l.created_at || '';
             return `${ts ? `[${ts}] ` : ''}${(l.level || 'info').toUpperCase()} ${l.message}`;
         }).join('\n');
-        const blob = new Blob([text], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `deploy-${jobId}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(text, `deploy-${jobId}.txt`);
     }, [lines, jobId]);
 
     const onStepClick = useCallback((index) => {

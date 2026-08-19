@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // Grouped left sub-nav for the service Settings tab — mirrors the WordPress
 // detail page's settings layout: an uppercase mono group label per section with
@@ -862,15 +863,7 @@ const ManifestSection = ({ app }) => {
 
     function handleDownloadScaffold() {
         if (!scaffold) return;
-        const blob = new Blob([scaffold], { type: 'text/yaml' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'serverkit.yaml';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        downloadBlob(scaffold, 'serverkit.yaml', { type: 'text/yaml' });
     }
 
     async function handlePlan() {

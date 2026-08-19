@@ -9,6 +9,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import { CHART_COLORS, METRIC_LABELS } from './fleetMetrics';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // The three fleet-wide questions that only make sense across servers: how do
 // these boxes compare, which one is behaving unlike itself, and when does a
@@ -81,12 +82,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         if (selectedServers.length === 0) return;
         try {
             const blob = await api.exportFleetCsv(selectedServers, compMetric, compPeriod);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `fleet_${compMetric}_${compPeriod}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
+            downloadBlob(blob, `fleet_${compMetric}_${compPeriod}.csv`);
         } catch {
             toast.error('Export failed');
         }

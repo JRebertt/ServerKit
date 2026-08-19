@@ -1,3 +1,5 @@
+import { downloadBlob } from '@/utils/downloadBlob';
+
 // DataGrid field model + filter-rule engine.
 //
 // A grid column is a superset of the legacy DataTable column descriptor, so a
@@ -322,11 +324,6 @@ export function exportRows(rows, columns, format, filename) {
         mime = 'text/csv';
         ext = 'csv';
     }
-    const url = URL.createObjectURL(new Blob([body], { type: mime }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename || 'export'}.${ext}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    downloadBlob(body, `${filename || 'export'}.${ext}`, { type: mime });
     return rows.length;
 }

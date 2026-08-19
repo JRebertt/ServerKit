@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import api from '../../services/api';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // Enrolment is a three-beat flow. Offer is the default so someone who just
 // wants a dashboard is one click from moving on — 2FA is offered here because
@@ -88,12 +89,7 @@ const SetupStepSecurity = ({ onComplete }) => {
             ...backupCodes,
         ].join('\n');
 
-        const url = URL.createObjectURL(new Blob([body], { type: 'text/plain' }));
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'serverkit-backup-codes.txt';
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(body, 'serverkit-backup-codes.txt');
         setSavedCodes(true);
     }
 

@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { FormField, FormRow } from '../FormField';
 import { DataTable, DataTableFooter } from '@/components/ds';
 import { useConfirm } from '@/hooks/useConfirm';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
     Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/select';
@@ -204,13 +205,7 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
         try {
             const zid = await ensureZone();
             const data = await api.exportDNSZone(zid);
-            const blob = new Blob([data.zone_file || ''], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${domain.name}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
+            downloadBlob(data.zone_file || '', `${domain.name}.txt`);
         } catch (e) {
             toast.error(e.message || 'Export failed');
         } finally {

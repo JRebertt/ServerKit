@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 const LinkedAccounts = ({ register }) => {
     const { ssoProviders } = useAuth();
@@ -270,15 +271,7 @@ ${backupCodes.join('\n')}
 
 Keep these codes in a safe place.`;
 
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'serverkit-backup-codes.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(content, 'serverkit-backup-codes.txt');
     }
 
     function copyBackupCodes() {

@@ -15,6 +15,7 @@ import ProcessTable, { procUser } from '../components/ProcessTable';
 import SystemdServicesTab from '../components/serverdetail/ServicesTab';
 import { useTableSort } from '@/hooks/useTableSort';
 import PageLayout from '../layouts/PageLayout';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
     FileText, Clock, AlertCircle, Search, X, AlertTriangle, Activity,
     Terminal as TerminalIcon, Server as ServerIcon,
@@ -310,13 +311,7 @@ const LogFilesTab = () => {
 
     function handleDownload() {
         if (!logContent) return;
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedLog ? selectedLog.split('/').pop() : 'log.txt';
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logContent, selectedLog ? selectedLog.split('/').pop() : 'log.txt');
     }
 
     const visibleLineCount = useMemo(() => {
@@ -568,13 +563,7 @@ const JournalTab = () => {
 
     function handleDownload() {
         if (!logContent) return;
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `journal-${unit || 'all'}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logContent, `journal-${unit || 'all'}-${Date.now()}.log`);
     }
 
     function scrollToBottom() {

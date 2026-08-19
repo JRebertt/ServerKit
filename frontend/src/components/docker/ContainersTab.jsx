@@ -40,6 +40,7 @@ import {
 } from './dockerHelpers';
 import { ContainerResourceBars } from './dockerShared';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // Action Buttons
 export const RunContainerButton = () => {
@@ -1260,13 +1261,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
 
     function handleDownload() {
         if (!logs) return;
-        const blob = new Blob([logs], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${container.name}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logs, `${container.name}-${Date.now()}.log`);
     }
 
     return (

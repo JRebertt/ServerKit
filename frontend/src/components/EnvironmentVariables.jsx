@@ -21,6 +21,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useClipboard } from '@/hooks/useClipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 // What a masked value renders as. Unchanged from the list this table replaces:
 // every env var is stored as a secret, so every value is dots until the row's
@@ -245,15 +246,7 @@ const EnvironmentVariables = ({ appId }) => {
     async function handleExport(includeSecrets = true) {
         try {
             const data = await api.exportEnvFile(appId, includeSecrets);
-            const blob = new Blob([data.content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = data.filename || 'app.env';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            downloadBlob(data.content, data.filename || 'app.env');
             toast.success('Environment file exported');
         } catch (err) {
             toast.error('Failed to export');

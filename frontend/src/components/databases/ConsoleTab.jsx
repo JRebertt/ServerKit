@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { runQuery, connKey } from './dbAdapter';
 import ResultsGrid from './ResultsGrid';
 import SqlEditor from './SqlEditor';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 const HISTORY_KEY = 'serverkit_query_history';
 const MAX_HISTORY = 50;
@@ -106,12 +107,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
             results.columns.map(esc).join(','),
             ...results.rows.map((r) => r.map(esc).join(',')),
         ].join('\n');
-        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${conn.name || 'query'}_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(csv, `${conn.name || 'query'}_${new Date().toISOString().slice(0, 10)}.csv`, { type: 'text/csv' });
         toast.success('Exported results to CSV');
     }
 

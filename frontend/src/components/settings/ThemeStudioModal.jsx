@@ -10,6 +10,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { TOKEN_GROUPS, GROUP_LABELS, TOKEN_TYPE, sanitizeTokens } from '../../data/themeTokens';
 import { DEFAULT_THEME_SLUG, BUNDLED_THEME_MAP } from '../../data/bundledThemes';
 import api from '../../services/api';
+import { downloadBlob } from '@/utils/downloadBlob';
 
 const REGISTRY_REPO = 'https://github.com/jhd3197/serverkit-themes';
 
@@ -90,13 +91,7 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
     const setToken = (token, value) => setActiveTokens((prev) => ({ ...prev, [token]: value }));
 
     const download = () => {
-        const blob = new Blob([JSON.stringify(workingTheme, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${workingTheme.slug || 'theme'}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(JSON.stringify(workingTheme, null, 2), `${workingTheme.slug || 'theme'}.json`, { type: 'application/json' });
         toast.success('theme.json downloaded');
     };
 
