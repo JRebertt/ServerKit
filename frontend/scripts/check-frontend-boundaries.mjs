@@ -217,6 +217,51 @@ for (const file of LEGACY_POLLERS.keys()) {
     }
 }
 
+// Adoption ceilings (plan 76, milestones E1/F2/C4-interim). These populations
+// are in the hundreds, so per-file baselines would be unmaintainable; a total
+// that may only go down is the honest ratchet. Each entry names the door the
+// sites should migrate to when their surface is next touched.
+const ADOPTION_CEILINGS = [
+    {
+        name: 'raw api.* calls in pages/ (E1: useServerQuery/useServerMutation)',
+        ceiling: 460,
+        include: (file) => file.startsWith('pages/'),
+        pattern: /\bapi\s*\.\s*\w+\s*\(/g,
+    },
+    {
+        name: 'per-page toast.error extractions in pages/ (E1: query-layer error presentation)',
+        ceiling: 264,
+        include: (file) => file.startsWith('pages/'),
+        pattern: /toast\s*\.\s*error\s*\(/g,
+    },
+    {
+        name: 'hand-rolled form-group blocks (F2: FormField/useForm)',
+        ceiling: 343,
+        include: (file) => file.startsWith('pages/') || file.startsWith('components/'),
+        pattern: /form-group/g,
+    },
+    {
+        name: 'unencoded ?k=${v} query interpolations in services/api (C4: buildQuery/encoding template)',
+        ceiling: 97,
+        include: (file) => file.startsWith('services/api/'),
+        pattern: /[?&][A-Za-z_]+=\$\{(?!encodeURIComponent)/g,
+    },
+];
+
+for (const rule of ADOPTION_CEILINGS) {
+    let totalCount = 0;
+    for (const path of files) {
+        const file = rel(path);
+        if (!rule.include(file)) continue;
+        totalCount += count(readFileSync(path, 'utf8'), rule.pattern);
+    }
+    if (totalCount > rule.ceiling) {
+        failures.push(`${rule.name}: ${totalCount} sites, ceiling ${rule.ceiling}. Migrate through the named door instead of adding another bypass.`);
+    } else if (rule.ceiling - totalCount > 25) {
+        failures.push(`${rule.name}: ceiling ${rule.ceiling} is ${rule.ceiling - totalCount} above the actual ${totalCount}; lower it in check-frontend-boundaries.mjs so the migration cannot silently regrow.`);
+    }
+}
+
 // A @keyframes name is global and last-definition-wins, across every partial
 // main.scss pulls in. Two partials defining the same name is therefore not
 // duplication that merely wastes bytes: one of them is silently dead, and which
