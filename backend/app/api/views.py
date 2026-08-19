@@ -20,15 +20,13 @@ def list_views():
 @jwt_required()
 def create_view():
     body = request.get_json(silent=True) or {}
-    view, err = saved_view_service.create_view(
+    view = saved_view_service.create_view(
         get_jwt_identity(),
         body.get('page'),
         body.get('name'),
         body.get('state'),
         is_default=bool(body.get('is_default')),
     )
-    if err:
-        return jsonify({'error': err}), 400
     return jsonify(view), 201
 
 
@@ -36,17 +34,12 @@ def create_view():
 @jwt_required()
 def update_view(view_id):
     body = request.get_json(silent=True) or {}
-    view, err = saved_view_service.update_view(get_jwt_identity(), view_id, body)
-    if err:
-        code = 404 if 'not found' in err.lower() else 400
-        return jsonify({'error': err}), code
+    view = saved_view_service.update_view(get_jwt_identity(), view_id, body)
     return jsonify(view)
 
 
 @views_bp.route('/<int:view_id>', methods=['DELETE'])
 @jwt_required()
 def delete_view(view_id):
-    _, err = saved_view_service.delete_view(get_jwt_identity(), view_id)
-    if err:
-        return jsonify({'error': err}), 404
+    saved_view_service.delete_view(get_jwt_identity(), view_id)
     return jsonify({'success': True})

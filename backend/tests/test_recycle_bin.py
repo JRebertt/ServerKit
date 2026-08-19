@@ -129,8 +129,7 @@ def test_unknown_kind_raises(app):
 
 def test_deleting_a_view_sends_it_to_the_bin(app):
     with app.app_context():
-        view, err = saved_view_service.create_view(1, 'domains', 'SSL expiring', {'sorts': []})
-        assert err is None
+        view = saved_view_service.create_view(1, 'domains', 'SSL expiring', {'sorts': []})
         saved_view_service.delete_view(1, view['id'])
 
         assert saved_view_service.list_views(1, 'domains') == []
@@ -139,8 +138,8 @@ def test_deleting_a_view_sends_it_to_the_bin(app):
 
 def test_view_slug_is_derived_and_deduped(app):
     with app.app_context():
-        a, _ = saved_view_service.create_view(1, 'domains', 'SSL expiring', {})
-        b, _ = saved_view_service.create_view(1, 'services', 'SSL expiring', {})
+        a = saved_view_service.create_view(1, 'domains', 'SSL expiring', {})
+        b = saved_view_service.create_view(1, 'services', 'SSL expiring', {})
         assert a['slug'] == 'ssl-expiring'
         assert b['slug'] == 'ssl-expiring'          # different page, no clash
 
@@ -150,11 +149,10 @@ def test_view_slug_is_derived_and_deduped(app):
 
 def test_a_deleted_view_frees_its_name_and_slug(app):
     with app.app_context():
-        first, _ = saved_view_service.create_view(1, 'domains', 'Triage', {})
+        first = saved_view_service.create_view(1, 'domains', 'Triage', {})
         saved_view_service.delete_view(1, first['id'])
 
-        again, err = saved_view_service.create_view(1, 'domains', 'Triage', {})
-        assert err is None
+        again = saved_view_service.create_view(1, 'domains', 'Triage', {})
         assert again['slug'] == 'triage'            # not 'triage-2'
         assert saved_view_service.get_by_slug(1, 'domains', 'triage')['id'] == again['id']
 
@@ -281,7 +279,7 @@ def test_restoring_a_view_is_refused_when_the_name_was_reused(app):
     """Deleting a view frees its name and slug, so either can be taken by the
     time you press Restore — that must be a refusal, not an IntegrityError."""
     with app.app_context():
-        first, _ = saved_view_service.create_view(1, 'domains', 'Triage', {})
+        first = saved_view_service.create_view(1, 'domains', 'Triage', {})
         saved_view_service.delete_view(1, first['id'])
         saved_view_service.create_view(1, 'domains', 'Triage', {})   # reuses name + slug
 
