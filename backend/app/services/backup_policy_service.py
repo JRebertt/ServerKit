@@ -331,7 +331,6 @@ class BackupPolicyService:
         """Run an optional pre/post shell hook; raise on non-zero exit."""
         if not hook or not hook.strip():
             return
-        import subprocess
         env = dict(os.environ)
         env['SERVERKIT_TARGET_NAME'] = target['name']
         env['SERVERKIT_TARGET_PATH'] = target['root_path'] or ''

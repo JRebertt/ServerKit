@@ -8,7 +8,6 @@ and creates corresponding Nginx virtual host configs.
 
 import os
 import re
-import subprocess
 from typing import Dict
 
 from app.services.nginx_service import NginxService

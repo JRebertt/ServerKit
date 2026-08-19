@@ -12,7 +12,6 @@ command's own code so cron behaves identically. Reporting is best-effort: a
 failure to record must never change the job's outcome.
 """
 import os
-import subprocess
 
 from app.utils.system import run_checked
 import sys

@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from app.services.nginx_service import NginxService
-from app.utils.system import run_unprivileged, run_privileged
+from app.utils.system import run_unprivileged
 
 logger = logging.getLogger(__name__)
 

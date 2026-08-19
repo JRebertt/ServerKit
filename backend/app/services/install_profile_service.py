@@ -25,10 +25,8 @@ change the other.
 import logging
 import os
 import shutil
-import subprocess
 
 from app.utils.system import run_checked
-import time
 
 from app.services.cache_service import ttl_cached
 

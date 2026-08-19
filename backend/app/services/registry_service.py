@@ -17,10 +17,8 @@ import json
 import logging
 import os
 import re
-import time
 from urllib.parse import urljoin
 
-import requests
 
 from app.models.plugin import InstalledPlugin
 from app.utils.remote_index import CachedRemoteIndex

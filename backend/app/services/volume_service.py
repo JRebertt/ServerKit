@@ -18,7 +18,6 @@ accident.
 import logging
 import os
 import re
-import subprocess
 
 from app import db
 from app.models.app_volume import AppVolume

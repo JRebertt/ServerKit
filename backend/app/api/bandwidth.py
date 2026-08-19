@@ -9,7 +9,7 @@ from app.middleware.rbac import get_current_user
 from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required, viewer_required
-from ..models import User, Application
+from ..models import Application
 from ..services.bandwidth_service import BandwidthService
 from ..services.resource_grant_service import ResourceGrantService
 

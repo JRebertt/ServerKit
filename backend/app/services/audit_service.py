@@ -5,7 +5,6 @@ from app.models import AuditLog
 
 from app.utils.sensitive_data_filter import (
     REDACTED,
-    SENSITIVE_KEY_PARTS as SENSITIVE_SETTING_PARTS,
     is_sensitive_key as _shared_is_sensitive_key,
 )
 

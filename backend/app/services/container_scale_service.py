@@ -3,7 +3,6 @@ average CPU, within min/max bounds and a cooldown. Local apps only for now;
 the service must be scale-capable (no fixed host port or container_name)."""
 import logging
 import os
-import subprocess
 from datetime import datetime, timedelta
 
 from app import db

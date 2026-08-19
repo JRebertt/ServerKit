@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import platform
-import subprocess
 import threading
 from datetime import datetime
 from typing import Dict, List, Optional

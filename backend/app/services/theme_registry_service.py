@@ -17,7 +17,6 @@ Design rules (same as the extension registry):
 import json
 import logging
 import os
-import time
 from urllib.parse import urljoin
 
 import requests

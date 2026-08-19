@@ -7,7 +7,6 @@ Handles agent connections, authentication, and message routing.
 
 import json
 import logging
-import threading
 import time
 
 from flask import request

@@ -13,7 +13,6 @@ single-container path (``DockerService.pull_image``) and the compose path
 """
 import logging
 import os
-import subprocess
 from datetime import datetime
 
 from app import db

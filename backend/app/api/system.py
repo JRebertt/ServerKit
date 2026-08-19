@@ -1,4 +1,3 @@
-import os
 from app.utils.env import env_bool
 import time
 import urllib.request

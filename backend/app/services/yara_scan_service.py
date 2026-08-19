@@ -21,7 +21,6 @@ Result shape (both engines):
 
 import os
 import re
-import subprocess
 
 from app.utils.system import run_checked
 import logging

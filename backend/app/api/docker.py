@@ -462,7 +462,6 @@ def docker_cleanup():
     - ServerKit containers
     - Images in use
     """
-    import subprocess
 
     data = request.get_json() or {}
     include_volumes = data.get('volumes', False)
