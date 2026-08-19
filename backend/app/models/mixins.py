@@ -31,6 +31,7 @@ import uuid
 from datetime import datetime
 
 from app import db
+from app.models import status as _status
 
 logger = logging.getLogger(__name__)
 
@@ -196,3 +197,61 @@ class TimestampMixin:
     def updated_at(cls):  # noqa: N805
         return db.Column(db.DateTime, default=datetime.utcnow,
                          onupdate=datetime.utcnow)
+
+
+class RunLifecycleMixin:
+    """State transitions for run-shaped models (plan 77 D2).
+
+    Ten run models hand-write ``status`` + ``started_at``/``completed_at``
+    (+ duration) transitions today; this mixin is the one place they happen::
+
+        job.mark_running()
+        job.mark_succeeded()          # or mark_failed(error=...), mark_cancelled()
+
+    Status spellings come from models/status.py. A domain still storing a
+    legacy spelling (e.g. deployment jobs' 'succeeded') overrides the class
+    attributes below until its per-domain data migration lands — adoption
+    must NOT silently change stored strings.
+
+    Column-name variance is absorbed, not forced: completed-at goes to
+    ``__completed_at_attr__`` (default 'completed_at'; set 'finished_at'
+    where that is the column), and a duration is stored only when the model
+    actually has a 'duration_seconds' or 'duration' COLUMN (properties are
+    left alone).
+    """
+
+    __status_running__ = _status.RUNNING
+    __status_success__ = _status.SUCCESS
+    __status_failed__ = _status.FAILED
+    __status_cancelled__ = _status.CANCELLED
+    __completed_at_attr__ = 'completed_at'
+
+    def mark_running(self, when=None):
+        self.status = self.__status_running__
+        self.started_at = when or datetime.utcnow()
+        return self
+
+    def mark_succeeded(self, when=None):
+        return self._finish(self.__status_success__, when)
+
+    def mark_failed(self, error=None, when=None):
+        self._finish(self.__status_failed__, when)
+        if error is not None and 'error' in self.__table__.columns:
+            self.error = str(error)
+        return self
+
+    def mark_cancelled(self, when=None):
+        return self._finish(self.__status_cancelled__, when)
+
+    def _finish(self, status, when=None):
+        when = when or datetime.utcnow()
+        self.status = status
+        if self.__completed_at_attr__ in self.__table__.columns:
+            setattr(self, self.__completed_at_attr__, when)
+        started = getattr(self, 'started_at', None)
+        if started is not None:
+            for dattr in ('duration_seconds', 'duration'):
+                if dattr in self.__table__.columns:
+                    setattr(self, dattr, (when - started).total_seconds())
+                    break
+        return self
