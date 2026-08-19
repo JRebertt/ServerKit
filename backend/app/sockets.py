@@ -8,6 +8,7 @@ import queue
 from app.services.system_service import SystemService
 from app.services.log_service import LogService, LogStreamer
 from app.services.docker_service import DockerService
+from app import sockets_rooms as rooms
 
 socketio = SocketIO()
 log_streamer = LogStreamer()
@@ -108,7 +109,7 @@ def handle_connect(auth):
 
     # Join a per-user room so the Notification Bus can push in-app notifications
     # to every tab/device this user has open.
-    join_room(f'user_{user.id}')
+    join_room(rooms.user_room(user.id))
 
     emit('connected', {'status': 'connected'})
 
@@ -276,7 +277,7 @@ def handle_subscribe_terminal(data):
         emit('error', {'message': 'Unknown terminal session'})
         return
 
-    join_room(f"server_{session['server_id']}_terminal:{session_id}")
+    join_room(rooms.server_terminal_room(session['server_id'], session_id))
     emit('subscribed', {'channel': f'terminal:{session_id}'})
 
 
@@ -290,7 +291,7 @@ def handle_unsubscribe_terminal(data):
         return
     session = TerminalService.get_session(session_id)
     if session:
-        leave_room(f"server_{session['server_id']}_terminal:{session_id}")
+        leave_room(rooms.server_terminal_room(session['server_id'], session_id))
 
 
 @socketio.on('subscribe_logs')
@@ -349,7 +350,7 @@ def handle_join_room(data):
         emit('error', {'message': 'room required'})
         return
 
-    if '_terminal:' in room and not _client_is_privileged(request.sid):
+    if rooms.is_terminal_room(room) and not _client_is_privileged(request.sid):
         emit('error', {'message': 'Developer role required for terminal access'})
         return
 
@@ -394,7 +395,7 @@ def handle_subscribe_deploy(data):
         emit('error', {'message': 'job_id required'})
         return
 
-    join_room(f'deploy_{job_id}')
+    join_room(rooms.deploy_room(job_id))
     emit('subscribed', {'channel': 'deploy', 'job_id': job_id})
 
 
@@ -403,7 +404,7 @@ def handle_unsubscribe_deploy(data=None):
     """Leave a deployment job's live room."""
     job_id = (data or {}).get('job_id')
     if job_id:
-        leave_room(f'deploy_{job_id}')
+        leave_room(rooms.deploy_room(job_id))
     emit('unsubscribed', {'channel': 'deploy', 'job_id': job_id})
 
 
@@ -417,7 +418,7 @@ def emit_deploy_log(job_id: str, lines: list):
     socketio.emit('deploy_log', {
         'job_id': job_id,
         'lines': lines,
-    }, room=f'deploy_{job_id}')
+    }, room=rooms.deploy_room(job_id))
 
 
 def emit_deploy_status(job_id: str, status: dict):
@@ -426,7 +427,7 @@ def emit_deploy_status(job_id: str, status: dict):
     socketio.emit('deploy_status', {
         'job_id': job_id,
         'status': status,
-    }, room=f'deploy_{job_id}')
+    }, room=rooms.deploy_room(job_id))
 
 
 # ==================== CONTAINER LOG STREAMING ====================
@@ -509,7 +510,7 @@ def handle_subscribe_container_logs(data):
         return
 
     # Join room for this app's logs
-    join_room(f'logs_{app_id}')
+    join_room(rooms.app_logs_room(app_id))
 
     # Start streaming process
     process = DockerService.stream_container_logs(
@@ -540,7 +541,7 @@ def handle_subscribe_container_logs(data):
                         socketio.emit('container_log_ended', {
                             'app_id': app_id,
                             'message': 'Container log stream ended'
-                        }, room=f'logs_{app_id}')
+                        }, room=rooms.app_logs_room(app_id))
                     break
 
                 # Parse the log line
@@ -551,13 +552,13 @@ def handle_subscribe_container_logs(data):
                     'line': line.rstrip('\n'),
                     'parsed': parsed,
                     'timestamp': time.time()
-                }, room=f'logs_{app_id}')
+                }, room=rooms.app_logs_room(app_id))
         except Exception as e:
             if not stop_event.is_set():
                 socketio.emit('container_log_error', {
                     'app_id': app_id,
                     'message': f'Stream error: {str(e)}'
-                }, room=f'logs_{app_id}')
+                }, room=rooms.app_logs_room(app_id))
         finally:
             # Clean up
             try:
@@ -599,7 +600,7 @@ def handle_unsubscribe_container_logs():
 
     if stream_info:
         app_id = stream_info.get('app_id')
-        leave_room(f'logs_{app_id}')
+        leave_room(rooms.app_logs_room(app_id))
         stop_container_log_stream(sid)
 
     emit('unsubscribed', {'channel': 'container_logs'})
@@ -645,7 +646,7 @@ def emit_container_log(app_id: int, line: str, level: str = 'info'):
             'level': level
         },
         'timestamp': time.time()
-    }, room=f'logs_{app_id}')
+    }, room=rooms.app_logs_room(app_id))
 
 
 # ==================== PIPELINE EVENT STREAMING ====================

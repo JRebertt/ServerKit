@@ -171,7 +171,8 @@ class NotificationBusService:
             payload = notification.to_dict()
             payload['delivery_id'] = delivery_id
             payload['read'] = False
-            socketio.emit('notification', payload, room=f'user_{user_id}')
+            from app.sockets_rooms import user_room
+            socketio.emit('notification', payload, room=user_room(user_id))
         except Exception as exc:  # pragma: no cover - socket is best-effort
             logger.debug('Socket emit for notification skipped: %s', exc)
 

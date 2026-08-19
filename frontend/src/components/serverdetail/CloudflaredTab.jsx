@@ -16,6 +16,7 @@ import { Cloud } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
 import { copyToClipboard } from '@/utils/clipboard';
+import { rooms } from '@/constants/events';
 import {
     OfflineIcon,
     TrashIcon,
@@ -225,7 +226,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                 toast.error('Socket not available');
                 return;
             }
-            const room = `server_${serverId}_${channel}`;
+            const room = rooms.serverChannel(serverId, channel);
             const onStream = (msg) => {
                 if (msg?.channel !== channel) return;
                 const ev = msg.data || {};

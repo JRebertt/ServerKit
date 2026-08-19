@@ -13,6 +13,8 @@ import time
 from flask import request
 from flask_socketio import Namespace, emit, disconnect
 
+from app import sockets_rooms as rooms
+
 from app.services.agent_registry import agent_registry
 from app.models.server import Server
 
@@ -253,21 +255,21 @@ class AgentNamespace(Namespace):
         if not isinstance(channel, str) or not channel:
             return
 
-        # Broadcast to subscribers
-        # The channel format determines where to broadcast:
-        # - "metrics" -> room: f"server_{server_id}_metrics"
-        # - "container:xxx:logs" -> room: f"server_{server_id}_container_logs"
+        # Broadcast to subscribers. The channel format determines the room
+        # (grammar owned by app/sockets_rooms.py):
+        # - "metrics"              -> server_metrics_room
+        # - "container:xxx:logs"   -> server_container_logs_room
 
         if channel == 'metrics':
-            room = f"server_{agent.server_id}_metrics"
+            room = rooms.server_metrics_room(agent.server_id)
         elif channel.startswith('container:') and channel.endswith(':logs'):
             parts = channel.split(':')
             if len(parts) < 3:
                 return
             container_id = parts[1]
-            room = f"server_{agent.server_id}_container_{container_id}_logs"
+            room = rooms.server_container_logs_room(agent.server_id, container_id)
         else:
-            room = f"server_{agent.server_id}_{channel}"
+            room = rooms.server_channel_room(agent.server_id, channel)
 
         # Emit to the main namespace for UI clients
         from app import get_socketio

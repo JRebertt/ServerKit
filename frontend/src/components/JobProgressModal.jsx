@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
 import { Button } from '@/components/ui/button';
 import socketService from '../services/socket';
+import { rooms } from '@/constants/events';
 
 // Subscribes to a remote agent's job:<id> stream channel and renders
 // the live log output. Used by PackagesTab and ServicesTab for
@@ -26,7 +27,7 @@ export default function JobProgressModal({
 
     useEffect(() => {
         if (!open || !channel || !serverId) return;
-        const room = `server_${serverId}_${channel}`;
+        const room = rooms.serverChannel(serverId, channel);
         const socket = socketService.socket;
         if (!socket) {
             // Connect lazily — happens once per panel session normally.
