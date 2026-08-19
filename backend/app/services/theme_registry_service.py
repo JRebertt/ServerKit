@@ -22,6 +22,11 @@ from urllib.parse import urljoin
 
 import requests
 
+from app.exceptions import (
+    DependencyUnavailableError,
+    NotFoundError,
+    ValidationError,
+)
 from app.models.theme import Theme
 from app.services import theme_service
 
@@ -188,13 +193,13 @@ def registry_source_label():
 
 def install(slug):
     """Fetch a registry theme's full theme.json, validate it, and store it.
-    Returns ``(theme_dict, error)``."""
+    Returns the theme dict; raises typed application errors."""
     entry = get_entry(slug)
     if entry is None:
-        return None, 'Theme not found in the registry'
+        raise NotFoundError('Theme not found in the registry')
     theme_url = entry.get('_theme_url')
     if not theme_url:
-        return None, 'Registry entry has no theme file'
+        raise ValidationError('Registry entry has no theme file')
     try:
         resp = requests.get(theme_url, timeout=15, headers={
             'Accept': 'application/json',
@@ -204,8 +209,12 @@ def install(slug):
         raw = resp.json()
     except Exception as e:
         logger.warning('Fetching theme %s failed (%s): %s', slug, theme_url, e)
-        return None, 'Could not download the theme from the registry'
+        raise DependencyUnavailableError(
+            'Could not download the theme from the registry') from e
     # The registry index and the theme file must agree on the slug.
     if isinstance(raw, dict) and raw.get('slug') and raw['slug'] != slug:
-        return None, 'Registry theme slug mismatch'
-    return theme_service.import_theme(raw, source='registry')
+        raise ValidationError('Registry theme slug mismatch')
+    theme, err = theme_service.import_theme(raw, source='registry')
+    if err:
+        raise ValidationError(err)
+    return theme

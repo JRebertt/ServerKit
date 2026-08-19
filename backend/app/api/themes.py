@@ -153,10 +153,7 @@ def install_registry(slug):
     validates it server-side, and stores it — no zips, no checksums."""
     user = require_admin_user()
     from app.services import theme_registry_service
-    theme, ierr = theme_registry_service.install(slug)
-    if ierr:
-        code = 404 if 'not found' in ierr.lower() else 400
-        return jsonify({'error': ierr}), code
+    theme = theme_registry_service.install(slug)
     AuditService.log(
         action=AuditLog.ACTION_RESOURCE_CREATE,
         user_id=user.id,
