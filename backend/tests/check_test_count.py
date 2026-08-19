@@ -37,13 +37,24 @@ def read_baseline():
 
 def collect_count():
     """Return the number of tests pytest collects, without running them."""
+    # Scoped to tests/ on purpose: a bare collect from backend/ also walks
+    # whatever this machine has lying around (dev-data/, sibling checkouts),
+    # which is how the floor was once --update'd ~282 items above anything a
+    # clean checkout can collect, turning the ratchet permanently red.
     proc = subprocess.run(
-        [sys.executable, '-m', 'pytest', '--collect-only', '-q',
+        [sys.executable, '-m', 'pytest', 'tests', '--collect-only', '-q',
          '-p', 'no:cacheprovider'],
         cwd=os.path.dirname(HERE),  # backend/
         capture_output=True, text=True,
     )
     out = proc.stdout + proc.stderr
+    if proc.returncode != 0:
+        # Collection errors silently DEFLATE the count — an import-broken
+        # test module must fail the guard, not shrink the number it reports.
+        sys.stderr.write(f'pytest collection exited {proc.returncode}; '
+                         'refusing to trust a partial count.\n')
+        sys.stderr.write(out[-2000:] + '\n')
+        sys.exit(2)
     # pytest prints e.g. "2475 tests collected in 6.55s" (or "1 test collected")
     m = re.search(r'(\d+)\s+tests?\s+collected', out)
     if not m:
