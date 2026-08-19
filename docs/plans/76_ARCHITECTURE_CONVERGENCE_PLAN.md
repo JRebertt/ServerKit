@@ -155,6 +155,42 @@ mechanically repointed at the helper. `copyToClipboard` resolves `false` rather
 than rejecting, so the error callback silently stops running; four sites needed
 `.then(ok => ...)` instead.
 
+### Second-wave execution — milestone B crash-reporting row (2026-08-18)
+
+| Row | Baseline | Now | Commit |
+|---|---|---|---|
+| swallowed exceptions | 43 API handlers answering 500 with no report; 35 leaking `str(exc)` | 0; ratchet held at **0** | `a7d5a0b9` |
+
+The row's premise checked out and is worth stating precisely: the global 500
+handler was the **only** caller of
+`error_log_service.record_error(source='backend')`. Catching `Exception` in a
+route did not merely skip logging — it removed the endpoint from
+`/monitoring/errors` entirely, and did so invisibly, because the endpoint still
+answered.
+
+The fix was not to rewrite error bodies but to make the recorder importable:
+`app/error_reporting.py` now owns logging + rollback + recording, and the 500
+handler calls it too, so there is one recorder instead of one recorder and 43
+routes opted out of it.
+
+Corrections to the audit's measurement:
+
+- **The blanket-`except` population is 1,404 in 243 files, not 125** — the
+  audit's number was the `app/api` subset (129). The vast majority (1,058) are
+  in `app/services`, where catching an exception and returning a value is a
+  domain decision, not an HTTP answer. Converging those through an HTTP-shaped
+  door would be the wrong move, so the ratchet is scoped to `app/api`.
+- **The leak was worse than `str(e)` in two places**: `templates.py` returned
+  the full traceback to the caller and `print()`ed it.
+- **Three sites had invented a second correlation id** — a local
+  `uuid.uuid4().hex[:8]` "ref" that appeared in a log line and nowhere else,
+  while `X-Request-ID` already existed from milestone B's first wave.
+
+Measured and deliberately left open: **56 API handlers swallow a crash and
+answer 200.** A failure reported as success is a worse bug than a 500 nobody
+logged, but converging it means deciding the response envelope, which is
+milestone C. It is called out here so the plan cannot claim B is finished.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
