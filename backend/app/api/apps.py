@@ -43,7 +43,7 @@ from app.services.upload_service import (
     get_current_version,
 )
 from app import paths
-from app.middleware.rbac import get_current_user
+from app.middleware.rbac import get_current_user, require_admin_user
 
 apps_bp = Blueprint('apps', __name__)
 
@@ -505,7 +505,7 @@ def set_app_workspace(app_id):
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     # Use user.id (int) for comparisons — get_jwt_identity() is the stringified token id.
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
 
     target = (request.get_json() or {}).get('workspace_id')
@@ -515,7 +515,7 @@ def set_app_workspace(app_id):
         ws = Workspace.query.get(target)
         if not ws:
             return jsonify({'error': 'Workspace not found'}), 404
-        if user.role != 'admin' and WorkspaceService.get_user_role(ws.id, user.id) is None:
+        if not user.is_admin and WorkspaceService.get_user_role(ws.id, user.id) is None:
             return jsonify({'error': 'Not a member of the target workspace'}), 403
         # Role reconciliation (#33): a 'viewer' member can't move resources into it.
         if not WorkspaceService.can_write_in_workspace(user, ws.id):
@@ -728,7 +728,7 @@ def list_app_grants(app_id):
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     grants = ResourceGrantService.list_for_resource('application', app.id)
     return jsonify({'grants': [g.to_dict() for g in grants]}), 200
@@ -743,7 +743,7 @@ def grant_app_access(app_id):
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json() or {}
     grantee_id = data.get('user_id')
@@ -771,7 +771,7 @@ def revoke_app_access(app_id, grant_id):
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     ok = ResourceGrantService.revoke(grant_id, resource_type='application', resource_id=app.id)
     return jsonify({'success': ok}), (200 if ok else 404)
@@ -781,10 +781,7 @@ def revoke_app_access(app_id, grant_id):
 @jwt_required()
 def create_app_from_repository():
     """Create a new application by cloning a Git repository."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     name = _service_slug(data.get('name'))
@@ -810,7 +807,7 @@ def create_app_from_repository():
     if source_connection_id:
         try:
             source_repo = SourceConnectionService.get_authenticated_clone_url(
-                user_id=current_user_id,
+                user_id=user.id,
                 connection_id=int(source_connection_id),
                 full_name=repository_full_name,
             )
@@ -915,7 +912,7 @@ def create_app_from_repository():
         app_type=resolved_app_type,
         status='stopped',
         root_path=app_path,
-        user_id=current_user_id,
+        user_id=user.id,
         port=port,
         buildpack_type=buildpack_type,
         buildpack_plan=json.dumps(buildpack_plan) if buildpack_plan else None,
@@ -958,7 +955,7 @@ def create_app_from_repository():
         try:
             from app.services.manifest_persistence_service import ManifestPersistenceService
             manifest_summary = ManifestPersistenceService.apply_import(
-                app, manifest, user_id=current_user_id,
+                app, manifest, user_id=user.id,
                 source_repo=deploy_repo_url, source_ref=branch or 'main',
             )
         except Exception:
@@ -973,7 +970,7 @@ def create_app_from_repository():
         try:
             from app.services.deployment_job_service import DeploymentJobService
             enqueue_result = DeploymentJobService.enqueue_app_deploy(
-                app, user_id=current_user_id, trigger='install')
+                app, user_id=user.id, trigger='install')
             if enqueue_result.get('success'):
                 deploy_job_id = enqueue_result.get('job_id')
             else:
@@ -1083,10 +1080,7 @@ def create_app():
 @jwt_required()
 def create_manual_app():
     """Register an app that already exists on the server (manual/local)."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     name = _service_slug(data.get('name'))
@@ -1150,7 +1144,7 @@ def create_manual_app():
         systemd_unit=systemd_unit,
         managed_by=managed_by,
         ingress_plane=_resolve_ingress_plane(data, app_type, managed_by),
-        user_id=current_user_id,
+        user_id=user.id,
         workspace_id=ws_id,
         project_id=project_id,
         environment_id=environment_id,
@@ -1172,10 +1166,7 @@ def create_manual_app():
 @jwt_required()
 def upload_app_archive():
     """Create or update an app by uploading a zip archive."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
@@ -1281,7 +1272,7 @@ def upload_app_archive():
                 ),
                 version=new_version,
                 upload_path=upload_archive_path,
-                user_id=current_user_id,
+                user_id=user.id,
                 workspace_id=ws_id,
                 project_id=project_id,
                 environment_id=environment_id,
