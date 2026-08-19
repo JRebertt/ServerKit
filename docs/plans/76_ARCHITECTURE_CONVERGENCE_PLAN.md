@@ -186,10 +186,19 @@ Corrections to the audit's measurement:
   `uuid.uuid4().hex[:8]` "ref" that appeared in a log line and nowhere else,
   while `X-Request-ID` already existed from milestone B's first wave.
 
-Measured and deliberately left open: **56 API handlers swallow a crash and
-answer 200.** A failure reported as success is a worse bug than a 500 nobody
-logged, but converging it means deciding the response envelope, which is
-milestone C. It is called out here so the plan cannot claim B is finished.
+**Correction to this record (same day).** The "56 API handlers swallow a crash
+and answer 200" figure above was wrong, and the way it was wrong is worth
+keeping: the probe counted any handler whose return the AST could not resolve to
+a status code, which swept in every `return unexpected_response(exc)` this
+milestone had just introduced *and* every `return _handle_error(e)`. The real
+count of route handlers that catch an exception and answer 200 is **1**.
+
+What the remeasurement did find is a hole in this row's own ratchet.
+`queue_bus.py` answered 21 crashes through a local `_handle_error(e)` returning
+500 with `str(e)`, and the census could not see them because it looked for a
+literal 500 in the except handler while the 500 lived one call away. Fixed in
+`dadc0c4c`: the helper now reports, and the census follows one level of
+indirection, because a ratchet a one-line helper defeats is not a ratchet.
 
 ### Second-wave execution — milestone E2 polling row (2026-08-18)
 
