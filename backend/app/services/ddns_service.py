@@ -2,6 +2,7 @@ import ipaddress
 import logging
 from datetime import datetime
 from app import db
+from app.exceptions import AuthenticationError, ValidationError
 from app.models.ddns_host import DdnsHost
 from app.models.dns_zone import DNSZone, DNSRecord
 from app.services.dns_zone_service import DNSZoneService
@@ -26,7 +27,7 @@ class DdnsService:
         zone_id = data.get('zone_id')
         zone = DNSZone.query.get(zone_id) if zone_id else None
         if not zone:
-            raise ValueError('Valid zone_id required')
+            raise ValidationError('Valid zone_id required')
 
         record_name = (data.get('record_name') or '@').strip() or '@'
         host = DdnsHost(
@@ -70,10 +71,13 @@ class DdnsService:
         configured provider (e.g. Cloudflare) is synced automatically."""
         host = DdnsHost.query.filter_by(token=token, enabled=True).first()
         if not host:
-            raise ValueError('Invalid or disabled token')
+            raise AuthenticationError('Invalid or disabled token')
 
         ip = (ip or '').strip()
-        record_type = DdnsService._record_type_for(ip)   # validates the IP
+        try:
+            record_type = DdnsService._record_type_for(ip)
+        except ValueError as e:
+            raise ValidationError(f'Invalid IP address: {ip}') from e
 
         record = DNSRecord.query.filter_by(
             zone_id=host.zone_id, record_type=record_type, name=host.record_name

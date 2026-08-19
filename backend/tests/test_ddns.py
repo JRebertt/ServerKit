@@ -1,6 +1,8 @@
 """Tests for Dynamic DNS — token-authenticated A/AAAA record updates."""
 import pytest
 
+from app.exceptions import AuthenticationError, ValidationError
+
 from app import db
 from app.models.dns_zone import DNSZone, DNSRecord
 from app.services.ddns_service import DdnsService
@@ -42,19 +44,19 @@ class TestDdnsService:
         assert DNSRecord.query.filter_by(zone_id=zone.id, record_type='AAAA', name='@').first()
 
     def test_invalid_token_rejected(self, app):
-        with pytest.raises(ValueError):
+        with pytest.raises(AuthenticationError):
             DdnsService.update_ip('nope', '203.0.113.1')
 
     def test_invalid_ip_rejected(self, app):
         zone = _manual_zone('bad.example.com')
         host = DdnsService.create_host({'zone_id': zone.id})
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             DdnsService.update_ip(host.token, 'not-an-ip')
 
     def test_disabled_host_rejected(self, app):
         zone = _manual_zone('off.example.com')
         host = DdnsService.create_host({'zone_id': zone.id, 'enabled': False})
-        with pytest.raises(ValueError):
+        with pytest.raises(AuthenticationError):
             DdnsService.update_ip(host.token, '203.0.113.1')
 
 

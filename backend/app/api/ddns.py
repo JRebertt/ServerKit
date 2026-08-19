@@ -74,11 +74,5 @@ def update():
         return jsonify({'error': 'token required'}), 401
 
     ip = request.args.get('ip') or body.get('ip') or _client_ip()
-    try:
-        status, host = DdnsService.update_ip(token, ip)
-    except ValueError as e:
-        message = str(e)
-        code = 401 if 'token' in message.lower() else 400
-        return jsonify({'error': message}), code
-
+    status, host = DdnsService.update_ip(token, ip)
     return jsonify({'status': status, 'hostname': host.hostname, 'ip': ip})
