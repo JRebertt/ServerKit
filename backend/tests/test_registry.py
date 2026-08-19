@@ -84,7 +84,7 @@ def test_version_helpers():
 
 
 def test_registry_install_blocked_by_min_panel_version(app, plugin_dirs, monkeypatch):
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'future-ext', 'display_name': 'Future', 'version': '1.0.0',
@@ -127,7 +127,7 @@ def test_registry_install_stamps_registry_source_type(app, plugin_dirs, monkeypa
     zip_bytes = _make_plugin_zip()
     digest = hashlib.sha256(zip_bytes).hexdigest()
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'regext', 'display_name': 'Registry Ext', 'version': '2.0.0',
@@ -155,7 +155,7 @@ def test_update_flow(app, plugin_dirs, monkeypatch):
     assert plugin.source_type == 'url'
 
     # Registry advertises v2.0.0 for the same slug.
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'regext', 'display_name': 'Registry Ext', 'version': '2.0.0',
@@ -183,7 +183,7 @@ def test_update_keeps_registry_source_type(app, plugin_dirs, monkeypatch):
     v1 = _make_plugin_zip(slug='regext', version='1.0.0')
     digest_v1 = hashlib.sha256(v1).hexdigest()
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v1))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'regext', 'display_name': 'Registry Ext', 'version': '1.0.0',
@@ -197,7 +197,7 @@ def test_update_keeps_registry_source_type(app, plugin_dirs, monkeypatch):
     # Registry moves to v2; run the update.
     v2 = _make_plugin_zip(slug='regext', version='2.0.0')
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v2))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'regext', 'display_name': 'Registry Ext', 'version': '2.0.0',
@@ -221,7 +221,7 @@ def test_update_preserves_builtin_source_type(app, plugin_dirs, monkeypatch):
 
     v2 = _make_plugin_zip(slug='regext', version='2.0.0')
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(v2))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'regext', 'display_name': 'Registry Ext', 'version': '2.0.0',
@@ -244,7 +244,7 @@ def test_registry_url_defaults_to_public_index(monkeypatch):
     it proxies the raw serverkit-extensions index with caching + logo URL
     rewriting). conftest pins it EMPTY suite-wide, so simulate unset here."""
     monkeypatch.delenv('SERVERKIT_REGISTRY_URL', raising=False)
-    assert registry_service._registry_url() == registry_service.DEFAULT_REGISTRY_URL
+    assert registry_service._index.url() == registry_service.DEFAULT_REGISTRY_URL
     assert registry_service.DEFAULT_REGISTRY_URL == 'https://serverkit.ai/ext/index.json'
 
 
@@ -252,13 +252,13 @@ def test_registry_url_empty_disables_remote(monkeypatch):
     """Explicitly-empty env disables the remote entirely (bundled only) —
     the hermetic-test/air-gapped escape hatch."""
     monkeypatch.setenv('SERVERKIT_REGISTRY_URL', '')
-    assert registry_service._registry_url() == ''
-    assert registry_service._fetch_remote() is None
+    assert registry_service._index.url() == ''
+    assert registry_service._index._fetch_remote() is None
 
 
 def test_registry_url_env_override_wins(monkeypatch):
     monkeypatch.setenv('SERVERKIT_REGISTRY_URL', 'https://example.test/index.json')
-    assert registry_service._registry_url() == 'https://example.test/index.json'
+    assert registry_service._index.url() == 'https://example.test/index.json'
 
 
 # --------------------------------------------------------------------------- #
@@ -312,7 +312,7 @@ def test_v1_entry_unaffected_by_v2_defaults():
 
 
 def test_bundled_excluded_from_catalog_by_default(app, monkeypatch):
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [
             registry_service._normalize({
@@ -335,7 +335,7 @@ def test_bundled_excluded_from_catalog_by_default(app, monkeypatch):
 
 
 def test_registry_endpoint_include_bundled_flag(app, client, auth_headers, monkeypatch):
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [
             registry_service._normalize({
@@ -421,7 +421,7 @@ def fake_install(monkeypatch):
 
 
 def _seed_cache(monkeypatch, entry):
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test', 'entries': [entry],
     })
 
