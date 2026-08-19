@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Layers,
@@ -31,6 +31,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatCompact, formatFull } from '../utils/formatNumber';
+import { usePolling } from '@/hooks/usePolling';
 
 const STATUS_KINDS = {
     pending: 'blue',
@@ -142,7 +143,6 @@ const QueueOperations = () => {
         if (saved.searchTerm !== undefined) setSearchTerm(saved.searchTerm);
     }, []);
 
-    const pollRef = useRef(null);
     const navigate = useNavigate();
 
     const loadData = useCallback(async () => {
@@ -181,16 +181,16 @@ const QueueOperations = () => {
         loadData();
     }, [loadData]);
 
+    // Reload when the selected group changes; poll on top of that.
     useEffect(() => {
         loadQueues(selectedGroup);
-        pollRef.current = setInterval(() => {
-            loadData();
-            loadQueues(selectedGroup);
-        }, POLL_INTERVAL);
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
-    }, [selectedGroup, loadData, loadQueues]);
+    }, [selectedGroup, loadQueues]);
+
+    usePolling(
+        () => Promise.all([loadData(), loadQueues(selectedGroup)]),
+        POLL_INTERVAL,
+        { immediate: false },
+    );
 
     const totalQueues = useMemo(
         () => groups.reduce((acc, g) => acc + (g.stats?.queues || 0), 0),

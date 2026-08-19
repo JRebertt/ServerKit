@@ -27,6 +27,10 @@ import {
 import ProxyStackPanel from '../components/proxy/ProxyStackPanel';
 import RemoteAccess from '../pages/RemoteAccess';
 import EmptyState from '../components/EmptyState';
+import { usePolling } from '@/hooks/usePolling';
+
+// Live host metrics cadence while the server is online.
+const METRICS_POLL_MS = 10000;
 
 const ServerDetail = () => {
     const { id, tab } = useParams();
@@ -118,13 +122,15 @@ const ServerDetail = () => {
     }
 
     useEffect(() => {
-        if (server?.status === 'online') {
-            loadMetrics();
-            loadSystemInfo();
-            const interval = setInterval(loadMetrics, 10000);
-            return () => clearInterval(interval);
-        }
+        if (server?.status !== 'online') return;
+        loadMetrics();
+        loadSystemInfo();
     }, [server, loadMetrics, loadSystemInfo]);
+
+    usePolling(loadMetrics, METRICS_POLL_MS, {
+        enabled: server?.status === 'online',
+        immediate: false,
+    });
 
     async function handleDeleteServer() {
         const confirmed = await confirm({ title: 'Remove Server', message: 'Are you sure you want to remove this server? This action cannot be undone.' });

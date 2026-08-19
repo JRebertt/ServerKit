@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -27,6 +27,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { usePolling } from '@/hooks/usePolling';
 
 const STATUS_KINDS = {
     pending: 'blue',
@@ -136,7 +137,6 @@ const QueueDetail = () => {
         if (saved.statusFilter !== undefined) setStatusFilter(saved.statusFilter);
     }, []);
 
-    const pollRef = useRef(null);
 
     const viewOnly = group?.owner_type === 'system';
 
@@ -172,18 +172,22 @@ const QueueDetail = () => {
         loadMeta();
     }, [loadMeta]);
 
+    // Reload when the status filter or the queue changes; poll on top of that.
     useEffect(() => {
         loadMessages(statusFilter);
-        pollRef.current = setInterval(() => {
-            loadMessages(statusFilter);
+    }, [statusFilter, loadMessages]);
+
+    usePolling(async () => {
+        // Awaited together so the in-flight guard covers BOTH requests: the
+        // guard only knows a tick is done when the promise it was handed
+        // settles, and a bare .then() would report done before the queue call.
+        await Promise.all([
+            loadMessages(statusFilter),
             api.getQueue(groupSlug, queueSlug)
-                .then(r => setQueue(r.queue || null))
-                .catch(() => {});
-        }, POLL_INTERVAL);
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
-    }, [statusFilter, loadMessages, groupSlug, queueSlug]);
+                .then((r) => setQueue(r.queue || null))
+                .catch(() => {}),
+        ]);
+    }, POLL_INTERVAL, { immediate: false });
 
     const stats = queue?.stats || {};
 
