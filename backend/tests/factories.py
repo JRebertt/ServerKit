@@ -91,3 +91,35 @@ def make_server(db, name='box1', **overrides):
     db.session.add(row)
     db.session.commit()
     return row
+
+
+# ---------------------------------------------------------------------------
+# Authz one-liners (plan 77 G4) — the per-endpoint 401/403 micro-test shapes,
+# promoted from test_raw_infra_authz.py so new endpoint tests are one line.
+# ---------------------------------------------------------------------------
+
+def assert_requires_auth(client, method, url, body=None, expected=401):
+    """No token -> 401 (or ``expected``). Returns the response."""
+    kwargs = {'json': body} if body is not None else {}
+    resp = getattr(client, method.lower())(url, **kwargs)
+    assert resp.status_code == expected, (
+        f'{method.upper()} {url} without auth returned {resp.status_code}, '
+        f'expected {expected}')
+    return resp
+
+
+def assert_admin_only(client, personas, method, url, body=None, ok_status=200,
+                      non_admin=('owner', 'member', 'viewer', 'foreign')):
+    """Every non-admin persona is 403; the admin passes the gate.
+
+    ``personas`` is a scoping_rbac-style namespace of per-persona auth
+    headers (see conftest.scoping_rbac).
+    """
+    kwargs = {'json': body} if body is not None else {}
+    for persona in non_admin:
+        resp = getattr(client, method.lower())(url, headers=getattr(personas, persona), **kwargs)
+        assert resp.status_code == 403, f'{persona} reached {method.upper()} {url}'
+    resp = getattr(client, method.lower())(url, headers=personas.admin, **kwargs)
+    assert resp.status_code == ok_status, (
+        f'admin denied {method.upper()} {url}: {resp.status_code}')
+    return resp

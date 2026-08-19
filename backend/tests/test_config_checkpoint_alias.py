@@ -17,9 +17,7 @@ def test_config_checkpoints_resolves_same_handler(app, client, auth_headers):
     assert ckpts.get_json() == snaps.get_json()
 
 
-def test_both_route_spaces_registered():
-    from app import create_app
-    application = create_app('testing')
-    rules = {r.rule for r in application.url_map.iter_rules()}
-    assert any('/snapshots' in r for r in rules)
-    assert any('/config-checkpoints' in r for r in rules)
+def test_both_route_spaces_registered(route_rules):
+    # route_rules is the session app's url_map (plan 77 G3) — no second boot.
+    assert any('/snapshots' in r for r in route_rules)
+    assert any('/config-checkpoints' in r for r in route_rules)

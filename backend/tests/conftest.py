@@ -282,6 +282,17 @@ def auth_headers(app):
 from factories import make_user, headers_for  # noqa: E402
 
 
+@pytest.fixture(scope='session')
+def route_rules(_flask_app):
+    """Frozen URL rules of the session app (plan 77 G3).
+
+    Tests that only need to check "does route X exist" read THIS instead of
+    booting a second app with create_app() — every extra boot re-exposes the
+    state-leak classes documented on _flask_app and costs ~seconds.
+    """
+    return sorted(r.rule for r in _flask_app.url_map.iter_rules())
+
+
 @pytest.fixture
 def developer_headers(app):
     """JWT headers for a plain developer-role user."""
