@@ -1413,7 +1413,6 @@ $ft-default:  #646b7a;
 
     // ─── Misc ───────────────────────────────────────────
     .spinning { animation: spin 1s linear infinite; }
-    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 }
 
 // ============================================
@@ -1450,14 +1449,6 @@ $drawer-width: 520px;
     }
 }
 
-@keyframes drawer-fade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-@keyframes drawer-slide {
-    from { transform: translateX(100%); }
-    to   { transform: translateX(0);    }
-}
 
 .preview-drawer-header {
     display: flex;

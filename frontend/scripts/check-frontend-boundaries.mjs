@@ -171,6 +171,28 @@ for (const file of LEGACY_POLLERS.keys()) {
     }
 }
 
+// A @keyframes name is global and last-definition-wins, across every partial
+// main.scss pulls in. Two partials defining the same name is therefore not
+// duplication that merely wastes bytes: one of them is silently dead, and which
+// one depends on import order. `pulse-dot` was defined twice with genuinely
+// different animations, so the uptime dot had been running the services one for
+// as long as pages/_services was imported after components/_uptime.
+const styleFiles = walk(resolve(src, 'styles')).filter((path) => extname(path) === '.scss');
+const keyframeOwners = new Map();
+for (const path of styleFiles) {
+    const source = readFileSync(path, 'utf8');
+    for (const match of source.matchAll(/@keyframes\s+([A-Za-z0-9_-]+)/g)) {
+        const name = match[1];
+        if (!keyframeOwners.has(name)) keyframeOwners.set(name, []);
+        keyframeOwners.get(name).push(rel(path));
+    }
+}
+for (const [name, owners] of keyframeOwners) {
+    if (owners.length > 1) {
+        failures.push(`@keyframes ${name} is defined in ${owners.length} places (${owners.join(', ')}); the last one imported silently wins for all of them. Give each a scoped name or move the shared one to base/_utilities.scss.`);
+    }
+}
+
 const mainStylesPath = resolve(src, 'styles', 'main.scss');
 const mainStyles = readFileSync(mainStylesPath, 'utf8');
 for (const ownership of EXTENSION_OWNED_STYLES) {
@@ -213,4 +235,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard / ${LEGACY_POLLERS.size} poller files remain ratcheted).`);
+console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard / ${LEGACY_POLLERS.size} poller files remain ratcheted, ${keyframeOwners.size} unique @keyframes).`);

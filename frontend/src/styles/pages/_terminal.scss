@@ -49,7 +49,6 @@ $lk-default:  #646b7a;
 // Spinning animation reused by the various refresh icons
 .terminal-page .spinning,
 .lv-page .spinning { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 // ─── Interactive terminal tab (demo console: target rail + shell pane) ───
 .term-shell {
