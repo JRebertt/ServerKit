@@ -19,7 +19,7 @@ import ServerMetricsTab from '../components/serverdetail/ServerMetricsTab';
 import SurveyTab from '../components/serverdetail/SurveyTab';
 import ServerSettingsTab, { TokenModal } from '../components/serverdetail/ServerSettingsTab';
 import {
-    STATUS_PILL_KIND,
+    serverStatusKind,
     CopyChip,
     FolderTinyIcon,
     RefreshIcon,
@@ -262,7 +262,7 @@ const ServerDetail = () => {
                         <div className="server-detail-header__title-row">
                             <h1>{server.name}</h1>
                             <FavoriteStar type="server" id={server.id} path={`/servers/${server.id}`} label={server.name} />
-                            <Pill kind={STATUS_PILL_KIND[server.status] || 'gray'}>
+                            <Pill kind={serverStatusKind(server.status)}>
                                 {server.status || 'pending'}
                             </Pill>
                             <CopyChip

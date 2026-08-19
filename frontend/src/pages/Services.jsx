@@ -7,7 +7,7 @@ import { getServiceType, getStatusConfig, formatRelativeTime } from '../utils/se
 import ResourceListPage from '../components/layouts/ResourceListPage';
 import BandwidthSparkline from '../components/BandwidthSparkline';
 import { formatBytes } from '../utils/formatBytes';
-import { Pill, ServiceTile, EnvTag, SearchField } from '@/components/ds';
+import { Pill, ServiceTile, EnvTag, SearchField, serviceStatusKind } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -20,8 +20,6 @@ import {
 } from '@/components/ui/select';
 import Modal from '@/components/Modal';
 import RequiresDocker from '../components/RequiresDocker';
-
-const STATUS_PILL = { running: 'green', stopped: 'gray', deploying: 'amber', building: 'amber', failed: 'red' };
 
 // Severity order for status sorting — also the page's default row order.
 const STATUS_SORT_ORDER = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
@@ -332,7 +330,7 @@ const Services = () => {
             groupable: true,
             groupValue: (app) => app.status,
             groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
-            render: (app) => <Pill kind={STATUS_PILL[app.status] || 'gray'}>{getStatusConfig(app.status).label}</Pill>,
+            render: (app) => <Pill kind={serviceStatusKind(app.status)}>{getStatusConfig(app.status).label}</Pill>,
         },
         {
             key: 'last_deploy',

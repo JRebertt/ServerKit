@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -20,20 +20,6 @@ const FAMILY_META = {
     debian: { label: 'Debian', kind: 'cyan' },
     rhel: { label: 'RHEL', kind: 'amber' },
     suse: { label: 'SUSE', kind: 'violet' },
-};
-
-const RESULT_PILL = {
-    queued: 'gray',
-    running: 'cyan',
-    passed: 'green',
-    failed: 'red',
-};
-
-const RUN_PILL = {
-    running: 'cyan',
-    done: 'green',
-    cancelled: 'amber',
-    error: 'red',
 };
 
 const MODES = [
@@ -96,7 +82,7 @@ function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
                                 <span className="ts-result__duration">{formatDuration(result.duration_s)}</span>
                             )}
                             {result.status === 'running' && <span className="spinner-inline" />}
-                            <Pill kind={RESULT_PILL[result.status] || 'gray'}>{result.status}</Pill>
+                            <Pill kind={statusKind(result.status)}>{result.status}</Pill>
                         </Button>
                         {result.detail && (
                             <div className="ts-result__detail">{result.detail}</div>
@@ -466,7 +452,7 @@ const TestSandbox = () => {
                     <CardHeader className="ts-active__head">
                         <CardTitle>Run #{activeRun.id}</CardTitle>
                         <Pill kind="gray" dot={false}>{activeRun.mode}</Pill>
-                        <Pill kind={RUN_PILL[activeRun.status] || 'gray'}>{activeRun.status}</Pill>
+                        <Pill kind={statusKind(activeRun.status)}>{activeRun.status}</Pill>
                         {isRunning && (
                             <Button
                                 variant="destructive"
@@ -572,7 +558,7 @@ function FragmentRow({ run, expanded, passed, failed, total, onToggle, detail })
                     </span>
                 </td>
                 <td>{timeAgo(run.created_at)}</td>
-                <td><Pill kind={RUN_PILL[run.status] || 'gray'}>{run.status}</Pill></td>
+                <td><Pill kind={statusKind(run.status)}>{run.status}</Pill></td>
             </tr>
             {expanded && (
                 <tr className="ts-detail-row">

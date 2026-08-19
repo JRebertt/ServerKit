@@ -33,17 +33,8 @@ function storageIcon(run) {
     );
 }
 
-// Pill kind for a restore-drill outcome. skipped_no_space is a soft warning
-// (no disk headroom to drill), never a hard failure.
-function drillStatusKind(status) {
-    switch (status) {
-        case 'success': return 'green';
-        case 'failed': return 'red';
-        case 'skipped_no_space': return 'amber';
-        default: return 'gray';
-    }
-}
-
+// Drill outcomes read straight from the shared table (skipped_no_space is a
+// soft amber warning there — no disk headroom to drill, never a hard failure).
 function drillStatusLabel(status) {
     if (status === 'skipped_no_space') return 'skipped (no space)';
     return status || 'unknown';
@@ -93,7 +84,7 @@ function RestoreDrills({ drills }) {
                                 <span className="backup-drills__chev">
                                     {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                 </span>
-                                <Pill kind={drillStatusKind(drill.status)}>{drillStatusLabel(drill.status)}</Pill>
+                                <Pill kind={statusKind(drill.status)}>{drillStatusLabel(drill.status)}</Pill>
                                 <span className="backup-drills__trigger">{drill.trigger || 'manual'}</span>
                                 <span className="backup-drills__when">{formatWhen(drill.started_at)}</span>
                                 {drill.duration_seconds != null && (

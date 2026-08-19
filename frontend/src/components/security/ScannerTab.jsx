@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { statusKind } from '@/components/ds/status';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,12 +19,6 @@ import { usePolling } from '@/hooks/usePolling';
 const SCAN_STATUS_POLL_MS = 5000;
 const SCAN_JOB_POLL_MS = 3000;
 
-const SEVERITY_TONE = {
-    critical: 'red',
-    high: 'red',
-    medium: 'amber',
-    low: 'gray',
-};
 
 // Urgency order for the Severity column. The severity strings sort
 // alphabetically — critical, high, low, medium — which files "low" above
@@ -377,7 +372,7 @@ const ScannerTab = () => {
             sortValue: (f) => SEVERITY_RANK[f.severity] ?? 9,
             enumOrder: ['critical', 'high', 'medium', 'low'],
             render: (f) => (
-                <span className={`sec-state sec-state--${SEVERITY_TONE[f.severity] || 'gray'}`}>
+                <span className={`sec-state sec-state--${statusKind(f.severity)}`}>
                     {f.severity}
                 </span>
             ),

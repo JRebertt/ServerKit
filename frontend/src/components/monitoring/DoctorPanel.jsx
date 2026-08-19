@@ -4,12 +4,11 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/Modal';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import { ChevronDown, ChevronRight, Server, Stethoscope, Wrench } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 
-const STATUS_TONE = { ok: 'green', warn: 'amber', fail: 'red', error: 'red' };
 
 // The fleet sweep fans out across agents over the network, so it is a job
 // (202 + job id) rather than a synchronous call — poll it to completion.
@@ -31,7 +30,7 @@ function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled }) {
     return (
         <article className={`doctor-check doctor-check--${check.status}`}>
             <div className="doctor-check__row">
-                <Pill kind={STATUS_TONE[check.status] || 'gray'}>{check.status}</Pill>
+                <Pill kind={statusKind(check.status)}>{check.status}</Pill>
                 <div className="doctor-check__body">
                     <span className="doctor-check__title">{check.title}</span>
                     <span className="doctor-check__detail">{check.detail}</span>

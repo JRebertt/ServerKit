@@ -1,16 +1,11 @@
 import { useState } from 'react';
+import { statusKind } from '@/components/ds/status';
 import { ClipboardCheck } from 'lucide-react';
 import api from '../../services/api';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ds';
 
-const SEVERITY_TONES = {
-    pass: 'green',
-    critical: 'red',
-    warning: 'amber',
-    info: 'cyan',
-};
 
 const scoreColor = (score) => {
     if (score >= 80) return 'var(--green)';
@@ -82,7 +77,7 @@ const AuditTab = () => {
                                     <div className="sec-finding-list">
                                         {data.findings?.map((finding, idx) => (
                                             <div key={idx} className="sec-finding">
-                                                <span className={`sec-state sec-state--${SEVERITY_TONES[finding.severity] || 'gray'}`}>
+                                                <span className={`sec-state sec-state--${statusKind(finding.severity)}`}>
                                                     {finding.severity}
                                                 </span>
                                                 <span className="sec-finding__msg">{finding.message}</span>

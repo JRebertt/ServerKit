@@ -40,6 +40,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
+import { statusKind } from '@/components/ds/status';
 
 const SEVERITY_ORDER = ['critical', 'error', 'warning', 'info', 'debug'];
 
@@ -47,12 +48,10 @@ const SEVERITY_ORDER = ['critical', 'error', 'warning', 'info', 'debug'];
 // knows, or the badge silently renders without its background. `label` is the
 // one spelling of a severity the whole page uses: the pill, the filter drawer's
 // option list and the built-in view names all read from here.
-const SEVERITY_CONFIG = {
-    critical: { pill: 'red', label: 'Critical' },
-    error: { pill: 'red', label: 'Error' },
-    warning: { pill: 'amber', label: 'Warning' },
-    info: { pill: 'cyan', label: 'Info' },
-    debug: { pill: 'gray', label: 'Debug' },
+// Severity tones ride the shared vocabulary (plan 77 D3); labels are local.
+const SEVERITY_LABEL = {
+    critical: 'Critical', error: 'Error', warning: 'Warning',
+    info: 'Info', debug: 'Debug',
 };
 
 const PAGE_SIZE = 50;
@@ -253,7 +252,7 @@ export default function Telemetry() {
             key: 'severity',
             label: 'Severity',
             type: 'single',
-            options: SEVERITY_ORDER.map((s) => ({ value: s, label: SEVERITY_CONFIG[s].label })),
+            options: SEVERITY_ORDER.map((s) => ({ value: s, label: SEVERITY_LABEL[s] })),
         },
     ]), [sources, eventTypes]);
 
@@ -280,8 +279,8 @@ export default function Telemetry() {
             // contain, alphabetically. Pin the full ladder in rank order.
             enumOrder: SEVERITY_ORDER,
             render: (event) => {
-                const config = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
-                return <Pill kind={config.pill}>{config.label}</Pill>;
+                const severity = event.severity in SEVERITY_LABEL ? event.severity : 'info';
+                return <Pill kind={statusKind(severity)}>{SEVERITY_LABEL[severity]}</Pill>;
             },
         },
         {
@@ -520,7 +519,7 @@ export default function Telemetry() {
                             <div>
                                 <dt>Severity</dt>
                                 <dd>
-                                    <Pill kind={(SEVERITY_CONFIG[selectedEvent.severity] || SEVERITY_CONFIG.info).pill}>
+                                    <Pill kind={statusKind(selectedEvent.severity in SEVERITY_LABEL ? selectedEvent.severity : 'info')}>
                                         {selectedEvent.severity}
                                     </Pill>
                                 </dd>

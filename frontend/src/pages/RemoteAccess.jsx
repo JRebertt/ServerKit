@@ -1,3 +1,4 @@
+import { statusKind } from '@/components/ds/status';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -23,15 +24,7 @@ import {
 } from '@/components/ui/select';
 
 // Tunnel / service status → status-pill tone.
-const PILL_KIND = {
-    up: 'green',
-    published: 'green',
-    pending: 'amber',
-    degraded: 'amber',
-    down: 'red',
-    error: 'red',
-};
-const pillKind = (status) => PILL_KIND[status] || 'gray';
+const pillKind = (status) => statusKind(status);
 
 const EMPTY_FORM = {
     privateServerId: '',

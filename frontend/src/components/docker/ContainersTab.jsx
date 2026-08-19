@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { statusKind } from '@/components/ds/status';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -77,7 +78,6 @@ export const RunContainerButton = () => {
 // watching that container at all.
 const HEALTH_LABELS = ['Unhealthy', 'Starting', 'None', 'Healthy'];
 const HEALTH_RANK = { Unhealthy: 0, Starting: 1, None: 2, Healthy: 3 };
-const HEALTH_TONE = { Unhealthy: 'red', Starting: 'amber', None: 'gray', Healthy: 'green' };
 
 const containerHealth = (container) => {
     const status = getContainerStatus(container).toLowerCase();
@@ -557,7 +557,7 @@ const ContainersTab = ({ onStatsChange }) => {
                 // Spelled out rather than shown as 'None': the absence of a
                 // healthcheck is a fact about the image, not a missing reading.
                 if (health === 'None') return <span className="dx-muted-line">No healthcheck</span>;
-                return <Pill kind={HEALTH_TONE[health]} dot={false}>{health}</Pill>;
+                return <Pill kind={statusKind(health)} dot={false}>{health}</Pill>;
             },
         },
         {

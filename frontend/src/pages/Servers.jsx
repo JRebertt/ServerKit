@@ -8,7 +8,7 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField,
+    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, statusKind,
 } from '@/components/ds';
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -25,13 +25,6 @@ import LinkPanelForm from '../components/servers/LinkPanelForm';
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
 // yet" but for different reasons (handshake in flight vs agent never
 // installed), so they stay distinct rather than folding into one bucket.
-const STATUS_KIND = {
-    online: 'green',
-    offline: 'red',
-    connecting: 'amber',
-    pending: 'gray',
-};
-
 // Built-in saved views. States only use real column keys (SERVER_COLUMNS) —
 // there is no separate status segment or group select any more; the Status and
 // Group columns' own menus are the one place the fleet is narrowed, and they
@@ -220,7 +213,7 @@ const SERVER_COLUMNS = [
         groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
         render: (server) => {
             const status = server.status || 'pending';
-            return <Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill>;
+            return <Pill kind={statusKind(status)}>{status}</Pill>;
         },
     },
     meterColumn('cpu', 'CPU', 'cpu_percent'),

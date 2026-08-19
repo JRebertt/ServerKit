@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Pill, SegControl } from '../ds';
+import { Pill, SegControl, serviceStatusKind } from '../ds';
 import EmptyState from '../EmptyState';
 import { AlertTriangle, CheckCircle2, Network } from 'lucide-react';
 
@@ -26,13 +26,6 @@ const PROXY_OPTIONS = [
     { value: 'traefik', label: 'Traefik', sub: 'Docker stack' },
     { value: 'caddy', label: 'Caddy', sub: 'Docker stack' },
 ];
-
-const STATUS_KIND = {
-    running: 'green',
-    stopped: 'gray',
-    error: 'red',
-    unknown: 'amber',
-};
 
 const ProxyStackPanel = ({ serverId }) => {
     const toast = useToast();
@@ -196,7 +189,7 @@ const ProxyStackPanel = ({ serverId }) => {
                 </div>
                 <div className="proxy-panel__status">
                     <span className="proxy-panel__status-label">Status</span>
-                    <Pill kind={STATUS_KIND[stack?.status] || 'gray'}>
+                    <Pill kind={serviceStatusKind(stack?.status)}>
                         {savedIsNginx ? 'host nginx' : (stack?.status || 'unknown')}
                     </Pill>
                 </div>

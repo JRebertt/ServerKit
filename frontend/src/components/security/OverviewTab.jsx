@@ -1,3 +1,4 @@
+import { statusKind } from '@/components/ds/status';
 import { useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,6 @@ const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 // Status glyph per check state — paired with the label so state never relies on
 // color alone (color-blind operators), per the product a11y bar.
 const STATE_ICON = { pass: CheckCircle2, warn: AlertTriangle, unknown: Circle };
-const CHECK_PILL = { pass: 'green', warn: 'amber', unknown: 'gray' };
 
 const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigateTab }) => {
     // One action runs at a time; `busyKey` names it so only that row spins and
@@ -199,7 +199,7 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                                             {rowBusy ? 'Working…' : c.fix.label}
                                         </Button>
                                     ) : (
-                                        <Pill kind={CHECK_PILL[c.state]}>{c.state === 'unknown' ? 'pending' : c.state}</Pill>
+                                        <Pill kind={statusKind(c.state)}>{c.state === 'unknown' ? 'pending' : c.state}</Pill>
                                     )}
                                 </div>
                             );

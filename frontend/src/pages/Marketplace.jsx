@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { statusVariant } from '@/components/ds/status';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
     Activity,
@@ -439,11 +440,7 @@ const Marketplace = () => {
         setFilters({ ownership: '', category: [] });
     };
 
-    const pluginStatusVariant = (status) => {
-        if (status === 'active') return 'success';
-        if (status === 'error') return 'destructive';
-        return 'outline';
-    };
+    const pluginStatusVariant = (status) => statusVariant(status);
 
     const activeFilterCount = countActiveFilters(filters);
 

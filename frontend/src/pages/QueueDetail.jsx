@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
     DataTable, DataTableFooter, MetricCard, KpiBand, Pill, SortChipBar,
+    statusKind, statusLabel,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -28,22 +29,6 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { usePolling } from '@/hooks/usePolling';
-
-const STATUS_KINDS = {
-    pending: 'blue',
-    in_flight: 'yellow',
-    completed: 'green',
-    failed: 'red',
-    dead_letter: 'gray',
-};
-
-const STATUS_LABELS = {
-    pending: 'Pending',
-    in_flight: 'In Flight',
-    completed: 'Completed',
-    failed: 'Failed',
-    dead_letter: 'Dead Letter',
-};
 
 const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_letter'];
 
@@ -258,7 +243,7 @@ const QueueDetail = () => {
             enumOrder: STATUS_ORDER,
             // Lifecycle order, not alphabet.
             sortValue: (msg) => STATUS_ORDER.indexOf(msg.status),
-            render: (msg) => <Pill kind={STATUS_KINDS[msg.status] || 'gray'}>{msg.status}</Pill>,
+            render: (msg) => <Pill kind={statusKind(msg.status)}>{msg.status}</Pill>,
         },
         {
             key: 'payload',
@@ -378,7 +363,7 @@ const QueueDetail = () => {
                 {STATUS_ORDER.map(s => (
                     <MetricCard
                         key={s}
-                        label={STATUS_LABELS[s]}
+                        label={statusLabel(s)}
                         value={stats[s] || 0}
                         kind={s === 'failed' || s === 'dead_letter' ? 'danger' : undefined}
                     />
@@ -419,7 +404,7 @@ const QueueDetail = () => {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
                                 <option value="all">All statuses</option>
-                                {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                                {STATUS_ORDER.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
                             </select>
                         </div>
                     </div>
@@ -469,7 +454,7 @@ const QueueDetail = () => {
                         </div>
                         <div className="queue-message-detail">
                             <div><strong>ID:</strong> <code>{selectedMessage.id}</code></div>
-                            <div><strong>Status:</strong> <Pill kind={STATUS_KINDS[selectedMessage.status] || 'gray'}>{selectedMessage.status}</Pill></div>
+                            <div><strong>Status:</strong> <Pill kind={statusKind(selectedMessage.status)}>{selectedMessage.status}</Pill></div>
                             <div><strong>Attempts:</strong> {selectedMessage.attempts} / {selectedMessage.max_attempts}</div>
                             <div><strong>Created:</strong> {new Date(selectedMessage.created_at).toLocaleString()}</div>
                             {selectedMessage.error_message && (

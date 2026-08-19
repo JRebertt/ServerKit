@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '@/hooks/useConfirm';
 import { Button } from '@/components/ui/button';
-import { Pill, Drawer, DataTable, DataTableFooter, ListToolbar, SearchField } from '../ds';
+import { Pill, Drawer, DataTable, DataTableFooter, ListToolbar, SearchField, serviceStatusKind } from '../ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -85,19 +85,8 @@ const SERVICE_VIEWS = [
     },
 ];
 
-// systemd active/sub state → ds Pill kind
-const STATE_PILL = {
-    active: 'green',
-    running: 'green',
-    activating: 'amber',
-    reloading: 'amber',
-    restarting: 'amber',
-    failed: 'red',
-    inactive: 'gray',
-    dead: 'gray',
-    stopped: 'gray',
-};
-
+// systemd active/sub state → ds Pill kind comes from the ONE shared
+// vocabulary (ds/status).
 // The panel host and an agent answer the same question in different
 // vocabularies: `/processes/services` probes a fixed list of well-known daemons
 // and reports running/stopped, the agent runs `systemctl list-units --all` and
@@ -325,7 +314,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             value: (u) => u.active || u.sub || 'unknown',
             sortValue: (u) => u.active || u.sub || 'unknown',
             render: (u) => (
-                <Pill kind={STATE_PILL[u.active] || STATE_PILL[u.sub] || 'gray'}>
+                <Pill kind={serviceStatusKind(u.active || u.sub)}>
                     {u.active || u.sub || 'unknown'}
                 </Pill>
             ),

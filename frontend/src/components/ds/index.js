@@ -2,6 +2,11 @@
 // Shared, reusable building blocks for the new "infra console" look. Styles
 // live in styles/components/_design-system.scss (sk-* namespace).
 export { Pill } from './Pill';
+export {
+    statusKind, statusVariant, statusDotClass, statusLabel,
+    alertStatusKind, processStateVariant, envActionKind,
+    serviceStatusKind, serviceStatusVariant, serviceStatusDotClass,
+} from './status';
 export { EnvTag } from './EnvTag';
 export { SegControl } from './SegControl';
 export { MetricCard } from './MetricCard';

@@ -5,7 +5,7 @@ import api from '../services/api';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableFooter, Pill, SearchField } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill, SearchField, statusKind } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -31,13 +31,6 @@ import {
     relativeTime,
     activityGroup,
 } from '../utils/deployActivity';
-
-const STATUS_KIND = {
-    succeeded: 'green',
-    failed: 'red',
-    running: 'cyan',
-    pending: 'gray',
-};
 
 // Built-in saved views. These replace the segmented All/Running/Succeeded/Failed
 // strip: the strip was a status rule wearing a button, could not combine with
@@ -198,7 +191,7 @@ const Deployments = () => {
             // only the former is a real global rule, so `spin` never rotated
             // anything it was put on.
             render: (job) => (
-                <Pill kind={STATUS_KIND[job.status] || 'gray'} dot={job.status !== 'running'}>
+                <Pill kind={statusKind(job.status)} dot={job.status !== 'running'}>
                     {job.status === 'running' && <Loader2 size={11} className="animate-spin" />}
                     {job.status}
                 </Pill>

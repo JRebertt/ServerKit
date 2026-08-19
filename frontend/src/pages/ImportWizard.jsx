@@ -9,7 +9,7 @@ import api from '../services/api';
 import HtaccessConverter from '../components/apps/HtaccessConverter';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,18 +39,10 @@ const SOURCE_TYPES = [
 
 const STEPS = ['Source', 'Backup', 'Analyse', 'Review', 'Run'];
 
-// Import status -> Pill colour, shared by the run pane and the history list.
-const PILL_KIND = {
-    created: 'gray',
-    analyzing: 'cyan',
-    analyzed: 'violet',
-    running: 'cyan',
-    completed: 'green',
-    failed: 'red',
-};
-
+// Import status -> Pill colour comes from the ONE shared vocabulary
+// (ds/status), shared by the run pane and the history list.
 function StatusPill({ status }) {
-    return <Pill kind={PILL_KIND[status] || 'gray'}>{status}</Pill>;
+    return <Pill kind={statusKind(status)}>{status}</Pill>;
 }
 
 function formatSize(bytes) {

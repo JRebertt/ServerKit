@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import { ShieldCheck, AlertTriangle, Info, ChevronRight } from 'lucide-react';
 
 // Compact "how set-up is this panel" card for the dashboard (admin-only).
@@ -10,7 +10,6 @@ import { ShieldCheck, AlertTriangle, Info, ChevronRight } from 'lucide-react';
 // no dead card.
 
 const TOP_N = 3;
-const STATUS_TONE = { fail: 'red', warn: 'amber', ok: 'green' };
 
 // Critical (fail) first, then recommended (warn); ok items never show.
 function openItems(items) {
@@ -99,7 +98,7 @@ const SetupHealthWidget = () => {
                             className="setup-health-widget__item"
                             onClick={() => item.fix?.to && navigate(item.fix.to)}
                         >
-                            <Pill kind={STATUS_TONE[item.status] || 'gray'}>{item.status}</Pill>
+                            <Pill kind={statusKind(item.status)}>{item.status}</Pill>
                             <span className="setup-health-widget__itemtitle">{item.title}</span>
                             <ChevronRight size={14} />
                         </button>

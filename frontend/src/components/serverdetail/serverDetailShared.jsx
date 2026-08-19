@@ -2,15 +2,12 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Gauge } from '../ds';
 import { copyToClipboard } from '@/utils/clipboard';
+import { statusKind } from '@/components/ds/status';
 
 // Server status → ds Pill tone (shared by the header pill and the
 // Overview "Status" row).
-export const STATUS_PILL_KIND = {
-    online: 'green',
-    offline: 'red',
-    connecting: 'amber',
-    pending: 'gray',
-};
+// Server connection states ride the shared vocabulary (plan 77 D3).
+export const serverStatusKind = (status) => statusKind(status);
 
 export const PRESET_LABELS = {
     '* * * * *': 'Every minute',

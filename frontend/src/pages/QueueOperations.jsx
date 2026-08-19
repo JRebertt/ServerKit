@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     DataTable, DataTableFooter, MetricCard, Pill, SearchField, SortChipBar,
+    statusKind, statusLabel,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -32,22 +33,6 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatCompact, formatFull } from '../utils/formatNumber';
 import { usePolling } from '@/hooks/usePolling';
-
-const STATUS_KINDS = {
-    pending: 'blue',
-    in_flight: 'yellow',
-    completed: 'green',
-    failed: 'red',
-    dead_letter: 'gray',
-};
-
-const STATUS_LABELS = {
-    pending: 'Pending',
-    in_flight: 'In Flight',
-    completed: 'Completed',
-    failed: 'Failed',
-    dead_letter: 'Dead Letter',
-};
 
 const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_letter'];
 
@@ -332,7 +317,7 @@ const QueueOperations = () => {
 
     const activeStatusLabel = messageFilter === 'all'
         ? 'All queues'
-        : `${STATUS_LABELS[messageFilter]} queues`;
+        : `${statusLabel(messageFilter)} queues`;
     const activeGroupLabel = activeGroup ? activeGroup.name : 'All groups';
 
     // DataTable columns. Cell markup and classNames are identical to the
@@ -379,8 +364,8 @@ const QueueOperations = () => {
             render: (queue) => (
                 <div className="queue-row-counts" onClick={e => e.stopPropagation()}>
                     {STATUS_ORDER.filter(s => (queue.stats?.[s] || 0) > 0).map(status => (
-                        <Pill key={status} kind={STATUS_KINDS[status]}>
-                            {STATUS_LABELS[status]} {queue.stats[status]}
+                        <Pill key={status} kind={statusKind(status)}>
+                            {statusLabel(status)} {queue.stats[status]}
                         </Pill>
                     ))}
                     {(queue.stats?.total || 0) === 0 && (
@@ -529,7 +514,7 @@ const QueueOperations = () => {
                                     onClick={() => setMessageFilter(status)}
                                 >
                                     <span>
-                                        <strong>{STATUS_LABELS[status]}</strong>
+                                        <strong>{statusLabel(status)}</strong>
                                         <small>{status}</small>
                                     </span>
                                     <b title={String(formatFull(statusCounts[status] || 0))}>{formatCompact(statusCounts[status] || 0)}</b>

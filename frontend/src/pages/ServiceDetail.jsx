@@ -25,18 +25,9 @@ import EmptyState from '../components/EmptyState';
 import PluginSlot from '../components/PluginSlot';
 import { Layers, FileArchive, RotateCcw, LayoutDashboard, History, ScrollText, Variable, Terminal, Activity, Package, Server, SquareTerminal, Settings, Eye, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Pill, ServiceTile, PageTopbar } from '@/components/ds';
+import { Pill, ServiceTile, PageTopbar, statusKind } from '@/components/ds';
 import FavoriteStar from '@/components/FavoriteStar';
 import { useRecordVisit } from '@/hooks/useRecordVisit';
-
-// statusInfo.dotClass → ds Pill kind
-const STATUS_PILL = {
-    live: 'green',
-    stopped: 'gray',
-    deploying: 'amber',
-    building: 'amber',
-    failed: 'red',
-};
 
 const TAB_LABELS = {
     overview: 'Overview',
@@ -424,7 +415,7 @@ const ServiceDetail = () => {
                                 <ExternalLink size={15} />
                             </a>
                         )}
-                        <Pill kind={STATUS_PILL[service.statusInfo.dotClass] || 'gray'}>
+                        <Pill kind={statusKind(service.statusInfo.dotClass)}>
                             {service.statusInfo.label}
                         </Pill>
                         <span

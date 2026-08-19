@@ -8,6 +8,7 @@
 // question a third time. All three are rows here, told apart by the Source
 // column, and every bucket the segment offered is a saved view below.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { statusKind, alertStatusKind } from '@/components/ds/status';
 import { Link } from 'react-router-dom';
 import {
     AlertTriangle, CheckCircle2, ChevronRight, Eye, Radar, RefreshCw, Siren,
@@ -26,7 +27,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { METRIC_LABELS } from '../components/monitoring/fleetMetrics';
-import { IMPACT_TONE, INCIDENT_STATES } from '../components/monitoring/monitorShared';
+import { impactTone, INCIDENT_STATES } from '../components/monitoring/monitorShared';
 
 // Built-in views. This page used to carry THREE old affordances at once — a KPI
 // band whose tiles set a filter, an Active/Resolved/All segment row, and the
@@ -109,17 +110,7 @@ const BUILTIN_VIEWS = [
     },
 ];
 
-const STATE_TONE = {
-    investigating: 'red',
-    identified: 'amber',
-    monitoring: 'cyan',
-    resolved: 'green',
-};
 
-const SEVERITY_TONE = { critical: 'red', warning: 'amber', info: 'cyan' };
-
-// The fleet alert lifecycle, tinted exactly as the deleted panel tinted it.
-const ALERT_STATUS_TONE = { active: 'red', acknowledged: 'amber', resolved: 'green' };
 
 function formatWhen(iso) {
     if (!iso) return 'unknown';
@@ -229,7 +220,7 @@ export default function Incidents() {
                 subject,
                 detail: subject,
                 state: incident.status,
-                tone: STATE_TONE[incident.status] || 'gray',
+                tone: statusKind(incident.status),
                 impact: incident.impact,
                 when: incident.created_at,
                 resolved: incident.status === 'resolved',
@@ -265,7 +256,7 @@ export default function Incidents() {
             subject: 'This server',
             detail: hostDetail(alert),
             state: alert.severity,
-            tone: SEVERITY_TONE[alert.severity] || 'gray',
+            tone: statusKind(alert.severity),
             impact: alert.severity,
             metric: alert.type,
             value: alert.value,
@@ -292,7 +283,7 @@ export default function Incidents() {
                 subject,
                 detail: `${metric} ${formatValue(alert.value)} / ${alert.threshold}`,
                 state: alert.status,
-                tone: ALERT_STATUS_TONE[alert.status] || 'gray',
+                tone: alertStatusKind(alert.status),
                 impact: alert.severity,
                 metric,
                 value: alert.value,
@@ -553,8 +544,8 @@ export default function Incidents() {
                 {selected?.kind === 'incident' && (
                     <div className="incident-detail">
                         <div className="incident-detail__pills">
-                            <Pill kind={STATE_TONE[selected.raw.status] || 'gray'}>{selected.raw.status}</Pill>
-                            <Pill kind={IMPACT_TONE[selected.raw.impact] || 'gray'}>{selected.raw.impact} impact</Pill>
+                            <Pill kind={statusKind(selected.raw.status)}>{selected.raw.status}</Pill>
+                            <Pill kind={impactTone(selected.raw.impact)}>{selected.raw.impact} impact</Pill>
                         </div>
 
                         {selected.raw.body && <p className="incident-detail__body">{selected.raw.body}</p>}
@@ -570,10 +561,10 @@ export default function Incidents() {
                             <ol className="incident-timeline">
                                 {selected.raw.updates.map((update) => (
                                     <li key={update.id} className="incident-timeline__item">
-                                        <span className={`incident-timeline__dot is-${STATE_TONE[update.status] || 'gray'}`} />
+                                        <span className={`incident-timeline__dot is-${statusKind(update.status)}`} />
                                         <div>
                                             <div className="incident-timeline__head">
-                                                <Pill kind={STATE_TONE[update.status] || 'gray'}>{update.status}</Pill>
+                                                <Pill kind={statusKind(update.status)}>{update.status}</Pill>
                                                 <span>{formatWhen(update.created_at)}</span>
                                             </div>
                                             <p>{update.body}</p>
@@ -614,7 +605,7 @@ export default function Incidents() {
                     <div className="incident-detail">
                         <div className="incident-detail__pills">
                             <Pill kind={selected.tone}>{selected.state}</Pill>
-                            <Pill kind={SEVERITY_TONE[selected.raw.severity] || 'gray'}>
+                            <Pill kind={statusKind(selected.raw.severity)}>
                                 {selected.raw.severity}
                             </Pill>
                         </div>

@@ -17,6 +17,7 @@ import api from '../services/api';
 import {
     Pill, DataTable, DataTableFooter, SegControl,
     SearchField, FilterDrawer, FilterButton, countActiveFilters,
+    statusKind,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridToolsMenu,
@@ -136,24 +137,6 @@ const BUILTIN_VIEWS = [
 ];
 
 // Map a job status to a DS Pill colour.
-const STATUS_KIND = {
-    queued: 'gray',
-    pending: 'gray',
-    scheduled: 'gray',
-    running: 'cyan',
-    succeeded: 'green',
-    success: 'green',
-    completed: 'green',
-    failed: 'red',
-    error: 'red',
-    cancelled: 'amber',
-    canceled: 'amber',
-};
-
-function statusKind(status) {
-    return STATUS_KIND[String(status || '').toLowerCase()] || 'gray';
-}
-
 function ownerLabel(job) {
     if (!job.owner_type) return '—';
     return `${job.owner_type}${job.owner_id ? ` #${job.owner_id}` : ''}`;

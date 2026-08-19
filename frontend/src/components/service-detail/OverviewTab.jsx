@@ -8,22 +8,14 @@ import { getDeployStatus, formatRelativeTime, formatDuration } from '../../utils
 import { formatBytes } from '../../utils/formatBytes';
 import BandwidthSparkline from '../BandwidthSparkline';
 import ScheduledTasksCard from '../ScheduledTasksCard';
-import { KpiBand, MetricCard, Pill, Gauge, EnvTag } from '@/components/ds';
+import { KpiBand, MetricCard, Pill, Gauge, EnvTag, statusKind } from '@/components/ds';
 import { usePolling } from '@/hooks/usePolling';
 
 // Live metrics cadence.
 const METRICS_REFRESH_MS = 10000;
 
 
-// Deployment status → semantic tone (ds Pill kind / dot modifier)
-const DEPLOY_TONE = {
-    success: 'green',
-    failed: 'red',
-    in_progress: 'amber',
-    rolled_back: 'gray',
-    pending: 'cyan',
-};
-
+// Deployment status → tone comes from the ONE shared vocabulary (ds/status).
 // environment_type → short EnvTag label
 const ENV_LABEL = {
     production: 'PROD',
@@ -362,7 +354,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                     <div className="overview-tab__deploy-list">
                         {deployments.slice(0, 5).map((deploy, idx) => {
                             const statusInfo = getDeployStatus(deploy.status);
-                            const tone = DEPLOY_TONE[deploy.status] || 'cyan';
+                            const tone = statusKind(deploy.status);
                             const isLatest = idx === 0 && deploy.status === 'success';
                             return (
                                 <div key={deploy.id} className="overview-tab__deploy-row">

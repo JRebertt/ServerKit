@@ -8,7 +8,7 @@ import EmptyState from '../components/EmptyState';
 import Modal from '@/components/Modal';
 import {
     Pill, MetricCard, KpiBand, SegControl, Drawer, DataTable, DataTableFooter,
-    ListToolbar,
+    ListToolbar, statusKind,
 } from '../components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -31,15 +31,6 @@ import { copyToClipboard } from '@/utils/clipboard';
 const VALID_TABS = ['overview', 'repositories', 'access', 'webhooks', 'deployments', 'settings'];
 
 const SOURCE_INITIALS = { github: 'GH', gitlab: 'GL', bitbucket: 'BB' };
-
-const getStatusColor = (status) => {
-    switch (status) {
-        case 'success': return 'green';
-        case 'failed': return 'red';
-        case 'running': return 'amber';
-        default: return 'gray';
-    }
-};
 
 const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
@@ -441,7 +432,7 @@ const HOOK_DEPLOY_COLUMNS = [
         header: 'Status',
         sortable: true,
         sortValue: (d) => d.status || '',
-        render: (d) => <Pill kind={getStatusColor(d.status)}>{d.status}</Pill>,
+        render: (d) => <Pill kind={statusKind(d.status)}>{d.status}</Pill>,
     },
     {
         key: 'when',
@@ -1281,11 +1272,11 @@ function Git({ basePath = '/git' }) {
                     <div className="dom-card">
                         {filteredDeployments.map(deployment => (
                             <div key={deployment.id} className="git-deploy-row is-clickable" onClick={() => setDrawerDeployment(deployment)}>
-                                <span className={`git-deploy-dot git-deploy-dot--${getStatusColor(deployment.status)}`} />
+                                <span className={`git-deploy-dot git-deploy-dot--${statusKind(deployment.status)}`} />
                                 <div className="git-deploy-body">
                                     <div className="git-deploy-top">
                                         <span className="git-deploy-version">v{deployment.version}</span>
-                                        <Pill kind={getStatusColor(deployment.status)}>{deployment.status}</Pill>
+                                        <Pill kind={statusKind(deployment.status)}>{deployment.status}</Pill>
                                         {deployment.is_rollback && <span className="git-chip git-chip--cyan">rollback</span>}
                                         {deployment.commit_sha && <code className="git-hash">{deployment.commit_sha.slice(0, 7)}</code>}
                                     </div>
@@ -1720,7 +1711,7 @@ function Git({ basePath = '/git' }) {
                         <div className="dom-specs">
                             <div className="sk-spec-card">
                                 <div className="sk-spec-card__label">Status</div>
-                                <div style={{ marginTop: 8 }}><Pill kind={getStatusColor(drawerDeployment.status)}>{drawerDeployment.status}</Pill></div>
+                                <div style={{ marginTop: 8 }}><Pill kind={statusKind(drawerDeployment.status)}>{drawerDeployment.status}</Pill></div>
                                 {drawerDeployment.duration_seconds != null && <div className="sk-spec-card__sub">{drawerDeployment.duration_seconds}s</div>}
                             </div>
                             <div className="sk-spec-card">
@@ -1893,7 +1884,7 @@ function Git({ basePath = '/git' }) {
             >
                         {selectedDeployment && (<>
                             <div className="deployment-summary">
-                                <div className="summary-item"><span className="label">Status:</span><Pill kind={getStatusColor(selectedDeployment.status)}>{selectedDeployment.status}</Pill></div>
+                                <div className="summary-item"><span className="label">Status:</span><Pill kind={statusKind(selectedDeployment.status)}>{selectedDeployment.status}</Pill></div>
                                 {selectedDeployment.commit_sha && <div className="summary-item"><span className="label">Commit:</span><code className="git-hash">{selectedDeployment.commit_sha.slice(0, 7)}</code></div>}
                                 <div className="summary-item"><span className="label">Branch:</span><span>{selectedDeployment.branch}</span></div>
                                 <div className="summary-item"><span className="label">Triggered by:</span><span>{selectedDeployment.triggered_by}</span></div>

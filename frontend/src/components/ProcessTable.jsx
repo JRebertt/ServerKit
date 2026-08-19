@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { processStateVariant } from '@/components/ds/status';
 import { X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -379,19 +380,7 @@ function defaultFormatMemory(bytes) {
 }
 
 function defaultGetStatusVariant(status) {
-    switch (status?.toLowerCase()) {
-        case 'running':
-        case 'sleeping':
-            return 'success';
-        case 'stopped':
-        case 'zombie':
-            return 'destructive';
-        case 'idle':
-        case 'disk-sleep':
-            return 'warning';
-        default:
-            return 'secondary';
-    }
+    return processStateVariant(status);
 }
 
 export default ProcessTable;

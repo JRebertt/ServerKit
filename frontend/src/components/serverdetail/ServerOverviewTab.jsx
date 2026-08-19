@@ -3,7 +3,7 @@ import OnboardingWizard from '../server/OnboardingWizard';
 import SystemStatusCard from './SystemStatusCard';
 import { formatBytes } from '@/utils/formatBytes';
 import {
-    STATUS_PILL_KIND,
+    serverStatusKind,
     InfoRow,
     KpiTile,
     KpiGauge,
@@ -122,7 +122,7 @@ const ServerOverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => 
                     <h3><ServerIcon /> Server Information</h3>
                     <ul className="info-rows">
                         <InfoRow icon={<PulseIcon />} label="Status">
-                            <Pill kind={STATUS_PILL_KIND[server.status] || 'gray'}>{server.status}</Pill>
+                            <Pill kind={serverStatusKind(server.status)}>{server.status}</Pill>
                         </InfoRow>
                         <InfoRow icon={<HostIcon />} label="Hostname" value={server.hostname || 'N/A'} mono />
                         <InfoRow icon={<NetworkIcon />} label="IP Address" value={server.ip_address || 'N/A'} mono />

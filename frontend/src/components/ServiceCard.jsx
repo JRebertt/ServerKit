@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { serviceStatusVariant } from '@/components/ds/status';
 
 export function ServicesGrid({ children, className = '' }) {
     return <div className={`services-grid ${className}`.trim()}>{children}</div>;
@@ -46,18 +47,7 @@ export function ServiceCard({
 }
 
 function defaultStatusVariant(status) {
-    switch (status?.toLowerCase()) {
-        case 'running':
-        case 'active':
-            return 'success';
-        case 'stopped':
-        case 'failed':
-            return 'destructive';
-        case 'inactive':
-            return 'secondary';
-        default:
-            return 'warning';
-    }
+    return serviceStatusVariant(status);
 }
 
 export default ServiceCard;
