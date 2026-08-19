@@ -121,10 +121,7 @@ def scan_directory():
 @admin_required
 def scan_app(app_id):
     """Enqueue a job-backed malware scan (YARA + ClamAV) of an app's docroot."""
-    try:
-        job = MalwareScanService.enqueue_scan(app_id=app_id)
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404 if 'not found' in str(e) else 400
+    job = MalwareScanService.enqueue_scan(app_id=app_id)
     return jsonify({'job_id': job.id, 'kind': job.kind,
                     'path': (job.get_payload() or {}).get('path')}), 202
 
@@ -136,10 +133,7 @@ def scan_path_job():
     data = request.get_json()
     if not data or not data.get('path'):
         return jsonify({'error': 'Path required'}), 400
-    try:
-        job = MalwareScanService.enqueue_scan(path=data['path'])
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
+    job = MalwareScanService.enqueue_scan(path=data['path'])
     return jsonify({'job_id': job.id, 'kind': job.kind, 'path': data['path']}), 202
 
 
