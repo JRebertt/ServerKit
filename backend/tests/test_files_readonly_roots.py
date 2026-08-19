@@ -17,6 +17,7 @@ import os
 
 import pytest
 
+from app.exceptions import PermissionDeniedError
 from app.services.file_service import FileService
 
 
@@ -75,10 +76,9 @@ def test_paths_outside_every_root_stay_denied(roots, tmp_path):
 # --------------------------------------------------------------------------- #
 def test_write_file_refuses_and_leaves_content_untouched(roots):
     original = roots['conf'].read_text(encoding='utf-8')
-    result = FileService.write_file(str(roots['conf']), 'server { evil; }')
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.write_file(str(roots['conf']), 'server { evil; }')
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert roots['conf'].read_text(encoding='utf-8') == original
     # ...and no .bak was dropped next to it either.
     assert not (roots['ro'] / 'nginx.conf.bak').exists()
@@ -86,57 +86,49 @@ def test_write_file_refuses_and_leaves_content_untouched(roots):
 
 def test_create_file_refuses(roots):
     target = roots['ro'] / 'new.conf'
-    result = FileService.create_file(str(target), 'x')
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.create_file(str(target), 'x')
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert not target.exists()
 
 
 def test_create_directory_refuses(roots):
     target = roots['ro'] / 'sites-enabled'
-    result = FileService.create_directory(str(target))
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.create_directory(str(target))
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert not target.exists()
 
 
 def test_delete_refuses(roots):
-    result = FileService.delete(str(roots['conf']))
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.delete(str(roots['conf']))
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert roots['conf'].exists()
 
 
 def test_rename_refuses(roots):
-    result = FileService.rename(str(roots['conf']), 'nginx.conf.disabled')
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.rename(str(roots['conf']), 'nginx.conf.disabled')
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert roots['conf'].exists()
     assert not (roots['ro'] / 'nginx.conf.disabled').exists()
 
 
 def test_change_permissions_refuses(roots):
-    result = FileService.change_permissions(str(roots['conf']), '777')
-
-    assert result['success'] is False
-    assert 'read-only' in result['error']
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.change_permissions(str(roots['conf']), '777')
 
 
 def test_move_refuses_in_both_directions(roots):
-    out = FileService.move(str(roots['conf']), str(roots['rw'] / 'nginx.conf'))
-    assert out['success'] is False
-    assert 'read-only' in out['error']
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.move(str(roots['conf']), str(roots['rw'] / 'nginx.conf'))
     assert roots['conf'].exists()
 
     donor = roots['rw'] / 'payload.conf'
     donor.write_text('x', encoding='utf-8')
-    into = FileService.move(str(donor), str(roots['ro'] / 'payload.conf'))
-    assert into['success'] is False
-    assert 'read-only' in into['error']
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.move(str(donor), str(roots['ro'] / 'payload.conf'))
     assert not (roots['ro'] / 'payload.conf').exists()
     assert donor.exists()
 
@@ -144,15 +136,14 @@ def test_move_refuses_in_both_directions(roots):
 def test_copy_out_is_allowed_but_copy_in_is_refused(roots):
     """Taking a vhost out to keep is reading; writing one in is not."""
     out = FileService.copy(str(roots['conf']), str(roots['rw'] / 'nginx.conf'))
-    assert out['success'] is True
+    assert out == {'src': str(roots['conf']), 'dest': str(roots['rw'] / 'nginx.conf')}
     assert (roots['rw'] / 'nginx.conf').exists()
     assert roots['conf'].exists()
 
     donor = roots['rw'] / 'payload.conf'
     donor.write_text('x', encoding='utf-8')
-    into = FileService.copy(str(donor), str(roots['ro'] / 'payload.conf'))
-    assert into['success'] is False
-    assert 'read-only' in into['error']
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.copy(str(donor), str(roots['ro'] / 'payload.conf'))
     assert not (roots['ro'] / 'payload.conf').exists()
 
 
@@ -165,8 +156,7 @@ def test_symlink_into_read_only_root_does_not_launder_a_write(roots):
     link = roots['rw'] / 'sneaky.conf'
     link.symlink_to(roots['conf'])
 
-    result = FileService.write_file(str(link), 'server { evil; }')
+    with pytest.raises(PermissionDeniedError, match='read-only'):
+        FileService.write_file(str(link), 'server { evil; }')
 
-    assert result['success'] is False
-    assert 'read-only' in result['error']
     assert roots['conf'].read_text(encoding='utf-8') == 'server { }\n'
