@@ -18,8 +18,15 @@ BACKEND_ROOT = APP_ROOT.parent
 
 
 def _raw_thread_sites():
+    # Tracked files only: installed extension copies under app/plugins/ exist
+    # on dev boxes but not in a clean checkout, and a classification entry for
+    # one reads as stale on CI (extension repos own their own threads).
+    from tracked_files import is_tracked, tracked_py_files
+    tracked = tracked_py_files(str(BACKEND_ROOT))
     sites = set()
     for path in APP_ROOT.rglob('*.py'):
+        if not is_tracked(str(path), tracked):
+            continue
         tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
         parents = {}
         for node in ast.walk(tree):

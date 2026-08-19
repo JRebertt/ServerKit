@@ -52,11 +52,8 @@ THREAD_OWNERSHIP = {
         'lifecycle': LIFECYCLE_PROCESS_LOOP,
         'rationale': 'Long-lived consumer for already-persisted notification messages.',
     },
-    'app/plugins/serverkit-analytics/ingest_service.py:ensure_flush_thread:_flush_loop': {
-        'owner': 'analytics extension ingest',
-        'lifecycle': LIFECYCLE_PROCESS_LOOP,
-        'rationale': 'Flushes an in-memory analytics batch owned by this process.',
-    },
+    # Installed (untracked) extension copies are not classified here: the
+    # guard scans tracked files only, and extension repos own their threads.
     'app/queue_bus/consumers/webhook_consumer.py:start:self._run': {
         'owner': 'webhook queue',
         'lifecycle': LIFECYCLE_PROCESS_LOOP,

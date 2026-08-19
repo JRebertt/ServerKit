@@ -17,7 +17,7 @@ debt. Regenerate with `python scripts/generate-migration-inventory.py`.
 | HTTP statuses chosen by sniffing error text | typed errors from app.exceptions | 0 | 0 | INVARIANT at 0 - migration completed 2026-08-19 |
 | API crashes swallowed without recording | app.error_reporting | 0 | 0 | INVARIANT at 0 |
 | Hand-shaped {'error': ...} bodies in app/api | typed errors + the global handler | 1159 | 1159 | migrate when touched; new endpoints raise |
-| Raw subprocess calls outside the runners | app/utils/system.py runners | 28 | 28 | migrate when touched |
+| Raw subprocess calls outside the runners | app/utils/system.py runners | 24 | 24 | migrate when touched |
 | Controller-boundary violations (routes doing service work) | service layer extraction | 510 | 510 | migrate when touched (first-wave ratchet) |
 | raw api.* calls in pages/ | E1: useServerQuery/useServerMutation | 460 | 460 | migrate when touched |
 | per-page toast.error extractions in pages/ | E1: query-layer error presentation | 264 | 264 | migrate when touched |

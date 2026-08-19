@@ -105,3 +105,22 @@ def test_the_doors_are_where_the_raw_calls_are_allowed_to_be():
     change that accidentally stopped scanning app/ would not read as a win."""
     found = census()
     assert found.get('app/utils/system.py'), 'census stopped seeing the helpers'
+
+
+def test_untracked_files_are_not_counted():
+    """The census measures what ships, not what this machine has installed.
+
+    A dev box's app/plugins/ also holds installed extension copies that git
+    does not track; counting their call sites once gave the ceiling four
+    sites of invisible slack on CI's clean checkout (28 here, 24 there).
+    """
+    import os
+    from raw_subprocess_census import APP_DIR, census
+
+    probe = os.path.join(APP_DIR, '_untracked_census_probe.py')
+    with open(probe, 'w', encoding='utf-8') as f:
+        f.write("import subprocess\nsubprocess.run(['true'])\n")
+    try:
+        assert 'app/_untracked_census_probe.py' not in census()
+    finally:
+        os.remove(probe)

@@ -36,10 +36,15 @@ SKIP_DIRS = {'__pycache__', 'node_modules', '.venv', 'venv'}
 
 
 def _iter_py_files(root):
+    # Only git-tracked files: a dev box's app/plugins/ also carries installed
+    # extension copies a clean checkout never sees, and counting those gives
+    # the ceiling invisible slack on CI (28 measured here vs 24 there).
+    from tracked_files import is_tracked, tracked_py_files
+    tracked = tracked_py_files(BACKEND)
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for name in sorted(filenames):
-            if name.endswith('.py'):
+            if name.endswith('.py') and is_tracked(os.path.join(dirpath, name), tracked):
                 yield os.path.join(dirpath, name)
 
 
