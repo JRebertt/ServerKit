@@ -9,58 +9,24 @@ import json
 import logging
 import threading
 import time
-from collections import defaultdict
 
 from flask import request
 from flask_socketio import Namespace, emit, disconnect
 
 from app.services.agent_registry import agent_registry
 from app.models.server import Server
-from app.utils.ip_utils import is_ip_allowed
-from app.services.anomaly_detection_service import anomaly_detection_service
 
 logger = logging.getLogger(__name__)
 
-# In-memory per-IP auth rate limiter. Guarded by a lock because the gateway
-# runs under async_mode='threading' — on_auth (WS) and the poll /connect
-# endpoint can call this concurrently, and an unlocked read-modify-write of a
-# shared dict races. Buckets are swept periodically so the dict can't grow
-# without bound from one-off IPs on an internet-facing gateway.
-# NOTE: request.remote_addr below is the ProxyFix-corrected real client IP when
-# TRUST_PROXY_HEADERS is on (plan 48). Before that fix, every agent behind nginx
-# shared nginx's address = one global bucket; now the throttle keys per-agent.
-_auth_attempts = defaultdict(list)
-_auth_attempts_lock = threading.Lock()
-_last_auth_sweep = 0.0
-_AUTH_RATE_LIMIT = 10  # max attempts per window
-_AUTH_RATE_WINDOW = 60  # seconds
-
-
-def _check_auth_rate_limit(ip_address: str) -> bool:
-    """Record an auth attempt and report whether the IP is still under the
-    limit. Returns True when allowed, False when the per-IP window is
-    exhausted. Thread-safe."""
-    global _last_auth_sweep
-    now = time.time()
-    with _auth_attempts_lock:
-        # Opportunistic sweep: drop buckets whose attempts have all aged out
-        # so IPs that connect once and never return don't accumulate forever.
-        if now - _last_auth_sweep > _AUTH_RATE_WINDOW:
-            for ip in list(_auth_attempts.keys()):
-                fresh = [t for t in _auth_attempts[ip] if now - t < _AUTH_RATE_WINDOW]
-                if fresh:
-                    _auth_attempts[ip] = fresh
-                else:
-                    del _auth_attempts[ip]
-            _last_auth_sweep = now
-
-        recent = [t for t in _auth_attempts[ip_address] if now - t < _AUTH_RATE_WINDOW]
-        if len(recent) >= _AUTH_RATE_LIMIT:
-            _auth_attempts[ip_address] = recent
-            return False
-        recent.append(now)
-        _auth_attempts[ip_address] = recent
-        return True
+# The per-IP auth rate limiter is transport-neutral state and lives with the
+# shared handshake door in agent_registry (plan 77 A2). Re-exported here for
+# callers/tests that historically reached it via the gateway module.
+from app.services.agent_registry import (  # noqa: F401
+    _AUTH_RATE_LIMIT,
+    _AUTH_RATE_WINDOW,
+    _auth_attempts,
+    _check_auth_rate_limit,
+)
 
 
 class AgentNamespace(Namespace):
@@ -86,6 +52,11 @@ class AgentNamespace(Namespace):
         """
         Handle agent authentication.
 
+        Thin adapter over agent_registry.authenticate_and_register (plan 77
+        A2) — the handshake sequence itself is transport-neutral and shared
+        with the long-poll /connect endpoint; this handler only translates
+        the outcome into socket emits/disconnects.
+
         Expected data:
         {
             "type": "auth",
@@ -98,75 +69,30 @@ class AgentNamespace(Namespace):
         """
         sid = request.sid
         ip_address = request.remote_addr
-        if not _check_auth_rate_limit(ip_address):
+        logger.info("Auth attempt from agent %s at %s",
+                    (data or {}).get('agent_id'), ip_address)
+
+        session_token, server, error = agent_registry.authenticate_and_register(
+            data or {},
+            ip_address,
+            user_agent=request.headers.get('User-Agent', ''),
+            transport='ws',
+            socket_id=sid,
+        )
+
+        if error == 'rate_limited':
             emit('auth_response', {'success': False, 'error': 'Rate limit exceeded'}, room=request.sid, namespace='/agent')
             return
-
-        agent_id = data.get('agent_id')
-        api_key_prefix = data.get('api_key_prefix')
-        signature = data.get('signature')
-        timestamp = data.get('timestamp', 0)
-        nonce = data.get('nonce')  # Optional for backward compatibility
-
-        ip_address = request.remote_addr
-        logger.info("Auth attempt from agent %s at %s", agent_id, ip_address)
-
-        if not all([agent_id, api_key_prefix, signature]):
+        if error is not None:
+            messages = {
+                'missing_fields': 'Missing required fields',
+                'auth_failed': 'Authentication failed',
+                'ip_not_allowed': 'IP address not allowed',
+                'registration_failed': 'Registration failed',
+            }
             emit('auth_fail', {
                 'type': 'auth_fail',
-                'error': 'Missing required fields'
-            })
-            disconnect()
-            return
-
-        # Verify authentication (includes signature verification and replay protection)
-        server = agent_registry.verify_agent_auth(
-            agent_id, api_key_prefix, signature, timestamp,
-            nonce=nonce, ip_address=ip_address
-        )
-
-        if not server:
-            emit('auth_fail', {
-                'type': 'auth_fail',
-                'error': 'Authentication failed'
-            })
-            disconnect()
-            return
-
-        # Check IP allowlist
-        if server.allowed_ips and len(server.allowed_ips) > 0:
-            if not is_ip_allowed(ip_address, server.allowed_ips):
-                # Log security event
-                anomaly_detection_service.track_ip_blocked(
-                    server.id, ip_address, server.allowed_ips
-                )
-                emit('auth_fail', {
-                    'type': 'auth_fail',
-                    'error': 'IP address not allowed'
-                })
-                logger.warning("IP %s blocked for server %s", ip_address, server.id)
-                disconnect()
-                return
-
-        # Check for new IP and create info alert
-        anomaly_detection_service.check_new_ip(server.id, ip_address)
-
-        # Register agent
-        agent_version = request.headers.get('User-Agent', '').replace('ServerKit-Agent/', '')
-
-        session_token = agent_registry.register_agent(
-            server_id=server.id,
-            socket_id=sid,
-            ip_address=ip_address,
-            agent_version=agent_version
-        )
-
-        # register_agent returns None when the DB write failed and it rolled
-        # back the in-memory state — don't tell the agent it's authenticated.
-        if not session_token:
-            emit('auth_fail', {
-                'type': 'auth_fail',
-                'error': 'Registration failed'
+                'error': messages.get(error, 'Authentication failed')
             })
             disconnect()
             return
@@ -180,8 +106,6 @@ class AgentNamespace(Namespace):
             'expires': expires,
             'server_id': server.id
         })
-
-        logger.info("Agent %s authenticated successfully from %s", agent_id, ip_address)
 
     def on_heartbeat(self, data):
         """
@@ -211,7 +135,7 @@ class AgentNamespace(Namespace):
             return
 
         metrics = data.get('metrics', {})
-        agent_registry.update_heartbeat(agent.server_id, metrics)
+        agent_registry.ingest_agent_state(agent, metrics=metrics)
 
         emit('heartbeat_ack', {'type': 'heartbeat_ack'})
 
@@ -266,7 +190,7 @@ class AgentNamespace(Namespace):
             return
 
         info = data.get('info', {})
-        agent_registry.update_system_info(agent.server_id, info)
+        agent_registry.ingest_agent_state(agent, sysinfo=info)
 
     def on_capabilities(self, data):
         """
@@ -298,9 +222,9 @@ class AgentNamespace(Namespace):
             return
 
         # Capability side-effects (incl. the WireGuard tunnel reconcile)
-        # happen inside update_capabilities so both transports — this WS
-        # handler and the long-poll /poll body — share one ingest path.
-        agent_registry.update_capabilities(agent.server_id, data or {})
+        # happen inside the shared ingest so both transports — this WS
+        # handler and the long-poll /poll body — behave identically.
+        agent_registry.ingest_agent_state(agent, capabilities=data or {})
 
     def on_stream(self, data):
         """
