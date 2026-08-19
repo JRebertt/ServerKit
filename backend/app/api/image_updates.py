@@ -21,11 +21,7 @@ def check(app_id):
     """Run a registry-digest comparison for the application's image now."""
     if not _admin():
         return jsonify({'error': 'Admin access required'}), 403
-    result = ImageUpdateService.check_application(app_id)
-    if not result['success']:
-        code = 404 if 'not found' in result['error'].lower() else 400
-        return jsonify({'error': result['error']}), code
-    return jsonify(result['check'])
+    return jsonify(ImageUpdateService.check_application(app_id))
 
 
 @image_updates_bp.route('/applications/<int:app_id>', methods=['GET'])
