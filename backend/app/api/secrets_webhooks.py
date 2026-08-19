@@ -129,11 +129,9 @@ def create_vault():
         workspace_id = explicit_ws
     else:
         workspace_id = WorkspaceService.resolve_workspace_id(user, _resolve_ws_value())
-    result = SecretVaultService.create_vault(name, description=data.get('description'),
-                                             user_id=user.id, workspace_id=workspace_id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 409
-    return result, 201
+    vault = SecretVaultService.create_vault(name, description=data.get('description'),
+                                            user_id=user.id, workspace_id=workspace_id)
+    return {'success': True, 'vault': vault}, 201
 
 
 @bp.route('/vaults/<int:vault_id>', methods=['GET'])
@@ -152,10 +150,8 @@ def update_vault(vault_id):
     if err:
         return err
     data = _json_or_form()
-    result = SecretVaultService.update_vault(vault.id, name=data.get('name'), description=data.get('description'))
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404 if 'not found' in result.get('error', '').lower() else 409
-    return result
+    updated = SecretVaultService.update_vault(vault.id, name=data.get('name'), description=data.get('description'))
+    return {'success': True, 'vault': updated}
 
 
 @bp.route('/vaults/<int:vault_id>', methods=['DELETE'])
@@ -164,10 +160,8 @@ def delete_vault(vault_id):
     vault, err = _vault_gate(vault_id, roles=_WS_WRITE_ROLES)
     if err:
         return err
-    result = SecretVaultService.delete_vault(vault.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    SecretVaultService.delete_vault(vault.id)
+    return {'success': True, 'message': 'Vault deleted'}
 
 
 # ---------- Secrets ----------
@@ -198,10 +192,8 @@ def create_secret(vault_id):
             expires_at = datetime.fromisoformat(data['expires_at'])
         except ValueError:
             return {'error': 'Invalid expires_at format'}, 400
-    result = SecretService.create_secret(vault.id, name, value, description=data.get('description'), expires_at=expires_at)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 409 if 'already exists' in result.get('error', '').lower() else 400
-    return result, 201
+    secret = SecretService.create_secret(vault.id, name, value, description=data.get('description'), expires_at=expires_at)
+    return {'success': True, 'secret': secret}, 201
 
 
 @bp.route('/vaults/<int:vault_id>/secrets/bulk', methods=['POST'])
@@ -215,7 +207,7 @@ def bulk_create_secrets(vault_id):
     if not isinstance(secrets_list, list):
         return {'error': 'secrets must be a list'}, 400
     result = SecretService.bulk_create_or_update(vault.id, secrets_list)
-    return result, 207
+    return {'success': True, **result}, 207
 
 
 @bp.route('/secrets/<int:secret_id>', methods=['GET'])
@@ -240,16 +232,14 @@ def update_secret(secret_id):
             expires_at = datetime.fromisoformat(data['expires_at'])
         except ValueError:
             return {'error': 'Invalid expires_at format'}, 400
-    result = SecretService.update_secret(
+    updated = SecretService.update_secret(
         secret.id,
         value=data.get('value'),
         description=data.get('description'),
         expires_at=expires_at,
         rotate=data.get('rotate', False),
     )
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    return {'success': True, 'secret': updated}
 
 
 @bp.route('/secrets/<int:secret_id>/reveal', methods=['POST'])
@@ -260,10 +250,8 @@ def reveal_secret(secret_id):
     secret, err = _secret_gate(secret_id, roles=_WS_WRITE_ROLES)
     if err:
         return err
-    result = SecretService.reveal_secret(secret.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    revealed = SecretService.reveal_secret(secret.id)
+    return {'success': True, 'secret': revealed}
 
 
 @bp.route('/secrets/<int:secret_id>', methods=['DELETE'])
@@ -272,10 +260,8 @@ def delete_secret(secret_id):
     secret, err = _secret_gate(secret_id, roles=_WS_WRITE_ROLES)
     if err:
         return err
-    result = SecretService.delete_secret(secret.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    SecretService.delete_secret(secret.id)
+    return {'success': True, 'message': 'Secret deleted'}
 
 
 # ---------- Webhook Endpoints ----------
@@ -293,7 +279,7 @@ def create_webhook_endpoint():
     name = data.get('name')
     if not name:
         return {'error': 'name is required'}, 400
-    result = WebhookGatewayService.create_endpoint(
+    endpoint = WebhookGatewayService.create_endpoint(
         name=name,
         secret=data.get('secret'),
         forward_url=data.get('forward_url'),
@@ -302,9 +288,7 @@ def create_webhook_endpoint():
         user_id=_current_user_id(),
         workspace_id=_resolve_ws(),
     )
-    if not result.get('success'):
-        return {'error': result.get('error')}, 409
-    return result, 201
+    return {'success': True, 'endpoint': endpoint}, 201
 
 
 @bp.route('/webhooks/endpoints/<int:endpoint_id>', methods=['GET'])
@@ -323,7 +307,7 @@ def update_webhook_endpoint(endpoint_id):
     if err:
         return err
     data = _json_or_form()
-    result = WebhookGatewayService.update_endpoint(
+    updated = WebhookGatewayService.update_endpoint(
         endpoint.id,
         name=data.get('name'),
         forward_url=data.get('forward_url'),
@@ -331,9 +315,7 @@ def update_webhook_endpoint(endpoint_id):
         retry_count=data.get('retry_count'),
         is_active=data.get('is_active'),
     )
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404 if 'not found' in result.get('error', '').lower() else 409
-    return result
+    return {'success': True, 'endpoint': updated}
 
 
 @bp.route('/webhooks/endpoints/<int:endpoint_id>/regenerate-secret', methods=['POST'])
@@ -344,9 +326,7 @@ def regenerate_webhook_secret(endpoint_id):
     if err:
         return err
     result = WebhookGatewayService.regenerate_secret(endpoint.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    return {'success': True, **result}
 
 
 @bp.route('/webhooks/endpoints/<int:endpoint_id>', methods=['DELETE'])
@@ -355,10 +335,8 @@ def delete_webhook_endpoint(endpoint_id):
     endpoint, err = _endpoint_gate(endpoint_id, roles=_WS_WRITE_ROLES)
     if err:
         return err
-    result = WebhookGatewayService.delete_endpoint(endpoint.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    WebhookGatewayService.delete_endpoint(endpoint.id)
+    return {'success': True, 'message': 'Endpoint deleted'}
 
 
 @bp.route('/webhooks/endpoints/<int:endpoint_id>/deliveries', methods=['GET'])
@@ -378,10 +356,10 @@ def replay_webhook_delivery(delivery_id):
     delivery, err = _delivery_gate(delivery_id, roles=_WS_WRITE_ROLES)
     if err:
         return err
+    # The replay operation succeeding and the forward succeeding are two
+    # different facts; a failed forward is data, not an HTTP error.
     result = WebhookGatewayService.replay_delivery(delivery.id)
-    if not result.get('success'):
-        return {'error': result.get('error')}, 404
-    return result
+    return {'success': result['forwarded'], 'delivery': result['delivery']}
 
 
 # ---------- Public webhook receiver ----------

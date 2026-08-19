@@ -111,9 +111,15 @@ export default function WebhooksTab() {
 
     async function replayDelivery(deliveryId) {
         try {
-            await api.replayWebhookDelivery(deliveryId);
+            // A failed forward answers 200 with success:false — the replay ran,
+            // the target refused it. Only transport/authz errors throw.
+            const res = await api.replayWebhookDelivery(deliveryId);
             openEndpoint(selectedEndpoint.id);
-            toast.success('Replayed delivery');
+            if (res && res.success === false) {
+                toast.error('Replayed, but the forward target did not accept it');
+            } else {
+                toast.success('Replayed delivery');
+            }
         } catch (err) {
             toast.error(`Replay failed: ${err.message}`);
         }

@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 import requests
 
 from app import db
+from app.exceptions import ConflictError, NotFoundError, ValidationError
 from app.models import WebhookEndpoint, WebhookDelivery
 from app.utils.slug import unique_slug
 
@@ -48,7 +49,7 @@ class WebhookGatewayService:
                         filter_paths: List[str] = None, retry_count: int = 3,
                         user_id: int = None, workspace_id: int = None) -> Dict:
         if WebhookEndpoint.query.filter_by(name=name).first():
-            return {'success': False, 'error': 'Endpoint name already exists'}
+            raise ConflictError('Endpoint name already exists')
         endpoint = WebhookEndpoint(
             name=name,
             slug=cls._unique_slug(name),
@@ -62,7 +63,7 @@ class WebhookGatewayService:
             endpoint.set_filter_paths(filter_paths)
         db.session.add(endpoint)
         db.session.commit()
-        return {'success': True, 'endpoint': endpoint.to_dict()}
+        return endpoint.to_dict()
 
     @classmethod
     def update_endpoint(cls, endpoint_id: int, name: str = None, forward_url: str = None,
@@ -70,11 +71,11 @@ class WebhookGatewayService:
                         is_active: bool = None) -> Dict:
         endpoint = cls.get_endpoint(endpoint_id)
         if not endpoint:
-            return {'success': False, 'error': 'Endpoint not found'}
+            raise NotFoundError('Endpoint not found')
         if name is not None:
             existing = WebhookEndpoint.query.filter(WebhookEndpoint.name == name, WebhookEndpoint.id != endpoint_id).first()
             if existing:
-                return {'success': False, 'error': 'Endpoint name already exists'}
+                raise ConflictError('Endpoint name already exists')
             endpoint.name = name
         if forward_url is not None:
             endpoint.forward_url = forward_url
@@ -85,25 +86,24 @@ class WebhookGatewayService:
         if is_active is not None:
             endpoint.is_active = is_active
         db.session.commit()
-        return {'success': True, 'endpoint': endpoint.to_dict()}
+        return endpoint.to_dict()
 
     @classmethod
     def delete_endpoint(cls, endpoint_id: int) -> Dict:
         endpoint = cls.get_endpoint(endpoint_id)
         if not endpoint:
-            return {'success': False, 'error': 'Endpoint not found'}
+            raise NotFoundError('Endpoint not found')
         db.session.delete(endpoint)
         db.session.commit()
-        return {'success': True, 'message': 'Endpoint deleted'}
 
     @classmethod
     def regenerate_secret(cls, endpoint_id: int) -> Dict:
         endpoint = cls.get_endpoint(endpoint_id)
         if not endpoint:
-            return {'success': False, 'error': 'Endpoint not found'}
+            raise NotFoundError('Endpoint not found')
         endpoint.secret = secrets.token_urlsafe(32)
         db.session.commit()
-        return {'success': True, 'endpoint': endpoint.to_dict(), 'secret': endpoint.secret}
+        return {'endpoint': endpoint.to_dict(), 'secret': endpoint.secret}
 
     @classmethod
     def _extract_signature(cls, headers: Dict) -> tuple:
@@ -241,10 +241,10 @@ class WebhookGatewayService:
     def replay_delivery(cls, delivery_id: int) -> Dict:
         delivery = cls.get_delivery(delivery_id)
         if not delivery:
-            return {'success': False, 'error': 'Delivery not found'}
+            raise NotFoundError('Delivery not found')
         endpoint = delivery.endpoint
         if not endpoint or not endpoint.forward_url:
-            return {'success': False, 'error': 'Endpoint has no forward URL'}
+            raise ValidationError('Endpoint has no forward URL')
         payload = (delivery.payload or '').encode('utf-8')
         headers = delivery.get_headers()
         result = cls._forward(endpoint, delivery, payload, headers)
@@ -254,4 +254,4 @@ class WebhookGatewayService:
         delivery.error_message = result.get('error')
         delivery.completed_at = datetime.utcnow()
         db.session.commit()
-        return {'success': result.get('success', False), 'delivery': delivery.to_dict()}
+        return {'forwarded': result.get('success', False), 'delivery': delivery.to_dict()}
