@@ -5,13 +5,14 @@
 // machines ServerKit runs on, and nothing described the things it is supposed to
 // be watching. Host health stays below; this sits above it because "is the site
 // up" is the question the page is actually for.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Activity, Plus, Radar, ShieldAlert, Timer, Zap } from 'lucide-react';
 import api from '../../services/api';
 import { AreaChart, KpiBand, MetricCard, Pill } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { monitorStateOf } from './monitorShared';
+import { usePolling } from '../../hooks/usePolling';
 
 const POLL_MS = 15000;
 const FEED_LIMIT = 9;
@@ -32,7 +33,6 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
     const [stats, setStats] = useState(null);
     const [feed, setFeed] = useState([]);
     const [loaded, setLoaded] = useState(false);
-    const pollRef = useRef(null);
 
     const load = useCallback(async () => {
         try {
@@ -60,11 +60,13 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
         }
     }, []);
 
+    const refresh = usePolling(load, POLL_MS);
+
+    // The parent bumps refreshKey to force a reload (e.g. after creating a
+    // monitor); it is not part of the polling schedule.
     useEffect(() => {
-        load();
-        pollRef.current = setInterval(load, POLL_MS);
-        return () => clearInterval(pollRef.current);
-    }, [load, refreshKey]);
+        if (refreshKey) refresh();
+    }, [refreshKey, refresh]);
 
     if (!loaded) return null;
 

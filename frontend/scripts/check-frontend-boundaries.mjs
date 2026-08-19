@@ -34,6 +34,55 @@ const EXTENSION_OWNED_STYLES = [
 // insecure context, and SSL is optional by policy. This map must stay empty.
 const LEGACY_CLIPBOARD = new Map();
 
+// Polling belongs to usePolling / useServerQuery({refetchInterval}), which do
+// two things a hand-rolled setInterval does not: they never start a request
+// while the previous one is still in flight, and they stop entirely while the
+// tab is hidden, catching up once on return. A bare setInterval that fetches is
+// the documented poller-stampede shape - the page gets slower the longer it is
+// left open. Finite legacy baseline with exact counts, so every cleanup shrinks
+// it. A genuine non-fetching timer (a clock tick, a countdown) may stay, but it
+// is still listed so nothing new slips in unnoticed.
+const LEGACY_POLLERS = new Map(Object.entries({
+    'components/dashboard/widgets/renderers.jsx': 1,
+    'components/deploy-console/SuccessBanner.jsx': 1,
+    'components/docker/ContainersTab.jsx': 2,
+    'components/monitoring/DoctorPanel.jsx': 1,
+    'components/security/ScannerTab.jsx': 2,
+    'components/security/VulnerabilityTab.jsx': 1,
+    'components/server/OnboardingWizard.jsx': 2,
+    'components/serverdetail/ServicesTab.jsx': 1,
+    'components/servers/LinkPanelForm.jsx': 1,
+    'components/service-detail/LogsTab.jsx': 1,
+    'components/service-detail/MetricsTab.jsx': 1,
+    'components/service-detail/OverviewTab.jsx': 1,
+    'hooks/useContainerStatus.js': 1,
+    'hooks/useDeployJobStream.js': 1,
+    'hooks/useMetrics.js': 1,
+    'pages/Dashboard.jsx': 4,
+    'pages/Databases.jsx': 1,
+    'pages/DeliveryLog.jsx': 1,
+    'pages/DeployConsole.jsx': 1,
+    'pages/Deployments.jsx': 1,
+    'pages/ImportWizard.jsx': 1,
+    'pages/Jobs.jsx': 1,
+    'pages/MonitorDetail.jsx': 1,
+    'pages/Monitors.jsx': 2,
+    'pages/QueueDetail.jsx': 1,
+    'pages/QueueOperations.jsx': 1,
+    'pages/ServerDetail.jsx': 1,
+    'pages/Terminal.jsx': 3,
+    'pages/TestSandbox.jsx': 2,
+    'plugins/serverkit-gui/components/ServerGui.jsx': 1,
+    'plugins/serverkit-gui/components/SyntheticDesktop.jsx': 1,
+}));
+
+// The polling door itself, plus the query hook that wraps it.
+const POLLING_DOOR = new Set([
+    'utils/pollScheduler.js',
+    'hooks/usePolling.js',
+    'hooks/useServerQuery.js',
+]);
+
 // These are purpose-built experiences whose geometry/content is intentionally
 // richer than the ordinary Modal contract. Any new exception needs review.
 const LOW_LEVEL_DIALOG_EXCEPTIONS = new Set([
@@ -52,6 +101,7 @@ function walk(dir) {
 const files = walk(src).filter((path) => ['.js', '.jsx'].includes(extname(path)));
 const failures = [];
 const seenClipboard = new Set();
+const seenPollers = new Set();
 
 function rel(path) {
     return relative(src, path).replaceAll('\\', '/');
@@ -72,6 +122,15 @@ for (const path of files) {
             failures.push(`${file}: direct navigator.clipboard count is ${actual}; legacy baseline is ${expected}. Use useClipboard/copyToClipboard and shrink the baseline.`);
         }
         if (expected) seenClipboard.add(file);
+    }
+
+    if (!POLLING_DOOR.has(file)) {
+        const actual = count(source, /setInterval\s*\(/g);
+        const expected = LEGACY_POLLERS.get(file) || 0;
+        if (actual !== expected) {
+            failures.push(`${file}: raw setInterval count is ${actual}; legacy baseline is ${expected}. Use usePolling() (or useServerQuery({refetchInterval})) and shrink the baseline.`);
+        }
+        if (expected) seenPollers.add(file);
     }
 
     if (/(?:(?:window|globalThis)\s*\.\s*)?confirm\s*\(\s*['"`]/m.test(source)) {
@@ -117,6 +176,12 @@ for (const file of LEGACY_CLIPBOARD.keys()) {
     }
 }
 
+for (const file of LEGACY_POLLERS.keys()) {
+    if (!seenPollers.has(file)) {
+        failures.push(`${file}: legacy poller entry is stale; remove it from the boundary baseline.`);
+    }
+}
+
 const mainStylesPath = resolve(src, 'styles', 'main.scss');
 const mainStyles = readFileSync(mainStylesPath, 'utf8');
 for (const ownership of EXTENSION_OWNED_STYLES) {
@@ -159,4 +224,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard files remain ratcheted).`);
+console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard / ${LEGACY_POLLERS.size} poller files remain ratcheted).`);

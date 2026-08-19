@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { queryClient, serializeQueryKey } from '../services/queryClient';
+import { usePolling } from './usePolling';
 
 const workspaceKey = (workspaceId, queryKey) => ['workspace', workspaceId, ...queryKey];
 
@@ -8,6 +9,11 @@ export function useServerQuery(queryKey, queryFn, options = {}) {
     const {
         enabled = true,
         staleTime = 0,
+        // Keep this key fresh on an interval. Two things a hand-rolled
+        // setInterval next to a useState does not get: the query client already
+        // dedupes concurrent fetches of the same key, and the scheduler below
+        // stops entirely while the tab is hidden, catching up once on return.
+        refetchInterval = 0,
         onError,
     } = options;
     const { activeWorkspaceId } = useWorkspace();
@@ -59,6 +65,13 @@ export function useServerQuery(queryKey, queryFn, options = {}) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [scopedKeyHash, staleTime],
     );
+
+    usePolling(refetch, refetchInterval, {
+        enabled: enabled && refetchInterval > 0,
+        // The mount effect above already fetched; polling adds the *repeat*.
+        immediate: false,
+        onError: (error) => onErrorRef.current?.(error),
+    });
 
     return {
         ...state,
