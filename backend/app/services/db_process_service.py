@@ -14,9 +14,7 @@ Every statement flows through the single :meth:`DbProcessService._exec_sql`
 choke-point (which reuses the exact exec pathways the explorer already uses in
 ``DatabaseService``), so tests can stub one method to cover everything.
 """
-import subprocess
-
-from app.services.database_service import DatabaseService
+from app.services import db_exec
 
 SUPPORTED_ENGINES = ('mysql', 'postgresql')
 
@@ -43,44 +41,14 @@ class DbProcessService:
     # ------------------------------------------------------------------
     @staticmethod
     def _exec_sql(target, sql):
-        """Run ``sql`` against the target's engine.
+        """Run ``sql`` against the target's engine — via ``db_exec`` (§G5).
 
-        Returns ``{'success': bool, 'output': str, 'error': str|None}`` —
-        the same shape the underlying ``DatabaseService`` helpers return.
+        The named seam stays (tests stub it); the engine × host dispatch it used
+        to re-implement does not. The private docker-postgres branch here never
+        set ``ON_ERROR_STOP=1``, so psql reported success for statements the
+        server had rejected — the drift that made three copies worth one.
         """
-        engine = target.get('engine')
-        container = target.get('container')
-        try:
-            if container:
-                if engine == 'mysql':
-                    return DatabaseService.docker_mysql_execute(
-                        container, sql,
-                        user=target.get('user') or 'root',
-                        password=target.get('password'),
-                    )
-                # Docker PostgreSQL — same docker-exec pathway, psql client.
-                cmd = ['docker', 'exec']
-                if target.get('password'):
-                    cmd.extend(['-e', f"PGPASSWORD={target['password']}"])
-                cmd.extend([
-                    container, 'psql',
-                    '-U', target.get('user') or 'postgres',
-                    '-d', target.get('database') or 'postgres',
-                    '-t', '-A', '-c', sql,
-                ])
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-                return {
-                    'success': result.returncode == 0,
-                    'output': result.stdout,
-                    'error': result.stderr if result.returncode != 0 else None,
-                }
-            if engine == 'mysql':
-                return DatabaseService.mysql_execute(sql, root_password=target.get('password'))
-            return DatabaseService.pg_execute(sql)
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'output': '', 'error': 'Query timed out'}
-        except Exception as e:  # docker/client missing (e.g. Windows dev box)
-            return {'success': False, 'output': '', 'error': str(e)}
+        return db_exec.exec_sql(target, sql)
 
     # ------------------------------------------------------------------
     # Public API

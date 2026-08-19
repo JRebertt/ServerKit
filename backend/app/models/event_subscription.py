@@ -1,11 +1,12 @@
 """Event subscription and delivery models for webhook system."""
 from datetime import datetime
 from app import db
-import json
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 import secrets
 
 
-class EventSubscription(db.Model):
+class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     """Webhook subscription for event notifications."""
     __tablename__ = 'event_subscriptions'
 
@@ -19,8 +20,6 @@ class EventSubscription(db.Model):
     headers = db.Column(db.Text, nullable=True)  # JSON dict of custom headers
     retry_count = db.Column(db.Integer, default=3)
     timeout_seconds = db.Column(db.Integer, default=10)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = db.relationship('User', foreign_keys=[user_id])
     deliveries = db.relationship('EventDelivery', back_populates='subscription',
@@ -33,29 +32,19 @@ class EventSubscription(db.Model):
 
     def get_events(self):
         """Return parsed events list."""
-        if self.events:
-            try:
-                return json.loads(self.events)
-            except (json.JSONDecodeError, TypeError):
-                return []
-        return []
+        return self._json_read('events', [])
 
     def set_events(self, events_list):
         """Set events from a list."""
-        self.events = json.dumps(events_list) if events_list else '[]'
+        self._json_write('events', events_list, falsy='[]')
 
     def get_headers(self):
         """Return parsed custom headers."""
-        if self.headers:
-            try:
-                return json.loads(self.headers)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        return self._json_read('headers')
 
     def set_headers(self, headers_dict):
         """Set custom headers from a dict."""
-        self.headers = json.dumps(headers_dict) if headers_dict else None
+        self._json_write('headers', headers_dict)
 
     def matches_event(self, event_type):
         """Check if this subscription matches the given event type."""
@@ -90,7 +79,7 @@ class EventSubscription(db.Model):
         return f'<EventSubscription {self.name} → {self.url}>'
 
 
-class EventDelivery(db.Model):
+class EventDelivery(JsonColumnMixin, db.Model):
     """Record of a webhook delivery attempt."""
     __tablename__ = 'event_deliveries'
 
@@ -117,15 +106,10 @@ class EventDelivery(db.Model):
     STATUS_FAILED = 'failed'
 
     def get_payload(self):
-        if self.payload:
-            try:
-                return json.loads(self.payload)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        return self._json_read('payload')
 
     def set_payload(self, payload_dict):
-        self.payload = json.dumps(payload_dict) if payload_dict else None
+        self._json_write('payload', payload_dict)
 
     def to_dict(self):
         return {

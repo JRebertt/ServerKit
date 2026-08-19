@@ -25,8 +25,10 @@ change the other.
 import logging
 import os
 import shutil
-import subprocess
-import time
+
+from app.utils.system import run_checked
+
+from app.services.cache_service import ttl_cached
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,6 @@ logger = logging.getLogger(__name__)
 # briefly so a page load never pays that twice, but keep the window short
 # enough that installing Docker shows up without a restart.
 _CAPABILITY_TTL_SECONDS = 60
-_capability_cache = {'data': None, 'timestamp': 0}
 
 PROFILE_MINIMAL = 'minimal'
 PROFILE_STANDARD = 'standard'
@@ -178,19 +179,26 @@ def _docker_usable():
     An installed binary proves nothing — inside LXC the client is often present
     while the daemon has never started, which is exactly the case the Minimal
     profile exists for.
+
+    Returns ``None`` when the probe itself could not run (exec failure,
+    timeout): "unknown", not "absent" — callers that skip Docker on a
+    Dockerless box must not treat a broken probe as proof of absence.
     """
     if not _binary_present('docker'):
         return False
     try:
-        result = subprocess.run(
-            ['docker', 'info', '--format', '{{.ServerVersion}}'],
-            capture_output=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except Exception as e:
+        result = run_checked(['docker', 'info', '--format', '{{.ServerVersion}}'],
+                             timeout=5)
+    except Exception as e:  # noqa: BLE001 - the probe must never raise
         logger.debug(f'Docker probe failed: {e}')
-        return False
+        return None
+    if result['returncode'] is None:
+        # The probe never ran (exec failure, timeout). run_checked reports that
+        # as success=False, but False here would mean "docker is not usable" —
+        # a fact nobody established. This is what returncode-is-None is for.
+        logger.debug("Docker probe failed: %s", result['error'])
+        return None
+    return result['success']
 
 
 def get_capabilities(force_refresh=False):
@@ -200,29 +208,29 @@ def get_capabilities(force_refresh=False):
     The profile says what was *intended*; this says what is *true*. They drift
     — an operator can apt-install Docker on a Minimal box, and a Standard box
     can have a broken daemon. Cached for _CAPABILITY_TTL_SECONDS because the
-    Docker probe can block.
+    Docker probe can block (ttl_cached, plan 77 F2).
     """
-    now = time.time()
-    if (
-        not force_refresh
-        and _capability_cache['data'] is not None
-        and (now - _capability_cache['timestamp']) < _CAPABILITY_TTL_SECONDS
-    ):
-        return dict(_capability_cache['data'])
+    if force_refresh:
+        _probe_capabilities.invalidate()
+    return dict(_probe_capabilities())
 
+
+@ttl_cached(_CAPABILITY_TTL_SECONDS, key_fn=lambda: 'capabilities')
+def _probe_capabilities():
     docker = _docker_usable()
     capabilities = {
+        # Tri-state: True / False / None (probe failed = unknown). Consumers
+        # that skip Docker on a Dockerless box must key off `is False`, never
+        # falsiness — an unknown probe is not proof of absence.
         'docker': docker,
         'node': _binary_present('node'),
         'nginx': _binary_present('nginx'),
         'git': _binary_present('git'),
-        # The panel is only useful for hosting apps if containers work.
-        'can_host_apps': docker,
+        # A positive capability claim: True must be positively earned, so an
+        # unknown (None) probe does not advertise app hosting.
+        'can_host_apps': docker is True,
     }
-
-    _capability_cache['data'] = capabilities
-    _capability_cache['timestamp'] = now
-    return dict(capabilities)
+    return capabilities
 
 
 def get_profile_info(force_refresh=False):

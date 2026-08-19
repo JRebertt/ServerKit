@@ -1,8 +1,9 @@
-import json
 from datetime import datetime
 from decimal import Decimal
 
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 
 # Every CORE data-protection target the unified policy system can back up (§8).
 # 'application' is the original target; 'database', 'files', and 'server' were
@@ -27,7 +28,7 @@ def _num(value):
     return value
 
 
-class BackupPolicy(db.Model):
+class BackupPolicy(TimestampMixin, JsonColumnMixin, db.Model):
     """Automated backup ("protection") policy for a single target.
 
     A target is a generic application (``target_type='application'``), a
@@ -88,8 +89,6 @@ class BackupPolicy(db.Model):
     last_cost_remote = db.Column(db.Numeric(10, 4), nullable=True)
     last_job_id = db.Column(db.String(36), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     runs = db.relationship(
         'BackupRun',
@@ -103,16 +102,10 @@ class BackupPolicy(db.Model):
 
     def get_target_meta(self):
         """Parsed target_meta_json (always a dict)."""
-        if not self.target_meta_json:
-            return {}
-        try:
-            data = json.loads(self.target_meta_json)
-            return data if isinstance(data, dict) else {}
-        except (ValueError, TypeError):
-            return {}
+        return self._json_read('target_meta_json', expect=dict)
 
     def set_target_meta(self, value):
-        self.target_meta_json = json.dumps(value or {})
+        self._json_write('target_meta_json', value, falsy='{}')
 
     def to_dict(self):
         return {

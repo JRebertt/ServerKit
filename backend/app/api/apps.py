@@ -43,6 +43,7 @@ from app.services.upload_service import (
     get_current_version,
 )
 from app import paths
+from app.middleware.rbac import get_current_user, require_admin_user
 
 apps_bp = Blueprint('apps', __name__)
 
@@ -499,12 +500,12 @@ def set_app_workspace(app_id):
     null/'default' target moves it back to the default workspace."""
     from app.models.workspace import Workspace
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
     # Use user.id (int) for comparisons — get_jwt_identity() is the stringified token id.
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
 
     target = (request.get_json() or {}).get('workspace_id')
@@ -514,7 +515,7 @@ def set_app_workspace(app_id):
         ws = Workspace.query.get(target)
         if not ws:
             return jsonify({'error': 'Workspace not found'}), 404
-        if user.role != 'admin' and WorkspaceService.get_user_role(ws.id, user.id) is None:
+        if not user.is_admin and WorkspaceService.get_user_role(ws.id, user.id) is None:
             return jsonify({'error': 'Not a member of the target workspace'}), 403
         # Role reconciliation (#33): a 'viewer' member can't move resources into it.
         if not WorkspaceService.can_write_in_workspace(user, ws.id):
@@ -547,7 +548,7 @@ def move_apps_to_project():
     from app.models.project import Project
     from app.models.environment import Environment
 
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     data = request.get_json() or {}
 
     raw_ids = data.get('app_ids')
@@ -684,7 +685,7 @@ def _can_edit_app(user, app):
 @apps_bp.route('/<int:app_id>', methods=['GET'])
 @jwt_required()
 def get_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
 
     if not app:
@@ -705,7 +706,7 @@ def get_compose_services(app_id):
     Lets the env-var editor offer a per-service targeting choice. Empty for
     non-compose apps or when the base compose can't be read.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -723,11 +724,11 @@ def get_compose_services(app_id):
 def list_app_grants(app_id):
     """List who has been granted access to this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     grants = ResourceGrantService.list_for_resource('application', app.id)
     return jsonify({'grants': [g.to_dict() for g in grants]}), 200
@@ -738,11 +739,11 @@ def list_app_grants(app_id):
 def grant_app_access(app_id):
     """Grant a user access to this app (owner-or-admin). Body: {user_id, role?}."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json() or {}
     grantee_id = data.get('user_id')
@@ -766,11 +767,11 @@ def grant_app_access(app_id):
 def revoke_app_access(app_id, grant_id):
     """Revoke a grant on this app (owner-or-admin)."""
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
-    if user.role != 'admin' and app.user_id != user.id:
+    if not user.is_admin and app.user_id != user.id:
         return jsonify({'error': 'Access denied'}), 403
     ok = ResourceGrantService.revoke(grant_id, resource_type='application', resource_id=app.id)
     return jsonify({'success': ok}), (200 if ok else 404)
@@ -780,10 +781,7 @@ def revoke_app_access(app_id, grant_id):
 @jwt_required()
 def create_app_from_repository():
     """Create a new application by cloning a Git repository."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     name = _service_slug(data.get('name'))
@@ -809,7 +807,7 @@ def create_app_from_repository():
     if source_connection_id:
         try:
             source_repo = SourceConnectionService.get_authenticated_clone_url(
-                user_id=current_user_id,
+                user_id=user.id,
                 connection_id=int(source_connection_id),
                 full_name=repository_full_name,
             )
@@ -914,7 +912,7 @@ def create_app_from_repository():
         app_type=resolved_app_type,
         status='stopped',
         root_path=app_path,
-        user_id=current_user_id,
+        user_id=user.id,
         port=port,
         buildpack_type=buildpack_type,
         buildpack_plan=json.dumps(buildpack_plan) if buildpack_plan else None,
@@ -957,7 +955,7 @@ def create_app_from_repository():
         try:
             from app.services.manifest_persistence_service import ManifestPersistenceService
             manifest_summary = ManifestPersistenceService.apply_import(
-                app, manifest, user_id=current_user_id,
+                app, manifest, user_id=user.id,
                 source_repo=deploy_repo_url, source_ref=branch or 'main',
             )
         except Exception:
@@ -972,7 +970,7 @@ def create_app_from_repository():
         try:
             from app.services.deployment_job_service import DeploymentJobService
             enqueue_result = DeploymentJobService.enqueue_app_deploy(
-                app, user_id=current_user_id, trigger='install')
+                app, user_id=user.id, trigger='install')
             if enqueue_result.get('success'):
                 deploy_job_id = enqueue_result.get('job_id')
             else:
@@ -1082,10 +1080,7 @@ def create_app():
 @jwt_required()
 def create_manual_app():
     """Register an app that already exists on the server (manual/local)."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     name = _service_slug(data.get('name'))
@@ -1149,7 +1144,7 @@ def create_manual_app():
         systemd_unit=systemd_unit,
         managed_by=managed_by,
         ingress_plane=_resolve_ingress_plane(data, app_type, managed_by),
-        user_id=current_user_id,
+        user_id=user.id,
         workspace_id=ws_id,
         project_id=project_id,
         environment_id=environment_id,
@@ -1171,10 +1166,7 @@ def create_manual_app():
 @jwt_required()
 def upload_app_archive():
     """Create or update an app by uploading a zip archive."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
@@ -1280,7 +1272,7 @@ def upload_app_archive():
                 ),
                 version=new_version,
                 upload_path=upload_archive_path,
-                user_id=current_user_id,
+                user_id=user.id,
                 workspace_id=ws_id,
                 project_id=project_id,
                 environment_id=environment_id,
@@ -1614,7 +1606,7 @@ def apply_image_update(app_id):
 @apps_bp.route('/<int:app_id>/sleep-policy', methods=['GET'])
 @jwt_required()
 def get_sleep_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1626,7 +1618,7 @@ def get_sleep_policy(app_id):
 @apps_bp.route('/<int:app_id>/sleep-policy', methods=['PUT'])
 @jwt_required()
 def update_sleep_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1641,7 +1633,7 @@ def update_sleep_policy(app_id):
 @apps_bp.route('/<int:app_id>/sleep', methods=['POST'])
 @jwt_required()
 def sleep_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1656,7 +1648,7 @@ def sleep_app(app_id):
 @apps_bp.route('/<int:app_id>/wake', methods=['POST'])
 @jwt_required()
 def wake_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1673,7 +1665,7 @@ def wake_app(app_id):
 def sweep_idle_apps():
     """Sleep all enabled apps that have been idle past their timeout. Intended
     to be hit periodically (cron or a scheduler)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not (user and user.is_admin):
         return jsonify({'error': 'Admin access required'}), 403
     return jsonify(ContainerSleepService.sweep_idle())
@@ -1714,7 +1706,7 @@ def _parse_docker_stats(stats):
 @jwt_required()
 def get_app_resources(app_id):
     """The app's configured CPU/memory limits plus best-effort live usage."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1747,7 +1739,7 @@ def update_app_resources(app_id):
     the limits) and recreates changed containers; otherwise the limits are
     saved and take effect on the next restart/redeploy.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1804,7 +1796,7 @@ def set_micro_cache(app_id):
     config drift. When the app has no domains yet, the flag is save-only and
     takes effect on first publish.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1853,7 +1845,7 @@ def purge_micro_cache(app_id):
     wipes cached entries for every opted-in site. With the 10-second TTL this
     is near-harmless, and no nginx reload is needed.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1874,7 +1866,7 @@ def purge_micro_cache(app_id):
 @apps_bp.route('/<int:app_id>/scale-policy', methods=['GET'])
 @jwt_required()
 def get_scale_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1886,7 +1878,7 @@ def get_scale_policy(app_id):
 @apps_bp.route('/<int:app_id>/scale-policy', methods=['PUT'])
 @jwt_required()
 def update_scale_policy(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1900,7 +1892,7 @@ def update_scale_policy(app_id):
 @apps_bp.route('/<int:app_id>/scale', methods=['POST'])
 @jwt_required()
 def scale_app(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1918,7 +1910,7 @@ def scale_app(app_id):
 @apps_bp.route('/<int:app_id>/scale/evaluate', methods=['POST'])
 @jwt_required()
 def evaluate_scale(app_id):
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -1934,7 +1926,7 @@ def evaluate_scale(app_id):
 @jwt_required()
 def scale_sweep():
     """Evaluate every enabled auto-scaling policy. Intended for cron/scheduler."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not (user and user.is_admin):
         return jsonify({'error': 'Admin access required'}), 403
     return jsonify(ContainerScaleService.sweep())
@@ -2029,7 +2021,7 @@ def get_app_related(app_id):
     disabled feature degrades that section to empty rather than failing the
     whole card.
     """
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return jsonify({'error': 'Application not found'}), 404
@@ -2051,7 +2043,7 @@ def get_app_related(app_id):
         from app.models.managed_database import ManagedDatabase
         related['databases'] = [
             {'id': m.id, 'name': m.name, 'engine': getattr(m, 'engine', '')}
-            for m in ManagedDatabase.query.filter_by(owner_application_id=app.id).all()
+            for m in ManagedDatabase.query_active().filter_by(owner_application_id=app.id).all()
         ]
     except Exception:
         current_app.logger.warning('related: databases failed', exc_info=True)
@@ -2360,7 +2352,7 @@ def get_app_status(app_id):
 
 def _load_app_for_backup(app_id, edit=False):
     """Load an app the current user may access (or edit). Returns (app, error)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)

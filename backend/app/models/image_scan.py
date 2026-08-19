@@ -1,9 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class ImageVulnerabilityScan(db.Model):
+class ImageVulnerabilityScan(JsonColumnMixin, db.Model):
     """CVE scan result for a Docker image used by an application."""
     __tablename__ = 'image_vulnerability_scans'
 
@@ -25,23 +26,13 @@ class ImageVulnerabilityScan(db.Model):
         self.severity_counts = json.dumps(counts)
 
     def get_counts(self):
-        if not self.severity_counts:
-            return {}
-        try:
-            return json.loads(self.severity_counts)
-        except Exception:
-            return {}
+        return self._json_read('severity_counts')
 
     def set_findings(self, findings):
-        self.findings = json.dumps(findings) if findings else None
+        self._json_write('findings', findings)
 
     def get_findings(self):
-        if not self.findings:
-            return []
-        try:
-            return json.loads(self.findings)
-        except Exception:
-            return []
+        return self._json_read('findings', [])
 
     @property
     def highest_severity(self):
@@ -68,7 +59,7 @@ class ImageVulnerabilityScan(db.Model):
         }
 
 
-class SbomArtifact(db.Model):
+class SbomArtifact(JsonColumnMixin, db.Model):
     """Generated SPDX SBOM for a Docker image."""
     __tablename__ = 'sbom_artifacts'
 
@@ -92,5 +83,5 @@ class SbomArtifact(db.Model):
             'generator_version': self.generator_version,
             'format': self.format,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'sbom': json.loads(self.sbom_json) if include_sbom and self.sbom_json else None,
+            'sbom': self._json_read('sbom_json', None) if include_sbom else None,
         }

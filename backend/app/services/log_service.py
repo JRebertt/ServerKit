@@ -8,7 +8,8 @@ import queue
 
 from app import paths
 from app.utils.formatting import format_bytes
-from app.utils.system import run_privileged, privileged_cmd, is_command_available, sourced_result
+from app.utils.system import (run_privileged, privileged_cmd, is_command_available,
+                             run_checked, sourced_result)
 
 
 class LogService:
@@ -224,16 +225,10 @@ class LogService:
                 cmd.extend(['-f', compose_file])
             cmd.extend(['logs', '--tail', str(lines), '--no-color'])
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=app_dir
-            )
+            result = run_checked(cmd, timeout=30, cwd=app_dir)
 
-            if result.returncode == 0:
-                log_lines = result.stdout.split('\n') if result.stdout else []
+            if result['success']:
+                log_lines = result['output'].split('\n') if result['output'] else []
                 return {**sourced_result(log_lines, 'docker', 'Docker Compose'), 'app_dir': app_dir}
             else:
                 # Try with docker-compose (older syntax) as fallback
@@ -241,17 +236,11 @@ class LogService:
                 if compose_file:
                     cmd.extend(['-f', compose_file])
                 cmd.extend(['logs', '--tail', str(lines), '--no-color'])
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    cwd=app_dir
-                )
-                if result.returncode == 0:
-                    log_lines = result.stdout.split('\n') if result.stdout else []
+                result = run_checked(cmd, timeout=30, cwd=app_dir)
+                if result['success']:
+                    log_lines = result['output'].split('\n') if result['output'] else []
                     return {**sourced_result(log_lines, 'docker', 'Docker Compose (legacy)'), 'app_dir': app_dir}
-                return {'success': False, 'error': result.stderr or 'Failed to get Docker logs'}
+                return {'success': False, 'error': result['error']}
 
         except FileNotFoundError:
             return {'success': False, 'error': 'Docker not found'}
@@ -352,18 +341,15 @@ class LogService:
     def _read_windows_eventlog(lines: int) -> Dict:
         """Read system logs from Windows Event Log via wevtutil."""
         try:
-            result = subprocess.run(
+            result = run_checked(
                 ['wevtutil', 'qe', 'System', f'/c:{int(lines)}', '/f:text', '/rd:true'],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
+                timeout=60)
 
-            if result.returncode == 0:
-                log_lines = result.stdout.split('\n') if result.stdout else []
+            if result['success']:
+                log_lines = result['output'].split('\n') if result['output'] else []
                 return sourced_result(log_lines, 'eventlog', 'Windows Event Log')
             else:
-                return {'success': False, 'error': result.stderr}
+                return {'success': False, 'error': result['error']}
 
         except FileNotFoundError:
             return {'success': False, 'error': 'wevtutil command not found'}

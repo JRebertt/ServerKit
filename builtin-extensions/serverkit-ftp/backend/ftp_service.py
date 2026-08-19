@@ -5,7 +5,8 @@ import subprocess
 import re
 
 from app.utils.formatting import format_bytes
-from app.utils.system import PackageManager, ServiceControl, run_privileged, privileged_cmd
+from app.utils.system import (PackageManager, ServiceControl, privileged_cmd,
+                             run_checked, run_privileged)
 try:
     import pwd
 except ImportError:
@@ -65,11 +66,8 @@ class FTPService:
 
         try:
             # Check if installed via which or package manager
-            result = subprocess.run(
-                ['which', service],
-                capture_output=True, text=True
-            )
-            installed = result.returncode == 0
+            result = run_checked(['which', service], timeout=None)
+            installed = result['success']
 
             if not installed:
                 installed = PackageManager.is_installed(service)
@@ -80,19 +78,14 @@ class FTPService:
 
                 # Get version
                 if service == 'vsftpd':
-                    result = subprocess.run(
-                        ['vsftpd', '-v'],
-                        capture_output=True, text=True, stderr=subprocess.STDOUT
-                    )
-                    version_match = re.search(r'version (\d+\.\d+\.\d+)', result.stdout)
+                    result = run_checked(['vsftpd', '-v'], timeout=None,
+                                         merge_stderr=True)
+                    version_match = re.search(r'version (\d+\.\d+\.\d+)', result['output'])
                     if version_match:
                         version = version_match.group(1)
                 elif service == 'proftpd':
-                    result = subprocess.run(
-                        ['proftpd', '-v'],
-                        capture_output=True, text=True
-                    )
-                    version_match = re.search(r'ProFTPD Version (\d+\.\d+\.\d+)', result.stdout)
+                    result = run_checked(['proftpd', '-v'], timeout=None)
+                    version_match = re.search(r'ProFTPD Version (\d+\.\d+\.\d+)', result['output'])
                     if version_match:
                         version = version_match.group(1)
 
@@ -493,12 +486,11 @@ class FTPService:
             connections = []
 
             # Check for vsftpd connections
-            result = subprocess.run(
+            result = run_checked(
                 ['ss', '-tnp', 'state', 'established', 'sport', '=', ':21'],
-                capture_output=True, text=True
-            )
+                timeout=None)
 
-            for line in result.stdout.strip().split('\n')[1:]:  # Skip header
+            for line in result['output'].strip().split('\n')[1:]:  # Skip header
                 if line:
                     parts = line.split()
                     if len(parts) >= 5:
@@ -528,12 +520,10 @@ class FTPService:
         for log_file in log_files:
             if os.path.exists(log_file):
                 try:
-                    result = subprocess.run(
-                        ['tail', '-n', str(lines), log_file],
-                        capture_output=True, text=True
-                    )
+                    result = run_checked(['tail', '-n', str(lines), log_file],
+                                         timeout=None)
                     # Filter FTP-related entries if using syslog
-                    log_content = result.stdout
+                    log_content = result['output']
                     if 'syslog' in log_file:
                         log_content = '\n'.join(
                             line for line in log_content.split('\n')

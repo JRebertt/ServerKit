@@ -12,9 +12,10 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ServerOnboardingLog(db.Model):
+class ServerOnboardingLog(JsonColumnMixin, db.Model):
     __tablename__ = 'server_onboarding_logs'
 
     STATUS_STARTED = 'started'
@@ -34,10 +35,7 @@ class ServerOnboardingLog(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     def get_detail(self):
-        try:
-            return json.loads(self.detail_json) if self.detail_json else {}
-        except (TypeError, json.JSONDecodeError):
-            return {}
+        return self._json_read('detail_json')
 
     def set_detail(self, detail):
         self.detail_json = json.dumps(detail or {})

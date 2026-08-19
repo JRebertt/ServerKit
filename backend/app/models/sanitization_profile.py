@@ -8,10 +8,11 @@ between environments.
 
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class SanitizationProfile(db.Model):
+class SanitizationProfile(JsonColumnMixin, db.Model):
     """Reusable database sanitization preset."""
 
     __tablename__ = 'sanitization_profiles'
@@ -46,10 +47,7 @@ class SanitizationProfile(db.Model):
 
     def get_config(self):
         """Parse and return the config dict."""
-        try:
-            return json.loads(self.config) if self.config else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('config')
 
     def set_config(self, config_dict):
         """Set config from a dict."""

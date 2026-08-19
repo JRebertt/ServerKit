@@ -42,8 +42,7 @@
         white-space: nowrap;
 
         &.is-active {
-            color: $text-primary;
-            background: $accent-bg;
+            @include status-variant($text-primary, $accent-bg);
 
             .cutover__step-dot {
                 background: $accent-primary;

@@ -42,11 +42,25 @@ export async function deleteErrorLog(id) {
 // boundary error is likely), and a failed error report must never throw —
 // it is called from ErrorBoundary.componentDidCatch, where throwing would
 // re-trip the boundary it is reporting from.
+//
+// The Authorization header is still attached by hand when a token exists, so
+// the backend can attribute the report (ErrorLog.user_id, rendered as "User #N"
+// in pages/Errors.jsx). Without it every frontend row is anonymous.
+//
+// A stale token costs nothing here, but NOT for the reason it looks like:
+// verify_jwt_in_request(optional=True) tolerates a MISSING token only — an
+// expired one raises ExpiredSignatureError. The route survives because it wraps
+// that call in try/except and falls back to an anonymous report, so do not
+// tighten that except without revisiting this.
 export async function reportClientError(payload) {
     try {
+        const token = this.getToken();
         await fetch(`${this.baseUrl}/error-logs/client`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
             body: JSON.stringify(payload),
         });
     } catch {

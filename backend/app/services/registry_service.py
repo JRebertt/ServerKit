@@ -17,12 +17,11 @@ import json
 import logging
 import os
 import re
-import time
 from urllib.parse import urljoin
 
-import requests
 
 from app.models.plugin import InstalledPlugin
+from app.utils.remote_index import CachedRemoteIndex
 
 logger = logging.getLogger(__name__)
 
@@ -42,20 +41,6 @@ DEFAULT_REGISTRY_URL = (
 )
 
 
-def _registry_url():
-    """Resolve the live index URL per request (env changes apply without a
-    restart). Unset ⇒ the public registry; set-but-empty ⇒ disabled."""
-    value = os.environ.get('SERVERKIT_REGISTRY_URL')
-    if value is None:
-        return DEFAULT_REGISTRY_URL
-    return value.strip()
-try:
-    _TTL = int(os.environ.get('SERVERKIT_REGISTRY_TTL', '3600'))
-except ValueError:
-    _TTL = 3600
-
-# Module-level cache: last successfully-parsed entry list + when we fetched it.
-_cache = {'ts': 0.0, 'entries': None, 'source': None}
 
 # Fields we surface for a registry entry, with defaults. Index v2 adds
 # `repo`, `logo`, and `bundled` (see the serverkit-extensions schema); any
@@ -171,56 +156,30 @@ def _read_index_payload(payload, base_url=None):
     return [e for e in (_normalize(x, base_url) for x in exts) if e]
 
 
-def _load_bundled():
-    try:
-        with open(_BUNDLED_INDEX, 'r', encoding='utf-8') as f:
-            # Bundled copy mirrors the public index; resolve its relative logos
-            # against the default (raw-GitHub) index base.
-            return _read_index_payload(json.load(f), base_url=DEFAULT_REGISTRY_URL)
-    except Exception as e:
-        logger.warning(f'Could not read bundled registry index: {e}')
-        return []
+# One remote-catalog engine (plan 77 F1): fetch -> TTL -> last-good ->
+# bundled, with the failure-retry throttling theme_registry had already
+# hardened to. This module stays a thin normalizer (_read_index_payload).
+_index = CachedRemoteIndex(
+    name='Registry',
+    env_var='SERVERKIT_REGISTRY_URL',
+    default_url=DEFAULT_REGISTRY_URL,
+    normalize_fn=_read_index_payload,
+    bundled_path=_BUNDLED_INDEX,
+    # Bundled copy mirrors the public index; resolve its relative logos
+    # against the default index base.
+    bundled_base_url=DEFAULT_REGISTRY_URL,
+    ttl=3600,
+    ttl_env_var='SERVERKIT_REGISTRY_TTL',
+)
 
-
-def _fetch_remote():
-    url = _registry_url()
-    if not url:
-        return None
-    resp = requests.get(url, timeout=15, headers={
-        'Accept': 'application/json',
-        'User-Agent': 'ServerKit-Registry/1.0',
-    })
-    resp.raise_for_status()
-    return _read_index_payload(resp.json(), base_url=url)
+# Test seam: the shared cache dict (tests reset/seed it in place).
+_cache = _index._cache
 
 
 def refresh(force=False):
     """Return the registry entries, refreshing from the remote index when the
     cache is stale. Never raises — falls back to cache, then bundled copy."""
-    now = time.time()
-    if not force and _cache['entries'] is not None and (now - _cache['ts']) < _TTL:
-        return _cache['entries']
-
-    entries = None
-    source = None
-    try:
-        entries = _fetch_remote()
-        if entries is not None:
-            source = 'remote'
-    except Exception as e:
-        logger.warning(f'Registry fetch failed ({_registry_url()}): {e}')
-
-    if entries is None:
-        # Keep the last good remote cache if we have one; else bundled.
-        if _cache['entries'] is not None:
-            return _cache['entries']
-        entries = _load_bundled()
-        source = 'bundled'
-
-    _cache['entries'] = entries
-    _cache['ts'] = now
-    _cache['source'] = source
-    return entries
+    return _index.get(force=force)
 
 
 def _show_unreviewed():

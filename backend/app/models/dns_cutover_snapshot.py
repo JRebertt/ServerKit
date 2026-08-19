@@ -1,11 +1,11 @@
 """Reversible DNS cutover snapshot model."""
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class DnsCutoverSnapshot(db.Model):
+class DnsCutoverSnapshot(JsonColumnMixin, db.Model):
     """A point-in-time capture of a domain's live DNS records, taken right before
     a migration cutover flips them to the new box (plan 27 Phase 6 #13, Decision 6).
 
@@ -45,28 +45,16 @@ class DnsCutoverSnapshot(db.Model):
     applied_at = db.Column(db.DateTime, nullable=True)
 
     def get_records(self):
-        if not self.records_json:
-            return []
-        try:
-            data = json.loads(self.records_json)
-            return data if isinstance(data, list) else []
-        except (json.JSONDecodeError, TypeError):
-            return []
+        return self._json_read('records_json', [], expect=list)
 
     def set_records(self, records):
-        self.records_json = json.dumps(list(records or []))
+        self._json_write('records_json', list(records or []), falsy='[]')
 
     def get_created_records(self):
-        if not self.created_records_json:
-            return []
-        try:
-            data = json.loads(self.created_records_json)
-            return data if isinstance(data, list) else []
-        except (json.JSONDecodeError, TypeError):
-            return []
+        return self._json_read('created_records_json', [], expect=list)
 
     def set_created_records(self, records):
-        self.created_records_json = json.dumps(list(records or []))
+        self._json_write('created_records_json', list(records or []), falsy='[]')
 
     def to_dict(self):
         return {

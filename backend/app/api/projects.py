@@ -7,18 +7,14 @@ active context we fall back to the workspaces the caller can access, so the list
 always reflects the user's own projects without needing a header.
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models.user import User
 from app.models.project import Project
 from app.services.project_service import ProjectService
 from app.services.workspace_service import WorkspaceService
+from app.middleware.rbac import get_current_user
 
 projects_bp = Blueprint('projects', __name__)
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
 
 
 def _active_workspace_id(user):
@@ -56,7 +52,7 @@ def _can_view_project(user, project):
 @jwt_required()
 def list_projects():
     """List projects in the accessible workspace(s), each with resource counts."""
-    user = _current_user()
+    user = get_current_user()
     ws_ids = _accessible_workspace_ids(user)
     projects = []
     for ws_id in ws_ids:
@@ -69,7 +65,7 @@ def list_projects():
 @jwt_required()
 def create_project():
     """Create a project (auto-creates a default environment)."""
-    user = _current_user()
+    user = get_current_user()
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
     if not name:
@@ -100,7 +96,7 @@ def create_project():
 @jwt_required()
 def get_project(project_id):
     """Get a project with its environments and resource counts."""
-    user = _current_user()
+    user = get_current_user()
     project = ProjectService.get_project(project_id)
     if not project:
         return jsonify({'error': 'Project not found'}), 404
@@ -116,7 +112,7 @@ def get_project(project_id):
 @projects_bp.route('/<int:project_id>', methods=['PUT'])
 @jwt_required()
 def update_project(project_id):
-    user = _current_user()
+    user = get_current_user()
     project = ProjectService.get_project(project_id)
     if not project:
         return jsonify({'error': 'Project not found'}), 404
@@ -139,7 +135,7 @@ def update_project(project_id):
 @jwt_required()
 def delete_project(project_id):
     """Delete a project. Refuses (409) if it still has applications assigned."""
-    user = _current_user()
+    user = get_current_user()
     project = ProjectService.get_project(project_id)
     if not project:
         return jsonify({'error': 'Project not found'}), 404

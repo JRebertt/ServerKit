@@ -201,22 +201,19 @@
 
     // CPU - periwinkle accent
     &.cpu.active {
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         border-color: var(--accent-dim);
     }
 
     // Memory - green
     &.memory.active {
-        background: var(--green-bg);
-        color: var(--green);
+        @include status-variant(var(--green), var(--green-bg));
         border-color: rgba(61, 220, 151, 0.3);
     }
 
     // Disk - amber
     &.disk.active {
-        background: var(--amber-bg);
-        color: var(--amber);
+        @include status-variant(var(--amber), var(--amber-bg));
         border-color: rgba(245, 185, 69, 0.3);
     }
 }

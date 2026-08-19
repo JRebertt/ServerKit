@@ -82,10 +82,17 @@ def test_username_unique_per_database(app, managed):
     db.session.rollback()
 
 
-def test_rows_cascade_with_managed_database(app, managed):
+def test_rows_survive_soft_delete_and_cascade_on_hard_delete(app, managed):
+    # Plan 77 B5: a plain delete tombstones the managed DB, so its user rows
+    # must SURVIVE (restore needs them). The hard-delete path (?drop=true /
+    # purge) is what cascades them away.
     ManagedDbUserService.ensure_recorded(managed, 'orphan_check')
     assert ManagedDatabaseUser.query.count() == 1
     ManagedDatabaseService.delete(managed, drop=False)
+    assert ManagedDatabaseUser.query.count() == 1
+
+    managed.restore()
+    ManagedDatabaseService.delete(managed, drop=True)
     assert ManagedDatabaseUser.query.count() == 0
 
 

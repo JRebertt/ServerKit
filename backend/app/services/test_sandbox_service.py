@@ -28,6 +28,7 @@ from pathlib import Path
 from flask import current_app
 
 from app import db
+from app.utils.system import run_checked
 from app.models.sandbox_run import SandboxRun
 
 # backend/app/services/test_sandbox_service.py -> repo root
@@ -127,11 +128,9 @@ class TestSandboxService:
     @classmethod
     def docker_available(cls):
         try:
-            proc = subprocess.run(
-                ['docker', 'info', '--format', '{{.ServerVersion}}'],
-                capture_output=True, text=True, timeout=15)
-            return proc.returncode == 0
-        except (OSError, subprocess.SubprocessError):
+            return run_checked(['docker', 'info', '--format', '{{.ServerVersion}}'],
+                               timeout=15)['success']
+        except Exception:  # noqa: BLE001 - availability probe; absence is the answer
             return False
 
     @classmethod
@@ -190,8 +189,7 @@ class TestSandboxService:
         with _active_lock:
             names = list(_active_containers.get(run_id, []))
         for name in names:
-            subprocess.run(['docker', 'rm', '-f', name],
-                           capture_output=True, timeout=30)
+            run_checked(['docker', 'rm', '-f', name], timeout=30)
         run.status = 'cancelled'
         run.finished_at = datetime.utcnow()
         db.session.commit()
@@ -276,8 +274,7 @@ class TestSandboxService:
         except Exception as exc:  # noqa: BLE001 — record, don't kill the run
             update('failed', f'sandbox error: {exc}')
         finally:
-            subprocess.run(['docker', 'rm', '-f', container],
-                           capture_output=True, timeout=30)
+            run_checked(['docker', 'rm', '-f', container], timeout=30)
 
     @classmethod
     def _quick_container(cls, container, distro, work_dir, log):
@@ -288,12 +285,12 @@ class TestSandboxService:
             '-v', f'{work_dir}:/work',
             image, 'sh', '/work/run-quick.sh',
         ]
-        try:
-            proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT,
-                                  timeout=QUICK_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
-            return False, f'timed out after {QUICK_TIMEOUT_S // 60}m'
-        return proc.returncode == 0, f'exit {proc.returncode}'
+        proc = run_checked(cmd, stdout=log, stderr=subprocess.STDOUT,
+                           timeout=QUICK_TIMEOUT_S)
+        if proc['returncode'] is None:
+            # Never produced an exit code: timed out, or docker is not there.
+            return False, proc['error']
+        return proc['success'], f"exit {proc['returncode']}"
 
     @classmethod
     def _full_container(cls, container, distro, log):
@@ -305,18 +302,17 @@ class TestSandboxService:
             '-v', f'{REPO_ROOT}:/src:ro',
             image,
         ]
-        proc = subprocess.run(run_cmd, stdout=log, stderr=subprocess.STDOUT,
-                              timeout=120)
-        if proc.returncode != 0:
-            return False, f'container failed to start (exit {proc.returncode})'
+        proc = run_checked(run_cmd, stdout=log, stderr=subprocess.STDOUT, timeout=120)
+        if not proc['success']:
+            return False, f"container failed to start ({proc['error']})"
 
         # Wait for systemd to come up before exec'ing into the container.
         booted = False
         for _ in range(60):
-            probe = subprocess.run(
+            probe = run_checked(
                 ['docker', 'exec', container, 'systemctl', 'is-system-running'],
-                capture_output=True, text=True, timeout=15)
-            state = probe.stdout.strip()
+                timeout=15)
+            state = probe['output'].strip()
             if state in ('running', 'degraded'):
                 booted = True
                 break
@@ -331,12 +327,12 @@ class TestSandboxService:
         # images) — curl is NOT preinstalled there.
         net_ready = False
         for _ in range(45):
-            probe = subprocess.run(
+            probe = run_checked(
                 ['docker', 'exec', container,
                  'python3', '-c',
                  "import urllib.request; urllib.request.urlopen('https://github.com', timeout=8)"],
-                capture_output=True, timeout=15)
-            if probe.returncode == 0:
+                timeout=15)
+            if probe['success']:
                 net_ready = True
                 break
             time.sleep(2)
@@ -345,21 +341,21 @@ class TestSandboxService:
 
         log.write('\n===== install.sh =====\n')
         log.flush()
-        install = subprocess.run(
+        install = run_checked(
             ['docker', 'exec', container, 'bash', '/src/install.sh'],
             stdout=log, stderr=subprocess.STDOUT, timeout=FULL_TIMEOUT_S)
-        if install.returncode != 0:
-            return False, f'install.sh exited {install.returncode}'
+        if not install['success']:
+            return False, f"install.sh failed ({install['error']})"
 
         log.write('\n===== health probe =====\n')
         log.flush()
         for _ in range(60):
-            probe = subprocess.run(
+            probe = run_checked(
                 ['docker', 'exec', container,
                  'python3', '-c',
                  "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/v1/system/health', timeout=8)"],
-                capture_output=True, text=True, timeout=15)
-            if probe.returncode == 0:
+                timeout=15)
+            if probe['success']:
                 log.write('healthy\n')
                 return True, 'install + health OK'
             time.sleep(2)

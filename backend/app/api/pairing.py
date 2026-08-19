@@ -12,7 +12,7 @@ Endpoints:
 
 import time
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt_identity
 
 from app import limiter
 from app.middleware.rbac import developer_required
@@ -145,7 +145,6 @@ def poll():
 
 
 @pairing_bp.route('/lookup', methods=['POST'])
-@jwt_required()
 @developer_required
 @limiter.limit("20 per minute")
 def lookup():
@@ -164,7 +163,6 @@ def lookup():
 
 
 @pairing_bp.route('/claim', methods=['POST'])
-@jwt_required()
 @developer_required
 @limiter.limit("5 per 10 minute")
 def claim():

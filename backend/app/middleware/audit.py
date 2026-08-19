@@ -15,24 +15,10 @@ MAX_BODY_BYTES = 32 * 1024
 MAX_STRING_LENGTH = 500
 MAX_LIST_ITEMS = 20
 MAX_DICT_ITEMS = 50
-REDACTED = '[redacted]'
-
-SENSITIVE_KEY_PARTS = (
-    'password',
-    'passwd',
-    'secret',
-    'token',
-    'credential',
-    'private',
-    'certificate',
-    'api_key',
-    'apikey',
-    'authorization',
-    'cookie',
-    'session',
-    'totp',
-    'otp',
-    'csrf',
+from app.utils.sensitive_data_filter import (  # noqa: F401 (re-export)
+    REDACTED,
+    SENSITIVE_KEY_PARTS,
+    is_sensitive_key as _shared_is_sensitive_key,
 )
 
 NOISY_ENDPOINTS = {
@@ -193,8 +179,7 @@ def _sanitize(value, key=None, depth=0):
 
 
 def _is_sensitive_key(key):
-    lowered = str(key).lower()
-    return any(part in lowered for part in SENSITIVE_KEY_PARTS)
+    return _shared_is_sensitive_key(str(key))
 
 
 def _ip_address():

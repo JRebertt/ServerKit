@@ -7,8 +7,8 @@ release line and the `main` branch.
 
 | Version | Supported |
 |---------|-----------|
-| 1.6.x   | ✅ |
-| < 1.6   | ❌ (please upgrade) |
+| 1.7.x   | ✅ |
+| < 1.7   | ❌ (please upgrade) |
 
 The **agent** ships from its own repository, `jhd3197/serverkit-agent`, and is
 versioned independently (`vX.Y.Z` — it used `agent-vX.Y.Z` while it lived in this
@@ -55,8 +55,15 @@ trust boundaries:
   agent connections. It is intended for local development/testing only — never
   set it in production.
 
-For a detailed internal audit of the panel, see
-[SECURITY_AUDIT.md](SECURITY_AUDIT.md).
+For a deeper description of the panel's trust boundaries, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## API Authentication
+
+Panel API routes are JWT-only by default. A route accepts API keys only when it
+explicitly opts in through the shared policy decorator (`auth_required()` in
+`app/middleware/rbac.py`); the caller's identity always resolves through one
+door, and API-key requests are attributed to the key's owner in the audit log.
 
 ## Client-IP Trust & Login Brute-Force
 

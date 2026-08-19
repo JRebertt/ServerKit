@@ -85,6 +85,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The ratchet (plan 75 §G1). The grep steps below check a hand-listed set
+      # of files for three known-bad patterns; this counts EVERY raw
+      # subprocess call site under backend/app and fails if the total grew.
+      # A grep cannot do this honestly — it also matches comments, docstrings
+      # and `except subprocess.SubprocessError` — so the census is AST-based.
+      - name: Raw subprocess census (ceiling may only go down)
+        working-directory: backend
+        run: python3 tests/raw_subprocess_census.py
+
       - name: Check for raw 'sudo systemctl' calls in migrated services
         run: |
           MIGRATED_FILES=(

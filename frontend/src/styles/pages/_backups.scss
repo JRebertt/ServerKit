@@ -214,9 +214,9 @@
         background: var(--surface-3);
         color: var(--text-dim);
 
-        &.is-complete { background: var(--green-bg); color: var(--green); }
-        &.is-running { background: var(--cyan-bg); color: var(--cyan); }
-        &.is-failed { background: var(--red-bg); color: var(--red); }
+        &.is-complete { @include status-variant(var(--green), var(--green-bg)); }
+        &.is-running { @include status-variant(var(--cyan), var(--cyan-bg)); }
+        &.is-failed { @include status-variant(var(--red), var(--red-bg)); }
     }
 
     &__body { min-width: 0; flex: 1; }
@@ -333,8 +333,7 @@
         display: grid;
         place-items: center;
         flex-shrink: 0;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__id { flex: 1; min-width: 0; }
@@ -425,8 +424,7 @@
     &__tag {
         padding: 1px 6px;
         border-radius: 4px;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         font-family: var(--mono);
         font-size: 9.5px;
         font-weight: 600;
@@ -524,7 +522,7 @@
         &:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
         &:disabled { opacity: 0.45; cursor: default; }
 
-        &--danger:hover:not(:disabled) { background: var(--red-bg); color: var(--red); }
+        &--danger:hover:not(:disabled) { @include status-variant(var(--red), var(--red-bg)); }
     }
 }
 

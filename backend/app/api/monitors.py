@@ -9,6 +9,7 @@ status page. See app/services/monitor_service.py.
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
+from app.exceptions import NotFoundError
 from app.services.monitor_service import MonitorService
 
 monitors_bp = Blueprint('monitors', __name__)
@@ -51,10 +52,7 @@ def get_stats():
 @jwt_required()
 def create_monitor():
     data = request.get_json() or {}
-    try:
-        monitor = MonitorService.create(data)
-    except ValueError as e:
-        return {'error': str(e)}, 400
+    monitor = MonitorService.create(data)
     return jsonify(monitor.to_dict()), 201
 
 
@@ -63,7 +61,7 @@ def create_monitor():
 def get_monitor(monitor_id):
     monitor = MonitorService.get(monitor_id)
     if not monitor:
-        return {'error': 'Monitor not found'}, 404
+        raise NotFoundError('Monitor not found', code='monitor_not_found')
     return jsonify(monitor.to_dict())
 
 
@@ -71,12 +69,9 @@ def get_monitor(monitor_id):
 @jwt_required()
 def update_monitor(monitor_id):
     data = request.get_json() or {}
-    try:
-        monitor = MonitorService.update(monitor_id, data)
-    except ValueError as e:
-        return {'error': str(e)}, 400
+    monitor = MonitorService.update(monitor_id, data)
     if not monitor:
-        return {'error': 'Monitor not found'}, 404
+        raise NotFoundError('Monitor not found', code='monitor_not_found')
     return jsonify(monitor.to_dict())
 
 

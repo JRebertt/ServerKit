@@ -15,7 +15,6 @@ import requests
 
 from app import db
 from app.models.registrar_connection import RegistrarConnection
-from app.utils.crypto import encrypt_secret, decrypt_secret
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +57,14 @@ class RegistrarService:
         conn = RegistrarConnection(
             provider=provider,
             name=(data.get('name') or '').strip() or cls.SUPPORTED[provider]['name'],
-            api_key_encrypted=encrypt_secret(api_key),
             user_id=user_id,
         )
+        conn.api_key = api_key
         if provider == 'godaddy':
             api_secret = (data.get('api_secret') or '').strip()
             if not api_secret:
                 raise ValueError('api_secret is required')
-            conn.api_secret_encrypted = encrypt_secret(api_secret)
+            conn.api_secret = api_secret
         elif provider == 'namecheap':
             username = (data.get('username') or '').strip()
             client_ip = (data.get('client_ip') or '').strip()
@@ -88,11 +87,11 @@ class RegistrarService:
 
     @staticmethod
     def _creds(conn):
-        return decrypt_secret(conn.api_key_encrypted), decrypt_secret(conn.api_secret_encrypted)
+        return conn.api_key, conn.api_secret
 
     @staticmethod
     def _api_key(conn):
-        return decrypt_secret(conn.api_key_encrypted) if conn.api_key_encrypted else ''
+        return conn.api_key or ''
 
     # --- GoDaddy ---
 

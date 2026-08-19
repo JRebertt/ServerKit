@@ -548,7 +548,6 @@ def verify_domain(domain_id):
 
 
 @domains_bp.route('/nginx/sites', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_nginx_sites():
     """List all Nginx site configurations."""
@@ -557,7 +556,6 @@ def list_nginx_sites():
 
 
 @domains_bp.route('/ssl/status', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_ssl_status():
     """Get overall SSL status."""
@@ -572,7 +570,6 @@ def get_ssl_status():
 
 
 @domains_bp.route('/nginx/regenerate/<int:app_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def regenerate_nginx_config(app_id):
     """Regenerate nginx config for a Docker app."""
@@ -625,7 +622,6 @@ def regenerate_nginx_config(app_id):
 
 
 @domains_bp.route('/debug/diagnose/<int:app_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def diagnose_app_routing(app_id):
     """Diagnose routing issues for an application.
@@ -727,7 +723,6 @@ def diagnose_app_routing(app_id):
 
 
 @domains_bp.route('/debug/test-routing/<int:app_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_app_routing(app_id):
     """Test the routing chain for an application.

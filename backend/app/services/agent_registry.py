@@ -18,8 +18,49 @@ from typing import Dict, Optional, Callable, Any
 from dataclasses import dataclass, field
 from queue import Queue, Empty
 
+from collections import defaultdict
+
 from app import db
 from app.models.server import Server, ServerMetrics, ServerCommand, AgentSession
+
+# ---------------------------------------------------------------------------
+# Per-IP auth rate limiter — transport-neutral state shared by the WS
+# namespace and the long-poll /connect endpoint (moved here from
+# agent_gateway in plan 77 A2 so the handshake door owns its own throttle).
+# Guarded by a lock: async_mode='threading' means both transports can call
+# concurrently. Buckets are swept so one-off IPs don't accumulate forever.
+# request.remote_addr upstream is the ProxyFix-corrected client IP (plan 48).
+# ---------------------------------------------------------------------------
+_auth_attempts = defaultdict(list)
+_auth_attempts_lock = threading.Lock()
+_last_auth_sweep = 0.0
+_AUTH_RATE_LIMIT = 10  # max attempts per window
+_AUTH_RATE_WINDOW = 60  # seconds
+
+
+def _check_auth_rate_limit(ip_address: str) -> bool:
+    """Record an auth attempt and report whether the IP is still under the
+    limit. Returns True when allowed, False when the per-IP window is
+    exhausted. Thread-safe."""
+    global _last_auth_sweep
+    now = time.time()
+    with _auth_attempts_lock:
+        if now - _last_auth_sweep > _AUTH_RATE_WINDOW:
+            for ip in list(_auth_attempts.keys()):
+                fresh = [t for t in _auth_attempts[ip] if now - t < _AUTH_RATE_WINDOW]
+                if fresh:
+                    _auth_attempts[ip] = fresh
+                else:
+                    del _auth_attempts[ip]
+            _last_auth_sweep = now
+
+        recent = [t for t in _auth_attempts[ip_address] if now - t < _AUTH_RATE_WINDOW]
+        if len(recent) >= _AUTH_RATE_LIMIT:
+            _auth_attempts[ip_address] = recent
+            return False
+        recent.append(now)
+        _auth_attempts[ip_address] = recent
+        return True
 
 
 @dataclass
@@ -732,6 +773,95 @@ class AgentRegistry:
 
     # ==================== Authentication ====================
 
+    # ------------------------------------------------------------------
+    # Transport-neutral handshake + state ingest (plan 77 A2). The WS
+    # namespace (agent_gateway) and the long-poll endpoints (api/agent_poll)
+    # are thin adapters over these two doors; neither may re-implement the
+    # sequence (ratcheted by tests/test_agent_handshake_matrix.py).
+    # ------------------------------------------------------------------
+
+    def authenticate_and_register(self, payload: dict, ip_address: str,
+                                  user_agent: str = '', transport: str = 'ws',
+                                  socket_id: str = None):
+        """The ONE agent handshake: rate-limit -> HMAC verify -> allowed-IPs
+        + anomaly tracking -> new-IP check -> version parse -> register.
+
+        Returns ``(session_token, server, error)`` where ``error`` is None on
+        success or one of: 'rate_limited', 'missing_fields', 'auth_failed',
+        'ip_not_allowed', 'registration_failed'. The transport adapter
+        translates the code into its own wire shape (emit/disconnect vs
+        jsonify/status) and MUST fail closed on any non-None error.
+        """
+        from app.services.anomaly_detection_service import anomaly_detection_service
+        from app.utils.ip_utils import is_ip_allowed
+
+        payload = payload or {}
+        if not _check_auth_rate_limit(ip_address):
+            logger.warning("Auth rate limit exceeded for IP: %s (%s)", ip_address, transport)
+            return None, None, 'rate_limited'
+
+        agent_id = payload.get('agent_id')
+        api_key_prefix = payload.get('api_key_prefix')
+        signature = payload.get('signature')
+        timestamp = payload.get('timestamp', 0)
+        nonce = payload.get('nonce')
+
+        if not all([agent_id, api_key_prefix, signature]):
+            return None, None, 'missing_fields'
+
+        server = self.verify_agent_auth(
+            agent_id, api_key_prefix, signature, timestamp,
+            nonce=nonce, ip_address=ip_address,
+        )
+        if not server:
+            return None, None, 'auth_failed'
+
+        if server.allowed_ips and len(server.allowed_ips) > 0:
+            if not is_ip_allowed(ip_address, server.allowed_ips):
+                anomaly_detection_service.track_ip_blocked(
+                    server.id, ip_address, server.allowed_ips)
+                logger.warning("IP %s blocked for server %s", ip_address, server.id)
+                return None, server, 'ip_not_allowed'
+
+        anomaly_detection_service.check_new_ip(server.id, ip_address)
+
+        agent_version = (user_agent or '').replace('ServerKit-Agent/', '')
+        if socket_id is None:
+            # Synthesized id for non-socket transports; the "poll-" prefix
+            # tells WS-only code paths to skip these agents.
+            socket_id = f'poll-{secrets.token_urlsafe(12)}'
+
+        session_token = self.register_agent(
+            server_id=server.id,
+            socket_id=socket_id,
+            ip_address=ip_address,
+            agent_version=agent_version,
+            transport=transport,
+        )
+        # None means the DB write failed and register_agent rolled back the
+        # in-memory state — the adapter must not report success.
+        if not session_token:
+            return None, server, 'registration_failed'
+
+        logger.info("Agent %s authenticated successfully from %s (%s)",
+                    agent_id, ip_address, transport)
+        return session_token, server, None
+
+    def ingest_agent_state(self, agent, metrics=None, sysinfo=None,
+                           capabilities=None):
+        """One ingest path for agent-reported state on BOTH transports.
+
+        Owns the capability side-effects (the WireGuard tunnel reconcile
+        fires from update_capabilities) so a payload arriving via long-poll
+        behaves exactly like one arriving via WebSocket.
+        """
+        if metrics is not None:
+            self.update_heartbeat(agent.server_id, metrics)
+        if sysinfo:
+            self.update_system_info(agent.server_id, sysinfo)
+        if capabilities:
+            self.update_capabilities(agent.server_id, capabilities)
+
     def verify_agent_auth(
         self,
         agent_id: str,
@@ -963,6 +1093,31 @@ class AgentRegistry:
             server_id,
             sorted(k for k, v in clean_caps.items() if v),
         )
+
+        self._schedule_tunnel_reconcile(server_id, clean_caps)
+
+    def _schedule_tunnel_reconcile(self, server_id: str, caps: Dict[str, bool]):
+        """Panel-authoritative tunnel reconcile (#19): if this agent can
+        drive WireGuard, re-apply (in the background) any tunnel config it
+        participates in, so tunnels self-heal after an agent or panel
+        restart. Lives here — on the shared capability-ingest path — so it
+        fires for BOTH transports (WS on_capabilities and the long-poll
+        /poll body), not just WebSocket. See docs/REMOTE_ACCESS_ROADMAP.md.
+        """
+        if not caps.get('wireguard'):
+            return
+        try:
+            # TunnelBrokerService lives in the serverkit-remote-access
+            # extension (plan 47); reach it only when installed, no-op
+            # otherwise.
+            from app.services.plugin_service import get_installed_extension_attr
+            TunnelBrokerService = get_installed_extension_attr(
+                'serverkit-remote-access', 'tunnel_broker_service',
+                'TunnelBrokerService')
+            if TunnelBrokerService is not None:
+                TunnelBrokerService.schedule_reconcile(server_id)
+        except Exception:
+            logger.debug("tunnel reconcile scheduling skipped", exc_info=True)
 
     def get_capabilities(self, server_id: str) -> Optional[Dict[str, bool]]:
         """Return the capability map for a connected agent, or None if

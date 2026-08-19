@@ -17,11 +17,17 @@ Design rules (same as the extension registry):
 import json
 import logging
 import os
-import time
 from urllib.parse import urljoin
 
 import requests
 
+from app.utils.remote_index import CachedRemoteIndex
+
+from app.exceptions import (
+    DependencyUnavailableError,
+    NotFoundError,
+    ValidationError,
+)
 from app.models.theme import Theme
 from app.services import theme_service
 
@@ -52,24 +58,6 @@ _FIELDS = {
 }
 
 
-def _registry_url():
-    value = os.environ.get('SERVERKIT_THEMES_REGISTRY_URL')
-    if value is None:
-        return DEFAULT_REGISTRY_URL
-    return value.strip()
-
-
-try:
-    _TTL = int(os.environ.get('SERVERKIT_THEMES_REGISTRY_TTL', '3600'))
-except ValueError:
-    _TTL = 3600
-
-# After a failed fetch with no cache to serve, hold the bundled fallback only
-# this long before retrying upstream (instead of the full TTL) — the panel
-# recovers quickly when the registry comes back, without hammering it.
-_FAILURE_TTL = 60
-
-_cache = {'ts': 0.0, 'entries': None, 'source': None}
 
 
 def _resolve_url(path, base_url):
@@ -101,58 +89,33 @@ def _read_index_payload(payload, base_url=None):
     return [t for t in (_normalize(x, base_url) for x in themes) if t]
 
 
-def _load_bundled():
-    try:
-        with open(_BUNDLED_INDEX, 'r', encoding='utf-8') as f:
-            return _read_index_payload(json.load(f), base_url=None)
-    except Exception as e:
-        logger.warning('Could not read bundled themes index: %s', e)
-        return []
+# One remote-catalog engine (plan 77 F1); this module stays a thin
+# normalizer. The failure-retry semantics this service pioneered
+# (last-good served under full TTL, bundled held only error_ttl) now live
+# in CachedRemoteIndex for every catalog.
+_index = CachedRemoteIndex(
+    name='Themes',
+    env_var='SERVERKIT_THEMES_REGISTRY_URL',
+    default_url=DEFAULT_REGISTRY_URL,
+    normalize_fn=_read_index_payload,
+    bundled_path=_BUNDLED_INDEX,
+    bundled_base_url=None,
+    ttl=3600,
+    ttl_env_var='SERVERKIT_THEMES_REGISTRY_TTL',
+    error_ttl=60,
+)
 
-
-def _fetch_remote():
-    url = _registry_url()
-    if not url:
-        return None, None
-    resp = requests.get(url, timeout=15, headers={
-        'Accept': 'application/json',
-        'User-Agent': 'ServerKit-Themes/1.0',
-    })
-    resp.raise_for_status()
-    return _read_index_payload(resp.json(), base_url=url), url
+# Test seams: the shared cache dict + the failure-retry window name the
+# theme tests already use.
+_cache = _index._cache
+_FAILURE_TTL = _index.error_ttl
+_TTL = _index.ttl
 
 
 def refresh(force=False):
     """Return registry entries, refreshing when the cache is stale. Never
     raises — falls back to last-good cache, then the bundled index."""
-    now = time.time()
-    if not force and _cache['entries'] is not None and (now - _cache['ts']) < _TTL:
-        return _cache['entries']
-
-    entries = None
-    source = None
-    failed = False
-    try:
-        entries, _ = _fetch_remote()
-        if entries is not None:
-            source = 'remote'
-    except Exception as e:
-        failed = True
-        logger.warning('Theme registry fetch failed (%s): %s', _registry_url(), e)
-
-    if entries is None:
-        if _cache['entries'] is not None:
-            # Failed refresh with a last-good cache: serve it and stamp the
-            # timestamp so the TTL applies — otherwise every call retries the
-            # network and stalls up to the fetch timeout.
-            _cache['ts'] = now
-            return _cache['entries']
-        entries = _load_bundled()
-        source = 'bundled'
-
-    ts = now - (_TTL - _FAILURE_TTL) if failed else now
-    _cache.update({'entries': entries, 'ts': ts, 'source': source})
-    return entries
+    return _index.get(force=force)
 
 
 def _installed_slugs():
@@ -188,13 +151,13 @@ def registry_source_label():
 
 def install(slug):
     """Fetch a registry theme's full theme.json, validate it, and store it.
-    Returns ``(theme_dict, error)``."""
+    Returns the theme dict; raises typed application errors."""
     entry = get_entry(slug)
     if entry is None:
-        return None, 'Theme not found in the registry'
+        raise NotFoundError('Theme not found in the registry')
     theme_url = entry.get('_theme_url')
     if not theme_url:
-        return None, 'Registry entry has no theme file'
+        raise ValidationError('Registry entry has no theme file')
     try:
         resp = requests.get(theme_url, timeout=15, headers={
             'Accept': 'application/json',
@@ -204,8 +167,12 @@ def install(slug):
         raw = resp.json()
     except Exception as e:
         logger.warning('Fetching theme %s failed (%s): %s', slug, theme_url, e)
-        return None, 'Could not download the theme from the registry'
+        raise DependencyUnavailableError(
+            'Could not download the theme from the registry') from e
     # The registry index and the theme file must agree on the slug.
     if isinstance(raw, dict) and raw.get('slug') and raw['slug'] != slug:
-        return None, 'Registry theme slug mismatch'
-    return theme_service.import_theme(raw, source='registry')
+        raise ValidationError('Registry theme slug mismatch')
+    theme, err = theme_service.import_theme(raw, source='registry')
+    if err:
+        raise ValidationError(err)
+    return theme

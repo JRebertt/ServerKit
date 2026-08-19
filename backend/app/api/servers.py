@@ -19,10 +19,11 @@ from app.api._query import apply_query, QueryParseError
 from app.models import User
 from app.models.server import Server, ServerGroup, ServerMetrics, ServerCommand, AgentSession, AgentVersion, AgentRollout
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.services.agent_fleet_service import fleet_service
 from app.services.discovery_service import discovery_service
 from app.services import connection_string as connection_string_codec
-from app.middleware.rbac import admin_required, developer_required
+from app.middleware.rbac import admin_required, developer_required, get_current_user
 
 
 # Default token lifetime when the caller doesn't specify one. 7 days is
@@ -176,7 +177,6 @@ def list_groups():
 
 
 @servers_bp.route('/groups', methods=['POST'])
-@jwt_required()
 @developer_required
 def create_group():
     """Create a new server group"""
@@ -211,7 +211,6 @@ def get_group(group_id):
 
 
 @servers_bp.route('/groups/<group_id>', methods=['PUT'])
-@jwt_required()
 @developer_required
 def update_group(group_id):
     """Update a server group"""
@@ -237,7 +236,6 @@ def update_group(group_id):
 
 
 @servers_bp.route('/groups/<group_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_group(group_id):
     """Delete a server group"""
@@ -270,7 +268,7 @@ def list_servers():
     # context this stays unfiltered; with a workspace context it filters to it.
     from app.models import User
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
     query = WorkspaceService.scope_query(Server.query, Server, user,
@@ -335,7 +333,6 @@ def list_servers():
 
 
 @servers_bp.route('', methods=['POST'])
-@jwt_required()
 @developer_required
 def create_server():
     """
@@ -352,7 +349,10 @@ def create_server():
       allowed_ips: passed through unchanged.
     """
     data = request.get_json() or {}
-    user_id = get_jwt_identity()
+    # Through the one identity door: @developer_required admits API-key
+    # callers, for whom reading the JWT directly raises.
+    creator = get_current_user()
+    user_id = creator.id if creator else None
 
     # Generate registration token
     registration_token = Server.generate_registration_token()
@@ -372,9 +372,8 @@ def create_server():
     expires_at = _resolve_token_expiry(data.get('expires_in'))
 
     # Stamp the workspace (#33): the requested one (membership-checked) or the default.
-    from app.models import User
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(user_id)
+    user = creator
     ws_id = WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
     # Role reconciliation (#33): a workspace 'viewer' member has read-only access to
@@ -433,7 +432,6 @@ def create_server():
 
 
 @servers_bp.route('/<server_id>/workspace', methods=['PUT'])
-@jwt_required()
 @developer_required
 def set_server_workspace(server_id):
     """Reassign a server to a workspace (#33). Developer+; the target must be a
@@ -442,7 +440,7 @@ def set_server_workspace(server_id):
     from app.models import User
     from app.models.workspace import Workspace
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     server = Server.query.get(server_id)
     if not server:
         return jsonify({'error': 'Server not found'}), 404
@@ -535,7 +533,6 @@ def get_server(server_id):
 
 
 @servers_bp.route('/<server_id>', methods=['PUT'])
-@jwt_required()
 @developer_required
 def update_server(server_id):
     """Update a server"""
@@ -569,7 +566,6 @@ def update_server(server_id):
 
 
 @servers_bp.route('/<server_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_server(server_id):
     """Delete a server"""
@@ -591,7 +587,6 @@ def delete_server(server_id):
 # ==================== Onboarding State Machine ====================
 
 @servers_bp.route('/<server_id>/onboarding/start', methods=['POST'])
-@jwt_required()
 @developer_required
 def start_server_onboarding(server_id):
     """Begin the onboarding lifecycle for a server (pending -> validating ...)."""
@@ -609,7 +604,6 @@ def start_server_onboarding(server_id):
 
 
 @servers_bp.route('/<server_id>/onboarding/retry', methods=['POST'])
-@jwt_required()
 @developer_required
 def retry_server_onboarding(server_id):
     """Clear a failed onboarding and resume from validation."""
@@ -646,7 +640,6 @@ def get_server_onboarding_status(server_id):
 # ==================== Registration ====================
 
 @servers_bp.route('/<server_id>/regenerate-token', methods=['POST'])
-@jwt_required()
 @developer_required
 def regenerate_token(server_id):
     """Regenerate the registration token for a server and return a fresh
@@ -816,7 +809,7 @@ def ping_server(server_id):
         })
 
     # Send system:metrics command to get fresh data
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id,
         action='system:metrics',
         timeout=10.0
@@ -1006,7 +999,6 @@ def get_allowed_ips(server_id):
 
 
 @servers_bp.route('/<server_id>/allowed-ips', methods=['PUT'])
-@jwt_required()
 @developer_required
 def update_allowed_ips(server_id):
     """
@@ -1072,7 +1064,6 @@ def get_connection_info(server_id):
 
 
 @servers_bp.route('/<server_id>/rotate-api-key', methods=['POST'])
-@jwt_required()
 @admin_required
 def rotate_api_key(server_id):
     """
@@ -1202,7 +1193,6 @@ def get_security_alert_counts():
 
 
 @servers_bp.route('/security/alerts/<alert_id>/acknowledge', methods=['POST'])
-@jwt_required()
 @developer_required
 def acknowledge_alert(alert_id):
     """Acknowledge a security alert"""
@@ -1217,7 +1207,6 @@ def acknowledge_alert(alert_id):
 
 
 @servers_bp.route('/security/alerts/<alert_id>/resolve', methods=['POST'])
-@jwt_required()
 @developer_required
 def resolve_alert(alert_id):
     """Resolve a security alert"""
@@ -1276,7 +1265,6 @@ def inspect_remote_container(server_id, container_id):
 
 
 @servers_bp.route('/<server_id>/docker/containers/<container_id>/start', methods=['POST'])
-@jwt_required()
 @developer_required
 def start_remote_container(server_id, container_id):
     """Start a container on a remote server"""
@@ -1291,7 +1279,6 @@ def start_remote_container(server_id, container_id):
 
 
 @servers_bp.route('/<server_id>/docker/containers/<container_id>/stop', methods=['POST'])
-@jwt_required()
 @developer_required
 def stop_remote_container(server_id, container_id):
     """Stop a container on a remote server"""
@@ -1308,7 +1295,6 @@ def stop_remote_container(server_id, container_id):
 
 
 @servers_bp.route('/<server_id>/docker/containers/<container_id>/restart', methods=['POST'])
-@jwt_required()
 @developer_required
 def restart_remote_container(server_id, container_id):
     """Restart a container on a remote server"""
@@ -1325,7 +1311,6 @@ def restart_remote_container(server_id, container_id):
 
 
 @servers_bp.route('/<server_id>/docker/containers/<container_id>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remove_remote_container(server_id, container_id):
     """Remove a container on a remote server"""
@@ -1402,7 +1387,6 @@ def list_remote_images(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/images/pull', methods=['POST'])
-@jwt_required()
 @developer_required
 def pull_remote_image(server_id):
     """Pull an image on a remote server"""
@@ -1421,7 +1405,6 @@ def pull_remote_image(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/images/<image_id>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remove_remote_image(server_id, image_id):
     """Remove an image on a remote server"""
@@ -1451,7 +1434,6 @@ def list_remote_volumes(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/volumes/<volume_name>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remove_remote_volume(server_id, volume_name):
     """Remove a volume on a remote server"""
@@ -1481,7 +1463,6 @@ def list_remote_networks(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/networks/<network_id>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remove_remote_network(server_id, network_id):
     """Remove a network on a remote server"""
@@ -1562,7 +1543,6 @@ def remote_compose_ps(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/up', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_compose_up(server_id):
     """Start a compose project"""
@@ -1587,7 +1567,6 @@ def remote_compose_up(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/down', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_compose_down(server_id):
     """Stop a compose project"""
@@ -1636,7 +1615,6 @@ def remote_compose_logs(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/restart', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_compose_restart(server_id):
     """Restart a compose project or specific service"""
@@ -1660,7 +1638,6 @@ def remote_compose_restart(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/pull', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_compose_pull(server_id):
     """Pull images for a compose project"""
@@ -1716,7 +1693,6 @@ def get_server_metrics_aggregated(server_id):
 
 
 @servers_bp.route('/metrics/retention', methods=['GET'])
-@jwt_required()
 @developer_required
 def get_metrics_retention_stats():
     """Get metrics retention statistics."""
@@ -1725,7 +1701,6 @@ def get_metrics_retention_stats():
 
 
 @servers_bp.route('/metrics/cleanup', methods=['POST'])
-@jwt_required()
 @developer_required
 def trigger_metrics_cleanup():
     """Trigger cleanup of old metrics data."""
@@ -1739,7 +1714,6 @@ def trigger_metrics_cleanup():
 # ==================== Remote Terminal ====================
 
 @servers_bp.route('/<server_id>/terminal', methods=['POST'])
-@jwt_required()
 @developer_required
 def create_terminal_session(server_id):
     """Create a new terminal session on a remote server.
@@ -1768,7 +1742,6 @@ def create_terminal_session(server_id):
 
 
 @servers_bp.route('/terminal/<session_id>/input', methods=['POST'])
-@jwt_required()
 @developer_required
 def terminal_input(session_id):
     """Send input to a terminal session.
@@ -1795,7 +1768,6 @@ def terminal_input(session_id):
 
 
 @servers_bp.route('/terminal/<session_id>/resize', methods=['POST'])
-@jwt_required()
 @developer_required
 def terminal_resize(session_id):
     """Resize a terminal session.
@@ -1824,7 +1796,6 @@ def terminal_resize(session_id):
 
 
 @servers_bp.route('/terminal/<session_id>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def close_terminal_session(session_id):
     """Close a terminal session."""
@@ -2316,7 +2287,6 @@ def get_agent_checksums():
 
 
 @servers_bp.route('/<server_id>/agent/update', methods=['POST'])
-@jwt_required()
 @developer_required
 def trigger_agent_update(server_id):
     """
@@ -2347,7 +2317,7 @@ def trigger_agent_update(server_id):
         }), 503
 
     # Send update command to agent
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id,
         action='agent:update',
         params={
@@ -2363,7 +2333,6 @@ def trigger_agent_update(server_id):
 # ==================== Agent Fleet Management ====================
 
 @servers_bp.route('/fleet/health', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_fleet_health():
     """Get aggregated health metrics for the agent fleet"""
@@ -2371,7 +2340,6 @@ def get_fleet_health():
 
 
 @servers_bp.route('/fleet/versions', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_agent_versions():
     """List all available agent versions"""
@@ -2380,7 +2348,6 @@ def list_agent_versions():
 
 
 @servers_bp.route('/fleet/versions', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_agent_version():
     """Add a new available agent version"""
@@ -2406,7 +2373,6 @@ def add_agent_version():
 
 
 @servers_bp.route('/fleet/upgrade', methods=['POST'])
-@jwt_required()
 @admin_required
 def upgrade_fleet():
     """Trigger upgrade for selected servers or entire fleet"""
@@ -2428,7 +2394,6 @@ def upgrade_fleet():
 
 
 @servers_bp.route('/fleet/rollout', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_staged_rollout():
     """Start a staged rollout"""
@@ -2452,7 +2417,6 @@ def start_staged_rollout():
 
 
 @servers_bp.route('/fleet/rollouts', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_rollouts():
     """List rollout history"""
@@ -2462,7 +2426,6 @@ def list_rollouts():
 
 
 @servers_bp.route('/fleet/rollouts/<rollout_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_rollout(rollout_id):
     """Get a specific rollout"""
@@ -2473,7 +2436,6 @@ def get_rollout(rollout_id):
 
 
 @servers_bp.route('/fleet/rollouts/<rollout_id>/cancel', methods=['POST'])
-@jwt_required()
 @admin_required
 def cancel_rollout(rollout_id):
     """Cancel an active rollout"""
@@ -2484,7 +2446,6 @@ def cancel_rollout(rollout_id):
 
 
 @servers_bp.route('/fleet/discovery', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_discovery_scan():
     """Start a network scan for new agents"""
@@ -2494,7 +2455,6 @@ def start_discovery_scan():
 
 
 @servers_bp.route('/fleet/discovery', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_discovered_agents():
     """Get results of last discovery scan"""
@@ -2502,7 +2462,6 @@ def get_discovered_agents():
 
 
 @servers_bp.route('/fleet/approve/<server_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def approve_agent_registration(server_id):
     """Approve a pending agent registration"""
@@ -2516,7 +2475,6 @@ def approve_agent_registration(server_id):
 
 
 @servers_bp.route('/fleet/reject/<server_id>', methods=['POST'])
-@jwt_required()
 @admin_required
 def reject_agent_registration(server_id):
     """Reject a pending agent registration"""
@@ -2529,7 +2487,6 @@ def reject_agent_registration(server_id):
 
 
 @servers_bp.route('/fleet/commands/queued', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_queued_commands():
     """Get all pending queued commands"""
@@ -2539,7 +2496,6 @@ def get_queued_commands():
 
 
 @servers_bp.route('/fleet/commands/<command_id>/retry', methods=['POST'])
-@jwt_required()
 @admin_required
 def retry_command(command_id):
     """Retry a failed command"""
@@ -2550,7 +2506,6 @@ def retry_command(command_id):
 
 
 @servers_bp.route('/fleet/diagnostics/<server_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_server_diagnostics(server_id):
     """Get detailed connection diagnostics for a server"""
@@ -2605,7 +2560,6 @@ def remote_cron_list(server_id):
 
 
 @servers_bp.route('/<server_id>/cron/jobs', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_cron_add(server_id):
     user_id = get_jwt_identity()
@@ -2627,7 +2581,6 @@ def remote_cron_add(server_id):
 
 
 @servers_bp.route('/<server_id>/cron/jobs/<job_id>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remote_cron_remove(server_id, job_id):
     user_id = get_jwt_identity()
@@ -2636,7 +2589,6 @@ def remote_cron_remove(server_id, job_id):
 
 
 @servers_bp.route('/<server_id>/cron/jobs/<job_id>/toggle', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_cron_toggle(server_id, job_id):
     user_id = get_jwt_identity()
@@ -2670,7 +2622,6 @@ def remote_cloudflared_status(server_id):
 
 
 @servers_bp.route('/<server_id>/cloudflared/login', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_cloudflared_login(server_id):
     """Start `cloudflared tunnel login` on the agent. Returns
@@ -2690,7 +2641,6 @@ def remote_cloudflared_list(server_id):
 
 
 @servers_bp.route('/<server_id>/cloudflared/tunnels', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_cloudflared_create(server_id):
     user_id = get_jwt_identity()
@@ -2704,7 +2654,6 @@ def remote_cloudflared_create(server_id):
 
 
 @servers_bp.route('/<server_id>/cloudflared/tunnels/<tunnel_ref>/route', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_cloudflared_route(server_id, tunnel_ref):
     user_id = get_jwt_identity()
@@ -2720,7 +2669,6 @@ def remote_cloudflared_route(server_id, tunnel_ref):
 
 
 @servers_bp.route('/<server_id>/cloudflared/tunnels/<tunnel_ref>', methods=['DELETE'])
-@jwt_required()
 @developer_required
 def remote_cloudflared_delete(server_id, tunnel_ref):
     user_id = get_jwt_identity()
@@ -2741,7 +2689,7 @@ def remote_cloudflared_delete(server_id, tunnel_ref):
 @jwt_required()
 def remote_refresh_capabilities(server_id):
     user_id = get_jwt_identity()
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id, action='agent:recapabilities',
         params={}, user_id=user_id, timeout=20.0,
     )
@@ -2790,7 +2738,6 @@ def remote_packages_info(server_id, name):
 
 
 @servers_bp.route('/<server_id>/packages/update-cache', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_packages_update_cache(server_id):
     user_id = get_jwt_identity()
@@ -2799,7 +2746,6 @@ def remote_packages_update_cache(server_id):
 
 
 @servers_bp.route('/<server_id>/packages/install', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_packages_install(server_id):
     """Streaming install. Body: {names: ['nginx', 'redis-server']}.
@@ -2817,7 +2763,6 @@ def remote_packages_install(server_id):
 
 
 @servers_bp.route('/<server_id>/packages/remove', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_packages_remove(server_id):
     user_id = get_jwt_identity()
@@ -2830,7 +2775,6 @@ def remote_packages_remove(server_id):
 
 
 @servers_bp.route('/<server_id>/packages/upgrade', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_packages_upgrade(server_id):
     """Streaming upgrade. Body: {all: bool, names?: [...]}. Returns
@@ -2869,7 +2813,6 @@ def remote_services_list(server_id):
 # route so Werkzeug picks the right matcher in registration order.
 
 @servers_bp.route('/<server_id>/services/daemon-reload', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_services_daemon_reload(server_id):
     user_id = get_jwt_identity()
@@ -2898,7 +2841,6 @@ def remote_services_status(server_id, unit):
 
 
 @servers_bp.route('/<server_id>/services/<unit>/<action>', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_services_control(server_id, unit, action):
     user_id = get_jwt_identity()
@@ -2924,7 +2866,6 @@ def remote_runtimes_list(server_id):
 
 
 @servers_bp.route('/<server_id>/runtimes/pyenv/bootstrap', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_runtimes_pyenv_bootstrap(server_id):
     user_id = get_jwt_identity()
@@ -2957,7 +2898,6 @@ def remote_runtimes_python_current(server_id):
 
 
 @servers_bp.route('/<server_id>/runtimes/python/install', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_runtimes_python_install(server_id):
     user_id = get_jwt_identity()
@@ -2970,7 +2910,6 @@ def remote_runtimes_python_install(server_id):
 
 
 @servers_bp.route('/<server_id>/runtimes/python/uninstall', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_runtimes_python_uninstall(server_id):
     user_id = get_jwt_identity()
@@ -2983,7 +2922,6 @@ def remote_runtimes_python_uninstall(server_id):
 
 
 @servers_bp.route('/<server_id>/runtimes/python/global', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_runtimes_python_set_global(server_id):
     user_id = get_jwt_identity()
@@ -2996,7 +2934,6 @@ def remote_runtimes_python_set_global(server_id):
 
 
 @servers_bp.route('/<server_id>/runtimes/python/local', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_runtimes_python_set_local(server_id):
     user_id = get_jwt_identity()
@@ -3052,7 +2989,6 @@ def remote_file_read(server_id):
 
 
 @servers_bp.route('/<server_id>/files/write', methods=['POST'])
-@jwt_required()
 @developer_required
 def remote_file_write(server_id):
     user_id = get_jwt_identity()

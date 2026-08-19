@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableFooter, Drawer, Pill, SearchField } from '@/components/ds';
+import { DataTable, DataTableFooter, Drawer, Pill, SearchField, statusKind, envActionKind } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -15,18 +15,8 @@ import { useDeployments } from '../../hooks/useDeployments';
 import { getDeployStatus, formatRelativeTime, formatDuration } from '../../utils/serviceTypes';
 import EmptyState from '../EmptyState';
 
-// Deployment status → semantic tone (ds Pill kind / dot modifier)
-const DEPLOY_TONE = {
-    success: 'green',
-    failed: 'red',
-    in_progress: 'amber',
-    rolled_back: 'gray',
-    pending: 'cyan',
-};
-
-// Env-var change action → tone (mirrors the history modal's Badge variants).
-const ENV_TONE = { created: 'green', updated: 'amber', deleted: 'red' };
-
+// Deployment status → tone and env-var change action → tone both come from
+// the ONE shared status vocabulary (ds/status).
 // The three streams this timeline merges, in the order the Kind menu lists
 // them. Declared rather than derived: an app that has never been deployed
 // still has "Deploy" as a real kind, and a pick-list that hides it would
@@ -144,7 +134,7 @@ const EventsTab = ({ appId }) => {
             // getDeployStatus already labels a successful deploy "Live"; there
             // is no separate latest-success label to compute.
             status: getDeployStatus(deploy.status).label,
-            tone: DEPLOY_TONE[deploy.status] || 'cyan',
+            tone: statusKind(deploy.status),
             actor: deploy.trigger || NONE,
             text: deploy.commitMessage || deploy.version || `Deployment #${deployments.length - idx}`,
             deploy,
@@ -155,7 +145,7 @@ const EventsTab = ({ appId }) => {
             at: entry.changed_at,
             ts: new Date(entry.changed_at).getTime() || 0,
             status: titleCase(entry.action),
-            tone: ENV_TONE[entry.action] || 'cyan',
+            tone: envActionKind(entry.action),
             // The history row stores changed_by as a user id, never a name.
             actor: NONE,
             text: `${entry.key} ${entry.action}`,

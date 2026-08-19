@@ -312,7 +312,7 @@ def test_registry_install_passes_signature_through(
     zip_bytes = _make_plugin_zip()
     sig = signing_service.sign_bytes(zip_bytes, priv)
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'signed-ext', 'display_name': 'Signed Ext', 'version': '1.0.0',
@@ -338,7 +338,7 @@ def test_registry_install_bad_signature_hard_fails(
     zip_bytes = _make_plugin_zip()
     bad_sig = signing_service.sign_bytes(b'other bytes', priv)
     monkeypatch.setattr(plugin_service, '_download_zip', lambda url: io.BytesIO(zip_bytes))
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize({
             'slug': 'signed-ext', 'display_name': 'Signed Ext', 'version': '1.0.0',
@@ -421,7 +421,7 @@ def fake_install(monkeypatch):
 
 
 def _seed_entry(monkeypatch, entry):
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test', 'entries': [entry],
     })
 
@@ -589,7 +589,7 @@ def _seed_update_entry(monkeypatch, slug, version='2.0.0', **overrides):
         'min_panel_version': '0.0.1',
     }
     base.update(overrides)
-    monkeypatch.setattr(registry_service, '_cache', {
+    registry_service._cache.update({
         'ts': 9e18, 'source': 'test',
         'entries': [registry_service._normalize(base)],
     })

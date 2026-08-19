@@ -98,7 +98,7 @@ def test_unresolved_with_provider_and_ip_is_repairable(app, site, monkeypatch):
     add_provider()
     set_server_ip(monkeypatch, '203.0.113.7')
     monkeypatch.setattr(doctor_service, '_resolve_host_ips',
-                        fake_resolver({'gone.example.com': socket.gaierror(-2)}))
+                        fake_resolver({'gone.example.com': socket.gaierror(socket.EAI_NONAME, 'Name or service not known')}))
 
     checks = checks_by_key(DoctorService._dns_checks())
     c = checks['dns.resolve.gone.example.com']
@@ -112,7 +112,7 @@ def test_unresolved_without_provider_gives_manual_instructions(app, site, monkey
     add_domain(site, 'gone.example.com')
     set_server_ip(monkeypatch, '203.0.113.7')
     monkeypatch.setattr(doctor_service, '_resolve_host_ips',
-                        fake_resolver({'gone.example.com': socket.gaierror(-2)}))
+                        fake_resolver({'gone.example.com': socket.gaierror(socket.EAI_NONAME, 'Name or service not known')}))
 
     c = checks_by_key(DoctorService._dns_checks())['dns.resolve.gone.example.com']
     assert c['status'] == 'fail'
@@ -126,7 +126,7 @@ def test_unresolved_without_server_ip_points_at_settings(app, site, monkeypatch)
     add_provider()
     set_server_ip(monkeypatch, None)
     monkeypatch.setattr(doctor_service, '_resolve_host_ips',
-                        fake_resolver({'gone.example.com': socket.gaierror(-2)}))
+                        fake_resolver({'gone.example.com': socket.gaierror(socket.EAI_NONAME, 'Name or service not known')}))
 
     c = checks_by_key(DoctorService._dns_checks())['dns.resolve.gone.example.com']
     assert c['status'] == 'fail'
@@ -240,8 +240,8 @@ def test_doctor_job_notifies_only_newly_broken_domains(app, site, monkeypatch):
     set_server_ip(monkeypatch, '203.0.113.7')
     _stub_other_checks(monkeypatch)
     monkeypatch.setattr(doctor_service, '_resolve_host_ips', fake_resolver({
-        'old-broken.example.com': socket.gaierror(-2),
-        'new-broken.example.com': socket.gaierror(-2),
+        'old-broken.example.com': socket.gaierror(socket.EAI_NONAME, 'Name or service not known'),
+        'new-broken.example.com': socket.gaierror(socket.EAI_NONAME, 'Name or service not known'),
     }))
 
     # Previous report already knew about old-broken.

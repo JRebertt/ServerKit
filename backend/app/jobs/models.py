@@ -21,6 +21,9 @@ from app import db
 class Job(db.Model):
     __tablename__ = 'jobs'
 
+    # Run envelope kind (plan 77 E1): rooms/events key on (run_kind, id).
+    __run_kind__ = 'job'
+
     STATUS_PENDING = 'pending'
     STATUS_RUNNING = 'running'
     STATUS_SUCCEEDED = 'succeeded'

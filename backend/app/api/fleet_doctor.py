@@ -20,6 +20,7 @@ layer only authenticates, shapes the batch, and reports refusals as results
 rather than errors.
 """
 from flask import Blueprint, jsonify, request
+from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required, get_current_user
 from ..services.fleet_doctor_service import FLEET_DOCTOR_JOB_KIND, FleetDoctorService
@@ -44,8 +45,8 @@ def get_fleet_report():
     """
     try:
         return jsonify({'report': FleetDoctorService.fleet_report()})
-    except Exception as exc:  # noqa: BLE001 — surface as a clean JSON error
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @fleet_doctor_bp.route('/run', methods=['POST'])
@@ -56,8 +57,8 @@ def run_fleet_sweep():
         from app.jobs.service import JobService
         job = JobService.enqueue(FLEET_DOCTOR_JOB_KIND, payload={}, max_attempts=1)
         return jsonify({'job_id': job.id}), 202
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @fleet_doctor_bp.route('/repair', methods=['POST'])
@@ -88,5 +89,5 @@ def repair_fleet_items():
                 continue
             results.append(FleetRepairService.repair(item, user_id=user_id))
         return jsonify({'results': results})
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)

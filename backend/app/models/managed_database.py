@@ -1,12 +1,13 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import EncryptedSecret, SoftDeleteMixin
 
 # Engines whose lifecycle ServerKit actually drives (Mongo stays read-first).
 VALID_DB_ENGINES = ('mysql', 'postgresql', 'mongodb')
 
 
-class ManagedDatabase(db.Model):
+class ManagedDatabase(SoftDeleteMixin, db.Model):
     """A database ServerKit tracks as a first-class resource.
 
     Adds durable state (backups, connection strings, ownership) **beside** the
@@ -17,6 +18,12 @@ class ManagedDatabase(db.Model):
     The admin secret is Fernet-encrypted at rest (same helper as
     ``SourceConnection``); it is masked in API responses and revealed only through
     an explicit, audited action.
+
+    Soft-deletable (plan 77 B5): a plain delete tombstones the row into the
+    Recycle Bin — the actual database server-side is untouched and any managed
+    backup policy keeps running, so restore brings everything back intact. The
+    explicit ``?drop=true`` path stays immediately destructive. Read paths use
+    ``query_active()``.
     """
 
     __tablename__ = 'managed_databases'
@@ -42,6 +49,7 @@ class ManagedDatabase(db.Model):
     origin = db.Column(db.String(20), nullable=False, default='provisioned')  # provisioned|adopted
     admin_username = db.Column(db.String(180), nullable=True)
     admin_secret_encrypted = db.Column(db.Text, nullable=True)
+    admin_secret = EncryptedSecret('admin_secret_encrypted', legacy_plaintext=True)
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

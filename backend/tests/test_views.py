@@ -51,7 +51,8 @@ def test_create_validates_input(client, auth_headers):
 def test_duplicate_name_rejected(client, auth_headers):
     assert _create(client, auth_headers).status_code == 201
     resp = _create(client, auth_headers)
-    assert resp.status_code == 400
+    # ConflictError under the typed-error contract (was a generic 400).
+    assert resp.status_code == 409
     assert 'already' in resp.get_json()['error']
 
 

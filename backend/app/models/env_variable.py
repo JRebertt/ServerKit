@@ -1,12 +1,14 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 from cryptography.fernet import Fernet
 import os
 import base64
 import hashlib
 
 
-class EnvironmentVariable(db.Model):
+class EnvironmentVariable(TimestampMixin, JsonColumnMixin, db.Model):
     """
     Stores environment variables for applications with encrypted values.
     Supports versioning for history tracking.
@@ -29,8 +31,6 @@ class EnvironmentVariable(db.Model):
     # {"kind":"service","service":"db","property":"connectionString"}.
     value_from = db.Column(db.Text, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Unique constraint: one key per application
@@ -38,36 +38,44 @@ class EnvironmentVariable(db.Model):
         db.UniqueConstraint('application_id', 'key', name='unique_app_env_key'),
     )
 
-    # Class-level encryption key (generated from SECRET_KEY)
-    _fernet = None
+    # One crypto path (plan 77 C2): new writes encrypt via utils/crypto
+    # (SERVERKIT_ENCRYPTION_KEY). Reads dual-read: the one path first, then
+    # the legacy SECRET_KEY-derived Fernet this model historically used —
+    # rows written before the fold-in decrypt forever without a bulk
+    # re-encrypt pass (the PR #94 postmortem records a decrypt-all→
+    # re-encrypt-all attempt double-wrapping credentials; never again).
+    # Rotating SECRET_KEY still bricks only legacy rows, exactly as before.
+    _legacy_fernet = None
 
     @classmethod
-    def _get_fernet(cls):
-        """Get or create the Fernet encryption instance."""
-        if cls._fernet is None:
-            # Derive a 32-byte key from SECRET_KEY using SHA256
+    def _get_legacy_fernet(cls):
+        """The pre-C2 Fernet (key derived from SECRET_KEY via SHA256)."""
+        if cls._legacy_fernet is None:
             secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
             key = hashlib.sha256(secret_key.encode()).digest()
-            fernet_key = base64.urlsafe_b64encode(key)
-            cls._fernet = Fernet(fernet_key)
-        return cls._fernet
+            cls._legacy_fernet = Fernet(base64.urlsafe_b64encode(key))
+        return cls._legacy_fernet
 
     @classmethod
     def encrypt_value(cls, value):
-        """Encrypt a value for storage."""
+        """Encrypt a value for storage (the ONE key path)."""
+        from app.utils.crypto import encrypt_secret
         if value is None:
             value = ''
-        fernet = cls._get_fernet()
-        return fernet.encrypt(value.encode()).decode()
+        return encrypt_secret(value)
 
     @classmethod
     def decrypt_value(cls, encrypted_value):
-        """Decrypt a stored value."""
+        """Decrypt a stored value: one path first, legacy key second."""
         if not encrypted_value:
             return ''
-        fernet = cls._get_fernet()
+        from app.utils.crypto import decrypt_secret
         try:
-            return fernet.decrypt(encrypted_value.encode()).decode()
+            return decrypt_secret(encrypted_value)
+        except Exception:
+            pass
+        try:
+            return cls._get_legacy_fernet().decrypt(encrypted_value.encode()).decode()
         except Exception:
             return '[DECRYPTION_ERROR]'
 
@@ -83,17 +91,10 @@ class EnvironmentVariable(db.Model):
 
     def get_reference(self):
         """Parsed value_from reference, or None for a plain value."""
-        if not self.value_from:
-            return None
-        import json
-        try:
-            return json.loads(self.value_from)
-        except Exception:
-            return None
+        return self._json_read('value_from', None)
 
     def set_reference(self, ref):
-        import json
-        self.value_from = json.dumps(ref) if ref else None
+        self._json_write('value_from', ref)
 
     def to_dict(self, include_value=True, mask_secrets=False):
         """Convert to dictionary, optionally masking secret values."""

@@ -1,8 +1,10 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import EncryptedSecret, TimestampMixin
 
 
-class RegistrarConnection(db.Model):
+class RegistrarConnection(JsonColumnMixin, TimestampMixin, db.Model):
     """A connected domain-registrar account (GoDaddy, …) used to read the domain
     portfolio: registration status, expiry dates, auto-renew and nameservers.
 
@@ -18,21 +20,15 @@ class RegistrarConnection(db.Model):
     name = db.Column(db.String(120), nullable=True)          # user-facing label
     api_key_encrypted = db.Column(db.Text, nullable=True)
     api_secret_encrypted = db.Column(db.Text, nullable=True)
+    api_key = EncryptedSecret('api_key_encrypted', legacy_plaintext=True)
+    api_secret = EncryptedSecret('api_secret_encrypted', legacy_plaintext=True)
     account_label = db.Column(db.String(180), nullable=True)  # e.g. domain count / shopper id
     config_json = db.Column(db.Text, nullable=True)  # provider-specific non-secret extras (e.g. Namecheap username + client_ip)
     last_synced_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     @property
     def config(self):
-        import json
-        if not self.config_json:
-            return {}
-        try:
-            return json.loads(self.config_json)
-        except Exception:
-            return {}
+        return self._json_read('config_json')
 
     @config.setter
     def config(self, value):

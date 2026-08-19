@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Send, Inbox } from 'lucide-react';
 import api from '../services/api';
 import {
@@ -17,6 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/timeAgo';
 import EmailProviders from '../components/EmailProviders';
+import { usePolling } from '@/hooks/usePolling';
 
 const STATUSES = ['all', 'pending', 'sent', 'failed', 'skipped'];
 const CHANNELS = ['all', 'inapp', 'email', 'discord', 'slack', 'telegram', 'webhook'];
@@ -83,7 +84,6 @@ export default function DeliveryLog() {
     const [channel, setChannel] = useState('all');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-    const pollRef = useRef(null);
 
     const load = useCallback(async () => {
         try {
@@ -99,12 +99,11 @@ export default function DeliveryLog() {
         }
     }, [status, channel]);
 
+    // Reload when the filters change; poll on top of that.
     useEffect(() => {
-        if (!isAdmin) return undefined;
-        load();
-        pollRef.current = setInterval(load, POLL_MS);
-        return () => clearInterval(pollRef.current);
+        if (isAdmin) load();
     }, [isAdmin, load]);
+    usePolling(load, POLL_MS, { enabled: isAdmin, immediate: false });
 
     const onRetry = async (id) => {
         try {

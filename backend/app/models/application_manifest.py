@@ -10,6 +10,8 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 
 
 # status values
@@ -19,7 +21,7 @@ STATUS_DRIFTED = 'drifted'   # live state diverged from the manifest
 STATUS_ERROR = 'error'       # last apply / parse failed
 
 
-class ApplicationManifest(db.Model):
+class ApplicationManifest(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'application_manifests'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -38,20 +40,13 @@ class ApplicationManifest(db.Model):
     status = db.Column(db.String(20), nullable=False, default=STATUS_PENDING, index=True)
     last_error = db.Column(db.Text, nullable=True)
     applied_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         db.UniqueConstraint('project_id', name='uq_application_manifest_project'),
     )
 
     def get_normalized(self):
-        if not self.normalized_json:
-            return None
-        try:
-            return json.loads(self.normalized_json)
-        except Exception:
-            return None
+        return self._json_read('normalized_json', None)
 
     def set_normalized(self, value):
         self.normalized_json = json.dumps(value) if value is not None else None

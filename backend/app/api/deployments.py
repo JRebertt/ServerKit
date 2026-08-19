@@ -10,18 +10,19 @@ are unchanged; this is an additive, federated view so the frontend can read one
 history instead of merging two sources.
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models import Application, User
+from app.models import Application
 from app.models.deployment import Deployment
 from app.models.webhook import GitDeployment
+from app.middleware.rbac import get_current_user
 
 deployments_bp = Blueprint('deployments', __name__)
 
 
 def _access(app_id):
     from app.services.resource_grant_service import ResourceGrantService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)

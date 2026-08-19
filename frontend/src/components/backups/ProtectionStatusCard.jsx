@@ -1,4 +1,4 @@
-import { Pill, MetricCard, KpiBand } from '@/components/ds';
+import { Pill, MetricCard, KpiBand, statusKind, statusLabel } from '@/components/ds';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Archive, Clock, DollarSign, HardDrive, Play, ExternalLink, Loader2 } from 'lucide-react';
@@ -10,14 +10,7 @@ import { humanSize, formatMoney, formatWhen, formatDateTime } from './format';
 // All data is pre-shaped by the parent (policyView); this component holds no
 // state and triggers behavior purely through the supplied callbacks.
 
-// Status kinds map to a Pill colour + the label shown both top-right and inline.
-const STATUS_PILL = {
-    protected: { kind: 'green', label: 'Protected' },
-    pending: { kind: 'amber', label: 'Pending' },
-    failed: { kind: 'red', label: 'Failed' },
-    running: { kind: 'cyan', label: 'Running' },
-    off: { kind: 'gray', label: 'Off' },
-};
+// Pill colour + label come from the ONE shared status vocabulary (ds/status).
 
 // Pick the status key from the policy snapshot. Failure wins over everything so
 // a broken last run is never hidden behind an "enabled" badge.
@@ -58,8 +51,7 @@ const ProtectionStatusCard = ({
     const nextRunAt = policyView.next_run_at;
 
     const statusKey = resolveStatus(policy, isRunning);
-    const { kind, label } = STATUS_PILL[statusKey];
-    const statusPill = <Pill kind={kind}>{label}</Pill>;
+    const statusPill = <Pill kind={statusKind(statusKey)}>{statusLabel(statusKey)}</Pill>;
 
     const subtitle = enabled
         ? 'Backups run on the configured schedule.'

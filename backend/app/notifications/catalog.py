@@ -93,6 +93,23 @@ _CATALOG = {
         'severity': 'warning',
         'category': 'system',
     },
+    # The panel host's own hardware moved between boots — a VPS resize, a
+    # volume attached or detached (plan 74). Informational: the operator
+    # usually caused it, but until now nothing confirmed it landed.
+    'host.specs_changed': {
+        'title': "This server's hardware changed",
+        'template': 'generic',
+        'severity': 'info',
+        'category': 'system',
+    },
+    # A storage correlation worth acting on: a mount missing from /etc/fstab,
+    # or a filesystem running out while an attached volume sits idle.
+    'host.storage_advisory': {
+        'title': 'Storage needs attention on this server',
+        'template': 'generic',
+        'severity': 'warning',
+        'category': 'system',
+    },
     # Daily doctor sweep found managed site domains that no longer resolve
     # (see app/services/doctor_service.py:_dns_checks).
     'dns.unresolved': {
@@ -194,6 +211,8 @@ _LINKS = {
     # system / monitoring
     'system.alert': '/monitoring',
     'monitoring.alert': '/monitoring',
+    'host.specs_changed': '/monitoring',
+    'host.storage_advisory': '/monitoring',
     'drift.detected': '/monitoring/doctor',
     'dns.sync_failed': '/domains',
     'dns.unresolved': '/domains',

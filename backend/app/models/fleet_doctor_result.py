@@ -1,11 +1,11 @@
 """Fleet-doctor per-server result model."""
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class FleetDoctorResult(db.Model):
+class FleetDoctorResult(JsonColumnMixin, db.Model):
     """One row per ``(server_id, check_key)`` recorded by the fleet health sweep
     (Fleet Parity Sweep, plan 26 Phase 2, Decision 3).
 
@@ -45,15 +45,10 @@ class FleetDoctorResult(db.Model):
     )
 
     def get_repair_ref(self):
-        if not self.repair_ref:
-            return None
-        try:
-            return json.loads(self.repair_ref)
-        except (json.JSONDecodeError, TypeError):
-            return None
+        return self._json_read('repair_ref', None)
 
     def set_repair_ref(self, ref):
-        self.repair_ref = json.dumps(ref) if ref else None
+        self._json_write('repair_ref', ref)
 
     def to_dict(self):
         return {

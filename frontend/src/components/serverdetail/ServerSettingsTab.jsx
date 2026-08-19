@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
+import { useClipboard } from '@/hooks/useClipboard';
 import { DangerZone } from '../DangerZone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -372,6 +373,7 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
 
 export const TokenModal = ({ server, onClose, onGenerated }) => {
     const toast = useToast();
+    const { copy } = useClipboard({ successMessage: 'Copied to clipboard' });
     const [expiresIn, setExpiresIn] = useState(7 * 24 * 60 * 60);
     const [generating, setGenerating] = useState(false);
     // Result of the most recent generation in *this* modal session. We
@@ -393,11 +395,6 @@ export const TokenModal = ({ server, onClose, onGenerated }) => {
         } finally {
             setGenerating(false);
         }
-    }
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard');
     }
 
     // Download-then-run, not `curl … | sudo bash`: a piped curl failure is
@@ -469,7 +466,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                             <div className="connection-string-field__header">
                                 <KeyIcon />
                                 <span>Connection string</span>
-                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(result.connection_string)}>
+                                <Button variant="outline" size="sm" onClick={() => copy(result.connection_string)}>
                                     <CopyIcon /> Copy
                                 </Button>
                             </div>
@@ -486,7 +483,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                             <span>Linux</span>
                                             <span className="install-tab-description">curl, tar, sudo, and systemd</span>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(linuxScript)}>
+                                        <Button variant="outline" size="sm" onClick={() => copy(linuxScript)}>
                                             <CopyIcon /> Copy
                                         </Button>
                                     </div>
@@ -499,7 +496,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                             <span>Windows (PowerShell)</span>
                                             <span className="install-tab-description">Run as Administrator</span>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(windowsScript)}>
+                                        <Button variant="outline" size="sm" onClick={() => copy(windowsScript)}>
                                             <CopyIcon /> Copy
                                         </Button>
                                     </div>

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Box, Plus } from 'lucide-react';
-import { ServiceTile, Pill, DataTable, DataTableFooter } from '@/components/ds';
+import { ServiceTile, Pill, DataTable, DataTableFooter, serviceStatusKind } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -9,8 +9,6 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
-
-const APP_PILL = { running: 'green', stopped: 'gray', failed: 'red' };
 
 // What the Status cell shows when the row carries none. A real word, not '':
 // `ruleIsArmed` drops any rule whose value is empty.
@@ -81,7 +79,7 @@ const WorkspaceServicesTab = ({ wsId, services, appsOut, onMoveApp, onShare }) =
             type: 'enum',
             value: (a) => a.status || UNKNOWN,
             sortValue: (a) => a.status || UNKNOWN,
-            render: (a) => <Pill kind={APP_PILL[a.status] || 'amber'}>{a.status || UNKNOWN}</Pill>,
+            render: (a) => <Pill kind={serviceStatusKind(a.status)}>{a.status || UNKNOWN}</Pill>,
         },
         {
             key: 'actions',

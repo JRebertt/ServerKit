@@ -87,11 +87,22 @@ def test_developer_passes_files_write_gate(client, role_headers, monkeypatch,
     assert resp.status_code != 403
 
 
-def test_viewer_can_still_browse(client, role_headers):
-    """Read endpoints stay reachable for viewers (files.read=True)."""
+def test_viewer_can_still_browse(client, role_headers, monkeypatch):
+    """Read endpoints stay reachable for viewers (files.read=True).
+
+    The service is stubbed: /tmp is not an allowed root, and since the typed
+    error contract the path denial is itself a 403, which would be
+    indistinguishable from the RBAC gate this test is about.
+    """
+    from app.services.file_service import FileService
+    monkeypatch.setattr(
+        FileService, 'list_directory',
+        staticmethod(lambda *a, **k: {'path': '/tmp', 'parent': None,
+                                      'entries': [], 'total': 0}))
     resp = client.get('/api/v1/files/browse?path=/tmp',
                       headers=role_headers[User.ROLE_VIEWER])
-    assert resp.status_code != 403
+    assert resp.status_code == 200
+    assert resp.get_json()['success'] is True
 
 
 # --------------------------------------------------------------------------- #

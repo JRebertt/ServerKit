@@ -10,14 +10,10 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
+from app.middleware.rbac import get_current_user
+from app.error_reporting import unexpected_response
 
 plugins_bp = Blueprint('plugins', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 @plugins_bp.route('', methods=['GET'])
@@ -98,20 +94,13 @@ def install_plugin():
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        # Log full traceback server-side; details go to the InstalledPlugin
-        # row's error_message field. Don't echo raw exceptions to the
-        # client — they can leak filesystem paths, library versions, or
-        # SQL fragments.
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception(
-            'Plugin install failed (ref=%s)', ref
-        )
-        return jsonify({
-            'error': 'Installation failed. Check server logs.',
-            'ref': ref,
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Not echoing the raw exception is right — it leaks filesystem
+        # paths, library versions, and SQL fragments. The door does that and
+        # also puts the crash in the error log behind /monitoring/errors,
+        # under the request id the caller is handed (the local uuid4 'ref'
+        # correlated with nothing but a log line).
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/preview', methods=['POST'])
@@ -142,14 +131,8 @@ def preview_plugin():
         # GitHubResolveError is a ValueError subclass — its message is already
         # user-actionable (rate limit / 404 / private / no plugin.json).
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception('Plugin preview failed (ref=%s)', ref)
-        return jsonify({
-            'error': 'Preview failed. Check server logs.',
-            'ref': ref,
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/install-local', methods=['POST'])
@@ -187,20 +170,13 @@ def install_plugin_local():
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        # Log full traceback server-side; details go to the InstalledPlugin
-        # row's error_message field. Don't echo raw exceptions to the
-        # client — they can leak filesystem paths, library versions, or
-        # SQL fragments.
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception(
-            'Plugin install failed (ref=%s)', ref
-        )
-        return jsonify({
-            'error': 'Installation failed. Check server logs.',
-            'ref': ref,
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Not echoing the raw exception is right — it leaks filesystem
+        # paths, library versions, and SQL fragments. The door does that and
+        # also puts the crash in the error log behind /monitoring/errors,
+        # under the request id the caller is handed (the local uuid4 'ref'
+        # correlated with nothing but a log line).
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/install-upload', methods=['POST'])
@@ -245,20 +221,13 @@ def install_plugin_upload():
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        # Log full traceback server-side; details go to the InstalledPlugin
-        # row's error_message field. Don't echo raw exceptions to the
-        # client — they can leak filesystem paths, library versions, or
-        # SQL fragments.
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception(
-            'Plugin install failed (ref=%s)', ref
-        )
-        return jsonify({
-            'error': 'Installation failed. Check server logs.',
-            'ref': ref,
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Not echoing the raw exception is right — it leaks filesystem
+        # paths, library versions, and SQL fragments. The door does that and
+        # also puts the crash in the error log behind /monitoring/errors,
+        # under the request id the caller is handed (the local uuid4 'ref'
+        # correlated with nothing but a log line).
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/<int:plugin_id>', methods=['DELETE'])
@@ -390,20 +359,13 @@ def install_builtin(slug):
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        # Log full traceback server-side; details go to the InstalledPlugin
-        # row's error_message field. Don't echo raw exceptions to the
-        # client — they can leak filesystem paths, library versions, or
-        # SQL fragments.
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception(
-            'Plugin install failed (ref=%s)', ref
-        )
-        return jsonify({
-            'error': 'Installation failed. Check server logs.',
-            'ref': ref,
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Not echoing the raw exception is right — it leaks filesystem
+        # paths, library versions, and SQL fragments. The door does that and
+        # also puts the crash in the error log behind /monitoring/errors,
+        # under the request id the caller is handed (the local uuid4 'ref'
+        # correlated with nothing but a log line).
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/<slug>/assets/<path:asset_path>', methods=['GET'])
@@ -732,11 +694,8 @@ def update_plugin_route(plugin_id):
         return jsonify(plugin.to_dict())
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception('Plugin update failed (ref=%s)', ref)
-        return jsonify({'error': 'Update failed. Check server logs.', 'ref': ref}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @plugins_bp.route('/contributions', methods=['GET'])

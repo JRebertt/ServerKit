@@ -6,12 +6,12 @@ which checks this plugin declared ``agent.command:<action>`` before dispatching
 and turns a failed command into an exception carrying the reason.
 """
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
+from app.middleware.rbac import get_current_user
 from app.plugins_sdk import agents, logger
 from app.plugins_sdk.permissions import PermissionDenied
 from app.models.server import Server
-from app.models.user import User
 
 gui_bp = Blueprint("server_gui", __name__)
 log = logger(__name__)
@@ -20,10 +20,6 @@ PLUGIN_SLUG = "serverkit-gui"
 
 DEFAULT_FRAME_TIMEOUT = 8.0
 MAX_FRAME_TIMEOUT = 15.0
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
 
 
 def _fleet():
@@ -41,7 +37,7 @@ def _server_or_404(server_id: str):
 @jwt_required()
 def capabilities(server_id):
     """Ask the agent what it can capture (display server, resolution, fps cap)."""
-    user = _current_user()
+    user = get_current_user()
     server, err = _server_or_404(server_id)
     if err:
         return err
@@ -84,7 +80,7 @@ def frame(server_id):
       quality int   10..95     JPEG quality (PNG ignores this)
       format  png|jpeg         encoding hint
     """
-    user = _current_user()
+    user = get_current_user()
     server, err = _server_or_404(server_id)
     if err:
         return err
@@ -134,7 +130,7 @@ def synthetic(server_id):
     No new agent action — we reuse data the agent already exposes via
     existing actions. Cheap and always available.
     """
-    user = _current_user()
+    user = get_current_user()
     server, err = _server_or_404(server_id)
     if err:
         return err

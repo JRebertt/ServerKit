@@ -98,6 +98,10 @@ export async function downloadFile(path) {
     window.open(`${url}&token=${token}`, '_blank');
 }
 
+export async function getFileBlob(path) {
+    return this.requestBlob(`/files/download?path=${encodeURIComponent(path)}`);
+}
+
 export async function uploadFile(destination, file, onProgress = null) {
     const token = this.getToken();
     const formData = new FormData();

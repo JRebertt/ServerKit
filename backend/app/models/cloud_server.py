@@ -1,5 +1,7 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import SerializableMixin
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
@@ -28,7 +30,7 @@ class CloudProvider(db.Model):
         }
 
 
-class CloudServer(db.Model):
+class CloudServer(JsonColumnMixin, db.Model):
     """A cloud server provisioned through ServerKit."""
     __tablename__ = 'cloud_servers'
 
@@ -74,7 +76,7 @@ class CloudServer(db.Model):
 
     @property
     def server_metadata(self):
-        return json.loads(self.metadata_json) if self.metadata_json else {}
+        return self._json_read('metadata_json')
 
     @server_metadata.setter
     def server_metadata(self, v):
@@ -102,7 +104,7 @@ class CloudServer(db.Model):
         }
 
 
-class CloudSnapshot(db.Model):
+class CloudSnapshot(SerializableMixin, db.Model):
     """Snapshot of a cloud server."""
     __tablename__ = 'cloud_snapshots'
 
@@ -114,13 +116,3 @@ class CloudSnapshot(db.Model):
     status = db.Column(db.String(32), default='creating')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'external_id': self.external_id,
-            'name': self.name,
-            'size_gb': self.size_gb,
-            'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

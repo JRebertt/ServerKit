@@ -20,26 +20,16 @@ second-guess it.
 from typing import Any, Dict, Optional
 
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 
 
 class RemoteFileService:
     """Thin dispatcher to agent file:* handlers."""
 
     @staticmethod
-    def _send(server_id: str, action: str, params: Optional[Dict[str, Any]] = None,
-              user_id: Optional[int] = None, timeout: float = 15.0) -> Dict[str, Any]:
-        return agent_registry.send_command(
-            server_id=server_id,
-            action=action,
-            params=params or {},
-            user_id=user_id,
-            timeout=timeout,
-        )
-
-    @staticmethod
     def list_directory(server_id: str, path: str,
                        user_id: Optional[int] = None) -> Dict[str, Any]:
-        return RemoteFileService._send(
+        return dispatch_agent_command(
             server_id, 'file:list',
             params={'path': path},
             user_id=user_id,
@@ -48,7 +38,7 @@ class RemoteFileService:
     @staticmethod
     def read_file(server_id: str, path: str,
                   user_id: Optional[int] = None) -> Dict[str, Any]:
-        return RemoteFileService._send(
+        return dispatch_agent_command(
             server_id, 'file:read',
             params={'path': path},
             user_id=user_id,
@@ -57,7 +47,7 @@ class RemoteFileService:
     @staticmethod
     def write_file(server_id: str, path: str, content: str,
                    user_id: Optional[int] = None) -> Dict[str, Any]:
-        return RemoteFileService._send(
+        return dispatch_agent_command(
             server_id, 'file:write',
             params={'path': path, 'content': content},
             user_id=user_id,

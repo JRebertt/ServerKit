@@ -1,10 +1,9 @@
 from datetime import datetime
-from uuid import uuid4
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class Invitation(db.Model):
+class Invitation(JsonColumnMixin, db.Model):
     """Team invitation model for invite-based registration."""
     __tablename__ = 'invitations'
 
@@ -41,15 +40,10 @@ class Invitation(db.Model):
         return self.status == self.STATUS_PENDING and not self.is_expired
 
     def get_permissions(self):
-        if self.permissions:
-            try:
-                return json.loads(self.permissions)
-            except (json.JSONDecodeError, TypeError):
-                return None
-        return None
+        return self._json_read('permissions', None)
 
     def set_permissions(self, perms_dict):
-        self.permissions = json.dumps(perms_dict) if perms_dict else None
+        self._json_write('permissions', perms_dict)
 
     def to_dict(self):
         return {

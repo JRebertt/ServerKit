@@ -3,14 +3,9 @@ from flask_jwt_extended import jwt_required
 from app.services.advanced_ssl_service import AdvancedSSLService
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
+from app.middleware.rbac import get_current_user
 
 advanced_ssl_bp = Blueprint('advanced_ssl', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 @advanced_ssl_bp.route('/profiles', methods=['GET'])

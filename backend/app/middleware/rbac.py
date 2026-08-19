@@ -89,6 +89,33 @@ def admin_required(fn):
     return wrapper
 
 
+def require_admin_user():
+    """Return the calling admin user, or raise a typed error.
+
+    The mid-route counterpart to ``@admin_required``, for handlers that need
+    the user object or that gate only part of their work. It raises instead of
+    returning a sentinel because the five private ``_require_admin()`` helpers
+    this replaces had grown *three mutually incompatible* return contracts —
+    ``None``-means-ok, ``None``-means-denied, and ``(user, err)`` — so reading
+    a call site told you nothing about which one you were looking at, and
+    copying a guard between files inverted it silently.
+
+    Both the unknown-user and the not-an-admin case raise 403 'Admin access
+    required': a caller who is not an admin should not learn from the status
+    code whether the account behind the token still exists.
+    """
+    from app.exceptions import PermissionDeniedError
+
+    user = get_current_user()
+    if not user:
+        raise PermissionDeniedError('Admin access required')
+    if not user.is_active:
+        raise PermissionDeniedError('Account is deactivated')
+    if not user.is_admin:
+        raise PermissionDeniedError('Admin access required')
+    return user
+
+
 def developer_required(fn):
     """
     Decorator that requires developer role or higher (admin or developer).

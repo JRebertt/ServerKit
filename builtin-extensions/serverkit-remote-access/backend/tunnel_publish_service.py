@@ -15,7 +15,7 @@ from app import db
 from app.models.exposed_service import ExposedService
 from app.models.server import Server
 from app.models.tunnel import Tunnel
-from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.services.dns_provider_service import DNSProviderService
 from app.services.environment_domain_service import EnvironmentDomainService
 from app.services.nginx_service import NginxService
@@ -93,7 +93,7 @@ class TunnelPublishService:
         try:
             # 1. Forwarder on the private peer (essential): WG IP:port → the
             #    real local service on 127.0.0.1:port.
-            fwd = agent_registry.send_command(
+            fwd = dispatch_agent_command(
                 server_id=tunnel.private_server_id, action='wireguard:forward',
                 params={'interface': tunnel.interface_name, 'listen_ip': tunnel.private_wg_ip,
                         'listen_port': port, 'target_host': '127.0.0.1', 'target_port': port},
@@ -163,7 +163,7 @@ class TunnelPublishService:
         # Stop the forwarder on the private peer (best-effort).
         if tunnel:
             try:
-                agent_registry.send_command(
+                dispatch_agent_command(
                     server_id=tunnel.private_server_id, action='wireguard:unforward',
                     params={'interface': tunnel.interface_name, 'listen_port': svc.port},
                     user_id=user_id, timeout=10.0)

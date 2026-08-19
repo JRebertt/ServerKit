@@ -21,7 +21,8 @@ Result shape (both engines):
 
 import os
 import re
-import subprocess
+
+from app.utils.system import run_checked
 import logging
 from typing import Dict, List, Optional
 
@@ -228,18 +229,15 @@ class YaraScanService:
     def _scan_with_cli(cls, path: str) -> List[Dict]:
         findings = []
         for rules_file in cls._rule_files():
-            try:
-                result = subprocess.run(
-                    ['yara', '-r', '-s', '-w', rules_file, path],
-                    capture_output=True, text=True, timeout=1800,
-                )
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                logger.warning('yara run failed for %s: %s', rules_file, exc)
+            result = run_checked(['yara', '-r', '-s', '-w', rules_file, path],
+                                 timeout=1800)
+            if result['returncode'] is None:
+                logger.warning('yara run failed for %s: %s', rules_file, result['error'])
                 continue
-            if result.returncode not in (0, 1):
-                logger.warning('yara error on %s: %s', rules_file, (result.stderr or '')[:300])
+            if result['returncode'] not in (0, 1):
+                logger.warning('yara error on %s: %s', rules_file, result['error'][:300])
                 continue
-            findings.extend(cls._parse_cli_output(result.stdout or ''))
+            findings.extend(cls._parse_cli_output(result['output']))
         return findings
 
     @classmethod

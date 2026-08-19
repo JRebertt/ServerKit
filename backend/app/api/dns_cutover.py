@@ -9,9 +9,10 @@ authenticated user; the mutating verbs (snapshot, cutover, revert) are
 admin-only (plan 31 #1/#2/#3).
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.services.dns_cutover_service import DnsCutoverService, DnsCutoverError
+from app.middleware.rbac import require_admin_user
 
 dns_cutover_bp = Blueprint('dns_cutover', __name__)
 
@@ -25,18 +26,6 @@ def _cutover_error(exc):
     return jsonify(body), exc.status_code
 
 
-def _current_user():
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
-
-
-def _require_admin():
-    user = _current_user()
-    if not user or not user.is_admin:
-        return jsonify({'error': 'Admin access required'}), 403
-    return None
-
-
 @dns_cutover_bp.route('/ttl-guidance', methods=['POST'])
 @jwt_required()
 def ttl_guidance():
@@ -47,9 +36,7 @@ def ttl_guidance():
 @dns_cutover_bp.route('/snapshot', methods=['POST'])
 @jwt_required()
 def create_snapshot():
-    guard = _require_admin()
-    if guard:
-        return guard
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     try:
         snapshot = DnsCutoverService.create_snapshot(
@@ -82,9 +69,7 @@ def get_snapshot(snapshot_id):
 @dns_cutover_bp.route('/cutover', methods=['POST'])
 @jwt_required()
 def cutover():
-    guard = _require_admin()
-    if guard:
-        return guard
+    require_admin_user()
     data = request.get_json(silent=True) or {}
     snapshot_id = data.get('snapshot_id')
     if not snapshot_id:
@@ -121,9 +106,7 @@ def verify():
 @dns_cutover_bp.route('/snapshots/<int:snapshot_id>/revert', methods=['POST'])
 @jwt_required()
 def revert(snapshot_id):
-    guard = _require_admin()
-    if guard:
-        return guard
+    require_admin_user()
     snapshot = DnsCutoverService.get_snapshot(snapshot_id)
     if not snapshot:
         return jsonify({'error': 'Snapshot not found'}), 404

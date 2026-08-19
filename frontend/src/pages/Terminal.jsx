@@ -15,6 +15,14 @@ import ProcessTable, { procUser } from '../components/ProcessTable';
 import SystemdServicesTab from '../components/serverdetail/ServicesTab';
 import { useTableSort } from '@/hooks/useTableSort';
 import PageLayout from '../layouts/PageLayout';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Log/journal tail cadence while auto-refresh is on.
+const LOG_TAIL_MS = 3000;
+// Process table cadence while auto-refresh is on.
+const PROCESS_REFRESH_MS = 4000;
+
 import {
     FileText, Clock, AlertCircle, Search, X, AlertTriangle, Activity,
     Terminal as TerminalIcon, Server as ServerIcon,
@@ -172,7 +180,6 @@ const LogFilesTab = () => {
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     const contentRef = useRef(null);
-    const intervalRef = useRef(null);
     const selectedLogObj = useMemo(
         () => logFiles.find((l) => l.path === selectedLog) || null,
         [logFiles, selectedLog]
@@ -190,14 +197,11 @@ const LogFilesTab = () => {
         loadLogFiles();
     }, [target.kind, target.server_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(() => {
-        if (autoRefresh && selectedLog) {
-            intervalRef.current = setInterval(() => {
-                loadLogContent(selectedLog, false);
-            }, 3000);
-        }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, selectedLog, lineCount, appliedSearch]); // eslint-disable-line
+    usePolling(
+        () => loadLogContent(selectedLog, false),
+        LOG_TAIL_MS,
+        { enabled: autoRefresh && Boolean(selectedLog), immediate: false },
+    );
 
     function ensureSupported(op) {
         if (isRemote && !REMOTE_LOG_SUPPORTED.has(op)) {
@@ -310,13 +314,7 @@ const LogFilesTab = () => {
 
     function handleDownload() {
         if (!logContent) return;
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedLog ? selectedLog.split('/').pop() : 'log.txt';
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logContent, selectedLog ? selectedLog.split('/').pop() : 'log.txt');
     }
 
     const visibleLineCount = useMemo(() => {
@@ -500,7 +498,6 @@ const JournalTab = () => {
     const [lastUpdated, setLastUpdated] = useState(null);
 
     const contentRef = useRef(null);
-    const intervalRef = useRef(null);
     const isJournalctl = source === 'journalctl' || source === '';
 
     useEffect(() => { localStorage.setItem(JOURNAL_PREFS.showLineNumbers, showLineNumbers); }, [showLineNumbers]);
@@ -511,12 +508,10 @@ const JournalTab = () => {
         loadJournalLogs();
     }, [target.kind, target.server_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    useEffect(() => {
-        if (autoRefresh) {
-            intervalRef.current = setInterval(() => loadJournalLogs(false), 3000);
-        }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, unit, lineCount, priority]); // eslint-disable-line
+    usePolling(() => loadJournalLogs(false), LOG_TAIL_MS, {
+        enabled: autoRefresh,
+        immediate: false,
+    });
 
     async function loadJournalLogs(showSpinner = true) {
         if (isRemote && !REMOTE_JOURNAL_SUPPORTED.has('read')) {
@@ -568,13 +563,7 @@ const JournalTab = () => {
 
     function handleDownload() {
         if (!logContent) return;
-        const blob = new Blob([logContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `journal-${unit || 'all'}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logContent, `journal-${unit || 'all'}-${Date.now()}.log`);
     }
 
     function scrollToBottom() {
@@ -811,18 +800,15 @@ const ProcessesTab = () => {
     });
     const fetchSort = sorts[0]?.key === 'memory' ? 'memory' : 'cpu';
 
-    const intervalRef = useRef(null);
 
     useEffect(() => {
         loadProcesses();
     }, [fetchSort, limit, target.kind, target.server_id]); // eslint-disable-line
 
-    useEffect(() => {
-        if (autoRefresh) {
-            intervalRef.current = setInterval(() => loadProcesses(false), 4000);
-        }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, fetchSort, limit]); // eslint-disable-line
+    usePolling(() => loadProcesses(false), PROCESS_REFRESH_MS, {
+        enabled: autoRefresh,
+        immediate: false,
+    });
 
     async function loadProcesses(showSpinner = true) {
         if (isRemote) {

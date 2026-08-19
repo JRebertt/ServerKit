@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 from app import db
+from app.utils.system import run_checked, run_privileged
 from app.models.application import Application
 from app.models.wordpress_site import WordPressSite, DatabaseSnapshot
 from app.models.environment_activity import EnvironmentActivity
@@ -1714,10 +1715,10 @@ class EnvironmentPipelineService:
             shutil.copytree(source_dir, target_dir)
 
             # Set permissions
-            subprocess.run(
-                ['sudo', 'chown', '-R', 'www-data:www-data', target_dir],
-                capture_output=True, timeout=60
-            )
+            # run_privileged, not a hardcoded sudo: this is escalation, and
+            # _needs_sudo() is the one place that decides it (plan 75 §G2).
+            run_privileged(['chown', '-R', 'www-data:www-data', target_dir],
+                           timeout=60)
 
             return {'success': True}
         except Exception as e:
@@ -1727,7 +1728,7 @@ class EnvironmentPipelineService:
     def _sync_wordpress_files(cls, source_dir: str, target_dir: str) -> Dict:
         """Sync WordPress files using rsync (more efficient than full copy)."""
         try:
-            result = subprocess.run(
+            result = run_checked(
                 [
                     'rsync', '-a', '--delete',
                     '--exclude', '.git',
@@ -1736,13 +1737,10 @@ class EnvironmentPipelineService:
                     f'{source_dir}/',
                     f'{target_dir}/'
                 ],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+                timeout=300)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': f'rsync failed: {result.stderr}'}
+            if not result['success']:
+                return {'success': False, 'error': f"rsync failed: {result['error']}"}
 
             return {'success': True}
         except subprocess.TimeoutExpired:
@@ -1756,20 +1754,17 @@ class EnvironmentPipelineService:
         try:
             os.makedirs(target, exist_ok=True)
 
-            result = subprocess.run(
+            result = run_checked(
                 [
                     'rsync', '-a', '--delete',
                     '--exclude', '.git',
                     f'{source}',
                     f'{target}'
                 ],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+                timeout=300)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             return {'success': True}
         except subprocess.TimeoutExpired:

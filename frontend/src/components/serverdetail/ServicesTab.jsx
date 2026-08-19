@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '@/hooks/useConfirm';
 import { Button } from '@/components/ui/button';
-import { Pill, Drawer, DataTable, DataTableFooter, ListToolbar, SearchField } from '../ds';
+import { Pill, Drawer, DataTable, DataTableFooter, ListToolbar, SearchField, serviceStatusKind } from '../ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -12,6 +12,12 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Unit log tail cadence while auto-refresh is on.
+const LOG_TAIL_MS = 3000;
+
 
 // Built-in saved views. These are the four buttons that used to sit in the
 // toolbar (All / Active / Failed / Inactive) — they narrowed the AGENT query
@@ -79,19 +85,8 @@ const SERVICE_VIEWS = [
     },
 ];
 
-// systemd active/sub state → ds Pill kind
-const STATE_PILL = {
-    active: 'green',
-    running: 'green',
-    activating: 'amber',
-    reloading: 'amber',
-    restarting: 'amber',
-    failed: 'red',
-    inactive: 'gray',
-    dead: 'gray',
-    stopped: 'gray',
-};
-
+// systemd active/sub state → ds Pill kind comes from the ONE shared
+// vocabulary (ds/status).
 // The panel host and an agent answer the same question in different
 // vocabularies: `/processes/services` probes a fixed list of well-known daemons
 // and reports running/stopped, the agent runs `systemctl list-units --all` and
@@ -138,7 +133,6 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
     const [logWrap, setLogWrap] = useState(true);
     const [logAutoRefresh, setLogAutoRefresh] = useState(false);
     const logContentRef = useRef(null);
-    const logIntervalRef = useRef(null);
 
     // One unfiltered fetch. The state buckets are column rules now, so asking
     // the agent for a subset would only hide rows from the rules — and from the
@@ -242,12 +236,11 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         }
     }, [isLocal, serverId, logLineCount]);
 
-    useEffect(() => {
-        if (logAutoRefresh && logsFor) {
-            logIntervalRef.current = setInterval(() => loadLogs(logsFor.unit, { spinner: false }), 3000);
-        }
-        return () => { if (logIntervalRef.current) clearInterval(logIntervalRef.current); };
-    }, [logAutoRefresh, logsFor, loadLogs]);
+    usePolling(
+        () => loadLogs(logsFor.unit, { spinner: false }),
+        LOG_TAIL_MS,
+        { enabled: logAutoRefresh && Boolean(logsFor), immediate: false },
+    );
 
     function openLogs(unit) {
         setLogsFor({ unit });
@@ -277,12 +270,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
 
     function downloadLogs() {
         if (!logText || !logsFor) return;
-        const url = URL.createObjectURL(new Blob([logText], { type: 'text/plain' }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${logsFor.unit}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logText, `${logsFor.unit}-${Date.now()}.log`);
     }
 
     // Units table columns. Cell markup and classNames are identical to the
@@ -326,7 +314,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             value: (u) => u.active || u.sub || 'unknown',
             sortValue: (u) => u.active || u.sub || 'unknown',
             render: (u) => (
-                <Pill kind={STATE_PILL[u.active] || STATE_PILL[u.sub] || 'gray'}>
+                <Pill kind={serviceStatusKind(u.active || u.sub)}>
                     {u.active || u.sub || 'unknown'}
                 </Pill>
             ),

@@ -162,6 +162,9 @@ class TestKillProcess:
 # ---------------------------------------------------------------------------
 
 class TestExecSqlRouting:
+    # The engine x host dispatch itself now lives in db_exec (plan 75 §G5), so
+    # these patch the executors where db_exec reaches them. _exec_sql stays the
+    # seam this service's own tests stub.
     def test_host_mysql_routes_to_mysql_execute(self, monkeypatch):
         seen = {}
 
@@ -169,8 +172,8 @@ class TestExecSqlRouting:
             seen.update({'query': query, 'root_password': root_password})
             return {'success': True, 'output': '', 'error': None}
 
-        from app.services import db_process_service
-        monkeypatch.setattr(db_process_service.DatabaseService, 'mysql_execute', staticmethod(fake))
+        from app.services import db_exec
+        monkeypatch.setattr(db_exec.DatabaseService, 'mysql_execute', staticmethod(fake))
         result = DbProcessService._exec_sql({'engine': 'mysql', 'password': 's3c'}, 'SELECT 1;')
         assert result['success'] is True
         assert seen == {'query': 'SELECT 1;', 'root_password': 's3c'}
@@ -182,8 +185,8 @@ class TestExecSqlRouting:
             seen['query'] = query
             return {'success': True, 'output': '', 'error': None}
 
-        from app.services import db_process_service
-        monkeypatch.setattr(db_process_service.DatabaseService, 'pg_execute', staticmethod(fake))
+        from app.services import db_exec
+        monkeypatch.setattr(db_exec.DatabaseService, 'pg_execute', staticmethod(fake))
         result = DbProcessService._exec_sql({'engine': 'postgresql'}, 'SELECT 2;')
         assert result['success'] is True
         assert seen['query'] == 'SELECT 2;'
@@ -191,26 +194,41 @@ class TestExecSqlRouting:
     def test_docker_mysql_routes_to_docker_execute(self, monkeypatch):
         seen = {}
 
-        def fake(container_name, query, database=None, user='root', password=None):
-            seen.update({'container': container_name, 'query': query, 'user': user, 'password': password})
+        def fake(container_name, query, **kwargs):
+            seen.update({'container': container_name, 'query': query,
+                         'user': kwargs.get('user'), 'password': kwargs.get('password')})
             return {'success': True, 'output': '', 'error': None}
 
-        from app.services import db_process_service
-        monkeypatch.setattr(db_process_service.DatabaseService, 'docker_mysql_execute', staticmethod(fake))
+        from app.services import db_exec
+        monkeypatch.setattr(db_exec.DatabaseService, 'docker_mysql_execute', staticmethod(fake))
         result = DbProcessService._exec_sql(
             {'engine': 'mysql', 'container': 'wp-db', 'user': 'wp', 'password': 'pw'}, 'SHOW FULL PROCESSLIST;')
         assert result['success'] is True
         assert seen == {'container': 'wp-db', 'query': 'SHOW FULL PROCESSLIST;', 'user': 'wp', 'password': 'pw'}
 
-    def test_docker_pg_clean_error_when_docker_missing(self, monkeypatch):
-        def boom(*args, **kwargs):
-            raise FileNotFoundError('docker not found')
-
-        from app.services import db_process_service
-        monkeypatch.setattr(db_process_service.subprocess, 'run', boom)
+    def test_docker_pg_clean_error_when_docker_missing(self, fake_subprocess):
+        fake_subprocess.script(['docker'], raises=FileNotFoundError('docker not found'))
         result = DbProcessService._exec_sql({'engine': 'postgresql', 'container': 'pg1'}, 'SELECT 1;')
         assert result['success'] is False
         assert 'docker not found' in result['error']
+
+    def test_docker_pg_sets_on_error_stop(self, fake_subprocess):
+        """The drift that made three dispatchers worth collapsing into one.
+
+        This service's private docker-postgres branch built its own psql argv
+        and never passed ``-v ON_ERROR_STOP=1``, so psql exited 0 for a
+        statement the server had rejected and the caller was told it worked.
+        """
+        fake_subprocess.script(['docker'])
+        DbProcessService._exec_sql({'engine': 'postgresql', 'container': 'pg1'}, 'SELECT 1;')
+        argv = fake_subprocess.argv_for(['docker'])
+        assert 'ON_ERROR_STOP=1' in argv
+
+    def test_an_unknown_engine_is_reported_not_guessed(self, fake_subprocess):
+        result = DbProcessService._exec_sql({'engine': 'oracle'}, 'SELECT 1;')
+        assert result['success'] is False
+        assert 'oracle' in result['error']
+        assert fake_subprocess.commands() == []   # nothing was run on a guess
 
 
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ Activation: env ``SERVERKIT_DEMO_MODE=1`` (wins) or the ``demo_mode``
 system setting. Default OFF.
 """
 import os
+from app.utils.env import env_bool
 
 from flask import request, jsonify
 
@@ -22,9 +23,8 @@ ALLOWLIST = {
 
 def is_demo_mode_active():
     """True when demo mode is on. The env var wins over the setting."""
-    env = os.environ.get('SERVERKIT_DEMO_MODE')
-    if env is not None:
-        return env.strip().lower() in ('1', 'true', 'yes', 'on')
+    if os.environ.get('SERVERKIT_DEMO_MODE') is not None:
+        return env_bool('SERVERKIT_DEMO_MODE')
     try:
         from app.services.settings_service import SettingsService
         return bool(SettingsService.get('demo_mode', False))

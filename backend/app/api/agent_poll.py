@@ -17,13 +17,9 @@ Auth model:
 """
 
 import logging
-from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from app.services.agent_registry import agent_registry
-from app.agent_gateway import _check_auth_rate_limit
-from app.utils.ip_utils import is_ip_allowed
-from app.services.anomaly_detection_service import anomaly_detection_service
 
 
 logger = logging.getLogger(__name__)
@@ -40,61 +36,30 @@ def _client_ip():
 @agent_poll_bp.route('/connect', methods=['POST'])
 def connect():
     """Authenticate an agent and return a session_token bound to a
-    polling-mode ConnectedAgent. Mirrors the on_auth handler in
-    AgentNamespace, minus the socket-room bookkeeping."""
+    polling-mode ConnectedAgent.
+
+    Thin adapter over agent_registry.authenticate_and_register (plan 77 A2)
+    — the exact sequence the WS on_auth handler runs, minus the socket-room
+    bookkeeping; this endpoint only translates the outcome to HTTP."""
     data = request.get_json(silent=True) or {}
-    agent_id = data.get('agent_id')
-    api_key_prefix = data.get('api_key_prefix')
-    signature = data.get('signature')
-    timestamp = data.get('timestamp', 0)
-    nonce = data.get('nonce')
-
-    if not all([agent_id, api_key_prefix, signature]):
-        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-
     ip = _client_ip()
 
-    # Apply the SAME per-IP auth throttle that guards the WebSocket auth path
-    # (agent_gateway.on_auth). /connect is the REST-transport equivalent of
-    # on_auth, so without this it was an unthrottled bypass an attacker could
-    # use for credential-stuffing while the WS path stayed rate-limited.
-    if not _check_auth_rate_limit(ip):
-        logger.warning("Auth rate limit exceeded for IP: %s (poll/connect)", ip)
-        return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
-
-    server = agent_registry.verify_agent_auth(
-        agent_id, api_key_prefix, signature, timestamp,
-        nonce=nonce, ip_address=ip,
-    )
-    if not server:
-        return jsonify({'success': False, 'error': 'Authentication failed'}), 401
-
-    if server.allowed_ips and len(server.allowed_ips) > 0:
-        if not is_ip_allowed(ip, server.allowed_ips):
-            anomaly_detection_service.track_ip_blocked(server.id, ip, server.allowed_ips)
-            return jsonify({'success': False, 'error': 'IP not allowed'}), 403
-
-    anomaly_detection_service.check_new_ip(server.id, ip)
-
-    agent_version = (request.headers.get('User-Agent') or '').replace('ServerKit-Agent/', '')
-    # Synthesize a unique socket_id so the registry's existing storage and
-    # heartbeat machinery work unchanged. The "poll-" prefix is what tells
-    # WS-only code paths to skip these agents (no socket_id is reachable
-    # via socketio.emit).
-    import secrets
-    socket_id = f'poll-{secrets.token_urlsafe(12)}'
-
-    session_token = agent_registry.register_agent(
-        server_id=server.id,
-        socket_id=socket_id,
-        ip_address=ip,
-        agent_version=agent_version,
+    session_token, server, error = agent_registry.authenticate_and_register(
+        data,
+        ip,
+        user_agent=request.headers.get('User-Agent') or '',
         transport='poll',
     )
 
-    # None means the DB write failed and register_agent rolled back the
-    # in-memory state — surface a 5xx rather than a session the panel can't back.
-    if not session_token:
+    if error == 'rate_limited':
+        return jsonify({'success': False, 'error': 'Rate limit exceeded. Try again later.'}), 429
+    if error == 'missing_fields':
+        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    if error == 'auth_failed':
+        return jsonify({'success': False, 'error': 'Authentication failed'}), 401
+    if error == 'ip_not_allowed':
+        return jsonify({'success': False, 'error': 'IP not allowed'}), 403
+    if error is not None:
         return jsonify({'success': False, 'error': 'Registration failed'}), 500
 
     return jsonify({
@@ -139,11 +104,10 @@ def poll():
         list(caps.keys()) if isinstance(caps, dict) else None,
     )
 
-    agent_registry.update_heartbeat(agent.server_id, metrics)
-    if sysinfo:
-        agent_registry.update_system_info(agent.server_id, sysinfo)
-    if caps:
-        agent_registry.update_capabilities(agent.server_id, caps)
+    # Shared transport-neutral ingest (plan 77 A1/A2): capability
+    # side-effects (e.g. tunnel reconcile) fire exactly as on the WS path.
+    agent_registry.ingest_agent_state(agent, metrics=metrics, sysinfo=sysinfo,
+                                      capabilities=caps)
 
     # Long-poll up to 25s for any queued command. Below the typical
     # tunnel idle-timeout (Cloudflare ~100s, ngrok ~60s) so we never

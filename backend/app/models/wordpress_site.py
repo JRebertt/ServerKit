@@ -9,7 +9,8 @@ Extended models for WordPress-specific functionality including:
 
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import TimestampMixin, SerializableMixin
 
 # DatabaseSnapshot + SyncJob were relocated to app/models/db_snapshot.py
 # (plan 52 Phase 1 — generic snapshot/sync machinery no longer owned by the WP
@@ -19,7 +20,7 @@ import json
 from app.models.db_snapshot import DatabaseSnapshot, SyncJob  # noqa: F401
 
 
-class WordPressSite(db.Model):
+class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
     """Extended WordPress-specific data linked to Application."""
 
     __tablename__ = 'wordpress_sites'
@@ -97,8 +98,6 @@ class WordPressSite(db.Model):
     auto_sync_enabled = db.Column(db.Boolean, default=False)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     application = db.relationship('Application', backref=db.backref('wp_site', uselist=False))
@@ -138,13 +137,13 @@ class WordPressSite(db.Model):
             'db_prefix': self.db_prefix,
             'git_repo_url': self.git_repo_url,
             'git_branch': self.git_branch,
-            'git_paths': json.loads(self.git_paths) if self.git_paths else None,
+            'git_paths': self._json_read('git_paths', None),
             'auto_deploy': self.auto_deploy,
             'last_deploy_commit': self.last_deploy_commit,
             'last_deploy_at': self.last_deploy_at.isoformat() if self.last_deploy_at else None,
             'is_production': self.is_production,
             'production_site_id': self.production_site_id,
-            'sync_config': json.loads(self.sync_config) if self.sync_config else None,
+            'sync_config': self._json_read('sync_config', None),
             'environment_type': self.environment_type,
             'multidev_branch': self.multidev_branch,
             'is_locked': self.is_locked,
@@ -153,8 +152,8 @@ class WordPressSite(db.Model):
             'lock_expires_at': self.lock_expires_at.isoformat() if self.lock_expires_at else None,
             'compose_project_name': self.compose_project_name,
             'container_prefix': self.container_prefix,
-            'resource_limits': json.loads(self.resource_limits) if self.resource_limits else None,
-            'tags': json.loads(self.tags) if self.tags else [],
+            'resource_limits': self._json_read('resource_limits', None),
+            'tags': self._json_read('tags', []),
             'basic_auth_enabled': self.basic_auth_enabled,
             'basic_auth_user': self.basic_auth_user,
             'health_status': self.health_status,
@@ -164,7 +163,7 @@ class WordPressSite(db.Model):
             'disk_usage_updated_at': self.disk_usage_updated_at.isoformat() if self.disk_usage_updated_at else None,
             'last_vuln_scan_at': self.last_vuln_scan_at.isoformat() if self.last_vuln_scan_at else None,
             'auto_update_schedule': self.auto_update_schedule,
-            'auto_update_exclude': json.loads(self.auto_update_exclude) if self.auto_update_exclude else [],
+            'auto_update_exclude': self._json_read('auto_update_exclude', []),
             'auto_sync_schedule': self.auto_sync_schedule,
             'auto_sync_enabled': self.auto_sync_enabled,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -194,7 +193,7 @@ class WordPressSite(db.Model):
         return f'<WordPressSite {self.id} app={self.application_id}>'
 
 
-class WordPressVulnerability(db.Model):
+class WordPressVulnerability(SerializableMixin, db.Model):
     """A known vulnerability found in a WordPress site's plugin, theme, or core."""
 
     __tablename__ = 'wordpress_vulnerabilities'
@@ -218,28 +217,12 @@ class WordPressVulnerability(db.Model):
 
     detected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'site_id': self.site_id,
-            'source': self.source,
-            'slug': self.slug,
-            'name': self.name,
-            'installed_version': self.installed_version,
-            'advisory_id': self.advisory_id,
-            'title': self.title,
-            'severity': self.severity,
-            'cvss_score': self.cvss_score,
-            'fixed_in': self.fixed_in,
-            'reference_url': self.reference_url,
-            'detected_at': self.detected_at.isoformat() if self.detected_at else None,
-        }
 
     def __repr__(self):
         return f'<WordPressVulnerability {self.id} {self.source}:{self.slug} {self.severity}>'
 
 
-class WordPressUpdateRun(db.Model):
+class WordPressUpdateRun(JsonColumnMixin, db.Model):
     """A record of a safe-update run: snapshot -> update -> health-check -> rollback."""
 
     __tablename__ = 'wordpress_update_runs'
@@ -262,7 +245,7 @@ class WordPressUpdateRun(db.Model):
             'site_id': self.site_id,
             'status': self.status,
             'trigger': self.trigger,
-            'details': json.loads(self.details) if self.details else {},
+            'details': self._json_read('details'),
             'error': self.error,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'finished_at': self.finished_at.isoformat() if self.finished_at else None,
@@ -272,7 +255,7 @@ class WordPressUpdateRun(db.Model):
         return f'<WordPressUpdateRun {self.id} site={self.site_id} {self.status}>'
 
 
-class WordPressReport(db.Model):
+class WordPressReport(JsonColumnMixin, db.Model):
     """A persisted monthly client report for a WordPress site (#33 — agency
     reports slice): a point-in-time snapshot of the site's uptime, incidents,
     update runs, backups, and security posture for one calendar month.
@@ -311,7 +294,7 @@ class WordPressReport(db.Model):
             'period_label': self.period_label,
             'period_start': self.period_start.isoformat() if self.period_start else None,
             'period_end': self.period_end.isoformat() if self.period_end else None,
-            'data': json.loads(self.data) if self.data else {},
+            'data': self._json_read('data'),
             'generated_at': self.generated_at.isoformat() if self.generated_at else None,
         }
 

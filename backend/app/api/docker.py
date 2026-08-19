@@ -4,6 +4,7 @@ from app.models import User, Application
 from app.services.docker_service import DockerService
 from app.middleware.rbac import admin_required
 from app import db, paths
+from app.error_reporting import unexpected_response
 
 docker_bp = Blueprint('docker', __name__)
 
@@ -48,7 +49,6 @@ def list_containers():
 
 
 @docker_bp.route('/containers/<container_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_container(container_id):
     """Get container details.
@@ -62,7 +62,6 @@ def get_container(container_id):
 
 
 @docker_bp.route('/containers', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_container():
     """Create a new container."""
@@ -86,7 +85,6 @@ def create_container():
 
 
 @docker_bp.route('/containers/run', methods=['POST'])
-@jwt_required()
 @admin_required
 def run_container():
     """Run a new container (create and start)."""
@@ -110,7 +108,6 @@ def run_container():
 
 
 @docker_bp.route('/containers/<container_id>/start', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_container(container_id):
     """Start a container."""
@@ -133,7 +130,6 @@ def _reject_if_protected(container_id):
 
 
 @docker_bp.route('/containers/<container_id>/stop', methods=['POST'])
-@jwt_required()
 @admin_required
 def stop_container(container_id):
     """Stop a container."""
@@ -147,7 +143,6 @@ def stop_container(container_id):
 
 
 @docker_bp.route('/containers/<container_id>/restart', methods=['POST'])
-@jwt_required()
 @admin_required
 def restart_container(container_id):
     """Restart a container."""
@@ -161,7 +156,6 @@ def restart_container(container_id):
 
 
 @docker_bp.route('/containers/<container_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_container(container_id):
     """Remove a container."""
@@ -177,7 +171,6 @@ def remove_container(container_id):
 
 
 @docker_bp.route('/containers/<container_id>/logs', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_container_logs(container_id):
     """Get container logs.
@@ -215,7 +208,6 @@ def get_container_stats(container_id):
 
 
 @docker_bp.route('/containers/<container_id>/exec', methods=['POST'])
-@jwt_required()
 @admin_required
 def exec_container(container_id):
     """Execute a command in a container."""
@@ -239,7 +231,6 @@ def list_images():
 
 
 @docker_bp.route('/images/pull', methods=['POST'])
-@jwt_required()
 @admin_required
 def pull_image():
     """Pull an image from registry."""
@@ -256,7 +247,6 @@ def pull_image():
 
 
 @docker_bp.route('/images/<image_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_image(image_id):
     """Remove an image."""
@@ -267,7 +257,6 @@ def remove_image(image_id):
 
 
 @docker_bp.route('/images/build', methods=['POST'])
-@jwt_required()
 @admin_required
 def build_image():
     """Build an image from Dockerfile."""
@@ -286,7 +275,6 @@ def build_image():
 
 
 @docker_bp.route('/images/tag', methods=['POST'])
-@jwt_required()
 @admin_required
 def tag_image():
     """Tag an image."""
@@ -310,7 +298,6 @@ def list_networks():
 
 
 @docker_bp.route('/networks', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_network():
     """Create a network."""
@@ -327,7 +314,6 @@ def create_network():
 
 
 @docker_bp.route('/networks/<network_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_network(network_id):
     """Remove a network."""
@@ -346,7 +332,6 @@ def list_volumes():
 
 
 @docker_bp.route('/volumes', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_volume():
     """Create a volume."""
@@ -363,7 +348,6 @@ def create_volume():
 
 
 @docker_bp.route('/volumes/<volume_name>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_volume(volume_name):
     """Remove a volume."""
@@ -384,7 +368,6 @@ def compose_list():
 
 
 @docker_bp.route('/compose/up', methods=['POST'])
-@jwt_required()
 @admin_required
 def compose_up():
     """Start Docker Compose services."""
@@ -402,7 +385,6 @@ def compose_up():
 
 
 @docker_bp.route('/compose/down', methods=['POST'])
-@jwt_required()
 @admin_required
 def compose_down():
     """Stop Docker Compose services."""
@@ -450,7 +432,6 @@ def compose_logs():
 
 
 @docker_bp.route('/compose/restart', methods=['POST'])
-@jwt_required()
 @admin_required
 def compose_restart():
     """Restart Docker Compose services."""
@@ -466,7 +447,6 @@ def compose_restart():
 # ==================== CLEANUP ====================
 
 @docker_bp.route('/cleanup', methods=['POST'])
-@jwt_required()
 @admin_required
 def docker_cleanup():
     """Clean up unused Docker resources.
@@ -482,7 +462,6 @@ def docker_cleanup():
     - ServerKit containers
     - Images in use
     """
-    import subprocess
 
     data = request.get_json() or {}
     include_volumes = data.get('volumes', False)
@@ -497,11 +476,9 @@ def docker_cleanup():
     # Get list of protected container IDs (ServerKit)
     protected_ids = set()
     try:
-        list_result = subprocess.run(
-            ['docker', 'ps', '-a', '--format', '{{.ID}} {{.Names}}'],
-            capture_output=True, text=True
-        )
-        for line in list_result.stdout.strip().split('\n'):
+        list_result = DockerService.run(['ps', '-a', '--format', '{{.ID}} {{.Names}}'],
+                                        timeout=None)
+        for line in list_result['output'].strip().split('\n'):
             if line:
                 parts = line.split(' ', 1)
                 if len(parts) == 2:
@@ -514,20 +491,16 @@ def docker_cleanup():
     # Remove stopped containers (except protected ones)
     try:
         # Get stopped containers
-        result = subprocess.run(
-            ['docker', 'ps', '-a', '-q', '-f', 'status=exited'],
-            capture_output=True, text=True
-        )
-        stopped_ids = [id for id in result.stdout.strip().split('\n') if id and id not in protected_ids]
+        result = DockerService.run(['ps', '-a', '-q', '-f', 'status=exited'],
+                                   timeout=None)
+        stopped_ids = [id for id in result['output'].strip().split('\n')
+                       if id and id not in protected_ids]
 
         if stopped_ids:
-            remove_result = subprocess.run(
-                ['docker', 'rm'] + stopped_ids,
-                capture_output=True, text=True
-            )
+            remove_result = DockerService.run(['rm'] + stopped_ids, timeout=None)
             results['containers'] = {
                 'removed': len(stopped_ids),
-                'success': remove_result.returncode == 0
+                'success': remove_result['success']
             }
         else:
             results['containers'] = {'removed': 0, 'success': True}
@@ -536,26 +509,20 @@ def docker_cleanup():
 
     # Remove dangling images
     try:
-        result = subprocess.run(
-            ['docker', 'image', 'prune', '-f'],
-            capture_output=True, text=True
-        )
+        result = DockerService.run(['image', 'prune', '-f'], timeout=None)
         results['images'] = {
-            'success': result.returncode == 0,
-            'output': result.stdout.strip()
+            'success': result['success'],
+            'output': result['output'].strip()
         }
     except Exception as e:
         results['images'] = {'error': str(e)}
 
     # Remove unused networks
     try:
-        result = subprocess.run(
-            ['docker', 'network', 'prune', '-f'],
-            capture_output=True, text=True
-        )
+        result = DockerService.run(['network', 'prune', '-f'], timeout=None)
         results['networks'] = {
-            'success': result.returncode == 0,
-            'output': result.stdout.strip()
+            'success': result['success'],
+            'output': result['output'].strip()
         }
     except Exception as e:
         results['networks'] = {'error': str(e)}
@@ -563,13 +530,10 @@ def docker_cleanup():
     # Remove unused volumes (optional)
     if include_volumes:
         try:
-            result = subprocess.run(
-                ['docker', 'volume', 'prune', '-f'],
-                capture_output=True, text=True
-            )
+            result = DockerService.run(['volume', 'prune', '-f'], timeout=None)
             results['volumes'] = {
-                'success': result.returncode == 0,
-                'output': result.stdout.strip()
+                'success': result['success'],
+                'output': result['output'].strip()
             }
         except Exception as e:
             results['volumes'] = {'error': str(e)}
@@ -584,7 +548,6 @@ def docker_cleanup():
 
 
 @docker_bp.route('/cleanup/apps', methods=['POST'])
-@jwt_required()
 @admin_required
 def cleanup_all_apps():
     """Remove all user-deployed Docker apps.
@@ -642,12 +605,12 @@ def cleanup_all_apps():
     # Commit database changes
     try:
         db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'error': f'Database commit failed: {str(e)}',
-            'results': results
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # The per-item results are the caller's half-done work and must
+        # survive; only the exception text is dropped.
+        body, status = unexpected_response(exc)
+        body['results'] = results
+        return body, status
 
     return jsonify({
         'success': True,
@@ -657,7 +620,6 @@ def cleanup_all_apps():
 
 
 @docker_bp.route('/compose/pull', methods=['POST'])
-@jwt_required()
 @admin_required
 def compose_pull():
     """Pull Docker Compose images."""
@@ -699,7 +661,6 @@ def compose_config():
 # ==================== UTILITY ====================
 
 @docker_bp.route('/prune', methods=['POST'])
-@jwt_required()
 @admin_required
 def prune_system():
     """Remove unused Docker resources."""
@@ -714,7 +675,6 @@ def prune_system():
 # ==================== DOCKER APP ====================
 
 @docker_bp.route('/apps', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_docker_app():
     """Create a Docker-based application."""

@@ -1,14 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
+from app.middleware.rbac import get_current_user
 from .cloud_provisioning_service import CloudProvisioningService
 
 cloud_provisioning_bp = Blueprint('cloud_provisioning', __name__)
-
-
-def get_current_user():
-    from flask_jwt_extended import get_jwt_identity
-    from app.models.user import User
-    return User.query.get(get_jwt_identity())
 
 
 # --- Providers ---

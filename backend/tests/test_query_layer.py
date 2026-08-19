@@ -3,7 +3,8 @@
 import pytest
 
 from app.api._query import (
-    QueryParseError, apply_query, parse_filter, parse_orderby, parse_select,
+    ListQuery, QueryParseError, apply_query, parse_filter, parse_orderby,
+    parse_select,
 )
 from app.models import Application
 
@@ -128,6 +129,30 @@ def test_select_rejects_underived_unknown_field(app):
 
 # ------------------------------------------------------------- apply_query
 
+def test_list_query_parses_and_caps_paging():
+    parsed = ListQuery.from_args({
+        '$select': 'id,name',
+        '$filter': "name eq 'demo'",
+        '$orderby': 'name desc',
+        '$skip': '4',
+        '$top': '99999',
+    })
+
+    assert parsed == ListQuery(
+        select='id,name',
+        filter="name eq 'demo'",
+        orderby='name desc',
+        skip=4,
+        top=500,
+    )
+
+
+def test_list_query_rejects_invalid_paging_before_touching_orm():
+    with pytest.raises(QueryParseError):
+        ListQuery.from_args({'$top': 'many'})
+    with pytest.raises(QueryParseError):
+        ListQuery.from_args({'$skip': '-1'})
+
 def test_apply_query_is_a_noop_without_params(app):
     """Adoption must not change any existing caller's response."""
     with app.app_context():
@@ -157,6 +182,18 @@ def test_apply_query_counts_before_paging(app):
         result = apply_query(Application.query, Application, FakeRequest(**{'$top': '1'}))
         assert result.total is not None
         assert result.top == 1
+
+
+def test_apply_query_accepts_typed_query_without_flask_request(app):
+    with app.app_context():
+        result = apply_query(
+            Application.query,
+            Application,
+            ListQuery(orderby='name desc', top=1),
+        )
+
+        assert result.top == 1
+        assert result.total is not None
 
 
 # ------------------------------------------------- to_dict field narrowing
@@ -220,3 +257,42 @@ def test_server_select_accepts_its_derived_fields(app):
     with app.app_context():
         fields = parse_select('name,group_name', Server, extra=Server.DERIVED_FIELDS)
         assert fields == {'name', 'group_name', 'id'}
+
+
+# --------------------------------------------------------------- PageQuery #
+
+class TestPageQuery:
+    """The page/per_page dialect parses, defaults, and bounds in ONE place."""
+
+    def _pq(self, args, **kw):
+        from app.api._query import PageQuery
+        return PageQuery.from_args(args, **kw)
+
+    def test_defaults(self):
+        pq = self._pq({})
+        assert (pq.page, pq.per_page, pq.skip) == (1, 50, 0)
+
+    def test_parses_and_computes_skip(self):
+        pq = self._pq({'page': '3', 'per_page': '20'})
+        assert (pq.page, pq.per_page, pq.skip) == (3, 20, 40)
+
+    def test_bounds_per_page_to_the_endpoint_cap(self):
+        assert self._pq({'per_page': '9999'}).per_page == 100
+        assert self._pq({'per_page': '9999'}, max_per_page=200).per_page == 200
+
+    def test_floors_page_zero_and_rejects_negatives(self):
+        from app.api._query import QueryParseError
+        assert self._pq({'page': '0'}).page == 1
+        with pytest.raises(QueryParseError):
+            self._pq({'per_page': '-5'})
+
+    def test_garbage_is_a_typed_400_not_a_silent_default(self):
+        from app.api._query import QueryParseError
+        with pytest.raises(QueryParseError):
+            self._pq({'page': 'banana'})
+
+    def test_queryparseerror_is_a_validation_error(self):
+        """The global handler answers it as a 400 — no per-route translation."""
+        from app.api._query import QueryParseError
+        from app.exceptions import ValidationError
+        assert issubclass(QueryParseError, ValidationError)

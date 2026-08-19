@@ -35,6 +35,7 @@ from app.middleware.rbac import admin_required, get_current_user
 from app.models.ai import AiConversation, AiMessage, AiPendingAction
 from app.services import ai_service
 from app.services.ai_tool_registry import ai_tool_registry
+from app.error_reporting import unexpected_response
 
 logger = logging.getLogger(__name__)
 ai_bp = Blueprint('ai', __name__)
@@ -296,9 +297,8 @@ def chat():
         # gate=None: write tools refuse (no interactive confirmation in this mode).
         conv = ai_service.build_conversation(row, user, mode, page_context, gate=None)
         reply = conv.ask(safe_message)
-    except Exception as exc:
-        logger.exception("AI /chat failed")
-        return jsonify({'error': f'AI request failed: {exc}'}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
     _persist_assistant_message(row, reply, tool_calls=[], usage=conv.usage)
     ai_service.persist_conversation(row, conv, page_context=page_context)

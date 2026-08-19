@@ -67,7 +67,7 @@
         .status-dot {
             background: $success;
             box-shadow: 0 0 8px $success;
-            animation: pulse-dot 2s ease-in-out infinite;
+            animation: uptime-pulse-dot 2s ease-in-out infinite;
         }
     }
 
@@ -88,7 +88,10 @@
     }
 }
 
-@keyframes pulse-dot {
+// Scoped: the panel-wide `pulse-dot` (pages/_services) is opacity-only,
+// and being imported later it silently replaced this one for every user
+// of the name. This dot wants the scale too.
+@keyframes uptime-pulse-dot {
     0%, 100% {
         opacity: 1;
         transform: scale(1);
@@ -381,17 +384,14 @@
         font-family: $font-mono;
         padding: $space-1 $space-2;
         border-radius: $radius-sm;
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
 
         &.fair {
-            background: $warning-bg;
-            color: $warning;
+            @include status-variant($warning, $warning-bg);
         }
 
         &.poor {
-            background: $danger-bg;
-            color: $danger;
+            @include status-variant($danger, $danger-bg);
         }
     }
 }

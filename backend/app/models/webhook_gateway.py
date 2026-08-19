@@ -1,12 +1,13 @@
-import json
 import hmac
 import hashlib
 import base64
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class WebhookEndpoint(db.Model):
+class WebhookEndpoint(TimestampMixin, JsonColumnMixin, db.Model):
     """Inbound webhook endpoint configuration."""
     __tablename__ = 'webhook_endpoints'
 
@@ -21,21 +22,14 @@ class WebhookEndpoint(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     # Workspace scoping (#33): backfilled to the Default workspace by migration 021.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     deliveries = db.relationship('WebhookDelivery', backref='endpoint', lazy='dynamic', cascade='all, delete-orphan')
 
     def get_filter_paths(self):
-        if not self.filter_paths:
-            return []
-        try:
-            return json.loads(self.filter_paths)
-        except Exception:
-            return []
+        return self._json_read('filter_paths', [])
 
     def set_filter_paths(self, paths):
-        self.filter_paths = json.dumps(list(paths)) if paths else None
+        self._json_write('filter_paths', list(paths) if paths else None)
 
     def verify_signature(self, payload: bytes, signature_header: str, algorithm: str = 'sha256') -> bool:
         """Verify HMAC-SHA1/SHA256 signature from header."""
@@ -65,7 +59,7 @@ class WebhookEndpoint(db.Model):
         }
 
 
-class WebhookDelivery(db.Model):
+class WebhookDelivery(JsonColumnMixin, db.Model):
     """Log of an inbound webhook delivery."""
     __tablename__ = 'webhook_deliveries'
 
@@ -83,22 +77,17 @@ class WebhookDelivery(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
     def get_headers(self):
-        if not self.headers:
-            return {}
-        try:
-            return json.loads(self.headers)
-        except Exception:
-            return {}
+        return self._json_read('headers')
 
     def set_headers(self, headers):
-        self.headers = json.dumps(dict(headers)) if headers else None
+        self._json_write('headers', dict(headers) if headers else None)
 
     def to_dict(self):
         return {
             'id': self.id,
             'endpoint_id': self.endpoint_id,
             'event_id': self.event_id,
-            'payload': json.loads(self.payload) if self.payload else None,
+            'payload': self._json_read('payload', None),
             'signature_valid': self.signature_valid,
             'status': self.status,
             'response_status': self.response_status,

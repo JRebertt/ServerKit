@@ -8,17 +8,21 @@ and creates corresponding Nginx virtual host configs.
 
 import os
 import re
-import subprocess
 from typing import Dict
 
+from app.services.nginx_service import NginxService
 from app.utils.slug import slugify as _slugify
+from app.utils.system import run_checked, run_privileged, write_privileged_file
 
 
 class EnvironmentDomainService:
     """Service for managing per-environment domains and Nginx configs."""
 
-    SITES_AVAILABLE = '/etc/nginx/sites-available'
-    SITES_ENABLED = '/etc/nginx/sites-enabled'
+    # Not redeclared: NginxService owns where vhosts live (plan 75 §G4). Four
+    # files used to hardcode these, so a test that redirected NginxService's
+    # paths left the other three writing to the real /etc/nginx.
+    SITES_AVAILABLE = NginxService.SITES_AVAILABLE
+    SITES_ENABLED = NginxService.SITES_ENABLED
 
     # Nginx template for environment proxy (based on NginxService.DOCKER_SITE_TEMPLATE)
     ENV_SITE_TEMPLATE = '''server {{
@@ -131,35 +135,18 @@ class EnvironmentDomainService:
                 robots_block=robots_block,
             )
 
-            # Write config file using sudo tee
-            config_path = os.path.join(cls.SITES_AVAILABLE, site_name)
-            process = subprocess.run(
-                ['sudo', 'tee', config_path],
-                input=config,
-                capture_output=True,
-                text=True
-            )
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to write config: {process.stderr}'}
-
-            # Enable the site (symlink to sites-enabled)
-            enabled_path = os.path.join(cls.SITES_ENABLED, site_name)
-            result = subprocess.run(
-                ['sudo', 'ln', '-sf', config_path, enabled_path],
-                capture_output=True,
-                text=True
-            )
-            if result.returncode != 0:
-                return {'success': False, 'error': f'Failed to enable site: {result.stderr}'}
-
-            # Reload Nginx
-            reload_result = cls._reload_nginx()
-            if not reload_result.get('success'):
-                return reload_result
+            # write + enable + nginx -t + rollback + reload, all owned by
+            # NginxService (plan 75 §G4). This block used to re-implement it
+            # with hardcoded `sudo`, which is the founding bug class of plan 75:
+            # it breaks on a panel running as root without sudo, and never
+            # rolled back a vhost that failed the config test.
+            result = NginxService.write_vhost(site_name, config)
+            if not result['success']:
+                return result
 
             return {
                 'success': True,
-                'config_path': config_path,
+                'config_path': result['path'],
                 'domain': domain,
             }
 
@@ -177,25 +164,7 @@ class EnvironmentDomainService:
             Dict with success status
         """
         try:
-            # Remove symlink from sites-enabled
-            enabled_path = os.path.join(cls.SITES_ENABLED, site_name)
-            subprocess.run(
-                ['sudo', 'rm', '-f', enabled_path],
-                capture_output=True,
-                text=True
-            )
-
-            # Remove config from sites-available
-            available_path = os.path.join(cls.SITES_AVAILABLE, site_name)
-            subprocess.run(
-                ['sudo', 'rm', '-f', available_path],
-                capture_output=True,
-                text=True
-            )
-
-            # Reload Nginx
-            cls._reload_nginx()
-
+            NginxService.delete_site(site_name)
             return {'success': True, 'message': f'Nginx config for {site_name} removed'}
 
         except Exception as e:
@@ -221,48 +190,29 @@ class EnvironmentDomainService:
         """
         try:
             # Ensure htpasswd directory exists
-            subprocess.run(
-                ['sudo', 'mkdir', '-p', cls.HTPASSWD_DIR],
-                capture_output=True, text=True
-            )
+            run_privileged(['mkdir', '-p', cls.HTPASSWD_DIR])
 
             # Generate password hash using openssl
-            hash_result = subprocess.run(
-                ['openssl', 'passwd', '-apr1', password],
-                capture_output=True, text=True, timeout=10
-            )
-            if hash_result.returncode != 0:
-                return {'success': False, 'error': f'Failed to hash password: {hash_result.stderr}'}
+            hash_result = run_checked(['openssl', 'passwd', '-apr1', password],
+                                      timeout=10)
+            if not hash_result['success']:
+                return {'success': False,
+                        'error': f"Failed to hash password: {hash_result['error']}"}
 
-            password_hash = hash_result.stdout.strip()
+            password_hash = hash_result['output'].strip()
             htpasswd_content = f'{username}:{password_hash}\n'
 
             # Write htpasswd file
             htpasswd_path = os.path.join(cls.HTPASSWD_DIR, site_name)
-            process = subprocess.run(
-                ['sudo', 'tee', htpasswd_path],
-                input=htpasswd_content,
-                capture_output=True, text=True
-            )
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to write htpasswd: {process.stderr}'}
-
-            # Set correct permissions
-            subprocess.run(
-                ['sudo', 'chmod', '644', htpasswd_path],
-                capture_output=True, text=True
-            )
+            written = write_privileged_file(htpasswd_path, htpasswd_content, mode='644')
+            if not written['success']:
+                return {'success': False,
+                        'error': f"Failed to write htpasswd: {written['error']}"}
 
             # Modify Nginx config to add auth_basic directives
-            config_path = os.path.join(cls.SITES_AVAILABLE, site_name)
-            read_result = subprocess.run(
-                ['sudo', 'cat', config_path],
-                capture_output=True, text=True
-            )
-            if read_result.returncode != 0:
+            config_content = NginxService.read_vhost(site_name)
+            if config_content is None:
                 return {'success': False, 'error': 'Failed to read Nginx config'}
-
-            config_content = read_result.stdout
 
             # Check if auth_basic already exists
             if 'auth_basic' in config_content:
@@ -281,19 +231,10 @@ class EnvironmentDomainService:
                     count=1
                 )
 
-                # Write updated config
-                process = subprocess.run(
-                    ['sudo', 'tee', config_path],
-                    input=config_content,
-                    capture_output=True, text=True
-                )
-                if process.returncode != 0:
-                    return {'success': False, 'error': f'Failed to update Nginx config: {process.stderr}'}
-
-            # Reload Nginx
-            reload_result = cls._reload_nginx()
-            if not reload_result.get('success'):
-                return reload_result
+                # Write updated config (tested + rolled back by NginxService)
+                result = NginxService.write_vhost(site_name, config_content)
+                if not result['success']:
+                    return result
 
             return {
                 'success': True,
@@ -320,39 +261,21 @@ class EnvironmentDomainService:
         try:
             # Remove htpasswd file
             htpasswd_path = os.path.join(cls.HTPASSWD_DIR, site_name)
-            subprocess.run(
-                ['sudo', 'rm', '-f', htpasswd_path],
-                capture_output=True, text=True
-            )
+            run_privileged(['rm', '-f', htpasswd_path])
 
             # Remove auth_basic directives from Nginx config
-            config_path = os.path.join(cls.SITES_AVAILABLE, site_name)
-            read_result = subprocess.run(
-                ['sudo', 'cat', config_path],
-                capture_output=True, text=True
-            )
-            if read_result.returncode != 0:
+            config_content = NginxService.read_vhost(site_name)
+            if config_content is None:
                 return {'success': False, 'error': 'Failed to read Nginx config'}
-
-            config_content = read_result.stdout
 
             # Remove auth_basic lines
             config_content = re.sub(r'\n\s*auth_basic\s+"[^"]*";\n', '\n', config_content)
             config_content = re.sub(r'\s*auth_basic_user_file\s+[^;]+;\n', '', config_content)
 
-            # Write updated config
-            process = subprocess.run(
-                ['sudo', 'tee', config_path],
-                input=config_content,
-                capture_output=True, text=True
-            )
-            if process.returncode != 0:
-                return {'success': False, 'error': f'Failed to update Nginx config: {process.stderr}'}
-
-            # Reload Nginx
-            reload_result = cls._reload_nginx()
-            if not reload_result.get('success'):
-                return reload_result
+            # Write updated config (tested + rolled back by NginxService)
+            result = NginxService.write_vhost(site_name, config_content)
+            if not result['success']:
+                return result
 
             return {'success': True, 'message': 'Basic Auth disabled'}
 
@@ -373,31 +296,11 @@ class EnvironmentDomainService:
 
     @classmethod
     def _reload_nginx(cls) -> Dict:
-        """Test and reload Nginx configuration."""
-        try:
-            # Test config first
-            test_result = subprocess.run(
-                ['sudo', 'nginx', '-t'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if test_result.returncode != 0:
-                return {'success': False, 'error': f'Nginx config test failed: {test_result.stderr}'}
+        """Test and reload Nginx — NginxService owns both (plan 75 §G4).
 
-            # Reload
-            result = subprocess.run(
-                ['sudo', 'systemctl', 'reload', 'nginx'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode != 0:
-                return {'success': False, 'error': f'Nginx reload failed: {result.stderr}'}
-
-            return {'success': True}
-
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Nginx reload timed out'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        Kept as a thin alias so callers outside this module keep working; the
+        private re-implementation it replaced hardcoded ``sudo`` and called
+        ``nginx`` by bare name, which the panel's sbin-less unit PATH cannot
+        resolve.
+        """
+        return NginxService.reload()

@@ -167,8 +167,12 @@ def receive_pull_request(token):
         if not getattr(settings, 'enabled', False):
             return jsonify({'success': True, 'action': 'ignored',
                             'reason': 'previews disabled for app'}), 200
-    except Exception as exc:
-        logger.debug('preview settings lookup failed: %s', exc)
+    except Exception as exc:  # noqa: BLE001 - reported below, answered in-band
+        # A failing inbound hook gets disabled by the git provider, so the
+        # answer must stay 200 — but the crash still goes on the record
+        # instead of hiding in a debug log.
+        from app.error_reporting import record_unexpected
+        record_unexpected(exc)
         return jsonify({'success': True, 'action': 'ignored',
                         'reason': 'previews unavailable'}), 200
 

@@ -1,10 +1,11 @@
 import json
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 from app.utils.crypto import encrypt_secret, decrypt_secret_safe
 
 
-class SecretVault(db.Model):
+class SecretVault(TimestampMixin, db.Model):
     """A named vault for encrypted secrets."""
     __tablename__ = 'secret_vaults'
 
@@ -16,8 +17,6 @@ class SecretVault(db.Model):
     # Workspace scoping (#33): a vault belongs to a workspace. Backfilled to the
     # Default workspace by migration 021; new rows are stamped on create.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     secrets = db.relationship('Secret', backref='vault', lazy='dynamic', cascade='all, delete-orphan')
 
@@ -34,7 +33,7 @@ class SecretVault(db.Model):
         }
 
 
-class Secret(db.Model):
+class Secret(TimestampMixin, db.Model):
     """An encrypted secret inside a vault."""
     __tablename__ = 'secrets'
 
@@ -44,8 +43,6 @@ class Secret(db.Model):
     encrypted_value = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text, nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         db.UniqueConstraint('vault_id', 'name', name='uq_secret_vault_name'),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { statusKind } from '@/components/ds/status';
 import { RefreshCw, ArrowUpCircle, Moon, Sun, Gauge as GaugeIcon, Boxes } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -17,13 +18,6 @@ function shortDigest(digest) {
     return value.slice(0, 12);
 }
 
-const IMAGE_STATUS_PILL = {
-    up_to_date: 'green',
-    update_available: 'amber',
-    checking: 'amber',
-    error: 'red',
-    unknown: 'gray',
-};
 
 function formatStatusLabel(status) {
     if (!status) return 'Not checked';
@@ -109,7 +103,7 @@ const ImageUpdateSection = ({ app, onChanged }) => {
                 <span>Image Update</span>
                 <span className="app-panel-header-actions">
                     {status && (
-                        <Pill kind={IMAGE_STATUS_PILL[status] || 'gray'}>
+                        <Pill kind={statusKind(status)}>
                             {formatStatusLabel(status)}
                         </Pill>
                     )}

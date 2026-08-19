@@ -11,9 +11,10 @@ A thin global layer on top of the existing per-site WP-CLI plugin management:
 
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin, SerializableMixin
 
 
-class WordPressCustomPlugin(db.Model):
+class WordPressCustomPlugin(TimestampMixin, db.Model):
     """An operator-owned plugin in the global library."""
 
     __tablename__ = 'wordpress_custom_plugins'
@@ -41,8 +42,6 @@ class WordPressCustomPlugin(db.Model):
     last_synced_at = db.Column(db.DateTime)
     sync_error = db.Column(db.Text)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     installations = db.relationship(
         'WordPressSitePlugin',
@@ -83,7 +82,7 @@ class WordPressCustomPlugin(db.Model):
         return f'<WordPressCustomPlugin {self.id} {self.slug}>'
 
 
-class WordPressSitePlugin(db.Model):
+class WordPressSitePlugin(SerializableMixin, db.Model):
     """A library plugin installed on a specific WordPress site."""
 
     __tablename__ = 'wordpress_site_plugins'
@@ -103,15 +102,6 @@ class WordPressSitePlugin(db.Model):
 
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'wordpress_site_id': self.wordpress_site_id,
-            'custom_plugin_id': self.custom_plugin_id,
-            'installed_version': self.installed_version,
-            'status': self.status,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-        }
 
     def __repr__(self):
         return f'<WordPressSitePlugin site={self.wordpress_site_id} plugin={self.custom_plugin_id} {self.status}>'

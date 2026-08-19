@@ -5,10 +5,11 @@
 Mounted at /api/v1/bandwidth (registered in app/__init__.py).
 """
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity
+from app.middleware.rbac import get_current_user
+from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required, viewer_required
-from ..models import User, Application
+from ..models import Application
 from ..services.bandwidth_service import BandwidthService
 from ..services.resource_grant_service import ResourceGrantService
 
@@ -24,8 +25,8 @@ def get_apps_bandwidth():
         data = BandwidthService.overview(days=30)
         # JSON object keys must be strings.
         return jsonify({'apps': {str(k): v for k, v in data.items()}})
-    except Exception as exc:  # noqa: BLE001 — surface as a clean JSON error
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @bandwidth_bp.route('/apps/<int:app_id>', methods=['GET'])
@@ -34,7 +35,7 @@ def get_app_bandwidth(app_id):
     """Full daily series (default 90 days) + current-month total for one app,
     scoped to the app's workspace visibility (plan 29 #9 — foreign caller 404)."""
     app = Application.query_active().filter_by(id=app_id).first()
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if app is None or not ResourceGrantService.can_access_app(user, app):
         return jsonify({'error': 'Not found'}), 404
     try:
@@ -46,8 +47,8 @@ def get_app_bandwidth(app_id):
             'series': series,
             'month_bytes': BandwidthService.monthly_total(app_id),
         })
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @bandwidth_bp.route('/aggregate', methods=['POST'])
@@ -60,5 +61,5 @@ def run_aggregate():
         return jsonify(result)
     except ValueError:
         return jsonify({'error': 'day must be YYYY-MM-DD'}), 400
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)

@@ -14,6 +14,7 @@ from app import db
 from app.models.server import Server
 from app.models.tunnel import Tunnel
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from . import tunnel_netutil
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class TunnelBrokerService:
     def _cmd(server_id, action, params=None, user_id=None, timeout=20.0):
         """Send an agent command; raise TunnelBrokerError on failure.
         Returns the agent handler's ``data`` payload on success."""
-        res = agent_registry.send_command(
+        res = dispatch_agent_command(
             server_id=server_id, action=action, params=params or {},
             user_id=user_id, timeout=timeout,
         )
@@ -243,7 +244,7 @@ class TunnelBrokerService:
         # a disconnected agent (the row is the source of truth; #19 reconciles).
         for sid in (tunnel.edge_server_id, tunnel.private_server_id):
             try:
-                agent_registry.send_command(
+                dispatch_agent_command(
                     server_id=sid, action='wireguard:interface:down',
                     params={'interface': tunnel.interface_name}, user_id=user_id, timeout=10.0,
                 )
@@ -363,7 +364,7 @@ class TunnelBrokerService:
         port is already open, and the create response always carries the
         manual commands too. Returns a small outcome dict for the UI."""
         try:
-            res = agent_registry.send_command(
+            res = dispatch_agent_command(
                 server_id=edge_server_id, action='firewall:allow_port',
                 params={'port': port, 'protocol': 'udp'}, user_id=user_id, timeout=15.0,
             )

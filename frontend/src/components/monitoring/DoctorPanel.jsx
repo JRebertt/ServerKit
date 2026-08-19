@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/Modal';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import { ChevronDown, ChevronRight, Server, Stethoscope, Wrench } from 'lucide-react';
+import { usePolling } from '@/hooks/usePolling';
 
-const STATUS_TONE = { ok: 'green', warn: 'amber', fail: 'red', error: 'red' };
 
 // The fleet sweep fans out across agents over the network, so it is a job
 // (202 + job id) rather than a synchronous call — poll it to completion.
@@ -30,7 +30,7 @@ function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled }) {
     return (
         <article className={`doctor-check doctor-check--${check.status}`}>
             <div className="doctor-check__row">
-                <Pill kind={STATUS_TONE[check.status] || 'gray'}>{check.status}</Pill>
+                <Pill kind={statusKind(check.status)}>{check.status}</Pill>
                 <div className="doctor-check__body">
                     <span className="doctor-check__title">{check.title}</span>
                     <span className="doctor-check__detail">{check.detail}</span>
@@ -73,7 +73,7 @@ const DoctorPanel = () => {
     const [fleet, setFleet] = useState(null);
     const [fleetLoading, setFleetLoading] = useState(true);
     const [sweeping, setSweeping] = useState(false);
-    const sweepPollRef = useRef(null);
+    const [sweepJobId, setSweepJobId] = useState(null);
 
     const loadFleet = useCallback(async () => {
         try {
@@ -94,10 +94,7 @@ const DoctorPanel = () => {
             .catch(() => { /* no stored report yet — the empty state covers it */ })
             .finally(() => { if (!cancelled) setLoading(false); });
         loadFleet();
-        return () => {
-            cancelled = true;
-            if (sweepPollRef.current) clearInterval(sweepPollRef.current);
-        };
+        return () => { cancelled = true; };
     }, [loadFleet]);
 
     const runDiagnosis = async () => {
@@ -116,27 +113,27 @@ const DoctorPanel = () => {
         }
     };
 
-    const pollSweep = useCallback((jobId) => {
-        if (sweepPollRef.current) clearInterval(sweepPollRef.current);
-        sweepPollRef.current = setInterval(async () => {
-            try {
-                const res = await api.getJob(jobId);
-                const job = res.job || res;
-                if (!TERMINAL_JOB_STATUSES.includes(job.status)) return;
-                clearInterval(sweepPollRef.current);
-                sweepPollRef.current = null;
-                setSweeping(false);
-                if (job.status === 'succeeded') {
-                    await loadFleet();
-                    toast.success('Fleet sweep finished');
-                } else {
-                    toast.error(job.error_message || 'Fleet sweep did not finish');
-                }
-            } catch {
-                // Transient poll failure — the next tick retries.
+    // The job id IS the "are we polling" state, so the poll is declarative and
+    // the hook owns starting, stopping, and not overlapping ticks.
+    const pollSweep = useCallback((jobId) => setSweepJobId(jobId), []);
+
+    usePolling(async () => {
+        try {
+            const res = await api.getJob(sweepJobId);
+            const job = res.job || res;
+            if (!TERMINAL_JOB_STATUSES.includes(job.status)) return;
+            setSweepJobId(null);
+            setSweeping(false);
+            if (job.status === 'succeeded') {
+                await loadFleet();
+                toast.success('Fleet sweep finished');
+            } else {
+                toast.error(job.error_message || 'Fleet sweep did not finish');
             }
-        }, SWEEP_POLL_MS);
-    }, [loadFleet, toast]);
+        } catch {
+            // Transient poll failure — the next tick retries.
+        }
+    }, SWEEP_POLL_MS, { enabled: Boolean(sweepJobId), immediate: false });
 
     const runSweep = async () => {
         try {

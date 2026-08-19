@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional
 
+from app.utils.system import run_checked
 from app.utils.git_security import git_argv, git_env, validate_ref_name
 
 logger = logging.getLogger(__name__)
@@ -357,23 +358,16 @@ class GitDeployService:
 
             output = []
             for cmd in commands:
-                result = subprocess.run(
-                    cmd,
-                    cwd=path,
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                    env=git_env()
-                )
+                result = run_checked(cmd, cwd=path, timeout=120, env=git_env())
                 output.append(f"$ {' '.join(cmd)}")
-                output.append(result.stdout)
-                if result.stderr:
-                    output.append(result.stderr)
+                output.append(result['output'])
+                if result['stderr']:
+                    output.append(result['stderr'])
 
-                if result.returncode != 0:
+                if not result['success']:
                     return {
                         'success': False,
-                        'error': result.stderr,
+                        'error': result['error'],
                         'output': '\n'.join(output)
                     }
 
@@ -444,43 +438,30 @@ class GitDeployService:
 
         try:
             # Build new images first
-            build_result = subprocess.run(
-                ['docker', 'compose', 'build'],
-                cwd=app.root_path,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            output.append(f"Build: {build_result.stdout}")
+            build_result = run_checked(['docker', 'compose', 'build'],
+                                       cwd=app.root_path, timeout=300)
+            output.append(f"Build: {build_result['output']}")
 
-            if build_result.returncode != 0:
+            if not build_result['success']:
                 return {
                     'success': False,
-                    'error': build_result.stderr,
+                    'error': build_result['error'],
                     'output': '\n'.join(output)
                 }
 
             # Rolling update - start new containers before stopping old
-            up_result = subprocess.run(
+            up_result = run_checked(
                 ['docker', 'compose', 'up', '-d', '--no-deps', '--scale', 'web=2'],
-                cwd=app.root_path,
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
+                cwd=app.root_path, timeout=120)
 
             # Wait for the new container to be healthy. When a health-check path
             # is declared, poll it instead of a blind fixed wait (plan 17 #4).
             output.append(cls._wait_for_health(app))
 
             # Scale back down
-            scale_result = subprocess.run(
+            scale_result = run_checked(
                 ['docker', 'compose', 'up', '-d', '--no-deps', '--scale', 'web=1'],
-                cwd=app.root_path,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+                cwd=app.root_path, timeout=60)
 
             output.append(f"Rolling update completed")
 
@@ -535,19 +516,13 @@ class GitDeployService:
     def _run_script(cls, script: str, cwd: str) -> Dict:
         """Run a deployment script."""
         try:
-            result = subprocess.run(
-                ['bash', '-c', script],
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                env={**os.environ, 'DEPLOY_DIR': cwd}
-            )
+            result = run_checked(['bash', '-c', script], cwd=cwd, timeout=300,
+                                 env={**os.environ, 'DEPLOY_DIR': cwd})
 
             return {
-                'success': result.returncode == 0,
-                'output': result.stdout + result.stderr,
-                'error': result.stderr if result.returncode != 0 else None
+                'success': result['success'],
+                'output': result['output'] + result['stderr'],
+                'error': result['error'],
             }
 
         except subprocess.TimeoutExpired:
@@ -578,15 +553,10 @@ class GitDeployService:
 
         # Capture current git commit
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=app.root_path,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode == 0:
-                snapshot['commit_sha'] = result.stdout.strip()
+            result = run_checked(['git', 'rev-parse', 'HEAD'],
+                                 cwd=app.root_path, timeout=10)
+            if result['success']:
+                snapshot['commit_sha'] = result['output'].strip()
         except Exception:
             pass
 
@@ -607,17 +577,12 @@ class GitDeployService:
 
             # Checkout specific commit if available
             if snapshot.get('commit_sha'):
-                result = subprocess.run(
-                    ['git', 'checkout', snapshot['commit_sha']],
-                    cwd=app.root_path,
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                if result.returncode == 0:
+                result = run_checked(['git', 'checkout', snapshot['commit_sha']],
+                                     cwd=app.root_path, timeout=60)
+                if result['success']:
                     output.append(f"Checked out commit {snapshot['commit_sha'][:7]}")
                 else:
-                    output.append(f"Warning: Could not checkout commit: {result.stderr}")
+                    output.append(f"Warning: Could not checkout commit: {result['error']}")
 
             return {
                 'success': True,

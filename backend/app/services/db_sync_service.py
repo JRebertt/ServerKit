@@ -7,6 +7,8 @@ Supports WordPress-specific features like URL search-replace and data anonymizat
 
 import os
 import subprocess
+
+from app.utils.system import run_checked
 import gzip
 import shutil
 import json
@@ -43,20 +45,7 @@ class DatabaseSyncService:
                 cmd.extend(['-D', database])
             cmd.extend(['-e', command])
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Command timed out'}
+            return run_checked(cmd, timeout=300)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -136,9 +125,11 @@ class DatabaseSyncService:
                     return {'success': False, 'error': f'mysqldump failed: {error}'}
             else:
                 with open(file_path, 'w') as f:
-                    result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
-                    if result.returncode != 0:
-                        return {'success': False, 'error': f'mysqldump failed: {result.stderr}'}
+                    result = run_checked(cmd, stdout=f, stderr=subprocess.PIPE,
+                                         timeout=None)
+                    if not result['success']:
+                        return {'success': False,
+                                'error': f"mysqldump failed: {result['error']}"}
 
             # Get file size
             size_bytes = os.path.getsize(file_path)
@@ -222,23 +213,14 @@ class DatabaseSyncService:
             # Handle compressed files
             if file_path.endswith('.gz'):
                 with gzip.open(file_path, 'rb') as f:
-                    result = subprocess.run(
-                        cmd,
-                        stdin=f,
-                        capture_output=True,
-                        timeout=1800  # 30 min timeout for large DBs
-                    )
+                    # 30 min bound for large DBs
+                    result = run_checked(cmd, stdin=f, timeout=1800)
             else:
                 with open(file_path, 'r') as f:
-                    result = subprocess.run(
-                        cmd,
-                        stdin=f,
-                        capture_output=True,
-                        timeout=1800
-                    )
+                    result = run_checked(cmd, stdin=f, timeout=1800)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr.decode() if result.stderr else 'Import failed'}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             return {'success': True, 'message': f'Snapshot restored to {target_db}'}
 
@@ -732,13 +714,13 @@ class DatabaseSyncService:
                     return {'success': False, 'error': f'Container mysqldump failed: {error}'}
             else:
                 with open(output_path, 'w') as f:
-                    result = subprocess.run(
-                        full_cmd, stdout=f, stderr=subprocess.PIPE, text=True, timeout=600
-                    )
-                    if result.returncode != 0:
+                    result = run_checked(full_cmd, stdout=f, stderr=subprocess.PIPE,
+                                         timeout=600)
+                    if not result['success']:
                         if os.path.exists(output_path):
                             os.remove(output_path)
-                        return {'success': False, 'error': f'Container mysqldump failed: {result.stderr}'}
+                        return {'success': False,
+                                'error': f"Container mysqldump failed: {result['error']}"}
 
             size_bytes = os.path.getsize(output_path)
             return {
@@ -791,24 +773,14 @@ class DatabaseSyncService:
 
             if snapshot_path.endswith('.gz'):
                 with gzip.open(snapshot_path, 'rb') as f:
-                    result = subprocess.run(
-                        import_cmd,
-                        stdin=f,
-                        capture_output=True,
-                        timeout=1800
-                    )
+                    result = run_checked(import_cmd, stdin=f, timeout=1800)
             else:
                 with open(snapshot_path, 'r') as f:
-                    result = subprocess.run(
-                        import_cmd,
-                        stdin=f,
-                        capture_output=True,
-                        timeout=1800
-                    )
+                    result = run_checked(import_cmd, stdin=f, timeout=1800)
 
-            if result.returncode != 0:
-                error = result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr
-                return {'success': False, 'error': f'Container import failed: {error}'}
+            if not result['success']:
+                return {'success': False,
+                        'error': f"Container import failed: {result['error']}"}
 
             return {'success': True, 'message': f'Imported {snapshot_path} into container DB {db_name}'}
 

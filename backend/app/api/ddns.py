@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models.user import User
+from flask_jwt_extended import jwt_required
 from app.services.ddns_service import DdnsService
+from app.middleware.rbac import get_current_user
 
 ddns_bp = Blueprint('ddns', __name__)
 
 
 def _admin():
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     return user if user and user.is_admin else None
 
 
@@ -74,11 +74,5 @@ def update():
         return jsonify({'error': 'token required'}), 401
 
     ip = request.args.get('ip') or body.get('ip') or _client_ip()
-    try:
-        status, host = DdnsService.update_ip(token, ip)
-    except ValueError as e:
-        message = str(e)
-        code = 401 if 'token' in message.lower() else 400
-        return jsonify({'error': message}), code
-
+    status, host = DdnsService.update_ip(token, ip)
     return jsonify({'status': status, 'hostname': host.hostname, 'ip': ip})

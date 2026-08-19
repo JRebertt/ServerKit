@@ -76,14 +76,15 @@ def test_agentsite_in_list_with_repo_summary():
 def test_build_template_hints_shape():
     tmpl = TemplateService.get_template('agentsite')['template']
     hints = TemplateService.build_template_hints(tmpl)
-    assert hints['strategy'] == 'docker_compose'
+    assert hints['strategy'] == 'serverkit'
     assert hints['recommended']['app_type'] == 'docker'
     assert hints['recommended']['port'] == 6391
     keys = {e['key'] for e in hints['env']}
     assert 'OPENAI_API_KEY' in keys
     # Secret env values are never leaked in hints.
     assert all(e['value'] is None for e in hints['env'] if e['secret'])
-    assert {m['file'] for m in hints['manifests']} >= {'docker-compose.yml', 'render.yaml'}
+    assert {m['file'] for m in hints['manifests']} >= {
+        'serverkit.yaml', 'docker-compose.yml', 'render.yaml'}
 
 
 # --------------------------------------------------------------------------- #

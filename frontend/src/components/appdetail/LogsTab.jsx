@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { logsToText } from '@/utils/logText';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
+import { usePolling } from '../../hooks/usePolling';
+
+const LOG_REFRESH_MS = 5000;
 
 const LogsTab = ({ app }) => {
     const [logs, setLogs] = useState('');
@@ -15,11 +18,9 @@ const LogsTab = ({ app }) => {
         loadLogs();
     }, [app.id]);
 
-    useEffect(() => {
-        if (!autoRefresh) return;
-        const interval = setInterval(loadLogs, 5000);
-        return () => clearInterval(interval);
-    }, [autoRefresh, app.id]);
+    // immediate: false — the effect above already loads on mount and on app
+    // change; this adds only the repeat while auto-refresh is on.
+    usePolling(loadLogs, LOG_REFRESH_MS, { enabled: autoRefresh, immediate: false });
 
     async function loadLogs() {
         try {

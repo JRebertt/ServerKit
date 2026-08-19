@@ -24,6 +24,12 @@ else:
     grp = None 
 
 from app import paths
+from app.exceptions import (
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
 from app.utils.formatting import format_bytes
 
 
@@ -119,13 +125,17 @@ class FileService:
                  'manager — edit it through the panel surface that owns it')
 
     @classmethod
-    def _write_denial(cls, path: str) -> Optional[str]:
-        """Denial message for a mutating operation on *path*, or None."""
+    def _require_allowed(cls, path: str) -> None:
+        """Raise unless *path* is inside an allowed root."""
         if not cls.is_path_allowed(path):
-            return cls._DENIED
+            raise PermissionDeniedError(cls._DENIED)
+
+    @classmethod
+    def _require_writable(cls, path: str) -> None:
+        """Raise unless a mutating operation may touch *path*."""
+        cls._require_allowed(path)
         if cls.is_path_readonly(path):
-            return cls._READONLY
-        return None
+            raise PermissionDeniedError(cls._READONLY)
 
     @classmethod
     def get_file_info(cls, path: str) -> Optional[Dict]:
@@ -191,13 +201,13 @@ class FileService:
     def list_directory(cls, path: str, show_hidden: bool = False) -> Dict:
         """List contents of a directory."""
         if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+            raise PermissionDeniedError(cls._DENIED)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'Directory not found'}
+            raise NotFoundError('Directory not found')
 
         if not os.path.isdir(path):
-            return {'success': False, 'error': 'Not a directory'}
+            raise ValidationError('Not a directory')
 
         try:
             entries = []
@@ -219,68 +229,59 @@ class FileService:
                 parent = None
 
             return {
-                'success': True,
                 'path': path,
                 'parent': parent,
                 'entries': entries,
                 'total': len(entries)
             }
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def read_file(cls, path: str) -> Dict:
         """Read file contents."""
         if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+            raise PermissionDeniedError(cls._DENIED)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'File not found'}
+            raise NotFoundError('File not found')
 
         if os.path.isdir(path):
-            return {'success': False, 'error': 'Cannot read directory'}
+            raise ValidationError('Cannot read directory')
 
         try:
             size = os.path.getsize(path)
             if size > cls.MAX_EDIT_SIZE:
-                return {
-                    'success': False,
-                    'error': f'File too large to edit ({cls._format_size(size)}). Maximum is {cls._format_size(cls.MAX_EDIT_SIZE)}'
-                }
+                raise ValidationError(
+                    f'File too large to edit ({cls._format_size(size)}). '
+                    f'Maximum is {cls._format_size(cls.MAX_EDIT_SIZE)}')
 
             # Try to read as text
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 return {
-                    'success': True,
                     'path': path,
                     'content': content,
                     'encoding': 'utf-8',
                     'size': size,
                     'is_binary': False
                 }
-            except UnicodeDecodeError:
-                # File is binary
-                return {
-                    'success': False,
-                    'error': 'Binary file cannot be edited',
-                    'is_binary': True
-                }
+            except UnicodeDecodeError as e:
+                raise ValidationError('Binary file cannot be edited',
+                                      details={'is_binary': True}) from e
 
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def write_file(cls, path: str, content: str, create_backup: bool = True) -> Dict:
         """Write content to file."""
-        denial = cls._write_denial(path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(path)
 
         try:
             # Create backup if file exists
@@ -293,24 +294,21 @@ class FileService:
                 f.write(content)
 
             return {
-                'success': True,
                 'path': path,
                 'size': len(content.encode('utf-8'))
             }
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def create_file(cls, path: str, content: str = '') -> Dict:
         """Create a new file."""
-        denial = cls._write_denial(path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(path)
 
         if os.path.exists(path):
-            return {'success': False, 'error': 'File already exists'}
+            raise ConflictError('File already exists')
 
         try:
             # Ensure parent directory exists
@@ -321,81 +319,75 @@ class FileService:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            return {'success': True, 'path': path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'path': path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def create_directory(cls, path: str) -> Dict:
         """Create a new directory."""
-        denial = cls._write_denial(path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(path)
 
         if os.path.exists(path):
-            return {'success': False, 'error': 'Directory already exists'}
+            raise ConflictError('Directory already exists')
 
         try:
             os.makedirs(path)
-            return {'success': True, 'path': path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'path': path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def delete(cls, path: str) -> Dict:
         """Delete a file or directory."""
-        denial = cls._write_denial(path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(path)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'Path not found'}
+            raise NotFoundError('Path not found')
 
         try:
             if os.path.isdir(path):
                 shutil.rmtree(path)
             else:
                 os.remove(path)
-            return {'success': True, 'path': path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'path': path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def rename(cls, old_path: str, new_name: str) -> Dict:
         """Rename a file or directory."""
-        denial = cls._write_denial(old_path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(old_path)
 
         if not os.path.exists(old_path):
-            return {'success': False, 'error': 'Path not found'}
+            raise NotFoundError('Path not found')
 
         # Validate new_name has no path separators
         if '/' in new_name or '\\' in new_name or '..' in new_name:
-            return {'success': False, 'error': 'Invalid filename: path separators not allowed'}
+            raise ValidationError('Invalid filename: path separators not allowed')
 
         new_path = os.path.join(os.path.dirname(old_path), new_name)
 
         # Re-validate the constructed path
         if not cls.is_path_writable(new_path):
-            return {'success': False, 'error': 'Access denied: target path not allowed'}
+            raise PermissionDeniedError('Access denied: target path not allowed')
 
         if os.path.exists(new_path):
-            return {'success': False, 'error': 'Target already exists'}
+            raise ConflictError('Target already exists')
 
         try:
             os.rename(old_path, new_path)
-            return {'success': True, 'old_path': old_path, 'new_path': new_path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'old_path': old_path, 'new_path': new_path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def copy(cls, src_path: str, dest_path: str) -> Dict:
@@ -404,84 +396,80 @@ class FileService:
         # taking a vhost off /etc/nginx to keep) is allowed; the destination
         # is written, so it gets the full check.
         if not cls.is_path_allowed(src_path):
-            return {'success': False, 'error': cls._DENIED}
-        denial = cls._write_denial(dest_path)
-        if denial:
-            return {'success': False, 'error': denial}
+            raise PermissionDeniedError(cls._DENIED)
+        cls._require_writable(dest_path)
 
         if not os.path.exists(src_path):
-            return {'success': False, 'error': 'Source not found'}
+            raise NotFoundError('Source not found')
 
         if os.path.exists(dest_path):
-            return {'success': False, 'error': 'Destination already exists'}
+            raise ConflictError('Destination already exists')
 
         try:
             if os.path.isdir(src_path):
                 shutil.copytree(src_path, dest_path)
             else:
                 shutil.copy2(src_path, dest_path)
-            return {'success': True, 'src': src_path, 'dest': dest_path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'src': src_path, 'dest': dest_path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def move(cls, src_path: str, dest_path: str) -> Dict:
         """Move a file or directory."""
         # A move removes the source, so unlike copy both ends must be writable.
         for candidate in (src_path, dest_path):
-            denial = cls._write_denial(candidate)
-            if denial:
-                return {'success': False, 'error': denial}
+            cls._require_writable(candidate)
 
         if not os.path.exists(src_path):
-            return {'success': False, 'error': 'Source not found'}
+            raise NotFoundError('Source not found')
 
         if os.path.exists(dest_path):
-            return {'success': False, 'error': 'Destination already exists'}
+            raise ConflictError('Destination already exists')
 
         try:
             shutil.move(src_path, dest_path)
-            return {'success': True, 'src': src_path, 'dest': dest_path}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'src': src_path, 'dest': dest_path}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def change_permissions(cls, path: str, mode: str) -> Dict:
         """Change file/directory permissions."""
-        denial = cls._write_denial(path)
-        if denial:
-            return {'success': False, 'error': denial}
+        cls._require_writable(path)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'Path not found'}
+            raise NotFoundError('Path not found')
+
+        # Convert octal string to int (parsed outside the chmod try so a
+        # ValidationError below is never re-caught as a generic ValueError).
+        try:
+            mode_int = int(mode, 8)
+        except ValueError as e:
+            raise ValidationError('Invalid permission mode') from e
+        if mode_int < 0o000 or mode_int > 0o777:
+            raise ValidationError('Invalid permission mode. Must be between 000 and 777.')
 
         try:
-            # Convert octal string to int
-            mode_int = int(mode, 8)
-            # Validate permission mode
-            if mode_int < 0o000 or mode_int > 0o777:
-                return {'success': False, 'error': 'Invalid permission mode. Must be between 000 and 777.'}
             os.chmod(path, mode_int)
-            return {'success': True, 'path': path, 'mode': mode}
-        except ValueError:
-            return {'success': False, 'error': 'Invalid permission mode'}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'path': path, 'mode': mode}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def search(cls, directory: str, pattern: str, max_results: int = 100) -> Dict:
         """Search for files matching pattern."""
         if not cls.is_path_allowed(directory):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+            raise PermissionDeniedError(cls._DENIED)
 
         if not os.path.isdir(directory):
-            return {'success': False, 'error': 'Directory not found'}
+            raise NotFoundError('Directory not found')
 
         try:
             results = []
@@ -500,16 +488,15 @@ class FileService:
                                 results.append(info)
                                 if len(results) >= max_results:
                                     return {
-                                        'success': True,
                                         'results': results,
                                         'truncated': True
                                     }
 
-            return {'success': True, 'results': results, 'truncated': False}
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+            return {'results': results, 'truncated': False}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def get_disk_usage(cls, path: str) -> Dict:
@@ -517,11 +504,10 @@ class FileService:
         try:
             # Validate path exists
             if not os.path.exists(path):
-                return {'success': False, 'error': 'Path not found'}
+                raise NotFoundError('Path not found')
 
             usage = shutil.disk_usage(path)
             return {
-                'success': True,
                 'path': path,
                 'total': usage.total,
                 'used': usage.used,
@@ -531,10 +517,10 @@ class FileService:
                 'used_human': cls._format_size(usage.used),
                 'free_human': cls._format_size(usage.free)
             }
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
-        except (OSError, Exception) as e:
-            return {'success': False, 'error': str(e)}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
+        except OSError as e:
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def _is_editable(cls, path: str) -> bool:
@@ -623,21 +609,21 @@ class FileService:
                     # Skip mounts we can't access
                     continue
 
-            return {'success': True, 'mounts': mounts}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {'mounts': mounts}
+        except (PermissionError, OSError) as e:
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def analyze_directory_sizes(cls, path: str, depth: int = 1, limit: int = 20) -> Dict:
         """Analyze directory to get sizes of subdirectories and large files."""
         if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+            raise PermissionDeniedError(cls._DENIED)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'Path not found'}
+            raise NotFoundError('Path not found')
 
         if not os.path.isdir(path):
-            return {'success': False, 'error': 'Path is not a directory'}
+            raise ValidationError('Path is not a directory')
 
         try:
             entries = []
@@ -682,17 +668,16 @@ class FileService:
             files = [e for e in entries if not e['is_dir']][:limit]
 
             return {
-                'success': True,
                 'path': path,
                 'total_size': total_size,
                 'total_size_human': cls._format_size(total_size),
                 'directories': directories,
                 'largest_files': files
             }
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def _get_dir_size_recursive(cls, path: str, max_depth: int = 2, current_depth: int = 0) -> int:
@@ -721,13 +706,13 @@ class FileService:
     def get_file_type_breakdown(cls, path: str, max_depth: int = 3) -> Dict:
         """Get breakdown of file sizes by type category."""
         if not cls.is_path_allowed(path):
-            return {'success': False, 'error': 'Access denied: path not in allowed directories'}
+            raise PermissionDeniedError(cls._DENIED)
 
         if not os.path.exists(path):
-            return {'success': False, 'error': 'Path not found'}
+            raise NotFoundError('Path not found')
 
         if not os.path.isdir(path):
-            return {'success': False, 'error': 'Path is not a directory'}
+            raise ValidationError('Path is not a directory')
 
         # File type categories with extensions
         categories = {
@@ -804,16 +789,15 @@ class FileService:
             breakdown.sort(key=lambda x: x['size'], reverse=True)
 
             return {
-                'success': True,
                 'path': path,
                 'total_size': total_size,
                 'total_size_human': cls._format_size(total_size),
                 'breakdown': breakdown
             }
-        except PermissionError:
-            return {'success': False, 'error': 'Permission denied'}
+        except PermissionError as e:
+            raise PermissionDeniedError('Permission denied') from e
         except OSError as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='filesystem_error') from e
 
     @classmethod
     def _categorize_files_recursive(cls, path: str, categories: Dict, max_depth: int, current_depth: int) -> None:

@@ -15,10 +15,11 @@ stable core-managed schema seam, not a reason to keep them in the WP file.
 
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import TimestampMixin
 
 
-class DatabaseSnapshot(db.Model):
+class DatabaseSnapshot(JsonColumnMixin, db.Model):
     """Point-in-time database snapshots for WordPress sites."""
 
     __tablename__ = 'database_snapshots'
@@ -65,7 +66,7 @@ class DatabaseSnapshot(db.Model):
             'compressed': self.compressed,
             'commit_sha': self.commit_sha,
             'commit_message': self.commit_message,
-            'tables_included': json.loads(self.tables_included) if self.tables_included else None,
+            'tables_included': self._json_read('tables_included', None),
             'row_count': self.row_count,
             'status': self.status,
             'error_message': self.error_message,
@@ -87,7 +88,7 @@ class DatabaseSnapshot(db.Model):
         return f'<DatabaseSnapshot {self.id} "{self.name}">'
 
 
-class SyncJob(db.Model):
+class SyncJob(JsonColumnMixin, TimestampMixin, db.Model):
     """Scheduled database synchronization jobs between WordPress environments."""
 
     __tablename__ = 'sync_jobs'
@@ -117,8 +118,6 @@ class SyncJob(db.Model):
     run_count = db.Column(db.Integer, default=0)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -128,7 +127,7 @@ class SyncJob(db.Model):
             'target_site_id': self.target_site_id,
             'schedule': self.schedule,
             'enabled': self.enabled,
-            'config': json.loads(self.config) if self.config else None,
+            'config': self._json_read('config', None),
             'last_run': self.last_run.isoformat() if self.last_run else None,
             'last_run_status': self.last_run_status,
             'last_run_duration': self.last_run_duration,

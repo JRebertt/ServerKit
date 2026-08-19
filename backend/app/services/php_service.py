@@ -1,10 +1,11 @@
 import os
-import subprocess
 import re
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged, is_command_available
+from app.utils.system import (PackageManager, ServiceControl, is_command_available,
+                             run_checked,
+                             run_privileged, write_privileged_file)
 
 
 class PHPService:
@@ -70,13 +71,9 @@ env[TEMP] = /tmp
             if os.path.exists(php_bin):
                 # Get detailed version
                 try:
-                    result = subprocess.run(
-                        [php_bin, '-v'],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    full_version = result.stdout.split('\n')[0] if result.returncode == 0 else version
+                    result = run_checked([php_bin, '-v'], timeout=10)
+                    full_version = (result['output'].split('\n')[0]
+                                    if result['success'] else version)
                 except Exception:
                     full_version = version
 
@@ -106,14 +103,9 @@ env[TEMP] = /tmp
     def get_default_version(cls) -> Optional[str]:
         """Get the default PHP version."""
         try:
-            result = subprocess.run(
-                ['php', '-v'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if result.returncode == 0:
-                match = re.search(r'PHP (\d+\.\d+)', result.stdout)
+            result = run_checked(['php', '-v'], timeout=10)
+            if result['success']:
+                match = re.search(r'PHP (\d+\.\d+)', result['output'])
                 if match:
                     return match.group(1)
         except Exception:
@@ -203,15 +195,10 @@ env[TEMP] = /tmp
             return extensions
 
         try:
-            result = subprocess.run(
-                [php_bin, '-m'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = run_checked([php_bin, '-m'], timeout=10)
 
-            if result.returncode == 0:
-                for ext in result.stdout.strip().split('\n'):
+            if result['success']:
+                for ext in result['output'].strip().split('\n'):
                     if ext and not ext.startswith('['):
                         extensions.append({
                             'name': ext,
@@ -321,14 +308,13 @@ env[TEMP] = /tmp
             run_privileged(['mkdir', '-p', '/var/log/php'])
 
             # Write pool config
-            process = run_privileged(['tee', pool_file], input=pool_content)
+            written = write_privileged_file(pool_file, pool_content)
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
 
-            if process.returncode == 0:
-                # Restart FPM
-                cls.restart_fpm(version)
-                return {'success': True, 'message': f'Pool {pool_name} created', 'file': pool_file}
-
-            return {'success': False, 'error': process.stderr}
+            # Restart FPM
+            cls.restart_fpm(version)
+            return {'success': True, 'message': f'Pool {pool_name} created', 'file': pool_file}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -363,11 +349,8 @@ env[TEMP] = /tmp
 
         try:
             result = ServiceControl.restart(service, timeout=30)
-
-            return {
-                'success': result.returncode == 0,
-                'message': f'{service} restarted' if result.returncode == 0 else result.stderr
-            }
+            return ServiceControl.result_dict(result, f'{service} restarted',
+                                              error_key='message')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -378,11 +361,8 @@ env[TEMP] = /tmp
 
         try:
             result = ServiceControl.reload(service, timeout=30)
-
-            return {
-                'success': result.returncode == 0,
-                'message': f'{service} reloaded' if result.returncode == 0 else result.stderr
-            }
+            return ServiceControl.result_dict(result, f'{service} reloaded',
+                                              error_key='message')
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -392,14 +372,9 @@ env[TEMP] = /tmp
         service = cls.PHP_FPM_SERVICE.format(version=version)
 
         try:
-            result = subprocess.run(
-                ['systemctl', 'status', service],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = run_checked(['systemctl', 'status', service], timeout=10)
 
-            is_running = 'active (running)' in result.stdout
+            is_running = 'active (running)' in result['output']
 
             return {
                 'version': version,
@@ -419,19 +394,14 @@ env[TEMP] = /tmp
             return {'error': f'PHP {version} not found'}
 
         try:
-            result = subprocess.run(
-                [php_bin, '-i'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            result = run_checked([php_bin, '-i'], timeout=30)
 
-            if result.returncode != 0:
-                return {'error': result.stderr}
+            if not result['success']:
+                return {'error': result['error']}
 
             # Parse key configuration values
             info = {}
-            for line in result.stdout.split('\n'):
+            for line in result['output'].split('\n'):
                 if '=>' in line:
                     parts = line.split('=>')
                     if len(parts) >= 2:

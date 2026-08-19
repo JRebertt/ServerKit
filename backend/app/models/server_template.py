@@ -1,9 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import TimestampMixin
 import json
 
 
-class ServerTemplate(db.Model):
+class ServerTemplate(JsonColumnMixin, TimestampMixin, db.Model):
     """Defines expected state for a server — packages, services, firewall rules, users, files."""
     __tablename__ = 'server_templates'
 
@@ -32,14 +34,11 @@ class ServerTemplate(db.Model):
     remediation_approval_required = db.Column(db.Boolean, default=True)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     assignments = db.relationship('ServerTemplateAssignment', backref='template', lazy='dynamic')
 
     def _get_json(self, field):
-        val = getattr(self, field)
-        return json.loads(val) if val else []
+        return self._json_read(field, [])
 
     def _set_json(self, field, value):
         setattr(self, field, json.dumps(value))
@@ -149,7 +148,7 @@ class ServerTemplate(db.Model):
         return f'<ServerTemplate {self.name} v{self.version}>'
 
 
-class ServerTemplateAssignment(db.Model):
+class ServerTemplateAssignment(JsonColumnMixin, db.Model):
     """Tracks which template is applied to which server."""
     __tablename__ = 'server_template_assignments'
 
@@ -181,7 +180,7 @@ class ServerTemplateAssignment(db.Model):
 
     @property
     def drift_report(self):
-        return json.loads(self.drift_report_json) if self.drift_report_json else {}
+        return self._json_read('drift_report_json')
 
     @drift_report.setter
     def drift_report(self, v):

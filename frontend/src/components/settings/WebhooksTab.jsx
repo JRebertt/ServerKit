@@ -13,6 +13,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Plus, MoreVertical, Copy, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import EmptyState from '../EmptyState';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
@@ -110,9 +111,15 @@ export default function WebhooksTab() {
 
     async function replayDelivery(deliveryId) {
         try {
-            await api.replayWebhookDelivery(deliveryId);
+            // A failed forward answers 200 with success:false — the replay ran,
+            // the target refused it. Only transport/authz errors throw.
+            const res = await api.replayWebhookDelivery(deliveryId);
             openEndpoint(selectedEndpoint.id);
-            toast.success('Replayed delivery');
+            if (res && res.success === false) {
+                toast.error('Replayed, but the forward target did not accept it');
+            } else {
+                toast.success('Replayed delivery');
+            }
         } catch (err) {
             toast.error(`Replay failed: ${err.message}`);
         }
@@ -274,7 +281,7 @@ export default function WebhooksTab() {
                         <Label>Secret</Label>
                         <div className="flex gap-2">
                             <Input readOnly type="text" value={regeneratedSecret?.secret || ''} />
-                            <Button variant="outline" onClick={() => { navigator.clipboard.writeText(regeneratedSecret?.secret || ''); toast.success('Copied') }}>
+                            <Button variant="outline" onClick={() => { copyToClipboard(regeneratedSecret?.secret || ''); toast.success('Copied') }}>
                                 <Copy size={14} />
                             </Button>
                         </div>

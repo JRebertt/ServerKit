@@ -1,12 +1,12 @@
 """API Key model for programmatic API access."""
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import hashlib
-import json
 import secrets
 
 
-class ApiKey(db.Model):
+class ApiKey(JsonColumnMixin, db.Model):
     """API key for programmatic access to the ServerKit API."""
     __tablename__ = 'api_keys'
 
@@ -47,19 +47,11 @@ class ApiKey(db.Model):
 
     def get_scopes(self):
         """Return parsed scopes list."""
-        if self.scopes:
-            try:
-                return json.loads(self.scopes)
-            except (json.JSONDecodeError, TypeError):
-                return []
-        return []
+        return self._json_read('scopes', [])
 
     def set_scopes(self, scopes_list):
         """Set scopes from a list."""
-        if scopes_list:
-            self.scopes = json.dumps(scopes_list)
-        else:
-            self.scopes = None
+        self._json_write('scopes', scopes_list)
 
     def is_expired(self):
         """Check if the key has expired."""

@@ -10,10 +10,11 @@ Supports:
 
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class Deployment(db.Model):
+class Deployment(JsonColumnMixin, db.Model):
     """Represents a single deployment of an application."""
     __tablename__ = 'deployments'
 
@@ -63,10 +64,7 @@ class Deployment(db.Model):
 
     def get_metadata(self):
         """Get metadata as dict."""
-        try:
-            return json.loads(self.extra_data) if self.extra_data else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('extra_data')
 
     def set_metadata(self, data):
         """Set metadata from dict."""
@@ -174,7 +172,7 @@ class Deployment(db.Model):
         return f'<Deployment app={self.app_id} v{self.version} status={self.status}>'
 
 
-class DeploymentDiff(db.Model):
+class DeploymentDiff(JsonColumnMixin, db.Model):
     """Stores diff information between deployments."""
     __tablename__ = 'deployment_diffs'
 
@@ -200,9 +198,9 @@ class DeploymentDiff(db.Model):
             'id': self.id,
             'deployment_id': self.deployment_id,
             'previous_deployment_id': self.previous_deployment_id,
-            'files_added': json.loads(self.files_added) if self.files_added else [],
-            'files_removed': json.loads(self.files_removed) if self.files_removed else [],
-            'files_modified': json.loads(self.files_modified) if self.files_modified else [],
+            'files_added': self._json_read('files_added', []),
+            'files_removed': self._json_read('files_removed', []),
+            'files_modified': self._json_read('files_modified', []),
             'additions': self.additions,
             'deletions': self.deletions,
             'created_at': self.created_at.isoformat() if self.created_at else None

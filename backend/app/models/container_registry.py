@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import EncryptedSecret
 
 
 class ContainerRegistry(db.Model):
@@ -30,6 +31,7 @@ class ContainerRegistry(db.Model):
     registry_url = db.Column(db.String(255), nullable=True)
     username = db.Column(db.String(180), nullable=True)
     secret_encrypted = db.Column(db.Text, nullable=True)
+    secret = EncryptedSecret('secret_encrypted', legacy_plaintext=True)
     # Nullable FK — a registry can be scoped to one workspace, or global (NULL).
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)

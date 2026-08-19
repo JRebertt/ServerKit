@@ -9,13 +9,14 @@ Two tables:
   * ``application_previews``         — one row per live PR preview.
   * ``application_preview_settings`` — per-application opt-in + domain template.
 """
-import json
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ApplicationPreview(db.Model):
+class ApplicationPreview(TimestampMixin, JsonColumnMixin, db.Model):
     """A single PR preview environment for an application."""
     __tablename__ = 'application_previews'
 
@@ -46,22 +47,14 @@ class ApplicationPreview(db.Model):
     commit_sha = db.Column(db.String(64), nullable=True)
     expires_at = db.Column(db.DateTime, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
     def get_container_ids(self):
         """The provisioned container ids as a list (empty when unset/invalid)."""
-        if not self.container_ids:
-            return []
-        try:
-            val = json.loads(self.container_ids)
-            return val if isinstance(val, list) else []
-        except (ValueError, TypeError):
-            return []
+        return self._json_read('container_ids', [], expect=list)
 
     def set_container_ids(self, ids):
-        self.container_ids = json.dumps(list(ids or []))
+        self._json_write('container_ids', list(ids or []), falsy='[]')
 
     def to_dict(self):
         return {
@@ -86,7 +79,7 @@ class ApplicationPreview(db.Model):
         return f'<ApplicationPreview app={self.application_id} PR#{self.pr_number} ({self.status})>'
 
 
-class ApplicationPreviewSettings(db.Model):
+class ApplicationPreviewSettings(TimestampMixin, db.Model):
     """Per-application PR-preview configuration (opt-in + domain template)."""
     __tablename__ = 'application_preview_settings'
 
@@ -104,8 +97,6 @@ class ApplicationPreviewSettings(db.Model):
     # Optional TTL: previews are auto-destroyed this many days after creation.
     ttl_days = db.Column(db.Integer, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

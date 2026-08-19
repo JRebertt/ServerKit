@@ -20,6 +20,9 @@ English | [Español](docs/README.es.md) | [中文版](docs/README.zh-CN.md) | [P
 [![Watch the demo](https://img.shields.io/badge/Watch_the_Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=nL9r3c9-5Kc)
 
 <a href="https://trendshift.io/repositories/21908?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-21908" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/21908/daily?language=JavaScript" alt="jhd3197/ServerKit | Trendshift" width="250" height="55"/></a>
+<a href="https://www.uneed.best/tool/serverkit" target="_blank" rel="noopener noreferrer">
+  <img src="https://www.uneed.best/POTD3.png" style="width: 250px;" alt="Uneed POTD3 Badge" />
+</a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/jhd3197/ServerKit?style=flat-square&color=f5c542)](https://github.com/jhd3197/ServerKit/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/jhd3197/ServerKit/total?style=flat-square)](https://github.com/jhd3197/ServerKit/releases)
@@ -44,10 +47,10 @@ Everything below is measured from this repository, not estimated.
 
 | | |
 |---|---|
-| **1,519** REST endpoints | across 107 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
-| **106** one-click app templates | bundled in the repo, no registry account needed |
-| **2,633** backend tests | the whole suite runs on every change |
-| **1.75 MB** gzipped web UI | 65 screens, assets served from your own box — no CDN |
+| **1,350+** REST endpoints | across 109 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
+| **118** one-click app templates | bundled in the repo, no registry account needed |
+| **4,300+** backend tests | the whole suite runs on every change, with a CI-enforced floor on the collected count |
+| **1.75 MB** gzipped web UI | 60+ screens, assets served from your own box — no CDN |
 | **~180 MB** resident | the entire panel, single process — sits comfortably beside your apps on a 1 GB VPS |
 | **501 MB** container image | or install straight onto the host; Docker is optional for the panel itself |
 | **$0** | MIT-licensed. No tiers, no seat limits, no upsell — and nothing phones home. |

@@ -9,9 +9,10 @@ from datetime import datetime
 import json
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class WafPolicy(db.Model):
+class WafPolicy(JsonColumnMixin, db.Model):
     """ModSecurity / OWASP CRS configuration for a single application."""
     __tablename__ = 'waf_policies'
 
@@ -40,13 +41,7 @@ class WafPolicy(db.Model):
     @property
     def disabled_rules(self):
         """Return the disabled rule IDs as a list (empty list when unset)."""
-        if not self.disabled_rule_ids:
-            return []
-        try:
-            value = json.loads(self.disabled_rule_ids)
-            return value if isinstance(value, list) else []
-        except (ValueError, TypeError):
-            return []
+        return self._json_read('disabled_rule_ids', [], expect=list)
 
     @disabled_rules.setter
     def disabled_rules(self, value):

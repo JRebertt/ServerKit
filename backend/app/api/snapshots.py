@@ -141,7 +141,6 @@ def diff_snapshot(app_id, snap_id):
 
 @snapshots_bp.route('/<int:app_id>/snapshots/<int:snap_id>/restore', methods=['POST'])
 @snapshots_bp.route('/<int:app_id>/config-checkpoints/<int:snap_id>/restore', methods=['POST'])
-@jwt_required()
 @developer_required
 def restore_snapshot(app_id, snap_id):
     """Restore a snapshot's config (env/domains) and trigger a redeploy."""

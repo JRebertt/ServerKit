@@ -12,7 +12,8 @@ command's own code so cron behaves identically. Reporting is best-effort: a
 failure to record must never change the job's outcome.
 """
 import os
-import subprocess
+
+from app.utils.system import run_checked
 import sys
 from datetime import datetime, timezone
 
@@ -49,8 +50,13 @@ def main(argv=None):
     started = datetime.now(timezone.utc)
     stdout, stderr, exit_code = '', '', 127
     try:
-        proc = subprocess.run(command, capture_output=True, text=True)
-        stdout, stderr, exit_code = proc.stdout or '', proc.stderr or '', proc.returncode
+        proc = run_checked(command, timeout=None)
+        stdout, stderr = proc['output'], proc['stderr']
+        # 127 (the shell's "command not found") stays the sentinel for a job
+        # that never ran, so a launch failure is not recorded as exit 0.
+        exit_code = proc['returncode'] if proc['returncode'] is not None else 127
+        if proc['returncode'] is None:
+            stderr = stderr or f"serverkit-cron-run: {proc['error']}\n"
     except Exception as exc:  # noqa: BLE001 - record the failure to launch
         stderr = f'serverkit-cron-run: failed to execute: {exc}\n'
     finished = datetime.now(timezone.utc)

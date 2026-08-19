@@ -5,13 +5,17 @@ Tracks server uptime history and provides uptime statistics.
 """
 
 import os
-import json
 import time
 import psutil
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from pathlib import Path
 import threading
+import logging
+
+from app.utils.config_store import load_json_config, save_json_config
+
+logger = logging.getLogger(__name__)
 
 
 class UptimeService:
@@ -41,32 +45,30 @@ class UptimeService:
 
     @classmethod
     def _load_history(cls) -> Dict:
-        """Load uptime history from file."""
+        """Load uptime history from file, or a fresh one if unreadable."""
         cls._ensure_data_dir()
-
-        if os.path.exists(cls.UPTIME_FILE):
-            try:
-                with open(cls.UPTIME_FILE, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.UPTIME_FILE, {
             'start_time': datetime.now().isoformat(),
             'checks': [],
-            'incidents': []
-        }
+            'incidents': [],
+        })
 
     @classmethod
-    def _save_history(cls, history: Dict) -> None:
-        """Save uptime history to file."""
-        cls._ensure_data_dir()
+    def _save_history(cls, history: Dict) -> bool:
+        """Save uptime history to file. ``True`` when it was actually written.
 
-        try:
-            with open(cls.UPTIME_FILE, 'w') as f:
-                json.dump(history, f)
-        except Exception:
-            pass
+        Was ``except Exception: pass`` over a truncating write (plan 75 §G6):
+        a full disk both destroyed the existing history and reported nothing,
+        so the panel went on rendering an uptime figure computed from a file
+        that had stopped being updated. Now the write is atomic and the failure
+        is logged and returned, so a caller can tell "saved" from "could not".
+        """
+        cls._ensure_data_dir()
+        result = save_json_config(cls.UPTIME_FILE, history)
+        if not result['success']:
+            logger.warning('Could not save uptime history to %s: %s',
+                           cls.UPTIME_FILE, result['error'])
+        return result['success']
 
     @classmethod
     def get_boot_time(cls) -> datetime:

@@ -12,6 +12,8 @@ import os
 import re
 import shutil
 import subprocess
+
+from app.utils.system import run_checked
 import sys
 import tempfile
 import zipfile
@@ -19,6 +21,7 @@ import zipfile
 import requests
 
 from app import db
+from app.utils.env import env_bool
 from app.models.plugin import InstalledPlugin
 
 logger = logging.getLogger(__name__)
@@ -353,7 +356,7 @@ def _assert_url_safe(url):
     if scheme == 'http':
         raise ValueError(
             'Plain-http extension downloads are only allowed for loopback dev hosts')
-    if os.environ.get('SERVERKIT_ALLOW_PRIVATE_DOWNLOADS', '').lower() in ('1', 'true', 'yes'):
+    if env_bool('SERVERKIT_ALLOW_PRIVATE_DOWNLOADS'):
         return
     bad = sorted(ip for ip in ips if not _ip_is_public(ip))
     if bad:
@@ -1199,13 +1202,15 @@ def _install_requirements(req_content, plugin_name):
 
     try:
         logger.info(f'Installing requirements for plugin {plugin_name}')
-        subprocess.check_call(
+        install = run_checked(
             [sys.executable, '-m', 'pip', 'install', '-r', req_path, '--quiet'],
             timeout=300,
         )
-    except subprocess.CalledProcessError as e:
-        logger.error(f'Failed to install requirements for {plugin_name}: {e}')
-        raise ValueError(f'Failed to install Python dependencies: {e}')
+        if not install['success']:
+            logger.error('Failed to install requirements for %s: %s',
+                         plugin_name, install['error'])
+            raise ValueError(
+                f"Failed to install Python dependencies: {install['error']}")
     finally:
         os.unlink(req_path)
 
@@ -1792,7 +1797,7 @@ _MAX_REQUIREMENTS_BYTES = 64 * 1024
 
 def plugin_pip_enabled():
     """Whether the operator has opted into installing plugin Python deps."""
-    return os.environ.get(PLUGIN_PIP_ENV, '').lower() in ('1', 'true', 'yes')
+    return env_bool(PLUGIN_PIP_ENV)
 
 
 def pending_requirements(plugin):

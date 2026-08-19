@@ -104,7 +104,7 @@ class EnvReferenceResolver:
 
         # db sibling first (ManagedDatabase by name within the workspace)
         from app.models.managed_database import ManagedDatabase
-        managed = ManagedDatabase.query.filter_by(name=service_name).first()
+        managed = ManagedDatabase.query_active().filter_by(name=service_name).first()
         if managed is not None:
             return cls._db_property(managed, prop)
 
@@ -136,9 +136,7 @@ class EnvReferenceResolver:
         if prop == 'username':
             return managed.admin_username or '', None
         if prop == 'password':
-            from app.utils.crypto import decrypt_secret_safe
-            return (decrypt_secret_safe(managed.admin_secret_encrypted) or '') \
-                if managed.admin_secret_encrypted else '', None
+            return (managed.admin_secret or ''), None
         return None, f'property `{prop}` not valid for a database service'
 
     @classmethod

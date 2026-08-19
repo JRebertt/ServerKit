@@ -3,16 +3,9 @@ from flask import g, has_request_context, request
 from app import db
 from app.models import AuditLog
 
-REDACTED = '[redacted]'
-SENSITIVE_SETTING_PARTS = (
-    'password',
-    'secret',
-    'token',
-    'credential',
-    'private',
-    'certificate',
-    'api_key',
-    'apikey',
+from app.utils.sensitive_data_filter import (
+    REDACTED,
+    is_sensitive_key as _shared_is_sensitive_key,
 )
 
 
@@ -132,8 +125,7 @@ class AuditService:
 
     @staticmethod
     def is_sensitive_key(key):
-        lowered = str(key).lower()
-        return any(part in lowered for part in SENSITIVE_SETTING_PARTS)
+        return _shared_is_sensitive_key(str(key))
 
     @staticmethod
     def log_app_action(action, user_id, app_id, app_name=None, details=None):

@@ -1,8 +1,8 @@
-import json
 from datetime import datetime
 from decimal import Decimal
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
 def _num(value):
@@ -14,7 +14,7 @@ def _num(value):
     return value
 
 
-class BackupRun(db.Model):
+class BackupRun(JsonColumnMixin, db.Model):
     """A single backup execution produced by a :class:`BackupPolicy`.
 
     This is the source of truth for the Protection panel's history view. Each run
@@ -76,15 +76,10 @@ class BackupRun(db.Model):
         return level
 
     def get_metadata(self):
-        if not self.metadata_json:
-            return {}
-        try:
-            return json.loads(self.metadata_json)
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('metadata_json')
 
     def set_metadata(self, value):
-        self.metadata_json = json.dumps(value or {})
+        self._json_write('metadata_json', value, falsy='{}')
 
     def to_dict(self):
         meta = self.get_metadata()

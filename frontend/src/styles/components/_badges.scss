@@ -24,14 +24,12 @@
 
 // Status variants
 .status-active {
-    background: $success-bg;
-    color: $success;
+    @include status-variant($success, $success-bg);
     border-color: $success-border;
 }
 
 .status-warning {
-    background: $warning-bg;
-    color: $warning;
+    @include status-variant($warning, $warning-bg);
     border-color: $warning-border;
 }
 
@@ -42,8 +40,7 @@
 }
 
 .status-error {
-    background: $danger-bg;
-    color: $danger;
+    @include status-variant($danger, $danger-bg);
     border-color: $danger-border;
 }
 
@@ -63,8 +60,7 @@
     display: inline-flex;
     align-items: center;
     gap: $space-1;
-    background: $success-bg;
-    color: $success;
+    @include status-variant($success, $success-bg);
     padding: 6px $space-3;
     border-radius: $radius-md;
     font-size: $font-size-xs;
@@ -73,8 +69,7 @@
 
 // Active badge (for themes/plugins)
 .active-badge {
-    background: $success-bg;
-    color: $success;
+    @include status-variant($success, $success-bg);
     padding: $space-1 $space-3;
     border-radius: $radius-full;
     font-size: $font-size-sm;
@@ -244,20 +239,17 @@
     }
 
     &[data-variant="success"] {
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
 
     &[data-variant="warning"] {
-        background: $warning-bg;
-        color: $warning;
+        @include status-variant($warning, $warning-bg);
         border-color: $warning-border;
     }
 
     &[data-variant="info"] {
-        background: $info-bg;
-        color: $info;
+        @include status-variant($info, $info-bg);
         border-color: $info-border;
     }
 

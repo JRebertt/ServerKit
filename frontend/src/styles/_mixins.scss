@@ -225,3 +225,18 @@
     @include mono-text();
     @include custom-scrollbar();
 }
+
+
+// ============================================
+// STATUS VARIANT (plan 77 D4)
+// ============================================
+// The ONE shape for coloring a status-bearing element. Pages position the
+// element and pass tones through this door; a convention change (adding a
+// border, tweaking bg alpha, a focus ring) lands here once instead of in the
+// ~83 re-rolled color/background/border blocks it replaces. New status
+// styling MUST use this (ratchet: npm run lint -> check-status-scss).
+@mixin status-variant($color, $bg: null, $border: null) {
+    color: $color;
+    @if $bg != null { background: $bg; }
+    @if $border != null { border-color: $border; }
+}

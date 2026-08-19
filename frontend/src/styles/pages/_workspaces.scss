@@ -551,8 +551,7 @@
         }
 
         &.is-active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
             font-weight: $font-weight-medium;
         }
     }

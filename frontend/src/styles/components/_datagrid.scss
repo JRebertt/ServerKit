@@ -226,8 +226,7 @@
 
     &.is-on {
         border-color: var(--accent-dim);
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__count {
@@ -438,8 +437,7 @@
 
     &__row:hover &__avatar {
         border-color: var(--accent-dim);
-        color: var(--accent-bright);
-        background: var(--accent-bg);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__nameinner { min-width: 0; }
@@ -713,7 +711,7 @@
         &:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
         &.is-on { color: var(--text); }
         &.is-danger { color: var(--red); }
-        &.is-danger:hover:not(:disabled) { background: var(--red-bg); color: var(--red); }
+        &.is-danger:hover:not(:disabled) { @include status-variant(var(--red), var(--red-bg)); }
         &:disabled { opacity: 0.4; cursor: default; }
 
         svg { flex-shrink: 0; }
@@ -988,7 +986,7 @@
         color: var(--text-faint);
         cursor: pointer;
 
-        &.is-on { background: var(--accent-bg); color: var(--accent-bright); }
+        &.is-on { @include status-variant(var(--accent-bright), var(--accent-bg)); }
     }
 
     &--wide { width: fit-content; }
@@ -1060,7 +1058,7 @@
         color: var(--text-ghost);
         cursor: pointer;
 
-        &:hover { background: var(--red-bg); color: var(--red); }
+        &:hover { @include status-variant(var(--red), var(--red-bg)); }
     }
 
     &__join {
@@ -1090,8 +1088,7 @@
 
         &.is-on {
             border-color: var(--accent-dim);
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
     }
 }

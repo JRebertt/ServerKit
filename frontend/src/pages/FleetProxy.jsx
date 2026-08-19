@@ -7,7 +7,7 @@ import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
-import { DataTable, Pill } from '@/components/ds';
+import { DataTable, Pill, serviceStatusKind, statusLabel as dsStatusLabel } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -27,24 +27,6 @@ const PROXY_TYPE_META = {
     nginx: { label: 'Nginx', kind: 'gray' },
     traefik: { label: 'Traefik', kind: 'cyan' },
     caddy: { label: 'Caddy', kind: 'violet' },
-};
-
-// Status → Pill kind. 'host' means "host nginx, no managed stack" — a healthy
-// default, not a fault, so it reads green-ish (cyan) rather than amber.
-const STATUS_KIND = {
-    running: 'green',
-    host: 'cyan',
-    stopped: 'gray',
-    error: 'red',
-    unknown: 'amber',
-};
-
-const STATUS_LABEL = {
-    running: 'Running',
-    host: 'Host default',
-    stopped: 'Stopped',
-    error: 'Error',
-    unknown: 'Unknown',
 };
 
 // Recommendation level → Pill kind. 'ok' reads green (aligned), 'info' is a
@@ -71,7 +53,7 @@ function typeMeta(type) {
     return PROXY_TYPE_META[type] || { label: type || 'Unknown', kind: 'gray' };
 }
 
-const statusLabel = (row) => STATUS_LABEL[row.status] || row.status || 'Unknown';
+const statusLabel = (row) => dsStatusLabel(row.status);
 
 // Columns for the shared DataTable. Two accessors per column on purpose:
 // `value` is what the column MENU, the filter rules and the export read
@@ -121,7 +103,7 @@ const FLEET_COLUMNS = [
         groupValue: statusLabel,
         sortValue: statusLabel,
         render: (row) => (
-            <Pill kind={STATUS_KIND[row.status] || 'gray'}>{statusLabel(row)}</Pill>
+            <Pill kind={serviceStatusKind(row.status)}>{statusLabel(row)}</Pill>
         ),
     },
     {

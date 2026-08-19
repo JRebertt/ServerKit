@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 from .notification_service import NotificationService
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
 from app.services.telemetry_service import TelemetryService
 
 
@@ -43,14 +44,7 @@ class MonitoringService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get monitoring configuration."""
-        if os.path.exists(cls.ALERTS_CONFIG):
-            try:
-                with open(cls.ALERTS_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.ALERTS_CONFIG, {
             'enabled': False,
             'thresholds': cls.DEFAULT_THRESHOLDS.copy(),
             'email': {
@@ -67,18 +61,12 @@ class MonitoringService:
                 'url': ''
             },
             'check_interval': 60  # seconds
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save monitoring configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.ALERTS_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.ALERTS_CONFIG, config)
 
     @classmethod
     def get_thresholds(cls) -> Dict:
@@ -103,7 +91,8 @@ class MonitoringService:
         try:
             load_avg = os.getloadavg()
         except (OSError, AttributeError):
-            load_avg = (0, 0, 0)
+            # Not determinable on this platform — None, never a fake zero load.
+            load_avg = (None, None, None)
 
         return {
             'timestamp': datetime.now().isoformat(),
@@ -167,13 +156,15 @@ class MonitoringService:
                 'threshold': thresholds['disk_percent']
             })
 
-        # Load average check
-        if metrics['load_average']['1min'] > thresholds.get('load_average', 5.0):
+        # Load average check — skipped entirely when load could not be
+        # determined on this platform (None), not silently compared as 0.
+        load_1min = metrics['load_average']['1min']
+        if load_1min is not None and load_1min > thresholds.get('load_average', 5.0):
             alerts.append({
                 'type': 'load',
                 'severity': 'warning',
-                'message': f"Load average at {metrics['load_average']['1min']:.2f} (threshold: {thresholds['load_average']})",
-                'value': metrics['load_average']['1min'],
+                'message': f"Load average at {load_1min:.2f} (threshold: {thresholds['load_average']})",
+                'value': load_1min,
                 'threshold': thresholds['load_average']
             })
 

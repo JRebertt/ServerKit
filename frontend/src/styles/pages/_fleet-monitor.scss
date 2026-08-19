@@ -32,8 +32,7 @@
     display: inline-flex;
     padding: $space-2;
     border-radius: $radius-md;
-    background: var(--accent-bg);
-    color: var(--accent-bright);
+    @include status-variant(var(--accent-bright), var(--accent-bg));
 }
 
 // Small centered stat box (diagnostics, forecast)

@@ -20,11 +20,16 @@ from pathlib import Path
 
 from .notification_service import NotificationService
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
 from app.utils.system import (
     PackageManager,
     ServiceControl,
+    is_command_available,
+    run_checked,
     run_privileged,
 )
+
+LYNIS_SCAN_JOB_KIND = 'security.lynis_scan'
 
 
 class SecurityService:
@@ -43,14 +48,7 @@ class SecurityService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get security configuration."""
-        if os.path.exists(cls.SECURITY_CONFIG):
-            try:
-                with open(cls.SECURITY_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.SECURITY_CONFIG, {
             'clamav': {
                 'enabled': True,
                 'scan_paths': ['/var/www', '/home'],
@@ -83,18 +81,12 @@ class SecurityService:
                 'on_suspicious_activity': True,
                 'severity': 'critical'
             }
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save security configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.SECURITY_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.SECURITY_CONFIG, config)
 
     # ==========================================
     # CLAMAV INTEGRATION
@@ -113,16 +105,11 @@ class SecurityService:
 
         # Check if ClamAV is installed
         try:
-            version_output = subprocess.run(
-                ['clamscan', '--version'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if version_output.returncode == 0:
+            version_output = run_checked(['clamscan', '--version'], timeout=10)
+            if version_output['success']:
                 result['installed'] = True
-                result['version'] = version_output.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+                result['version'] = version_output['output'].strip()
+        except Exception:  # noqa: BLE001 - probe only; absence is the answer
             pass
 
         # Check if clamd service is running
@@ -184,29 +171,26 @@ class SecurityService:
             # Stop freshclam if running to avoid conflicts
             ServiceControl.stop('clamav-freshclam', timeout=10)
 
-            result = subprocess.run(
-                ['freshclam'],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+            result = run_checked(['freshclam'], timeout=300)
 
             # Restart freshclam
             ServiceControl.start('clamav-freshclam', timeout=10)
 
-            if result.returncode == 0:
-                return {'success': True, 'message': 'Definitions updated', 'output': result.stdout}
+            if result['success']:
+                return {'success': True, 'message': 'Definitions updated',
+                        'output': result['output']}
+
+            if result['returncode'] is None:
+                # Never ran: no freshclam, or it outlived the timeout. Not the
+                # same as "the update reported a problem".
+                return {'success': False, 'error': result['error']}
 
             # Return code 1 might just mean "already up to date"
-            if 'up to date' in result.stdout.lower() or 'up to date' in result.stderr.lower():
+            if ('up to date' in result['output'].lower()
+                    or 'up to date' in result['stderr'].lower()):
                 return {'success': True, 'message': 'Definitions already up to date'}
 
-            return {'success': False, 'error': result.stderr or result.stdout}
-
-        except FileNotFoundError:
-            return {'success': False, 'error': 'freshclam not found. Is ClamAV installed?'}
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Update timed out'}
+            return {'success': False, 'error': result['stderr'] or result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -241,19 +225,16 @@ class SecurityService:
             return {'success': False, 'error': 'File not found'}
 
         try:
-            result = subprocess.run(
-                ['clamscan', '--no-summary', file_path],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
+            result = run_checked(['clamscan', '--no-summary', file_path], timeout=60)
 
-            infected = result.returncode == 1
+            # clamscan exit 1 means INFECTED, not "the command failed" — read
+            # the code, not result['success'].
+            infected = result['returncode'] == 1
             scan_result = {
                 'success': True,
                 'file': file_path,
                 'infected': infected,
-                'output': result.stdout.strip(),
+                'output': result['output'].strip(),
                 'scanned_at': datetime.now().isoformat()
             }
 
@@ -261,7 +242,7 @@ class SecurityService:
                 # Log and send notification
                 cls._log_alert('malware', f'Malware detected in {file_path}', {
                     'file': file_path,
-                    'output': result.stdout.strip()
+                    'output': result['output'].strip()
                 })
                 cls._send_security_notification(
                     'malware_detected',
@@ -329,16 +310,11 @@ class SecurityService:
 
             cmd.append(directory)
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=3600  # 1 hour timeout
-            )
+            result = run_checked(cmd, timeout=3600)  # 1 hour
 
             # Parse output
             infected_files = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if ': ' in line and 'FOUND' in line:
                     file_path = line.split(':')[0]
                     infected_files.append(file_path)
@@ -346,7 +322,7 @@ class SecurityService:
             cls._current_scan['status'] = 'completed'
             cls._current_scan['completed_at'] = datetime.now().isoformat()
             cls._current_scan['infected_files'] = infected_files
-            cls._current_scan['output'] = result.stdout
+            cls._current_scan['output'] = result['output']
 
             # Log scan result
             cls._log_scan(cls._current_scan)
@@ -912,16 +888,11 @@ class SecurityService:
         }
 
         try:
-            version_output = subprocess.run(
-                ['fail2ban-client', '--version'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            if version_output.returncode == 0:
+            version_output = run_checked(['fail2ban-client', '--version'], timeout=10)
+            if version_output['success']:
                 result['installed'] = True
-                result['version'] = version_output.stdout.strip().split('\n')[0]
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+                result['version'] = version_output['output'].strip().split('\n')[0]
+        except Exception:  # noqa: BLE001 - probe only; absence is the answer
             pass
 
         if result['installed']:
@@ -932,14 +903,9 @@ class SecurityService:
 
             if result['service_running']:
                 try:
-                    jails_output = subprocess.run(
-                        ['fail2ban-client', 'status'],
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    if jails_output.returncode == 0:
-                        for line in jails_output.stdout.split('\n'):
+                    jails_output = run_checked(['fail2ban-client', 'status'], timeout=10)
+                    if jails_output['success']:
+                        for line in jails_output['output'].split('\n'):
                             if 'Jail list:' in line:
                                 jails_str = line.split(':')[1].strip()
                                 if jails_str:
@@ -976,14 +942,9 @@ class SecurityService:
     def get_fail2ban_jail_status(cls, jail: str) -> Dict:
         """Get status of a specific Fail2ban jail."""
         try:
-            result = subprocess.run(
-                ['fail2ban-client', 'status', jail],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = run_checked(['fail2ban-client', 'status', jail], timeout=10)
 
-            if result.returncode != 0:
+            if not result['success']:
                 return {'success': False, 'error': f'Jail {jail} not found'}
 
             status = {
@@ -995,7 +956,7 @@ class SecurityService:
                 'total_failed': 0
             }
 
-            for line in result.stdout.split('\n'):
+            for line in result['output'].split('\n'):
                 line = line.strip()
                 if 'Currently banned:' in line:
                     status['currently_banned'] = int(line.split(':')[1].strip())
@@ -1036,23 +997,14 @@ class SecurityService:
         """Unban an IP from Fail2ban."""
         try:
             if jail:
-                result = subprocess.run(
-                    ['fail2ban-client', 'set', jail, 'unbanip', ip],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+                result = run_checked(['fail2ban-client', 'set', jail, 'unbanip', ip],
+                                     timeout=10)
             else:
-                result = subprocess.run(
-                    ['fail2ban-client', 'unban', ip],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
+                result = run_checked(['fail2ban-client', 'unban', ip], timeout=10)
 
-            if result.returncode == 0:
+            if result['success']:
                 return {'success': True, 'message': f'IP {ip} unbanned'}
-            return {'success': False, 'error': result.stderr or 'Failed to unban IP'}
+            return {'success': False, 'error': result['error'] or 'Failed to unban IP'}
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -1061,16 +1013,11 @@ class SecurityService:
     def ban_ip(cls, ip: str, jail: str = 'sshd') -> Dict:
         """Manually ban an IP in Fail2ban."""
         try:
-            result = subprocess.run(
-                ['fail2ban-client', 'set', jail, 'banip', ip],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
+            result = run_checked(['fail2ban-client', 'set', jail, 'banip', ip], timeout=10)
 
-            if result.returncode == 0:
+            if result['success']:
                 return {'success': True, 'message': f'IP {ip} banned in {jail}'}
-            return {'success': False, 'error': result.stderr or 'Failed to ban IP'}
+            return {'success': False, 'error': result['error'] or 'Failed to ban IP'}
 
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -1125,15 +1072,9 @@ class SecurityService:
     def _get_key_fingerprint(cls, key_line: str) -> str:
         """Get SSH key fingerprint."""
         try:
-            result = subprocess.run(
-                ['ssh-keygen', '-lf', '-'],
-                input=key_line,
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            if result.returncode == 0:
-                parts = result.stdout.strip().split()
+            result = run_checked(['ssh-keygen', '-lf', '-'], input=key_line, timeout=5)
+            if result['success']:
+                parts = result['output'].strip().split()
                 if len(parts) >= 2:
                     return parts[1]
         except Exception:
@@ -1328,8 +1269,8 @@ class SecurityService:
         passed_checks = 0
 
         try:
-            uname = subprocess.run(['uname', '-a'], capture_output=True, text=True, timeout=5)
-            audit['system']['kernel'] = uname.stdout.strip() if uname.returncode == 0 else 'Unknown'
+            uname = run_checked(['uname', '-a'], timeout=5)
+            audit['system']['kernel'] = uname['output'].strip() if uname['success'] else 'Unknown'
         except Exception:
             audit['system']['kernel'] = 'Unknown'
 
@@ -1464,9 +1405,9 @@ class SecurityService:
         checks['total_checks'] += 1
         try:
             if PackageManager.detect() == 'apt':
-                result = subprocess.run(['apt', 'list', '--upgradable'], capture_output=True, text=True, timeout=60)
-                if result.returncode == 0:
-                    lines = [l for l in result.stdout.split('\n') if '/' in l]
+                result = run_checked(['apt', 'list', '--upgradable'], timeout=60)
+                if result['success']:
+                    lines = [l for l in result['output'].split('\n') if '/' in l]
                     if len(lines) == 0:
                         checks['passed_checks'] += 1
                         checks['findings'].append({'severity': 'pass', 'message': 'System is up to date'})
@@ -1515,16 +1456,26 @@ class SecurityService:
     # ==========================================
     @classmethod
     def get_lynis_status(cls) -> Dict:
-        """Check if Lynis is installed."""
+        """Check if Lynis is installed.
+
+        Presence and version are separate questions. Inferring "installed" from
+        a successful ``lynis --version`` exec makes any exec failure look like
+        absence — and Debian ships lynis in a sbin directory the panel unit's
+        PATH omits, so a bare-name call raises FileNotFoundError. Same trap as
+        FirewallService._check_ufw.
+        """
+        installed = is_command_available('lynis') or PackageManager.is_installed('lynis')
+        if not installed:
+            return {'installed': False, 'version': None}
+
+        version = None
         try:
-            result = subprocess.run(['lynis', '--version'], capture_output=True, text=True, timeout=10)
+            result = run_privileged(['lynis', '--version'], timeout=10)
             if result.returncode == 0:
-                return {'installed': True, 'version': result.stdout.strip()}
-        except FileNotFoundError:
-            pass
+                version = (result.stdout or '').strip()
         except Exception:
             pass
-        return {'installed': False, 'version': None}
+        return {'installed': True, 'version': version}
 
     @classmethod
     def install_lynis(cls) -> Dict:
@@ -1547,12 +1498,18 @@ class SecurityService:
             return {'success': False, 'error': str(e)}
 
     _lynis_scan = None
-    _lynis_thread = None
 
     @classmethod
     def run_lynis_scan(cls) -> Dict:
-        """Run a Lynis security audit scan."""
-        if cls._lynis_thread and cls._lynis_thread.is_alive():
+        """Queue a durable Lynis security audit scan."""
+        from app.jobs.models import Job
+        from app.jobs.service import JobService
+
+        active = Job.query.filter(
+            Job.kind == LYNIS_SCAN_JOB_KIND,
+            Job.status.in_((Job.STATUS_PENDING, Job.STATUS_RUNNING)),
+        ).order_by(Job.created_at.desc()).first()
+        if active:
             return {'success': False, 'error': 'A scan is already in progress'}
 
         status = cls.get_lynis_status()
@@ -1568,27 +1525,54 @@ class SecurityService:
             'hardening_index': None
         }
 
-        cls._lynis_thread = threading.Thread(target=cls._run_lynis_scan_thread, daemon=True)
-        cls._lynis_thread.start()
+        cls.register_jobs()
+        job = JobService.enqueue(
+            LYNIS_SCAN_JOB_KIND,
+            payload={},
+            owner_type='system',
+            owner_id='host',
+        )
+        cls._lynis_scan['job_id'] = job.id
+        cls._lynis_scan['kind'] = job.kind
 
-        return {'success': True, 'message': 'Lynis scan started'}
+        return {
+            'success': True,
+            'message': 'Lynis scan started',
+            'job_id': job.id,
+            'kind': job.kind,
+            'status': 'running',
+        }
 
     @classmethod
-    def _run_lynis_scan_thread(cls) -> None:
-        """Execute Lynis scan in background thread."""
-        try:
-            result = subprocess.run(
-                ['lynis', 'audit', 'system', '--quick', '--no-colors'],
-                capture_output=True,
-                text=True,
-                timeout=1800
-            )
+    def run_lynis_scan_job(cls, job) -> Dict:
+        """Unified-job handler for a Lynis audit."""
+        cls._lynis_scan = {
+            'status': 'running',
+            'started_at': datetime.now().isoformat(),
+            'output': '',
+            'warnings': [],
+            'suggestions': [],
+            'hardening_index': None,
+            'job_id': job.id,
+            'kind': job.kind,
+        }
+        result = cls._execute_lynis_scan()
+        if result['status'] != 'completed':
+            raise RuntimeError(result.get('error') or f"Lynis scan {result['status']}")
+        return result
 
-            cls._lynis_scan['output'] = result.stdout
+    @classmethod
+    def _execute_lynis_scan(cls) -> Dict:
+        """Execute Lynis and update the compatibility status snapshot."""
+        try:
+            result = run_checked(['lynis', 'audit', 'system', '--quick', '--no-colors'],
+                                 timeout=1800)
+
+            cls._lynis_scan['output'] = result['output']
             cls._lynis_scan['status'] = 'completed'
             cls._lynis_scan['completed_at'] = datetime.now().isoformat()
 
-            for line in result.stdout.split('\n'):
+            for line in result['output'].split('\n'):
                 if 'Warning:' in line:
                     cls._lynis_scan['warnings'].append(line.strip())
                 elif 'Suggestion:' in line:
@@ -1606,13 +1590,40 @@ class SecurityService:
         except Exception as e:
             cls._lynis_scan['status'] = 'error'
             cls._lynis_scan['error'] = str(e)
+        return cls._lynis_scan.copy()
 
     @classmethod
     def get_lynis_scan_status(cls) -> Dict:
-        """Get current Lynis scan status."""
-        if cls._lynis_scan is None:
+        """Get current Lynis status, backed by the latest persisted job."""
+        from app.jobs.models import Job
+
+        job = (Job.query.filter_by(kind=LYNIS_SCAN_JOB_KIND)
+               .order_by(Job.created_at.desc()).first())
+        if job is None and cls._lynis_scan is None:
             return {'status': 'idle', 'message': 'No scan in progress'}
-        return cls._lynis_scan.copy()
+
+        status = cls._lynis_scan.copy() if cls._lynis_scan else {}
+        if job:
+            status.update({'job_id': job.id, 'kind': job.kind,
+                           'job_status': job.status})
+            if job.status == Job.STATUS_SUCCEEDED and job.get_result():
+                status.update(job.get_result())
+            elif job.status in (Job.STATUS_PENDING, Job.STATUS_RUNNING):
+                status['status'] = 'running'
+                status.setdefault('started_at',
+                                  (job.started_at or job.created_at).isoformat())
+            elif job.status == Job.STATUS_FAILED:
+                status['status'] = 'error'
+                status['error'] = job.error_message or 'Lynis scan failed'
+            elif job.status == Job.STATUS_CANCELLED:
+                status['status'] = 'cancelled'
+        return status
+
+    @classmethod
+    def register_jobs(cls) -> None:
+        """Register the durable Lynis handler (safe to call repeatedly)."""
+        from app.jobs import registry
+        registry.register(LYNIS_SCAN_JOB_KIND, cls.run_lynis_scan_job, replace=True)
 
     # ==========================================
     # AUTOMATIC SECURITY UPDATES

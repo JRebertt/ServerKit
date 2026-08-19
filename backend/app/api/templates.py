@@ -19,6 +19,7 @@ from app.services.template_service import TemplateService
 from app.services.repository_manifest_service import RepositoryManifestService
 from app.services.resource_grant_service import ResourceGrantService
 from app.utils.slug import validate_app_name
+from app.error_reporting import unexpected_response
 
 templates_bp = Blueprint('templates', __name__)
 
@@ -310,7 +311,6 @@ def catalog_schema():
 # ==================== TEMPLATE INSTALLATION ====================
 
 @templates_bp.route('/<template_id>/install', methods=['POST'])
-@jwt_required()
 @admin_required
 def install_template(template_id):
     """Install a template as a new application."""
@@ -349,11 +349,10 @@ def install_template(template_id):
         status = result.get('job', {}).get('status')
         return jsonify(result), 201 if status == 'succeeded' else 202
 
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Template install error: {error_trace}")
-        return jsonify({'error': str(e), 'trace': error_trace}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Was returning the full traceback to the caller and print()ing it.
+        # The door logs it and files it under a request id instead.
+        return unexpected_response(exc)
 
 
 @templates_bp.route('/<template_id>/capacity', methods=['GET'])
@@ -447,11 +446,8 @@ def validate_installation():
 
         return jsonify({'valid': True, 'capacity': capacity}), 200
 
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Validate install error: {error_trace}")
-        return jsonify({'error': str(e), 'trace': error_trace}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @templates_bp.route('/test-db-connection', methods=['POST'])
@@ -524,7 +520,6 @@ def check_app_update(app_id):
 
 
 @templates_bp.route('/apps/<int:app_id>/update', methods=['POST'])
-@jwt_required()
 @admin_required
 def update_app(app_id):
     """Update an app to the latest template version."""
@@ -570,7 +565,6 @@ def list_repositories():
 
 
 @templates_bp.route('/repos', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_repository():
     """Add a template repository."""
@@ -590,7 +584,6 @@ def add_repository():
 
 
 @templates_bp.route('/repos', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_repository():
     """Remove a template repository."""
@@ -605,7 +598,6 @@ def remove_repository():
 
 
 @templates_bp.route('/sync', methods=['POST'])
-@jwt_required()
 @admin_required
 def sync_templates():
     """Sync templates from all repositories."""
@@ -625,7 +617,6 @@ def repo_index():
 
 
 @templates_bp.route('/repos/index/export', methods=['POST'])
-@jwt_required()
 @admin_required
 def export_repo_index():
     """Write index.json next to the bundled templates so the directory can be
@@ -637,7 +628,6 @@ def export_repo_index():
 # ==================== LOCAL TEMPLATE MANAGEMENT ====================
 
 @templates_bp.route('/local', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_local_template():
     """Create a local template."""
@@ -651,7 +641,6 @@ def create_local_template():
 
 
 @templates_bp.route('/local/<template_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_local_template(template_id):
     """Delete a local template."""

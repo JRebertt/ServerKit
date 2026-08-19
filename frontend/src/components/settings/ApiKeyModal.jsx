@@ -5,6 +5,7 @@ import ApiKeyScopesModal from '../api/ApiKeyScopesModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const TIER_OPTIONS = [
     { value: 'standard', label: 'Standard', desc: '100 req/min' },
@@ -36,9 +37,8 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
         }
     };
 
-    const copyKey = () => {
-        if (createdKey) {
-            navigator.clipboard.writeText(createdKey);
+    const copyKey = async () => {
+        if (createdKey && await copyToClipboard(createdKey)) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }

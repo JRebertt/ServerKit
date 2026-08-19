@@ -1,24 +1,16 @@
 """Tests for image-digest update detection."""
+import pytest
 import uuid
 
 from app import db
 from app.models import Application
 from app.services.docker_service import DockerService
 from app.services.image_update_service import ImageUpdateService
+from factories import make_application
 
 
 def _seed_app(image='nginx:latest'):
-    from app.models import User
-    uid = uuid.uuid4().hex[:8]
-    user = User(email=f'{uid}@t.local', username=f'u{uid}',
-                password_hash='x', role=User.ROLE_ADMIN, is_active=True)
-    db.session.add(user)
-    db.session.commit()
-    row = Application(name='web', app_type='docker', source='manual',
-                      docker_image=image, user_id=user.id)
-    db.session.add(row)
-    db.session.commit()
-    return row
+    return make_application(db, docker_image=image)
 
 
 class TestImageUpdateService:
@@ -26,9 +18,7 @@ class TestImageUpdateService:
         a = _seed_app()
         monkeypatch.setattr(ImageUpdateService, '_local_digest', lambda ref: 'sha256:aaa')
         monkeypatch.setattr(ImageUpdateService, '_registry_digest', lambda ref: 'sha256:bbb')
-        result = ImageUpdateService.check_application(a.id)
-        assert result['success']
-        chk = result['check']
+        chk = ImageUpdateService.check_application(a.id)
         assert chk['status'] == 'completed'
         assert chk['update_available'] is True
         assert chk['current_digest'] == 'sha256:aaa'
@@ -38,7 +28,7 @@ class TestImageUpdateService:
         a = _seed_app()
         monkeypatch.setattr(ImageUpdateService, '_local_digest', lambda ref: 'sha256:same')
         monkeypatch.setattr(ImageUpdateService, '_registry_digest', lambda ref: 'sha256:same')
-        chk = ImageUpdateService.check_application(a.id)['check']
+        chk = ImageUpdateService.check_application(a.id)
         assert chk['status'] == 'completed'
         assert chk['update_available'] is False
 
@@ -46,14 +36,15 @@ class TestImageUpdateService:
         a = _seed_app()
         monkeypatch.setattr(ImageUpdateService, '_local_digest', lambda ref: None)
         monkeypatch.setattr(ImageUpdateService, '_registry_digest', lambda ref: 'sha256:bbb')
-        chk = ImageUpdateService.check_application(a.id)['check']
+        chk = ImageUpdateService.check_application(a.id)
         assert chk['status'] == 'failed'
         assert chk['update_available'] is False
 
-    def test_no_image_returns_error(self, app):
+    def test_no_image_raises_typed_error(self, app):
+        from app.exceptions import ValidationError
         a = _seed_app(image=None)
-        result = ImageUpdateService.check_application(a.id)
-        assert result['success'] is False
+        with pytest.raises(ValidationError):
+            ImageUpdateService.check_application(a.id)
 
     def test_badge_present_in_application_to_dict(self, app, monkeypatch):
         a = _seed_app()

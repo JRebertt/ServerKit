@@ -190,14 +190,12 @@
     }
 
     &--project {
-        color: $info;
-        background: $info-bg;
+        @include status-variant($info, $info-bg);
         border-color: $info-border;
     }
 
     &--environment {
-        color: $success;
-        background: $success-bg;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
 
@@ -221,8 +219,7 @@
     font-size: $font-size-xs;
     font-weight: 600;
     line-height: 1.5;
-    color: $warning;
-    background: $warning-bg;
+    @include status-variant($warning, $warning-bg);
     border: 1px solid $warning-border;
     white-space: nowrap;
     cursor: help;

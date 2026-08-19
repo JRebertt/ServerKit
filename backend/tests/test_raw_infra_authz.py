@@ -22,18 +22,9 @@ import pytest
 from app.services.database_service import DatabaseService
 from app.services.docker_service import DockerService
 
-NON_ADMIN = ('owner', 'member', 'viewer', 'foreign')
-
-
-def _assert_admin_only(client, s, method, url, body=None):
-    """Every non-admin persona is 403; the admin passes the gate (the mocked
-    service layer answers 200)."""
-    kwargs = {'json': body} if body is not None else {}
-    for persona in NON_ADMIN:
-        resp = getattr(client, method)(url, headers=getattr(s, persona), **kwargs)
-        assert resp.status_code == 403, f'{persona} reached {url}'
-    resp = getattr(client, method)(url, headers=s.admin, **kwargs)
-    assert resp.status_code == 200, f'admin denied {url}: {resp.get_json()}'
+# Promoted to a shared one-liner (plan 77 G4); kept as a local alias so the
+# call sites below read the same.
+from factories import assert_admin_only as _assert_admin_only  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #

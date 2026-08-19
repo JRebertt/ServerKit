@@ -1,10 +1,10 @@
-import uuid
 from datetime import datetime
 
 from app import db
+from app.models.mixins import uuid_pk, TimestampMixin
 
 
-class ExposedService(db.Model):
+class ExposedService(TimestampMixin, db.Model):
     """A service on a private (NAT'd) host published to the public internet
     over a WireGuard tunnel (roadmap Phase 2). The edge runs an nginx vhost
     for ``hostname`` that proxies to the private peer's WG IP; the private
@@ -13,7 +13,7 @@ class ExposedService(db.Model):
     """
     __tablename__ = 'exposed_services'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     tunnel_id = db.Column(db.String(36), db.ForeignKey('tunnels.id'), nullable=False, index=True)
 
     hostname = db.Column(db.String(255), nullable=False)   # e.g. jellyfin.example.com
@@ -27,8 +27,6 @@ class ExposedService(db.Model):
     status = db.Column(db.String(20), default='pending', index=True)  # pending / published / error
     last_error = db.Column(db.Text)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     tunnel = db.relationship('Tunnel')
 

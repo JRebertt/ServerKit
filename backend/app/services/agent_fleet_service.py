@@ -15,7 +15,7 @@ from app import db
 from app.models.server import (
     Server, ServerGroup, AgentVersion, ServerCommand, AgentSession, AgentRollout
 )
-from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 
 
 class AgentFleetService:
@@ -39,18 +39,20 @@ class AgentFleetService:
         offline_count = sum(1 for s in servers if s.status == 'offline')
         pending_count = sum(1 for s in servers if s.status == 'pending')
 
-        # Real heartbeat latency from active sessions
+        # Real heartbeat latency from active sessions. No sessions -> None:
+        # "0.0 ms" would be a perfect-latency reading, not an absence of data.
         active_sessions = AgentSession.query.filter_by(is_active=True).all()
         latencies = [s.avg_latency_ms for s in active_sessions if s.avg_latency_ms is not None]
-        avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
+        avg_latency = sum(latencies) / len(latencies) if latencies else None
 
-        # Command success rate in the last hour
+        # Command success rate in the last hour. No commands -> None:
+        # "100% success" would be a claim, not an observation.
         commands = ServerCommand.query.filter(ServerCommand.created_at >= one_hour_ago).all()
         if commands:
             success_count = sum(1 for c in commands if c.status == 'completed')
             command_success_rate = (success_count / len(commands)) * 100
         else:
-            command_success_rate = 100.0
+            command_success_rate = None
 
         # Queued commands count
         queued_count = ServerCommand.query.filter_by(queued=True, status='pending').count()
@@ -61,8 +63,8 @@ class AgentFleetService:
             'offline_servers': offline_count,
             'pending_servers': pending_count,
             'uptime_percentage': (online_count / total_count * 100) if total_count > 0 else 100,
-            'avg_heartbeat_latency': round(avg_latency, 1),
-            'command_success_rate': round(command_success_rate, 1),
+            'avg_heartbeat_latency': round(avg_latency, 1) if avg_latency is not None else None,
+            'command_success_rate': round(command_success_rate, 1) if command_success_rate is not None else None,
             'queued_commands': queued_count,
             'version_distribution': self._get_version_distribution(servers)
         }
@@ -117,7 +119,7 @@ class AgentFleetService:
                 continue
 
             threading.Thread(
-                target=agent_registry.send_command,
+                target=dispatch_agent_command,
                 args=(server_id, 'agent:update', params),
                 kwargs={'user_id': user_id, 'timeout': 60.0},
                 daemon=True
@@ -378,7 +380,7 @@ class AgentFleetService:
         app = create_app()
 
         with app.app_context():
-            result = agent_registry.send_command(
+            result = dispatch_agent_command(
                 server_id, action, params, user_id=user_id, timeout=60.0
             )
 

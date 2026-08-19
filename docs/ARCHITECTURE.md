@@ -155,9 +155,11 @@ User Request                    What Happens
 </details>
 
 Panel requests take the same path but terminate at Flask. Everything under
-`/api/v1/` is JSON and JWT-protected; the Flask 404 handler serves `index.html`
-so client-side SPA routing works on deep links, while API routes still return
-JSON errors.
+`/api/v1/` is JSON and auth-protected (JWT by default; a route accepts API keys
+only by opting in through the shared policy decorator); the Flask 404 handler
+serves `index.html` so client-side SPA routing works on deep links, while API
+routes return typed JSON error envelopes carrying a request-correlation id,
+shaped by one global handler (`app/exceptions.py`).
 
 **Client IP.** Behind the bundled nginx, set `TRUST_PROXY_HEADERS=true` and
 `TRUSTED_PROXY_HOPS=1` so Werkzeug's `ProxyFix` derives the real client IP;
@@ -172,16 +174,16 @@ The Flask app factory is `create_app()` in `backend/app/__init__.py`. Three laye
 
 | Layer | Path | Role |
 |---|---|---|
-| **API** | `app/api/` | Flask Blueprints, one file per feature. All routes under `/api/v1/`, `@jwt_required()`. |
+| **API** | `app/api/` | Flask Blueprints, one file per feature. All routes under `/api/v1/`, guarded by the policy decorators in `app/middleware/rbac.py` (`auth_required()` / role checks — JWT-only is the default policy, API-key access is per-route opt-in; the caller's identity always resolves through `rbac.get_current_user()`). |
 | **Services** | `app/services/` | Business logic. Stateless modules; all shell-outs, Docker API calls, and file writes live here. |
-| **Models** | `app/models/` | SQLAlchemy ORM. Schema managed by Alembic migrations. |
+| **Models** | `app/models/` | SQLAlchemy ORM. Schema managed by Alembic migrations. Shared shapes live in mixins (`TimestampMixin`, `JsonColumnMixin`, `SoftDeleteMixin`, `SerializableMixin`, `RunLifecycleMixin`) and run/status fields use the canonical status vocabulary in `app/models/status.py`. |
 
 Cross-cutting subsystems that sit beside those three:
 
 - `app/jobs/` — background work and scheduling (see [Jobs & Scheduling](#jobs--scheduling))
 - `app/notifications/` — the notification bus (see [Notifications Bus](#notifications-bus))
 - `app/plugins/` + `app/plugins_sdk/` — the extension runtime and its SDK
-- `app/sockets.py` — Socket.IO handlers for live metrics, logs, and terminal
+- `app/sockets.py` — the Socket.IO channel registry (one declarative subscribe/unsubscribe door per channel) over a shared room grammar (`app/sockets_rooms.py`), plus the generalized run envelope (`run_log`/`run_status` events in `run_<kind>_<id>` rooms); two legacy raw log handlers remain, frozen by test until migrated
 - `app/agent_gateway.py` — the `/agent` Socket.IO namespace for the remote fleet
 - `app/middleware/security.py` — security headers
 - `app/paths.py` — the single source of truth for on-disk locations
@@ -533,10 +535,13 @@ its live output is surfaced by the full-page **Deploy Console** at
   path.
 
 The read side stays the source of truth: `GET /deployment-jobs/<id>/logs?after_id=`
-for incremental polling, plus a `deploy_log` / `deploy_status` Socket.IO channel
-(room `deploy_{job_id}`) as an accelerator. The frontend `useDeployJobStream` hook
-de-dupes by row id and re-syncs with `after_id` on reconnect, with a 2-second poll
-fallback — so the console works with sockets disabled. Emits are in-process only,
+for incremental polling, plus the run envelope's `run_log` / `run_status`
+Socket.IO events (room `run_deploy_<job_id>`) as an accelerator — the legacy
+`deploy_log` / `deploy_status` pair (room `deploy_{job_id}`) is still dual-emitted
+for compatibility until the Deploy Console migrates. The generic frontend hook is
+`useServerStream`; the deploy-specific `useDeployJobStream` hook de-dupes by row
+id and re-syncs with `after_id` on reconnect, with a 2-second poll fallback — so
+the console works with sockets disabled. Emits are in-process only,
 consistent with the single-worker gateway constraint below. See
 [DEPLOY_CONSOLE.md](DEPLOY_CONSOLE.md).
 

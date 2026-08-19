@@ -8,6 +8,13 @@ import DeploymentJobProgress from '../DeploymentJobProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Log tail refresh cadence while auto-refresh is on.
+const LOG_REFRESH_MS = 5000;
+
 
 const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
@@ -54,11 +61,7 @@ const LogsTab = ({ app }) => {
         return () => { cancelled = true; };
     }, [app?.id, deployJobId]);
 
-    useEffect(() => {
-        if (!autoRefresh) return;
-        const interval = setInterval(loadLogs, 5000);
-        return () => clearInterval(interval);
-    }, [autoRefresh, app.id, lineCount]);
+    usePolling(loadLogs, LOG_REFRESH_MS, { enabled: autoRefresh, immediate: false });
 
     useEffect(() => {
         if (autoScroll && logRef.current) {
@@ -138,17 +141,11 @@ const LogsTab = ({ app }) => {
     }
 
     function handleDownload() {
-        const blob = new Blob([rawLogs], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${app.name}-logs-${new Date().toISOString().slice(0, 10)}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(rawLogs, `${app.name}-logs-${new Date().toISOString().slice(0, 10)}.txt`);
     }
 
     function handleCopy() {
-        navigator.clipboard.writeText(rawLogs);
+        copyToClipboard(rawLogs);
     }
 
     const matchCount = searchTerm ? filteredLines.length : null;

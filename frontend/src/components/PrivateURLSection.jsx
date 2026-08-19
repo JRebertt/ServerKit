@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../hooks/useConfirm';
+import { useClipboard } from '../hooks/useClipboard';
 
 const PrivateURLSection = ({ app, onUpdate }) => {
     const toast = useToast();
+    const { confirm } = useConfirm();
+    const { copy } = useClipboard({ successMessage: 'URL copied to clipboard' });
     const [loading, setLoading] = useState(false);
     const [customSlug, setCustomSlug] = useState('');
     const [editMode, setEditMode] = useState(false);
@@ -27,7 +31,11 @@ const PrivateURLSection = ({ app, onUpdate }) => {
     }
 
     async function handleDisable() {
-        if (!confirm('Disable private URL? The current slug will be released.')) return;
+        if (!await confirm({
+            title: 'Disable private URL',
+            message: 'Disable the private URL? The current slug will be released.',
+            confirmText: 'Disable URL',
+        })) return;
 
         setLoading(true);
         try {
@@ -42,7 +50,11 @@ const PrivateURLSection = ({ app, onUpdate }) => {
     }
 
     async function handleRegenerate() {
-        if (!confirm('Generate a new random slug? The old URL will stop working.')) return;
+        if (!await confirm({
+            title: 'Regenerate private URL',
+            message: 'Generate a new random slug? The old URL will stop working.',
+            confirmText: 'Regenerate URL',
+        })) return;
 
         setLoading(true);
         try {
@@ -75,8 +87,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
     }
 
     function copyToClipboard() {
-        navigator.clipboard.writeText(privateUrl);
-        toast.success('URL copied to clipboard');
+        copy(privateUrl);
     }
 
     function handleSlugInput(e) {

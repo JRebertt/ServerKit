@@ -12,13 +12,13 @@ When an operator submits (code, passphrase) via /pairing/claim, the entry is
 matched, real Server credentials are minted, and `claimed_server_id` is set.
 """
 
-import uuid
 import hashlib
 from datetime import datetime, timedelta
 
 import bcrypt
 
 from app import db
+from app.models.mixins import EncryptedSecret, uuid_pk
 
 
 # Pair code uses Crockford-ish base32 minus ambiguous chars (0/O, 1/I/L)
@@ -33,7 +33,7 @@ class PendingAgent(db.Model):
 
     __tablename__ = 'pending_agents'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
 
     # Opaque token the agent uses to authenticate poll/refresh calls.
     # Stored hashed; the agent receives the plaintext value once on enroll.
@@ -70,6 +70,7 @@ class PendingAgent(db.Model):
     # When claimed, we stash credentials here briefly (Fernet-encrypted) so the
     # next /poll call can deliver them to the agent. Cleared after retrieval.
     claim_payload_encrypted = db.Column(db.Text, nullable=True)
+    claim_payload = EncryptedSecret('claim_payload_encrypted')
 
     claimed_server = db.relationship('Server', foreign_keys=[claimed_server_id])
 

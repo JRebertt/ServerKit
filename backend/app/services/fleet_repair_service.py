@@ -18,6 +18,7 @@ See ``docs/FLEET_CONTRACT.md`` (rule 6).
 import logging
 
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class FleetRepairService:
                              f" (older agent — upgrade to enable remote repair)",
                     'code': 'UNSUPPORTED'}
 
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id,
             spec['action'],
             {spec['param_key']: target},

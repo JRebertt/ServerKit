@@ -40,7 +40,6 @@ def get_alert_history():
 
 
 @monitoring_bp.route('/alerts/history', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def clear_alert_history():
     """Clear alert history."""
@@ -49,7 +48,6 @@ def clear_alert_history():
 
 
 @monitoring_bp.route('/config', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_config():
     """Get monitoring configuration."""
@@ -61,7 +59,6 @@ def get_config():
 
 
 @monitoring_bp.route('/config', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_config():
     """Update monitoring configuration."""
@@ -107,7 +104,6 @@ def get_thresholds():
 
 
 @monitoring_bp.route('/thresholds', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_thresholds():
     """Update alert thresholds."""
@@ -120,7 +116,6 @@ def update_thresholds():
 
 
 @monitoring_bp.route('/start', methods=['POST'])
-@jwt_required()
 @admin_required
 def start_monitoring():
     """Start background monitoring."""
@@ -129,7 +124,6 @@ def start_monitoring():
 
 
 @monitoring_bp.route('/stop', methods=['POST'])
-@jwt_required()
 @admin_required
 def stop_monitoring():
     """Stop background monitoring."""
@@ -138,7 +132,6 @@ def stop_monitoring():
 
 
 @monitoring_bp.route('/test/email', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_email_alert():
     """Send a test email alert."""
@@ -154,7 +147,6 @@ def test_email_alert():
 
 
 @monitoring_bp.route('/test/webhook', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_webhook_alert():
     """Send a test webhook alert."""

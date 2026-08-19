@@ -51,3 +51,49 @@ def test_app_fixture_stays_function_scoped(request):
         "`app` is %r-scoped; it must be 'function' so each test gets a clean "
         "database." % (defs[-1].scope,)
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan 77 G3 — direct create_app() in test modules is a frozen population.
+# ---------------------------------------------------------------------------
+
+# Files that booted their own app before the session-scoped fixture landed
+# (plan 64). Each extra boot re-exposes the state-leak classes documented on
+# `_flask_app` and costs seconds. New tests use the `app` fixture, the
+# session `route_rules` fixture (for url_map checks), or — when a different
+# config is genuinely needed — a documented fresh-app fixture in the module.
+# Shrinking this list is progress; do not add to it.
+CREATE_APP_BASELINE = {
+    'test_agent_poll_e2e.py',
+    'test_ai_lazy_import.py',
+    'test_api_error_shape.py',
+    'test_enhancements_integration.py',
+    'test_fleet_proxy.py',
+    'test_health_staging.py',
+    'test_login_bruteforce.py',
+    'test_no_background_threads.py',
+    'test_observability_namespace.py',
+    'test_proxy_stack.py',
+    'test_services_alias.py',
+    'test_ssl_unified_surface.py',
+    'test_trusted_client_ip.py',
+}
+
+
+def test_no_new_direct_create_app_callers():
+    import re
+    from pathlib import Path
+    tests_dir = Path(__file__).resolve().parent
+    found = set()
+    for f in sorted(tests_dir.glob('test_*.py')):
+        if f.name == Path(__file__).name:
+            continue
+        if re.search(r'\bcreate_app\(', f.read_text(encoding='utf-8', errors='replace')):
+            found.add(f.name)
+    new = found - CREATE_APP_BASELINE
+    assert not new, (
+        f'New test files booting their own app: {sorted(new)}. Use the `app` '
+        'fixture, `route_rules`, or a documented fresh-app fixture (plan 77 G3).'
+    )
+    stale = CREATE_APP_BASELINE - found
+    assert not stale, f'Migrated files still in the baseline: {sorted(stale)} — delete them.'

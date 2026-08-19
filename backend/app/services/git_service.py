@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 from pathlib import Path
 
 from app import paths
+from app.utils.config_store import load_json_config, save_json_config
+from app.utils.system import run_checked
 from app.utils.git_security import (
     git_argv,
     git_env,
@@ -28,28 +30,15 @@ class GitService:
     @classmethod
     def get_config(cls) -> Dict:
         """Get deployment configuration."""
-        if os.path.exists(cls.DEPLOY_CONFIG):
-            try:
-                with open(cls.DEPLOY_CONFIG, 'r') as f:
-                    return json.load(f)
-            except Exception:
-                pass
-
-        return {
+        return load_json_config(cls.DEPLOY_CONFIG, {
             'apps': {},  # app_id -> deployment config
             'webhook_secret': cls._generate_secret()
-        }
+        })
 
     @classmethod
     def save_config(cls, config: Dict) -> Dict:
         """Save deployment configuration."""
-        try:
-            os.makedirs(cls.CONFIG_DIR, exist_ok=True)
-            with open(cls.DEPLOY_CONFIG, 'w') as f:
-                json.dump(config, f, indent=2)
-            return {'success': True, 'message': 'Configuration saved'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return save_json_config(cls.DEPLOY_CONFIG, config)
 
     @staticmethod
     def _generate_secret() -> str:
@@ -108,6 +97,18 @@ class GitService:
         del config['apps'][str(app_id)]
         return cls.save_config(config)
 
+    @staticmethod
+    def _git_out(app_path, *args, timeout=None):
+        """stdout of a read-only ``git -C <app_path> <args>``, or ``None``.
+
+        ``None`` means the command did not succeed — not "empty output" (§A).
+        ``get_commit_info`` alone had five copies of
+        ``subprocess.run(...); x = result.stdout.strip() if result.returncode
+        == 0 else None``, which is this function written out by hand each time.
+        """
+        result = run_checked(['git', '-C', app_path, *args], timeout=timeout)
+        return result['output'].strip() if result['success'] else None
+
     @classmethod
     def clone_repository(cls, app_path: str, repo_url: str, branch: str = 'main') -> Dict:
         """Clone a Git repository."""
@@ -134,16 +135,15 @@ class GitService:
             if branch:
                 cmd.extend(['--branch', branch, '--single-branch'])
             cmd.extend(['--', repo_url, app_path])
-            result = subprocess.run(cmd, capture_output=True, text=True,
-                                    timeout=300, env=git_env())
+            result = run_checked(cmd, timeout=300, env=git_env())
 
-            if result.returncode == 0:
+            if result['success']:
                 return {
                     'success': True,
                     'message': f'Repository cloned to {app_path}',
                     'path': app_path
                 }
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Clone operation timed out'}
@@ -163,21 +163,17 @@ class GitService:
         try:
             # Fetch first
             fetch_cmd = git_argv('-C', app_path, 'fetch', '--all')
-            subprocess.run(fetch_cmd, capture_output=True, text=True, timeout=60,
-                           env=git_env())
+            run_checked(fetch_cmd, timeout=60, env=git_env())
 
             # Get current branch if not specified
             if not branch:
-                branch_cmd = ['git', '-C', app_path, 'rev-parse', '--abbrev-ref', 'HEAD']
-                result = subprocess.run(branch_cmd, capture_output=True, text=True)
-                branch = result.stdout.strip() if result.returncode == 0 else 'main'
+                branch = cls._git_out(app_path, 'rev-parse', '--abbrev-ref', 'HEAD') or 'main'
 
             # Reset to remote branch (force pull)
             reset_cmd = git_argv('-C', app_path, 'reset', '--hard', f'origin/{branch}')
-            result = subprocess.run(reset_cmd, capture_output=True, text=True, timeout=60,
-                                    env=git_env())
+            result = run_checked(reset_cmd, timeout=60, env=git_env())
 
-            if result.returncode == 0:
+            if result['success']:
                 # Get new commit info
                 commit_info = cls.get_commit_info(app_path)
                 return {
@@ -185,7 +181,7 @@ class GitService:
                     'message': 'Changes pulled successfully',
                     'commit': commit_info
                 }
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
 
         except subprocess.TimeoutExpired:
             return {'success': False, 'error': 'Pull operation timed out'}
@@ -199,30 +195,11 @@ class GitService:
             return None
 
         try:
-            # Get commit hash
-            cmd = ['git', '-C', app_path, 'rev-parse', 'HEAD']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            commit_hash = result.stdout.strip() if result.returncode == 0 else None
-
-            # Get commit message
-            cmd = ['git', '-C', app_path, 'log', '-1', '--pretty=%B']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            commit_message = result.stdout.strip() if result.returncode == 0 else None
-
-            # Get author
-            cmd = ['git', '-C', app_path, 'log', '-1', '--pretty=%an <%ae>']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            author = result.stdout.strip() if result.returncode == 0 else None
-
-            # Get timestamp
-            cmd = ['git', '-C', app_path, 'log', '-1', '--pretty=%ci']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            timestamp = result.stdout.strip() if result.returncode == 0 else None
-
-            # Get branch
-            cmd = ['git', '-C', app_path, 'rev-parse', '--abbrev-ref', 'HEAD']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            branch = result.stdout.strip() if result.returncode == 0 else None
+            commit_hash = cls._git_out(app_path, 'rev-parse', 'HEAD')
+            commit_message = cls._git_out(app_path, 'log', '-1', '--pretty=%B')
+            author = cls._git_out(app_path, 'log', '-1', '--pretty=%an <%ae>')
+            timestamp = cls._git_out(app_path, 'log', '-1', '--pretty=%ci')
+            branch = cls._git_out(app_path, 'rev-parse', '--abbrev-ref', 'HEAD')
 
             return {
                 'hash': commit_hash,
@@ -316,18 +293,12 @@ class GitService:
     def _run_script(cls, script: str, working_dir: str) -> Dict:
         """Run a deployment script."""
         try:
-            result = subprocess.run(
-                ['bash', '-c', script],
-                cwd=working_dir,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+            result = run_checked(['bash', '-c', script], cwd=working_dir, timeout=300)
 
             return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
+                'success': result['success'],
+                'output': result['output'],
+                'error': result['error'],
             }
 
         except subprocess.TimeoutExpired:
@@ -380,18 +351,18 @@ class GitService:
 
         try:
             # Fetch latest from remote
-            fetch_cmd = ['git', '-C', app_path, 'fetch', '--all', '--prune']
-            subprocess.run(fetch_cmd, capture_output=True, text=True, timeout=60)
+            run_checked(['git', '-C', app_path, 'fetch', '--all', '--prune'], timeout=60)
 
             # Get remote branches
-            cmd = ['git', '-C', app_path, 'branch', '-r', '--format=%(refname:short)']
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = run_checked(
+                ['git', '-C', app_path, 'branch', '-r', '--format=%(refname:short)'],
+                timeout=30)
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             branches = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 branch = line.strip()
                 if branch and not branch.endswith('/HEAD'):
                     # Remove origin/ prefix
@@ -399,10 +370,7 @@ class GitService:
                         branch = branch[7:]
                     branches.append(branch)
 
-            # Get current branch
-            cmd = ['git', '-C', app_path, 'rev-parse', '--abbrev-ref', 'HEAD']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            current_branch = result.stdout.strip() if result.returncode == 0 else None
+            current_branch = cls._git_out(app_path, 'rev-parse', '--abbrev-ref', 'HEAD')
 
             return {
                 'success': True,
@@ -427,14 +395,13 @@ class GitService:
 
         try:
             cmd = git_argv('ls-remote', '--heads', '--', repo_url)
-            result = subprocess.run(cmd, capture_output=True, text=True,
-                                    timeout=30, env=git_env())
+            result = run_checked(cmd, timeout=30, env=git_env())
 
-            if result.returncode != 0:
-                return {'success': False, 'error': result.stderr or 'Failed to fetch branches'}
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             branches = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     # Format: <hash>\trefs/heads/<branch>
                     parts = line.split('\t')
@@ -551,20 +518,17 @@ class GitService:
 
         try:
             # Status
-            cmd = ['git', '-C', app_path, 'status', '--porcelain']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            changes = result.stdout.strip().split('\n') if result.stdout.strip() else []
+            porcelain = cls._git_out(app_path, 'status', '--porcelain') or ''
+            changes = porcelain.split('\n') if porcelain else []
 
             # Remote URL
-            cmd = ['git', '-C', app_path, 'remote', 'get-url', 'origin']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            remote_url = result.stdout.strip() if result.returncode == 0 else None
+            remote_url = cls._git_out(app_path, 'remote', 'get-url', 'origin')
 
             # Behind/ahead of remote
-            cmd = ['git', '-C', app_path, 'rev-list', '--left-right', '--count', 'HEAD...@{u}']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                parts = result.stdout.strip().split()
+            counts = cls._git_out(app_path, 'rev-list', '--left-right', '--count',
+                                  'HEAD...@{u}')
+            if counts is not None:
+                parts = counts.split()
                 ahead = int(parts[0]) if len(parts) > 0 else 0
                 behind = int(parts[1]) if len(parts) > 1 else 0
             else:
@@ -701,13 +665,10 @@ class GitService:
     def _is_gitea_running(cls) -> bool:
         """Check if Gitea container is running."""
         try:
-            result = subprocess.run(
-                ['docker', 'ps', '--filter', f'name={cls.GITEA_APP_NAME}', '--format', '{{.Names}}'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return cls.GITEA_APP_NAME in result.stdout
+            result = run_checked(
+                ['docker', 'ps', '--filter', f'name={cls.GITEA_APP_NAME}',
+                 '--format', '{{.Names}}'], timeout=10)
+            return cls.GITEA_APP_NAME in result['output']
         except Exception:
             return False
 

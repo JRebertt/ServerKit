@@ -169,11 +169,6 @@
     }
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
 // Demo mode hint on the login card
 .demo-hint {
     margin-bottom: $space-6;

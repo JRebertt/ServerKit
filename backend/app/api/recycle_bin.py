@@ -45,7 +45,6 @@ def restore(kind, record_id):
 
 
 @recycle_bin_bp.route('/<kind>/<int:record_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def purge(kind, record_id):
     """Delete for real. Admin-only: this is the one irreversible action."""
@@ -59,7 +58,6 @@ def purge(kind, record_id):
 
 
 @recycle_bin_bp.route('/purge-expired', methods=['POST'])
-@jwt_required()
 @admin_required
 def purge_expired():
     body = request.get_json(silent=True) or {}

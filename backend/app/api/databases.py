@@ -13,7 +13,7 @@ from app.models import User, Application
 from app.services.database_service import DatabaseService
 from app.services.db_process_service import DbProcessService
 from app.services.managed_database_service import ManagedDatabaseService
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, get_current_user, require_admin_user
 from app.services.resource_grant_service import ResourceGrantService
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ def _persist_provisioned(engine, name, result, data):
     additive — a persistence failure never fails the provisioning that succeeded."""
     try:
         from app.services.workspace_service import WorkspaceService
-        user = User.query.get(get_jwt_identity())
+        user = get_current_user()
         ws_id = WorkspaceService.resolve_workspace_id(
             user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
         ManagedDatabaseService.record_provisioned(
@@ -53,7 +53,6 @@ def get_status():
 # ==================== MYSQL DATABASES ====================
 
 @databases_bp.route('/mysql', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_mysql_databases():
     """List MySQL databases.
@@ -67,7 +66,6 @@ def list_mysql_databases():
 
 
 @databases_bp.route('/mysql', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_mysql_database():
     """Create a MySQL database."""
@@ -109,7 +107,6 @@ def create_mysql_database():
 
 
 @databases_bp.route('/mysql/<name>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def drop_mysql_database(name):
     """Drop a MySQL database."""
@@ -119,7 +116,6 @@ def drop_mysql_database(name):
 
 
 @databases_bp.route('/mysql/<name>/tables', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_mysql_tables(name):
     """Get tables in a MySQL database.
@@ -132,7 +128,6 @@ def get_mysql_tables(name):
 
 
 @databases_bp.route('/mysql/<name>/backup', methods=['POST'])
-@jwt_required()
 @admin_required
 def backup_mysql_database(name):
     """Backup a MySQL database."""
@@ -142,7 +137,6 @@ def backup_mysql_database(name):
 
 
 @databases_bp.route('/mysql/<name>/restore', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_mysql_database(name):
     """Restore a MySQL database from backup."""
@@ -162,7 +156,6 @@ def restore_mysql_database(name):
 # ==================== MYSQL USERS ====================
 
 @databases_bp.route('/mysql/users', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_mysql_users():
     """List MySQL users.
@@ -175,7 +168,6 @@ def list_mysql_users():
 
 
 @databases_bp.route('/mysql/users', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_mysql_user():
     """Create a MySQL user."""
@@ -210,7 +202,6 @@ def create_mysql_user():
 
 
 @databases_bp.route('/mysql/users/<username>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def drop_mysql_user(username):
     """Drop a MySQL user."""
@@ -221,7 +212,6 @@ def drop_mysql_user(username):
 
 
 @databases_bp.route('/mysql/users/<username>/privileges', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_mysql_user_privileges(username):
     """Get privileges for a MySQL user.
@@ -235,7 +225,6 @@ def get_mysql_user_privileges(username):
 
 
 @databases_bp.route('/mysql/users/<username>/grant', methods=['POST'])
-@jwt_required()
 @admin_required
 def grant_mysql_privileges(username):
     """Grant privileges to a MySQL user."""
@@ -255,7 +244,6 @@ def grant_mysql_privileges(username):
 
 
 @databases_bp.route('/mysql/users/<username>/revoke', methods=['POST'])
-@jwt_required()
 @admin_required
 def revoke_mysql_privileges(username):
     """Revoke privileges from a MySQL user."""
@@ -277,7 +265,6 @@ def revoke_mysql_privileges(username):
 # ==================== POSTGRESQL DATABASES ====================
 
 @databases_bp.route('/postgresql', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_pg_databases():
     """List PostgreSQL databases."""
@@ -286,7 +273,6 @@ def list_pg_databases():
 
 
 @databases_bp.route('/postgresql', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_pg_database():
     """Create a PostgreSQL database."""
@@ -316,7 +302,6 @@ def create_pg_database():
 
 
 @databases_bp.route('/postgresql/<name>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def drop_pg_database(name):
     """Drop a PostgreSQL database."""
@@ -325,7 +310,6 @@ def drop_pg_database(name):
 
 
 @databases_bp.route('/postgresql/<name>/tables', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_pg_tables(name):
     """Get tables in a PostgreSQL database."""
@@ -334,7 +318,6 @@ def get_pg_tables(name):
 
 
 @databases_bp.route('/postgresql/<name>/backup', methods=['POST'])
-@jwt_required()
 @admin_required
 def backup_pg_database(name):
     """Backup a PostgreSQL database."""
@@ -343,7 +326,6 @@ def backup_pg_database(name):
 
 
 @databases_bp.route('/postgresql/<name>/restore', methods=['POST'])
-@jwt_required()
 @admin_required
 def restore_pg_database(name):
     """Restore a PostgreSQL database from backup."""
@@ -359,7 +341,6 @@ def restore_pg_database(name):
 # ==================== POSTGRESQL USERS ====================
 
 @databases_bp.route('/postgresql/users', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_pg_users():
     """List PostgreSQL users."""
@@ -368,7 +349,6 @@ def list_pg_users():
 
 
 @databases_bp.route('/postgresql/users', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_pg_user():
     """Create a PostgreSQL user."""
@@ -396,7 +376,6 @@ def create_pg_user():
 
 
 @databases_bp.route('/postgresql/users/<username>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def drop_pg_user(username):
     """Drop a PostgreSQL user."""
@@ -405,7 +384,6 @@ def drop_pg_user(username):
 
 
 @databases_bp.route('/postgresql/users/<username>/grant', methods=['POST'])
-@jwt_required()
 @admin_required
 def grant_pg_privileges(username):
     """Grant privileges to a PostgreSQL user."""
@@ -423,7 +401,6 @@ def grant_pg_privileges(username):
 
 
 @databases_bp.route('/postgresql/users/<username>/revoke', methods=['POST'])
-@jwt_required()
 @admin_required
 def revoke_pg_privileges(username):
     """Revoke privileges from a PostgreSQL user."""
@@ -443,7 +420,6 @@ def revoke_pg_privileges(username):
 # ==================== BACKUPS ====================
 
 @databases_bp.route('/backups', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_backups():
     """List all database backups."""
@@ -453,7 +429,6 @@ def list_backups():
 
 
 @databases_bp.route('/backups/<filename>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_backup(filename):
     """Delete a backup file."""
@@ -464,7 +439,6 @@ def delete_backup(filename):
 # ==================== QUERY EXECUTION ====================
 
 @databases_bp.route('/mysql/<name>/query', methods=['POST'])
-@jwt_required()
 @admin_required
 def execute_mysql_query(name):
     """Execute a query on a MySQL database.
@@ -486,11 +460,7 @@ def execute_mysql_query(name):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.mysql_execute_query(
         database=name,
@@ -505,7 +475,6 @@ def execute_mysql_query(name):
 
 
 @databases_bp.route('/postgresql/<name>/query', methods=['POST'])
-@jwt_required()
 @admin_required
 def execute_pg_query(name):
     """Execute a query on a PostgreSQL database.
@@ -526,11 +495,7 @@ def execute_pg_query(name):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.pg_execute_query(
         database=name,
@@ -544,7 +509,6 @@ def execute_pg_query(name):
 
 
 @databases_bp.route('/sqlite/query', methods=['POST'])
-@jwt_required()
 @admin_required
 def execute_sqlite_query():
     """Execute a query on a SQLite database file.
@@ -567,11 +531,7 @@ def execute_sqlite_query():
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        from app.models import User
-        user = User.query.get(current_user_id)
-        if not user or user.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.sqlite_execute_query(
         db_path=db_path,
@@ -585,7 +545,6 @@ def execute_sqlite_query():
 
 
 @databases_bp.route('/mysql/<name>/tables/<table>/structure', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_mysql_table_structure(name, table):
     """Get the structure/schema of a MySQL table."""
@@ -595,7 +554,6 @@ def get_mysql_table_structure(name, table):
 
 
 @databases_bp.route('/postgresql/<name>/tables/<table>/structure', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_pg_table_structure(name, table):
     """Get the structure/schema of a PostgreSQL table."""
@@ -604,7 +562,6 @@ def get_pg_table_structure(name, table):
 
 
 @databases_bp.route('/sqlite/tables/<table>/structure', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_sqlite_table_structure(table):
     """Get the structure/schema of a SQLite table.
@@ -621,7 +578,6 @@ def get_sqlite_table_structure(table):
 
 
 @databases_bp.route('/sqlite', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_sqlite_databases():
     """List SQLite database files found in common locations."""
@@ -630,7 +586,6 @@ def list_sqlite_databases():
 
 
 @databases_bp.route('/sqlite/tables', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_sqlite_tables():
     """Get tables in a SQLite database.
@@ -649,7 +604,6 @@ def get_sqlite_tables():
 # ==================== DOCKER CONTAINER DATABASES ====================
 
 @databases_bp.route('/docker', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_docker_databases():
     """List all databases running in Docker containers.
@@ -732,7 +686,6 @@ def get_app_databases(app_id):
 
 
 @databases_bp.route('/docker/<container>/databases', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_docker_container_databases(container):
     """List databases in a Docker MySQL container."""
@@ -744,7 +697,6 @@ def list_docker_container_databases(container):
 
 
 @databases_bp.route('/docker/<container>/<database>/tables', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_docker_database_tables(container, database):
     """Get tables in a Docker MySQL database."""
@@ -760,7 +712,6 @@ def get_docker_database_tables(container, database):
 
 
 @databases_bp.route('/docker/<container>/<database>/query', methods=['POST'])
-@jwt_required()
 @admin_required
 def execute_docker_query(container, database):
     """Execute a query on a Docker MySQL database.
@@ -783,10 +734,7 @@ def execute_docker_query(container, database):
 
     # Only admins can disable readonly mode
     if not readonly:
-        current_user_id = get_jwt_identity()
-        user_obj = User.query.get(current_user_id)
-        if not user_obj or user_obj.role != 'admin':
-            return jsonify({'error': 'Admin access required to execute write queries'}), 403
+        require_admin_user()
 
     result = DatabaseService.docker_mysql_execute_query(
         container_name=container,
@@ -808,7 +756,7 @@ def execute_docker_query(container, database):
 
 def _workspace_id():
     from app.services.workspace_service import WorkspaceService
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     return WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
 
@@ -822,7 +770,6 @@ def list_managed_databases():
 
 
 @databases_bp.route('/managed', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_managed_database():
     """Provision a new database (mysql|postgresql) AND track it as managed."""
@@ -867,7 +814,6 @@ def create_managed_database():
 
 
 @databases_bp.route('/managed/adopt', methods=['POST'])
-@jwt_required()
 @admin_required
 def adopt_managed_database():
     """Track a live-discovered database that isn't tracked yet."""
@@ -902,7 +848,6 @@ def get_managed_database(managed_id):
 
 
 @databases_bp.route('/managed/<int:managed_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_managed_database(managed_id):
     """Untrack a managed database (optional ``?drop=true`` to also DROP it)."""
@@ -910,12 +855,12 @@ def delete_managed_database(managed_id):
     if not managed:
         return jsonify({'error': 'Managed database not found'}), 404
     drop = str(request.args.get('drop', '')).lower() in ('1', 'true', 'yes')
-    ManagedDatabaseService.delete(managed, drop=drop)
+    from flask_jwt_extended import get_jwt_identity
+    ManagedDatabaseService.delete(managed, drop=drop, user_id=get_jwt_identity())
     return jsonify({'success': True, 'dropped': drop}), 200
 
 
 @databases_bp.route('/managed/<int:managed_id>/connection-uri', methods=['POST'])
-@jwt_required()
 @admin_required
 def reveal_managed_connection_uri(managed_id):
     """Reveal the real connection string (audited)."""
@@ -935,7 +880,6 @@ def reveal_managed_connection_uri(managed_id):
 
 
 @databases_bp.route('/managed/<int:managed_id>/protect', methods=['POST'])
-@jwt_required()
 @admin_required
 def protect_managed_database(managed_id):
     """Create/refresh a BackupPolicy for a managed database (real FK target)."""
@@ -959,7 +903,6 @@ def _process_error_response(result):
 
 @databases_bp.route('/mysql/processes', defaults={'engine': 'mysql'}, methods=['GET'])
 @databases_bp.route('/postgresql/processes', defaults={'engine': 'postgresql'}, methods=['GET'])
-@jwt_required()
 @admin_required
 def list_host_db_processes(engine):
     """List live server processes on a host engine."""
@@ -972,7 +915,6 @@ def list_host_db_processes(engine):
 
 @databases_bp.route('/mysql/processes/<int:pid>/kill', defaults={'engine': 'mysql'}, methods=['POST'])
 @databases_bp.route('/postgresql/processes/<int:pid>/kill', defaults={'engine': 'postgresql'}, methods=['POST'])
-@jwt_required()
 @admin_required
 def kill_host_db_process(engine, pid):
     """Kill/terminate a process on a host engine (admin only)."""
@@ -984,7 +926,6 @@ def kill_host_db_process(engine, pid):
 
 
 @databases_bp.route('/docker/<container>/processes', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_docker_db_processes(container):
     """List live server processes inside a Docker database container."""
@@ -1002,7 +943,6 @@ def list_docker_db_processes(container):
 
 
 @databases_bp.route('/docker/<container>/processes/<int:pid>/kill', methods=['POST'])
-@jwt_required()
 @admin_required
 def kill_docker_db_process(container, pid):
     """Kill/terminate a process inside a Docker database container (admin only)."""

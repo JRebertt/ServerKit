@@ -7,6 +7,8 @@ import shlex
 import yaml
 from datetime import datetime
 
+from app.utils.system import run_checked
+
 logger = logging.getLogger(__name__)
 
 # Docker-style memory limit: a number plus a one-letter unit (bytes/kilo/mega/giga).
@@ -23,15 +25,19 @@ class DockerService:
         """Detect whether to use 'docker compose' (v2) or 'docker-compose' (v1)."""
         if cls._compose_cmd is not None:
             return cls._compose_cmd
+        # run_checked, not cls.run: this probe decides what `run_compose` will
+        # invoke, so it must not depend on anything compose-shaped itself.
+        #
+        # Still wrapped: run_checked converts the exec failures it knows about
+        # into a result, but this probe runs before anything else in the
+        # compose path and must not be able to raise into its caller at all —
+        # dropping the guard here made a broken Popen surface as
+        # `compose up` exit_code -1 instead of falling back to v1.
         try:
-            result = subprocess.run(
-                ['docker', 'compose', 'version'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            if run_checked(['docker', 'compose', 'version'], timeout=None)['success']:
                 cls._compose_cmd = ['docker', 'compose']
                 return cls._compose_cmd
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to detect docker compose v2: {e}")
         # Fallback to docker-compose (v1)
         cls._compose_cmd = ['docker-compose']
@@ -48,34 +54,66 @@ class DockerService:
         """
         return cls._get_compose_cmd() == ['docker', 'compose']
 
+    # Long docker operations (pull, build, compose up) are unbounded today.
+    # `None` is passed explicitly at those call sites so the 60s default here
+    # cannot silently cap a build; see COMPOSE/LONG notes below.
+    @staticmethod
+    def run(args, timeout=60, **kwargs):
+        """Run ``docker <args>``; one result shape for every caller (§G3).
+
+        Three services kept private ``_docker()`` wrappers around this exact
+        call, and the three had already drifted into three *different* return
+        contracts: one dict that mapped FileNotFoundError to "Docker not
+        found", one dict that collapsed every failure into ``str(e)``, and one
+        that handed back a raw ``CompletedProcess``. A caller reading
+        ``result['success']`` against the third silently got a ``KeyError``
+        rather than an answer.
+
+        Sits on ``run_checked`` (§G1) rather than re-implementing it, so the
+        result shape and the error handling have exactly one definition:
+        ``{'success', 'output', 'stderr', 'error', 'returncode'}``. ``error``
+        distinguishes the three things that are not "the command said no":
+        docker absent, docker too slow, and everything else. A caller that
+        cannot tell those apart is the caller that reports "not installed"
+        because a probe timed out (§A).
+        """
+        return run_checked(['docker', *args], timeout=timeout, **kwargs)
+
+    @classmethod
+    def available(cls):
+        """True when the docker daemon answers. Never raises.
+
+        Asks the daemon, not just the binary: ``docker version --format
+        {{.Server.Version}}`` fails when the CLI is installed but the daemon is
+        down, which is the state a "docker is available" check actually cares
+        about.
+        """
+        if os.name == 'nt':
+            return False
+        return cls.run(['version', '--format', '{{.Server.Version}}'],
+                       timeout=10)['success']
+
     @staticmethod
     def is_docker_installed():
         """Check if Docker is installed and running."""
+        result = DockerService.run(['version', '--format', 'json'], timeout=None)
+        if not result['success']:
+            return {'installed': False, 'error': result['error']}
         try:
-            result = subprocess.run(
-                ['docker', 'version', '--format', 'json'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'installed': True, 'info': json.loads(result.stdout)}
-            return {'installed': False, 'error': result.stderr}
-        except FileNotFoundError:
-            return {'installed': False, 'error': 'Docker not found'}
-        except Exception as e:
-            return {'installed': False, 'error': str(e)}
+            return {'installed': True, 'info': json.loads(result['output'])}
+        except ValueError as e:
+            return {'installed': False, 'error': f'unreadable docker version output: {e}'}
 
     @staticmethod
     def get_docker_info():
         """Get Docker system information."""
-        try:
-            result = subprocess.run(
-                ['docker', 'info', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return json.loads(result.stdout)
+        result = DockerService.run(['info', '--format', '{{json .}}'], timeout=None)
+        if not result['success']:
+            logger.error('Failed to get Docker info: %s', result['error'])
             return None
-        except Exception as e:
+        try:
+            return json.loads(result['output'])
+        except ValueError as e:
             logger.error(f"Failed to get Docker info: {e}")
             return None
 
@@ -116,16 +154,16 @@ class DockerService:
     def list_containers(all_containers=True):
         """List Docker containers."""
         try:
-            cmd = ['docker', 'ps', '--format', '{{json .}}']
+            args = ['ps', '--format', '{{json .}}']
             if all_containers:
-                cmd.insert(2, '-a')
+                args.insert(1, '-a')
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
+            result = DockerService.run(args, timeout=None)
+            if not result['success']:
                 return []
 
             containers = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     container = json.loads(line)
                     name = container.get('Names')
@@ -187,21 +225,17 @@ class DockerService:
         """
         keys = [k for k, _ in cls._PS_LABEL_FIELDS]
         fmt = '\t'.join(tpl for _, tpl in cls._PS_LABEL_FIELDS)
-        cmd = ['docker', 'ps', '--no-trunc', '--format', fmt]
+        args = ['ps', '--no-trunc', '--format', fmt]
         if all_containers:
-            cmd.insert(2, '-a')
+            args.insert(1, '-a')
 
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                logger.warning('docker ps (bulk) failed: %s', result.stderr.strip())
-                return []
-        except Exception as e:
-            logger.error(f"Failed to bulk-list containers: {e}")
+        result = cls.run(args, timeout=None)
+        if not result['success']:
+            logger.warning('docker ps (bulk) failed: %s', result['error'])
             return []
 
         containers = []
-        for line in (result.stdout or '').splitlines():
+        for line in result['output'].splitlines():
             if not line.strip():
                 continue
             parts = line.split('\t')
@@ -220,26 +254,22 @@ class DockerService:
     @staticmethod
     def get_container(container_id):
         """Get detailed container information."""
-        try:
-            result = subprocess.run(
-                ['docker', 'inspect', container_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                if data:
-                    return data[0]
+        result = DockerService.run(['inspect', container_id], timeout=None)
+        if not result['success']:
             return None
-        except Exception as e:
+        try:
+            data = json.loads(result['output'])
+        except ValueError as e:
             logger.error(f"Failed to inspect container {container_id}: {e}")
             return None
+        return data[0] if data else None
 
     @staticmethod
     def create_container(image, name=None, ports=None, volumes=None, env=None,
                          network=None, restart_policy='unless-stopped', command=None):
         """Create a new container."""
         try:
-            cmd = ['docker', 'create']
+            cmd = ['create']
 
             if name:
                 cmd.extend(['--name', name])
@@ -267,12 +297,11 @@ class DockerService:
             if command:
                 cmd.extend(shlex.split(command))
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                container_id = result.stdout.strip()
-                return {'success': True, 'container_id': container_id}
-            return {'success': False, 'error': result.stderr}
+            # LONG: `docker create`/`run` pulls the image when it is absent.
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
+                return {'success': True, 'container_id': result['output'].strip()}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -281,7 +310,7 @@ class DockerService:
                       network=None, restart_policy='unless-stopped', command=None, detach=True):
         """Run a new container (create and start)."""
         try:
-            cmd = ['docker', 'run']
+            cmd = ['run']
 
             if detach:
                 cmd.append('-d')
@@ -312,12 +341,11 @@ class DockerService:
             if command:
                 cmd.extend(shlex.split(command))
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                container_id = result.stdout.strip()
-                return {'success': True, 'container_id': container_id}
-            return {'success': False, 'error': result.stderr}
+            # LONG: `docker create`/`run` pulls the image when it is absent.
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
+                return {'success': True, 'container_id': result['output'].strip()}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -325,13 +353,10 @@ class DockerService:
     def start_container(container_id):
         """Start a container."""
         try:
-            result = subprocess.run(
-                ['docker', 'start', container_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = DockerService.run(['start', container_id], timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -339,17 +364,15 @@ class DockerService:
     def stop_container(container_id, timeout=10):
         """Stop a container."""
         try:
-            result = subprocess.run(
-                ['docker', 'stop', '-t', str(timeout), container_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = DockerService.run(['stop', '-t', str(timeout), container_id],
+                                       timeout=None)
+            if result['success']:
                 # The panel emits the `app.stopped` event via the audit trail
                 # (AuditService.log('app.stop') -> EventService.emit_for_audit),
                 # so this low-level helper no longer emits its own event -- doing
                 # so would double-fire it for Automations triggers (plan 45 Ph4).
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -357,13 +380,11 @@ class DockerService:
     def restart_container(container_id, timeout=10):
         """Restart a container."""
         try:
-            result = subprocess.run(
-                ['docker', 'restart', '-t', str(timeout), container_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = DockerService.run(['restart', '-t', str(timeout), container_id],
+                                       timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -371,17 +392,17 @@ class DockerService:
     def remove_container(container_id, force=False, volumes=False):
         """Remove a container."""
         try:
-            cmd = ['docker', 'rm']
+            cmd = ['rm']
             if force:
                 cmd.append('-f')
             if volumes:
                 cmd.append('-v')
             cmd.append(container_id)
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -389,7 +410,7 @@ class DockerService:
     def get_container_logs(container_id, tail=100, since=None, timestamps=True):
         """Get container logs."""
         try:
-            cmd = ['docker', 'logs']
+            cmd = ['logs']
             if tail:
                 cmd.extend(['--tail', str(tail)])
             if since:
@@ -398,10 +419,11 @@ class DockerService:
                 cmd.append('-t')
             cmd.append(container_id)
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            # Docker logs go to both stdout and stderr
-            logs = result.stdout + result.stderr
-            return {'success': True, 'logs': logs}
+            # merge_stderr, not stdout + stderr: a container writes its log to
+            # both streams and concatenating them loses the interleaving, so
+            # the tail of a crash landed above the lines that led to it.
+            result = DockerService.run(cmd, timeout=None, merge_stderr=True)
+            return {'success': True, 'logs': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -637,12 +659,11 @@ class DockerService:
     def get_container_stats(container_id):
         """Get container resource usage stats."""
         try:
-            result = subprocess.run(
-                ['docker', 'stats', '--no-stream', '--format', '{{json .}}', container_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return json.loads(result.stdout.strip())
+            result = DockerService.run(
+                ['stats', '--no-stream', '--format', '{{json .}}', container_id],
+                timeout=None)
+            if result['success'] and result['output'].strip():
+                return json.loads(result['output'].strip())
             return None
         except Exception as e:
             logger.error(f"Failed to get stats for container {container_id}: {e}")
@@ -659,16 +680,15 @@ class DockerService:
             if not cleaned_ids:
                 return {}
 
-            result = subprocess.run(
-                ['docker', 'stats', '--no-stream', '--format', '{{json .}}', *cleaned_ids],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
-                logger.error(f"Failed to get container stats: {result.stderr.strip()}")
+            result = DockerService.run(
+                ['stats', '--no-stream', '--format', '{{json .}}', *cleaned_ids],
+                timeout=None)
+            if not result['success']:
+                logger.error(f"Failed to get container stats: {result['error']}")
                 return {}
 
             stats_map = {}
-            for line in result.stdout.splitlines():
+            for line in result['output'].splitlines():
                 if not line.strip():
                     continue
                 stats = json.loads(line)
@@ -684,7 +704,7 @@ class DockerService:
     def exec_command(container_id, command, interactive=False, tty=False):
         """Execute a command in a running container."""
         try:
-            cmd = ['docker', 'exec']
+            cmd = ['exec']
             if interactive:
                 cmd.append('-i')
             if tty:
@@ -692,15 +712,17 @@ class DockerService:
             cmd.append(container_id)
             cmd.extend(shlex.split(command))
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            result = DockerService.run(cmd, timeout=60)
+            if result['returncode'] is None:
+                # The command never ran (no docker, timed out). Reporting a
+                # return_code here would claim the container answered.
+                return {'success': False, 'error': result['error']}
             return {
-                'success': result.returncode == 0,
-                'stdout': result.stdout,
-                'stderr': result.stderr,
-                'return_code': result.returncode
+                'success': result['success'],
+                'stdout': result['output'],
+                'stderr': result['stderr'],
+                'return_code': result['returncode'],
             }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Command timed out'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -710,15 +732,13 @@ class DockerService:
     def list_images():
         """List Docker images."""
         try:
-            result = subprocess.run(
-                ['docker', 'images', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['images', '--format', '{{json .}}'],
+                                       timeout=None)
+            if not result['success']:
                 return []
 
             images = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     image = json.loads(line)
                     images.append({
@@ -755,13 +775,12 @@ class DockerService:
                             'error': f"Registry login failed: {login.get('error')}"}
                 logged_in = True
 
-            result = subprocess.run(
-                ['docker', 'pull', full_name],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr}
+            # LONG: a pull is unbounded today and can legitimately run for
+            # many minutes on a slow link.
+            result = DockerService.run(['pull', full_name], timeout=None)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
         finally:
@@ -773,15 +792,15 @@ class DockerService:
     def remove_image(image_id, force=False):
         """Remove an image."""
         try:
-            cmd = ['docker', 'rmi']
+            cmd = ['rmi']
             if force:
                 cmd.append('-f')
             cmd.append(image_id)
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -789,17 +808,18 @@ class DockerService:
     def build_image(path, tag, dockerfile='Dockerfile', no_cache=False):
         """Build an image from Dockerfile."""
         try:
-            cmd = ['docker', 'build', '-t', tag]
+            cmd = ['build', '-t', tag]
             if dockerfile != 'Dockerfile':
                 cmd.extend(['-f', dockerfile])
             if no_cache:
                 cmd.append('--no-cache')
             cmd.append(path)
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr, 'output': result.stdout}
+            # LONG: a build is unbounded today.
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error'], 'output': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -807,13 +827,10 @@ class DockerService:
     def tag_image(source, target):
         """Tag an image."""
         try:
-            result = subprocess.run(
-                ['docker', 'tag', source, target],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = DockerService.run(['tag', source, target], timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -823,15 +840,13 @@ class DockerService:
     def list_networks():
         """List Docker networks."""
         try:
-            result = subprocess.run(
-                ['docker', 'network', 'ls', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['network', 'ls', '--format', '{{json .}}'],
+                                       timeout=None)
+            if not result['success']:
                 return []
 
             networks = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     network = json.loads(line)
                     networks.append({
@@ -849,13 +864,11 @@ class DockerService:
     def create_network(name, driver='bridge'):
         """Create a Docker network."""
         try:
-            result = subprocess.run(
-                ['docker', 'network', 'create', '--driver', driver, name],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'network_id': result.stdout.strip()}
-            return {'success': False, 'error': result.stderr}
+            result = DockerService.run(['network', 'create', '--driver', driver, name],
+                                       timeout=None)
+            if result['success']:
+                return {'success': True, 'network_id': result['output'].strip()}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -865,14 +878,8 @@ class DockerService:
 
         The shared external ``serverkit`` network lets manifest-generated app
         projects resolve each other by container name (fromService.host)."""
-        try:
-            inspect = subprocess.run(
-                ['docker', 'network', 'inspect', name],
-                capture_output=True, text=True)
-            if inspect.returncode == 0:
-                return {'success': True, 'existed': True}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        if DockerService.run(['network', 'inspect', name], timeout=None)['success']:
+            return {'success': True, 'existed': True}
         created = DockerService.create_network(name, driver=driver)
         created['existed'] = False
         return created
@@ -881,13 +888,10 @@ class DockerService:
     def remove_network(network_id):
         """Remove a Docker network."""
         try:
-            result = subprocess.run(
-                ['docker', 'network', 'rm', network_id],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = DockerService.run(['network', 'rm', network_id], timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -897,15 +901,13 @@ class DockerService:
     def list_volumes():
         """List Docker volumes."""
         try:
-            result = subprocess.run(
-                ['docker', 'volume', 'ls', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['volume', 'ls', '--format', '{{json .}}'],
+                                       timeout=None)
+            if not result['success']:
                 return []
 
             volumes = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     volume = json.loads(line)
                     volumes.append({
@@ -922,13 +924,11 @@ class DockerService:
     def create_volume(name, driver='local'):
         """Create a Docker volume."""
         try:
-            result = subprocess.run(
-                ['docker', 'volume', 'create', '--driver', driver, name],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'volume_name': result.stdout.strip()}
-            return {'success': False, 'error': result.stderr}
+            result = DockerService.run(['volume', 'create', '--driver', driver, name],
+                                       timeout=None)
+            if result['success']:
+                return {'success': True, 'volume_name': result['output'].strip()}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -936,15 +936,15 @@ class DockerService:
     def remove_volume(volume_name, force=False):
         """Remove a Docker volume."""
         try:
-            cmd = ['docker', 'volume', 'rm']
+            cmd = ['volume', 'rm']
             if force:
                 cmd.append('-f')
             cmd.append(volume_name)
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -952,13 +952,10 @@ class DockerService:
     def inspect_volume(name):
         """Live state of a named volume: {'present', 'mountpoint', 'driver'}."""
         try:
-            result = subprocess.run(
-                ['docker', 'volume', 'inspect', name],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['volume', 'inspect', name], timeout=None)
+            if not result['success']:
                 return {'present': False, 'mountpoint': None, 'driver': None}
-            data = json.loads(result.stdout or '[]')
+            data = json.loads(result['output'] or '[]')
             info = data[0] if data else {}
             return {'present': True, 'mountpoint': info.get('Mountpoint'),
                     'driver': info.get('Driver')}
@@ -970,14 +967,14 @@ class DockerService:
         """Names of containers referencing a volume. ``running_only`` limits it to
         currently-running containers (the guard for a safe wipe)."""
         try:
-            cmd = ['docker', 'ps']
+            cmd = ['ps']
             if not running_only:
                 cmd.append('-a')
             cmd += ['--filter', f'volume={name}', '--format', '{{.Names}}']
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
+            result = DockerService.run(cmd, timeout=None)
+            if not result['success']:
                 return []
-            return [n for n in result.stdout.strip().split('\n') if n]
+            return [n for n in result['output'].strip().split('\n') if n]
         except Exception:
             return []
 
@@ -1016,15 +1013,29 @@ class DockerService:
         return cls._compose_base_cmd(compose_file)
 
     @classmethod
+    def run_compose(cls, cmd, *, cwd=None, timeout=None):
+        """Run an already-built compose argv; the shared result shape (§G1).
+
+        Separate from :meth:`run` because the argv head is whatever
+        ``_get_compose_cmd()`` resolved — ``docker compose`` (v2) or
+        ``docker-compose`` (v1) — not a literal ``docker``.
+
+        ``timeout=None`` by default, unlike :meth:`run`. Every compose call in
+        this file is unbounded today, and ``compose up --build`` on a small VPS
+        routinely runs longer than a minute; inheriting a 60s default here
+        would turn working deploys into timeouts. Bounding them is a real
+        improvement and a deliberate behaviour change, not a side effect of
+        this collapse.
+        """
+        return run_checked(cmd, cwd=cwd, timeout=timeout)
+
+    @classmethod
     def compose_list(cls):
         """List Docker Compose projects known to the Docker CLI."""
         try:
-            result = subprocess.run(
-                cls._get_compose_cmd() + ['ls', '--format', 'json'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                output = result.stdout.strip()
+            result = cls.run_compose(cls._get_compose_cmd() + ['ls', '--format', 'json'])
+            if result['success'] and result['output'].strip():
+                output = result['output'].strip()
                 try:
                     parsed = json.loads(output)
                     if isinstance(parsed, list):
@@ -1056,15 +1067,13 @@ class DockerService:
     def _compose_list_from_container_labels():
         """Fallback for older compose binaries without `compose ls --format json`."""
         try:
-            result = subprocess.run(
-                ['docker', 'ps', '-a', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['ps', '-a', '--format', '{{json .}}'],
+                                       timeout=None)
+            if not result['success']:
                 return []
 
             projects = {}
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if not line:
                     continue
                 container = json.loads(line)
@@ -1121,13 +1130,10 @@ class DockerService:
             if build:
                 cmd.append('--build')
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr, 'output': result.stdout}
+            result = cls.run_compose(cmd, cwd=project_path)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error'], 'output': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1195,13 +1201,10 @@ class DockerService:
             if remove_orphans:
                 cmd.append('--remove-orphans')
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr}
+            result = cls.run_compose(cmd, cwd=project_path)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1217,14 +1220,12 @@ class DockerService:
         Returns a list of container dictionaries.
         """
         try:
-            result = subprocess.run(
+            result = cls.run_compose(
                 cls._compose_base_cmd(compose_file) + ['ps', '--format', 'json'],
-                cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0 and result.stdout.strip():
+                cwd=project_path)
+            if result['success'] and result['output'].strip():
                 containers = []
-                for line in result.stdout.strip().split('\n'):
+                for line in result['output'].strip().split('\n'):
                     line = line.strip()
                     # Skip empty lines and warning messages (e.g., "time=..." from docker)
                     if not line or line.startswith('time=') or line.startswith('WARN'):
@@ -1255,11 +1256,9 @@ class DockerService:
             if service:
                 cmd.append(service)
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            return {'success': True, 'logs': result.stdout + result.stderr}
+            result = run_checked(cmd, cwd=project_path, timeout=None,
+                                 merge_stderr=True)
+            return {'success': True, 'logs': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1271,13 +1270,10 @@ class DockerService:
             if service:
                 cmd.append(service)
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+            result = cls.run_compose(cmd, cwd=project_path)
+            if result['success']:
                 return {'success': True}
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1289,13 +1285,10 @@ class DockerService:
             if service:
                 cmd.append(service)
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr}
+            result = cls.run_compose(cmd, cwd=project_path)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1314,13 +1307,10 @@ class DockerService:
             if service:
                 cmd.append(service)
 
-            result = subprocess.run(
-                cmd, cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr, 'output': result.stdout}
+            result = cls.run_compose(cmd, cwd=project_path)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error'], 'output': result['output']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1328,11 +1318,8 @@ class DockerService:
     def image_exists(image_ref):
         """True when the image is already in the local image store."""
         try:
-            result = subprocess.run(
-                ['docker', 'image', 'inspect', image_ref],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
+            return DockerService.run(['image', 'inspect', image_ref],
+                                     timeout=None)['success']
         except Exception:
             return False
 
@@ -1340,14 +1327,12 @@ class DockerService:
     def validate_compose_file(cls, project_path, compose_file=None):
         """Validate a Docker Compose file."""
         try:
-            result = subprocess.run(
+            result = cls.run_compose(
                 cls._compose_base_cmd(compose_file) + ['config', '--quiet'],
-                cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
+                cwd=project_path)
+            if result['success']:
                 return {'valid': True}
-            return {'valid': False, 'error': result.stderr}
+            return {'valid': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1355,14 +1340,12 @@ class DockerService:
     def get_compose_config(cls, project_path, compose_file=None):
         """Get parsed Docker Compose configuration."""
         try:
-            result = subprocess.run(
+            result = cls.run_compose(
                 cls._compose_base_cmd(compose_file) + ['config'],
-                cwd=project_path,
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return {'success': True, 'config': yaml.safe_load(result.stdout)}
-            return {'success': False, 'error': result.stderr}
+                cwd=project_path)
+            if result['success']:
+                return {'success': True, 'config': yaml.safe_load(result['output'])}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1372,16 +1355,17 @@ class DockerService:
     def prune_system(all_unused=False, volumes=False):
         """Remove unused Docker resources."""
         try:
-            cmd = ['docker', 'system', 'prune', '-f']
+            cmd = ['system', 'prune', '-f']
             if all_unused:
                 cmd.append('-a')
             if volumes:
                 cmd.append('--volumes')
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                return {'success': True, 'output': result.stdout}
-            return {'success': False, 'error': result.stderr}
+            # LONG: reclaiming a large layer cache is unbounded today.
+            result = DockerService.run(cmd, timeout=None)
+            if result['success']:
+                return {'success': True, 'output': result['output']}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1389,15 +1373,13 @@ class DockerService:
     def get_disk_usage():
         """Get Docker disk usage."""
         try:
-            result = subprocess.run(
-                ['docker', 'system', 'df', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = DockerService.run(['system', 'df', '--format', '{{json .}}'],
+                                       timeout=None)
+            if not result['success']:
                 return []
 
             usage = []
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if line:
                     usage.append(json.loads(line))
             return usage
@@ -1535,14 +1517,12 @@ class DockerService:
             Dict with 'success' boolean and 'ports' mapping
         """
         try:
-            result = subprocess.run(
-                ['docker', 'inspect', '--format', '{{json .NetworkSettings.Ports}}', container_name],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                ports = json.loads(result.stdout.strip())
-                return {'success': True, 'ports': ports}
-            return {'success': False, 'error': result.stderr}
+            result = DockerService.run(
+                ['inspect', '--format', '{{json .NetworkSettings.Ports}}', container_name],
+                timeout=None)
+            if result['success']:
+                return {'success': True, 'ports': json.loads(result['output'].strip())}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1557,12 +1537,11 @@ class DockerService:
             Dict with network settings including IP addresses and ports
         """
         try:
-            result = subprocess.run(
-                ['docker', 'inspect', '--format', '{{json .NetworkSettings}}', container_name],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                network_settings = json.loads(result.stdout.strip())
+            result = DockerService.run(
+                ['inspect', '--format', '{{json .NetworkSettings}}', container_name],
+                timeout=None)
+            if result['success']:
+                network_settings = json.loads(result['output'].strip())
                 return {
                     'success': True,
                     'ip_address': network_settings.get('IPAddress'),
@@ -1570,6 +1549,6 @@ class DockerService:
                     'networks': network_settings.get('Networks'),
                     'gateway': network_settings.get('Gateway')
                 }
-            return {'success': False, 'error': result.stderr}
+            return {'success': False, 'error': result['error']}
         except Exception as e:
             return {'success': False, 'error': str(e)}

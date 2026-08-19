@@ -35,6 +35,24 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
 
     Pass *user* to run the command as a specific user (``sudo -u <user>``).
 
+    .. warning::
+
+       *user* is only correct for privilege ESCALATION, not for identity
+       SWITCHING. When :func:`_needs_sudo` is False — most importantly when the
+       process is already root — the whole ``sudo -n -u <user>`` prefix is
+       dropped and the command runs as the current user, not as *user*.
+
+       That is right for "give me root, I am not root"; it is wrong for
+       "run this as postgres". ``database_service`` needs the second, because
+       PostgreSQL's local peer auth maps the OS user to the DB role, so a root
+       panel silently connecting as role ``root`` fails authentication. Its
+       five ``psql``/``pg_dump`` sites therefore spell ``sudo -u postgres``
+       out themselves and go through :func:`run_checked` unprivileged.
+
+       *user* currently has no callers. Before giving it one, decide what
+       should happen as root — ``runuser``/``su`` rather than dropping the
+       switch — and test it on a root install.
+
     ``sudo -n`` (non-interactive) is always used: nothing here runs attached to a
     human terminal, and callers capture output, so a password prompt would be
     invisible AND unanswerable — sudo would simply block forever, hanging the
@@ -50,6 +68,19 @@ def privileged_cmd(cmd: Union[List[str], str], *, user: Optional[str] = None) ->
         return cmd
 
     cmd = list(cmd)
+
+    # Give argv[0] an absolute path ONLY when $PATH cannot resolve it. subprocess
+    # searches $PATH and nothing else, so a tool that exists but sits outside it
+    # raises FileNotFoundError — which callers wrapping the probe in a broad
+    # `except` then report as "not installed". This is how a successfully
+    # installed ufw (in /usr/sbin, absent from the unit's PATH) surfaced in the
+    # panel as "No Firewall Installed". Left untouched when $PATH already works,
+    # so a resolvable command is passed through exactly as the caller wrote it.
+    if cmd and cmd[0] != 'sudo' and not os.path.isabs(cmd[0]) and not shutil.which(cmd[0]):
+        resolved = resolve_command(cmd[0])
+        if resolved:
+            cmd[0] = resolved
+
     if _needs_sudo() and cmd[0] != 'sudo':
         if user:
             return ['sudo', '-n', '-u', user] + cmd
@@ -91,13 +122,36 @@ def run_privileged(cmd: Union[List[str], str], *, user: Optional[str] = None, **
     return subprocess.run(cmd, **kwargs)
 
 
-def run_command(cmd: Union[List[str], str], *, timeout: int = 60,
-                capture_stderr: bool = False, **kwargs) -> dict:
-    """Run a shell command and return a dict with stdout/stderr/returncode.
+def run_unprivileged(cmd: Union[List[str], str], *, timeout: int = 60,
+                     capture_stderr: bool = False, **kwargs) -> dict:
+    """Run a command WITHOUT privilege escalation; dict with stdout/stderr/rc.
 
-    This is a convenience wrapper used by services that need simple dict results
-    rather than a raw ``CompletedProcess`` object.
+    Named for what it does not do. It was called ``run_command`` — a name that
+    described nothing and sat one autocomplete away from
+    :func:`run_privileged`, so ``nginx -t`` went through it and could neither
+    read root-owned config nor find /usr/sbin/nginx. The caller reported every
+    config as invalid. ``run_unprivileged(['nginx', '-t'])`` reads as obviously
+    wrong; ``run_command(['nginx', '-t'])`` did not.
+
+    The old name was also ambiguous across the codebase: ``PythonService`` has
+    an unrelated method of the same name.
+
+    Use :func:`run_privileged` unless the command genuinely must not gain root.
+    That is the common case — this helper has a handful of callers and they are
+    all reads that work fine as the invoking user.
     """
+    # Same argv[0] resolution as privileged_cmd: this helper does no privilege
+    # escalation, so nothing else would find a command outside $PATH. Without
+    # it `run_unprivileged(['nginx', '-t'])` raised FileNotFoundError on every
+    # root install (nginx is /usr/sbin/nginx). Only applied when $PATH
+    # genuinely misses the command.
+    if isinstance(cmd, (list, tuple)):
+        cmd = list(cmd)
+        if cmd and cmd[0] != 'sudo' and not os.path.isabs(cmd[0]) and not shutil.which(cmd[0]):
+            resolved = resolve_command(cmd[0])
+            if resolved:
+                cmd[0] = resolved
+
     kwargs.setdefault('capture_output', True)
     kwargs.setdefault('text', True)
     result = subprocess.run(cmd, timeout=timeout, **kwargs)
@@ -108,23 +162,242 @@ def run_command(cmd: Union[List[str], str], *, timeout: int = 60,
     }
 
 
+def run_checked(cmd: Union[List[str], str], *, privileged: bool = False,
+                timeout: Optional[int] = 60, input: Optional[str] = None,
+                cwd: Optional[str] = None, env: Optional[dict] = None,
+                merge_stderr: bool = False, **kwargs) -> dict:
+    """Run a command and get a result, not a ``CompletedProcess`` (plan 75 §G1).
+
+    The result-shaped door. Around ``backend/app``'s raw ``subprocess`` calls
+    sit 220 copies of ``capture_output=True, text=True``, 56 hand-rolled
+    ``except subprocess.TimeoutExpired`` handlers, 19 hand-rolled
+    ``except FileNotFoundError`` handlers, and 1,164 literal
+    ``{'success': False, 'error': ...}`` constructions. Each of those is a
+    place where an exec failure can be — and per plan 74 has been — converted
+    into a false fact about the operator's server.
+
+    Returns::
+
+        {'success': bool, 'output': str, 'stderr': str,
+         'error': str|None, 'returncode': int|None}
+
+    ``returncode`` is ``None`` when the command never ran, which is the
+    distinction the hand-rolled handlers keep losing: exit code 1 means the
+    command answered "no", while no exit code at all means nobody answered.
+    A caller that renders "not installed" must check ``returncode is not None``
+    first, and now it can.
+
+    ``stderr`` is the raw stream; ``error`` is the verdict — a human-facing
+    message, ``None`` on success. They are separate because plenty of commands
+    write to stderr and still succeed (``docker exec``, ``git``), so folding
+    the stream into the verdict would invent failures. Callers that show
+    command output want ``stderr``; callers that report a problem want
+    ``error``.
+
+    ``merge_stderr=True`` interleaves stderr into ``output`` the way a terminal
+    would (``stderr=STDOUT``). ``docker logs`` needs it — a container's stderr
+    is part of its log, not an error about fetching the log — and hand-rolled
+    ``result.stdout + result.stderr`` concatenation is not the same thing: it
+    loses the ordering.
+
+    ``privileged=True`` routes through :func:`run_privileged` — same sudo-vs-root
+    decision, same argv[0] resolution, so no caller re-implements either.
+
+    ``timeout`` defaults to 60s rather than ``None`` on purpose: with output
+    captured and no terminal, a command that never returns takes its caller
+    with it, silently and forever. Pass ``timeout=None`` to opt out
+    deliberately.
+    """
+    if input is not None:
+        kwargs['input'] = input
+    if cwd is not None:
+        kwargs['cwd'] = cwd
+    if env is not None:
+        kwargs['env'] = env
+    if merge_stderr:
+        # capture_output and an explicit stderr= are mutually exclusive.
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.STDOUT)
+    elif 'stdout' not in kwargs and 'stderr' not in kwargs:
+        kwargs.setdefault('capture_output', True)
+    # else: the caller is directing the streams itself (writing straight to a
+    # log file, say). Adding capture_output on top would raise ValueError, and
+    # silently overriding their redirect would throw the output away.
+    kwargs.setdefault('text', True)
+
+    try:
+        if privileged:
+            result = run_privileged(cmd, timeout=timeout, **kwargs)
+        else:
+            resolved = cmd
+            if isinstance(cmd, (list, tuple)):
+                resolved = list(cmd)
+                if (resolved and not os.path.isabs(resolved[0])
+                        and not shutil.which(resolved[0])):
+                    # Same argv[0] resolution privileged_cmd does: a bare name
+                    # that $PATH cannot find is the sbin outage, not a missing
+                    # binary. Only applied when $PATH genuinely misses it.
+                    absolute = resolve_command(resolved[0])
+                    if absolute:
+                        resolved[0] = absolute
+            result = subprocess.run(resolved, timeout=timeout, **kwargs)
+    except FileNotFoundError as exc:
+        name = cmd[0] if isinstance(cmd, (list, tuple)) and cmd else cmd
+        return _never_ran(f'{name} not found: {exc}')
+    except subprocess.TimeoutExpired:
+        return _never_ran(f'timed out after {timeout}s')
+    except PermissionError as exc:
+        return _never_ran(f'permission denied: {exc}')
+    except OSError as exc:
+        return _never_ran(str(exc))
+
+    stderr = result.stderr or ''
+    return {
+        'success': result.returncode == 0,
+        'output': result.stdout or '',
+        'stderr': stderr,
+        'returncode': result.returncode,
+        'error': (stderr.strip() or f'command failed (exit {result.returncode})')
+                 if result.returncode != 0 else None,
+    }
+
+
+def _never_ran(error: str) -> dict:
+    """The result shape for a command that never produced an exit code.
+
+    ``returncode is None`` is the whole point — see :func:`run_checked`.
+    """
+    return {'success': False, 'output': '', 'stderr': '',
+            'returncode': None, 'error': error}
+
+
+def write_privileged_file(path: str, content: str, *, append: bool = False,
+                          mode: Optional[str] = None,
+                          owner: Optional[str] = None) -> dict:
+    """Write *content* to *path* with privilege escalation. One door (plan 75 §G2).
+
+    The write-a-root-owned-file sequence was pasted at 15+ call sites in **two
+    competing forms**: ``run_privileged(['tee', path], input=content)`` and a
+    raw ``subprocess.run(['sudo', 'tee', path], ...)``. The second form is the
+    drift this plan exists to remove — it hardcodes ``sudo`` instead of asking
+    :func:`_needs_sudo`, so it fails on a panel already running as root (no
+    sudo binary in a minimal container) exactly the way plan 74's outage did.
+
+    Returns a result dict rather than a ``CompletedProcess`` because every one
+    of those call sites immediately converted one into the other:
+
+        {'success': bool, 'path': str, 'error': str}   # 'error' only on failure
+
+    ``success`` is never True on a write that did not demonstrably happen — a
+    ``FileNotFoundError`` (no ``tee``) or a timeout reports the failure instead
+    of being swallowed into a cheerful return (§A, probe honesty).
+
+    *mode* and *owner* are applied after the write (``chmod`` / ``chown``); a
+    failure there is reported, because a config written with the wrong
+    ownership is not a config that works.
+
+    Still ``tee`` under the hood, deliberately: this change is a collapse, not
+    a behaviour change. Having one door is what makes a later atomic write
+    (tmp + ``os.replace``) a single edit instead of fifteen.
+    """
+    argv = ['tee', '-a', path] if append else ['tee', path]
+    try:
+        result = run_privileged(argv, input=content)
+    except FileNotFoundError:
+        return {'success': False, 'path': path,
+                'error': "'tee' not found - cannot write privileged file"}
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'path': path,
+                'error': f'timed out writing {path}'}
+    except Exception as exc:  # noqa: BLE001 - reported, never converted to success
+        return {'success': False, 'path': path, 'error': str(exc)}
+
+    if result.returncode != 0:
+        return {'success': False, 'path': path,
+                'error': (result.stderr or f'failed to write {path}').strip()}
+
+    follow_ups = ([['chmod', mode, path]] if mode else []) + \
+                 ([['chown', owner, path]] if owner else [])
+    for step_argv in follow_ups:
+        try:
+            step = run_privileged(step_argv)
+        except Exception as exc:  # noqa: BLE001
+            return {'success': False, 'path': path, 'error': str(exc)}
+        if step.returncode != 0:
+            return {'success': False, 'path': path,
+                    'error': (step.stderr or f'{step_argv[0]} failed on {path}').strip()}
+
+    return {'success': True, 'path': path}
+
+
+# Searched when ``$PATH`` does not resolve a command. Ordered the way a login
+# shell would. ``/usr/sbin`` and ``/sbin`` matter most: the panel's systemd unit
+# ships a PATH of venv:/usr/local/bin:/usr/bin:/bin, so every sbin-resident tool
+# (ufw, iptables, nft) is unreachable by bare name from the service. ``/snap/bin``
+# is included because snap is the recommended install route for certbot and is
+# almost never on a service's PATH.
+_COMMAND_SEARCH_DIRS = ('/usr/local/sbin', '/usr/local/bin', '/usr/sbin',
+                        '/usr/bin', '/sbin', '/bin', '/snap/bin')
+
+
+def unit_is_active(unit: str, *, timeout: int = 10) -> Optional[bool]:
+    """Tri-state systemd unit probe: ``True``, ``False``, or ``None`` (§G6).
+
+    ``None`` means *could not determine* — no systemctl, no systemd, a probe
+    that timed out — and is deliberately not ``False``. The five hand-rolled
+    copies of this ``systemctl is-active`` call all collapsed those cases into
+    "not running", which is how a working service gets reported as down on a
+    host the panel simply could not ask (plan 74's outage, one layer up).
+
+    Callers that genuinely want two states write ``unit_is_active(u) is True``
+    and are then saying so out loud.
+    """
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', unit],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    # systemctl prints one word: active / inactive / failed / unknown. An empty
+    # stdout means it answered nothing useful, which is not the same as "no".
+    answer = (result.stdout or '').strip()
+    if not answer:
+        return None
+    return answer == 'active'
+
+
+def resolve_command(cmd: str) -> Optional[str]:
+    """Absolute path to *cmd*, or None when it cannot be found anywhere.
+
+    ``shutil.which`` first, then :data:`_COMMAND_SEARCH_DIRS`. Knowing a command
+    exists is not enough to run it: ``subprocess`` resolves argv[0] through
+    ``$PATH`` alone and raises ``FileNotFoundError`` when that misses, so a
+    caller that only checked availability would still fail to exec.
+    """
+    if os.path.isabs(cmd):
+        return cmd if os.path.exists(cmd) else None
+
+    found = shutil.which(cmd)
+    if found:
+        return found
+
+    for directory in _COMMAND_SEARCH_DIRS:
+        candidate = os.path.join(directory, cmd)
+        if os.path.exists(candidate):
+            return candidate
+
+    return None
+
+
 def is_command_available(cmd: str) -> bool:
     """Check whether *cmd* is available on the system.
 
-    Uses ``shutil.which`` first, then falls back to checking common sbin/local
-    paths that may not be on the current ``$PATH``.  ``/snap/bin`` is included
-    because snap is the recommended install method for tools like certbot, and
-    snap's bin dir is frequently missing from a service's ``$PATH``.
+    Uses ``shutil.which`` first, then falls back to the same sbin/local paths
+    :func:`resolve_command` searches — so "available" and "runnable" can never
+    disagree.
     """
-    if shutil.which(cmd):
-        return True
-
-    for directory in ('/usr/bin', '/usr/sbin', '/usr/local/bin',
-                      '/usr/local/sbin', '/snap/bin'):
-        if os.path.exists(os.path.join(directory, cmd)):
-            return True
-
-    return False
+    return resolve_command(cmd) is not None
 
 
 def sourced_result(lines: list, source: str, source_label: str) -> dict:
@@ -260,16 +533,34 @@ class ServiceControl:
         return run_privileged(['systemctl', 'daemon-reload'], **kwargs)
 
     @staticmethod
+    def result_dict(proc, ok_message, error_key='error',
+                    fallback='Operation failed'):
+        """CompletedProcess → the service-dict shape every *Service returns.
+
+        The translation was re-implemented per service with subtly divergent
+        failure shapes ('error' vs 'message' carrying stderr); keep the key
+        and fallback parametrized so converting a site is parity, not a
+        contract change (plan 75 §F5).
+        """
+        if proc.returncode == 0:
+            return {'success': True, 'message': ok_message}
+        return {'success': False, error_key: proc.stderr or fallback}
+
+    @staticmethod
     def is_active(service: str) -> bool:
-        """Return ``True`` when the service is active.  No sudo needed."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', service],
-                capture_output=True, text=True, timeout=PROBE_TIMEOUT,
-            )
-            return result.stdout.strip() == 'active'
-        except FileNotFoundError:
-            return False
+        """Return ``True`` when the service is active.  No sudo needed.
+
+        Raises ``FileNotFoundError`` when ``systemctl`` itself is missing: a
+        host without systemd is "could not check", not "not running" — the
+        doctor converts that to a warn row, and swallowing it here made every
+        such host read as a repairable failure. Callers that want the old
+        leniency guard their own call (php/postfix/security services do).
+        """
+        result = subprocess.run(
+            ['systemctl', 'is-active', service],
+            capture_output=True, text=True, timeout=PROBE_TIMEOUT,
+        )
+        return result.stdout.strip() == 'active'
 
     @staticmethod
     def is_enabled(service: str) -> bool:

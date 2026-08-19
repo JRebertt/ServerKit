@@ -249,18 +249,16 @@ class MigrationService:
                 return {'success': True, 'path': backup_path}
 
             elif 'postgresql' in db_url:
-                import subprocess
+                from app.utils.system import run_checked
                 backup_dir = '/var/serverkit/backups/db'
                 os.makedirs(backup_dir, exist_ok=True)
                 backup_name = f'serverkit_pre_migration_{timestamp}.sql'
                 backup_path = os.path.join(backup_dir, backup_name)
 
-                result = subprocess.run(
-                    ['pg_dump', db_url, '-f', backup_path],
-                    capture_output=True, text=True, timeout=300
-                )
-                if result.returncode != 0:
-                    return {'success': False, 'error': result.stderr}
+                result = run_checked(['pg_dump', db_url, '-f', backup_path],
+                                     timeout=300)
+                if not result['success']:
+                    return {'success': False, 'error': result['error']}
 
                 logger.info(f'Database backup created: {backup_path}')
                 return {'success': True, 'path': backup_path}

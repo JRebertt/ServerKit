@@ -17,7 +17,6 @@ All endpoints are admin-only; ``apply`` requires an explicit settings payload
 — suggestions are never auto-applied.
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 
 from app.middleware.rbac import admin_required
 from app.services.db_config_tuner_service import DbConfigTunerService
@@ -43,8 +42,7 @@ def _build_target(target, data):
         if not engine:
             return None, (jsonify({'error': f'Unsupported engine: {managed.engine}'}), 400)
         if not password and managed.admin_secret_encrypted:
-            from app.utils.crypto import decrypt_secret_safe
-            password = decrypt_secret_safe(managed.admin_secret_encrypted)
+            password = managed.admin_secret
         return {
             'container': managed.container_ref,
             'engine': engine,
@@ -60,7 +58,6 @@ def _build_target(target, data):
 
 
 @db_tuner_bp.route('/<target>/inspect', methods=['GET'])
-@jwt_required()
 @admin_required
 def inspect_target(target):
     """Current vs RAM-aware suggested values for the curated settings."""
@@ -68,12 +65,10 @@ def inspect_target(target):
     if err:
         return err
     dedicated = str(request.args.get('dedicated', '')).lower() in ('1', 'true', 'yes')
-    result = DbConfigTunerService.inspect(resolved, is_dedicated=dedicated)
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.inspect(resolved, is_dedicated=dedicated)), 200
 
 
 @db_tuner_bp.route('/<target>/apply', methods=['POST'])
-@jwt_required()
 @admin_required
 def apply_target(target):
     """Apply an explicit operator-chosen settings dict (restarts the engine)."""
@@ -83,12 +78,10 @@ def apply_target(target):
     resolved, err = _build_target(target, data)
     if err:
         return err
-    result = DbConfigTunerService.apply(resolved, data['settings'])
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.apply(resolved, data['settings'])), 200
 
 
 @db_tuner_bp.route('/<target>/rollback', methods=['POST'])
-@jwt_required()
 @admin_required
 def rollback_target(target):
     """Restore the pre-apply config and restart the engine."""
@@ -96,5 +89,4 @@ def rollback_target(target):
     resolved, err = _build_target(target, data)
     if err:
         return err
-    result = DbConfigTunerService.rollback(resolved)
-    return jsonify(result), 200 if 'error' not in result else 400
+    return jsonify(DbConfigTunerService.rollback(resolved)), 200

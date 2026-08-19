@@ -7,6 +7,13 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from app import db
+from app.exceptions import (
+    ApplicationError,
+    ConflictError,
+    DependencyUnavailableError,
+    NotFoundError,
+    ValidationError,
+)
 from app.models import Secret, SecretVault
 from app.utils.crypto import encrypt_secret, decrypt_secret_safe
 from app.utils.slug import unique_slug
@@ -40,7 +47,7 @@ class SecretVaultService:
     def create_vault(cls, name: str, description: str = None, user_id: int = None,
                      workspace_id: int = None) -> Dict:
         if SecretVault.query.filter_by(name=name).first():
-            return {'success': False, 'error': 'Vault name already exists'}
+            raise ConflictError('Vault name already exists')
         vault = SecretVault(
             name=name,
             slug=_unique_slug(name),
@@ -50,31 +57,30 @@ class SecretVaultService:
         )
         db.session.add(vault)
         db.session.commit()
-        return {'success': True, 'vault': vault.to_dict()}
+        return vault.to_dict()
 
     @classmethod
     def update_vault(cls, vault_id: int, name: str = None, description: str = None) -> Dict:
         vault = cls.get_vault(vault_id)
         if not vault:
-            return {'success': False, 'error': 'Vault not found'}
+            raise NotFoundError('Vault not found')
         if name is not None:
             existing = SecretVault.query.filter(SecretVault.name == name, SecretVault.id != vault_id).first()
             if existing:
-                return {'success': False, 'error': 'Vault name already exists'}
+                raise ConflictError('Vault name already exists')
             vault.name = name
         if description is not None:
             vault.description = description
         db.session.commit()
-        return {'success': True, 'vault': vault.to_dict()}
+        return vault.to_dict()
 
     @classmethod
     def delete_vault(cls, vault_id: int) -> Dict:
         vault = cls.get_vault(vault_id)
         if not vault:
-            return {'success': False, 'error': 'Vault not found'}
+            raise NotFoundError('Vault not found')
         db.session.delete(vault)
         db.session.commit()
-        return {'success': True, 'message': 'Vault deleted'}
 
 
 class SecretService:
@@ -95,27 +101,24 @@ class SecretService:
         return Secret.query.filter_by(vault_id=vault_id, name=name).first()
 
     @classmethod
-    def _validate_name(cls, name: str) -> Optional[str]:
+    def _validate_name(cls, name: str) -> None:
         if not name:
-            return 'Name is required'
+            raise ValidationError('Name is required')
         if not cls._NAME_RE.match(name):
-            return 'Name must start with a letter or underscore and contain only letters, digits, and underscores'
-        return None
+            raise ValidationError('Name must start with a letter or underscore and contain only letters, digits, and underscores')
 
     @classmethod
     def create_secret(cls, vault_id: int, name: str, value: str,
                       description: str = None, expires_at=None) -> Dict:
         if not SecretVault.query.get(vault_id):
-            return {'success': False, 'error': 'Vault not found'}
-        err = cls._validate_name(name)
-        if err:
-            return {'success': False, 'error': err}
+            raise NotFoundError('Vault not found')
+        cls._validate_name(name)
         if Secret.query.filter_by(vault_id=vault_id, name=name).first():
-            return {'success': False, 'error': 'Secret name already exists in this vault'}
+            raise ConflictError('Secret name already exists in this vault')
         try:
             encrypted = encrypt_secret(value)
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            raise ValidationError(str(e), code='encryption_error') from e
         secret = Secret(
             vault_id=vault_id,
             name=name,
@@ -125,19 +128,19 @@ class SecretService:
         )
         db.session.add(secret)
         db.session.commit()
-        return {'success': True, 'secret': secret.to_dict(include_value=True, mask=True)}
+        return secret.to_dict(include_value=True, mask=True)
 
     @classmethod
     def update_secret(cls, secret_id: int, value: str = None, description: str = None,
                       expires_at=None, rotate: bool = False) -> Dict:
         secret = cls.get_secret(secret_id)
         if not secret:
-            return {'success': False, 'error': 'Secret not found'}
+            raise NotFoundError('Secret not found')
         if value is not None:
             try:
                 secret.encrypted_value = encrypt_secret(value)
             except Exception as e:
-                return {'success': False, 'error': str(e)}
+                raise ValidationError(str(e), code='encryption_error') from e
             secret.updated_at = datetime.utcnow()
         if description is not None:
             secret.description = description
@@ -149,35 +152,37 @@ class SecretService:
                 try:
                     secret.encrypted_value = encrypt_secret(decrypted)
                 except Exception as e:
-                    return {'success': False, 'error': str(e)}
+                    raise ValidationError(str(e), code='encryption_error') from e
                 secret.updated_at = datetime.utcnow()
         db.session.commit()
-        return {'success': True, 'secret': secret.to_dict(include_value=True, mask=True)}
+        return secret.to_dict(include_value=True, mask=True)
 
     @classmethod
     def delete_secret(cls, secret_id: int) -> Dict:
         secret = cls.get_secret(secret_id)
         if not secret:
-            return {'success': False, 'error': 'Secret not found'}
+            raise NotFoundError('Secret not found')
         db.session.delete(secret)
         db.session.commit()
-        return {'success': True, 'message': 'Secret deleted'}
 
     @classmethod
     def reveal_secret(cls, secret_id: int) -> Dict:
         secret = cls.get_secret(secret_id)
         if not secret:
-            return {'success': False, 'error': 'Secret not found'}
+            raise NotFoundError('Secret not found')
         value = secret.value
         if value is None:
-            return {'success': False, 'error': 'Unable to decrypt secret'}
-        return {'success': True, 'secret': secret.to_dict(include_value=True, mask=False)}
+            raise DependencyUnavailableError('Unable to decrypt secret')
+        return secret.to_dict(include_value=True, mask=False)
 
     @classmethod
     def bulk_create_or_update(cls, vault_id: int, secrets_list: List[Dict]) -> Dict:
-        """Create or update many secrets. Each item needs name and value."""
+        """Create or update many secrets. Each item needs name and value.
+
+        Per-item failures are collected, not raised — a bulk import reports
+        what it could and could not apply."""
         if not SecretVault.query.get(vault_id):
-            return {'success': False, 'error': 'Vault not found'}
+            raise NotFoundError('Vault not found')
         results = []
         errors = []
         for item in secrets_list:
@@ -187,15 +192,15 @@ class SecretService:
                 errors.append({'name': name, 'error': 'name and value required'})
                 continue
             existing = cls.get_secret_by_name(vault_id, name)
-            if existing:
-                result = cls.update_secret(existing.id, value=value)
-            else:
-                result = cls.create_secret(vault_id, name, value, description=item.get('description'))
-            if result.get('success'):
-                results.append(result['secret'])
-            else:
-                errors.append({'name': name, 'error': result.get('error')})
-        return {'success': True, 'secrets': results, 'errors': errors}
+            try:
+                if existing:
+                    results.append(cls.update_secret(existing.id, value=value))
+                else:
+                    results.append(cls.create_secret(
+                        vault_id, name, value, description=item.get('description')))
+            except ApplicationError as e:
+                errors.append({'name': name, 'error': e.message})
+        return {'secrets': results, 'errors': errors}
 
     @classmethod
     def resolve_env_dict(cls, vault_id: int, prefix: str = '') -> Dict[str, str]:

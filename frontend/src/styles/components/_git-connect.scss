@@ -34,8 +34,7 @@
         width: 38px;
         height: 38px;
         border-radius: $radius-lg;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__intro-text {
@@ -102,8 +101,7 @@
         transition: background $transition-fast, color $transition-fast;
     }
     &__provider--active &__provider-icon {
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__provider-label {
@@ -128,8 +126,7 @@
         padding: 3px $space-2;
         border: 1px solid var(--accent-dim);
         border-radius: $radius-full;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         font-size: $font-size-xs;
         font-weight: $font-weight-medium;
         line-height: 1;
@@ -262,8 +259,7 @@
         width: 38px;
         height: 38px;
         border-radius: $radius-lg;
-        background: var(--green-bg);
-        color: var(--green);
+        @include status-variant(var(--green), var(--green-bg));
     }
 
     &__title {
@@ -488,8 +484,7 @@
     background: var(--green-bg);
 
     .git-connect__provider-icon {
-        background: var(--green-bg);
-        color: var(--green);
+        @include status-variant(var(--green), var(--green-bg));
     }
 
     .git-connect__provider-hint {
@@ -534,8 +529,7 @@
 
         &--quick.is-active {
             border-color: var(--accent-dim);
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
     }
 
@@ -595,8 +589,7 @@
         cursor: pointer;
 
         &:hover {
-            background: var(--red-bg);
-            color: var(--red);
+            @include status-variant(var(--red), var(--red-bg));
         }
     }
 

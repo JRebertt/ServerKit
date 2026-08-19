@@ -37,9 +37,12 @@ endpoint behaves exactly as it did before.
 """
 
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, or_, inspect
+
+from app.exceptions import ValidationError
 
 # Hard ceiling on ``$top``. A list endpoint that answers "give me everything"
 # is how /apps got to an unbounded ``query.all()``; a caller that genuinely
@@ -56,8 +59,85 @@ COMPARE_OPS = {
 }
 
 
-class QueryParseError(ValueError):
-    """A malformed query parameter. API layers turn this into a 400."""
+class QueryParseError(ValidationError):
+    """A malformed query parameter.
+
+    A ``ValidationError`` subclass so the global error handler answers it as a
+    400 with the standard body — routes no longer need their own translation
+    (the existing per-route ``except QueryParseError`` blocks keep working).
+    """
+
+
+@dataclass(frozen=True)
+class ListQuery:
+    """Typed representation of the shared list-query parameters.
+
+    Existing endpoints may keep passing a Flask request to ``apply_query``.
+    Schema-backed endpoints can parse this value once and pass it directly, so
+    the query layer no longer requires a Flask request global.
+    """
+
+    select: str | None = None
+    filter: str | None = None
+    orderby: str | None = None
+    skip: int = 0
+    top: int | None = None
+
+    def __post_init__(self):
+        if self.skip < 0:
+            raise QueryParseError('$skip cannot be negative.')
+        if self.top is not None and self.top < 0:
+            raise QueryParseError('$top cannot be negative.')
+        if self.top is not None and self.top > MAX_TOP:
+            object.__setattr__(self, 'top', MAX_TOP)
+
+    @classmethod
+    def from_args(cls, args, *, default_top=None):
+        """Parse a MultiDict-like mapping into one validated value."""
+        top = _int_arg(args.get('$top'), default_top, '$top')
+        if top is not None:
+            top = max(0, min(top, MAX_TOP))
+        return cls(
+            select=args.get('$select'),
+            filter=args.get('$filter'),
+            orderby=args.get('$orderby'),
+            skip=_int_arg(args.get('$skip'), 0, '$skip'),
+            top=top,
+        )
+
+    @classmethod
+    def from_request(cls, http_request, *, default_top=None):
+        return cls.from_args(http_request.args, default_top=default_top)
+
+
+@dataclass(frozen=True)
+class PageQuery:
+    """Typed ``page``/``per_page`` parameters for offset-paginated lists.
+
+    The page-numbered dialect of :class:`ListQuery` — some list endpoints and
+    their consumers speak ``page``/``per_page`` rather than ``$skip``/``$top``.
+    They are not interchangeable and are not pretended to be; this is the one
+    place that dialect is parsed, defaulted, and bounded.
+    """
+
+    page: int = 1
+    per_page: int = 50
+
+    @property
+    def skip(self) -> int:
+        return (self.page - 1) * self.per_page
+
+    @classmethod
+    def from_args(cls, args, *, default_per_page=50, max_per_page=100):
+        page = _int_arg(args.get('page'), 1, 'page')
+        per_page = _int_arg(args.get('per_page'), default_per_page, 'per_page')
+        return cls(page=max(1, page),
+                   per_page=max(1, min(per_page, max_per_page)))
+
+    @classmethod
+    def from_request(cls, http_request, *, default_per_page=50, max_per_page=100):
+        return cls.from_args(http_request.args, default_per_page=default_per_page,
+                             max_per_page=max_per_page)
 
 
 def _columns(model):
@@ -244,8 +324,11 @@ class QueryResult:
         return {'total': self.total, 'skip': self.skip, 'top': self.top}
 
 
-def apply_query(query, model, request, *, default_top=None, select_extra=()):
+def apply_query(query, model, request_or_query, *, default_top=None, select_extra=()):
     """Apply the query params present on `request` to `query`.
+
+    ``request_or_query`` accepts either Flask's request object or a pre-parsed
+    :class:`ListQuery` from a schema-backed endpoint.
 
     Returns a :class:`QueryResult`. With no params present this is a no-op and
     ``.fields`` is None, so an endpoint can adopt it without changing any
@@ -254,24 +337,27 @@ def apply_query(query, model, request, *, default_top=None, select_extra=()):
     `default_top` bounds an endpoint that has no explicit ``$top``; leave it
     None to keep today's unbounded behaviour while callers migrate.
     """
-    args = request.args
-    where = parse_filter(args.get('$filter'), model)
+    list_query = (
+        request_or_query
+        if isinstance(request_or_query, ListQuery)
+        else ListQuery.from_request(request_or_query, default_top=default_top)
+    )
+
+    where = parse_filter(list_query.filter, model)
     if where is not None:
         query = query.filter(where)
 
-    order = parse_orderby(args.get('$orderby'), model)
+    order = parse_orderby(list_query.orderby, model)
     if order:
         query = query.order_by(*order)
 
-    fields = parse_select(args.get('$select'), model, extra=select_extra)
+    fields = parse_select(list_query.select, model, extra=select_extra)
 
     # `total` is the count BEFORE paging — the client needs it to render "12 of
     # 340", and computing it after .limit() would just return the page size.
     total = None
-    skip = _int_arg(args.get('$skip'), 0, '$skip')
-    top = _int_arg(args.get('$top'), default_top, '$top')
-    if top is not None:
-        top = max(0, min(top, MAX_TOP))
+    skip = list_query.skip
+    top = list_query.top
     if skip or top is not None:
         total = query.order_by(None).count()
         if skip:

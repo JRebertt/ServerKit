@@ -49,10 +49,16 @@ def _audit(action, **kwargs):
 
 
 def _current_user_id():
-    """Resolve the acting user id from the JWT, or None outside a request."""
+    """Resolve the acting user id, or None outside a request.
+
+    Goes through rbac.get_current_user() rather than get_jwt_identity() so an
+    API-key caller is attributed to the key's owner. Reading the JWT directly
+    *raises* for those requests, and the blanket except below turned that into
+    a silent user_id=None on every row written here."""
     try:
-        from flask_jwt_extended import get_jwt_identity
-        return get_jwt_identity()
+        from app.middleware.rbac import get_current_user
+        user = get_current_user()
+        return user.id if user else None
     except Exception:
         return None
 

@@ -616,20 +616,17 @@
 }
 
 .badge-running {
-    color: $success;
-    background: $success-bg;
+    @include status-variant($success, $success-bg);
     border: 1px solid $success-border;
 }
 
 .badge-warning {
-    color: $warning;
-    background: $warning-bg;
+    @include status-variant($warning, $warning-bg);
     border: 1px solid $warning-border;
 }
 
 .badge-stopped {
-    color: $danger;
-    background: $danger-bg;
+    @include status-variant($danger, $danger-bg);
     border: 1px solid $danger-border;
 }
 

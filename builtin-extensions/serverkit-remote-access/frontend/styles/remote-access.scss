@@ -1,6 +1,11 @@
 // ============================================
 // REMOTE ACCESS  (/remote-access — a tab in the Servers group)
 // ============================================
+// Compiled through the extension's module graph (imported by index.jsx).
+// The baked copy lives at frontend/src/plugins/serverkit-remote-access/, so
+// this sync-safe path resolves to the host's Sass design-token partial.
+@import '../../../styles/variables';
+
 // WireGuard tunnels between two agents + the services published over them.
 // Page-local `.ra-*` classes built on the infra-console tokens (sk-* siblings).
 // Deliberately NOT the shadcn <Card>: its unlayered `.ui-card-content` zeroes

@@ -1,9 +1,10 @@
 """API usage tracking models."""
 from datetime import datetime
 from app import db
+from app.models.mixins import SerializableMixin
 
 
-class ApiUsageLog(db.Model):
+class ApiUsageLog(SerializableMixin, db.Model):
     """Raw API usage log for every request."""
     __tablename__ = 'api_usage_logs'
 
@@ -21,22 +22,12 @@ class ApiUsageLog(db.Model):
     response_size = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'api_key_id': self.api_key_id,
-            'user_id': self.user_id,
-            'method': self.method,
-            'endpoint': self.endpoint,
-            'blueprint': self.blueprint,
-            'status_code': self.status_code,
-            'response_time_ms': self.response_time_ms,
-            'ip_address': self.ip_address,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('request_size', 'response_size', 'user_agent')
 
 
-class ApiUsageSummary(db.Model):
+class ApiUsageSummary(SerializableMixin, db.Model):
     """Aggregated API usage summary per hour."""
     __tablename__ = 'api_usage_summaries'
 
@@ -52,17 +43,3 @@ class ApiUsageSummary(db.Model):
     avg_response_time_ms = db.Column(db.Float, nullable=True)
     max_response_time_ms = db.Column(db.Float, nullable=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'period_start': self.period_start.isoformat() if self.period_start else None,
-            'api_key_id': self.api_key_id,
-            'user_id': self.user_id,
-            'endpoint': self.endpoint,
-            'total_requests': self.total_requests,
-            'success_count': self.success_count,
-            'client_error_count': self.client_error_count,
-            'server_error_count': self.server_error_count,
-            'avg_response_time_ms': self.avg_response_time_ms,
-            'max_response_time_ms': self.max_response_time_ms,
-        }

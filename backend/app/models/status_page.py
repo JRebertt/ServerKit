@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from app import db
+from app.models.mixins import TimestampMixin, SerializableMixin
 import json
 
 
-class StatusPage(db.Model):
+class StatusPage(TimestampMixin, db.Model):
     """Public-facing status page configuration."""
     __tablename__ = 'status_pages'
 
@@ -22,8 +23,6 @@ class StatusPage(db.Model):
     show_uptime = db.Column(db.Boolean, default=True)
     show_history = db.Column(db.Boolean, default=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     components = db.relationship('StatusComponent', backref='status_page', lazy='dynamic',
                                  order_by='StatusComponent.sort_order', cascade='all, delete-orphan')
@@ -166,7 +165,7 @@ class StatusComponent(db.Model):
         }
 
 
-class HealthCheck(db.Model):
+class HealthCheck(SerializableMixin, db.Model):
     """Individual health check result."""
     __tablename__ = 'health_checks'
 
@@ -178,19 +177,9 @@ class HealthCheck(db.Model):
     error = db.Column(db.Text)
     checked_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'component_id': self.component_id,
-            'status': self.status,
-            'response_time': self.response_time,
-            'status_code': self.status_code,
-            'error': self.error,
-            'checked_at': self.checked_at.isoformat() if self.checked_at else None,
-        }
 
 
-class StatusIncident(db.Model):
+class StatusIncident(TimestampMixin, db.Model):
     """An incident on the status page."""
     __tablename__ = 'status_incidents'
 
@@ -212,8 +201,6 @@ class StatusIncident(db.Model):
     scheduled_end = db.Column(db.DateTime)
 
     resolved_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     updates = db.relationship('StatusIncidentUpdate', backref='incident', lazy='dynamic',
                               order_by='StatusIncidentUpdate.created_at.desc()', cascade='all, delete-orphan')
@@ -236,7 +223,7 @@ class StatusIncident(db.Model):
         }
 
 
-class StatusIncidentUpdate(db.Model):
+class StatusIncidentUpdate(SerializableMixin, db.Model):
     """Timeline update for an incident."""
     __tablename__ = 'status_incident_updates'
 
@@ -246,11 +233,3 @@ class StatusIncidentUpdate(db.Model):
     body = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'incident_id': self.incident_id,
-            'status': self.status,
-            'body': self.body,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

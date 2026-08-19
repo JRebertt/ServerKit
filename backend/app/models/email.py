@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class EmailDomain(db.Model):
+class EmailDomain(TimestampMixin, db.Model):
     __tablename__ = 'email_domains'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -22,8 +23,6 @@ class EmailDomain(db.Model):
     dns_provider_id = db.Column(db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
     dns_zone_id = db.Column(db.String(255))
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     accounts = db.relationship('EmailAccount', backref='domain', lazy=True, cascade='all, delete-orphan')
@@ -50,7 +49,7 @@ class EmailDomain(db.Model):
         return f'<EmailDomain {self.name}>'
 
 
-class EmailAccount(db.Model):
+class EmailAccount(TimestampMixin, db.Model):
     __tablename__ = 'email_accounts'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -61,8 +60,6 @@ class EmailAccount(db.Model):
     quota_mb = db.Column(db.Integer, default=1024)
     quota_used_mb = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     forwarding_rules = db.relationship('EmailForwardingRule', backref='account', lazy=True, cascade='all, delete-orphan')
 

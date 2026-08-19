@@ -7,7 +7,7 @@
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app.middleware.rbac import app_access_tier
+from app.middleware.rbac import app_access_tier, get_current_user
 from app.models import User, Application
 from app.models.deployment_job import DeploymentJob, DeploymentJobLog
 from app.services.deployment_job_service import DeploymentJobService
@@ -111,7 +111,7 @@ def get_deployment_job(job_id):
     job = DeploymentJob.query.get(job_id)
     if not job:
         return jsonify({'error': 'Deployment job not found'}), 404
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or not _job_visible_to(user, job):
         return jsonify({'error': 'Access denied'}), 403
     return jsonify({'job': job.to_dict(include_logs=include_logs,
@@ -126,7 +126,7 @@ def retry_deployment_job(job_id):
     job = DeploymentJob.query.get(job_id)
     if not job:
         return jsonify({'error': 'Deployment job not found'}), 404
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or not _job_operable_by(user, job):
         return jsonify({'error': 'Access denied'}), 403
     result = DeploymentJobService.retry_job(job_id, user_id=get_jwt_identity())
@@ -143,7 +143,7 @@ def get_deployment_job_logs(job_id):
     job = DeploymentJob.query.get(job_id)
     if not job:
         return jsonify({'error': 'Deployment job not found'}), 404
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     if not user or not _job_visible_to(user, job):
         return jsonify({'error': 'Access denied'}), 403
 

@@ -13,6 +13,7 @@ Contract (the CLI codes against this too):
                                          {'items': [{kind, type?, id?, name?}]}
 """
 from flask import Blueprint, jsonify, request
+from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required
 from ..services.doctor_service import DoctorService
@@ -31,8 +32,8 @@ def get_drift_report():
     """Last stored drift report (null when no sweep has run yet)."""
     try:
         return jsonify({'report': DriftService.get_last_report()})
-    except Exception as exc:  # noqa: BLE001 — surface as a clean JSON error
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @doctor_bp.route('/drift/check', methods=['POST'])
@@ -43,8 +44,8 @@ def run_drift_check():
         from app.jobs.service import JobService
         job = JobService.enqueue(DRIFT_JOB_KIND, payload={}, max_attempts=1)
         return jsonify({'job_id': job.id}), 202
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @doctor_bp.route('/drift/<check_type>/<resource_id>/repair', methods=['POST'])
@@ -59,8 +60,8 @@ def repair_drift(check_type, resource_id):
         result = DriftService.repair(check_type, rid)
         status = 200 if result.get('success') else 400
         return jsonify(result), status
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 # --------------------------------------------------------------------------- #
@@ -74,8 +75,8 @@ def get_doctor_report():
     """Last stored doctor report (null when the doctor has never run)."""
     try:
         return jsonify({'report': DoctorService.get_last_report()})
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @doctor_bp.route('/run', methods=['POST'])
@@ -86,8 +87,8 @@ def run_doctor():
     try:
         report = DoctorService.run()
         return jsonify({'report': report})
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @doctor_bp.route('/repair', methods=['POST'])
@@ -100,5 +101,5 @@ def repair_items():
         return jsonify({'error': "Body must carry a non-empty 'items' list."}), 400
     try:
         return jsonify({'results': DoctorService.repair(items)})
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)

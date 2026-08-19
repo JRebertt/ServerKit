@@ -2,7 +2,7 @@ import json
 import logging
 import subprocess
 from datetime import datetime
-from app.utils.system import run_command
+from app.utils.system import run_unprivileged
 from app.services.ssl_service import resolve_certbot_bin
 
 
@@ -79,7 +79,7 @@ class AdvancedSSLService:
             }
 
         try:
-            result = run_command(cmd, **run_kwargs)
+            result = run_unprivileged(cmd, **run_kwargs)
             return {
                 'success': True, 'domain': domain, 'type': 'wildcard',
                 'certificate_path': f'/etc/letsencrypt/live/{domain}/fullchain.pem',
@@ -101,7 +101,7 @@ class AdvancedSSLService:
             cmd.extend(['-d', d])
 
         try:
-            result = run_command(cmd)
+            result = run_unprivileged(cmd)
             return {'success': True, 'domains': domains, 'type': 'san', 'output': result.get('stdout', '')}
         except Exception as e:
             return {'success': False, 'error': str(e)}
@@ -189,6 +189,11 @@ class AdvancedSSLService:
                         result['grade'] = 'C'
 
         except Exception as e:
+            # The probe could not determine anything — report unknown, never
+            # the template's valid: False / grade: 'F' (a determined
+            # "terrible TLS config" for what may be a DNS timeout).
+            result['valid'] = None
+            result['grade'] = None
             result['error'] = str(e)
 
         return result
@@ -204,9 +209,9 @@ class AdvancedSSLService:
         cert_paths += glob.glob('/etc/ssl/serverkit/*/cert.pem')
 
         for cert_path in cert_paths:
+            domain = os.path.basename(os.path.dirname(cert_path))
             try:
-                domain = os.path.basename(os.path.dirname(cert_path))
-                result = run_command(['openssl', 'x509', '-enddate', '-noout', '-in', cert_path])
+                result = run_unprivileged(['openssl', 'x509', '-enddate', '-noout', '-in', cert_path])
                 stdout = result.get('stdout', '')
                 if 'notAfter=' in stdout:
                     date_str = stdout.split('notAfter=')[1].strip()
@@ -219,7 +224,16 @@ class AdvancedSSLService:
                             'days_remaining': days,
                             'severity': 'critical' if days <= 7 else 'warning',
                         })
-            except Exception:
-                continue
+            except Exception as e:
+                # An unprobeable cert is not "not expiring" — surface it as
+                # unknown instead of dropping it from the alert list.
+                alerts.append({
+                    'domain': domain,
+                    'expires_at': None,
+                    'days_remaining': None,
+                    'severity': 'unknown',
+                    'error': str(e),
+                })
 
-        return sorted(alerts, key=lambda x: x.get('days_remaining', 999))
+        return sorted(alerts, key=lambda x: (
+            x['days_remaining'] if x.get('days_remaining') is not None else 999))

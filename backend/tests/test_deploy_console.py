@@ -103,7 +103,7 @@ class TestSubscribeDeployAuth:
     def test_unauthenticated_join_rejected(self, app, monkeypatch):
         sk, emitted, joined = self._patch(monkeypatch, 'sid-unauth')
         sk.connected_clients.pop('sid-unauth', None)  # not authenticated
-        sk.handle_subscribe_deploy({'job_id': 'abc'})
+        sk.CHANNELS['deploy']['subscribe']({'job_id': 'abc'})
         assert joined == []  # never joined a room
         assert any(a and a[0] == 'error' for a, k in emitted)
 
@@ -111,7 +111,7 @@ class TestSubscribeDeployAuth:
         sk, emitted, joined = self._patch(monkeypatch, 'sid-auth')
         sk.connected_clients['sid-auth'] = {'user_id': 1, 'role': 'admin'}
         try:
-            sk.handle_subscribe_deploy({'job_id': 'job-xyz'})
+            sk.CHANNELS['deploy']['subscribe']({'job_id': 'job-xyz'})
         finally:
             sk.connected_clients.pop('sid-auth', None)
         assert 'deploy_job-xyz' in joined
@@ -121,7 +121,7 @@ class TestSubscribeDeployAuth:
         sk, emitted, joined = self._patch(monkeypatch, 'sid-auth2')
         sk.connected_clients['sid-auth2'] = {'user_id': 1, 'role': 'admin'}
         try:
-            sk.handle_subscribe_deploy({})
+            sk.CHANNELS['deploy']['subscribe']({})
         finally:
             sk.connected_clients.pop('sid-auth2', None)
         assert joined == []

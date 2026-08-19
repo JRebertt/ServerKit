@@ -48,10 +48,12 @@ def personas(app):
 
 
 def test_shape(client, personas):
-    """Response has a results list and each row carries type/label/sublabel/path."""
+    """Response has a canonical list envelope plus the compatibility field."""
     r = client.get('/api/v1/search?q=SecretProject', headers=personas.owner)
     assert r.status_code == 200
     body = r.get_json()
+    assert body['data'] == body['results']
+    assert body['meta']['total'] == len(body['data'])
     assert 'results' in body and isinstance(body['results'], list)
     assert len(body['results']) >= 1
     for row in body['results']:
@@ -66,12 +68,28 @@ def test_min_length_returns_empty(client, personas):
     """A term shorter than 2 chars returns an empty result set (200)."""
     r = client.get('/api/v1/search?q=a', headers=personas.owner)
     assert r.status_code == 200
-    assert r.get_json() == {'results': []}
+    assert r.get_json() == {'data': [], 'meta': {'total': 0}, 'results': []}
 
     # Missing q behaves the same.
     r2 = client.get('/api/v1/search', headers=personas.owner)
     assert r2.status_code == 200
-    assert r2.get_json() == {'results': []}
+    assert r2.get_json() == {'data': [], 'meta': {'total': 0}, 'results': []}
+
+
+def test_unknown_query_parameter_uses_typed_validation_error(client, personas):
+    response = client.get(
+        '/api/v1/search?q=valid&surprise=true',
+        headers={**personas.owner, 'X-Request-ID': 'search-query-contract'},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        'error': 'Invalid query parameters',
+        'status': 400,
+        'code': 'invalid_query',
+        'details': {'fields': {'surprise': ['Unknown field.']}},
+        'request_id': 'search-query-contract',
+    }
 
 
 def test_per_type_cap(client, personas):

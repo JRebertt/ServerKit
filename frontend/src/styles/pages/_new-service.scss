@@ -176,8 +176,7 @@
     }
 
     &__source-card--on &__source-icon {
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &__source-text {

@@ -9,8 +9,8 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
+import { statusKind } from '@/components/ds/status';
 
-const SERVER_PILL = { online: 'green', pending: 'amber', offline: 'red' };
 
 // What the Status cell shows when the row carries none. A real word, not '':
 // `ruleIsArmed` drops any rule whose value is empty, so a rule on '' would
@@ -83,7 +83,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
             enumOrder: ['online', 'pending', 'offline', UNKNOWN],
             value: (s) => s.status || UNKNOWN,
             sortValue: (s) => s.status || UNKNOWN,
-            render: (s) => <Pill kind={SERVER_PILL[s.status] || 'gray'}>{s.status || UNKNOWN}</Pill>,
+            render: (s) => <Pill kind={statusKind(s.status)}>{s.status || UNKNOWN}</Pill>,
         },
         {
             key: 'actions',

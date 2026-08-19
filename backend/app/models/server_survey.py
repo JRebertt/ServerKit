@@ -2,9 +2,10 @@ import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ServerSurvey(db.Model):
+class ServerSurvey(JsonColumnMixin, db.Model):
     """One read-only survey snapshot ("flight") of a paired server (plan 27,
     Decision 3: snapshots, not live state).
 
@@ -32,12 +33,7 @@ class ServerSurvey(db.Model):
     map_json = db.Column(db.Text, nullable=True)
 
     def get_map(self):
-        if not self.map_json:
-            return {}
-        try:
-            return json.loads(self.map_json)
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('map_json')
 
     def set_map(self, value):
         self.map_json = json.dumps(value) if value else None

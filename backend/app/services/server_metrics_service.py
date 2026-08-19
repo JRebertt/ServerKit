@@ -167,24 +167,25 @@ class ServerMetricsService:
 
         data = []
         for row in results:
+            # `is not None`, not truthiness: a real 0.0 reading must survive.
             data.append({
                 'timestamp': row.period.isoformat() if row.period else None,
                 'cpu': {
-                    'avg': round(row.cpu_avg, 1) if row.cpu_avg else None,
-                    'min': round(row.cpu_min, 1) if row.cpu_min else None,
-                    'max': round(row.cpu_max, 1) if row.cpu_max else None,
+                    'avg': round(row.cpu_avg, 1) if row.cpu_avg is not None else None,
+                    'min': round(row.cpu_min, 1) if row.cpu_min is not None else None,
+                    'max': round(row.cpu_max, 1) if row.cpu_max is not None else None,
                 },
                 'memory': {
-                    'avg': round(row.memory_avg, 1) if row.memory_avg else None,
-                    'min': round(row.memory_min, 1) if row.memory_min else None,
-                    'max': round(row.memory_max, 1) if row.memory_max else None,
+                    'avg': round(row.memory_avg, 1) if row.memory_avg is not None else None,
+                    'min': round(row.memory_min, 1) if row.memory_min is not None else None,
+                    'max': round(row.memory_max, 1) if row.memory_max is not None else None,
                 },
-                'disk_avg': round(row.disk_avg, 1) if row.disk_avg else None,
+                'disk_avg': round(row.disk_avg, 1) if row.disk_avg is not None else None,
                 'network': {
-                    'rx_avg': round(row.network_rx_avg, 2) if row.network_rx_avg else None,
-                    'tx_avg': round(row.network_tx_avg, 2) if row.network_tx_avg else None,
+                    'rx_avg': round(row.network_rx_avg, 2) if row.network_rx_avg is not None else None,
+                    'tx_avg': round(row.network_tx_avg, 2) if row.network_tx_avg is not None else None,
                 },
-                'containers_avg': round(row.containers_avg, 1) if row.containers_avg else None,
+                'containers_avg': round(row.containers_avg, 1) if row.containers_avg is not None else None,
                 'sample_count': row.sample_count
             })
 
@@ -383,15 +384,20 @@ class ServerMetricsService:
             filtered = [v for v in values if v is not None]
             return sum(filtered) / len(filtered) if filtered else None
 
+        def safe_avg_int(values):
+            # Preserve a real 0 average: int(0) is a reading, None is "no data".
+            avg = safe_avg(values)
+            return int(avg) if avg is not None else None
+
         avg_record.cpu_percent = safe_avg([r.cpu_percent for r in records])
         avg_record.memory_percent = safe_avg([r.memory_percent for r in records])
-        avg_record.memory_used = int(safe_avg([r.memory_used for r in records]) or 0) or None
+        avg_record.memory_used = safe_avg_int([r.memory_used for r in records])
         avg_record.disk_percent = safe_avg([r.disk_percent for r in records])
-        avg_record.disk_used = int(safe_avg([r.disk_used for r in records]) or 0) or None
+        avg_record.disk_used = safe_avg_int([r.disk_used for r in records])
         avg_record.network_rx_rate = safe_avg([r.network_rx_rate for r in records])
         avg_record.network_tx_rate = safe_avg([r.network_tx_rate for r in records])
-        avg_record.container_count = int(safe_avg([r.container_count for r in records]) or 0) or None
-        avg_record.container_running = int(safe_avg([r.container_running for r in records]) or 0) or None
+        avg_record.container_count = safe_avg_int([r.container_count for r in records])
+        avg_record.container_running = safe_avg_int([r.container_running for r in records])
 
         return avg_record
 

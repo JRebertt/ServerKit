@@ -7,6 +7,7 @@ from app import db
 from app.models.event_subscription import EventSubscription, EventDelivery
 from app.queue_bus.consumers.webhook_consumer import enqueue_webhook_delivery
 from app.services.telemetry_service import generate_correlation_id
+from app.services.unit_of_work import unit_of_work
 
 logger = logging.getLogger(__name__)
 
@@ -249,11 +250,25 @@ class EventService:
         ).paginate(page=page, per_page=per_page, error_out=False)
 
     @staticmethod
+    def retry_delivery(delivery):
+        """Reset a delivery atomically, then enqueue it after commit."""
+        with unit_of_work():
+            delivery.status = EventDelivery.STATUS_PENDING
+            delivery.next_retry_at = None
+
+        try:
+            enqueue_webhook_delivery(delivery.id)
+        except Exception as exc:
+            # The durable pending row remains retryable by the queue sweep.
+            logger.error('Failed to enqueue delivery retry %s: %s', delivery.id, exc)
+        db.session.refresh(delivery)
+        return delivery
+
+    @staticmethod
     def cleanup_old_deliveries(days=30):
         """Purge old delivery records."""
         cutoff = datetime.utcnow() - timedelta(days=days)
         deleted = EventDelivery.query.filter(EventDelivery.created_at < cutoff).delete()
         db.session.commit()
         return deleted
-
 

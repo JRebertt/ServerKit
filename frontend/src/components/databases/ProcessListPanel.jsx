@@ -3,6 +3,7 @@ import { Ban, Activity, TimerReset } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
+import { usePolling } from '../../hooks/usePolling';
 import EmptyState from '../EmptyState';
 import { DataTable, DataTableFooter, SearchField } from '@/components/ds';
 import {
@@ -114,11 +115,10 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
 
     useEffect(() => { load(); }, [load]);
 
-    useEffect(() => {
-        if (!active || !autoRefresh) return undefined;
-        const t = setInterval(() => load(true), REFRESH_MS);
-        return () => clearInterval(t);
-    }, [active, autoRefresh, load]);
+    usePolling(() => load(true), REFRESH_MS, {
+        enabled: active && autoRefresh,
+        immediate: false,       // the effect above already loaded once
+    });
 
     async function killProcess(proc) {
         const verb = engineKind === 'postgresql' ? 'Terminate' : 'Kill';

@@ -3,8 +3,9 @@ import time
 from collections import defaultdict, deque
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
+from app.api._query import PageQuery
 from app.middleware.rbac import admin_required
 from app.services import error_log_service
 
@@ -39,7 +40,6 @@ def _optional_str(data, key, max_len):
 
 
 @error_logs_bp.route('', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_error_logs():
     """List error log entries with optional filters."""
@@ -47,19 +47,18 @@ def list_error_logs():
     resolved = None
     if resolved_arg is not None:
         resolved = resolved_arg.lower() in ('1', 'true', 'yes')
-    per_page = min(request.args.get('per_page', 25, type=int), 100)
+    paging = PageQuery.from_request(request, default_per_page=25)
     result = error_log_service.list_errors(
         source=request.args.get('source'),
         resolved=resolved,
         search=request.args.get('search'),
-        page=request.args.get('page', 1, type=int),
-        per_page=per_page,
+        page=paging.page,
+        per_page=paging.per_page,
     )
     return jsonify(result), 200
 
 
 @error_logs_bp.route('/stats', methods=['GET'])
-@jwt_required()
 @admin_required
 def error_log_stats():
     """Totals for the admin overview."""
@@ -67,7 +66,6 @@ def error_log_stats():
 
 
 @error_logs_bp.route('/<int:error_id>', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_error_log(error_id):
     """Get a single error log entry."""
@@ -78,7 +76,6 @@ def get_error_log(error_id):
 
 
 @error_logs_bp.route('/<int:error_id>/resolve', methods=['POST'])
-@jwt_required()
 @admin_required
 def resolve_error_log(error_id):
     """Set the resolved flag: body {"resolved": true|false}."""
@@ -92,7 +89,6 @@ def resolve_error_log(error_id):
 
 
 @error_logs_bp.route('/<int:error_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_error_log(error_id):
     """Delete an error log entry."""

@@ -7,10 +7,10 @@ Tracks who did what, when, and how long it took.
 
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class EnvironmentActivity(db.Model):
+class EnvironmentActivity(JsonColumnMixin, db.Model):
     """Audit log for environment actions."""
 
     __tablename__ = 'environment_activities'
@@ -43,7 +43,7 @@ class EnvironmentActivity(db.Model):
             'user_id': self.user_id,
             'action': self.action,
             'description': self.description,
-            'metadata': json.loads(self.activity_metadata) if self.activity_metadata else None,
+            'metadata': self._json_read('activity_metadata', None),
             'status': self.status,
             'error_message': self.error_message,
             'duration_seconds': self.duration_seconds,

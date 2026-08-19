@@ -238,3 +238,20 @@ def register_builtin_types():
         description=lambda v: f'{v.page} view',
         pre_restore=_pre_restore_view,
     )
+
+    from app.models.managed_database import ManagedDatabase
+
+    def _on_purge_managed_database(managed):
+        # Purge removes the managed BackupPolicy that kept running while the
+        # row sat in the bin. It NEVER drops the database content — the only
+        # destructive path for data is the explicit ?drop=true delete.
+        from app.services.managed_database_service import ManagedDatabaseService
+        ManagedDatabaseService._delete_managed_policy(managed)
+
+    register(
+        'managed_database', ManagedDatabase, noun='managed database',
+        label=lambda m: m.name,
+        description=lambda m: f'{m.engine} on {m.host}'
+                              + (f':{m.port}' if m.port else ''),
+        on_purge=_on_purge_managed_database,
+    )

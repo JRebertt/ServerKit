@@ -4,6 +4,11 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Pill } from '../ds';
 import { CheckCircle2, Loader2, Circle, XCircle, RotateCw, Clock, ChevronDown } from 'lucide-react';
+import { usePolling } from '@/hooks/usePolling';
+
+// Onboarding status cadence while non-terminal.
+const ONBOARDING_POLL_MS = 3000;
+
 
 // The canonical ordered lifecycle steps. The backend returns the same list in
 // `status.states`, but we keep a labeled copy so the wizard renders before the
@@ -109,12 +114,10 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
     }, [loadStatus]);
 
     // Poll while onboarding is in flight; stop once terminal.
-    useEffect(() => {
-        if (!status) return undefined;
-        if (status.is_terminal) return undefined;
-        const interval = setInterval(loadStatus, 3000);
-        return () => clearInterval(interval);
-    }, [status, loadStatus]);
+    usePolling(loadStatus, ONBOARDING_POLL_MS, {
+        enabled: Boolean(status) && !status.is_terminal,
+        immediate: false,
+    });
 
     // Keep the elapsed timer ticking only while non-terminal.
     useEffect(() => {

@@ -8,7 +8,13 @@ Type=simple
 User=@USER@
 Group=@USER@
 WorkingDirectory=@SERVERKIT_DIR@/backend
-Environment="PATH=@SERVERKIT_VENV_DIR@/bin:/usr/local/bin:/usr/bin:/bin"
+# sbin dirs are mandatory, not cosmetic: the panel shells out to ufw, iptables
+# and nft, all of which live in /usr/sbin. Without them a bare-name exec raises
+# FileNotFoundError, which surfaced as "No Firewall Installed" on a host where
+# ufw was installed and working. app/utils/system.py resolves such commands to
+# an absolute path as a backstop; this keeps anything not routed through it
+# working too.
+Environment="PATH=@SERVERKIT_VENV_DIR@/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Environment="FLASK_ENV=production"
 Environment="SERVERKIT_INSTALL_DIR=@SERVERKIT_DIR@"
 EnvironmentFile=@SERVERKIT_DIR@/.env

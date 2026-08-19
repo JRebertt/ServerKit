@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class CloudflareWorker(db.Model):
+class CloudflareWorker(TimestampMixin, db.Model):
     """A Cloudflare Worker (edge script) ServerKit uploaded.
 
     Cloudflare is the source of truth for what's deployed; this table records the
@@ -23,8 +24,6 @@ class CloudflareWorker(db.Model):
     source = db.Column(db.Text)                                    # JS module we uploaded
     compatibility_date = db.Column(db.String(20))
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self, include_source=False):
         d = {

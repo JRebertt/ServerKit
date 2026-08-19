@@ -17,17 +17,40 @@ def get_status():
     return jsonify(result), 200
 
 
+@firewall_bp.route('/ssh-preflight', methods=['GET'])
+@viewer_required
+def ssh_preflight():
+    """Would enabling the firewall cut off SSH?
+
+    Lets the UI warn before the operator clicks, rather than reporting a
+    lockout after it has already happened.
+    """
+    firewall = request.args.get('firewall') or (
+        FirewallService.get_status().get('active_firewall') or 'ufw')
+    return jsonify(FirewallService.check_ssh_lockout(firewall)), 200
+
+
 @firewall_bp.route('/enable', methods=['POST'])
 @admin_required
 def enable_firewall():
-    """Enable the firewall."""
+    """Enable the firewall.
+
+    Blocked with 409 when no rule covers the live SSH port — `ufw --force
+    enable` suppresses ufw's own "may disrupt existing ssh connections" prompt,
+    so this is the only thing standing between a click and a locked-out box.
+    Resend with force=true to override.
+    """
     data = request.get_json() or {}
     firewall = data.get('firewall')
+    force = bool(data.get('force'))
 
-    result = FirewallService.enable(firewall)
+    result = FirewallService.enable(firewall, force=force)
 
     if result.get('success'):
         return jsonify(result), 200
+    # 409, not 400: the request is well-formed, the server state conflicts.
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -80,10 +103,25 @@ def add_rule():
     return jsonify(result), 400
 
 
+@firewall_bp.route('/rules/removal-preflight', methods=['POST'])
+@viewer_required
+def rule_removal_preflight():
+    """Would removing this rule cut off SSH? Lets the UI warn before the click."""
+    data = request.get_json() or {}
+    rule_type = data.get('type')
+    kwargs = {k: v for k, v in data.items() if k not in ('type', 'force')}
+    return jsonify(FirewallService.check_ssh_rule_removal(rule_type, **kwargs)), 200
+
+
 @firewall_bp.route('/rules', methods=['DELETE'])
 @admin_required
 def remove_rule():
-    """Remove a firewall rule."""
+    """Remove a firewall rule.
+
+    Blocked with 409 when the rule is the last one admitting SSH on a firewall
+    that is currently enforcing — deleting it would close the caller's own
+    session. Resend with force=true to override.
+    """
     data = request.get_json()
 
     if not data:
@@ -93,12 +131,15 @@ def remove_rule():
     if not rule_type:
         return jsonify({'success': False, 'error': 'Rule type required'}), 400
 
-    kwargs = {k: v for k, v in data.items() if k != 'type'}
+    force = bool(data.get('force'))
+    kwargs = {k: v for k, v in data.items() if k not in ('type', 'force')}
 
-    result = FirewallService.remove_rule(rule_type, **kwargs)
+    result = FirewallService.remove_rule(rule_type, force=force, **kwargs)
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -117,10 +158,18 @@ def block_ip():
 
     permanent = data.get('permanent', True)
 
-    result = FirewallService.block_ip(ip, permanent)
+    # request.remote_addr is the real client when TRUST_PROXY_HEADERS is on
+    # (ProxyFix rewrites it); otherwise it is the proxy, which is still worth
+    # refusing to block. Read here rather than in the service, so the service
+    # stays free of request context.
+    result = FirewallService.block_ip(ip, permanent,
+                                      force=bool(data.get('force')),
+                                      caller_ip=request.remote_addr)
 
     if result.get('success'):
         return jsonify(result), 201
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -196,10 +245,15 @@ def deny_port():
     protocol = data.get('protocol', 'tcp')
     permanent = data.get('permanent', True)
 
-    result = FirewallService.deny_port(port, protocol, permanent)
+    # Denying a port is implemented as removing its allow rule, so this shares
+    # the SSH-lockout guard with DELETE /rules.
+    result = FirewallService.deny_port(port, protocol, permanent,
+                                       force=bool(data.get('force')))
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 
@@ -227,10 +281,12 @@ def set_default_zone():
     if not zone:
         return jsonify({'success': False, 'error': 'Zone name required'}), 400
 
-    result = FirewallService.set_default_zone(zone)
+    result = FirewallService.set_default_zone(zone, force=bool(data.get('force')))
 
     if result.get('success'):
         return jsonify(result), 200
+    if result.get('blocked_by') == 'ssh_lockout':
+        return jsonify(result), 409
     return jsonify(result), 400
 
 

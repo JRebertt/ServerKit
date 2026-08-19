@@ -325,8 +325,7 @@
 
         .command-note {
             padding: $space-3 $space-4;
-            background: $warning-bg;
-            color: $warning;
+            @include status-variant($warning, $warning-bg);
             font-size: $font-size-sm;
             margin: 0;
             border-top: 1px solid $warning-border;
@@ -434,8 +433,3 @@
     }
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}

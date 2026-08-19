@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class OAuthIdentity(db.Model):
+class OAuthIdentity(TimestampMixin, db.Model):
     """Links an external OAuth/SAML identity to a local user."""
     __tablename__ = 'oauth_identities'
     __table_args__ = (
@@ -18,8 +19,6 @@ class OAuthIdentity(db.Model):
     access_token_encrypted = db.Column(db.Text, nullable=True)
     refresh_token_encrypted = db.Column(db.Text, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship('User', backref=db.backref('oauth_identities', lazy='dynamic'))

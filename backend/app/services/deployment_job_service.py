@@ -102,9 +102,7 @@ class DeploymentJobService:
                 # Enqueue failed after the DeploymentJob commit — without this
                 # the row would sit 'pending' forever with no runner.
                 db.session.rollback()
-                job.status = 'failed'
-                job.error_message = f'Failed to queue deployment: {exc}'
-                job.completed_at = datetime.utcnow()
+                job.mark_failed(f'Failed to queue deployment: {exc}')
                 db.session.commit()
                 return {'success': False, 'error': job.error_message, 'job_id': job.id}
 
@@ -161,9 +159,7 @@ class DeploymentJobService:
             # row would sit 'pending' forever with no runner (same guard as
             # install_template).
             db.session.rollback()
-            job.status = 'failed'
-            job.error_message = f'Failed to queue deployment: {exc}'
-            job.completed_at = datetime.utcnow()
+            job.mark_failed(f'Failed to queue deployment: {exc}')
             db.session.commit()
             return {'success': False, 'error': job.error_message, 'job_id': job.id}
 
@@ -208,9 +204,7 @@ class DeploymentJobService:
             # never shows a deployment stuck at "running" with no explanation.
             try:
                 db.session.rollback()
-                job.status = 'failed'
-                job.error_message = str(exc)
-                job.completed_at = datetime.utcnow()
+                job.mark_failed(str(exc))
                 db.session.commit()
                 # append_log persists immediately: the runner's own stream may
                 # never have reached close() on this crash path.
@@ -225,9 +219,7 @@ class DeploymentJobService:
         try:
             return cls._finalize_template_install(job)
         except Exception as exc:
-            job.status = 'failed'
-            job.error_message = str(exc)
-            job.completed_at = datetime.utcnow()
+            job.mark_failed(str(exc))
             db.session.commit()
             # Stream already closed after a successful run(); flush this line now.
             append_log(job, 'error', f'Failed to finalize deployment: {exc}')
@@ -283,9 +275,7 @@ class DeploymentJobService:
             enqueue(clone)
         except Exception as exc:
             db.session.rollback()
-            clone.status = 'failed'
-            clone.error_message = f'Failed to queue retry: {exc}'
-            clone.completed_at = datetime.utcnow()
+            clone.mark_failed(f'Failed to queue retry: {exc}')
             db.session.commit()
             return {'success': False, 'error': clone.error_message, 'job_id': clone.id}
 
@@ -318,8 +308,7 @@ class DeploymentJobService:
             if not app:
                 raise RuntimeError(f'Application not found for deployment job {job.id}')
 
-            job.status = 'running'
-            job.started_at = datetime.utcnow()
+            job.mark_running()
             # set_step handles the current_step/name row update + commit, flushes
             # buffered lines, records per-step timings, and emits a live status.
             runner.stream.set_step(1, 'Prepare deployment')
@@ -344,8 +333,7 @@ class DeploymentJobService:
             runner.log('info', 'Containers started')
 
             deployment = result.get('deployment') or {}
-            job.status = 'succeeded'
-            job.completed_at = datetime.utcnow()
+            job.mark_succeeded()
             job.current_step_name = None
             job.deployment_id = deployment.get('id')
             job.set_result({**job.get_result(), 'app_id': app.id,
@@ -360,9 +348,7 @@ class DeploymentJobService:
             # first (mirrors the runner's own failure handling).
             try:
                 db.session.rollback()
-                job.status = 'failed'
-                job.error_message = str(exc)
-                job.completed_at = datetime.utcnow()
+                job.mark_failed(str(exc))
                 db.session.commit()
                 runner.log('error', f'Deployment failed: {exc}')
             except Exception:
@@ -577,9 +563,7 @@ class DeploymentJobService:
             # Same guard as every other producer: never leave a runner-less
             # 'pending' row behind.
             db.session.rollback()
-            job.status = 'failed'
-            job.error_message = f'Failed to queue deployment: {exc}'
-            job.completed_at = datetime.utcnow()
+            job.mark_failed(f'Failed to queue deployment: {exc}')
             db.session.commit()
             return {'success': False, 'error': job.error_message, 'job_id': job.id}
 
@@ -618,8 +602,8 @@ class DeploymentJobService:
         explanation — the same guarantee _reconcile_interrupted_jobs gives for
         a lost process, applied to a lost handler.
         """
-        job.status = 'running'
-        job.started_at = job.started_at or datetime.utcnow()
+        # Keep the original started_at when re-entering (reconciled handler).
+        job.mark_running(when=job.started_at)
         db.session.commit()
 
         # The same stream the handler logs through (see run_log_service.
@@ -632,9 +616,7 @@ class DeploymentJobService:
             logger.exception('Deployment kind %s raised', job.kind)
             stream.log('error', f'{job.kind} failed: {exc}')
             db.session.rollback()
-            job.status = 'failed'
-            job.error_message = str(exc)
-            job.completed_at = datetime.utcnow()
+            job.mark_failed(str(exc))
             db.session.commit()
             stream.close('failed', error_message=str(exc))
             return {'success': False, 'error': str(exc), 'job_id': job.id}
@@ -642,10 +624,10 @@ class DeploymentJobService:
         stream.flush()
         # A handler may finalise the job itself; only fill in what it left.
         if job.status not in ('succeeded', 'failed'):
-            job.status = 'succeeded' if result.get('success', True) else 'failed'
-            if not result.get('success', True):
-                job.error_message = result.get('error') or f'{job.kind} failed'
-            job.completed_at = datetime.utcnow()
+            if result.get('success', True):
+                job.mark_succeeded()
+            else:
+                job.mark_failed(result.get('error') or f'{job.kind} failed')
             db.session.commit()
         if job.status == 'failed' and job.error_message:
             # A handler that reported failure by return value logged nothing;
@@ -694,12 +676,10 @@ class DeploymentJobService:
         try:
             stale = DeploymentJob.query.filter_by(status='running').all()
             for job in stale:
-                job.status = 'failed'
-                job.error_message = (
+                job.mark_failed(
                     'Interrupted: the server restarted while this deployment was '
                     'running. Please retry the install.'
                 )
-                job.completed_at = datetime.utcnow()
             if stale:
                 db.session.commit()
         except Exception:

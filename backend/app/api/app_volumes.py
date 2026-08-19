@@ -5,18 +5,19 @@ volumes for an application. Mounted under ``/api/v1/apps`` alongside the main
 apps blueprint (routes are ``/<app_id>/volumes*``).
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models import Application, User
+from app.models import Application
 from app.services.resource_grant_service import ResourceGrantService
 from app.services.volume_service import VolumeService, VolumeError
+from app.middleware.rbac import get_current_user
 
 app_volumes_bp = Blueprint('app_volumes', __name__)
 
 
 def _load_app_for(app_id, *, write):
     """Resolve (user, app) with the right ACL, or an (error_response, status)."""
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, None, (jsonify({'error': 'Application not found'}), 404)

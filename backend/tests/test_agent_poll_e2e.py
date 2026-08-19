@@ -233,3 +233,95 @@ def test_result_for_unknown_command_is_rejected(client, monkeypatch):
     res = client.post(RESULT, headers={"X-Session-Token": token},
                       json={"command_id": "never-issued", "success": True})
     assert res.status_code == 404, res.get_data(as_text=True)
+
+
+# --------------------------------------------------------------------------
+# Plan 77 A1 — capability side-effects are transport-neutral
+# --------------------------------------------------------------------------
+
+def _stub_tunnel_broker(monkeypatch):
+    """Install a fake serverkit-remote-access TunnelBrokerService and return
+    the list schedule_reconcile appends to."""
+    calls = []
+
+    class _FakeBroker:
+        @staticmethod
+        def schedule_reconcile(server_id):
+            calls.append(server_id)
+
+    import app.services.plugin_service as plugin_service
+
+    real = plugin_service.get_installed_extension_attr
+
+    def fake_get_attr(ext, module, attr):
+        if (ext, module, attr) == (
+            'serverkit-remote-access', 'tunnel_broker_service', 'TunnelBrokerService'
+        ):
+            return _FakeBroker
+        return real(ext, module, attr)
+
+    monkeypatch.setattr(plugin_service, 'get_installed_extension_attr', fake_get_attr)
+    return calls
+
+
+def test_poll_capabilities_trigger_tunnel_reconcile(app, client, monkeypatch):
+    """A WireGuard-capable agent on the long-poll fallback transport must
+    self-heal its tunnels exactly like one on WebSocket: the capability
+    payload arriving via POST /poll schedules a tunnel reconcile.
+
+    Regression for the plan-77 A1 bug: schedule_reconcile was only invoked
+    from the WS on_capabilities handler, so poll-mode agents never healed."""
+    server_id, agent_id, prefix, secret = _make_agent_server(monkeypatch)
+    calls = _stub_tunnel_broker(monkeypatch)
+
+    resp = client.post(CONNECT, json=_auth_payload(agent_id, prefix, secret))
+    assert resp.status_code == 200
+    token = resp.get_json()["session_token"]
+
+    # Patch drain so the long-poll returns immediately.
+    monkeypatch.setattr(agent_registry, "drain_outbound", lambda agent, max_wait_s=0: [])
+
+    resp = client.post(
+        POLL,
+        headers={"X-Session-Token": token},
+        json={
+            "metrics": {"cpu_percent": 1.0},
+            "capabilities": {
+                "capabilities": {"docker": True, "wireguard": True},
+                "platform": "linux",
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    assert calls == [server_id]
+
+
+def test_ws_ingest_path_still_triggers_tunnel_reconcile(app, client, monkeypatch):
+    """The WS handler delegates to the same registry ingest — a capability
+    payload through update_capabilities (what on_capabilities calls)
+    schedules the reconcile too, so the door is shared, not moved."""
+    server_id, agent_id, prefix, secret = _make_agent_server(monkeypatch)
+    calls = _stub_tunnel_broker(monkeypatch)
+
+    resp = client.post(CONNECT, json=_auth_payload(agent_id, prefix, secret))
+    assert resp.status_code == 200
+
+    agent_registry.update_capabilities(
+        server_id,
+        {"capabilities": {"wireguard": True}, "platform": "linux"},
+    )
+    assert calls == [server_id]
+
+
+def test_non_wireguard_capabilities_do_not_reconcile(app, client, monkeypatch):
+    """No wireguard capability -> no reconcile scheduling on either path."""
+    server_id, agent_id, prefix, secret = _make_agent_server(monkeypatch)
+    calls = _stub_tunnel_broker(monkeypatch)
+
+    resp = client.post(CONNECT, json=_auth_payload(agent_id, prefix, secret))
+    assert resp.status_code == 200
+
+    agent_registry.update_capabilities(
+        server_id, {"capabilities": {"docker": True}, "platform": "linux"}
+    )
+    assert calls == []

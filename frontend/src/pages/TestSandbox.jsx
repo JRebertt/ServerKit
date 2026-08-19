@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { timeAgo, formatDuration } from '../utils/time';
+import { usePolling } from '@/hooks/usePolling';
 import {
     FlaskConical, Play, Square, ChevronDown, ChevronRight,
     Zap, Package, AlertTriangle, RefreshCw,
@@ -19,20 +20,6 @@ const FAMILY_META = {
     debian: { label: 'Debian', kind: 'cyan' },
     rhel: { label: 'RHEL', kind: 'amber' },
     suse: { label: 'SUSE', kind: 'violet' },
-};
-
-const RESULT_PILL = {
-    queued: 'gray',
-    running: 'cyan',
-    passed: 'green',
-    failed: 'red',
-};
-
-const RUN_PILL = {
-    running: 'cyan',
-    done: 'green',
-    cancelled: 'amber',
-    error: 'red',
 };
 
 const MODES = [
@@ -95,7 +82,7 @@ function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
                                 <span className="ts-result__duration">{formatDuration(result.duration_s)}</span>
                             )}
                             {result.status === 'running' && <span className="spinner-inline" />}
-                            <Pill kind={RESULT_PILL[result.status] || 'gray'}>{result.status}</Pill>
+                            <Pill kind={statusKind(result.status)}>{result.status}</Pill>
                         </Button>
                         {result.detail && (
                             <div className="ts-result__detail">{result.detail}</div>
@@ -189,32 +176,27 @@ const TestSandbox = () => {
     }, []);
 
     // Poll the active run until it leaves the 'running' state.
-    useEffect(() => {
-        if (!activeRun || activeRun.status !== 'running') return undefined;
-        let stopped = false;
-        const tick = async () => {
-            try {
-                const res = await api.getTestSandboxRun(activeRun.id);
-                if (stopped) return;
-                setActiveRun(res.run);
-                if (res.run.status !== 'running') {
-                    const { passed, failed, total } = summarizeRun(res.run);
-                    if (res.run.status === 'done') {
-                        toast[failed > 0 ? 'error' : 'success'](
-                            `Run finished: ${passed}/${total} passed${failed ? ` (${failed} failed)` : ''}`
-                        );
-                    } else if (res.run.status === 'error') {
-                        toast.error(res.run.error || 'Run failed');
-                    }
-                    loadRuns();
-                }
-            } catch (err) {
-                if (!stopped) toast.error(err.message);
+    usePolling(async () => {
+        try {
+            const res = await api.getTestSandboxRun(activeRun.id);
+            setActiveRun(res.run);
+            if (res.run.status === 'running') return;
+            const { passed, failed, total } = summarizeRun(res.run);
+            if (res.run.status === 'done') {
+                toast[failed > 0 ? 'error' : 'success'](
+                    `Run finished: ${passed}/${total} passed${failed ? ` (${failed} failed)` : ''}`
+                );
+            } else if (res.run.status === 'error') {
+                toast.error(res.run.error || 'Run failed');
             }
-        };
-        const id = setInterval(tick, POLL_MS);
-        return () => { stopped = true; clearInterval(id); };
-    }, [activeRun?.id, activeRun?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+            loadRuns();
+        } catch (err) {
+            toast.error(err.message);
+        }
+    }, POLL_MS, {
+        enabled: activeRun?.status === 'running',
+        immediate: false,
+    });
 
     const fetchLog = useCallback(async (runId, distroKey, { silent = false } = {}) => {
         const key = `${runId}:${distroKey}`;
@@ -234,22 +216,25 @@ const TestSandbox = () => {
     }, []);
 
     // Auto-refresh open logs for distros still executing in the active run.
-    useEffect(() => {
-        if (!activeRun || activeRun.status !== 'running') return undefined;
-        const id = setInterval(() => {
-            for (const key of openLogsRef.current) {
-                const sep = key.indexOf(':');
-                const runId = key.slice(0, sep);
-                const distroKey = key.slice(sep + 1);
-                if (runId !== String(activeRun.id)) continue;
-                const status = activeRun.results?.[distroKey]?.status;
-                if (status === 'running' || status === 'queued') {
-                    fetchLog(runId, distroKey, { silent: true });
-                }
+    usePolling(() => {
+        const pending = [];
+        for (const key of openLogsRef.current) {
+            const sep = key.indexOf(':');
+            const runId = key.slice(0, sep);
+            const distroKey = key.slice(sep + 1);
+            if (runId !== String(activeRun.id)) continue;
+            const status = activeRun.results?.[distroKey]?.status;
+            if (status === 'running' || status === 'queued') {
+                pending.push(fetchLog(runId, distroKey, { silent: true }));
             }
-        }, POLL_MS);
-        return () => clearInterval(id);
-    }, [activeRun, fetchLog]);
+        }
+        // One promise for the whole fan-out, so the in-flight guard waits for
+        // every open log rather than reporting done after the first.
+        return Promise.all(pending);
+    }, POLL_MS, {
+        enabled: activeRun?.status === 'running',
+        immediate: false,
+    });
 
     const toggleLog = useCallback((runId, distroKey) => {
         const key = `${runId}:${distroKey}`;
@@ -467,7 +452,7 @@ const TestSandbox = () => {
                     <CardHeader className="ts-active__head">
                         <CardTitle>Run #{activeRun.id}</CardTitle>
                         <Pill kind="gray" dot={false}>{activeRun.mode}</Pill>
-                        <Pill kind={RUN_PILL[activeRun.status] || 'gray'}>{activeRun.status}</Pill>
+                        <Pill kind={statusKind(activeRun.status)}>{activeRun.status}</Pill>
                         {isRunning && (
                             <Button
                                 variant="destructive"
@@ -573,7 +558,7 @@ function FragmentRow({ run, expanded, passed, failed, total, onToggle, detail })
                     </span>
                 </td>
                 <td>{timeAgo(run.created_at)}</td>
-                <td><Pill kind={RUN_PILL[run.status] || 'gray'}>{run.status}</Pill></td>
+                <td><Pill kind={statusKind(run.status)}>{run.status}</Pill></td>
             </tr>
             {expanded && (
                 <tr className="ts-detail-row">

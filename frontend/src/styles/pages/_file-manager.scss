@@ -315,8 +315,7 @@ $ft-default:  #646b7a;
 
         &:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
         &.small { padding: 4px; }
     }
@@ -640,8 +639,7 @@ $ft-default:  #646b7a;
         }
 
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
 
             svg { color: var(--accent-bright); }
         }
@@ -680,8 +678,7 @@ $ft-default:  #646b7a;
         }
 
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
 
         &:disabled {
@@ -1268,7 +1265,7 @@ $ft-default:  #646b7a;
         @include transition(all);
 
         &:hover { background: var(--surface-3); color: var(--text); }
-        &.danger:hover { background: $danger-bg; color: $danger; }
+        &.danger:hover { @include status-variant($danger, $danger-bg); }
     }
 
     // ─── File icons ─────────────────────────────────────
@@ -1413,7 +1410,6 @@ $ft-default:  #646b7a;
 
     // ─── Misc ───────────────────────────────────────────
     .spinning { animation: spin 1s linear infinite; }
-    @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 }
 
 // ============================================
@@ -1450,14 +1446,6 @@ $drawer-width: 520px;
     }
 }
 
-@keyframes drawer-fade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-@keyframes drawer-slide {
-    from { transform: translateX(100%); }
-    to   { transform: translateX(0);    }
-}
 
 .preview-drawer-header {
     display: flex;

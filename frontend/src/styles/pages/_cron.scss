@@ -79,8 +79,7 @@
         display: grid;
         place-items: center;
         flex-shrink: 0;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     .cron-jobcell {
@@ -222,12 +221,6 @@
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 // ── Job drawer (row click) ──────────────────────────────────

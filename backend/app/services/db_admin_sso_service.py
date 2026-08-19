@@ -15,8 +15,9 @@ minutes. All docker interaction funnels through the single choke-point
 import logging
 import os
 import secrets
-import subprocess
 from datetime import datetime, timedelta
+
+from app.services.docker_service import DockerService
 
 logger = logging.getLogger(__name__)
 
@@ -45,28 +46,16 @@ class DbAdminSsoService:
     # ── choke-point: ALL docker interaction goes through here (tests stub it) ──
     @classmethod
     def _docker(cls, args, timeout=60):
-        """Run ``docker <args>``; returns {'success', 'output', 'error'}."""
-        try:
-            result = subprocess.run(['docker'] + list(args),
-                                    capture_output=True, text=True, timeout=timeout)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None,
-            }
-        except FileNotFoundError:
-            return {'success': False, 'error': 'Docker not found'}
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Docker command timed out'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        """Run ``docker <args>`` — via DockerService.run (§G3).
+
+        The named seam stays because this service's tests stub it; the wrapper
+        body does not.
+        """
+        return DockerService.run(args, timeout=timeout)
 
     @classmethod
     def _docker_available(cls):
-        if os.name == 'nt':
-            return False
-        return cls._docker(['version', '--format', '{{.Server.Version}}'],
-                           timeout=10).get('success', False)
+        return DockerService.available()
 
     # ── Adminer container lifecycle ──
     @classmethod

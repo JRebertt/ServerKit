@@ -24,17 +24,18 @@ import os
 import shutil
 import time
 
+from app.services.cache_service import ttl_cached
+
 import psutil
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache. Specs and the tier label are stable enough to cache for an
-# hour; headroom is recomputed on every call because it is the number that moves.
-_tier_cache = {
-    'data': None,
-    'timestamp': 0,
-    'ttl': 3600  # 1 hour
-}
+# Specs and the tier label are stable enough to cache for an hour (ttl_cached,
+# plan 77 F2); headroom is recomputed on every call because it is the number
+# that moves. _probe_count lets get_resource_tier report whether this response
+# came from cache without a second bookkeeping dict.
+_TIER_TTL_SECONDS = 3600
+_probe_count = 0
 
 # Memory the panel refuses to hand out to workloads. ServerKit's own process
 # floor is ~250MB (gunicorn + SQLAlchemy + the Python interpreter's ~76MB
@@ -59,8 +60,9 @@ WORKLOAD_FOOTPRINTS_MB = {
 }
 
 # Disk below this on the data volume means image pulls and backups will fail
-# before RAM ever becomes the binding constraint.
-LOW_DISK_THRESHOLD_GB = 5
+# before RAM ever becomes the binding constraint. Defined once in
+# host_inventory_service so the panel has a single idea of "low".
+from app.services.host_inventory_service import LOW_FREE_GB as LOW_DISK_THRESHOLD_GB  # noqa: E402
 
 
 class ResourceTierService:
@@ -92,40 +94,15 @@ class ResourceTierService:
                 'cached': bool
             }
         """
-        global _tier_cache
-
-        current_time = time.time()
-        cache_valid = (
-            _tier_cache['data'] is not None and
-            (current_time - _tier_cache['timestamp']) < _tier_cache['ttl']
-        )
-
-        if cache_valid and not force_refresh:
-            cached = _tier_cache['data']
-            # Headroom is never served from cache — it is the live number.
-            return {
-                **cached,
-                'headroom': cls.get_headroom(cached['specs']),
-                'cached': True,
-            }
-
-        specs = cls._get_system_specs()
-        tier = cls._calculate_tier(specs)
-        features = cls._get_features_for_tier(tier, specs)
-
-        _tier_cache['data'] = {
-            'tier': tier,
-            'specs': specs,
-            'features': features,
-        }
-        _tier_cache['timestamp'] = current_time
-
+        if force_refresh:
+            _probe_tier.invalidate()
+        before = _probe_count
+        data = _probe_tier()
+        # Headroom is never served from cache — it is the live number.
         return {
-            'tier': tier,
-            'specs': specs,
-            'features': features,
-            'headroom': cls.get_headroom(specs),
-            'cached': False,
+            **data,
+            'headroom': cls.get_headroom(data['specs']),
+            'cached': _probe_count == before,
         }
 
     @classmethod
@@ -166,11 +143,13 @@ class ResourceTierService:
 
     @staticmethod
     def _data_path():
-        """Volume to measure free space on — where images and backups land."""
-        for path in ('/var/lib/serverkit', '/var/lib/docker', '/'):
-            if os.path.isdir(path):
-                return path
-        return os.getcwd()
+        """Volume to measure free space on — where images and backups land.
+
+        Delegates to host_inventory_service so this and capacity_service can no
+        longer answer the same question differently (plan 74).
+        """
+        from app.services import host_inventory_service
+        return host_inventory_service.data_path()
 
     @staticmethod
     def _detect_container():
@@ -359,3 +338,14 @@ class ResourceTierService:
             'cpu_cores': cls.MIN_CORES_FOR_WORDPRESS,
             'ram_gb': cls.MIN_RAM_GB_FOR_WORDPRESS
         }
+
+
+@ttl_cached(_TIER_TTL_SECONDS, key_fn=lambda: 'tier')
+def _probe_tier():
+    """The cacheable part of the tier answer: specs, label, feature flags."""
+    global _probe_count
+    _probe_count += 1
+    specs = ResourceTierService._get_system_specs()
+    tier = ResourceTierService._calculate_tier(specs)
+    features = ResourceTierService._get_features_for_tier(tier, specs)
+    return {'tier': tier, 'specs': specs, 'features': features}

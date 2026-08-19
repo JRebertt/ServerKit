@@ -44,16 +44,8 @@ export function formatDateTime(iso) {
     });
 }
 
-// Pill kind ('green'|'amber'|'red'|'cyan'|'gray') for a run/policy status.
-export function statusKind(status) {
-    switch (status) {
-        case 'success': return 'green';
-        case 'failed': return 'red';
-        case 'running': return 'cyan';
-        case 'verifying': return 'gray';
-        default: return 'gray';
-    }
-}
+// Pill kind for a run/policy status, from the ONE shared vocabulary (plan 77 D3).
+export { statusKind } from '../ds/status';
 
 // Where a run is stored, from its size/remote fields.
 export function storageLabel(run) {

@@ -3,13 +3,15 @@ import secrets
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.models.mixins import EncryptedSecret, uuid_pk, TimestampMixin, SerializableMixin
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ServerGroup(db.Model):
+class ServerGroup(TimestampMixin, db.Model):
     """Group servers for organization"""
     __tablename__ = 'server_groups'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     color = db.Column(db.String(7), default='#6366f1')  # Hex color for UI
@@ -20,8 +22,6 @@ class ServerGroup(db.Model):
     auto_upgrade = db.Column(db.Boolean, default=False)
     upgrade_channel = db.Column(db.String(20), default='stable')  # stable, beta
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     # Use 'subquery' to eagerly load servers in a single query, avoiding N+1
@@ -50,7 +50,7 @@ class ServerGroup(db.Model):
         return f'<ServerGroup {self.name}>'
 
 
-class Server(db.Model):
+class Server(TimestampMixin, JsonColumnMixin, db.Model):
     """Represents a remote server managed by ServerKit"""
     __tablename__ = 'servers'
 
@@ -75,7 +75,7 @@ class Server(db.Model):
         'agent:update',
     }
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
 
     # Basic Info
     name = db.Column(db.String(100), nullable=False)
@@ -137,6 +137,12 @@ class Server(db.Model):
     api_key_pending_hash = db.Column(db.String(256))  # Hash of pending new API key
     api_key_pending_prefix = db.Column(db.String(12))  # Prefix of pending new API key
     api_secret_pending_encrypted = db.Column(db.Text)  # Encrypted pending new API secret
+
+    # One crypto path (plan 77 C1): descriptor-backed accessors over the
+    # *_encrypted columns. Encrypt failures RAISE (the old accessors printed
+    # and silently stored nothing — a data-loss path).
+    api_secret = EncryptedSecret('api_secret_encrypted')
+    api_secret_pending = EncryptedSecret('api_secret_pending_encrypted')
     api_key_rotation_expires = db.Column(db.DateTime)  # When pending key rotation expires
     api_key_rotation_id = db.Column(db.String(36))  # Unique ID for current rotation
     api_key_last_rotated = db.Column(db.DateTime)  # Last successful rotation timestamp
@@ -160,8 +166,6 @@ class Server(db.Model):
     capabilities_at = db.Column(db.DateTime)            # when the snapshot was last refreshed
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     group = db.relationship('ServerGroup', back_populates='servers')
@@ -205,24 +209,16 @@ class Server(db.Model):
         return check_password_hash(self.api_key_hash, api_key)
 
     def set_api_secret_encrypted(self, api_secret):
-        """Encrypt and store the API secret for signature verification"""
-        try:
-            from app.utils.crypto import encrypt_secret
-            self.api_secret_encrypted = encrypt_secret(api_secret)
-        except Exception as e:
-            print(f"Error encrypting API secret: {e}")
-            # Don't fail - system can work without signature verification
+        """Encrypt and store the API secret for signature verification.
+
+        Raises if encryption fails — silently storing nothing would leave an
+        agent "paired" but unable to ever verify a signature.
+        """
+        self.api_secret = api_secret
 
     def get_api_secret(self):
-        """Decrypt and return the API secret"""
-        if not self.api_secret_encrypted:
-            return None
-        try:
-            from app.utils.crypto import decrypt_secret
-            return decrypt_secret(self.api_secret_encrypted)
-        except Exception as e:
-            print(f"Error decrypting API secret: {e}")
-            return None
+        """Decrypt and return the API secret (None if unset/undecryptable)."""
+        return self.api_secret
 
     def get_pending_api_secret(self):
         """Decrypt and return the pending API secret used during key rotation.
@@ -232,14 +228,7 @@ class Server(db.Model):
         window can have its signature verified against the right secret.
         Returns None when there is no pending secret or it can't be decrypted.
         """
-        if not self.api_secret_pending_encrypted:
-            return None
-        try:
-            from app.utils.crypto import decrypt_secret
-            return decrypt_secret(self.api_secret_pending_encrypted)
-        except Exception as e:
-            print(f"Error decrypting pending API secret: {e}")
-            return None
+        return self.api_secret_pending
 
     def start_key_rotation(self):
         """
@@ -256,11 +245,7 @@ class Server(db.Model):
         self.api_key_pending_hash = generate_password_hash(new_api_key)
         self.api_key_pending_prefix = new_api_key[:12] if len(new_api_key) >= 12 else new_api_key
 
-        try:
-            from app.utils.crypto import encrypt_secret
-            self.api_secret_pending_encrypted = encrypt_secret(new_api_secret)
-        except Exception as e:
-            print(f"Error encrypting pending API secret: {e}")
+        self.api_secret_pending = new_api_secret
 
         self.api_key_rotation_id = rotation_id
         self.api_key_rotation_expires = datetime.utcnow() + timedelta(minutes=5)
@@ -427,14 +412,7 @@ class Server(db.Model):
         Returns an empty list when unset or malformed so the API/UI never
         crash on legacy/partial data.
         """
-        if not self.onboarding_progress:
-            return []
-        try:
-            import json
-            data = json.loads(self.onboarding_progress)
-            return data if isinstance(data, list) else []
-        except (TypeError, ValueError):
-            return []
+        return self._json_read('onboarding_progress', [], expect=list)
 
     # Emitted by to_dict but not mapped columns: each costs a relationship load
     # or a JSON walk, so `$select` has to know they exist in order to decline
@@ -504,7 +482,7 @@ class Server(db.Model):
         return f'<Server {self.name}>'
 
 
-class ServerMetrics(db.Model):
+class ServerMetrics(SerializableMixin, db.Model):
     """Historical metrics from servers"""
     __tablename__ = 'server_metrics'
 
@@ -543,31 +521,13 @@ class ServerMetrics(db.Model):
         db.Index('ix_server_metrics_server_time', 'server_id', 'timestamp'),
     )
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
-            'cpu_percent': self.cpu_percent,
-            'memory_percent': self.memory_percent,
-            'memory_used': self.memory_used,
-            'disk_percent': self.disk_percent,
-            'disk_used': self.disk_used,
-            'network_rx': self.network_rx,
-            'network_tx': self.network_tx,
-            'network_rx_rate': self.network_rx_rate,
-            'network_tx_rate': self.network_tx_rate,
-            'container_count': self.container_count,
-            'container_running': self.container_running,
-            'extra': self.extra,
-        }
 
 
-class ServerCommand(db.Model):
+class ServerCommand(SerializableMixin, db.Model):
     """Audit log of commands executed on servers"""
     __tablename__ = 'server_commands'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
@@ -596,31 +556,16 @@ class ServerCommand(db.Model):
 
     server = db.relationship('Server', back_populates='commands')
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'user_id': self.user_id,
-            'command_type': self.command_type,
-            'command_data': self.command_data,
-            'status': self.status,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
-            'result': self.result,
-            'error': self.error,
-            'exit_code': self.exit_code,
-            'retry_count': self.retry_count,
-            'max_retries': self.max_retries,
-            'queued': self.queued,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('backoff_seconds', 'next_retry_at')
 
 
-class AgentSession(db.Model):
+class AgentSession(SerializableMixin, db.Model):
     """Active agent WebSocket sessions"""
     __tablename__ = 'agent_sessions'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
 
     session_token = db.Column(db.String(256))  # Current session token
@@ -654,26 +599,16 @@ class AgentSession(db.Model):
             self.avg_latency_ms = alpha * latency_ms + (1 - alpha) * self.avg_latency_ms
             self.latency_samples += 1
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'server_id': self.server_id,
-            'connected_at': self.connected_at.isoformat() if self.connected_at else None,
-            'last_heartbeat': self.last_heartbeat.isoformat() if self.last_heartbeat else None,
-            'ip_address': self.ip_address,
-            'heartbeat_latency_ms': self.heartbeat_latency_ms,
-            'avg_latency_ms': self.avg_latency_ms,
-            'is_active': self.is_active,
-            'disconnected_at': self.disconnected_at.isoformat() if self.disconnected_at else None,
-            'disconnect_reason': self.disconnect_reason,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('latency_samples', 'session_token', 'socket_id', 'user_agent')
 
 
-class AgentRollout(db.Model):
+class AgentRollout(TimestampMixin, db.Model):
     """Tracks staged rollout progress"""
     __tablename__ = 'agent_rollouts'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     version_id = db.Column(db.String(36), db.ForeignKey('agent_versions.id'), nullable=False)
     group_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -697,8 +632,6 @@ class AgentRollout(db.Model):
 
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     version = db.relationship('AgentVersion')
 
@@ -725,11 +658,11 @@ class AgentRollout(db.Model):
         }
 
 
-class AgentVersion(db.Model):
+class AgentVersion(TimestampMixin, db.Model):
     """Available agent versions and compatibility matrix"""
     __tablename__ = 'agent_versions'
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = uuid_pk()
     version = db.Column(db.String(20), nullable=False, unique=True)
     channel = db.Column(db.String(20), default='stable')  # stable, beta
     
@@ -745,8 +678,6 @@ class AgentVersion(db.Model):
     # Assets (mapped by platform: linux-amd64, windows-amd64, etc.)
     assets = db.Column(db.JSON)  # {"linux-amd64": "url", "checksums": "url"}
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def to_dict(self):
         return {

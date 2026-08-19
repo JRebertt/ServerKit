@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin, SerializableMixin
 
 
-class ManagedDnsRecord(db.Model):
+class ManagedDnsRecord(SerializableMixin, TimestampMixin, db.Model):
     """Ledger of DNS records ServerKit created in an external provider zone.
 
     The single source of truth for "we own this record". It's written whenever the
@@ -28,20 +29,7 @@ class ManagedDnsRecord(db.Model):
     source = db.Column(db.String(40))                                # zone|ddns|preset|wordpress|email
     app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'provider': self.provider,
-            'provider_zone_id': self.provider_zone_id,
-            'provider_record_id': self.provider_record_id,
-            'record_type': self.record_type,
-            'name': self.name,
-            'content': self.content,
-            'source': self.source,
-            'app_id': self.app_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-        }
+    # Serialization comes from SerializableMixin; these columns stay out
+    # of API payloads (parity with the deleted hand-written to_dict).
+    __serialize_exclude__ = ('dns_provider_config_id',)

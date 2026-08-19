@@ -8,8 +8,6 @@ Covers the proving points from docs/plans/09_CONTAINER_REGISTRY_AUTH.md:
 - the deploy path resolves an app's registry_id and authenticates before pull
 - API CRUD, masking, and admin-gating
 """
-import subprocess
-
 import pytest
 
 from app import db
@@ -18,11 +16,17 @@ from app.services.container_registry_service import ContainerRegistryService
 from app.services.docker_service import DockerService
 
 
-class _FakeProc:
-    def __init__(self, returncode=0, stdout='', stderr=''):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
+# The shared stub kit (plan 75 §G7). These tests used to patch
+# `subprocess.run` per-test with a hand-rolled closure; they now script the
+# one seam, so a later migration onto run_checked() retargets the fixture
+# instead of this file.
+from subprocess_stub import FakeProc
+
+
+def _docker_subcommands(fake):
+    """The docker sub-command order seen so far: ['login','pull','logout']."""
+    return [argv[1] for argv in fake.commands()
+            if len(argv) > 1 and argv[0] == 'docker']
 
 
 @pytest.fixture
@@ -59,26 +63,22 @@ def test_blank_url_defaults_to_docker_hub(app):
 
 # ── docker login ─────────────────────────────────────────────────────────────
 
-def test_login_pipes_secret_via_stdin_never_on_argv(app, registry, monkeypatch):
-    captured = {}
-
-    def fake_run(cmd, *args, **kwargs):
-        captured['cmd'] = cmd
-        captured['input'] = kwargs.get('input')
-        return _FakeProc(returncode=0)
-
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+def test_login_pipes_secret_via_stdin_never_on_argv(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker', 'login'])
     result = ContainerRegistryService.login(registry)
 
     assert result['success'] is True
+    # argv_for() hands back the RAW argv on purpose: "nowhere on the argv" is a
+    # claim about what was actually exec'd, not about a normalised view of it.
+    argv = fake_subprocess.argv_for(['docker', 'login'])
     # The secret is on stdin, and NOWHERE on the argv.
-    assert captured['input'] == 'ghp_supersecrettoken'
-    assert '--password-stdin' in captured['cmd']
-    assert 'ghp_supersecrettoken' not in captured['cmd']
+    assert fake_subprocess.kwargs_for(['docker', 'login'])['input'] == 'ghp_supersecrettoken'
+    assert '--password-stdin' in argv
+    assert 'ghp_supersecrettoken' not in argv
     # Sanity: it targets the right host + user.
-    assert captured['cmd'][:2] == ['docker', 'login']
-    assert 'ghcr.io' in captured['cmd']
-    assert 'acme-bot' in captured['cmd']
+    assert argv[:2] == ['docker', 'login']
+    assert 'ghcr.io' in argv
+    assert 'acme-bot' in argv
 
 
 def test_login_fails_cleanly_without_a_secret(app):
@@ -97,64 +97,45 @@ def test_ecr_username_defaults_to_AWS(app):
 
 # ── pull_image: login -> pull -> logout ordering + finally ───────────────────
 
-def _sequence_recorder():
-    """Return (calls, fake_run) capturing the docker sub-command order."""
-    calls = []
-
-    def fake_run(cmd, *args, **kwargs):
-        sub = cmd[1] if len(cmd) > 1 else cmd[0]
-        calls.append(sub)
-        # docker pull fails to exercise the finally-logout path when asked
-        if sub == 'pull' and fake_run.fail_pull:
-            return _FakeProc(returncode=1, stderr='denied')
-        return _FakeProc(returncode=0, stdout='ok')
-
-    fake_run.fail_pull = False
-    return calls, fake_run
-
-
-def test_pull_image_logs_in_then_pulls_then_logs_out(app, registry, monkeypatch):
-    calls, fake_run = _sequence_recorder()
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+def test_pull_image_logs_in_then_pulls_then_logs_out(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker'], stdout='ok')
 
     result = DockerService.pull_image('ghcr.io/acme/app', tag='v1', registry=registry)
 
     assert result['success'] is True
-    assert calls == ['login', 'pull', 'logout']
+    assert _docker_subcommands(fake_subprocess) == ['login', 'pull', 'logout']
 
 
-def test_pull_image_logs_out_even_when_pull_fails(app, registry, monkeypatch):
-    calls, fake_run = _sequence_recorder()
-    fake_run.fail_pull = True
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+def test_pull_image_logs_out_even_when_pull_fails(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker'], stdout='ok')
+    # the narrower rule wins over the broad one: only the pull fails
+    fake_subprocess.script(['docker', 'pull'], returncode=1, stderr='denied')
 
     result = DockerService.pull_image('ghcr.io/acme/app', tag='v1', registry=registry)
 
     assert result['success'] is False
     # logout still ran despite the failed pull (the try/finally).
-    assert calls == ['login', 'pull', 'logout']
+    assert _docker_subcommands(fake_subprocess) == ['login', 'pull', 'logout']
 
 
-def test_pull_image_anonymous_when_no_registry(app, monkeypatch):
-    calls, fake_run = _sequence_recorder()
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+def test_pull_image_anonymous_when_no_registry(app, fake_subprocess):
+    fake_subprocess.script(['docker'], stdout='ok')
 
     DockerService.pull_image('nginx', tag='latest')
-    assert calls == ['pull']  # no login/logout for a public pull
+    assert _docker_subcommands(fake_subprocess) == ['pull']  # no login/logout
 
 
-def test_test_connection_logs_in_and_out(app, registry, monkeypatch):
-    calls, fake_run = _sequence_recorder()
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+def test_test_connection_logs_in_and_out(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker'], stdout='ok')
 
     result = ContainerRegistryService.test_connection(registry)
     assert result['success'] is True
-    assert calls == ['login', 'logout']
+    assert _docker_subcommands(fake_subprocess) == ['login', 'logout']
 
 
 # ── proving test: deploy path authenticates before pull ──────────────────────
 
-def test_start_app_authenticates_registry_before_compose_up(client, auth_headers, app, registry, monkeypatch):
+def test_start_app_authenticates_registry_before_compose_up(client, auth_headers, app, registry, monkeypatch, fake_subprocess):
     """The primary path for a private-image app is compose. Starting a
     registry-bound docker app must `docker login` before `compose up`, then log
     out (the try/finally around the local compose branch)."""
@@ -165,13 +146,15 @@ def test_start_app_authenticates_registry_before_compose_up(client, auth_headers
     db.session.add(application)
     db.session.commit()
 
+    # compose_up is stubbed at the service, not at subprocess, so the ordering
+    # assertion needs one interleaved list rather than the fixture's call log.
     order = []
 
-    def fake_run(cmd, *args, **kwargs):
-        order.append(cmd[1] if len(cmd) > 1 else cmd[0])  # login / logout
-        return _FakeProc(returncode=0)
+    def record(argv, kwargs):
+        order.append(argv[1] if len(argv) > 1 else argv[0])  # login / logout
+        return FakeProc(returncode=0)
 
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+    fake_subprocess.when(['docker'], record)
     monkeypatch.setattr(DockerService, 'compose_up',
                         staticmethod(lambda *a, **k: order.append('compose_up') or {'success': True}))
 
@@ -181,7 +164,7 @@ def test_start_app_authenticates_registry_before_compose_up(client, auth_headers
     assert order.index('login') < order.index('compose_up') < order.index('logout')
 
 
-def test_deploy_docker_authenticates_before_pull(app, registry, monkeypatch):
+def test_deploy_docker_authenticates_before_pull(app, registry, monkeypatch, fake_subprocess):
     """A Docker app bound to a registry must `docker login` before the image is
     pulled, then run the container."""
     from app.services.deployment_service import DeploymentService
@@ -207,11 +190,11 @@ def test_deploy_docker_authenticates_before_pull(app, registry, monkeypatch):
 
     order = []
 
-    def fake_run(cmd, *args, **kwargs):
-        order.append(cmd[1] if len(cmd) > 1 else cmd[0])
-        return _FakeProc(returncode=0, stdout='')
+    def record(argv, kwargs):
+        order.append(argv[1] if len(argv) > 1 else argv[0])
+        return FakeProc(returncode=0, stdout='')
 
-    monkeypatch.setattr(subprocess, 'run', fake_run)
+    fake_subprocess.when(['docker'], record)
     monkeypatch.setattr(DockerService, 'get_container', staticmethod(lambda *a, **k: None))
     monkeypatch.setattr(EnvService, 'get_effective_env', staticmethod(lambda *a, **k: {}))
     monkeypatch.setattr(DockerService, 'run_container',

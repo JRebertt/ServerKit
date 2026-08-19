@@ -7,12 +7,13 @@ Mounted by the host at ``/api/v1/apps`` so every route here is nested under an
 application id, e.g. ``GET /api/v1/apps/<app_id>/previews``.
 """
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models import Application, User
+from app.models import Application
 from app.models.application_preview import ApplicationPreview
 from app.services.preview_service import PreviewService
 from app.services.resource_grant_service import ResourceGrantService
+from app.middleware.rbac import get_current_user
 
 previews_bp = Blueprint('previews', __name__)
 
@@ -24,7 +25,7 @@ def _get_app_or_404(app_id, write=False):
     app = Application.query_active().filter_by(id=app_id).first()
     if not app:
         return None, (jsonify({'error': 'Application not found'}), 404)
-    user = User.query.get(get_jwt_identity())
+    user = get_current_user()
     ok = ResourceGrantService.can_edit_app(user, app) if write \
         else ResourceGrantService.can_access_app(user, app)
     if not ok:

@@ -1,10 +1,10 @@
-import json
 from datetime import datetime
 
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class RestoreDrill(db.Model):
+class RestoreDrill(JsonColumnMixin, db.Model):
     """A single restore *drill* — a real restore of a policy's latest restorable
     point into a scratch location (temp dir / scratch DB), probe-verified, then
     torn down. Never touches the live target.
@@ -43,15 +43,10 @@ class RestoreDrill(db.Model):
     error = db.Column(db.Text, nullable=True)
 
     def get_probes(self):
-        if not self.probes_json:
-            return {}
-        try:
-            return json.loads(self.probes_json)
-        except (json.JSONDecodeError, TypeError):
-            return {}
+        return self._json_read('probes_json')
 
     def set_probes(self, value):
-        self.probes_json = json.dumps(value or {})
+        self._json_write('probes_json', value, falsy='{}')
 
     def to_dict(self):
         return {

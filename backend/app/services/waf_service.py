@@ -50,9 +50,13 @@ OWASP_CRS_PATH = os.environ.get(
 # ``events`` or the SERVERKIT_MODSEC_AUDIT_LOG env var.
 MODSEC_AUDIT_LOG = os.environ.get('SERVERKIT_MODSEC_AUDIT_LOG', '/var/log/modsec_audit.log')
 
-# Where managed app vhosts live (mirrors NginxService.SITES_AVAILABLE).
-NGINX_CONF_DIR = os.environ.get('NGINX_CONF_DIR', '/etc/nginx')
-SITES_AVAILABLE = os.path.join(NGINX_CONF_DIR, 'sites-available')
+# Where managed app vhosts live. Imported, not mirrored: "mirrors
+# NginxService.SITES_AVAILABLE" is a comment, and a comment is not a
+# constraint — the two drift the moment either side moves (plan 75 §G4).
+from app.services.nginx_service import NginxService  # noqa: E402
+
+NGINX_CONF_DIR = NginxService.NGINX_CONF_DIR
+SITES_AVAILABLE = NginxService.SITES_AVAILABLE
 
 # Sentinel marking our additive include so re-applies are idempotent.
 _INCLUDE_MARKER = '# serverkit-waf'
@@ -280,12 +284,9 @@ class WafService:
 
     @classmethod
     def _write_file(cls, path: str, content: str) -> Dict:
-        """Write *content* to *path* with privilege escalation (via tee)."""
-        from app.utils.system import run_privileged
-        result = run_privileged(['tee', path], input=content)
-        if result.returncode != 0:
-            return {'success': False, 'error': result.stderr or f'failed to write {path}'}
-        return {'success': True, 'path': path}
+        """Write *content* to *path* with privilege — the shared door (plan 75 §G2)."""
+        from app.utils.system import write_privileged_file
+        return write_privileged_file(path, content)
 
     @classmethod
     def _nginx_test_and_reload(cls) -> Dict:

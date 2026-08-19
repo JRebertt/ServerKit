@@ -2,6 +2,8 @@
 // Keeping the status mapping in one place stops the list and the detail page
 // disagreeing about what "degraded" looks like.
 
+import { statusKind } from '@/components/ds/status';
+
 export const CHECK_TYPES = [
     { value: 'http', label: 'HTTP', hint: 'status code of a URL' },
     { value: 'keyword', label: 'Keyword', hint: 'URL must contain a phrase' },
@@ -42,9 +44,5 @@ export function monitorStateOf(monitor) {
 
 export const INCIDENT_STATES = ['investigating', 'identified', 'monitoring', 'resolved'];
 
-export const IMPACT_TONE = {
-    critical: 'red',
-    major: 'red',
-    minor: 'amber',
-    none: 'gray',
-};
+// Impact levels ride the shared vocabulary (plan 77 D3).
+export const impactTone = (impact) => statusKind(impact);

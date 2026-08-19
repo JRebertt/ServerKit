@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -11,9 +11,8 @@ import useFocusParam from '@/hooks/useFocusParam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-
-// Matches WorkspaceSwitcher: the active workspace id lives in localStorage.
-const ACTIVE_KEY = 'active_workspace_id';
+import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useServerMutation, useServerQuery } from '../hooks/useServerQuery';
 
 // Preset views. `servers` and `users` are quota CEILINGS, not usage, so there
 // is no column to express "near capacity" against.
@@ -84,8 +83,7 @@ const formatSince = (iso) => {
 const Workspaces = () => {
     const toast = useToast();
     const navigate = useNavigate();
-    const [workspaces, setWorkspaces] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { activeWorkspaceId } = useWorkspace();
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -93,20 +91,21 @@ const Workspaces = () => {
     useFocusParam('create', () => setShowCreateModal(true));
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
 
-    const activeId = localStorage.getItem(ACTIVE_KEY);
-
-    const loadWorkspaces = useCallback(async () => {
-        try {
-            const data = await api.getWorkspaces();
-            setWorkspaces(data.workspaces || []);
-        } catch (err) {
-            toast.error('Failed to load workspaces');
-        } finally {
-            setLoading(false);
-        }
-    }, [toast]);
-
-    useEffect(() => { loadWorkspaces(); }, [loadWorkspaces]);
+    const loadWorkspaces = useCallback(
+        ({ signal }) => api.getWorkspaces({}, { signal }).then((data) => data.workspaces || []),
+        [],
+    );
+    const {
+        data: workspaces = [],
+        isLoading: loading,
+    } = useServerQuery(['workspaces'], loadWorkspaces, {
+        staleTime: 30_000,
+        onError: () => toast.error('Failed to load workspaces'),
+    });
+    const createWorkspace = useServerMutation(
+        (values) => api.createWorkspace(values),
+        { invalidate: [['workspaces']] },
+    );
 
     useTopbarActions(() => (
         <>
@@ -124,11 +123,10 @@ const Workspaces = () => {
 
     const handleCreate = async () => {
         try {
-            await api.createWorkspace(form);
+            await createWorkspace.mutate(form);
             toast.success('Workspace created');
             setShowCreateModal(false);
             setForm({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
-            loadWorkspaces();
         } catch (err) {
             toast.error(err.message);
         }
@@ -195,12 +193,12 @@ const Workspaces = () => {
             // rule would then match nothing at all.
             value: (ws) => ws.status || 'unknown',
             // Matches the pill: the active workspace (and active status) first.
-            sortValue: (ws) => (activeId === String(ws.id) || ws.status === 'active' ? 0 : 1),
+            sortValue: (ws) => (activeWorkspaceId === String(ws.id) || ws.status === 'active' ? 0 : 1),
             groupable: true,
             groupValue: (ws) => ws.status,
             groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
             render: (ws) => (
-                activeId === String(ws.id)
+                activeWorkspaceId === String(ws.id)
                     ? <Pill kind="green">active</Pill>
                     : <Pill kind={ws.status === 'active' ? 'green' : 'amber'}>{ws.status || 'unknown'}</Pill>
             ),
@@ -259,7 +257,12 @@ const Workspaces = () => {
                 footer={(
                     <>
                         <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                        <Button onClick={handleCreate} disabled={!form.name}>Create</Button>
+                        <Button
+                            onClick={handleCreate}
+                            disabled={!form.name || createWorkspace.isPending}
+                        >
+                            {createWorkspace.isPending ? 'Creating…' : 'Create'}
+                        </Button>
                     </>
                 )}
             >

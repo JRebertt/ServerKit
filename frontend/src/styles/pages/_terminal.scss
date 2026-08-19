@@ -49,7 +49,6 @@ $lk-default:  #646b7a;
 // Spinning animation reused by the various refresh icons
 .terminal-page .spinning,
 .lv-page .spinning { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 // ─── Interactive terminal tab (demo console: target rail + shell pane) ───
 .term-shell {
@@ -99,7 +98,7 @@ $lk-default:  #646b7a;
         transition: background 0.12s, color 0.12s;
 
         &:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
-        &.is-active { background: var(--accent-bg); color: var(--accent-bright); }
+        &.is-active { @include status-variant(var(--accent-bright), var(--accent-bg)); }
         &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
 
@@ -711,13 +710,11 @@ $lk-default:  #646b7a;
     &:disabled { opacity: 0.4; cursor: not-allowed; }
 
     &.active {
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     &.danger:hover:not(:disabled) {
-        background: $danger-bg;
-        color: $danger;
+        @include status-variant($danger, $danger-bg);
     }
 }
 

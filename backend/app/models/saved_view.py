@@ -1,9 +1,9 @@
 from datetime import datetime
 from app import db
-from app.models.mixins import SoftDeleteMixin
+from app.models.mixins import SoftDeleteMixin, TimestampMixin
 
 
-class SavedView(SoftDeleteMixin, db.Model):
+class SavedView(TimestampMixin, SoftDeleteMixin, db.Model):
     """A user's saved table view for a list page (Services, Domains, …).
 
     Captures the page's table state — filter, search, sort levels, hidden
@@ -23,8 +23,6 @@ class SavedView(SoftDeleteMixin, db.Model):
     slug = db.Column(db.String(140), nullable=True, index=True)
     state = db.Column(db.JSON, nullable=False, default=dict)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # No table-level UNIQUE on (user_id, page, name): a deleted view keeps its
     # row, and the constraint would then refuse to let you re-create a view by

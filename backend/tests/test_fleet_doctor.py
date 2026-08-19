@@ -16,11 +16,8 @@ registry = agent_registry_mod.agent_registry
 @pytest.fixture
 def server(app):
     from app import db
-    from app.models.server import Server
-    row = Server(name='box1', hostname='box', ip_address='203.0.113.10')
-    db.session.add(row)
-    db.session.commit()
-    return row
+    from factories import make_server
+    return make_server(db, hostname='box', ip_address='203.0.113.10')
 
 
 def by_key(rows):

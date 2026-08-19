@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Layers,
@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     DataTable, DataTableFooter, MetricCard, Pill, SearchField, SortChipBar,
+    statusKind, statusLabel,
 } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
@@ -31,22 +32,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatCompact, formatFull } from '../utils/formatNumber';
-
-const STATUS_KINDS = {
-    pending: 'blue',
-    in_flight: 'yellow',
-    completed: 'green',
-    failed: 'red',
-    dead_letter: 'gray',
-};
-
-const STATUS_LABELS = {
-    pending: 'Pending',
-    in_flight: 'In Flight',
-    completed: 'Completed',
-    failed: 'Failed',
-    dead_letter: 'Dead Letter',
-};
+import { usePolling } from '@/hooks/usePolling';
 
 const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_letter'];
 
@@ -142,7 +128,6 @@ const QueueOperations = () => {
         if (saved.searchTerm !== undefined) setSearchTerm(saved.searchTerm);
     }, []);
 
-    const pollRef = useRef(null);
     const navigate = useNavigate();
 
     const loadData = useCallback(async () => {
@@ -181,16 +166,16 @@ const QueueOperations = () => {
         loadData();
     }, [loadData]);
 
+    // Reload when the selected group changes; poll on top of that.
     useEffect(() => {
         loadQueues(selectedGroup);
-        pollRef.current = setInterval(() => {
-            loadData();
-            loadQueues(selectedGroup);
-        }, POLL_INTERVAL);
-        return () => {
-            if (pollRef.current) clearInterval(pollRef.current);
-        };
-    }, [selectedGroup, loadData, loadQueues]);
+    }, [selectedGroup, loadQueues]);
+
+    usePolling(
+        () => Promise.all([loadData(), loadQueues(selectedGroup)]),
+        POLL_INTERVAL,
+        { immediate: false },
+    );
 
     const totalQueues = useMemo(
         () => groups.reduce((acc, g) => acc + (g.stats?.queues || 0), 0),
@@ -332,7 +317,7 @@ const QueueOperations = () => {
 
     const activeStatusLabel = messageFilter === 'all'
         ? 'All queues'
-        : `${STATUS_LABELS[messageFilter]} queues`;
+        : `${statusLabel(messageFilter)} queues`;
     const activeGroupLabel = activeGroup ? activeGroup.name : 'All groups';
 
     // DataTable columns. Cell markup and classNames are identical to the
@@ -379,8 +364,8 @@ const QueueOperations = () => {
             render: (queue) => (
                 <div className="queue-row-counts" onClick={e => e.stopPropagation()}>
                     {STATUS_ORDER.filter(s => (queue.stats?.[s] || 0) > 0).map(status => (
-                        <Pill key={status} kind={STATUS_KINDS[status]}>
-                            {STATUS_LABELS[status]} {queue.stats[status]}
+                        <Pill key={status} kind={statusKind(status)}>
+                            {statusLabel(status)} {queue.stats[status]}
                         </Pill>
                     ))}
                     {(queue.stats?.total || 0) === 0 && (
@@ -529,7 +514,7 @@ const QueueOperations = () => {
                                     onClick={() => setMessageFilter(status)}
                                 >
                                     <span>
-                                        <strong>{STATUS_LABELS[status]}</strong>
+                                        <strong>{statusLabel(status)}</strong>
                                         <small>{status}</small>
                                     </span>
                                     <b title={String(formatFull(statusCounts[status] || 0))}>{formatCompact(statusCounts[status] || 0)}</b>

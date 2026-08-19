@@ -153,6 +153,38 @@ bash scripts/test/test_install.sh
 bash scripts/test/test_lib.sh
 ```
 
+## Probe environment matrix (plan 75 §D)
+
+`scripts/test/probe-matrix.sh` runs `backend/tests/test_probe_env_integration.py`
+— mock-free probe-honesty tests (firewall detect/status paths only, no
+provisioning) — in docker containers shaped like the install environments the
+plan 74 sbin fix could not verify on its single Ubuntu 22.04 root box. One
+line on why each leg matters:
+
+- **ubuntu-root-sbinless** — the plan 74 shape itself: pytest runs with
+  `PATH=/usr/local/bin:/usr/bin:/bin` (the panel unit's PATH), proving
+  detection never reports "not installed" because $PATH lacked sbin.
+- **ubuntu-nonroot-sudo** — non-root install: `_needs_sudo()` is True and
+  probes route through sudo's secure_path, so the sbin bug can't reproduce;
+  a root-only verification proves nothing about it.
+- **rocky-root** — RHEL family: firewalld instead of ufw, rpm/dnf instead of
+  dpkg/apt, usrmerge paths (firewall-cmd lives in /usr/bin).
+- **ubuntu-capdrop** — unprivileged-LXC shape: `--cap-drop=NET_ADMIN`. ufw
+  exists and resolves, but `ufw status` fails on permissions — the failure
+  must surface as error/unknown, never a silent "not installed" or a
+  fabricated "inactive".
+
+```bash
+scripts/test/probe-matrix.sh            # all four legs, summary table
+scripts/test/probe-matrix.sh rocky      # single leg (substring match)
+scripts/test/probe-matrix.sh --list     # leg names
+```
+
+The repo is mounted read-only; each leg installs python3+pytest+the firewall
+package and exits non-zero if any leg fails. The tests auto-detect their
+environment and skip with explicit reasons when an invariant doesn't hold, so
+the same file also runs cleanly on a dev box (WSL included).
+
 ## Extending the harness
 
 Add new tests under `harness/test_*.py` — they're plain pytest using a

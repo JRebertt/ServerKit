@@ -12,6 +12,7 @@ import {
     Minus, Unlock, ArrowDownLeft, ArrowUpRight
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const ICON_CATALOG = {
     'General': {
@@ -55,8 +56,8 @@ const IconReferenceTab = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [copiedIcon, setCopiedIcon] = useState(null);
 
-    function handleCopyImport(name) {
-        navigator.clipboard.writeText(name);
+    async function handleCopyImport(name) {
+        if (!await copyToClipboard(name)) return;
         setCopiedIcon(name);
         setTimeout(() => setCopiedIcon(null), 1500);
     }

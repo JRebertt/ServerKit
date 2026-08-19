@@ -1,9 +1,9 @@
 from datetime import datetime
 from app import db
-import json
+from app.models.json_column_mixin import JsonColumnMixin
 
 
-class ErrorLog(db.Model):
+class ErrorLog(JsonColumnMixin, db.Model):
     """Centralized error log with fingerprint-based dedup."""
     __tablename__ = 'error_logs'
 
@@ -28,19 +28,11 @@ class ErrorLog(db.Model):
 
     def get_context(self):
         """Return parsed context JSON."""
-        if self.context_json:
-            try:
-                return json.loads(self.context_json)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        return self._json_read('context_json')
 
     def set_context(self, context_dict):
         """Set context from a dictionary."""
-        if context_dict:
-            self.context_json = json.dumps(context_dict)
-        else:
-            self.context_json = None
+        self._json_write('context_json', context_dict)
 
     def to_dict(self):
         return {

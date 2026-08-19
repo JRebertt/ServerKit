@@ -9,6 +9,12 @@ _backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _backend not in sys.path:
     sys.path.insert(0, _backend)
 
+# And this directory, so sibling helper modules (popen_guard) import cleanly
+# regardless of pytest's import mode.
+_tests = os.path.dirname(os.path.abspath(__file__))
+if _tests not in sys.path:
+    sys.path.insert(0, _tests)
+
 os.environ.setdefault('FLASK_ENV', 'testing')
 
 # Keep the suite offline: unset SERVERKIT_REGISTRY_URL now means "use the
@@ -103,6 +109,49 @@ def pytest_configure(config):
         'STRUCTURE — Flask cannot unregister a blueprint or a url rule, so such '
         'a mutation would leak into every later test on a shared app.',
     )
+
+
+@pytest.fixture(autouse=True)
+def _popen_sbin_guard(monkeypatch):
+    """Route every subprocess exec through the runtime sbin guard (plan 75 §B2).
+
+    The static guard in test_sbin_command_guard.py reads literal argv lists —
+    at most 57% of raw subprocess sites. This fixture sees the actual argv of
+    every exec the suite performs (variables, f-strings, concatenation — the
+    43% AST cannot), and fails any bare-name call that only resolves through
+    an sbin dir: the plan 74 outage class, where a call works in dev and dies
+    under the panel unit's sbin-less PATH.
+
+    Tests that patch subprocess.run/Popen themselves replace this wrapper for
+    their duration — the guard only judges execs that really happen. POSIX
+    only; sbin semantics do not exist on a Windows dev box.
+    """
+    if os.name != 'posix':
+        yield
+        return
+    import subprocess
+    from popen_guard import GuardedPopen
+    monkeypatch.setattr(subprocess, 'Popen', GuardedPopen)
+    yield
+
+
+@pytest.fixture
+def fake_subprocess(monkeypatch):
+    """Scriptable subprocess seam — the one door for stubbing execs (§G7).
+
+    Opt-in, not autouse: a test that does not ask for it keeps the real
+    subprocess (and the §B2 runtime guard above). Asking for it replaces every
+    exec entry point on the ``subprocess`` module, which covers BOTH the raw
+    calls services still make and the ``run_privileged`` / ``run_unprivileged``
+    helpers — they funnel through ``subprocess.run`` too. That is the point:
+    when G1 moves services onto ``run_checked()``, this fixture is the single
+    place that has to follow, instead of the 12 test files that currently
+    hand-roll the same stub.
+
+    Unscripted commands raise; see ``tests/subprocess_stub.py`` for why.
+    """
+    from subprocess_stub import ScriptedSubprocess
+    return ScriptedSubprocess().install(monkeypatch)
 
 
 @pytest.fixture(scope='session')
@@ -227,19 +276,35 @@ def auth_headers(app):
     return {'Authorization': f'Bearer {token}'}
 
 
-def _mk_scope_user(db, username, role='developer'):
-    from app.models import User
-    from werkzeug.security import generate_password_hash
-    u = User(email=f'{username}@t.local', username=username,
-             password_hash=generate_password_hash('x'), role=role, is_active=True)
-    db.session.add(u)
-    db.session.commit()
-    return u
+# One-door test seeds (plan 77 G1): make_user/headers_for live in
+# tests/factories.py; import them from there in test modules. The persona
+# fixtures below cover the common "just give me a JWT of role X" case.
+from factories import make_user, headers_for  # noqa: E402
 
 
-def _scope_token(user_id):
-    from flask_jwt_extended import create_access_token
-    return {'Authorization': f'Bearer {create_access_token(identity=user_id)}'}
+@pytest.fixture(scope='session')
+def route_rules(_flask_app):
+    """Frozen URL rules of the session app (plan 77 G3).
+
+    Tests that only need to check "does route X exist" read THIS instead of
+    booting a second app with create_app() — every extra boot re-exposes the
+    state-leak classes documented on _flask_app and costs ~seconds.
+    """
+    return sorted(r.rule for r in _flask_app.url_map.iter_rules())
+
+
+@pytest.fixture
+def developer_headers(app):
+    """JWT headers for a plain developer-role user."""
+    from app import db
+    return headers_for(make_user(db, role='developer'))
+
+
+@pytest.fixture
+def viewer_headers(app):
+    """JWT headers for a viewer-role user — the negative case for admin gates."""
+    from app import db
+    return headers_for(make_user(db, role='viewer'))
 
 
 @pytest.fixture
@@ -266,11 +331,11 @@ def scoping_rbac(app):
     from app.models import Application, Workspace
     from app.services.workspace_service import WorkspaceService
 
-    owner = _mk_scope_user(db, 'scope_owner')
-    member = _mk_scope_user(db, 'scope_member')
-    viewer = _mk_scope_user(db, 'scope_viewer')
-    foreign = _mk_scope_user(db, 'scope_foreign')
-    admin = _mk_scope_user(db, 'scope_admin', role='admin')
+    owner = make_user(db, 'scope_owner')
+    member = make_user(db, 'scope_member')
+    viewer = make_user(db, 'scope_viewer')
+    foreign = make_user(db, 'scope_foreign')
+    admin = make_user(db, 'scope_admin', role='admin')
 
     ws = Workspace(name='scope-ws', slug='scope-ws', created_by=owner.id)
     db.session.add(ws)
@@ -287,11 +352,11 @@ def scoping_rbac(app):
     return SimpleNamespace(
         app_id=a.id,
         ws_id=ws.id,
-        owner=_scope_token(owner.id),
-        admin=_scope_token(admin.id),
-        member=_scope_token(member.id),
-        viewer=_scope_token(viewer.id),
-        foreign=_scope_token(foreign.id),
+        owner=headers_for(owner),
+        admin=headers_for(admin),
+        member=headers_for(member),
+        viewer=headers_for(viewer),
+        foreign=headers_for(foreign),
     )
 
 

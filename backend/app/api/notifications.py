@@ -12,6 +12,7 @@ from app.services.settings_service import SettingsService
 from app.services.bounce_service import BounceService
 from app.notifications.service import NotificationBusService
 from app.notifications.providers import EmailProviderService, SUPPORTED as EMAIL_PROVIDERS
+from app.error_reporting import unexpected_response
 
 # Header carrying the provider's HMAC-SHA256 of the raw request body, formatted
 # as ``sha256=<hexdigest>`` (GitHub-style). The shared secret is
@@ -31,7 +32,6 @@ def get_status():
 
 
 @notifications_bp.route('/config', methods=['GET'])
-@jwt_required()
 @admin_required
 def get_config():
     """Get notification configuration."""
@@ -61,7 +61,6 @@ def get_config():
 
 
 @notifications_bp.route('/config/<channel>', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_channel_config(channel):
     """Update configuration for a specific notification channel."""
@@ -102,7 +101,6 @@ def update_channel_config(channel):
 
 
 @notifications_bp.route('/test/<channel>', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_channel(channel):
     """Send a test notification to a specific channel."""
@@ -115,7 +113,6 @@ def test_channel(channel):
 
 
 @notifications_bp.route('/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_all_channels():
     """Send a test notification to all enabled channels."""
@@ -231,9 +228,8 @@ def update_user_preferences():
     try:
         db.session.commit()
         return jsonify({'success': True, 'preferences': prefs.to_dict()}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)  # rolls the session back itself
 
 
 @notifications_bp.route('/preferences/test', methods=['POST'])
@@ -365,7 +361,6 @@ def mark_inbox_all_read():
 # ==========================================
 
 @notifications_bp.route('/admin/deliveries', methods=['GET'])
-@jwt_required()
 @admin_required
 def admin_delivery_log():
     """List recent deliveries across all users, with status/channel filters."""
@@ -381,7 +376,6 @@ def admin_delivery_log():
 
 
 @notifications_bp.route('/admin/deliveries/<int:delivery_id>/retry', methods=['POST'])
-@jwt_required()
 @admin_required
 def admin_retry_delivery(delivery_id):
     """Re-queue a failed delivery for another attempt."""
@@ -396,7 +390,6 @@ def admin_retry_delivery(delivery_id):
 # ==========================================
 
 @notifications_bp.route('/admin/chat-connections', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_chat_connections():
     """List org chat/webhook connections + the catalog of supported kinds."""
@@ -409,7 +402,6 @@ def list_chat_connections():
 
 
 @notifications_bp.route('/admin/chat-connections', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_chat_connection():
     """Create a chat/webhook connection (destination + secret encrypted)."""
@@ -424,7 +416,6 @@ def add_chat_connection():
 
 
 @notifications_bp.route('/admin/chat-connections/<int:conn_id>', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_chat_connection(conn_id):
     """Update mutable chat connection metadata and credentials."""
@@ -442,7 +433,6 @@ def update_chat_connection(conn_id):
 
 
 @notifications_bp.route('/admin/chat-connections/<int:conn_id>/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_chat_connection(conn_id):
     """Send a synchronous test through one chat connection."""
@@ -454,7 +444,6 @@ def test_chat_connection(conn_id):
 
 
 @notifications_bp.route('/admin/chat-connections/<int:conn_id>/default', methods=['POST'])
-@jwt_required()
 @admin_required
 def set_default_chat_connection(conn_id):
     """Select the active administrative default for a connection kind."""
@@ -466,7 +455,6 @@ def set_default_chat_connection(conn_id):
 
 
 @notifications_bp.route('/admin/chat-connections/<int:conn_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_chat_connection(conn_id):
     """Delete a chat/webhook connection (promotes a new per-kind default)."""
@@ -481,7 +469,6 @@ def delete_chat_connection(conn_id):
 # ==========================================
 
 @notifications_bp.route('/admin/email-providers', methods=['GET'])
-@jwt_required()
 @admin_required
 def list_email_providers():
     """List configured email providers + the catalog of supported types."""
@@ -496,7 +483,6 @@ def list_email_providers():
 
 
 @notifications_bp.route('/admin/email-providers', methods=['POST'])
-@jwt_required()
 @admin_required
 def add_email_provider():
     """Add an email provider, then validate its credentials."""
@@ -510,7 +496,6 @@ def add_email_provider():
 
 
 @notifications_bp.route('/admin/email-providers/<int:provider_id>/test', methods=['POST'])
-@jwt_required()
 @admin_required
 def test_email_provider(provider_id):
     """Validate a provider's credentials without sending."""
@@ -519,7 +504,6 @@ def test_email_provider(provider_id):
 
 
 @notifications_bp.route('/admin/email-providers/<int:provider_id>', methods=['PUT'])
-@jwt_required()
 @admin_required
 def update_email_provider(provider_id):
     """Update a provider's usage flags (uses_notifications / uses_relay /
@@ -531,7 +515,6 @@ def update_email_provider(provider_id):
 
 
 @notifications_bp.route('/admin/email-providers/<int:provider_id>/default', methods=['POST'])
-@jwt_required()
 @admin_required
 def set_default_email_provider(provider_id):
     """Make a provider the default transport."""
@@ -542,7 +525,6 @@ def set_default_email_provider(provider_id):
 
 
 @notifications_bp.route('/admin/email-providers/<int:provider_id>', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def delete_email_provider(provider_id):
     """Remove an email provider."""
@@ -615,7 +597,6 @@ def unmute_own_email():
 
 
 @notifications_bp.route('/admin/bouncing', methods=['GET'])
-@jwt_required()
 @admin_required
 def admin_list_bouncing():
     """List addresses currently muted for bouncing/complaints (admin)."""

@@ -6,21 +6,11 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import EmptyState from '../EmptyState';
-import { Pill } from '../ds';
+import { Pill, serviceStatusKind } from '../ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-
-// Preview status → ds Pill kind.
-const STATUS_PILL = {
-    running: 'green',
-    building: 'amber',
-    queued: 'amber',
-    stopped: 'gray',
-    failed: 'red',
-    destroyed: 'gray',
-};
 
 const DEFAULT_TEMPLATE = 'pr-{pr_number}.{app_domain}';
 
@@ -210,7 +200,7 @@ const PreviewList = ({ appId }) => {
                                 <div className="preview-item__title">
                                     <span className="preview-item__pr">PR #{p.pr_number}</span>
                                     <span className="preview-item__name">{p.pr_title || '(untitled)'}</span>
-                                    <Pill kind={STATUS_PILL[p.status] || 'gray'}>{p.status}</Pill>
+                                    <Pill kind={serviceStatusKind(p.status)}>{p.status}</Pill>
                                 </div>
                                 <div className="preview-item__meta">
                                     {p.branch && <span className="preview-item__branch mono">{p.branch}</span>}

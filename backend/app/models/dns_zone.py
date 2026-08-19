@@ -1,9 +1,11 @@
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
+from app.models.mixins import TimestampMixin, SerializableMixin
 import json
 
 
-class DNSZone(db.Model):
+class DNSZone(JsonColumnMixin, TimestampMixin, db.Model):
     """DNS zone for a domain with provider integration."""
     __tablename__ = 'dns_zones'
 
@@ -22,14 +24,12 @@ class DNSZone(db.Model):
     status = db.Column(db.String(32), default='active')
     last_sync_at = db.Column(db.DateTime)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     records = db.relationship('DNSRecord', backref='zone', lazy='dynamic', cascade='all, delete-orphan')
 
     @property
     def provider_config(self):
-        return json.loads(self.provider_config_json) if self.provider_config_json else {}
+        return self._json_read('provider_config_json')
 
     @provider_config.setter
     def provider_config(self, v):
@@ -49,7 +49,7 @@ class DNSZone(db.Model):
         }
 
 
-class DNSRecord(db.Model):
+class DNSRecord(SerializableMixin, TimestampMixin, db.Model):
     """Individual DNS record within a zone."""
     __tablename__ = 'dns_records'
 
@@ -65,19 +65,4 @@ class DNSRecord(db.Model):
 
     provider_record_id = db.Column(db.String(128))
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'zone_id': self.zone_id,
-            'record_type': self.record_type,
-            'name': self.name,
-            'content': self.content,
-            'ttl': self.ttl,
-            'priority': self.priority,
-            'proxied': self.proxied,
-            'provider_record_id': self.provider_record_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

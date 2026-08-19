@@ -1,4 +1,4 @@
-import os
+from app.utils.env import env_bool
 import time
 import urllib.request
 import json
@@ -11,6 +11,7 @@ from app.services import install_profile_service
 from app.services.site_domain_service import SiteDomainService
 from app.utils.domain import is_valid_canonical_domain
 from app.utils.version import get_panel_version, get_install_dir
+from app.middleware.rbac import require_admin_user
 
 # Cache for update check (to avoid hitting GitHub API too often)
 _update_cache = {
@@ -103,11 +104,7 @@ def check_update():
 @system_bp.route('/metrics', methods=['GET'])
 @jwt_required()
 def get_metrics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     metrics = SystemService.get_all_metrics()
     return jsonify(metrics), 200
@@ -117,11 +114,7 @@ def get_metrics():
 @jwt_required()
 def get_system_info():
     """Get system information (hostname, IP, kernel, CPU info)."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     return jsonify(SystemService.get_system_info()), 200
 
@@ -129,11 +122,7 @@ def get_system_info():
 @system_bp.route('/cpu', methods=['GET'])
 @jwt_required()
 def get_cpu_metrics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     return jsonify(SystemService.get_cpu_metrics()), 200
 
@@ -141,11 +130,7 @@ def get_cpu_metrics():
 @system_bp.route('/memory', methods=['GET'])
 @jwt_required()
 def get_memory_metrics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     return jsonify(SystemService.get_memory_metrics()), 200
 
@@ -153,11 +138,7 @@ def get_memory_metrics():
 @system_bp.route('/disk', methods=['GET'])
 @jwt_required()
 def get_disk_metrics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     return jsonify(SystemService.get_disk_metrics()), 200
 
@@ -165,11 +146,7 @@ def get_disk_metrics():
 @system_bp.route('/network', methods=['GET'])
 @jwt_required()
 def get_network_metrics():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     return jsonify(SystemService.get_network_metrics()), 200
 
@@ -187,7 +164,7 @@ def health_check():
     # Staging instances (plan 37 testbed) run with SERVERKIT_STAGING set. Echo
     # it here so the verify step can prove WHICH instance answered and the UI
     # can show its STAGING banner.
-    staging = os.environ.get('SERVERKIT_STAGING', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    staging = env_bool('SERVERKIT_STAGING')
 
     return jsonify({
         'status': 'healthy',
@@ -272,16 +249,47 @@ def get_resource_tier():
     Returns tier, specs, and feature permissions based on server resources.
     Results are cached for 1 hour unless refresh=true is passed.
     """
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     force_refresh = request.args.get('refresh', 'false').lower() == 'true'
     tier_info = ResourceTierService.get_tier_info(force_refresh=force_refresh)
 
     return jsonify(tier_info), 200
+
+
+@system_bp.route('/host-snapshot', methods=['GET'])
+@jwt_required()
+def get_host_snapshot():
+    """Per-filesystem inventory, storage advisories, and the last spec delta.
+
+    Unlike /disk — which lists partitions and stops — this says which
+    filesystem the panel actually writes to, which mounts are missing from
+    /etc/fstab, and what changed since the previous boot.
+    """
+    require_admin_user()
+
+    from app.services import host_snapshot_service
+    return jsonify(host_snapshot_service.current_state()), 200
+
+
+@system_bp.route('/host-snapshot/history', methods=['GET'])
+@jwt_required()
+def get_host_snapshot_history():
+    """Recent host snapshots, newest first."""
+    require_admin_user()
+
+    from app.models.host_snapshot import HostSnapshot
+
+    try:
+        limit = min(max(int(request.args.get('limit', 20)), 1), 100)
+    except (TypeError, ValueError):
+        limit = 20
+
+    rows = (HostSnapshot.query
+            .order_by(HostSnapshot.captured_at.desc(), HostSnapshot.id.desc())
+            .limit(limit)
+            .all())
+    return jsonify({'snapshots': [row.to_dict() for row in rows]}), 200
 
 
 @system_bp.route('/capacity', methods=['GET'])
@@ -294,11 +302,7 @@ def get_capacity():
     /resource-tier remains for callers that only want the tier label; this one
     additionally answers "what did we install" and "can this box host apps".
     """
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     force_refresh = request.args.get('refresh', 'false').lower() == 'true'
     tier_info = ResourceTierService.get_tier_info(force_refresh=force_refresh)
@@ -317,11 +321,7 @@ def get_capacity():
 @jwt_required()
 def set_capacity_profile():
     """Record an operator's profile change made after install."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if not user or user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     profile = data.get('profile')
@@ -345,11 +345,7 @@ def get_server_time():
 @jwt_required()
 def get_timezones():
     """Get list of available timezones."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     timezones = SystemService.get_available_timezones()
     return jsonify({'timezones': timezones}), 200
@@ -359,11 +355,7 @@ def get_timezones():
 @jwt_required()
 def set_timezone():
     """Set server timezone (admin only)."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     data = request.get_json()
     if not data or 'timezone' not in data:
@@ -380,11 +372,7 @@ def set_timezone():
 @system_bp.route('/processes', methods=['GET'])
 @jwt_required()
 def get_processes():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     processes = []
     for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'status']):
@@ -412,11 +400,7 @@ def get_processes():
 @system_bp.route('/services', methods=['GET'])
 @jwt_required()
 def get_services():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if user.role != 'admin':
-        return jsonify({'error': 'Admin access required'}), 403
+    require_admin_user()
 
     # Common services to check
     service_names = ['nginx', 'mysql', 'postgresql', 'redis', 'docker', 'php-fpm']

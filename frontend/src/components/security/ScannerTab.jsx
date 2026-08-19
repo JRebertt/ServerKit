@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { statusKind } from '@/components/ds/status';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,13 +12,13 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Zap, Radar, FolderSearch, Download, Box, FileCode2, Trash2, Search } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { useConfirm } from '@/hooks/useConfirm';
+import { usePolling } from '@/hooks/usePolling';
 
-const SEVERITY_TONE = {
-    critical: 'red',
-    high: 'red',
-    medium: 'amber',
-    low: 'gray',
-};
+// Scan status cadence, and the faster cadence while a scan job runs.
+const SCAN_STATUS_POLL_MS = 5000;
+const SCAN_JOB_POLL_MS = 3000;
+
 
 // Urgency order for the Severity column. The severity strings sort
 // alphabetically — critical, high, low, medium — which files "low" above
@@ -122,6 +123,7 @@ const HISTORY_VIEWS = [
 ];
 
 const ScannerTab = () => {
+    const { confirm } = useConfirm();
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
     const [scanPath, setScanPath] = useState('/var/www');
     const [scanning, setScanning] = useState(false);
@@ -133,7 +135,7 @@ const ScannerTab = () => {
     const [apps, setApps] = useState([]);
     const [selectedApp, setSelectedApp] = useState('');
     const [scanJob, setScanJob] = useState(null); // { id, status, result }
-    const jobPollRef = useRef(null);
+    const [scanJobId, setScanJobId] = useState(null);
 
     // Findings (YARA + ClamAV) from the last completed job/scan
     const [findings, setFindings] = useState([]);
@@ -153,12 +155,9 @@ const ScannerTab = () => {
         loadScanStatus();
         loadHistory();
         loadApps();
-        const interval = setInterval(loadScanStatus, 5000);
-        return () => {
-            clearInterval(interval);
-            if (jobPollRef.current) clearInterval(jobPollRef.current);
-        };
     }, []);
+
+    usePolling(loadScanStatus, SCAN_STATUS_POLL_MS, { immediate: false });
 
     async function loadScanStatus() {
         try {
@@ -199,35 +198,36 @@ const ScannerTab = () => {
         }
     }
 
+    // The job id IS the "are we polling" state; the hook owns the schedule,
+    // so this only has to say which job to watch.
     function pollJob(jobId) {
-        if (jobPollRef.current) clearInterval(jobPollRef.current);
-        jobPollRef.current = setInterval(async () => {
-            try {
-                const job = await api.getJob(jobId);
-                setScanJob(job);
-                if (['succeeded', 'failed', 'cancelled'].includes(job.status)) {
-                    clearInterval(jobPollRef.current);
-                    jobPollRef.current = null;
-                    if (job.status === 'succeeded' && job.result?.findings) {
-                        setFindings(job.result.findings);
-                        const n = job.result.findings.length;
-                        setMessage({
-                            type: n > 0 ? 'error' : 'success',
-                            text: n > 0
-                                ? `Scan finished: ${n} finding(s) — review below`
-                                : 'Scan finished: no threats found'
-                        });
-                    } else if (job.status === 'failed') {
-                        setMessage({ type: 'error', text: job.error_message || 'Scan job failed' });
-                    }
-                    loadScanStatus();
-                    loadHistory();
-                }
-            } catch (err) {
-                console.error('Failed to poll scan job:', err);
-            }
-        }, 3000);
+        setScanJobId(jobId);
     }
+
+    usePolling(async () => {
+        try {
+            const job = await api.getJob(scanJobId);
+            setScanJob(job);
+            if (!['succeeded', 'failed', 'cancelled'].includes(job.status)) return;
+            setScanJobId(null);
+            if (job.status === 'succeeded' && job.result?.findings) {
+                setFindings(job.result.findings);
+                const n = job.result.findings.length;
+                setMessage({
+                    type: n > 0 ? 'error' : 'success',
+                    text: n > 0
+                        ? `Scan finished: ${n} finding(s) — review below`
+                        : 'Scan finished: no threats found',
+                });
+            } else if (job.status === 'failed') {
+                setMessage({ type: 'error', text: job.error_message || 'Scan job failed' });
+            }
+            loadScanStatus();
+            loadHistory();
+        } catch (err) {
+            console.error('Failed to poll scan job:', err);
+        }
+    }, SCAN_JOB_POLL_MS, { enabled: Boolean(scanJobId), immediate: false });
 
     async function handleScanApp() {
         if (!selectedApp) return;
@@ -330,7 +330,11 @@ const ScannerTab = () => {
     }
 
     async function handleDeleteRule(name) {
-        if (!confirm(`Delete custom rule file ${name}?`)) return;
+        if (!await confirm({
+            title: 'Delete scanner rule',
+            message: `Delete custom rule file ${name}?`,
+            confirmText: 'Delete rule',
+        })) return;
         try {
             await api.deleteYaraRule(name);
             loadRules();
@@ -368,7 +372,7 @@ const ScannerTab = () => {
             sortValue: (f) => SEVERITY_RANK[f.severity] ?? 9,
             enumOrder: ['critical', 'high', 'medium', 'low'],
             render: (f) => (
-                <span className={`sec-state sec-state--${SEVERITY_TONE[f.severity] || 'gray'}`}>
+                <span className={`sec-state sec-state--${statusKind(f.severity)}`}>
                     {f.severity}
                 </span>
             ),

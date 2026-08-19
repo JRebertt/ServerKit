@@ -184,7 +184,13 @@ def test_500_handler_records_error_and_keeps_response(client, app):
 
     res = client.get('/api/v1/__test_boom')
     assert res.status_code == 500
-    assert res.get_json() == {'error': 'Internal server error'}
+    request_id = res.headers['X-Request-ID']
+    assert res.get_json() == {
+        'error': 'Internal server error',
+        'status': 500,
+        'code': 'internal_error',
+        'request_id': request_id,
+    }
 
     entry = ErrorLog.query.filter_by(source='backend').first()
     assert entry is not None
@@ -193,3 +199,104 @@ def test_500_handler_records_error_and_keeps_response(client, app):
     assert 'RuntimeError' in entry.traceback
     assert entry.endpoint == '/api/v1/__test_boom'
     assert entry.method == 'GET'
+
+
+@pytest.mark.fresh_app
+def test_500_from_a_db_error_is_still_recorded(client, app):
+    """A crash caused by the database must not be the one crash we cannot log.
+
+    The 500 handler shares the app-context-scoped ``db.session`` with the view
+    that just failed. When the failure IS a database error, that session is
+    already in a failed transaction, so ``record_error``'s first query raises
+    PendingRollbackError -- which its own never-raise contract then swallows,
+    silently dropping the report. Rolling back before recording is what makes
+    this class of 500 visible in the tracker at all.
+    """
+    @app.route('/api/v1/__test_db_boom')
+    def _db_boom():
+        # A REAL failed flush, not a hand-built IntegrityError: only an actual
+        # constraint violation leaves the session in the failed-transaction
+        # state that makes the next query raise. `message` is NOT NULL.
+        db.session.add(ErrorLog(fingerprint='x' * 64, source='backend',
+                                level='error', message=None))
+        db.session.flush()  # raises IntegrityError, poisoning the session
+
+    app.config['TESTING'] = False
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+
+    res = client.get('/api/v1/__test_db_boom')
+    assert res.status_code == 500
+
+    entry = ErrorLog.query.filter_by(endpoint='/api/v1/__test_db_boom').first()
+    assert entry is not None, 'a DB-caused 500 was not recorded'
+    assert entry.exception_type == 'IntegrityError'
+
+
+@pytest.mark.fresh_app
+def test_500_handler_does_not_commit_the_crashed_request_work(client, app):
+    """record_error's commit() must not persist what the failing view left pending.
+
+    Without the rollback, the handler's commit flushes any ORM state still
+    sitting in the shared session -- so a view that add()s a row and then
+    crashes ships a half-applied write.
+    """
+    from app.models.error_log import ErrorLog as _EL
+
+    @app.route('/api/v1/__test_partial_write')
+    def _partial():
+        db.session.add(_EL(fingerprint='pending-should-not-persist',
+                           source='backend', level='error', message='pending'))
+        db.session.flush()
+        raise RuntimeError('crash after a pending write')
+
+    app.config['TESTING'] = False
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+
+    assert client.get('/api/v1/__test_partial_write').status_code == 500
+
+    assert ErrorLog.query.filter_by(
+        fingerprint='pending-should-not-persist').count() == 0
+    # ...but the crash itself was still recorded.
+    assert ErrorLog.query.filter_by(
+        endpoint='/api/v1/__test_partial_write').count() == 1
+
+
+# --------------------------------------------------------------------------- #
+# Client ingestion: attribution
+# --------------------------------------------------------------------------- #
+
+def test_client_report_is_attributed_when_a_token_is_sent(client, auth_headers):
+    """The frontend attaches Authorization so the row is not anonymous.
+
+    ErrorLog.user_id, to_dict()['username'] and the "User #N" row in
+    pages/Errors.jsx were dead end-to-end while reportClientError sent no
+    header: every frontend row was anonymous no matter who was logged in.
+    """
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'boom in the browser'},
+                      headers=auth_headers)
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is not None
+    assert entry.to_dict()['username'] == 'testadmin'
+
+
+def test_client_report_without_a_token_is_anonymous_not_rejected(client):
+    """Reporting must still work with no session -- that is when crashes happen."""
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'anonymous browser crash'})
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is None
+
+
+def test_client_report_with_a_junk_token_is_anonymous_not_a_500(client):
+    """verify_jwt_in_request(optional=True) tolerates a MISSING token only --
+    a malformed or expired one raises, and the route's except is what turns
+    that into an anonymous report instead of a crash."""
+    res = client.post('/api/v1/error-logs/client',
+                      json={'message': 'stale session crash'},
+                      headers={'Authorization': 'Bearer not.a.jwt'})
+    assert res.status_code == 201
+    entry = db.session.get(ErrorLog, res.get_json()['id'])
+    assert entry.user_id is None

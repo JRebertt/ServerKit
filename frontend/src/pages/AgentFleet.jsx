@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MetricCard, KpiBand, Pill, Gauge, DataTable, DataTableFooter } from '@/components/ds';
+import { MetricCard, KpiBand, Pill, Gauge, DataTable, DataTableFooter, statusKind } from '@/components/ds';
 
 const AgentFleet = () => {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -192,17 +192,6 @@ const AgentFleet = () => {
         }
     };
 
-    const rolloutPillKind = (status) => {
-        const map = {
-            running: 'cyan',
-            completed: 'green',
-            failed: 'red',
-            cancelled: 'amber',
-            pending: 'gray'
-        };
-        return map[status] || 'gray';
-    };
-
     // Columns for the shared DataTable. Cell markup and classNames are
     // identical to the hand-rolled tables they replace. No in-page toolbar
     // rows on this page (Refresh lives in the shared top bar), so each table
@@ -295,7 +284,7 @@ const AgentFleet = () => {
             sortable: true,
             sortValue: (r) => r.status || '',
             render: (r) => (
-                <Pill kind={rolloutPillKind(r.status)}>{r.status}</Pill>
+                <Pill kind={statusKind(r.status)}>{r.status}</Pill>
             ),
         },
         {

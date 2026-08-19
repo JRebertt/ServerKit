@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { useConfirm } from '@/hooks/useConfirm';
 
 // Micro-cache panel (task #21) — opt-in nginx page cache per site. The
 // backend rewrites the site's vhost with short-TTL cache directives plus
@@ -11,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 // admin/login paths, non-GET requests, query strings).
 const MicroCachePanel = ({ app, onChanged }) => {
     const toast = useToast();
+    const { confirm } = useConfirm();
     const [enabled, setEnabled] = useState(!!app.micro_cache_enabled);
     const [saving, setSaving] = useState(false);
     const [purging, setPurging] = useState(false);
@@ -38,7 +40,11 @@ const MicroCachePanel = ({ app, onChanged }) => {
     }
 
     async function handlePurge() {
-        if (!confirm('Clear the micro-cache now? This clears cached pages for every site using the shared cache (entries expire within 10 seconds anyway).')) return;
+        if (!await confirm({
+            title: 'Clear micro-cache',
+            message: 'Clear cached pages for every site using the shared cache? Entries normally expire within 10 seconds.',
+            confirmText: 'Clear cache',
+        })) return;
         setPurging(true);
         try {
             const data = await api.purgeMicroCache(app.id);

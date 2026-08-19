@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class TerminalService:
         session_id = f"term_{uuid.uuid4().hex[:12]}"
 
         # Send command to agent to create terminal
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=server_id,
             action='terminal:create',
             params={
@@ -92,7 +92,7 @@ class TerminalService:
         if session['user_id'] != user_id:
             return {'success': False, 'error': 'Unauthorized'}
 
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=session['server_id'],
             action='terminal:input',
             params={
@@ -127,7 +127,7 @@ class TerminalService:
         if session['user_id'] != user_id:
             return {'success': False, 'error': 'Unauthorized'}
 
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=session['server_id'],
             action='terminal:resize',
             params={
@@ -164,7 +164,7 @@ class TerminalService:
         if session['user_id'] != user_id:
             return {'success': False, 'error': 'Unauthorized'}
 
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=session['server_id'],
             action='terminal:close',
             params={

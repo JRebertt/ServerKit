@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { SIDEBAR_ITEMS } from '../components/sidebarItems';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Sidebar items that can never be hidden (Dashboard, Marketplace) — the palette
 // mirrors the sidebar's `alwaysVisible` so a workspace nav map can't hide them.
@@ -21,18 +22,11 @@ const ALWAYS_VISIBLE = new Set(
  */
 export default function usePaletteAuthz() {
     const { isAdmin, hasPermission } = useAuth();
+    const { activeWorkspace } = useWorkspace();
 
     return useMemo(() => {
-        let navMap = null;
-        let role = 'member';
-        try {
-            const raw = localStorage.getItem('active_workspace');
-            const ws = raw ? JSON.parse(raw) : null;
-            navMap = ws?.settings?.nav || null;
-            role = ws?.my_effective_role || ws?.my_role || 'member';
-        } catch {
-            navMap = null;
-        }
+        const navMap = activeWorkspace?.settings?.nav || null;
+        const role = activeWorkspace?.my_effective_role || activeWorkspace?.my_role || 'member';
 
         const allowNav = (navId) => {
             if (!navId) return true;
@@ -53,7 +47,5 @@ export default function usePaletteAuthz() {
         };
 
         return { isAdmin, allowNav, allowItem };
-        // Recomputes on login/role change (isAdmin flips); the workspace nav map
-        // is read from localStorage at build time and isn't otherwise reactive.
-    }, [isAdmin, hasPermission]);
+    }, [isAdmin, hasPermission, activeWorkspace]);
 }

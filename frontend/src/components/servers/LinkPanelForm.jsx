@@ -7,6 +7,7 @@ import StatusBadge from '../StatusBadge';
 import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { usePolling } from '@/hooks/usePolling';
 
 const POLL_INTERVAL = 5000;
 
@@ -40,11 +41,8 @@ const LinkPanelForm = ({ onClose }) => {
         }
     }
 
-    useEffect(() => {
-        loadStatus();
-        const interval = setInterval(() => loadStatus({ silent: true }), POLL_INTERVAL);
-        return () => clearInterval(interval);
-    }, []);
+    useEffect(() => { loadStatus(); }, []);
+    usePolling(() => loadStatus({ silent: true }), POLL_INTERVAL, { immediate: false });
 
     async function handleLink(e) {
         e.preventDefault();

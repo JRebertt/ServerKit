@@ -1,6 +1,8 @@
 """File Manager API endpoints for browsing, editing, and managing files."""
 
 from flask import Blueprint, request, jsonify, send_file
+from app.error_reporting import unexpected_response
+from app.exceptions import NotFoundError, PermissionDeniedError, ValidationError
 from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
@@ -19,9 +21,7 @@ def browse_directory():
 
     result = FileService.list_directory(path, show_hidden=show_hidden)
 
-    if result.get('success'):
-        return jsonify(result), 200
-    return jsonify(result), 400
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/info', methods=['GET'])
@@ -31,18 +31,16 @@ def get_file_info():
     path = request.args.get('path')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     if not FileService.is_path_allowed(path):
-        return jsonify({'error': 'Access denied'}), 403
+        raise PermissionDeniedError('Access denied')
 
     info = FileService.get_file_info(path)
 
-    if info and 'error' not in info:
-        return jsonify({'success': True, 'file': info}), 200
-
-    error = info.get('error', 'File not found') if info else 'File not found'
-    return jsonify({'error': error}), 404
+    if not info or 'error' in info:
+        raise NotFoundError(info.get('error', 'File not found') if info else 'File not found')
+    return jsonify({'success': True, 'file': info}), 200
 
 
 @files_bp.route('/read', methods=['GET'])
@@ -52,15 +50,11 @@ def read_file():
     path = request.args.get('path')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     result = FileService.read_file(path)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/write', methods=['POST'])
@@ -70,25 +64,21 @@ def write_file():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     path = data.get('path')
     content = data.get('content')
     create_backup = data.get('create_backup', True)
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     if content is None:
-        return jsonify({'error': 'Content is required'}), 400
+        raise ValidationError('Content is required')
 
     result = FileService.write_file(path, content, create_backup=create_backup)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/create', methods=['POST'])
@@ -98,21 +88,17 @@ def create_file():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     path = data.get('path')
     content = data.get('content', '')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     result = FileService.create_file(path, content)
 
-    if result.get('success'):
-        return jsonify(result), 201
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 201
 
 
 @files_bp.route('/mkdir', methods=['POST'])
@@ -122,20 +108,16 @@ def create_directory():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     path = data.get('path')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     result = FileService.create_directory(path)
 
-    if result.get('success'):
-        return jsonify(result), 201
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 201
 
 
 @files_bp.route('/delete', methods=['DELETE'])
@@ -145,15 +127,11 @@ def delete_path():
     path = request.args.get('path')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     result = FileService.delete(path)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/rename', methods=['POST'])
@@ -163,21 +141,17 @@ def rename_path():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     path = data.get('path')
     new_name = data.get('new_name')
 
     if not path or not new_name:
-        return jsonify({'error': 'Path and new_name are required'}), 400
+        raise ValidationError('Path and new_name are required')
 
     result = FileService.rename(path, new_name)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/copy', methods=['POST'])
@@ -187,21 +161,17 @@ def copy_path():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     src = data.get('src')
     dest = data.get('dest')
 
     if not src or not dest:
-        return jsonify({'error': 'Source and destination paths are required'}), 400
+        raise ValidationError('Source and destination paths are required')
 
     result = FileService.copy(src, dest)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/move', methods=['POST'])
@@ -211,21 +181,17 @@ def move_path():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     src = data.get('src')
     dest = data.get('dest')
 
     if not src or not dest:
-        return jsonify({'error': 'Source and destination paths are required'}), 400
+        raise ValidationError('Source and destination paths are required')
 
     result = FileService.move(src, dest)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/chmod', methods=['POST'])
@@ -235,21 +201,17 @@ def change_permissions():
     data = request.get_json()
 
     if not data:
-        return jsonify({'error': 'Request body is required'}), 400
+        raise ValidationError('Request body is required')
 
     path = data.get('path')
     mode = data.get('mode')
 
     if not path or not mode:
-        return jsonify({'error': 'Path and mode are required'}), 400
+        raise ValidationError('Path and mode are required')
 
     result = FileService.change_permissions(path, mode)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/search', methods=['GET'])
@@ -261,15 +223,11 @@ def search_files():
     max_results = request.args.get('max_results', 100, type=int)
 
     if not pattern:
-        return jsonify({'error': 'Search pattern is required'}), 400
+        raise ValidationError('Search pattern is required')
 
     result = FileService.search(directory, pattern, max_results=max_results)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/disk-usage', methods=['GET'])
@@ -280,9 +238,7 @@ def get_disk_usage():
 
     result = FileService.get_disk_usage(path)
 
-    if result.get('success'):
-        return jsonify(result), 200
-    return jsonify(result), 400
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/disk-mounts', methods=['GET'])
@@ -291,9 +247,7 @@ def get_disk_mounts():
     """Get disk usage for all mount points."""
     result = FileService.get_all_disk_mounts()
 
-    if result.get('success'):
-        return jsonify(result), 200
-    return jsonify(result), 400
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/analyze', methods=['GET'])
@@ -306,11 +260,7 @@ def analyze_directory():
 
     result = FileService.analyze_directory_sizes(path, depth=depth, limit=limit)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/type-breakdown', methods=['GET'])
@@ -322,11 +272,7 @@ def get_type_breakdown():
 
     result = FileService.get_file_type_breakdown(path, max_depth=max_depth)
 
-    if result.get('success'):
-        return jsonify(result), 200
-
-    status = 403 if 'denied' in result.get('error', '').lower() else 400
-    return jsonify(result), status
+    return jsonify({'success': True, **result}), 200
 
 
 @files_bp.route('/download', methods=['GET'])
@@ -336,7 +282,7 @@ def download_file():
     path = request.args.get('path')
 
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
 
     if not FileService.is_path_allowed(path):
         return jsonify({'error': 'Access denied'}), 403
@@ -353,8 +299,8 @@ def download_file():
             as_attachment=True,
             download_name=os.path.basename(path)
         )
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(e)
 
 
 @files_bp.route('/upload', methods=['POST'])
@@ -368,7 +314,7 @@ def upload_file():
     destination = request.form.get('destination')
 
     if not destination:
-        return jsonify({'error': 'Destination path is required'}), 400
+        raise ValidationError('Destination path is required')
 
     # Upload writes straight to disk without going through FileService's
     # mutating methods, so it has to repeat the writable check itself.
@@ -414,8 +360,8 @@ def upload_file():
 
     except PermissionError:
         return jsonify({'error': 'Permission denied'}), 403
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(e)
 
 
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──
@@ -435,7 +381,7 @@ def s3_read():
     """Read a text object for in-app editing."""
     path = request.args.get('path')
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
     result = StorageProviderService.s3_read(path)
     return jsonify(result), 200 if result.get('success') else 400
 
@@ -448,9 +394,9 @@ def s3_write():
     path = data.get('path')
     content = data.get('content')
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
     if content is None:
-        return jsonify({'error': 'Content is required'}), 400
+        raise ValidationError('Content is required')
     result = StorageProviderService.s3_write(path, content)
     return jsonify(result), 200 if result.get('success') else 400
 
@@ -461,7 +407,7 @@ def s3_delete():
     """Delete an object (or every object beneath a prefix)."""
     path = request.args.get('path')
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
     result = StorageProviderService.s3_delete(path)
     return jsonify(result), 200 if result.get('success') else 400
 
@@ -472,7 +418,7 @@ def s3_download_url():
     """Return a short-lived presigned URL the browser can download directly."""
     path = request.args.get('path')
     if not path:
-        return jsonify({'error': 'Path is required'}), 400
+        raise ValidationError('Path is required')
     result = StorageProviderService.s3_presigned_get(path)
     return jsonify(result), 200 if result.get('success') else 400
 

@@ -8,11 +8,13 @@ import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField,
+    DataTable, DataTableFooter, Drawer, Gauge, Pill, SearchField, statusKind,
 } from '@/components/ds';
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useClipboard } from '@/hooks/useClipboard';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -23,13 +25,6 @@ import LinkPanelForm from '../components/servers/LinkPanelForm';
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
 // yet" but for different reasons (handshake in flight vs agent never
 // installed), so they stay distinct rather than folding into one bucket.
-const STATUS_KIND = {
-    online: 'green',
-    offline: 'red',
-    connecting: 'amber',
-    pending: 'gray',
-};
-
 // Built-in saved views. States only use real column keys (SERVER_COLUMNS) —
 // there is no separate status segment or group select any more; the Status and
 // Group columns' own menus are the one place the fleet is narrowed, and they
@@ -218,7 +213,7 @@ const SERVER_COLUMNS = [
         groupLabel: (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'None'),
         render: (server) => {
             const status = server.status || 'pending';
-            return <Pill kind={STATUS_KIND[status] || 'gray'}>{status}</Pill>;
+            return <Pill kind={statusKind(status)}>{status}</Pill>;
         },
     },
     meterColumn('cpu', 'CPU', 'cpu_percent'),
@@ -730,7 +725,7 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
     const [registrationData, setRegistrationData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const toast = useToast();
+    const { copy } = useClipboard();
 
     async function handleCreateServer(e) {
         e.preventDefault();
@@ -753,11 +748,6 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
         } finally {
             setLoading(false);
         }
-    }
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard');
     }
 
     const connectionString = registrationData?.connection_string || '';
@@ -895,7 +885,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <ConnectionStringField
                                 value={connectionString}
-                                onCopy={() => copyToClipboard(connectionString)}
+                                onCopy={() => copy(connectionString)}
                             />
 
                             <details className="install-fallback">
@@ -906,14 +896,14 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                         description="curl, tar, sudo, and systemd"
                                         icon={<TerminalIcon />}
                                         script={linuxInstallScript}
-                                        onCopy={() => copyToClipboard(linuxInstallScript)}
+                                        onCopy={() => copy(linuxInstallScript)}
                                     />
                                     <InstallTab
                                         title="Windows (PowerShell)"
                                         description="Run as Administrator"
                                         icon={<WindowsIcon />}
                                         script={windowsInstallScript}
-                                        onCopy={() => copyToClipboard(windowsInstallScript)}
+                                        onCopy={() => copy(windowsInstallScript)}
                                     />
                                 </div>
                             </details>
@@ -976,6 +966,7 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
 };
 
 const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
+    const { confirm } = useConfirm();
     const [groupList, setGroupList] = useState(groups);
     const [newGroupName, setNewGroupName] = useState('');
     const [editingGroup, setEditingGroup] = useState(null);
@@ -1015,7 +1006,11 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
     }
 
     async function handleDeleteGroup(groupId) {
-        if (!confirm('Delete this group? Servers in this group will become ungrouped.')) return;
+        if (!await confirm({
+            title: 'Delete server group',
+            message: 'Delete this group? Servers in it will become ungrouped.',
+            confirmText: 'Delete group',
+        })) return;
 
         try {
             await api.deleteServerGroup(groupId);

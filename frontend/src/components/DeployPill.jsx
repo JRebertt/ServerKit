@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
+import { usePolling } from '../hooks/usePolling';
 
 // A small global "deploy in progress" pill: while any deployment job is
 // pending/running it appears (bottom-left) so you can navigate away mid-deploy
@@ -49,30 +50,19 @@ export default function DeployPill() {
         }
     }, []);
 
+    // The interval, the hidden-tab pause, and the catch-up on return are the
+    // shared convention now; this component was where they were first worked
+    // out by hand.
+    usePolling(refresh, POLL_MS, { enabled: !onDeploySurface });
+
     useEffect(() => {
         if (onDeploySurface) return undefined;
-
-        // Polling a background tab buys nothing and competes for the browser's
-        // per-origin connections with whatever the visible tab is doing.
-        const tick = () => {
-            if (document.visibilityState !== 'visible') return;
-            refresh();
-        };
-        tick();
-        const t = setInterval(tick, POLL_MS);
-
-        // Catch up once when the tab comes back rather than polling all along.
-        const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
-        document.addEventListener('visibilitychange', onVisible);
-
         // React quickly to live status changes when a console elsewhere is
         // streaming — but a burst of deploy_status events must not become a
         // burst of requests, so the in-flight guard covers these too.
         const unsubStatus = socketService.on('deploy_status', refresh);
         const unsubConnect = socketService.on('connected', refresh);
         return () => {
-            clearInterval(t);
-            document.removeEventListener('visibilitychange', onVisible);
             unsubStatus();
             unsubConnect();
         };

@@ -5,7 +5,7 @@
 // list. Its sections are a SegControl, not a tab strip: a nav under the page's
 // own header would be the same two-competing-headers problem the group layout
 // exists to avoid.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     Activity, ArrowLeft, BarChart3, CheckCircle2, Clock, ExternalLink, Lock,
@@ -31,6 +31,7 @@ import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { usePolling } from '@/hooks/usePolling';
 
 const POLL_MS = 15000;
 
@@ -147,7 +148,6 @@ export default function MonitorDetail() {
     // row you are reading slides away on the next poll.
     const [frozen, setFrozen] = useState(null);
     const [busy, setBusy] = useState(false);
-    const pollRef = useRef(null);
     // Sort/column state for the check log lives above the early returns so the
     // hook order never changes; storageKey keeps the choices across visits.
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-monitor-checks-sort' });
@@ -172,11 +172,9 @@ export default function MonitorDetail() {
         }
     }, [monitorId, rangeHours]);
 
-    useEffect(() => {
-        load();
-        pollRef.current = setInterval(load, POLL_MS);
-        return () => clearInterval(pollRef.current);
-    }, [load]);
+    // Reload when the range changes; poll on top of that.
+    useEffect(() => { load(); }, [load]);
+    usePolling(load, POLL_MS, { immediate: false });
 
     // Oldest-first for the chart; the API returns newest-first for the log.
     const series = useMemo(() => {

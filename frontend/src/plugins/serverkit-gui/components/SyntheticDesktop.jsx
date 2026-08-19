@@ -1,4 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
+
+// Synthetic desktop refresh cadence.
+const SYNTHETIC_REFRESH_MS = 4000;
+
 
 /**
  * Fake desktop UI rendered from agent data, used when the host has no
@@ -16,9 +21,16 @@ export default function SyntheticDesktop({ api, serverId, fetchJson }) {
                 .catch(err => { if (!cancelled) setError(err.message); });
         };
         load();
-        const id = setInterval(load, 4000);
-        return () => { cancelled = true; clearInterval(id); };
+        return () => { cancelled = true; };
     }, [serverId, fetchJson]);
+
+    usePolling(
+        () => fetchJson(`/api/v1/server-gui/${serverId}/synthetic`)
+            .then(setData)
+            .catch((err) => setError(err.message)),
+        SYNTHETIC_REFRESH_MS,
+        { immediate: false },
+    );
 
     if (error) return <div className="sk-gui__banner sk-gui__banner--error">{error}</div>;
     if (!data) return <div className="sk-gui__loading">Loading synthetic desktop…</div>;

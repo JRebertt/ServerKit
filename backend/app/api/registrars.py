@@ -6,16 +6,12 @@ can show "what we own and when it lapses".
 """
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
-from app.models.user import User
 from app.services.registrar_service import RegistrarService
+from app.middleware.rbac import get_current_user
 
 registrars_bp = Blueprint('registrars', __name__)
-
-
-def _current_user():
-    return User.query.get(get_jwt_identity())
 
 
 @registrars_bp.route('/connections', methods=['GET'])
@@ -28,7 +24,7 @@ def list_connections():
 @registrars_bp.route('/connections', methods=['POST'])
 @jwt_required()
 def add_connection():
-    user = _current_user()
+    user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json() or {}
@@ -49,7 +45,7 @@ def add_connection():
 @registrars_bp.route('/connections/<int:cid>', methods=['DELETE'])
 @jwt_required()
 def delete_connection(cid):
-    user = _current_user()
+    user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
     if not RegistrarService.delete_connection(cid):

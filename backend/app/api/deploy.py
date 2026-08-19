@@ -39,7 +39,6 @@ def get_deploy_config(app_id):
 
 
 @deploy_bp.route('/apps/<int:app_id>/config', methods=['POST'])
-@jwt_required()
 @admin_required
 def configure_deployment(app_id):
     """Configure Git deployment for an app."""
@@ -68,7 +67,6 @@ def configure_deployment(app_id):
 
 
 @deploy_bp.route('/apps/<int:app_id>/config', methods=['DELETE'])
-@jwt_required()
 @admin_required
 def remove_deployment(app_id):
     """Remove deployment configuration."""
@@ -178,7 +176,6 @@ def get_deployment_history():
 
 
 @deploy_bp.route('/clone', methods=['POST'])
-@jwt_required()
 @admin_required
 def clone_repository():
     """Clone a Git repository to a new location."""

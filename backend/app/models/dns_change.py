@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import SerializableMixin
 
 
-class DnsChange(db.Model):
+class DnsChange(SerializableMixin, db.Model):
     """Audit trail of every DNS record write ServerKit sends to a connected provider.
 
     Powers the "Changes to your Cloudflare" activity feed on the connection — so the
@@ -28,19 +29,3 @@ class DnsChange(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'dns_provider_config_id': self.dns_provider_config_id,
-            'provider': self.provider,
-            'provider_zone_id': self.provider_zone_id,
-            'action': self.action,
-            'record_type': self.record_type,
-            'name': self.name,
-            'content': self.content,
-            'provider_record_id': self.provider_record_id,
-            'source': self.source,
-            'result': self.result,
-            'error': self.error,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-        }

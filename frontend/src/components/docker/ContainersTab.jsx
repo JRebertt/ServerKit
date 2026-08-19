@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { statusKind } from '@/components/ds/status';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
@@ -39,6 +40,15 @@ import {
     getContainerProjectName,
 } from './dockerHelpers';
 import { ContainerResourceBars } from './dockerShared';
+import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Container stats cadence.
+const STATS_REFRESH_MS = 10000;
+// Container log tail cadence while auto-refresh is on.
+const LOG_TAIL_MS = 3000;
+
 
 // Action Buttons
 export const RunContainerButton = () => {
@@ -68,7 +78,6 @@ export const RunContainerButton = () => {
 // watching that container at all.
 const HEALTH_LABELS = ['Unhealthy', 'Starting', 'None', 'Healthy'];
 const HEALTH_RANK = { Unhealthy: 0, Starting: 1, None: 2, Healthy: 3 };
-const HEALTH_TONE = { Unhealthy: 'red', Starting: 'amber', None: 'gray', Healthy: 'green' };
 
 const containerHealth = (container) => {
     const status = getContainerStatus(container).toLowerCase();
@@ -282,15 +291,11 @@ const ContainersTab = ({ onStatsChange }) => {
         }));
     }, [fetchContainerStats, isRemote]);
 
-    useEffect(() => {
-        if (loading || containers.length === 0) return undefined;
-
-        const timer = window.setInterval(() => {
-            refreshContainerStats(containers, statsRequestSeq.current);
-        }, 10000);
-
-        return () => window.clearInterval(timer);
-    }, [containers, loading, refreshContainerStats]);
+    usePolling(
+        () => refreshContainerStats(containers, statsRequestSeq.current),
+        STATS_REFRESH_MS,
+        { enabled: !loading && containers.length > 0, immediate: false },
+    );
 
     async function loadContainers() {
         setLoading(true);
@@ -552,7 +557,7 @@ const ContainersTab = ({ onStatsChange }) => {
                 // Spelled out rather than shown as 'None': the absence of a
                 // healthcheck is a fact about the image, not a missing reading.
                 if (health === 'None') return <span className="dx-muted-line">No healthcheck</span>;
-                return <Pill kind={HEALTH_TONE[health]} dot={false}>{health}</Pill>;
+                return <Pill kind={statusKind(health)} dot={false}>{health}</Pill>;
             },
         },
         {
@@ -923,12 +928,8 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
     const projectName = getContainerProjectName(container, details);
 
     async function copyContainerId() {
-        try {
-            await navigator.clipboard.writeText(containerId);
-            toast.success('Container ID copied');
-        } catch {
-            toast.error('Could not copy container ID');
-        }
+        if (await copyToClipboard(containerId)) toast.success('Container ID copied');
+        else toast.error('Could not copy container ID');
     }
 
     return (
@@ -1227,18 +1228,15 @@ const ContainerLogsModal = ({ container, onClose }) => {
     const [showLineNumbers, setShowLineNumbers] = useState(true);
     const [wrapLines, setWrapLines] = useState(true);
     const contentRef = useRef(null);
-    const intervalRef = useRef(null);
 
     useEffect(() => {
         loadLogs();
     }, [container, tail]); // eslint-disable-line
 
-    useEffect(() => {
-        if (autoRefresh) {
-            intervalRef.current = setInterval(() => loadLogs(false), 3000);
-        }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, tail]); // eslint-disable-line
+    usePolling(() => loadLogs(false), LOG_TAIL_MS, {
+        enabled: autoRefresh,
+        immediate: false,
+    });
 
     async function loadLogs(showSpinner = true) {
         if (showSpinner) setLoading(true);
@@ -1263,13 +1261,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
 
     function handleDownload() {
         if (!logs) return;
-        const blob = new Blob([logs], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${container.name}-${Date.now()}.log`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(logs, `${container.name}-${Date.now()}.log`);
     }
 
     return (

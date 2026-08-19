@@ -20,11 +20,9 @@ from app.services.metadata_guard_service import (
 )
 
 
-class _FakeProc:
-    def __init__(self, returncode=0, stdout='', stderr=''):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
+# The shared stub kit (plan 75 §G7) — this class was pasted
+# byte-identical in four test modules.
+from subprocess_stub import FakeProc as _FakeProc
 
 
 class _FakeFirewall:

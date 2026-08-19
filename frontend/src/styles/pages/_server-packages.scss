@@ -241,8 +241,7 @@
     margin-bottom: 0.75rem;
     border: 1px solid rgba(251, 111, 111, 0.35);
     border-radius: var(--radius-sm);
-    background: var(--red-bg);
-    color: var(--red);
+    @include status-variant(var(--red), var(--red-bg));
     font-size: 0.9rem;
 }
 

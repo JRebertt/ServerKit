@@ -1,10 +1,11 @@
 """Installed plugin tracking model."""
 from datetime import datetime
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 import json
 
 
-class InstalledPlugin(db.Model):
+class InstalledPlugin(JsonColumnMixin, db.Model):
     """Tracks plugins installed from external sources (zips/URLs)."""
     __tablename__ = 'installed_plugins'
 
@@ -63,7 +64,7 @@ class InstalledPlugin(db.Model):
 
     @property
     def manifest(self):
-        return json.loads(self.manifest_json) if self.manifest_json else {}
+        return self._json_read('manifest_json')
 
     @manifest.setter
     def manifest(self, v):
@@ -71,7 +72,7 @@ class InstalledPlugin(db.Model):
 
     @property
     def config(self):
-        return json.loads(self.config_json) if self.config_json else {}
+        return self._json_read('config_json')
 
     @config.setter
     def config(self, v):

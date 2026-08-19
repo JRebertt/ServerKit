@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
+import { copyToClipboard } from '@/utils/clipboard';
 
 const TTL_OPTIONS = [15, 30, 60];
 
@@ -63,12 +64,8 @@ const LoginLinksSection = ({ users, currentUserId }) => {
     }
 
     async function handleCopy() {
-        try {
-            await navigator.clipboard.writeText(minted.url);
-            setCopied(true);
-        } catch {
-            /* clipboard unavailable — the URL stays visible for manual copy */
-        }
+        // On failure the URL stays visible for manual copy.
+        if (await copyToClipboard(minted.url)) setCopied(true);
     }
 
     async function handleRevoke(id) {

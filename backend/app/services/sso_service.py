@@ -36,24 +36,33 @@ PROVIDER_ENDPOINTS = {
 }
 
 
-def _get_fernet():
-    """Derive a Fernet key from SECRET_KEY."""
+def _legacy_fernet():
+    """The pre-C2 Fernet (key derived from app SECRET_KEY) — read-only,
+    kept so tokens written before the fold-in still decrypt (plan 77 C2)."""
     key_bytes = current_app.config['SECRET_KEY'].encode('utf-8')
     digest = hashlib.sha256(key_bytes).digest()
     return Fernet(base64.urlsafe_b64encode(digest))
 
 
 def encrypt_token(token):
+    """Encrypt via the ONE crypto path (utils/crypto)."""
     if not token:
         return None
-    return _get_fernet().encrypt(token.encode('utf-8')).decode('utf-8')
+    from app.utils.crypto import encrypt_secret
+    return encrypt_secret(token)
 
 
 def decrypt_token(encrypted):
+    """Dual-read: the one path first, the legacy SECRET_KEY Fernet second."""
     if not encrypted:
         return None
+    from app.utils.crypto import decrypt_secret
     try:
-        return _get_fernet().decrypt(encrypted.encode('utf-8')).decode('utf-8')
+        return decrypt_secret(encrypted)
+    except Exception:
+        pass
+    try:
+        return _legacy_fernet().decrypt(encrypted.encode('utf-8')).decode('utf-8')
     except Exception:
         return None
 

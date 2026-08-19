@@ -4,7 +4,8 @@ import re
 import subprocess
 from typing import Dict
 
-from app.utils.system import PackageManager, ServiceControl, run_privileged
+from app.utils.system import (PackageManager, ServiceControl, run_checked,
+                             run_privileged)
 
 
 class DKIMService:
@@ -54,15 +55,15 @@ localhost
         enabled = False
         version = None
         try:
-            result = subprocess.run(['which', 'opendkim'], capture_output=True, text=True)
-            installed = result.returncode == 0
+            result = run_checked(['which', 'opendkim'], timeout=None)
+            installed = result['success']
             if not installed:
                 installed = PackageManager.is_installed('opendkim')
             if installed:
                 running = ServiceControl.is_active('opendkim')
                 enabled = ServiceControl.is_enabled('opendkim')
-                result = subprocess.run(['opendkim', '-V'], capture_output=True, text=True, stderr=subprocess.STDOUT)
-                match = re.search(r'OpenDKIM\s+Filter\s+v(\S+)', result.stdout)
+                result = run_checked(['opendkim', '-V'], timeout=None, merge_stderr=True)
+                match = re.search(r'OpenDKIM\s+Filter\s+v(\S+)', result['output'])
                 if match:
                     version = match.group(1)
         except (subprocess.SubprocessError, FileNotFoundError):

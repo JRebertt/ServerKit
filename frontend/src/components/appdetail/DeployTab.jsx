@@ -9,7 +9,7 @@ import DeploymentTimeline from '../deployments/DeploymentTimeline';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import Modal from '@/components/Modal';
 
 // `embedded` renders this inside the Settings → Git & Deploy section, where the
@@ -142,15 +142,6 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
         }
     }
 
-    function getStatusPillKind(status) {
-        switch (status) {
-            case 'success': return 'green';
-            case 'failed': return 'red';
-            case 'in_progress': return 'amber';
-            default: return 'gray';
-        }
-    }
-
     if (loading) {
         return <EmptyState loading loadingVariant="form" title="Loading deployment configuration..." />;
     }
@@ -251,7 +242,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                                 <div className="deployments-list">
                                     {history.slice(0, 5).map((dep, idx) => (
                                         <div key={idx} className="deployment-item">
-                                            <Pill kind={getStatusPillKind(dep.status)}>{dep.status}</Pill>
+                                            <Pill kind={statusKind(dep.status)}>{dep.status}</Pill>
                                             <span className="deployment-date">{new Date(dep.timestamp).toLocaleString()}</span>
                                         </div>
                                     ))}

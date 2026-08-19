@@ -5,7 +5,7 @@ import api from '../services/api';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { DataTable, DataTableFooter, Pill, SearchField } from '@/components/ds';
+import { DataTable, DataTableFooter, Pill, SearchField, statusKind } from '@/components/ds';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -14,6 +14,11 @@ import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import RequiresDocker from '../components/RequiresDocker';
+import { usePolling } from '@/hooks/usePolling';
+
+// Deploy activity cadence while auto-refresh is on.
+const DEPLOY_POLL_MS = 3000;
+
 
 // How many jobs one fetch pulls. The column rules run over what has been
 // fetched, so this is the reach of a filter until the user asks for more.
@@ -26,13 +31,6 @@ import {
     relativeTime,
     activityGroup,
 } from '../utils/deployActivity';
-
-const STATUS_KIND = {
-    succeeded: 'green',
-    failed: 'red',
-    running: 'cyan',
-    pending: 'gray',
-};
 
 // Built-in saved views. These replace the segmented All/Running/Succeeded/Failed
 // strip: the strip was a status rule wearing a button, could not combine with
@@ -160,11 +158,7 @@ const Deployments = () => {
 
     useEffect(() => { loadJobs(); }, [loadJobs]);
 
-    useEffect(() => {
-        if (!autoRefresh) return undefined;
-        const timer = setInterval(loadJobs, 3000);
-        return () => clearInterval(timer);
-    }, [autoRefresh, loadJobs]);
+    usePolling(loadJobs, DEPLOY_POLL_MS, { enabled: autoRefresh, immediate: false });
 
     const searched = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -197,7 +191,7 @@ const Deployments = () => {
             // only the former is a real global rule, so `spin` never rotated
             // anything it was put on.
             render: (job) => (
-                <Pill kind={STATUS_KIND[job.status] || 'gray'} dot={job.status !== 'running'}>
+                <Pill kind={statusKind(job.status)} dot={job.status !== 'running'}>
                     {job.status === 'running' && <Loader2 size={11} className="animate-spin" />}
                     {job.status}
                 </Pill>

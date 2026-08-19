@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 
 from app import paths
+from app.utils.system import run_checked, unit_is_active
 
 
 def _validate_identifier(name: str, max_length: int = 64) -> bool:
@@ -30,33 +31,34 @@ class DatabaseService:
     @staticmethod
     def mysql_is_installed():
         """Check if MySQL/MariaDB is installed."""
-        try:
-            result = subprocess.run(
-                ['mysql', '--version'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except FileNotFoundError:
-            return False
+        # run_checked also resolves argv[0] when $PATH misses it, so a client
+        # installed outside the unit's PATH stops reading as "not installed"
+        # (plan 74's outage class).
+        return run_checked(['mysql', '--version'], timeout=None)['success']
 
     @staticmethod
     def mysql_is_running():
-        """Check if MySQL/MariaDB is running."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'mysql'],
-                capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                return True
-            # Try mariadb service name
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'mariadb'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        """Check if MySQL/MariaDB is running (either unit name)."""
+        return any(unit_is_active(unit) is True for unit in ('mysql', 'mariadb'))
+
+    @staticmethod
+    def _mysql_env(root_password):
+        """Process env with ``MYSQL_PWD`` set, or ``None`` when there is no password.
+
+        Pasted verbatim eight times in this file (plan 75 §G5). It carries a
+        real rule — the password goes in the environment, never on the argv,
+        where ``ps`` and the shell history would see it — and a rule that lives
+        in eight copies is a rule that only holds in the copies someone
+        remembered to update.
+
+        ``None`` (rather than ``os.environ.copy()``) when there is no password,
+        so ``subprocess`` inherits the parent environment exactly as before.
+        """
+        if not root_password:
+            return None
+        env = os.environ.copy()
+        env['MYSQL_PWD'] = root_password
+        return env
 
     @staticmethod
     def mysql_execute(query, database=None, root_password=None):
@@ -67,20 +69,9 @@ class DatabaseService:
                 cmd.extend(['-D', database])
             cmd.extend(['-e', query])
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, env=env
-            )
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
+            return run_checked(cmd, env=env, timeout=None)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -104,11 +95,7 @@ class DatabaseService:
             if database:
                 cmd.extend(['-D', database])
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Build a safe query using user-defined variables and EXECUTE
             # For simple single-param queries, we use a quoted literal approach
@@ -132,14 +119,7 @@ class DatabaseService:
 
             cmd.extend(['-e', safe_query])
 
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, env=env
-            )
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
+            return run_checked(cmd, env=env, timeout=None)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -233,10 +213,7 @@ class DatabaseService:
         try:
             cmd = ['mysql', '-u', 'root']
 
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Hex-encode the password so it never appears as a raw string in SQL.
             # UNHEX converts it back to bytes, CAST converts to string, QUOTE wraps
@@ -251,14 +228,7 @@ class DatabaseService:
                 f"DEALLOCATE PREPARE stmt;\n"
             )
 
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, input=safe_stmt, env=env
-            )
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
+            return run_checked(cmd, input=safe_stmt, env=env, timeout=None)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -334,11 +304,7 @@ class DatabaseService:
             cmd = ['mysqldump', '-u', 'root']
             cmd.append(database)
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             # Pipe through gzip
             with open(output_path, 'wb') as f:
@@ -368,11 +334,7 @@ class DatabaseService:
             cmd = ['mysql', '-u', 'root']
             cmd.append(database)
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
 
             if backup_path.endswith('.gz'):
                 # Decompress and restore
@@ -385,9 +347,9 @@ class DatabaseService:
                     return {'success': False, 'error': stderr.decode()}
             else:
                 with open(backup_path, 'r') as f:
-                    result = subprocess.run(cmd, stdin=f, capture_output=True, text=True, env=env)
-                    if result.returncode != 0:
-                        return {'success': False, 'error': result.stderr}
+                    result = run_checked(cmd, stdin=f, env=env, timeout=None)
+                    if not result['success']:
+                        return {'success': False, 'error': result['error']}
 
             return {'success': True, 'message': 'Database restored successfully'}
         except Exception as e:
@@ -432,39 +394,22 @@ class DatabaseService:
     @staticmethod
     def pg_is_installed():
         """Check if PostgreSQL is installed."""
-        try:
-            result = subprocess.run(
-                ['psql', '--version'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except FileNotFoundError:
-            return False
+        return run_checked(['psql', '--version'], timeout=None)['success']
 
     @staticmethod
     def pg_is_running():
         """Check if PostgreSQL is running."""
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', 'postgresql'],
-                capture_output=True, text=True
-            )
-            return result.returncode == 0
-        except Exception:
-            return False
+        return unit_is_active('postgresql') is True
 
     @staticmethod
     def pg_execute(query, database='postgres', user='postgres'):
         """Execute a PostgreSQL query."""
         try:
+            # `sudo -u postgres` is identity switching, not escalation — peer
+            # auth maps the OS user to the DB role, so this cannot go through
+            # run_privileged (which drops the -u when already root).
             cmd = ['sudo', '-u', 'postgres', 'psql', '-d', database, '-c', query, '-t', '-A']
-
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
+            return run_checked(cmd, timeout=None)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -523,7 +468,7 @@ class DatabaseService:
                 '-c', "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'dbname';",
                 '-t', '-A'
             ]
-            subprocess.run(cmd, capture_output=True, text=True)
+            run_checked(cmd, timeout=None)
         except Exception:
             pass
         # Name is validated above, safe to use in identifier position
@@ -628,9 +573,9 @@ class DatabaseService:
                     return {'success': False, 'error': stderr.decode()}
             else:
                 with open(backup_path, 'r') as f:
-                    result = subprocess.run(cmd, stdin=f, capture_output=True, text=True)
-                    if result.returncode != 0:
-                        return {'success': False, 'error': result.stderr}
+                    result = run_checked(cmd, stdin=f, timeout=None)
+                    if not result['success']:
+                        return {'success': False, 'error': result['error']}
 
             return {'success': True, 'message': 'Database restored successfully'}
         except Exception as e:
@@ -712,11 +657,7 @@ class DatabaseService:
             # Build mysql command with JSON output format
             cmd = ['mysql', '-u', 'root']
 
-            # Use MYSQL_PWD env var to avoid passing password on CLI
-            env = None
-            if root_password:
-                env = os.environ.copy()
-                env['MYSQL_PWD'] = root_password
+            env = DatabaseService._mysql_env(root_password)
             cmd.extend([
                 '-D', database,
                 '-e', query,
@@ -726,24 +667,15 @@ class DatabaseService:
             # Remove empty strings from cmd
             cmd = [c for c in cmd if c]
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=env
-            )
+            result = run_checked(cmd, timeout=timeout, env=env)
 
             execution_time = time.time() - start_time
 
-            if result.returncode != 0:
-                return {
-                    'success': False,
-                    'error': result.stderr.strip() if result.stderr else 'Query execution failed'
-                }
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Parse the output
-            lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+            lines = result['output'].strip().split('\n') if result['output'].strip() else []
 
             if not lines:
                 return {
@@ -829,24 +761,15 @@ class DatabaseService:
                 '--pset', 'footer=off'  # No row count footer
             ]
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
+            result = run_checked(cmd, timeout=timeout)
 
             execution_time = time.time() - start_time
 
-            if result.returncode != 0:
-                error_msg = result.stderr.strip() if result.stderr else 'Query execution failed'
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Parse the output
-            lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+            lines = result['output'].strip().split('\n') if result['output'].strip() else []
 
             if not lines:
                 return {
@@ -1164,17 +1087,15 @@ class DatabaseService:
         """Find all Docker containers running MySQL/MariaDB."""
         try:
             # Get all running containers
-            result = subprocess.run(
-                ['docker', 'ps', '--format', '{{json .}}'],
-                capture_output=True, text=True
-            )
-            if result.returncode != 0:
+            result = run_checked(['docker', 'ps', '--format', '{{json .}}'],
+                                 timeout=None)
+            if not result['success']:
                 return []
 
             containers = []
             mysql_images = ['mysql', 'mariadb', 'percona']
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result['output'].strip().split('\n'):
                 if not line:
                     continue
                 container = json.loads(line)
@@ -1209,23 +1130,27 @@ class DatabaseService:
         if cached:
             return cached
         for client in ('mariadb', 'mysql'):
-            try:
-                probe = subprocess.run(
-                    ['docker', 'exec', container_name, client, '--version'],
-                    capture_output=True, text=True, timeout=10,
-                )
-                if probe.returncode == 0:
-                    DatabaseService._docker_client_cache[container_name] = client
-                    return client
-            except Exception:
-                continue
+            probe = run_checked(['docker', 'exec', container_name, client, '--version'],
+                                timeout=10)
+            if probe['success']:
+                DatabaseService._docker_client_cache[container_name] = client
+                return client
         # Nothing answered — keep the historic default so the caller's error
         # message stays the familiar one.
         return 'mysql'
 
     @staticmethod
-    def docker_mysql_execute(container_name, query, database=None, user='root', password=None):
-        """Execute a MySQL query inside a Docker container."""
+    def docker_mysql_execute(container_name, query, database=None, user='root',
+                             password=None, machine_readable=False, timeout=30):
+        """Execute a MySQL query inside a Docker container.
+
+        ``machine_readable`` adds ``-N -B``: no column headers, tab-separated,
+        no box drawing. Callers that parse the output need it; callers that
+        show the output to a human do not. It is a flag rather than a second
+        method because ``db_config_tuner_service`` used to keep a private copy
+        of this whole function purely to add those two characters
+        (plan 75 §G5).
+        """
         try:
             cmd = ['docker', 'exec']
 
@@ -1238,22 +1163,18 @@ class DatabaseService:
             if database:
                 cmd.extend(['-D', database])
 
+            if machine_readable:
+                cmd.extend(['-N', '-B'])
+
             cmd.extend(['-e', query])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Query timed out'}
+            return run_checked(cmd, timeout=timeout)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
     @staticmethod
     def docker_pg_execute(container_name, query, database='postgres', user='postgres',
-                          password=None, timeout=30):
+                          password=None, timeout=30, machine_readable=False):
         """Execute a PostgreSQL statement inside a Docker container.
 
         The psql twin of :meth:`docker_mysql_execute`, so anything that has to
@@ -1274,14 +1195,11 @@ class DatabaseService:
                         '-d', database or 'postgres',
                         '-v', 'ON_ERROR_STOP=1',
                         '-c', query, '-t', '-A'])
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            return {
-                'success': result.returncode == 0,
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None,
-            }
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Query timed out'}
+            if machine_readable:
+                # tab, not the '|' default: the callers that parse this split
+                # on tabs, and a '|' is legal inside a value.
+                cmd.extend(['-F', '\t'])
+            return run_checked(cmd, timeout=timeout)
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -1384,17 +1302,14 @@ class DatabaseService:
                 '--batch'
             ])
 
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = run_checked(cmd, timeout=timeout)
             execution_time = time.time() - start_time
 
-            if result.returncode != 0:
-                return {
-                    'success': False,
-                    'error': result.stderr.strip() if result.stderr else 'Query execution failed'
-                }
+            if not result['success']:
+                return {'success': False, 'error': result['error']}
 
             # Parse the output
-            lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+            lines = result['output'].strip().split('\n') if result['output'].strip() else []
 
             if not lines:
                 return {

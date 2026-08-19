@@ -11,14 +11,15 @@ Per kind, ``credentials_json`` holds:
   - discord / slack / webhook : {'url': ..., 'secret': <optional HMAC secret>}
   - telegram                  : {'chat_id': ..., 'bot_token': ...}
 """
-import json
 from datetime import datetime
 
 from app import db
+from app.models.mixins import TimestampMixin
+from app.models.json_column_mixin import JsonColumnMixin
 from app.utils.crypto import decrypt_secret_safe
 
 
-class ChatWebhookConnection(db.Model):
+class ChatWebhookConnection(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'chat_webhook_connections'
 
     KINDS = ('discord', 'slack', 'telegram', 'webhook')
@@ -42,21 +43,15 @@ class ChatWebhookConnection(db.Model):
     imported = db.Column(db.Boolean, default=False)
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_tested_at = db.Column(db.DateTime)
     last_test_ok = db.Column(db.Boolean)
 
     def raw_credentials(self):
-        try:
-            value = json.loads(self.credentials_json) if self.credentials_json else {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
         # A hand-edited or corrupt row can hold valid JSON of the wrong shape
         # (``[]``, a string, ``null``). Every caller assumes a mapping, so
         # normalise here rather than at each call site -- same guard as
         # ``categories()`` below.
-        return value if isinstance(value, dict) else {}
+        return self._json_read('credentials_json', expect=dict)
 
     def credentials(self):
         """Decrypted credentials for use at send/test time (never serialized)."""
@@ -66,11 +61,7 @@ class ChatWebhookConnection(db.Model):
         return out
 
     def categories(self):
-        try:
-            value = json.loads(self.categories_json) if self.categories_json else []
-            return value if isinstance(value, list) else []
-        except (json.JSONDecodeError, TypeError):
-            return []
+        return self._json_read('categories_json', [], expect=list)
 
     def matches_category(self, category):
         """A connection with no category filter accepts everything."""

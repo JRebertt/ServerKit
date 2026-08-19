@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from app import db
+from app.exceptions import ValidationError
 from app.models.status_page import (
     StatusComponent, HealthCheck, StatusIncident, StatusIncidentUpdate,
 )
@@ -124,23 +125,23 @@ class MonitorService:
             return
         from app.models.wordpress_site import WordPressSite
         if not WordPressSite.query.get(site_id):
-            raise ValueError(
+            raise ValidationError(
                 'wordpress_site_id does not match an existing WordPress site '
                 '(is the WordPress extension installed?)')
 
     @staticmethod
     def create(data):
         if not data.get('name'):
-            raise ValueError('Monitor name is required')
+            raise ValidationError('Monitor name is required')
         check_type = data.get('check_type', 'http')
         if check_type not in StatusComponent.CHECK_TYPES:
-            raise ValueError(f'Unknown check type: {check_type}')
+            raise ValidationError(f'Unknown check type: {check_type}')
         if check_type == 'keyword' and not data.get('keyword'):
-            raise ValueError('A keyword check needs a keyword to look for')
+            raise ValidationError('A keyword check needs a keyword to look for')
         # A monitor needs something to probe unless it is driven by a managed
         # site's health verdict instead of the network.
         if not data.get('check_target') and not data.get('wordpress_site_id'):
-            raise ValueError('Monitor needs a check target or a bound site')
+            raise ValidationError('Monitor needs a check target or a bound site')
         MonitorService._validate_site_binding(data.get('wordpress_site_id'))
 
         monitor = StatusComponent(
@@ -171,7 +172,7 @@ class MonitorService:
         if not monitor:
             return None
         if 'check_type' in data and data['check_type'] not in StatusComponent.CHECK_TYPES:
-            raise ValueError(f"Unknown check type: {data['check_type']}")
+            raise ValidationError(f"Unknown check type: {data['check_type']}")
         if data.get('wordpress_site_id') is not None:
             MonitorService._validate_site_binding(data['wordpress_site_id'])
         for field in MonitorService.WRITABLE_FIELDS:
@@ -277,7 +278,10 @@ class MonitorService:
             monitor.cert_checked_at = result['cert_checked_at']
         if result.get('cert_issuer'):
             monitor.cert_issuer = result['cert_issuer']
-        if result.get('cert_expires_at'):
+        if 'cert_expires_at' in result:
+            # A cert probe that ran hands back either a fresh expiry or None
+            # (failed/unparseable read) — None clears the stale value so the
+            # UI falls back to n/a instead of a weeks-old green "valid" chip.
             monitor.cert_expires_at = result['cert_expires_at']
 
         if check_status == 'up':
@@ -407,13 +411,13 @@ class MonitorService:
     def _ping(monitor):
         """One ICMP echo. The previous implementation ignored the return code
         entirely, so a ping check could only ever report 'up'."""
-        from app.utils.system import run_command
+        from app.utils.system import run_unprivileged
         timeout = monitor.check_timeout or 10
         if os.name == 'nt':
             cmd = ['ping', '-n', '1', '-w', str(int(timeout) * 1000), monitor.check_target]
         else:
             cmd = ['ping', '-c', '1', '-W', str(int(timeout)), monitor.check_target]
-        res = run_command(cmd, timeout=timeout + 5)
+        res = run_unprivileged(cmd, timeout=timeout + 5)
         if res.get('returncode') == 0:
             return {'status': 'up'}
         return {
@@ -449,9 +453,14 @@ class MonitorService:
                 target, monitor.check_timeout or 10, bool(monitor.verify_tls))
         except Exception as e:
             logger.debug('Certificate probe failed for monitor %s: %s', monitor.id, e)
-            return
+            cert = None
         if cert:
             result.update(cert)
+        if not (cert or {}).get('cert_expires_at'):
+            # The probe ran but produced no expiry (failed read, no peer cert,
+            # unparseable notAfter). Clear the stale expiry downstream so the
+            # UI shows n/a until a successful probe repopulates it.
+            result['cert_expires_at'] = None
 
     @staticmethod
     def _probe_certificate(url, timeout, verify=True):

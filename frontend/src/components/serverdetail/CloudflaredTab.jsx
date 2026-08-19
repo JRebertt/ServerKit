@@ -15,6 +15,8 @@ import EmptyState from '../EmptyState';
 import { Cloud } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
+import { copyToClipboard } from '@/utils/clipboard';
+import { rooms } from '@/constants/events';
 import {
     OfflineIcon,
     TrashIcon,
@@ -216,15 +218,9 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
             // server_stream room. We don't open the JobProgressModal
             // because the login flow needs a different shape (a single
             // big "Open URL" CTA, not a log tail).
-            const { default: socketService } = await import('../../services/socket');
-            if (!socketService.socket) socketService.connect();
-            const sock = socketService.socket;
-            if (!sock) {
-                setLogin(null);
-                toast.error('Socket not available');
-                return;
-            }
-            const room = `server_${serverId}_${channel}`;
+            const { joinServerStream } = await import('../../hooks/useServerStream');
+            const room = rooms.serverChannel(serverId, channel);
+            let stopStream = () => {};
             const onStream = (msg) => {
                 if (msg?.channel !== channel) return;
                 const ev = msg.data || {};
@@ -245,12 +241,10 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         loadStatus();
                         loadTunnels();
                     }
-                    sock.off('server_stream', onStream);
-                    sock.emit('leave_room', { room });
+                    stopStream();
                 }
             };
-            sock.emit('join_room', { room });
-            sock.on('server_stream', onStream);
+            stopStream = joinServerStream(room, 'server_stream', onStream);
         } catch (err) {
             toast.error(err.message || 'Failed to start login');
             setLogin(null);
@@ -600,7 +594,7 @@ const CloudflaredLoginCard = ({ login, onCancel }) => {
                     <button
                         type="button"
                         className="btn btn-outline"
-                        onClick={() => navigator.clipboard?.writeText(login.authUrl)}
+                        onClick={() => copyToClipboard(login.authUrl)}
                     >
                         Copy URL
                     </button>

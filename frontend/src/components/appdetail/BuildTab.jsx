@@ -8,7 +8,7 @@ import { InfoList, InfoItem } from '../InfoList';
 import BuildpackPreview from '../buildpack/BuildpackPreview';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pill } from '@/components/ds';
+import { Pill, statusKind } from '@/components/ds';
 import Modal from '@/components/Modal';
 
 const BuildTab = ({ appId, appPath, app }) => {
@@ -174,18 +174,6 @@ const BuildTab = ({ appId, appPath, app }) => {
         }
     }
 
-    function getStatusPillKind(status) {
-        switch (status) {
-            case 'live': return 'green';
-            case 'building':
-            case 'deploying':
-            case 'pending': return 'amber';
-            case 'failed': return 'red';
-            case 'rolled_back': return 'gray';
-            default: return 'gray';
-        }
-    }
-
     function formatDuration(seconds) {
         if (!seconds) return '-';
         if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -280,7 +268,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                             <div key={dep.version} className={`deployment-item ${dep.status === 'live' ? 'current' : ''}`}>
                                 <div className="deployment-info">
                                     <span className="deployment-version">v{dep.version}</span>
-                                    <Pill kind={getStatusPillKind(dep.status)}>{dep.status}</Pill>
+                                    <Pill kind={statusKind(dep.status)}>{dep.status}</Pill>
                                 </div>
                                 <div className="deployment-meta">
                                     <span>{new Date(dep.created_at).toLocaleString()}</span>

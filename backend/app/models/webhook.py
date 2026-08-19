@@ -1,8 +1,9 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import TimestampMixin
 
 
-class GitWebhook(db.Model):
+class GitWebhook(TimestampMixin, db.Model):
     """Webhook configuration for syncing external repos with local Gitea."""
     __tablename__ = 'git_webhooks'
 
@@ -40,8 +41,6 @@ class GitWebhook(db.Model):
     sync_count = db.Column(db.Integer, default=0)
 
     # Metadata
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     app = db.relationship('Application', backref=db.backref('webhooks', lazy='dynamic'))

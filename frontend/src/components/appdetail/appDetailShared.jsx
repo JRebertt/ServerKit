@@ -1,11 +1,5 @@
-// statusInfo.dotClass → ds Pill kind
-export const STATUS_PILL = {
-    live: 'green',
-    stopped: 'gray',
-    deploying: 'amber',
-    building: 'amber',
-    failed: 'red',
-};
+// statusInfo.dotClass → ds Pill kind now comes from the ONE shared status
+// vocabulary — import { statusKind } from '@/components/ds/status'.
 
 // Ingress plane → label + Pill kind. Host Nginx is the neutral default;
 // a managed proxy stack reads as the accent (cyan) choice. NULL/undefined

@@ -3,7 +3,7 @@ import subprocess
 import platform
 from typing import List, Dict, Optional
 
-from app.utils.system import run_privileged
+from app.utils.system import run_checked, run_privileged, unit_is_active
 
 
 class ProcessService:
@@ -110,16 +110,13 @@ class ProcessService:
         """
         cmd = ['systemctl', 'show', *units]
         cmd += [f'--property={p}' for p in cls._SHOW_PROPERTIES]
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            return {}
-        if result.returncode != 0:
+        result = run_checked(cmd, timeout=15)
+        if not result['success']:
             return {}
 
         blocks: List[Dict[str, str]] = []
         current: Dict[str, str] = {}
-        for line in (result.stdout or '').splitlines():
+        for line in result['output'].splitlines():
             line = line.strip()
             if not line:
                 if current:
@@ -251,10 +248,10 @@ class ProcessService:
                     action_map = {'start': 'start', 'stop': 'stop', 'restart': 'restart'}
                     cmd = ['net', action_map.get(action, action), service_name]
 
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                result = run_checked(cmd, timeout=30)
                 return {
-                    'success': result.returncode == 0,
-                    'message': result.stdout if result.returncode == 0 else result.stderr
+                    'success': result['success'],
+                    'message': result['output'] if result['success'] else result['error']
                 }
 
             else:
@@ -275,25 +272,20 @@ class ProcessService:
 
     @classmethod
     def get_systemd_unit_status(cls, unit_name: str) -> Dict:
-        """Check whether a systemd unit is active using systemctl."""
-        system = platform.system()
-        if system != 'Linux':
+        """Check whether a systemd unit is active — via ``unit_is_active`` (§G6).
+
+        The probe itself was re-inlined in four other services; this keeps the
+        dict shape its own callers read and lets one implementation answer.
+        """
+        if platform.system() != 'Linux':
             return {'success': True, 'status': 'unknown', 'active': False}
 
-        try:
-            result = subprocess.run(
-                ['systemctl', 'is-active', unit_name],
-                capture_output=True, text=True, timeout=10
-            )
-            active = result.returncode == 0 and result.stdout.strip() == 'active'
-            status = result.stdout.strip() if result.stdout else 'unknown'
-            return {'success': True, 'status': status, 'active': active}
-        except FileNotFoundError:
-            return {'success': False, 'error': 'systemctl not found'}
-        except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'Command timed out'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        active = unit_is_active(unit_name)
+        if active is None:
+            return {'success': False, 'error': 'could not query systemd'}
+        return {'success': True,
+                'status': 'active' if active else 'inactive',
+                'active': active}
 
     @classmethod
     def get_compose_project_status(cls, project_path: str, compose_file: str = None) -> Dict:

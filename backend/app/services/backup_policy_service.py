@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from app import db
+from app.utils.system import run_checked
 from app.utils.formatting import format_bytes
 
 logger = logging.getLogger(__name__)
@@ -231,6 +232,9 @@ class BackupPolicyService:
             if meta.get('managed'):
                 from app.models.managed_database import ManagedDatabase
                 from app.services.managed_database_service import ManagedDatabaseService
+                # Deliberately tombstone-blind: a soft-deleted managed DB
+                # keeps its backup policy running until PURGE, so the data
+                # stays recoverable for the whole Recycle Bin window.
                 managed = ManagedDatabase.query.get(policy.target_id)
                 if managed is None:
                     raise BackupPolicyError('Managed database is no longer tracked')
@@ -327,21 +331,22 @@ class BackupPolicyService:
         """Run an optional pre/post shell hook; raise on non-zero exit."""
         if not hook or not hook.strip():
             return
-        import subprocess
         env = dict(os.environ)
         env['SERVERKIT_TARGET_NAME'] = target['name']
         env['SERVERKIT_TARGET_PATH'] = target['root_path'] or ''
         try:
-            result = subprocess.run(
+            # shell=True stays: this is an operator-authored hook, and running
+            # it through a shell is the documented contract (plan 75 anti-goal).
+            result = run_checked(
                 hook, shell=True, cwd=target['root_path'] or None, env=env,
-                capture_output=True, text=True, timeout=600,
+                timeout=600,
             )
         except Exception as exc:
             raise BackupPolicyError(f'{label} hook error: {exc}')
-        if result.returncode != 0:
+        if not result['success']:
             raise BackupPolicyError(
-                f'{label} hook failed (exit {result.returncode}): '
-                f'{(result.stderr or result.stdout or "").strip()[:300]}'
+                f"{label} hook failed (exit {result['returncode']}): "
+                f"{(result['error'] or result['output'])[:300]}"
             )
 
     @classmethod
@@ -946,13 +951,36 @@ class BackupPolicyService:
 
     @classmethod
     def _drill_badge(cls, policy):
-        """One-word restore-proof state derived from the policy's drill cache:
-        ``never`` (never drilled), ``failed`` (last drill failed), ``stale``
-        (last success older than 1.5x the cadence interval), else ``ok``."""
+        """One-word restore-proof state from the policy's drill cache.
+
+        ``never`` | ``failed`` | ``skipped`` | ``unknown`` | ``stale`` | ``ok``.
+
+        **``ok`` must be positively earned.** This used to return ``ok`` for any
+        status that was not literally ``'failed'``, so a drill skipped for lack
+        of scratch space — which records ``skipped_no_space`` and stamps
+        ``last_drill_at`` — fell through every branch and the doctor reported
+        "A recent restore drill proved this backup restores." A drill that never
+        ran had become proof that the backup restores.
+
+        It also self-perpetuated: each skip refreshed ``last_drill_at``, so a
+        policy permanently short of scratch space could never even go ``stale``.
+
+        Staleness is only meaningful for a drill that actually succeeded, so it
+        is evaluated after the status is known good.
+        """
         if not policy.last_drill_at:
             return 'never'
-        if policy.last_drill_status == 'failed':
+
+        status = policy.last_drill_status
+        if status == 'failed':
             return 'failed'
+        if status == 'skipped_no_space':
+            return 'skipped'
+        if status != 'success':
+            # An unrecognised status is not evidence of anything. Reporting it
+            # as ok is how this went wrong the first time.
+            return 'unknown'
+
         from app.services.backup_drill_service import CADENCE_DAYS
         days = CADENCE_DAYS.get(policy.drill_cadence or 'off')
         if days is not None:
