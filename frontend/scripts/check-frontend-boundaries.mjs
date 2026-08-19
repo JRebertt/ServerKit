@@ -45,10 +45,7 @@ const LEGACY_CLIPBOARD = new Map();
 const LEGACY_POLLERS = new Map(Object.entries({
     'components/dashboard/widgets/renderers.jsx': 1,
     'components/deploy-console/SuccessBanner.jsx': 1,
-    'components/docker/ContainersTab.jsx': 2,
-    'components/monitoring/DoctorPanel.jsx': 1,
-    'components/security/ScannerTab.jsx': 2,
-    'components/server/OnboardingWizard.jsx': 2,
+    'components/server/OnboardingWizard.jsx': 1,
     'hooks/useContainerStatus.js': 1,
     'hooks/useDeployJobStream.js': 1,
     'hooks/useMetrics.js': 1,

@@ -41,6 +41,13 @@ import {
 import { ContainerResourceBars } from './dockerShared';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Container stats cadence.
+const STATS_REFRESH_MS = 10000;
+// Container log tail cadence while auto-refresh is on.
+const LOG_TAIL_MS = 3000;
+
 
 // Action Buttons
 export const RunContainerButton = () => {
@@ -284,15 +291,11 @@ const ContainersTab = ({ onStatsChange }) => {
         }));
     }, [fetchContainerStats, isRemote]);
 
-    useEffect(() => {
-        if (loading || containers.length === 0) return undefined;
-
-        const timer = window.setInterval(() => {
-            refreshContainerStats(containers, statsRequestSeq.current);
-        }, 10000);
-
-        return () => window.clearInterval(timer);
-    }, [containers, loading, refreshContainerStats]);
+    usePolling(
+        () => refreshContainerStats(containers, statsRequestSeq.current),
+        STATS_REFRESH_MS,
+        { enabled: !loading && containers.length > 0, immediate: false },
+    );
 
     async function loadContainers() {
         setLoading(true);
@@ -1225,18 +1228,15 @@ const ContainerLogsModal = ({ container, onClose }) => {
     const [showLineNumbers, setShowLineNumbers] = useState(true);
     const [wrapLines, setWrapLines] = useState(true);
     const contentRef = useRef(null);
-    const intervalRef = useRef(null);
 
     useEffect(() => {
         loadLogs();
     }, [container, tail]); // eslint-disable-line
 
-    useEffect(() => {
-        if (autoRefresh) {
-            intervalRef.current = setInterval(() => loadLogs(false), 3000);
-        }
-        return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-    }, [autoRefresh, tail]); // eslint-disable-line
+    usePolling(() => loadLogs(false), LOG_TAIL_MS, {
+        enabled: autoRefresh,
+        immediate: false,
+    });
 
     async function loadLogs(showSpinner = true) {
         if (showSpinner) setLoading(true);
