@@ -42,6 +42,52 @@ const LEGACY_CLIPBOARD = new Map();
 // left open. Finite legacy baseline with exact counts, so every cleanup shrinks
 // it. A genuine non-fetching timer (a clock tick, a countdown) may stay, but it
 // is still listed so nothing new slips in unnoticed.
+// Hex literals outside the token files. Each one is a colour a runtime skin
+// cannot reach: a theme is a JSON map of CSS custom properties (plan 60), so
+// only values written as var(--token) change when someone switches skin. A
+// literal here is a spot that stays dark-theme-blue on every theme.
+//
+// Per-file exact counts rather than a ban, because milestone G is explicit
+// that legitimate brand and data-visualisation colours stay — they just have
+// to be listed, so the number is honest and can only go down.
+const LEGACY_COLOR_LITERALS = new Map(Object.entries({
+    'styles/base/_reset.scss': 1,
+    'styles/components/_ai-assistant.scss': 10,
+    'styles/components/_buttons.scss': 2,
+    'styles/components/_dashboard-widgets.scss': 6,
+    'styles/components/_datagrid.scss': 6,
+    'styles/components/_deploy.scss': 6,
+    'styles/components/_design-system.scss': 2,
+    'styles/components/_logs-drawer.scss': 1,
+    'styles/components/_notification-center.scss': 1,
+    'styles/components/_skeleton.scss': 1,
+    'styles/components/_spinner.scss': 2,
+    'styles/components/_staging-banner.scss': 1,
+    'styles/components/_ui.scss': 2,
+    'styles/components/_users.scss': 2,
+    'styles/components/_widget-editor.scss': 1,
+    'styles/layout/_main-content.scss': 1,
+    'styles/layout/_sidebar.scss': 5,
+    'styles/pages/_applications.scss': 4,
+    'styles/pages/_auth.scss': 3,
+    'styles/pages/_backups.scss': 1,
+    'styles/pages/_bandwidth.scss': 1,
+    'styles/pages/_cutover.scss': 1,
+    'styles/pages/_databases.scss': 5,
+    'styles/pages/_deploy-console.scss': 15,
+    'styles/pages/_doctor.scss': 1,
+    'styles/pages/_domains.scss': 1,
+    'styles/pages/_file-manager.scss': 10,
+    'styles/pages/_git.scss': 6,
+    'styles/pages/_import-wizard.scss': 1,
+    'styles/pages/_marketplace.scss': 5,
+    'styles/pages/_notification-center.scss': 4,
+    'styles/pages/_servers.scss': 5,
+    'styles/pages/_settings.scss': 14,
+    'styles/pages/_setup-wizard.scss': 5,
+    'styles/pages/_terminal.scss': 19,
+}));
+
 const LEGACY_POLLERS = new Map(Object.entries({
     'components/dashboard/widgets/renderers.jsx': 1,
     'components/deploy-console/SuccessBanner.jsx': 1,
@@ -187,6 +233,17 @@ for (const path of styleFiles) {
         keyframeOwners.get(name).push(rel(path));
     }
 }
+const TOKEN_FILES = new Set(['_variables.scss', '_theme-variables.scss', '_mixins.scss']);
+for (const path of styleFiles) {
+    const file = rel(path);
+    if (TOKEN_FILES.has(file.split('/').pop())) continue;
+    const actual = count(readFileSync(path, 'utf8'), /#[0-9a-fA-F]{3,8}\b/g);
+    const expected = LEGACY_COLOR_LITERALS.get(file) || 0;
+    if (actual !== expected) {
+        failures.push(`${file}: ${actual} hex colour literal(s), legacy baseline is ${expected}. Use a var(--token) so runtime skins can recolour it, and shrink the baseline.`);
+    }
+}
+
 for (const [name, owners] of keyframeOwners) {
     if (owners.length > 1) {
         failures.push(`@keyframes ${name} is defined in ${owners.length} places (${owners.join(', ')}); the last one imported silently wins for all of them. Give each a scoped name or move the shared one to base/_utilities.scss.`);
@@ -235,4 +292,4 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard / ${LEGACY_POLLERS.size} poller files remain ratcheted, ${keyframeOwners.size} unique @keyframes).`);
+console.log(`✓ frontend boundaries: browser/API/dialog boundaries and ${EXTENSION_OWNED_STYLES.length} extension style ownership rule(s) hold (${LEGACY_CLIPBOARD.size} clipboard / ${LEGACY_POLLERS.size} poller files remain ratcheted, ${keyframeOwners.size} unique @keyframes, ${[...LEGACY_COLOR_LITERALS.values()].reduce((a, b) => a + b, 0)} colour literals).`);
