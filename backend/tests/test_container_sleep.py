@@ -4,25 +4,14 @@ from datetime import datetime, timedelta
 
 from app import db
 from app.models import Application
+from factories import make_application
 from app.models.container_sleep_policy import ContainerSleepPolicy
 from app.services.docker_service import DockerService
 from app.services.container_sleep_service import ContainerSleepService
 
 
 def _seed_app(**kw):
-    from app.models import User
-    uid = uuid.uuid4().hex[:8]
-    user = User(email=f'{uid}@t.local', username=f'u{uid}',
-                password_hash='x', role=User.ROLE_ADMIN, is_active=True)
-    db.session.add(user)
-    db.session.commit()
-    defaults = dict(name='web', app_type='docker', source='manual', root_path='/tmp/web',
-                    compose_file='docker-compose.yml', docker_image='nginx:latest', user_id=user.id)
-    defaults.update(kw)
-    row = Application(**defaults)
-    db.session.add(row)
-    db.session.commit()
-    return row
+    return make_application(db, **kw)
 
 
 def _mock_docker(monkeypatch, ok=True):

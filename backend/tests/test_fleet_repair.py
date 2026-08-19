@@ -16,11 +16,8 @@ registry = agent_registry_mod.agent_registry
 @pytest.fixture
 def server(app):
     from app import db
-    from app.models.server import Server
-    row = Server(name='box1')
-    db.session.add(row)
-    db.session.commit()
-    return row
+    from factories import make_server
+    return make_server(db)
 
 
 def _connect(monkeypatch, *, connected=True, capable=True, send=None):

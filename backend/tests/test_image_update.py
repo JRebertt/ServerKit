@@ -6,20 +6,11 @@ from app import db
 from app.models import Application
 from app.services.docker_service import DockerService
 from app.services.image_update_service import ImageUpdateService
+from factories import make_application
 
 
 def _seed_app(image='nginx:latest'):
-    from app.models import User
-    uid = uuid.uuid4().hex[:8]
-    user = User(email=f'{uid}@t.local', username=f'u{uid}',
-                password_hash='x', role=User.ROLE_ADMIN, is_active=True)
-    db.session.add(user)
-    db.session.commit()
-    row = Application(name='web', app_type='docker', source='manual',
-                      docker_image=image, user_id=user.id)
-    db.session.add(row)
-    db.session.commit()
-    return row
+    return make_application(db, docker_image=image)
 
 
 class TestImageUpdateService:

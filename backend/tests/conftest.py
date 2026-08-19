@@ -276,19 +276,24 @@ def auth_headers(app):
     return {'Authorization': f'Bearer {token}'}
 
 
-def _mk_scope_user(db, username, role='developer'):
-    from app.models import User
-    from werkzeug.security import generate_password_hash
-    u = User(email=f'{username}@t.local', username=username,
-             password_hash=generate_password_hash('x'), role=role, is_active=True)
-    db.session.add(u)
-    db.session.commit()
-    return u
+# One-door test seeds (plan 77 G1): make_user/headers_for live in
+# tests/factories.py; import them from there in test modules. The persona
+# fixtures below cover the common "just give me a JWT of role X" case.
+from factories import make_user, headers_for  # noqa: E402
 
 
-def _scope_token(user_id):
-    from flask_jwt_extended import create_access_token
-    return {'Authorization': f'Bearer {create_access_token(identity=user_id)}'}
+@pytest.fixture
+def developer_headers(app):
+    """JWT headers for a plain developer-role user."""
+    from app import db
+    return headers_for(make_user(db, role='developer'))
+
+
+@pytest.fixture
+def viewer_headers(app):
+    """JWT headers for a viewer-role user — the negative case for admin gates."""
+    from app import db
+    return headers_for(make_user(db, role='viewer'))
 
 
 @pytest.fixture
@@ -315,11 +320,11 @@ def scoping_rbac(app):
     from app.models import Application, Workspace
     from app.services.workspace_service import WorkspaceService
 
-    owner = _mk_scope_user(db, 'scope_owner')
-    member = _mk_scope_user(db, 'scope_member')
-    viewer = _mk_scope_user(db, 'scope_viewer')
-    foreign = _mk_scope_user(db, 'scope_foreign')
-    admin = _mk_scope_user(db, 'scope_admin', role='admin')
+    owner = make_user(db, 'scope_owner')
+    member = make_user(db, 'scope_member')
+    viewer = make_user(db, 'scope_viewer')
+    foreign = make_user(db, 'scope_foreign')
+    admin = make_user(db, 'scope_admin', role='admin')
 
     ws = Workspace(name='scope-ws', slug='scope-ws', created_by=owner.id)
     db.session.add(ws)
@@ -336,11 +341,11 @@ def scoping_rbac(app):
     return SimpleNamespace(
         app_id=a.id,
         ws_id=ws.id,
-        owner=_scope_token(owner.id),
-        admin=_scope_token(admin.id),
-        member=_scope_token(member.id),
-        viewer=_scope_token(viewer.id),
-        foreign=_scope_token(foreign.id),
+        owner=headers_for(owner),
+        admin=headers_for(admin),
+        member=headers_for(member),
+        viewer=headers_for(viewer),
+        foreign=headers_for(foreign),
     )
 
 

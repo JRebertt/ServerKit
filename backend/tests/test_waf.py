@@ -8,21 +8,11 @@ from app import db
 from app.models import Application
 from app.models.waf_policy import WafPolicy
 from app.services.waf_service import WafService
+from factories import make_application
 
 
 def _seed_app(name='web'):
-    """Create a user + Application like other backend tests do."""
-    from app.models import User
-    uid = uuid.uuid4().hex[:8]
-    user = User(email=f'{uid}@t.local', username=f'u{uid}',
-                password_hash='x', role=User.ROLE_ADMIN, is_active=True)
-    db.session.add(user)
-    db.session.commit()
-    row = Application(name=name, app_type='docker', source='manual',
-                      docker_image='nginx:latest', user_id=user.id)
-    db.session.add(row)
-    db.session.commit()
-    return row
+    return make_application(db, name=name)
 
 
 # ---------------------------------------------------------------------------
