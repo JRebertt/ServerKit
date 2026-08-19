@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
+from app.api._query import PageQuery
 from app.middleware.rbac import admin_required
 from app.services import error_log_service
 
@@ -46,13 +47,13 @@ def list_error_logs():
     resolved = None
     if resolved_arg is not None:
         resolved = resolved_arg.lower() in ('1', 'true', 'yes')
-    per_page = min(request.args.get('per_page', 25, type=int), 100)
+    paging = PageQuery.from_request(request, default_per_page=25)
     result = error_log_service.list_errors(
         source=request.args.get('source'),
         resolved=resolved,
         search=request.args.get('search'),
-        page=request.args.get('page', 1, type=int),
-        per_page=per_page,
+        page=paging.page,
+        per_page=paging.per_page,
     )
     return jsonify(result), 200
 

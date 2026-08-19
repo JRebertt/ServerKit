@@ -257,3 +257,42 @@ def test_server_select_accepts_its_derived_fields(app):
     with app.app_context():
         fields = parse_select('name,group_name', Server, extra=Server.DERIVED_FIELDS)
         assert fields == {'name', 'group_name', 'id'}
+
+
+# --------------------------------------------------------------- PageQuery #
+
+class TestPageQuery:
+    """The page/per_page dialect parses, defaults, and bounds in ONE place."""
+
+    def _pq(self, args, **kw):
+        from app.api._query import PageQuery
+        return PageQuery.from_args(args, **kw)
+
+    def test_defaults(self):
+        pq = self._pq({})
+        assert (pq.page, pq.per_page, pq.skip) == (1, 50, 0)
+
+    def test_parses_and_computes_skip(self):
+        pq = self._pq({'page': '3', 'per_page': '20'})
+        assert (pq.page, pq.per_page, pq.skip) == (3, 20, 40)
+
+    def test_bounds_per_page_to_the_endpoint_cap(self):
+        assert self._pq({'per_page': '9999'}).per_page == 100
+        assert self._pq({'per_page': '9999'}, max_per_page=200).per_page == 200
+
+    def test_floors_page_zero_and_rejects_negatives(self):
+        from app.api._query import QueryParseError
+        assert self._pq({'page': '0'}).page == 1
+        with pytest.raises(QueryParseError):
+            self._pq({'per_page': '-5'})
+
+    def test_garbage_is_a_typed_400_not_a_silent_default(self):
+        from app.api._query import QueryParseError
+        with pytest.raises(QueryParseError):
+            self._pq({'page': 'banana'})
+
+    def test_queryparseerror_is_a_validation_error(self):
+        """The global handler answers it as a 400 — no per-route translation."""
+        from app.api._query import QueryParseError
+        from app.exceptions import ValidationError
+        assert issubclass(QueryParseError, ValidationError)

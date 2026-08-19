@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import func
 
+from app.api._query import PageQuery
 from app import db
 from app.middleware.rbac import admin_required
 from app.models.system_event import SystemEvent
@@ -17,8 +18,7 @@ telemetry_bp = Blueprint('telemetry', __name__)
 @jwt_required()
 def list_events():
     """List system events with filtering and pagination."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    paging = PageQuery.from_request(request, max_per_page=200)
     source = request.args.get('source') or None
     event_type = request.args.get('event_type') or None
     severity = request.args.get('severity') or None
@@ -31,8 +31,8 @@ def list_events():
     end_date = _parse_iso_datetime(request.args.get('end_date'))
 
     pagination = TelemetryService.get_events(
-        page=page,
-        per_page=min(per_page, 200),
+        page=paging.page,
+        per_page=paging.per_page,
         source=source,
         event_type=event_type,
         severity=severity,

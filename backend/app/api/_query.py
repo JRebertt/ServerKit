@@ -42,6 +42,8 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import and_, or_, inspect
 
+from app.exceptions import ValidationError
+
 # Hard ceiling on ``$top``. A list endpoint that answers "give me everything"
 # is how /apps got to an unbounded ``query.all()``; a caller that genuinely
 # wants more than this should page.
@@ -57,8 +59,13 @@ COMPARE_OPS = {
 }
 
 
-class QueryParseError(ValueError):
-    """A malformed query parameter. API layers turn this into a 400."""
+class QueryParseError(ValidationError):
+    """A malformed query parameter.
+
+    A ``ValidationError`` subclass so the global error handler answers it as a
+    400 with the standard body — routes no longer need their own translation
+    (the existing per-route ``except QueryParseError`` blocks keep working).
+    """
 
 
 @dataclass(frozen=True)
@@ -101,6 +108,36 @@ class ListQuery:
     @classmethod
     def from_request(cls, http_request, *, default_top=None):
         return cls.from_args(http_request.args, default_top=default_top)
+
+
+@dataclass(frozen=True)
+class PageQuery:
+    """Typed ``page``/``per_page`` parameters for offset-paginated lists.
+
+    The page-numbered dialect of :class:`ListQuery` — some list endpoints and
+    their consumers speak ``page``/``per_page`` rather than ``$skip``/``$top``.
+    They are not interchangeable and are not pretended to be; this is the one
+    place that dialect is parsed, defaulted, and bounded.
+    """
+
+    page: int = 1
+    per_page: int = 50
+
+    @property
+    def skip(self) -> int:
+        return (self.page - 1) * self.per_page
+
+    @classmethod
+    def from_args(cls, args, *, default_per_page=50, max_per_page=100):
+        page = _int_arg(args.get('page'), 1, 'page')
+        per_page = _int_arg(args.get('per_page'), default_per_page, 'per_page')
+        return cls(page=max(1, page),
+                   per_page=max(1, min(per_page, max_per_page)))
+
+    @classmethod
+    def from_request(cls, http_request, *, default_per_page=50, max_per_page=100):
+        return cls.from_args(http_request.args, default_per_page=default_per_page,
+                             max_per_page=max_per_page)
 
 
 def _columns(model):

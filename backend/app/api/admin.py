@@ -2,6 +2,8 @@
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 from flask import Blueprint, request, jsonify
+
+from app.api._query import PageQuery
 from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import func
 from app import db
@@ -240,18 +242,14 @@ def delete_user(user_id):
 @admin_required
 def get_audit_logs():
     """Get audit logs with pagination and filtering."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
+    paging = PageQuery.from_request(request)
     action = request.args.get('action')
     user_id = request.args.get('user_id', type=int)
     target_type = request.args.get('target_type')
 
-    # Limit per_page to reasonable values
-    per_page = min(per_page, 100)
-
     pagination = AuditService.get_logs(
-        page=page,
-        per_page=per_page,
+        page=paging.page,
+        per_page=paging.per_page,
         action=action,
         user_id=user_id,
         target_type=target_type
@@ -738,8 +736,7 @@ def get_activity_summary():
 @admin_required
 def get_activity_feed():
     """Get paginated activity feed with filters."""
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 50, type=int), 100)
+    paging = PageQuery.from_request(request)
     user_id = request.args.get('user_id', type=int)
     action = request.args.get('action')
     target_type = request.args.get('target_type')
@@ -748,8 +745,8 @@ def get_activity_feed():
     end_date = request.args.get('end_date')
 
     kwargs = {
-        'page': page,
-        'per_page': per_page,
+        'page': paging.page,
+        'per_page': paging.per_page,
         'user_id': user_id,
         'action': action,
         'target_type': target_type,
