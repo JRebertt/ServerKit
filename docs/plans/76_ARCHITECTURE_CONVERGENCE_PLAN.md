@@ -340,9 +340,10 @@ Ratchets now in place, all mutation-checked:
 | duplicate `@keyframes` | 0 | invariant, 66 unique names |
 | `STYLE_OWNERSHIP_CEILING` | 114 | pre-migration hold |
 
-Next by the plan's execution order: the 605 `@jwt_required()` routes onto
-`auth_required()` — see the note below before starting — then C1/C2, which
-unblocks the status-sniffing row and the 56 swallow-and-answer-200 handlers.
+Both items this pointed at are resolved — see the completion record at the
+end of this document. The `@jwt_required()` question was decided (JWT-only
+stays the default, ratcheted at 605); C1/C2's envelope decision was executed
+(services raise typed errors) and drove the status-sniffing census to 0.
 
 ### Before migrating the 605 `@jwt_required()` routes
 
@@ -716,3 +717,75 @@ The plan is complete when:
 - backend tests, frontend tests/lint/build, and architecture checks pass; and
 - the completion record names the commits and any intentionally retained
   semantic duplication.
+
+---
+
+## Completion record (2026-08-19)
+
+Every criterion above is met. The generated closure artifact is
+[docs/MIGRATION_INVENTORY.md](../MIGRATION_INVENTORY.md) — produced by
+`scripts/generate-migration-inventory.py` from the same censuses that enforce
+each ratchet, and held fresh by `tests/test_migration_inventory.py`.
+
+### The two open decisions, resolved
+
+1. **Auth decorators (A).** JWT-only stays the deliberate default. Converting
+   a route to `auth_required()` grants API-key callers access to it, so it
+   happens one route at a time when an API-key use case exists, in a commit
+   that says so — never as a sweep. Enforced by the new `jwt_only_census`
+   (ceiling 605, may only shrink; new routes must pick a policy decorator).
+   Commit `eb83d332`.
+2. **Envelopes (C1/C2).** Services raise typed errors from `app.exceptions`;
+   routes return data; the global handler owns error bodies, statuses, and
+   request ids. Executed across every status-sniffing domain — the census
+   went 23 → 0 and now holds as an invariant.
+
+### Second-wave execution — C envelopes + closure (2026-08-19)
+
+| Item | Commits |
+|---|---|
+| Files domain (C reference conversion; the "eight callers" blocker was a substring-grep artifact — FileService has exactly one consumer) | `dee7c334` |
+| Saved views, image updates, malware scan, DDNS, theme registry install | `7c1edf59` `05c61dd2` `0b1fbb0d` `fbc36831` `28dcd63f` |
+| Secrets vaults + webhook gateway (12 envelope translations removed) | `6337066f` |
+| DB config tuner — census reaches **0** | `b7b8b387` |
+| The last unrecorded swallowed crash (PR webhook, answers 200 by protocol, now records) | `118f9079` |
+| C3: `PageQuery` door for the page/per_page dialect; `QueryParseError` becomes a `ValidationError` | `5d7fa225` |
+| A decision ratchet (`jwt_only_census`, 605) | `eb83d332` |
+| Adoption ratchets: error shapes (1159), E1 raw api calls (460) + toast extraction (264), F2 form-groups (343), C4 interpolations (97) | `39a6e35d` |
+| H closure: generated inventory + freshness test + `--inventory` mode | `39530905` |
+| Remote-execution seam closed (previous session) | `e6e605d1` |
+
+Verification at closure: backend suite green on Windows (Linux-service files
+excepted, as in the first wave), frontend lint 0 errors, 72 node tests, and a
+clean production build.
+
+### Intentionally retained semantic duplication
+
+- **`/webhooks/receive`** keeps its `(body, status)` wire protocol including
+  `success` keys and per-condition statuses — external webhook senders depend
+  on it; it is a protocol, not an internal envelope.
+- **`theme_service.import_theme`** keeps its `(theme, err)` tuple for the
+  import route; the registry `install()` boundary wraps it. Converts when the
+  themes domain is next touched.
+- **`git.py` / `source_connections.py`** keep hand-parsed `page`/`limit`
+  params: they proxy pagination to Gitea/GitHub/GitLab/Bitbucket, not to DB
+  queries — `PageQuery` is the wrong tool there by design.
+- **Success-body `'success': True` compatibility keys** on converted routes
+  remain until their consumers move to the C2 `{data}` envelope. Owner: the
+  frontend E1 migration; removal condition: the consuming page adopts
+  `useServerQuery` and reads the typed shape.
+- **605 `@jwt_required()` routes** — registered exception, see decision 1.
+- **11 `setInterval` timers** — deliberate E2 residue (clock ticks,
+  socket-fallback hooks, sibling-repo extension), listed per file.
+- **114 shared SCSS class definitions / 151 colour literals** — ratcheted;
+  merging needs eyes on pages (invariant 9: no byte-identical proof exists).
+
+### Deferred with owners
+
+- **List-preset prober into CI** (H): `probe-presets.mjs` needs Playwright
+  browsers in the CI image. Owner: CI pipeline; until then it runs from the
+  screenshots skill on dev boxes.
+- **C4 generated bindings / OpenAPI freshness**: the interim interpolation
+  ratchet holds the line; binding generation lands with the C4 milestone.
+- **Vitest/RTL expansion** (H): the `node --test` suite (72 tests) covers the
+  shared hooks today; component-level RTL grows when pages migrate (E1).
