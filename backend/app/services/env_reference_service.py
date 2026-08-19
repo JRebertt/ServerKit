@@ -104,7 +104,7 @@ class EnvReferenceResolver:
 
         # db sibling first (ManagedDatabase by name within the workspace)
         from app.models.managed_database import ManagedDatabase
-        managed = ManagedDatabase.query.filter_by(name=service_name).first()
+        managed = ManagedDatabase.query_active().filter_by(name=service_name).first()
         if managed is not None:
             return cls._db_property(managed, prop)
 

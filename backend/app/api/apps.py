@@ -2043,7 +2043,7 @@ def get_app_related(app_id):
         from app.models.managed_database import ManagedDatabase
         related['databases'] = [
             {'id': m.id, 'name': m.name, 'engine': getattr(m, 'engine', '')}
-            for m in ManagedDatabase.query.filter_by(owner_application_id=app.id).all()
+            for m in ManagedDatabase.query_active().filter_by(owner_application_id=app.id).all()
         ]
     except Exception:
         current_app.logger.warning('related: databases failed', exc_info=True)

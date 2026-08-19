@@ -148,7 +148,7 @@ def _check_resource_write(resource_type, resource_id):
     if resource_type == 'database':
         from app.models.managed_database import ManagedDatabase
         try:
-            row = ManagedDatabase.query.get(int(resource_id))
+            row = ManagedDatabase.query_active().filter_by(id=int(resource_id)).first()
         except (TypeError, ValueError):
             row = None
         if row is None:

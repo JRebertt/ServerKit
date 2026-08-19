@@ -118,11 +118,16 @@ def test_legacy_json_descriptor_policy_still_resolves(app):
     assert target['db_config']['user'] == 'legacy'
 
 
-def test_untrack_removes_managed_policy(app, managed):
+def test_soft_delete_keeps_policy_until_purge(app, managed):
+    # Plan 77 B5: the tombstoned DB keeps its backup policy running so the
+    # data stays recoverable for the Recycle Bin window; PURGE removes it.
     from app.models.backup_policy import BackupPolicy
+    from app.services import recycle_bin_service
     ManagedDatabaseService.protect(managed)
     assert BackupPolicy.query.filter_by(target_type='database', target_id=managed.id).count() == 1
     ManagedDatabaseService.delete(managed, drop=False)
+    assert BackupPolicy.query.filter_by(target_type='database', target_id=managed.id).count() == 1
+    recycle_bin_service.purge('managed_database', managed.id)
     assert BackupPolicy.query.filter_by(target_type='database', target_id=managed.id).count() == 0
     assert ManagedDatabase.query.get(managed.id) is None
 
@@ -165,4 +170,9 @@ def test_api_adopt_requires_admin(client, app):
 def test_api_untrack(client, auth_headers, app, managed):
     resp = client.delete(f'/api/v1/databases/managed/{managed.id}', headers=auth_headers)
     assert resp.status_code == 200
-    assert ManagedDatabase.query.get(managed.id) is None
+    # Plan 77 B5: a plain delete tombstones into the Recycle Bin — hidden
+    # from active reads, physically retained until purge.
+    row = ManagedDatabase.query.get(managed.id)
+    assert row is not None and row.is_deleted
+    from app.services.managed_database_service import ManagedDatabaseService
+    assert ManagedDatabaseService.get(managed.id) is None

@@ -232,6 +232,9 @@ class BackupPolicyService:
             if meta.get('managed'):
                 from app.models.managed_database import ManagedDatabase
                 from app.services.managed_database_service import ManagedDatabaseService
+                # Deliberately tombstone-blind: a soft-deleted managed DB
+                # keeps its backup policy running until PURGE, so the data
+                # stays recoverable for the whole Recycle Bin window.
                 managed = ManagedDatabase.query.get(policy.target_id)
                 if managed is None:
                     raise BackupPolicyError('Managed database is no longer tracked')

@@ -286,7 +286,7 @@ class ManifestApplyService:
                                f'managed by ServerKit yet — declared but not provisioned',
                 'payload': {},
             }]
-        existing = ManagedDatabase.query.filter_by(engine=engine, name=name).first()
+        existing = ManagedDatabase.query_active().filter_by(engine=engine, name=name).first()
         steps: List[Dict[str, Any]] = []
         if not existing:
             steps.append({
@@ -1099,7 +1099,7 @@ class ManifestApplyService:
                   'retention_count': payload['retain']}
         if payload['target'] == 'database':
             from app.services.managed_database_service import ManagedDatabaseService
-            managed = ManagedDatabase.query.filter_by(
+            managed = ManagedDatabase.query_active().filter_by(
                 engine=payload['engine'], name=payload['db_name']).first()
             if not managed:
                 raise RuntimeError('managed database not found for backup policy')

@@ -855,7 +855,8 @@ def delete_managed_database(managed_id):
     if not managed:
         return jsonify({'error': 'Managed database not found'}), 404
     drop = str(request.args.get('drop', '')).lower() in ('1', 'true', 'yes')
-    ManagedDatabaseService.delete(managed, drop=drop)
+    from flask_jwt_extended import get_jwt_identity
+    ManagedDatabaseService.delete(managed, drop=drop, user_id=get_jwt_identity())
     return jsonify({'success': True, 'dropped': drop}), 200
 
 

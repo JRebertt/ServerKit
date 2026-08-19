@@ -37,7 +37,7 @@ class ManagedDatabaseService:
         ServerKit already provisioned never downgrades its origin."""
         engine = (engine or '').strip().lower()
         host = (host or 'localhost').strip() or 'localhost'
-        managed = ManagedDatabase.query.filter_by(engine=engine, host=host, name=name).first()
+        managed = ManagedDatabase.query_active().filter_by(engine=engine, host=host, name=name).first()
         created = managed is None
         if created:
             managed = ManagedDatabase(engine=engine, name=name, host=host, origin=origin)
@@ -75,7 +75,7 @@ class ManagedDatabaseService:
 
     @classmethod
     def list(cls, workspace_id=None):
-        q = ManagedDatabase.query
+        q = ManagedDatabase.query_active()
         if workspace_id is not None:
             q = q.filter(db.or_(
                 ManagedDatabase.workspace_id == workspace_id,
@@ -87,22 +87,33 @@ class ManagedDatabaseService:
     def get(cls, managed_id):
         if not managed_id:
             return None
-        return ManagedDatabase.query.get(managed_id)
+        return ManagedDatabase.query_active().filter_by(id=managed_id).first()
 
     @classmethod
-    def delete(cls, managed, drop=False):
-        """Untrack a managed database. With ``drop=True`` also DROP it on the
-        server (host engines only). Any managed BackupPolicy pointing at it is
-        removed so no policy is left dangling."""
-        if drop and managed.host_kind == 'host':
-            if managed.engine == 'mysql':
-                DatabaseService.mysql_drop_database(managed.name)
-            elif managed.engine == 'postgresql':
-                DatabaseService.pg_drop_database(managed.name)
-            # mongodb drop is out of scope (read-first); untrack only.
+    def delete(cls, managed, drop=False, user_id=None):
+        """Delete a managed database (plan 77 B5, plan-70 semantics).
 
-        cls._delete_managed_policy(managed)
-        db.session.delete(managed)
+        - ``drop=False``: SOFT delete — the row tombstones into the Recycle
+          Bin. The actual database on the server is untouched and any managed
+          BackupPolicy keeps running, so a restore brings everything back
+          intact.
+        - ``drop=True``: the operator explicitly asked to DROP the data —
+          stays the immediate destructive path (host engines only; policy
+          removed, row hard-deleted, nothing to restore).
+        """
+        if drop:
+            if managed.host_kind == 'host':
+                if managed.engine == 'mysql':
+                    DatabaseService.mysql_drop_database(managed.name)
+                elif managed.engine == 'postgresql':
+                    DatabaseService.pg_drop_database(managed.name)
+                # mongodb drop is out of scope (read-first); untrack only.
+            cls._delete_managed_policy(managed)
+            db.session.delete(managed)
+            db.session.commit()
+            return
+
+        managed.soft_delete(user_id)
         db.session.commit()
 
     # ── connection string ──
