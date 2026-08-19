@@ -47,10 +47,10 @@ Everything below is measured from this repository, not estimated.
 
 | | |
 |---|---|
-| **1,519** REST endpoints | across 107 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
-| **106** one-click app templates | bundled in the repo, no registry account needed |
-| **3,874** backend tests | the whole suite runs on every change |
-| **1.75 MB** gzipped web UI | 65 screens, assets served from your own box — no CDN |
+| **1,350+** REST endpoints | across 109 blueprints — `/api/v1/*`, with OpenAPI + Swagger UI at `/api/v1/docs` |
+| **118** one-click app templates | bundled in the repo, no registry account needed |
+| **4,300+** backend tests | the whole suite runs on every change, with a CI-enforced floor on the collected count |
+| **1.75 MB** gzipped web UI | 60+ screens, assets served from your own box — no CDN |
 | **~180 MB** resident | the entire panel, single process — sits comfortably beside your apps on a 1 GB VPS |
 | **501 MB** container image | or install straight onto the host; Docker is optional for the panel itself |
 | **$0** | MIT-licensed. No tiers, no seat limits, no upsell — and nothing phones home. |
