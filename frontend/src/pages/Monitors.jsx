@@ -9,7 +9,7 @@
 // rows this client never loaded), while the grid chrome's column rules narrow
 // the rows already on screen. A saved view carries both — the server pair under
 // `page.serverFilters`, the rules under `columnFilters`.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ChevronRight, Globe, Pause, Play, Plus, Radar, RefreshCw,
@@ -33,6 +33,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import useFocusParam from '@/hooks/useFocusParam';
 import { CHECK_TYPES, MONITOR_STATUS, monitorStateOf } from '../components/monitoring/monitorShared';
+import { usePolling } from '@/hooks/usePolling';
 
 const POLL_MS = 15000;
 
@@ -193,7 +194,6 @@ export default function Monitors() {
     // Bumps once a second so "next check in 42s" actually counts down between
     // polls instead of sitting still for 15 seconds at a time.
     const [, setTick] = useState(0);
-    const pollRef = useRef(null);
 
     const load = useCallback(async () => {
         try {
@@ -208,11 +208,9 @@ export default function Monitors() {
         }
     }, [q, filters.status, filters.type]);
 
-    useEffect(() => {
-        load();
-        pollRef.current = setInterval(load, POLL_MS);
-        return () => clearInterval(pollRef.current);
-    }, [load]);
+    // Reload when the search/filters change; poll on top of that.
+    useEffect(() => { load(); }, [load]);
+    usePolling(load, POLL_MS, { immediate: false });
 
     useEffect(() => {
         const timer = setInterval(() => setTick((n) => n + 1), 1000);

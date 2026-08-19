@@ -9,6 +9,11 @@ import { formatBytes } from '../../utils/formatBytes';
 import BandwidthSparkline from '../BandwidthSparkline';
 import ScheduledTasksCard from '../ScheduledTasksCard';
 import { KpiBand, MetricCard, Pill, Gauge, EnvTag } from '@/components/ds';
+import { usePolling } from '@/hooks/usePolling';
+
+// Live metrics cadence.
+const METRICS_REFRESH_MS = 10000;
+
 
 // Deployment status → semantic tone (ds Pill kind / dot modifier)
 const DEPLOY_TONE = {
@@ -36,11 +41,9 @@ const OverviewTab = ({ app, deployConfig }) => {
     const isDocker = app.app_type === 'docker';
     const isPython = ['flask', 'django'].includes(app.app_type);
 
-    useEffect(() => {
-        loadMetrics();
-        const interval = setInterval(loadMetrics, 10000);
-        return () => clearInterval(interval);
-    }, [app.id]);
+    // Load on mount and whenever the app changes; poll on top of that.
+    useEffect(() => { loadMetrics(); }, [app.id]);
+    usePolling(loadMetrics, METRICS_REFRESH_MS, { immediate: false });
 
     useEffect(() => {
         // Best-effort daily rollups; hide the card when there is no data.

@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Gauge } from '@/components/ds';
 import EmptyState from '../EmptyState';
+import { usePolling } from '@/hooks/usePolling';
+
+// Live metrics cadence.
+const METRICS_REFRESH_MS = 10000;
+
 
 const MetricsTab = ({ app }) => {
     const [stats, setStats] = useState(null);
@@ -11,11 +16,9 @@ const MetricsTab = ({ app }) => {
     const isDocker = app.app_type === 'docker';
     const isPython = ['flask', 'django'].includes(app.app_type);
 
-    useEffect(() => {
-        loadMetrics();
-        const interval = setInterval(loadMetrics, 10000);
-        return () => clearInterval(interval);
-    }, [app.id]);
+    // Load on mount and whenever the app changes; poll on top of that.
+    useEffect(() => { loadMetrics(); }, [app.id]);
+    usePolling(loadMetrics, METRICS_REFRESH_MS, { immediate: false });
 
     async function loadMetrics() {
         try {

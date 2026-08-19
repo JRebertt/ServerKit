@@ -35,6 +35,11 @@ import {
 } from '../components/databases/engineHelpers';
 import { listTables, connKey, connLabel, quoteIdent, ENGINE_META } from '../components/databases/dbAdapter';
 import { copyToClipboard } from '@/utils/clipboard';
+import { usePolling } from '@/hooks/usePolling';
+
+// Cadence while an engine install is in flight.
+const ENGINE_POLL_MS = 4000;
+
 
 const SIDEBAR_KEY = 'serverkit-dbx-sidebar';
 
@@ -168,11 +173,10 @@ export default function Databases() {
     const installingCount = engineData.installed.filter(
         (e) => engineTreeStatus(e) === 'installing',
     ).length;
-    useEffect(() => {
-        if (!installingCount) return undefined;
-        const timer = setInterval(loadEngines, 4000);
-        return () => clearInterval(timer);
-    }, [installingCount, loadEngines]);
+    usePolling(loadEngines, ENGINE_POLL_MS, {
+        enabled: installingCount > 0,
+        immediate: false,
+    });
 
     const openCatalog = useCallback((query = '') => {
         setCatalogQuery(query);

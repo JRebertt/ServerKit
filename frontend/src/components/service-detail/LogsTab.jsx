@@ -10,6 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { usePolling } from '@/hooks/usePolling';
+
+// Log tail refresh cadence while auto-refresh is on.
+const LOG_REFRESH_MS = 5000;
+
 
 const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
@@ -56,11 +61,7 @@ const LogsTab = ({ app }) => {
         return () => { cancelled = true; };
     }, [app?.id, deployJobId]);
 
-    useEffect(() => {
-        if (!autoRefresh) return;
-        const interval = setInterval(loadLogs, 5000);
-        return () => clearInterval(interval);
-    }, [autoRefresh, app.id, lineCount]);
+    usePolling(loadLogs, LOG_REFRESH_MS, { enabled: autoRefresh, immediate: false });
 
     useEffect(() => {
         if (autoScroll && logRef.current) {

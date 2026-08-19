@@ -14,6 +14,11 @@ import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import RequiresDocker from '../components/RequiresDocker';
+import { usePolling } from '@/hooks/usePolling';
+
+// Deploy activity cadence while auto-refresh is on.
+const DEPLOY_POLL_MS = 3000;
+
 
 // How many jobs one fetch pulls. The column rules run over what has been
 // fetched, so this is the reach of a filter until the user asks for more.
@@ -160,11 +165,7 @@ const Deployments = () => {
 
     useEffect(() => { loadJobs(); }, [loadJobs]);
 
-    useEffect(() => {
-        if (!autoRefresh) return undefined;
-        const timer = setInterval(loadJobs, 3000);
-        return () => clearInterval(timer);
-    }, [autoRefresh, loadJobs]);
+    usePolling(loadJobs, DEPLOY_POLL_MS, { enabled: autoRefresh, immediate: false });
 
     const searched = useMemo(() => {
         const q = search.trim().toLowerCase();

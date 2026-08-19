@@ -10,7 +10,7 @@
 // Activity shows a view bar, a DataTable of runs, and server-side pagination
 // over a job store that can hold six figures of scheduler-tick rows.
 // Wired to the real ApiService job methods (see frontend/src/services/api/jobs.js).
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ListChecks, RefreshCw, RotateCcw, XCircle, Play, Clock } from 'lucide-react';
 import api from '../services/api';
@@ -29,6 +29,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/timeAgo';
+import { usePolling } from '@/hooks/usePolling';
 
 const titleCase = (value = '') => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -188,7 +189,6 @@ export default function Jobs() {
     const [q, setQ] = useState('');
     const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(true);
-    const pollRef = useRef(null);
 
     // Table sort + column visibility, controlled so saved views can drive
     // them — same localStorage keys the DataTables used when uncontrolled.
@@ -251,12 +251,11 @@ export default function Jobs() {
         return undefined;
     }, [isAdmin]);
 
+    // Reload when the query changes; poll on top of that.
     useEffect(() => {
-        if (!isAdmin) return undefined;
-        load();
-        pollRef.current = setInterval(load, POLL_MS);
-        return () => clearInterval(pollRef.current);
+        if (isAdmin) load();
     }, [isAdmin, load]);
+    usePolling(load, POLL_MS, { enabled: isAdmin, immediate: false });
 
     const onFiltersChange = (next) => { setFilters(next); setPage(0); };
     const onSearch = (value) => { setQ(value.trim()); setPage(0); };
