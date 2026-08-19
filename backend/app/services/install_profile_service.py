@@ -30,6 +30,8 @@ import subprocess
 from app.utils.system import run_checked
 import time
 
+from app.services.cache_service import ttl_cached
+
 logger = logging.getLogger(__name__)
 
 # The Docker probe shells out and can block for its full timeout on a host with
@@ -37,7 +39,6 @@ logger = logging.getLogger(__name__)
 # briefly so a page load never pays that twice, but keep the window short
 # enough that installing Docker shows up without a restart.
 _CAPABILITY_TTL_SECONDS = 60
-_capability_cache = {'data': None, 'timestamp': 0}
 
 PROFILE_MINIMAL = 'minimal'
 PROFILE_STANDARD = 'standard'
@@ -209,16 +210,15 @@ def get_capabilities(force_refresh=False):
     The profile says what was *intended*; this says what is *true*. They drift
     — an operator can apt-install Docker on a Minimal box, and a Standard box
     can have a broken daemon. Cached for _CAPABILITY_TTL_SECONDS because the
-    Docker probe can block.
+    Docker probe can block (ttl_cached, plan 77 F2).
     """
-    now = time.time()
-    if (
-        not force_refresh
-        and _capability_cache['data'] is not None
-        and (now - _capability_cache['timestamp']) < _CAPABILITY_TTL_SECONDS
-    ):
-        return dict(_capability_cache['data'])
+    if force_refresh:
+        _probe_capabilities.invalidate()
+    return dict(_probe_capabilities())
 
+
+@ttl_cached(_CAPABILITY_TTL_SECONDS, key_fn=lambda: 'capabilities')
+def _probe_capabilities():
     docker = _docker_usable()
     capabilities = {
         # Tri-state: True / False / None (probe failed = unknown). Consumers
@@ -232,10 +232,7 @@ def get_capabilities(force_refresh=False):
         # unknown (None) probe does not advertise app hosting.
         'can_host_apps': docker is True,
     }
-
-    _capability_cache['data'] = capabilities
-    _capability_cache['timestamp'] = now
-    return dict(capabilities)
+    return capabilities
 
 
 def get_profile_info(force_refresh=False):

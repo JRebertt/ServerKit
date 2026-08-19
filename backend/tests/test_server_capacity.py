@@ -26,10 +26,8 @@ def _clear_caches():
     from app.services import resource_tier_service as rts
 
     def reset():
-        rts._tier_cache['data'] = None
-        rts._tier_cache['timestamp'] = 0
-        ips._capability_cache['data'] = None
-        ips._capability_cache['timestamp'] = 0
+        rts._probe_tier.invalidate()
+        ips._probe_capabilities.invalidate()
 
     reset()
     yield

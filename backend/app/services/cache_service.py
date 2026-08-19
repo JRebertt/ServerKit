@@ -138,3 +138,44 @@ def cached(key_template, ttl=300):
             return result
         return wrapper
     return decorator
+
+
+def ttl_cached(ttl, key_fn=None):
+    """Cache a function's return through CacheService for ``ttl`` seconds
+    (plan 77 F2 — replaces hand-rolled module-level ``{'data':…,'timestamp':…}``
+    TTL dicts; Redis benefits apply automatically wherever configured).
+
+    The cached value must be JSON-serializable (the Redis path serializes).
+    ``None`` returns are NOT cached, so a failed computation retries.
+    ``key_fn(*args, **kwargs)`` derives the per-call cache key suffix; without
+    it, the repr of the arguments is used (fine for hashable scalar args).
+    The wrapped function gains ``.invalidate(*args, **kwargs)``.
+    """
+    def decorator(fn):
+        prefix = f'ttlfn:{fn.__module__}.{fn.__qualname__}'
+
+        def _key(args, kwargs):
+            if key_fn is not None:
+                return f'{prefix}:{key_fn(*args, **kwargs)}'
+            if not args and not kwargs:
+                return prefix
+            return f'{prefix}:{repr(args)}:{repr(sorted(kwargs.items()))}'
+
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            key = _key(args, kwargs)
+            hit = CacheService.get(key)
+            if hit is not None:
+                return hit
+            value = fn(*args, **kwargs)
+            if value is not None:
+                CacheService.set(key, value, ttl=ttl)
+            return value
+
+        def invalidate(*args, **kwargs):
+            CacheService.delete(_key(args, kwargs))
+
+        wrapper.invalidate = invalidate
+        wrapper.__wrapped__ = fn
+        return wrapper
+    return decorator
