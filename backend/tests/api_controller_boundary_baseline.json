@@ -3,7 +3,7 @@
   "policy": "Exact reviewed inventory of direct persistence, subprocess, and filesystem mutation calls in Flask API controllers. New calls are forbidden; remove entries as controllers delegate to services.",
   "counts": {
     "filesystem": 11,
-    "persistence": 519
+    "persistence": 517
   },
   "owners": {
     "api/admin.py": {
@@ -485,7 +485,6 @@
     "api/docker.py::cleanup_all_apps::persistence::Application.query_active().filter_by(app_type='docker').all()::1",
     "api/docker.py::cleanup_all_apps::persistence::db.session.commit()::1",
     "api/docker.py::cleanup_all_apps::persistence::db.session.delete(app)::1",
-    "api/docker.py::cleanup_all_apps::persistence::db.session.rollback()::1",
     "api/docker.py::create_docker_app::persistence::db.session.add(app)::1",
     "api/docker.py::create_docker_app::persistence::db.session.commit()::1",
     "api/domains.py::create_domain::persistence::Application.query_active().filter_by(id=application_id).first()::1",
@@ -566,7 +565,6 @@
     "api/notifications.py::test_user_notification::persistence::User.query.get(current_user_id)::1",
     "api/notifications.py::unmute_own_email::persistence::User.query.get(current_user_id)::1",
     "api/notifications.py::update_user_preferences::persistence::db.session.commit()::1",
-    "api/notifications.py::update_user_preferences::persistence::db.session.rollback()::1",
     "api/previews.py::_get_app_or_404::persistence::Application.query_active().filter_by(id=app_id).first()::1",
     "api/previews.py::destroy_preview::persistence::ApplicationPreview.query.filter_by(id=preview_id, application_id=app_id).first()::1",
     "api/previews.py::list_previews::persistence::ApplicationPreview.query.filter(ApplicationPreview.application_id == app_id, ApplicationPreview.status != ApplicationPreview.STATUS_DESTROYED).order_by(ApplicationPreview.pr_number.desc()).all()::1",
