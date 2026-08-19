@@ -23,7 +23,7 @@ debt. Regenerate with `python scripts/generate-migration-inventory.py`.
 | per-page toast.error extractions in pages/ | E1: query-layer error presentation | 264 | 264 | migrate when touched |
 | hand-rolled form-group blocks | F2: FormField/useForm | 343 | 343 | migrate when touched |
 | unencoded ?k=${v} query interpolations in services/api | C4: buildQuery/encoding template | 97 | 97 | migrate when touched |
-| raw setInterval pollers | E2: usePolling/refetchInterval | 11 | 11 | DELIBERATE RESIDUE: clock ticks, socket-fallback hooks, and sibling-repo extension timers - each listed per file |
+| raw setInterval pollers | E2: usePolling/refetchInterval | 10 | 10 | DELIBERATE RESIDUE: clock ticks, socket-fallback hooks, and sibling-repo extension timers - each listed per file |
 | direct navigator.clipboard call sites | F3: copyToClipboard | 0 | 0 | INVARIANT at 0 |
 | hex colour literals outside token files | G: var(--token) | 151 | 151 | migrate when touched |
 | SCSS class names defined in multiple files | single-owner partials | 114 | 114 | needs eyes on pages (no byte-identical proof available) |

@@ -92,7 +92,6 @@ const LEGACY_POLLERS = new Map(Object.entries({
     'components/dashboard/widgets/renderers.jsx': 1,
     'components/deploy-console/SuccessBanner.jsx': 1,
     'components/server/OnboardingWizard.jsx': 1,
-    'hooks/useContainerStatus.js': 1,
     'hooks/useDeployJobStream.js': 1,
     'hooks/useMetrics.js': 1,
     'pages/Dashboard.jsx': 2,
