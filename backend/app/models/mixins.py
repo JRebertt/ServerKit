@@ -26,9 +26,12 @@ just deleted). Those constraints have to become PARTIAL unique indexes with a
 `deleted_at IS NULL` predicate — supported by both SQLite (3.8+) and Postgres.
 See migration 083 for the pattern.
 """
+import logging
 from datetime import datetime
 
 from app import db
+
+logger = logging.getLogger(__name__)
 
 
 class SoftDeleteMixin:
@@ -79,3 +82,65 @@ class SoftDeleteMixin:
             'deleted_by_id': self.deleted_by_id,
             'is_active': self.is_active,
         }
+
+
+class EncryptedSecret:
+    """Descriptor giving a model ONE way to handle a Fernet-encrypted column.
+
+    Usage::
+
+        class Server(db.Model):
+            api_secret_encrypted = db.Column(db.Text)
+            api_secret = EncryptedSecret('api_secret_encrypted')
+
+        server.api_secret = 'plaintext'   # encrypts via utils/crypto — RAISES on failure
+        server.api_secret                 # decrypts; None when empty or undecryptable
+        Server.api_secret.is_set(server)  # has-a-secret masking for to_dict()
+
+    Contracts (plan 77 C1):
+
+    - **Assignment raises on encrypt failure.** The historical hand-rolled
+      accessors caught the exception and ``print()``-ed it, silently storing
+      nothing — a data-loss path (an agent that "paired" but can never verify
+      a signature). A failed encrypt must fail the request that carried the
+      secret.
+    - **Read is tolerant.** A row written under a lost/rotated key returns
+      ``None`` (with a real log line, not print) so auth paths degrade the
+      same way they always have instead of 500ing every reader.
+    - Assigning ``None`` (or ``''``) clears the column.
+    """
+
+    def __init__(self, column_name: str):
+        self.column_name = column_name
+        self.attr_name = column_name  # overwritten by __set_name__
+
+    def __set_name__(self, owner, name):
+        self.attr_name = f'{owner.__name__}.{name}'
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        raw = getattr(obj, self.column_name)
+        if not raw:
+            return None
+        from app.utils.crypto import decrypt_secret
+        try:
+            return decrypt_secret(raw)
+        except Exception:
+            logger.warning(
+                "Failed to decrypt %s (wrong key or corrupt ciphertext); returning None",
+                self.attr_name, exc_info=True,
+            )
+            return None
+
+    def __set__(self, obj, value):
+        if value is None or value == '':
+            setattr(obj, self.column_name, None)
+            return
+        from app.utils.crypto import encrypt_secret
+        # No try/except: an encrypt failure must propagate, never be swallowed.
+        setattr(obj, self.column_name, encrypt_secret(value))
+
+    def is_set(self, obj) -> bool:
+        """True when ciphertext is stored — the `has_secret` masking flag."""
+        return bool(getattr(obj, self.column_name))

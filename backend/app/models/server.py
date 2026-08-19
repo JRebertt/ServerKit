@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.models.mixins import EncryptedSecret
 from app.models.json_column_mixin import JsonColumnMixin
 
 
@@ -138,6 +139,12 @@ class Server(JsonColumnMixin, db.Model):
     api_key_pending_hash = db.Column(db.String(256))  # Hash of pending new API key
     api_key_pending_prefix = db.Column(db.String(12))  # Prefix of pending new API key
     api_secret_pending_encrypted = db.Column(db.Text)  # Encrypted pending new API secret
+
+    # One crypto path (plan 77 C1): descriptor-backed accessors over the
+    # *_encrypted columns. Encrypt failures RAISE (the old accessors printed
+    # and silently stored nothing — a data-loss path).
+    api_secret = EncryptedSecret('api_secret_encrypted')
+    api_secret_pending = EncryptedSecret('api_secret_pending_encrypted')
     api_key_rotation_expires = db.Column(db.DateTime)  # When pending key rotation expires
     api_key_rotation_id = db.Column(db.String(36))  # Unique ID for current rotation
     api_key_last_rotated = db.Column(db.DateTime)  # Last successful rotation timestamp
@@ -206,24 +213,16 @@ class Server(JsonColumnMixin, db.Model):
         return check_password_hash(self.api_key_hash, api_key)
 
     def set_api_secret_encrypted(self, api_secret):
-        """Encrypt and store the API secret for signature verification"""
-        try:
-            from app.utils.crypto import encrypt_secret
-            self.api_secret_encrypted = encrypt_secret(api_secret)
-        except Exception as e:
-            print(f"Error encrypting API secret: {e}")
-            # Don't fail - system can work without signature verification
+        """Encrypt and store the API secret for signature verification.
+
+        Raises if encryption fails — silently storing nothing would leave an
+        agent "paired" but unable to ever verify a signature.
+        """
+        self.api_secret = api_secret
 
     def get_api_secret(self):
-        """Decrypt and return the API secret"""
-        if not self.api_secret_encrypted:
-            return None
-        try:
-            from app.utils.crypto import decrypt_secret
-            return decrypt_secret(self.api_secret_encrypted)
-        except Exception as e:
-            print(f"Error decrypting API secret: {e}")
-            return None
+        """Decrypt and return the API secret (None if unset/undecryptable)."""
+        return self.api_secret
 
     def get_pending_api_secret(self):
         """Decrypt and return the pending API secret used during key rotation.
@@ -233,14 +232,7 @@ class Server(JsonColumnMixin, db.Model):
         window can have its signature verified against the right secret.
         Returns None when there is no pending secret or it can't be decrypted.
         """
-        if not self.api_secret_pending_encrypted:
-            return None
-        try:
-            from app.utils.crypto import decrypt_secret
-            return decrypt_secret(self.api_secret_pending_encrypted)
-        except Exception as e:
-            print(f"Error decrypting pending API secret: {e}")
-            return None
+        return self.api_secret_pending
 
     def start_key_rotation(self):
         """
@@ -257,11 +249,7 @@ class Server(JsonColumnMixin, db.Model):
         self.api_key_pending_hash = generate_password_hash(new_api_key)
         self.api_key_pending_prefix = new_api_key[:12] if len(new_api_key) >= 12 else new_api_key
 
-        try:
-            from app.utils.crypto import encrypt_secret
-            self.api_secret_pending_encrypted = encrypt_secret(new_api_secret)
-        except Exception as e:
-            print(f"Error encrypting pending API secret: {e}")
+        self.api_secret_pending = new_api_secret
 
         self.api_key_rotation_id = rotation_id
         self.api_key_rotation_expires = datetime.utcnow() + timedelta(minutes=5)
