@@ -343,7 +343,7 @@ def test_docker_probe_exception_is_unknown_not_absent(monkeypatch):
 
     monkeypatch.setattr(ips, '_binary_present', lambda name: True)
     monkeypatch.setattr(
-        ips.subprocess, 'run',
+        ips, 'run_checked',
         lambda *a, **k: (_ for _ in ()).throw(OSError('exec failed')))
 
     assert ips._docker_usable() is None
