@@ -140,7 +140,7 @@ to `auth_required()`, and the 28 inline role checks.
 
 | Row | Baseline | Now | Commit |
 |---|---|---|---|
-| clipboard helper | 25 files / 33 raw `navigator.clipboard` sites | 0; ratchet baseline emptied | `a75f435f` |
+| clipboard helper | 25 files / 33 raw `navigator.clipboard` sites | 0; ratchet baseline emptied | `e1a5a5e1` |
 
 The row was scheduled as a fix for the reason the audit gave — `navigator.
 clipboard` is undefined in an insecure context and SSL is optional by policy,
@@ -259,7 +259,7 @@ Rephrasing "Access denied: path not in allowed directories" turns a 403 into a
 
 | Row / item | Baseline | Now | Commits |
 |---|---|---|---|
-| E2 polling | 45 sites / 35 files | **11 / 10, all deliberate** | `3ac566cb` `f9657d38` `89c3896e` `0bfcf69c` `89c2e132` |
+| E2 polling | 45 sites / 35 files | **11 / 10, all deliberate** | `1503c493` `f9657d38` `89c3896e` `0bfcf69c` `89c2e132` |
 | F3 blob download | 14 files hand-rolling the anchor ritual | 0; ratchet at zero | `375677ab` |
 | C4 dead file | `services/wordpress.js`, 494 lines, 0 importers | deleted | `375677ab` |
 | G `@keyframes` | 8 `spin`, plus 3 more duplicated names | 1 each; ratchet | `0b385482` |

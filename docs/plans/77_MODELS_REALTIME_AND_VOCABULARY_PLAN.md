@@ -295,7 +295,7 @@ named below is a live test.
 
 **Deliberate scope calls (with owners for the tail):**
 - B5: ManagedDatabase adopted (migration 088; delete keeps content+policy,
-  purge never drops data, `?drop=true` stays destructive). **Server (98
+  purge never drops data, `?drop=true` stays destructive). **Server (~99
   query sites, fleet enrollment + HMAC secrets) is the next ranked adoption
   and needs its own pass.**
 - F1: registry + themes ride `CachedRemoteIndex`; template_service (keyed
