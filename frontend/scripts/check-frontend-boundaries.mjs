@@ -248,6 +248,7 @@ const ADOPTION_CEILINGS = [
     },
 ];
 
+const adoptionActuals = new Map();
 for (const rule of ADOPTION_CEILINGS) {
     let totalCount = 0;
     for (const path of files) {
@@ -255,6 +256,7 @@ for (const rule of ADOPTION_CEILINGS) {
         if (!rule.include(file)) continue;
         totalCount += count(readFileSync(path, 'utf8'), rule.pattern);
     }
+    adoptionActuals.set(rule.name, totalCount);
     if (totalCount > rule.ceiling) {
         failures.push(`${rule.name}: ${totalCount} sites, ceiling ${rule.ceiling}. Migrate through the named door instead of adding another bypass.`);
     } else if (rule.ceiling - totalCount > 25) {
@@ -328,6 +330,24 @@ for (const ownership of EXTENSION_OWNED_STYLES) {
             failures.push(`${relative(repoRoot, stylePath).replaceAll('\\', '/')}: missing extension-owned stylesheet.`);
         }
     }
+}
+
+// Machine-readable ratchet report for the plan-76 H-closure inventory
+// generator (scripts/generate-migration-inventory.py at the repo root).
+if (process.argv.includes('--inventory')) {
+    const inventory = [];
+    for (const rule of ADOPTION_CEILINGS) {
+        inventory.push({ name: rule.name, actual: adoptionActuals.get(rule.name), ceiling: rule.ceiling });
+    }
+    const sum = (m) => [...m.values()].reduce((a, b) => a + b, 0);
+    inventory.push({ name: 'raw setInterval pollers (E2: usePolling/refetchInterval)',
+        actual: sum(LEGACY_POLLERS), ceiling: sum(LEGACY_POLLERS) });
+    inventory.push({ name: 'direct navigator.clipboard call sites (F3: copyToClipboard)',
+        actual: sum(LEGACY_CLIPBOARD), ceiling: 0 });
+    inventory.push({ name: 'hex colour literals outside token files (G: var(--token))',
+        actual: sum(LEGACY_COLOR_LITERALS), ceiling: sum(LEGACY_COLOR_LITERALS) });
+    console.log(JSON.stringify({ ok: failures.length === 0, failures, inventory }, null, 2));
+    process.exit(failures.length ? 1 : 0);
 }
 
 if (failures.length) {
