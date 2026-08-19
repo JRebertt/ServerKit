@@ -43,6 +43,12 @@ CEILING_FILE = os.path.join(HERE, 'UNREPORTED_CRASH_CEILING')
 
 REPORTERS = {'unexpected_response', 'record_unexpected'}
 
+# One level of indirection is followed on purpose. `queue_bus.py` answered 21
+# crashes through a local `_handle_error(e)` that returned 500 with str(e), and
+# the first version of this census could not see the 500 because it was in the
+# helper rather than the handler. A ratchet that a one-line helper defeats is
+# not a ratchet.
+
 
 def _rel(path):
     return os.path.relpath(path, BACKEND).replace(os.sep, '/')
@@ -70,6 +76,19 @@ def _reports(handler):
     return False
 
 
+def _delegates_to(handler, helper_names):
+    """Returns the result of a same-module helper that itself answers 500."""
+    if any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
+        return False
+    for n in ast.walk(handler):
+        if isinstance(n, ast.Return) and isinstance(n.value, ast.Call):
+            fn = n.value.func
+            name = getattr(fn, 'id', None) or getattr(fn, 'attr', None)
+            if name in helper_names:
+                return True
+    return False
+
+
 def _answers_500(handler):
     """Returns a response carrying 500, and does not re-raise."""
     if any(isinstance(n, ast.Raise) for n in ast.walk(handler)):
@@ -83,6 +102,17 @@ def _answers_500(handler):
     return False
 
 
+def _module_helpers_answering_500(tree):
+    """Module-level functions that themselves return a 500 without reporting."""
+    helpers = set()
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if _answers_500(node) and not _reports(node):
+            helpers.add(node.name)
+    return helpers
+
+
 def count_file(path):
     """Return [(lineno, function_name)] of unreported crash answers in one file."""
     try:
@@ -90,6 +120,8 @@ def count_file(path):
             tree = ast.parse(f.read())
     except (SyntaxError, UnicodeDecodeError):
         return []
+
+    via_helper = _module_helpers_answering_500(tree)
 
     owner = {}
     for node in ast.walk(tree):
@@ -102,7 +134,10 @@ def count_file(path):
     for node in ast.walk(tree):
         if not isinstance(node, ast.ExceptHandler):
             continue
-        if not _is_blanket(node) or not _answers_500(node) or _reports(node):
+        if not _is_blanket(node) or _reports(node):
+            continue
+        answers = _answers_500(node) or _delegates_to(node, via_helper)
+        if not answers:
             continue
         found.append((node.lineno, owner.get(id(node), '<module>')))
     return sorted(found)

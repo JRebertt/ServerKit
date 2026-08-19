@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.queue_bus.service import QueueBusService, QueueBusError
+from app.error_reporting import unexpected_response
 from app.middleware.rbac import get_current_user
 
 queue_bus_bp = Blueprint('queue_bus', __name__)
@@ -47,9 +48,16 @@ def _ensure_group_accessible(group_slug):
 
 
 def _handle_error(e):
+    """Map a caught exception to a response.
+
+    A QueueBusError is an expected, caller-actionable failure and keeps its own
+    message and status. Anything else is a crash: report it so it reaches
+    /monitoring/errors, and answer the standard body instead of handing the
+    caller str(e).
+    """
     if isinstance(e, QueueBusError):
         return jsonify({'error': e.message}), e.status_code
-    return jsonify({'error': str(e)}), 500
+    return unexpected_response(e)
 
 
 # ----------------------------------------------------------------------
