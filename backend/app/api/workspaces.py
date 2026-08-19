@@ -5,7 +5,9 @@ from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
 # The workspace guards now live in middleware/rbac.py so any resource blueprint
 # can reuse them (plan 19 Decision 2). Re-exported here for existing callers.
-from app.middleware.rbac import get_current_user, require_workspace_access, require_workspace_role
+from app.middleware.rbac import (
+    admin_required, get_current_user, require_workspace_access, require_workspace_role,
+)
 
 workspaces_bp = Blueprint('workspaces', __name__)
 
@@ -50,6 +52,7 @@ def get_workspace(workspace_id):
 
 @workspaces_bp.route('/', methods=['POST'])
 @jwt_required()
+@admin_required
 def create_workspace():
     user = get_current_user()
     data = request.get_json()
