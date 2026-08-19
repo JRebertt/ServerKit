@@ -313,8 +313,7 @@
     padding: 1px 8px;
     font-size: $font-size-xs;
     font-weight: $font-weight-medium;
-    color: $warning;
-    background: $warning-bg;
+    @include status-variant($warning, $warning-bg);
     border: 1px solid $warning-border;
     border-radius: $radius-full;
     vertical-align: middle;

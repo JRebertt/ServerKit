@@ -79,8 +79,7 @@
         display: grid;
         place-items: center;
         flex-shrink: 0;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     .cron-jobcell {

@@ -81,9 +81,9 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
         text-transform: capitalize;
 
         &--pending { background: var(--surface-3); color: var(--text-faint); }
-        &--running { background: var(--accent-bg); color: var(--accent-bright); }
-        &--succeeded { background: var(--green-bg); color: var(--green); }
-        &--failed { background: var(--red-bg); color: var(--red); }
+        &--running { @include status-variant(var(--accent-bright), var(--accent-bg)); }
+        &--succeeded { @include status-variant(var(--green), var(--green-bg)); }
+        &--failed { @include status-variant(var(--red), var(--red-bg)); }
 
         // Demo/simulated jobs (plan 51.5): visually distinct from status pills.
         &--demo {
@@ -121,8 +121,7 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     }
 
     &__queued {
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     // ---- body: log pane (full width; steps live in the strip above) ----
@@ -278,8 +277,7 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
 
         &:hover { background: $bg-hover; color: $text-primary; }
         &.is-active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
             border-color: transparent;
         }
     }

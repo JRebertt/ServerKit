@@ -315,8 +315,7 @@ $ft-default:  #646b7a;
 
         &:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
         &.small { padding: 4px; }
     }
@@ -640,8 +639,7 @@ $ft-default:  #646b7a;
         }
 
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
 
             svg { color: var(--accent-bright); }
         }
@@ -680,8 +678,7 @@ $ft-default:  #646b7a;
         }
 
         &.active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
 
         &:disabled {
@@ -1268,7 +1265,7 @@ $ft-default:  #646b7a;
         @include transition(all);
 
         &:hover { background: var(--surface-3); color: var(--text); }
-        &.danger:hover { background: $danger-bg; color: $danger; }
+        &.danger:hover { @include status-variant($danger, $danger-bg); }
     }
 
     // ─── File icons ─────────────────────────────────────

@@ -324,8 +324,7 @@ $skwe-pane-w: 340px;
 
         &:hover {
             border-color: var(--accent-dim);
-            color: var(--accent-bright);
-            background: var(--accent-bg);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
 
         &:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

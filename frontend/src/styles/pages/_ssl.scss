@@ -16,13 +16,12 @@
     height: 26px;
     flex-shrink: 0;
     border-radius: $radius-md;
-    background: $success-bg;
-    color: $success;
+    @include status-variant($success, $success-bg);
 
     // Same four states the Status column reports, so the row does not say
     // "healthy" on its left and "expired" on its right.
-    &.is-expiring { background: $warning-bg; color: $warning; }
-    &.is-expired { background: $danger-bg; color: $danger; }
+    &.is-expiring { @include status-variant($warning, $warning-bg); }
+    &.is-expired { @include status-variant($danger, $danger-bg); }
     &.is-unknown { background: $bg-tertiary; color: $text-tertiary; }
 }
 

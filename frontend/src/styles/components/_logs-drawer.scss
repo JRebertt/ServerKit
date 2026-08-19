@@ -105,8 +105,7 @@
         border-radius: 8px;
         display: grid;
         place-items: center;
-        background: var(--cyan-bg);
-        color: var(--cyan);
+        @include status-variant(var(--cyan), var(--cyan-bg));
         flex-shrink: 0;
     }
 
@@ -244,8 +243,7 @@
         border-radius: 8px;
         display: grid;
         place-items: center;
-        background: var(--green-bg);
-        color: var(--green);
+        @include status-variant(var(--green), var(--green-bg));
         flex-shrink: 0;
     }
 
@@ -335,8 +333,7 @@
     .terminal-alert {
         padding: $space-2 $space-3;
         border-top: 1px solid var(--border-soft);
-        background: var(--red-bg);
-        color: var(--red);
+        @include status-variant(var(--red), var(--red-bg));
         font-family: var(--mono);
         font-size: $font-size-sm;
     }

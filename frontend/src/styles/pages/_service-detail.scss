@@ -228,8 +228,7 @@
         letter-spacing: 0.05em;
         text-transform: uppercase;
         padding: 1px 6px;
-        background: var(--green-bg);
-        color: var(--green);
+        @include status-variant(var(--green), var(--green-bg));
         border-radius: $radius-sm;
     }
 
@@ -458,8 +457,7 @@ h3.svc-eyebrow {
     &__event-sha {
         font-family: var(--mono);
         font-size: $font-size-sm;
-        color: var(--accent-bright);
-        background: var(--accent-bg);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         padding: 1px $space-2;
         border-radius: $radius-sm;
         flex-shrink: 0;
@@ -703,8 +701,7 @@ h3.svc-eyebrow {
 
         &:hover { background: var(--surface-hover); color: var(--text); }
         &.is-active {
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
             svg { color: var(--accent-bright); }
         }
     }
@@ -888,8 +885,7 @@ h3.svc-eyebrow {
         min-height: 20px;
         padding: 0 8px;
         border-radius: $radius-full;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         font-size: 11px;
         font-weight: $font-weight-semibold;
         text-transform: capitalize;
@@ -1236,8 +1232,7 @@ h3.svc-eyebrow {
     }
 
     &__deploy-sha {
-        color: var(--accent-bright);
-        background: var(--accent-bg);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         padding: 0 $space-1;
         border-radius: $radius-sm;
     }
@@ -1386,8 +1381,7 @@ h3.svc-eyebrow {
         font-weight: $font-weight-bold;
         letter-spacing: 0.08em;
         padding: 1px $space-1;
-        background: var(--red-bg);
-        color: var(--red);
+        @include status-variant(var(--red), var(--red-bg));
         border-radius: $radius-sm;
         animation: pulse-dot 1.5s ease-in-out infinite;
     }

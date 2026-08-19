@@ -490,8 +490,7 @@
 }
 
 .queue-message-error {
-    color: $danger;
-    background: $danger-bg;
+    @include status-variant($danger, $danger-bg);
     border: 1px solid $danger-border;
     border-radius: $radius-lg;
     padding: $space-3;

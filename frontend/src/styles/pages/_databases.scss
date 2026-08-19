@@ -40,7 +40,7 @@ $dbx-sqlite: #3d8fd1;
 
         &:hover:not(:disabled) { background: $bg-hover; color: $text-primary; }
         &:disabled { opacity: 0.4; cursor: not-allowed; }
-        &.is-danger:hover:not(:disabled) { background: $danger-bg; color: $danger; }
+        &.is-danger:hover:not(:disabled) { @include status-variant($danger, $danger-bg); }
     }
 
     .dbx-chip {

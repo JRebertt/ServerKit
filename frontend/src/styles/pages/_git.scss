@@ -38,8 +38,7 @@
             border-radius: 20px;
             display: grid;
             place-items: center;
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
             margin-bottom: $space-6;
 
             svg {
@@ -191,8 +190,7 @@
 
         &.active,
         &[data-state="active"] {
-            color: var(--accent-bright);
-            background: var(--accent-bg);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
             border-bottom-color: var(--accent-bright);
         }
     }
@@ -245,8 +243,7 @@
     .git-hash {
         font-family: var(--mono);
         font-size: 11px;
-        color: var(--accent-bright);
-        background: var(--accent-bg);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
         padding: 2px 7px;
         border-radius: 5px;
         flex-shrink: 0;
@@ -269,8 +266,7 @@
         display: grid;
         place-items: center;
         flex-shrink: 0;
-        background: var(--accent-bg);
-        color: var(--accent-bright);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
     }
 
     // Brand tiles are intentional categorical colors (solid, theme-stable)
@@ -330,8 +326,7 @@
         color: var(--red);
 
         &:hover {
-            background: var(--red-bg);
-            color: var(--red);
+            @include status-variant(var(--red), var(--red-bg));
         }
     }
 
@@ -860,8 +855,7 @@
         margin-top: 6px;
         padding: 6px 10px;
         border-radius: $radius-sm;
-        background: var(--red-bg);
-        color: var(--red);
+        @include status-variant(var(--red), var(--red-bg));
         font-size: 12px;
         overflow-wrap: anywhere;
     }

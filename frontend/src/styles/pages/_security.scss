@@ -473,10 +473,10 @@
         color: var(--text-dim);
     }
 
-    .scan-card--quick .scan-card-icon { background: var(--accent-bg); color: var(--accent-bright); }
-    .scan-card--full .scan-card-icon { background: var(--violet-bg); color: var(--violet); }
-    .scan-card--custom .scan-card-icon { background: var(--cyan-bg); color: var(--cyan); }
-    .scan-card--app .scan-card-icon { background: var(--amber-bg); color: var(--amber); }
+    .scan-card--quick .scan-card-icon { @include status-variant(var(--accent-bright), var(--accent-bg)); }
+    .scan-card--full .scan-card-icon { @include status-variant(var(--violet), var(--violet-bg)); }
+    .scan-card--custom .scan-card-icon { @include status-variant(var(--cyan), var(--cyan-bg)); }
+    .scan-card--app .scan-card-icon { @include status-variant(var(--amber), var(--amber-bg)); }
 
     .scan-card--custom,
     .scan-card--app {
@@ -740,18 +740,15 @@
         }
 
         &.active .sec-shield {
-            background: var(--green-bg);
-            color: var(--green);
+            @include status-variant(var(--green), var(--green-bg));
         }
 
         &.inactive .sec-shield {
-            background: var(--red-bg);
-            color: var(--red);
+            @include status-variant(var(--red), var(--red-bg));
         }
 
         &.unknown .sec-shield {
-            background: var(--amber-bg);
-            color: var(--amber);
+            @include status-variant(var(--amber), var(--amber-bg));
         }
 
         &__label {

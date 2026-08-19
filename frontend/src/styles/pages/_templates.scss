@@ -309,8 +309,7 @@
     padding: 2px 8px;
     font-family: var(--mono);
     font-size: 11px;
-    color: var(--green);
-    background: var(--green-bg);
+    @include status-variant(var(--green), var(--green-bg));
     border-radius: $radius-sm;
 }
 
@@ -583,8 +582,7 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     padding: 2px $space-2;
-    background: var(--accent-bg);
-    color: var(--accent-bright);
+    @include status-variant(var(--accent-bright), var(--accent-bg));
     border-radius: $radius-sm;
     font-weight: $font-weight-semibold;
 }
@@ -595,8 +593,7 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     padding: 2px $space-2;
-    background: var(--green-bg);
-    color: var(--green);
+    @include status-variant(var(--green), var(--green-bg));
     border-radius: $radius-sm;
     font-weight: $font-weight-semibold;
 }

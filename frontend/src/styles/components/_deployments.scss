@@ -243,18 +243,15 @@
         font-size: 0.8125rem;
 
         &--add {
-            background: $success-bg;
-            color: $success;
+            @include status-variant($success, $success-bg);
         }
 
         &--remove {
-            background: $danger-bg;
-            color: $danger;
+            @include status-variant($danger, $danger-bg);
         }
 
         &--change {
-            background: $warning-bg;
-            color: $warning;
+            @include status-variant($warning, $warning-bg);
         }
     }
 

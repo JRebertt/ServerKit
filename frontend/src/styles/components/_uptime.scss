@@ -384,17 +384,14 @@
         font-family: $font-mono;
         padding: $space-1 $space-2;
         border-radius: $radius-sm;
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
 
         &.fair {
-            background: $warning-bg;
-            color: $warning;
+            @include status-variant($warning, $warning-bg);
         }
 
         &.poor {
-            background: $danger-bg;
-            color: $danger;
+            @include status-variant($danger, $danger-bg);
         }
     }
 }

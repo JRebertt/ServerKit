@@ -30,16 +30,14 @@
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    background: var(--accent-bg);
-    color: var(--accent-bright);
+    @include status-variant(var(--accent-bright), var(--accent-bg));
 }
 
 .dom-primary {
     margin-left: $space-2;
     padding: 1px 6px;
     border-radius: $radius-sm;
-    background: var(--accent-bg);
-    color: var(--accent-bright);
+    @include status-variant(var(--accent-bright), var(--accent-bg));
     font-family: var(--mono);
     font-size: 10px;
     font-weight: $font-weight-semibold;
@@ -60,8 +58,7 @@
     margin-left: $space-2;
     padding: 1px 6px;
     border-radius: $radius-sm;
-    background: $success-bg;
-    color: $success;
+    @include status-variant($success, $success-bg);
     font-size: 10px;
     font-weight: $font-weight-semibold;
 }
@@ -288,8 +285,7 @@
         border-radius: $radius-full;
         font-size: 11px;
         font-weight: $font-weight-medium;
-        color: var(--accent-bright);
-        background: var(--accent-bg);
+        @include status-variant(var(--accent-bright), var(--accent-bg));
 
         svg { flex-shrink: 0; }
     }
@@ -410,7 +406,7 @@
 
 .dom-delete-btn {
     color: $danger;
-    &:hover { background: var(--red-bg); color: $danger; }
+    &:hover { @include status-variant($danger, var(--red-bg)); }
 }
 
 // ── Kept: modal styles used by Add-Domain + Enable-SSL forms ─
@@ -465,11 +461,11 @@
     background: var(--surface-3);
     color: var(--text-dim);
 
-    &--a, &--aaaa, &--ns { background: var(--accent-bg); color: var(--accent-bright); }
-    &--cname { background: var(--cyan-bg); color: var(--cyan); }
-    &--mx { background: var(--amber-bg); color: var(--amber); }
-    &--txt, &--spf { background: var(--green-bg); color: var(--green); }
-    &--soa, &--srv, &--caa { background: var(--violet-bg); color: var(--violet); }
+    &--a, &--aaaa, &--ns { @include status-variant(var(--accent-bright), var(--accent-bg)); }
+    &--cname { @include status-variant(var(--cyan), var(--cyan-bg)); }
+    &--mx { @include status-variant(var(--amber), var(--amber-bg)); }
+    &--txt, &--spf { @include status-variant(var(--green), var(--green-bg)); }
+    &--soa, &--srv, &--caa { @include status-variant(var(--violet), var(--violet-bg)); }
 }
 
 // One-time Dynamic DNS token callout (DdnsTokenCallout.jsx, shown in the drawer).

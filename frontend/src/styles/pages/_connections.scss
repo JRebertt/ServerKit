@@ -201,8 +201,7 @@
     white-space: nowrap;
 
     &--ok {
-        color: $success;
-        background: $success-bg;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
 }
@@ -219,8 +218,7 @@
     color: $text-secondary;
 
     &--ok {
-        color: $success;
-        background: $success-bg;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
 
@@ -231,8 +229,7 @@
     }
 
     &--danger {
-        color: $danger;
-        background: $danger-bg;
+        @include status-variant($danger, $danger-bg);
         border-color: $danger-border;
     }
 
@@ -741,8 +738,7 @@
 
         &.is-active {
             border-color: var(--accent-dim);
-            background: var(--accent-bg);
-            color: var(--accent-bright);
+            @include status-variant(var(--accent-bright), var(--accent-bg));
         }
     }
 }

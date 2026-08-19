@@ -248,18 +248,15 @@
         }
 
         &.online {
-            background: $success-bg;
-            color: $success;
+            @include status-variant($success, $success-bg);
         }
 
         &.offline {
-            background: $danger-bg;
-            color: $danger;
+            @include status-variant($danger, $danger-bg);
         }
 
         &.connecting {
-            background: $warning-bg;
-            color: $warning;
+            @include status-variant($warning, $warning-bg);
         }
     }
 }
@@ -422,20 +419,17 @@
     text-transform: capitalize;
 
     &.online {
-        color: $success;
-        background: $success-bg;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
 
     &.offline {
-        color: $danger;
-        background: $danger-bg;
+        @include status-variant($danger, $danger-bg);
         border-color: $danger-border;
     }
 
     &.connecting {
-        color: $warning;
-        background: $warning-bg;
+        @include status-variant($warning, $warning-bg);
         border-color: $warning-border;
     }
 }
@@ -995,18 +989,15 @@
     text-transform: capitalize;
 
     &.online {
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
     }
 
     &.offline {
-        background: $danger-bg;
-        color: $danger;
+        @include status-variant($danger, $danger-bg);
     }
 
     &.connecting {
-        background: $warning-bg;
-        color: $warning;
+        @include status-variant($warning, $warning-bg);
     }
 
     &.pending {
@@ -1281,8 +1272,7 @@
     font-weight: $font-weight-medium;
 
     &.running {
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
     }
 
     &.stopped {
@@ -1650,8 +1640,7 @@
     .badge-success {
         font-size: $font-size-xs;
         padding: 2px $space-2;
-        background: $success-bg;
-        color: $success;
+        @include status-variant($success, $success-bg);
         border-radius: $radius-sm;
     }
 }
@@ -1755,10 +1744,10 @@
     padding: 2px $space-2;
     border-radius: 5px;
 
-    &.critical { background: var(--red-bg); color: var(--red); }
-    &.high { background: var(--amber-bg); color: var(--amber); }
-    &.medium { background: var(--accent-bg); color: var(--accent-bright); }
-    &.warning { background: var(--amber-bg); color: var(--amber); }
+    &.critical { @include status-variant(var(--red), var(--red-bg)); }
+    &.high { @include status-variant(var(--amber), var(--amber-bg)); }
+    &.medium { @include status-variant(var(--accent-bright), var(--accent-bg)); }
+    &.warning { @include status-variant(var(--amber), var(--amber-bg)); }
     &.low,
     &.info { background: var(--surface-3); color: var(--text-faint); }
 }
@@ -2581,18 +2570,15 @@
     }
 
     &--online {
-        color: $success;
-        background: $success-bg;
+        @include status-variant($success, $success-bg);
         border-color: $success-border;
     }
     &--offline {
-        color: $danger;
-        background: $danger-bg;
+        @include status-variant($danger, $danger-bg);
         border-color: $danger-border;
     }
     &--connecting {
-        color: $warning;
-        background: $warning-bg;
+        @include status-variant($warning, $warning-bg);
         border-color: $warning-border;
     }
     &--pending {
@@ -2674,8 +2660,7 @@
             svg { color: $danger; }
 
             &:hover {
-                background: $danger-bg;
-                color: $danger;
+                @include status-variant($danger, $danger-bg);
             }
         }
     }
@@ -3112,8 +3097,7 @@
     height: 17px;
     padding: 0 6px;
     border-radius: $radius-full;
-    background: var(--amber-bg);
-    color: var(--amber);
+    @include status-variant(var(--amber), var(--amber-bg));
     font-family: var(--mono);
     font-size: 10px;
     font-weight: $font-weight-semibold;
@@ -3179,12 +3163,12 @@
 
     &--warning {
         border-color: fade($warning-raw, 45%);
-        .notification__icon { background: $warning-bg; color: $warning; }
+        .notification__icon { @include status-variant($warning, $warning-bg); }
     }
 
     &--danger {
         border-color: fade($danger-raw, 45%);
-        .notification__icon { background: $danger-bg; color: $danger; }
+        .notification__icon { @include status-variant($danger, $danger-bg); }
     }
 }
 
@@ -3542,17 +3526,17 @@
 
         &--info {
             border-color: var(--border-soft);
-            .notification__icon { background: var(--accent-bg); color: var(--accent-bright); }
+            .notification__icon { @include status-variant(var(--accent-bright), var(--accent-bg)); }
         }
 
         &--warning {
             border-color: fade($warning-raw, 28%);
-            .notification__icon { background: var(--amber-bg); color: var(--amber); }
+            .notification__icon { @include status-variant(var(--amber), var(--amber-bg)); }
         }
 
         &--danger {
             border-color: fade($danger-raw, 28%);
-            .notification__icon { background: var(--red-bg); color: var(--red); }
+            .notification__icon { @include status-variant(var(--red), var(--red-bg)); }
         }
     }
 

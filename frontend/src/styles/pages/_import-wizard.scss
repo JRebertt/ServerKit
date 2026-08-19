@@ -44,8 +44,7 @@
         white-space: nowrap;
 
         &.is-active {
-            color: $text-primary;
-            background: $accent-bg;
+            @include status-variant($text-primary, $accent-bg);
 
             .import-wizard__step-dot {
                 background: $accent-primary;
@@ -170,8 +169,7 @@
         width: 36px;
         height: 36px;
         border-radius: $radius-md;
-        background: $accent-bg;
-        color: $accent-primary;
+        @include status-variant($accent-primary, $accent-bg);
     }
 
     &__source-chev {

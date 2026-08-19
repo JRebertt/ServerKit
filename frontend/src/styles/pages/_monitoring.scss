@@ -468,8 +468,7 @@
             border-color: rgba(61, 220, 151, 0.3);
 
             .mon-ico {
-                background: var(--green-bg);
-                color: var(--green);
+                @include status-variant(var(--green), var(--green-bg));
             }
         }
 

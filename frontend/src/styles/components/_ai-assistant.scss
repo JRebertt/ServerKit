@@ -252,8 +252,7 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
 }
 
 .sk-ai-code {
-    background: var(--sk-ai-code-bg);
-    color: var(--sk-ai-code-fg);
+    @include status-variant(var(--sk-ai-code-fg), var(--sk-ai-code-bg));
     font-family: var(--sk-ai-mono);
     font-size: 12.5px;
     border: 1px solid var(--sk-ai-border);
@@ -333,8 +332,7 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
     font-size: 13px;
     cursor: pointer;
     border: 1px solid var(--sk-ai-border);
-    background: var(--sk-ai-bg);
-    color: var(--sk-ai-fg);
+    @include status-variant(var(--sk-ai-fg), var(--sk-ai-bg));
     &--ghost { background: transparent; }
     &--danger { background: var(--sk-ai-accent); border-color: var(--sk-ai-accent); color: #fff; }
     &:focus-visible { outline: 2px solid var(--sk-ai-accent); outline-offset: 1px; }
