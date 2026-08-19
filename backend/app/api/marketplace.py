@@ -11,6 +11,7 @@ from flask_jwt_extended import jwt_required
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
 from app.middleware.rbac import get_current_user
+from app.error_reporting import unexpected_response
 
 marketplace_bp = Blueprint('marketplace', __name__)
 
@@ -92,8 +93,5 @@ def install_registry(slug):
         return jsonify(plugin.to_dict()), 201
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    except Exception:
-        import logging, uuid
-        ref = uuid.uuid4().hex[:8]
-        logging.getLogger(__name__).exception('Registry install failed (ref=%s)', ref)
-        return jsonify({'error': 'Installation failed. Check server logs.', 'ref': ref}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)

@@ -7,6 +7,7 @@ from app.services.security_service import SecurityService
 from app.services.image_scanner_service import ImageScannerService
 from app.services.malware_scan_service import MalwareScanService
 from app.services.yara_scan_service import YaraScanService
+from app.error_reporting import unexpected_response
 
 security_bp = Blueprint('security', __name__)
 
@@ -638,8 +639,8 @@ def fim_baseline(scope):
         result = FileIntegrityService.baseline(scope, options=options)
     except FileIntegrityScopeError as exc:
         return jsonify({'error': str(exc)}), 400
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
     return jsonify(result), 200
 
 
@@ -654,8 +655,8 @@ def fim_check(scope):
         result = FileIntegrityService.check(scope)
     except FileIntegrityScopeError as exc:
         return jsonify({'error': str(exc)}), 400
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
     return jsonify(result), 200
 
 
@@ -670,8 +671,8 @@ def fim_accept(scope):
         result = FileIntegrityService.accept(scope)
     except FileIntegrityScopeError as exc:
         return jsonify({'error': str(exc)}), 400
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
     return jsonify(result), 200
 
 

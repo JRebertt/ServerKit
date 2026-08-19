@@ -1,6 +1,7 @@
 """File Manager API endpoints for browsing, editing, and managing files."""
 
 from flask import Blueprint, request, jsonify, send_file
+from app.error_reporting import unexpected_response
 from ..middleware.rbac import permission_required
 from ..services.file_service import FileService
 from ..services.storage_provider_service import StorageProviderService
@@ -353,8 +354,8 @@ def download_file():
             as_attachment=True,
             download_name=os.path.basename(path)
         )
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(e)
 
 
 @files_bp.route('/upload', methods=['POST'])
@@ -414,8 +415,8 @@ def upload_file():
 
     except PermissionError:
         return jsonify({'error': 'Permission denied'}), 403
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(e)
 
 
 # ── S3 / object-storage browser (reuses the configured backup storage creds) ──

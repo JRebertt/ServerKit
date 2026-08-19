@@ -11,6 +11,7 @@ from app.services import sso_service
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
 from app.middleware.rbac import admin_required, get_current_user
+from app.error_reporting import record_unexpected, unexpected_response
 
 sso_bp = Blueprint('sso', __name__)
 
@@ -70,11 +71,12 @@ def callback(provider):
             details={'provider': provider, 'error': str(e)},
         )
         return jsonify({'error': str(e)}), 403
-    except Exception as e:
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
         AuditService.log(
             action=AuditLog.ACTION_SSO_LOGIN_FAILED,
-            details={'provider': provider, 'error': str(e)},
+            details={'provider': provider, 'error': str(exc)},
         )
+        record_unexpected(exc)
         return jsonify({'error': 'SSO authentication failed'}), 500
 
     return _complete_sso_login(user, provider, is_new)
@@ -95,7 +97,8 @@ def saml_callback():
         user, is_new = sso_service.find_or_create_user('saml', profile)
     except ValueError as e:
         return jsonify({'error': str(e)}), 403
-    except Exception as e:
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        record_unexpected(exc)
         return jsonify({'error': 'SAML authentication failed'}), 500
 
     return _complete_sso_login(user, 'saml', is_new)
@@ -124,8 +127,8 @@ def saml_metadata():
         metadata = auth.get_settings().get_sp_metadata()
         from flask import Response
         return Response(metadata, mimetype='application/xml')
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(e)
 
 
 # ------------------------------------------------------------------

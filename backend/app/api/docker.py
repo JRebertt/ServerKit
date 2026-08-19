@@ -4,6 +4,7 @@ from app.models import User, Application
 from app.services.docker_service import DockerService
 from app.middleware.rbac import admin_required
 from app import db, paths
+from app.error_reporting import unexpected_response
 
 docker_bp = Blueprint('docker', __name__)
 
@@ -605,12 +606,12 @@ def cleanup_all_apps():
     # Commit database changes
     try:
         db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'error': f'Database commit failed: {str(e)}',
-            'results': results
-        }), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # The per-item results are the caller's half-done work and must
+        # survive; only the exception text is dropped.
+        body, status = unexpected_response(exc)
+        body['results'] = results
+        return body, status
 
     return jsonify({
         'success': True,

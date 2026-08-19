@@ -19,6 +19,7 @@ from app.services.template_service import TemplateService
 from app.services.repository_manifest_service import RepositoryManifestService
 from app.services.resource_grant_service import ResourceGrantService
 from app.utils.slug import validate_app_name
+from app.error_reporting import unexpected_response
 
 templates_bp = Blueprint('templates', __name__)
 
@@ -348,11 +349,10 @@ def install_template(template_id):
         status = result.get('job', {}).get('status')
         return jsonify(result), 201 if status == 'succeeded' else 202
 
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Template install error: {error_trace}")
-        return jsonify({'error': str(e), 'trace': error_trace}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        # Was returning the full traceback to the caller and print()ing it.
+        # The door logs it and files it under a request id instead.
+        return unexpected_response(exc)
 
 
 @templates_bp.route('/<template_id>/capacity', methods=['GET'])
@@ -446,11 +446,8 @@ def validate_installation():
 
         return jsonify({'valid': True, 'capacity': capacity}), 200
 
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print(f"Validate install error: {error_trace}")
-        return jsonify({'error': str(e), 'trace': error_trace}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @templates_bp.route('/test-db-connection', methods=['POST'])

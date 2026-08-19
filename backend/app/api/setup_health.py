@@ -13,6 +13,7 @@ ref}``). The doctor report carries the same items as its ``setup.*`` section, so
 this endpoint and Monitoring → Doctor stay in lockstep.
 """
 from flask import Blueprint, jsonify, request
+from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required, auth_required, get_current_user
 from ..services.setup_health_service import SetupHealthService
@@ -33,8 +34,8 @@ def get_setup_health():
     summary. Cheap — DB/settings probes only, no host calls."""
     try:
         return jsonify(SetupHealthService.evaluate(scope='panel'))
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @setup_health_bp.route('/account', methods=['GET'])
@@ -47,8 +48,8 @@ def get_account_security():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         return jsonify(SetupHealthService.evaluate(scope='user', user=user))
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 # --------------------------------------------------------------------------- #
@@ -83,8 +84,8 @@ def snooze_item():
         return err
     try:
         return jsonify(SetupHealthService.snooze(key, days=data.get('days', 30), user=user))
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @setup_health_bp.route('/snooze', methods=['DELETE'])
@@ -100,8 +101,8 @@ def unsnooze_item():
         return err
     try:
         return jsonify(SetupHealthService.unsnooze(key, user=user))
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 # --------------------------------------------------------------------------- #
@@ -115,8 +116,8 @@ def dns_backfill_preview():
     """Dry-run: the managed hosts a DNS backfill would ensure records for."""
     try:
         return jsonify(SetupReconcileService.dns_backfill_preview())
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @setup_health_bp.route('/reconcile/dns/apply', methods=['POST'])
@@ -127,8 +128,8 @@ def dns_backfill_apply():
         from app.jobs.service import JobService
         job = JobService.enqueue(DNS_BACKFILL_JOB_KIND, payload={}, max_attempts=1)
         return jsonify({'job_id': job.id}), 202
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @setup_health_bp.route('/reconcile/url-fix/preview', methods=['POST'])
@@ -138,8 +139,8 @@ def url_fix_preview():
     stale IP, with the per-site swap they'd get."""
     try:
         return jsonify(SetupReconcileService.url_fix_preview())
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
 
 
 @setup_health_bp.route('/reconcile/url-fix/apply', methods=['POST'])
@@ -150,5 +151,5 @@ def url_fix_apply():
         from app.jobs.service import JobService
         job = JobService.enqueue(URL_FIX_JOB_KIND, payload={}, max_attempts=1)
         return jsonify({'job_id': job.id}), 202
-    except Exception as exc:  # noqa: BLE001
-        return jsonify({'error': str(exc)}), 500
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)

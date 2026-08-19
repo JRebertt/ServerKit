@@ -474,59 +474,16 @@ def create_app(config_name=None):
     def internal_error(e):
         original = getattr(e, 'original_exception', None)
         exc = original or e
-        request_id = get_request_id(create=True)
-        app.logger.exception(
-            'Unhandled exception on %s %s [request_id=%s]',
-            request.method, request.path, request_id,
-            exc_info=exc
-        )
-        # Roll the failing request's session back BEFORE recording. The 500
-        # handler shares the app-context-scoped db.session with the view that
-        # just crashed, so without this a crash caused by a DB error leaves the
-        # session in a failed transaction and record_error's very first query
-        # raises PendingRollbackError — swallowed by its own contract, which
-        # means database-caused 500s never reach the error log at all. It also
-        # stops record_error's commit() from flushing any ORM work the crashed
-        # view had left pending. Flask-SQLAlchemy's teardown rolls this session
-        # back moments later regardless, so a clean request is unaffected.
-        try:
-            db.session.rollback()
-        except Exception:  # noqa: BLE001 - must never change the 500 response
-            pass
-        # Record into the centralized error log. error_log_service never raises
-        # by contract, but belt-and-braces: a recording failure must never
-        # change this response.
-        try:
-            import traceback as _traceback
-            from flask_jwt_extended import get_jwt_identity
-            from app.services import error_log_service
-            user_id = None
-            try:
-                user_id = get_jwt_identity()
-            except Exception:  # noqa: BLE001 - anonymous crashes still count
-                pass
-            error_log_service.record_error(
-                source='backend',
-                exception_type=type(exc).__name__,
-                message=str(exc),
-                traceback=''.join(
-                    _traceback.format_exception(type(exc), exc, exc.__traceback__)
-                ),
-                endpoint=request.path,
-                method=request.method,
-                user_id=user_id,
-                context={'request_id': request_id},
-            )
-        except Exception:  # noqa: BLE001
-            pass
+        # Logging, session rollback, and the error-log write live in
+        # app/error_reporting.py so a route that catches Exception itself can
+        # still put its crash on the record. Before that split this was the
+        # only path to /monitoring/errors, so every locally-handled 500 was
+        # invisible there.
+        from app.error_reporting import record_unexpected, unexpected_error_body
+
         # JSON either way: unlike a 404, there is no sensible SPA fallback for a
         # crash, and an HTML page tells the caller nothing it can act on.
-        return {
-            'error': 'Internal server error',
-            'status': 500,
-            'code': 'internal_error',
-            'request_id': request_id,
-        }, 500
+        return unexpected_error_body(record_unexpected(exc)), 500
 
     # Framework-generated HTTP errors (abort(), 405 from the router, 413 from
     # MAX_CONTENT_LENGTH) rendered Werkzeug's HTML page even under /api/, so an
