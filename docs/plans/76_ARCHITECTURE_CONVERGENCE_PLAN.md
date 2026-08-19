@@ -191,6 +191,34 @@ answer 200.** A failure reported as success is a worse bug than a 500 nobody
 logged, but converging it means deciding the response envelope, which is
 milestone C. It is called out here so the plan cannot claim B is finished.
 
+### Second-wave execution — milestone E2 polling row (2026-08-18)
+
+| Row | Baseline | Now | Commit |
+|---|---|---|---|
+| visibility-aware polling | 45 raw `setInterval` in 35 files; 1 with a visibility check, 1 with an in-flight guard | door + 4 reference migrations; 41 in 31 files ratcheted | `f21abe7a` |
+
+`utils/pollScheduler.js` (pure, testable without a DOM) + `hooks/usePolling.js`
++ `refetchInterval` on `useServerQuery`, all one implementation.
+
+The audit's framing needs one correction that matters for the remaining
+migrations: **the in-flight guard is not what stops the schedule from
+stacking.** Arming the next tick from the previous run's *completion* is. With
+`setInterval` the gap is measured tick-to-tick regardless of how long the work
+took, so a 5s poller against a 30s request has no gap at all — the guard alone
+would still leave a request starting every 5s and being dropped, which is
+wasted work rather than a fixed poller. The guard's real job is the out-of-band
+paths: a manual `refresh()` and the visibility catch-up.
+
+Also worth knowing before migrating the remaining 41: several sites use the
+interval effect's dependency array as an out-of-band "reload now" trigger
+(`MonitorsSummary`'s `refreshKey`). Moving to `usePolling` drops that unless it
+is re-expressed as an explicit refresh — a silent loss of a working feature, not
+a compile error.
+
+Remaining E2 work is the other 41 sites, of which a minority are genuine
+non-fetching timers (clock ticks, countdowns) that can stay listed rather than
+migrated.
+
 ## Thesis
 
 ServerKit does not mainly suffer from missing abstractions. It has good shared
