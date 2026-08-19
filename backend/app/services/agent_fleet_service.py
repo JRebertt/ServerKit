@@ -15,7 +15,7 @@ from app import db
 from app.models.server import (
     Server, ServerGroup, AgentVersion, ServerCommand, AgentSession, AgentRollout
 )
-from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 
 
 class AgentFleetService:
@@ -119,7 +119,7 @@ class AgentFleetService:
                 continue
 
             threading.Thread(
-                target=agent_registry.send_command,
+                target=dispatch_agent_command,
                 args=(server_id, 'agent:update', params),
                 kwargs={'user_id': user_id, 'timeout': 60.0},
                 daemon=True
@@ -380,7 +380,7 @@ class AgentFleetService:
         app = create_app()
 
         with app.app_context():
-            result = agent_registry.send_command(
+            result = dispatch_agent_command(
                 server_id, action, params, user_id=user_id, timeout=60.0
             )
 

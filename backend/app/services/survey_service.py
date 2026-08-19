@@ -361,6 +361,7 @@ def run_survey(server_id: str, user_id: Optional[int] = None) -> Tuple[Optional[
     failed/timed-out command → an appropriate error — never a crash.
     """
     from app.services.agent_registry import agent_registry
+    from app.services.remote_command_dispatcher import dispatch_agent_command
 
     if not agent_registry.is_agent_connected(server_id):
         return None, {
@@ -388,7 +389,7 @@ def run_survey(server_id: str, user_id: Optional[int] = None) -> Tuple[Optional[
             'status': 500,
         }
 
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id,
         'survey:read',
         {'catalog': catalog},

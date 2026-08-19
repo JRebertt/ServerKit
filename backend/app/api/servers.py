@@ -19,6 +19,7 @@ from app.api._query import apply_query, QueryParseError
 from app.models import User
 from app.models.server import Server, ServerGroup, ServerMetrics, ServerCommand, AgentSession, AgentVersion, AgentRollout
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.services.agent_fleet_service import fleet_service
 from app.services.discovery_service import discovery_service
 from app.services import connection_string as connection_string_codec
@@ -808,7 +809,7 @@ def ping_server(server_id):
         })
 
     # Send system:metrics command to get fresh data
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id,
         action='system:metrics',
         timeout=10.0
@@ -2316,7 +2317,7 @@ def trigger_agent_update(server_id):
         }), 503
 
     # Send update command to agent
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id,
         action='agent:update',
         params={
@@ -2688,7 +2689,7 @@ def remote_cloudflared_delete(server_id, tunnel_ref):
 @jwt_required()
 def remote_refresh_capabilities(server_id):
     user_id = get_jwt_identity()
-    result = agent_registry.send_command(
+    result = dispatch_agent_command(
         server_id=server_id, action='agent:recapabilities',
         params={}, user_id=user_id, timeout=20.0,
     )

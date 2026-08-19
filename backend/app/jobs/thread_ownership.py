@@ -62,7 +62,7 @@ THREAD_OWNERSHIP = {
         'lifecycle': LIFECYCLE_BOUNDED_DELIVERY,
         'rationale': 'Low-latency delivery attempt is owned and recoverable by its persisted command row.',
     },
-    'app/services/agent_fleet_service.py:upgrade_servers:agent_registry.send_command': {
+    'app/services/agent_fleet_service.py:upgrade_servers:dispatch_agent_command': {
         'owner': 'agent fleet upgrade',
         'lifecycle': LIFECYCLE_BOUNDED_FANOUT,
         'rationale': 'Parallel delivery fan-out creates persisted agent command state.',

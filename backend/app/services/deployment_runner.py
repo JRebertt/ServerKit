@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 from app import db
 from app.models.deployment_job import DeploymentJob
-from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.services.docker_service import DockerService
 from app.services.run_log_service import RunLogStream
 from app.services.telemetry_service import TelemetryService, generate_correlation_id
@@ -291,7 +291,7 @@ class DeploymentPlanRunner:
         return result
 
     def _send_agent_command(self, action: str, params: Dict[str, Any], timeout: float = 30.0) -> Any:
-        result = agent_registry.send_command(
+        result = dispatch_agent_command(
             server_id=self.job.target_server_id,
             action=action,
             params=params,

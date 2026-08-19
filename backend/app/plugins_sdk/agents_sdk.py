@@ -103,8 +103,9 @@ class BoundAgents:
                 f"The agent on {server_id} does not support '{requires}'",
                 code='UNSUPPORTED')
 
-        result = registry.send_command(
-            server_id=server_id, action=action, params=params or {},
+        from app.services.remote_command_dispatcher import dispatch_agent_command
+        result = dispatch_agent_command(
+            server_id, action, params=params or {},
             timeout=float(timeout), user_id=user_id,
         ) or {}
 

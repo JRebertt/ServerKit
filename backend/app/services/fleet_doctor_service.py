@@ -34,6 +34,7 @@ import socket
 from datetime import datetime
 
 from app.services.agent_registry import agent_registry
+from app.services.remote_command_dispatcher import dispatch_agent_command
 from app.services.fleet_sweep import fleet_sweep
 
 logger = logging.getLogger(__name__)
@@ -148,7 +149,7 @@ class FleetDoctorService:
     def _probe_checks(cls, server_id, per_agent_timeout, caps):
         """One ``doctor:probe`` round trip → check rows, or ``None`` when the
         probe errors / returns an unusable payload (caller falls back to v1)."""
-        res = agent_registry.send_command(
+        res = dispatch_agent_command(
             server_id, 'doctor:probe', {'units': list(DOCTOR_UNITS)},
             timeout=per_agent_timeout)
         if not res or not res.get('success'):
@@ -195,7 +196,7 @@ class FleetDoctorService:
         restartable = bool(caps.get(RESTART_CAPABILITY))
         checks = []
         for unit in DOCTOR_UNITS:
-            res = agent_registry.send_command(
+            res = dispatch_agent_command(
                 server_id, 'systemd:status', {'unit': unit},
                 timeout=per_agent_timeout)
             if not res or not res.get('success'):
@@ -214,7 +215,7 @@ class FleetDoctorService:
 
         # Disk headroom from system:metrics (disk_percent = used %).
         disk_row = None
-        res = agent_registry.send_command(
+        res = dispatch_agent_command(
             server_id, 'system:metrics', {}, timeout=per_agent_timeout)
         if res and res.get('success') and isinstance(res.get('data'), dict):
             used = res['data'].get('disk_percent')
