@@ -10,9 +10,20 @@ import os
 import subprocess
 
 import pytest
+from unittest.mock import patch
 
 from subprocess_stub import (FakePopen, FakeProc, ScriptedSubprocess,
                              UnscriptedCommand, normalize_argv)
+
+
+def _ufw_absent():
+    """Make the sbin guard see 'ufw' as absent on this machine.
+
+    These tests use ufw as an arbitrary example argv for the DISPATCH
+    mechanics; on machines where ufw really exists sbin-only (CI runners)
+    the popen guard would fire first and test the wrong thing.
+    """
+    return patch('popen_guard.shutil.which', return_value=None)
 
 
 class TestNormalisation:
@@ -65,7 +76,7 @@ class TestUnscriptedIsAnError:
             except Exception:
                 return {'success': False, 'error': 'not installed'}
 
-        with pytest.raises(UnscriptedCommand):
+        with _ufw_absent(), pytest.raises(UnscriptedCommand):
             service_style_call()
 
 
@@ -89,12 +100,12 @@ class TestDispatch:
 
     def test_raises_scripts_an_exception(self, fake_subprocess):
         fake_subprocess.script(['ufw'], raises=FileNotFoundError)
-        with pytest.raises(FileNotFoundError):
+        with _ufw_absent(), pytest.raises(FileNotFoundError):
             subprocess.run(['ufw', 'status'])
 
     def test_raises_accepts_an_instance(self, fake_subprocess):
         fake_subprocess.script(['ufw'], raises=subprocess.TimeoutExpired('ufw', 5))
-        with pytest.raises(subprocess.TimeoutExpired):
+        with _ufw_absent(), pytest.raises(subprocess.TimeoutExpired):
             subprocess.run(['ufw', 'status'])
 
     def test_when_gives_the_responder_argv_and_kwargs(self, fake_subprocess):

@@ -167,9 +167,11 @@ def test_calls_routed_through_the_helper_module_are_not_condemned(tmp_path):
 
     with patch('popen_guard.shutil.which', side_effect=_which_only_in_sbin):
         # The guard stays silent; the real Popen runs and reports the honest
-        # FileNotFoundError for a binary absent on this machine.
+        # FileNotFoundError. The head must be a binary that exists on NO
+        # machine — 'ufw' really is installed on CI runners, and a real exec
+        # succeeding here read as DID NOT RAISE.
         with pytest.raises(FileNotFoundError):
-            mod.call(['ufw', 'status'])
+            mod.call(['serverkit-no-such-binary', 'status'])
 
 
 def test_a_bypass_from_anywhere_else_still_fires(tmp_path):
