@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 import bcrypt
 
 from app import db
+from app.models.mixins import EncryptedSecret
 
 
 # Pair code uses Crockford-ish base32 minus ambiguous chars (0/O, 1/I/L)
@@ -70,6 +71,7 @@ class PendingAgent(db.Model):
     # When claimed, we stash credentials here briefly (Fernet-encrypted) so the
     # next /poll call can deliver them to the agent. Cleared after retrieval.
     claim_payload_encrypted = db.Column(db.Text, nullable=True)
+    claim_payload = EncryptedSecret('claim_payload_encrypted')
 
     claimed_server = db.relationship('Server', foreign_keys=[claimed_server_id])
 

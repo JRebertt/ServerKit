@@ -10,10 +10,10 @@ import requests
 from flask import session
 
 from app import db
+from app.utils.crypto import encrypt_secret
 from app.models import SourceConnection
 from app.services.repository_manifest_service import RepositoryManifestService
 from app.services.settings_service import SettingsService
-from app.utils.crypto import encrypt_secret, decrypt_secret
 
 
 class SourceConnectionService:
@@ -244,7 +244,7 @@ class SourceConnectionService:
         connection.provider_username = profile.get('login') or ''
         connection.display_name = profile.get('name') or profile.get('login') or ''
         connection.avatar_url = profile.get('avatar_url') or ''
-        connection.access_token_encrypted = encrypt_secret(access_token)
+        connection.access_token = access_token
         connection.scope = token_data.get('scope') or ' '.join(cls.GITHUB_SCOPES)
         connection.updated_at = datetime.utcnow()
         connection.last_used_at = datetime.utcnow()
@@ -484,7 +484,7 @@ class SourceConnectionService:
         connection.provider_username = profile.get('username') or ''
         connection.display_name = profile.get('name') or profile.get('username') or ''
         connection.avatar_url = profile.get('avatar_url') or ''
-        connection.access_token_encrypted = encrypt_secret(access_token)
+        connection.access_token = access_token
         connection.scope = token_data.get('scope') or ' '.join(cls.GITLAB_SCOPES)
         connection.updated_at = datetime.utcnow()
         connection.last_used_at = datetime.utcnow()
@@ -658,7 +658,7 @@ class SourceConnectionService:
         connection.provider_username = profile.get('username') or ''
         connection.display_name = profile.get('display_name') or profile.get('username') or ''
         connection.avatar_url = (profile.get('links', {}).get('avatar', {}) or {}).get('href', '')
-        connection.access_token_encrypted = encrypt_secret(access_token)
+        connection.access_token = access_token
         connection.scope = ' '.join(token_data.get('scopes', [])) or ' '.join(cls.BITBUCKET_SCOPES)
         connection.updated_at = datetime.utcnow()
         connection.last_used_at = datetime.utcnow()
@@ -829,7 +829,7 @@ class SourceConnectionService:
 
     @staticmethod
     def _decrypt_connection_token(connection):
-        token = decrypt_secret(connection.access_token_encrypted)
+        token = connection.access_token
         if not token:
             raise ValueError('GitHub token could not be decrypted')
         return token

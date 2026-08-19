@@ -42,8 +42,7 @@ def _build_target(target, data):
         if not engine:
             return None, (jsonify({'error': f'Unsupported engine: {managed.engine}'}), 400)
         if not password and managed.admin_secret_encrypted:
-            from app.utils.crypto import decrypt_secret_safe
-            password = decrypt_secret_safe(managed.admin_secret_encrypted)
+            password = managed.admin_secret
         return {
             'container': managed.container_ref,
             'engine': engine,

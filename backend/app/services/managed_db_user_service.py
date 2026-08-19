@@ -18,7 +18,6 @@ from datetime import datetime
 from app import db
 from app.models.managed_database_user import ManagedDatabaseUser  # explicit import registers the table
 from app.services import db_exec
-from app.utils.crypto import decrypt_secret_safe
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class ManagedDbUserService:
         Returns the ``{'success': bool, 'output': str, 'error': str|None}``
         shape of ``DatabaseService`` executors.
         """
-        secret = decrypt_secret_safe(managed.admin_secret_encrypted or '') or None
+        secret = managed.admin_secret or None
         return db_exec.exec_sql(db_exec.target_from_managed(managed, password=secret), sql)
 
     # ── validation / quoting helpers ──

@@ -34,7 +34,6 @@ from app.models.pending_agent import (
     DEFAULT_ENROLLMENT_TTL,
 )
 from app.models.server import Server
-from app.utils.crypto import encrypt_secret, decrypt_secret
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +269,7 @@ def poll(enrollment_id: str, enrollment_secret: str,
 
     if pending.is_claimed() and pending.claim_payload_encrypted:
         try:
-            payload = json.loads(decrypt_secret(pending.claim_payload_encrypted))
+            payload = json.loads(pending.claim_payload)
         except Exception as e:
             logger.exception("Failed to decrypt claim payload: %s", e)
             raise PairingError("Internal pairing error")
@@ -398,7 +397,7 @@ def claim(operator_user_id: int, code: str, passphrase: str,
         'api_key': api_key,
         'api_secret': api_secret,
     })
-    pending.claim_payload_encrypted = encrypt_secret(payload)
+    pending.claim_payload = payload
     pending.claimed_at = datetime.utcnow()
     pending.claimed_server_id = server.id
     pending.failed_attempts = 0

@@ -17,7 +17,6 @@ import logging
 from app import db
 from app.models.managed_database import ManagedDatabase
 from app.services.database_service import DatabaseService
-from app.utils.crypto import encrypt_secret, decrypt_secret_safe
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ class ManagedDatabaseService:
         if admin_username is not None:
             managed.admin_username = admin_username
         if admin_secret:
-            managed.admin_secret_encrypted = encrypt_secret(admin_secret)
+            managed.admin_secret = admin_secret
         if workspace_id is not None:
             managed.workspace_id = workspace_id
 
@@ -115,7 +114,7 @@ class ManagedDatabaseService:
         username = user or managed.admin_username
         password = None
         if managed.admin_secret_encrypted:
-            password = decrypt_secret_safe(managed.admin_secret_encrypted) if reveal else '***'
+            password = managed.admin_secret if reveal else '***'
 
         userinfo = ''
         if username:
@@ -155,7 +154,7 @@ class ManagedDatabaseService:
             'db_type': _ENGINE_TO_DBTYPE.get(managed.engine, managed.engine),
             'db_name': managed.name,
             'user': managed.admin_username,
-            'password': decrypt_secret_safe(managed.admin_secret_encrypted or '') or None,
+            'password': managed.admin_secret or None,
             'host': managed.host,
         }
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app import db
+from app.models.mixins import EncryptedSecret
 
 # Engines whose lifecycle ServerKit actually drives (Mongo stays read-first).
 VALID_DB_ENGINES = ('mysql', 'postgresql', 'mongodb')
@@ -42,6 +43,7 @@ class ManagedDatabase(db.Model):
     origin = db.Column(db.String(20), nullable=False, default='provisioned')  # provisioned|adopted
     admin_username = db.Column(db.String(180), nullable=True)
     admin_secret_encrypted = db.Column(db.Text, nullable=True)
+    admin_secret = EncryptedSecret('admin_secret_encrypted', legacy_plaintext=True)
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

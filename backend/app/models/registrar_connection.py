@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from app.models.mixins import EncryptedSecret
 
 
 class RegistrarConnection(db.Model):
@@ -18,6 +19,8 @@ class RegistrarConnection(db.Model):
     name = db.Column(db.String(120), nullable=True)          # user-facing label
     api_key_encrypted = db.Column(db.Text, nullable=True)
     api_secret_encrypted = db.Column(db.Text, nullable=True)
+    api_key = EncryptedSecret('api_key_encrypted', legacy_plaintext=True)
+    api_secret = EncryptedSecret('api_secret_encrypted', legacy_plaintext=True)
     account_label = db.Column(db.String(180), nullable=True)  # e.g. domain count / shopper id
     config_json = db.Column(db.Text, nullable=True)  # provider-specific non-secret extras (e.g. Namecheap username + client_ip)
     last_synced_at = db.Column(db.DateTime, nullable=True)

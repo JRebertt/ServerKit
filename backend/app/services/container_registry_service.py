@@ -19,7 +19,6 @@ from datetime import datetime
 from app import db
 from app.utils.system import run_checked
 from app.models.container_registry import ContainerRegistry
-from app.utils.crypto import encrypt_secret, decrypt_secret_safe
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class ContainerRegistryService:
             created_by=created_by,
         )
         if secret:
-            reg.secret_encrypted = encrypt_secret(secret)
+            reg.secret = secret
         db.session.add(reg)
         db.session.commit()
         return reg
@@ -77,7 +76,7 @@ class ContainerRegistryService:
         # Only replace the secret when a new one is actually supplied, so an edit
         # of the label/URL never wipes the stored credential.
         if secret:
-            registry.secret_encrypted = encrypt_secret(secret)
+            registry.secret = secret
         db.session.commit()
         return registry
 
@@ -98,7 +97,7 @@ class ContainerRegistryService:
                 return token
         if not registry.secret_encrypted:
             return None
-        return decrypt_secret_safe(registry.secret_encrypted)
+        return registry.secret
 
     # ── docker login / logout ──
     @staticmethod
@@ -163,7 +162,7 @@ class ContainerRegistryService:
                     region = parts[idx + 1]
 
             env = None
-            secret = decrypt_secret_safe(registry.secret_encrypted or '')
+            secret = registry.secret
             if secret and ':' in secret:
                 access_key, secret_key = secret.split(':', 1)
                 env = dict(os.environ)

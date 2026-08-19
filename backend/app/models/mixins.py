@@ -110,9 +110,14 @@ class EncryptedSecret:
     - Assigning ``None`` (or ``''``) clears the column.
     """
 
-    def __init__(self, column_name: str):
+    def __init__(self, column_name: str, legacy_plaintext: bool = False):
         self.column_name = column_name
         self.attr_name = column_name  # overwritten by __set_name__
+        # Columns that predate encryption-at-rest may still hold plaintext
+        # rows. legacy_plaintext=True mirrors utils.crypto.decrypt_secret_safe:
+        # an undecryptable value is returned unchanged instead of None, so
+        # not-yet-rewritten rows keep working until their next write.
+        self.legacy_plaintext = legacy_plaintext
 
     def __set_name__(self, owner, name):
         self.attr_name = f'{owner.__name__}.{name}'
@@ -127,6 +132,8 @@ class EncryptedSecret:
         try:
             return decrypt_secret(raw)
         except Exception:
+            if self.legacy_plaintext:
+                return raw
             logger.warning(
                 "Failed to decrypt %s (wrong key or corrupt ciphertext); returning None",
                 self.attr_name, exc_info=True,

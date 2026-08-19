@@ -14,7 +14,7 @@ Managed/Observed trust levels.
 from datetime import datetime
 
 from app import db
-from app.utils.crypto import encrypt_secret, decrypt_secret_safe
+from app.models.mixins import EncryptedSecret
 
 
 class LinkedPanelConfig(db.Model):
@@ -35,11 +35,15 @@ class LinkedPanelConfig(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # One crypto path (plan 77 C1). legacy_plaintext: rows written before
+    # encryption-at-rest read back unchanged until rewritten.
+    api_secret = EncryptedSecret('api_secret_encrypted', legacy_plaintext=True)
+
     def set_api_secret(self, plaintext: str):
-        self.api_secret_encrypted = encrypt_secret(plaintext)
+        self.api_secret = plaintext
 
     def get_api_secret(self):
-        return decrypt_secret_safe(self.api_secret_encrypted)
+        return self.api_secret
 
     def to_dict(self):
         return {
