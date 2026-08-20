@@ -153,6 +153,11 @@ class NginxAdvancedService:
     @staticmethod
     def preview_diff(domain, new_config):
         """Preview config changes as a diff."""
+        # `domain` is joined onto SITES_AVAILABLE below — refuse anything that
+        # is not a plain filename so ../ can't turn this into an arbitrary
+        # file read (the API layer gates admins, but never trust one layer).
+        if not domain or os.path.basename(domain) != domain or domain in ('.', '..'):
+            return {'error': 'invalid domain'}
         conf_path = os.path.join(NginxAdvancedService.SITES_AVAILABLE, domain)
         old_config = ''
         if os.path.isfile(conf_path):

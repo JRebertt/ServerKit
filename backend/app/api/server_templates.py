@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 from app.services.server_template_service import ServerTemplateService
 from app.services.audit_service import AuditService
 from app.models.audit_log import AuditLog
-from app.middleware.rbac import get_current_user
+from app.middleware.rbac import admin_required, get_current_user
 
 server_templates_bp = Blueprint('server_templates', __name__)
 
@@ -150,7 +150,7 @@ def unassign(assignment_id):
 
 
 @server_templates_bp.route('/assignments/<int:assignment_id>/check', methods=['POST'])
-@jwt_required()
+@admin_required
 def check_drift(assignment_id):
     assignment = ServerTemplateService.check_drift(assignment_id)
     if not assignment:

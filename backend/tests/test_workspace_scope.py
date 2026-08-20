@@ -509,3 +509,22 @@ def test_list_workspaces_surfaces_effective_role(app, client):
     rows = {w['name']: w for w in r.get_json()['workspaces']}
     assert rows['LW']['my_role'] == 'viewer'
     assert rows['LW']['my_effective_role'] == 'viewer'
+
+
+def test_create_workspace_requires_admin(app, client):
+    """GHSA-r4q7-x795-vr4j: POST /api/v1/workspaces/ was gated only by
+    @jwt_required(), so a read-only viewer could create a workspace, become its
+    owner, then add arbitrary members and mint workspace API keys. It now
+    carries @admin_required like every other panel-wide create."""
+    from app import db
+
+    for role in ('viewer', 'developer'):
+        u = _mk_user(db, f'cw_{role}', role)
+        r = client.post('/api/v1/workspaces/', headers=_token(u.id),
+                        json={'name': f'cw-{role}', 'slug': f'cw-{role}'})
+        assert r.status_code == 403, f'{role} reached workspace creation: {r.status_code}'
+
+    admin = _mk_user(db, 'cw_admin', 'admin')
+    r = client.post('/api/v1/workspaces/', headers=_token(admin.id),
+                    json={'name': 'cw-ok', 'slug': 'cw-ok'})
+    assert r.status_code == 201

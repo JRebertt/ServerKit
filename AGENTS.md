@@ -191,6 +191,30 @@ PageTopbar (tabs + actions: Add/Refresh/…, FilterButton, SearchField)
 5. **Page**: Create page component in `frontend/src/pages/`, add route in `App.jsx`
 6. **Styles**: Add SCSS file in `frontend/src/styles/pages/`, import in `main.scss`
 
+### Authorization (default-deny, test-enforced)
+
+Every **mutating** route (POST/PUT/PATCH/DELETE) must carry an explicit
+authorization decision — `@jwt_required()` alone is never sufficient
+(GHSA-r4q7-x795-vr4j). Three tests enforce this and will fail your PR:
+
+- `backend/tests/test_route_authz_static.py` (coverage): the route must carry a
+  gate decorator (`@admin_required` / `@developer_required` /
+  `@permission_required`), reach an inline authorization primitive
+  (`require_admin_user`, `check_app_access`, `_check_scope`, …), or be listed in
+  a reviewed allowlist (`SELF_SCOPED` / `PUBLIC_ALT_AUTH` / `STATELESS`) with a
+  specific justification.
+- `backend/tests/test_route_authz_sweep.py` (enforcement): no mutating route may
+  answer a viewer with a 2xx unless allowlisted in `VIEWER_WRITABLE`.
+- `backend/tests/test_auth_decorator_boundaries.py` (one boundary): the policy
+  decorators already authenticate through `auth_required()`, so **do not stack
+  `@jwt_required()` outside one** — it rejects API-key callers before the policy
+  can authorize them. Add the gate *instead of* `@jwt_required()`, and read the
+  caller with `get_current_user()`, never `get_jwt_identity()` (which raises for
+  an API-key request).
+
+When in doubt: admin-only for panel-wide resources, `@developer_required` for
+operational actions, the file's own inline ownership helper for user data.
+
 ## Key Environment Variables
 
 | Variable | Purpose |

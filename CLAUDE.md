@@ -118,6 +118,17 @@ ServerKit deploys on Linux (bare metal, VPS, or Docker). Development may happen 
 5. **Page**: Create page component in `frontend/src/pages/`, add route in `App.jsx`
 6. **Styles**: Add SCSS file in `frontend/src/styles/pages/`, import in `main.scss`
 
+### Authorization (default-deny, test-enforced)
+
+Every mutating route (POST/PUT/PATCH/DELETE) must carry an explicit
+authorization decision — `@jwt_required()` alone is never sufficient
+(GHSA-r4q7-x795-vr4j). Use one authentication boundary: the rbac policy
+decorators (`@admin_required` / `@developer_required` / `@permission_required`)
+already authenticate via `auth_required()`, so never stack `@jwt_required()`
+outside one. `backend/tests/test_route_authz_static.py` (coverage),
+`test_route_authz_sweep.py` (enforcement) and `test_auth_decorator_boundaries.py`
+(one boundary) all fail the build otherwise. See AGENTS.md for the allowlists.
+
 ## Key Environment Variables
 
 | Variable | Purpose |

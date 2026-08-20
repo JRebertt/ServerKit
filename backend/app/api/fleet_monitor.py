@@ -8,10 +8,10 @@ fleet search, and metrics export.
 
 import os
 from flask import Blueprint, request, jsonify, Response
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.services.fleet_monitor_service import fleet_monitor_service
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, get_current_user
 
 fleet_monitor_bp = Blueprint('fleet_monitor', __name__)
 
@@ -58,10 +58,13 @@ def get_alerts():
 
 
 @fleet_monitor_bp.route('/alerts/<alert_id>/acknowledge', methods=['POST'])
-@jwt_required()
+@admin_required
 def acknowledge_alert(alert_id):
     """Acknowledge an active alert."""
-    user_id = get_jwt_identity()
+    # Through the one identity door: @admin_required admits API-key callers,
+    # for whom reading the JWT directly raises.
+    caller = get_current_user()
+    user_id = caller.id if caller else None
     success = fleet_monitor_service.acknowledge_alert(alert_id, user_id)
     if not success:
         return jsonify({'error': 'Cannot acknowledge alert'}), 400
@@ -69,7 +72,7 @@ def acknowledge_alert(alert_id):
 
 
 @fleet_monitor_bp.route('/alerts/<alert_id>/resolve', methods=['POST'])
-@jwt_required()
+@admin_required
 def resolve_alert(alert_id):
     """Resolve an alert."""
     success = fleet_monitor_service.resolve_alert(alert_id)

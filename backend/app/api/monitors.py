@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.exceptions import NotFoundError
+from app.middleware.rbac import permission_required
 from app.services.monitor_service import MonitorService
 
 monitors_bp = Blueprint('monitors', __name__)
@@ -49,7 +50,7 @@ def get_stats():
 
 @monitors_bp.route('', methods=['POST'])
 @monitors_bp.route('/', methods=['POST'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def create_monitor():
     data = request.get_json() or {}
     monitor = MonitorService.create(data)
@@ -66,7 +67,7 @@ def get_monitor(monitor_id):
 
 
 @monitors_bp.route('/<int:monitor_id>', methods=['PATCH', 'PUT'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def update_monitor(monitor_id):
     data = request.get_json() or {}
     monitor = MonitorService.update(monitor_id, data)
@@ -76,7 +77,7 @@ def update_monitor(monitor_id):
 
 
 @monitors_bp.route('/<int:monitor_id>', methods=['DELETE'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def delete_monitor(monitor_id):
     if not MonitorService.delete(monitor_id):
         return {'error': 'Monitor not found'}, 404
@@ -84,7 +85,7 @@ def delete_monitor(monitor_id):
 
 
 @monitors_bp.route('/<int:monitor_id>/check', methods=['POST'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def run_check(monitor_id):
     """Probe now, out of band from the scheduler."""
     hc = MonitorService.run_check(monitor_id)
@@ -95,7 +96,7 @@ def run_check(monitor_id):
 
 
 @monitors_bp.route('/<int:monitor_id>/pause', methods=['POST'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def set_paused(monitor_id):
     data = request.get_json() or {}
     monitor = MonitorService.set_paused(monitor_id, data.get('paused', True))
@@ -148,7 +149,7 @@ def list_incidents():
 
 
 @monitors_bp.route('/incidents', methods=['POST'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def create_incident():
     data = request.get_json() or {}
     if not data.get('title'):
@@ -158,7 +159,7 @@ def create_incident():
 
 
 @monitors_bp.route('/incidents/<int:incident_id>', methods=['PATCH', 'PUT'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def update_incident(incident_id):
     incident = MonitorService.update_incident(incident_id, request.get_json() or {})
     if not incident:
@@ -167,7 +168,7 @@ def update_incident(incident_id):
 
 
 @monitors_bp.route('/incidents/<int:incident_id>', methods=['DELETE'])
-@jwt_required()
+@permission_required('monitoring', 'write')
 def delete_incident(incident_id):
     if not MonitorService.delete_incident(incident_id):
         return {'error': 'Incident not found'}, 404

@@ -95,3 +95,31 @@ def test_no_revision_at_all_is_not_treated_as_orphaned(migration_state):
     status = migration_state(None, '080_dashboard_boards')
     assert status['orphaned_revision'] is False
     assert status['needs_migration'] is False
+
+
+# --- authorization ---------------------------------------------------------
+# `/migrations/history` is the one admin-gated route on this blueprint with no
+# side effect, which made it the one whose gate nothing exercised: when the
+# module moved to `require_admin_user()` it kept an inline `User.ROLE_ADMIN`
+# check whose imports had already been deleted, so every call — admin included
+# — raised NameError. The gate has to be fired, not just read.
+
+def test_history_is_admin_only(client, db_session):
+    from factories import make_user, headers_for
+
+    for role in ('viewer', 'developer'):
+        response = client.get('/api/v1/migrations/history',
+                              headers=headers_for(make_user(db_session, role=role)))
+        assert response.status_code == 403, (
+            f'a {role} read the migration history (got {response.status_code})'
+        )
+
+
+def test_history_answers_an_admin(client, db_session):
+    """Non-vacuity for the test above: the same route succeeds for an admin."""
+    from factories import make_user, headers_for
+
+    response = client.get('/api/v1/migrations/history',
+                          headers=headers_for(make_user(db_session, role='admin')))
+    assert response.status_code == 200
+    assert isinstance(response.get_json()['revisions'], list)

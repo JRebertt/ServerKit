@@ -12,7 +12,7 @@ Provides REST endpoints for:
 
 from flask import Blueprint, current_app, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.middleware.rbac import admin_required
+from app.middleware.rbac import admin_required, developer_required
 from app.models import User, Application
 from app.services.deployment_job_service import DeploymentJobService
 from app.services.template_service import TemplateService
@@ -451,7 +451,7 @@ def validate_installation():
 
 
 @templates_bp.route('/test-db-connection', methods=['POST'])
-@jwt_required()
+@developer_required
 def test_db_connection():
     """Test database connection before template installation.
 

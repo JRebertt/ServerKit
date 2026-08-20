@@ -795,7 +795,7 @@ def get_server_status(server_id):
 
 
 @servers_bp.route('/<server_id>/ping', methods=['POST'])
-@jwt_required()
+@developer_required
 def ping_server(server_id):
     """Force a ping/health check on a server"""
     server = Server.query.get(server_id)
@@ -1521,7 +1521,7 @@ def list_remote_compose_projects(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/ps', methods=['POST'])
-@jwt_required()
+@developer_required
 def remote_compose_ps(server_id):
     """List containers for a compose project"""
     user_id = get_jwt_identity()
@@ -1591,7 +1591,7 @@ def remote_compose_down(server_id):
 
 
 @servers_bp.route('/<server_id>/docker/compose/logs', methods=['POST'])
-@jwt_required()
+@developer_required
 def remote_compose_logs(server_id):
     """Get logs from a compose project"""
     user_id = get_jwt_identity()
@@ -2686,7 +2686,7 @@ def remote_cloudflared_delete(server_id, tunnel_ref):
 # Capabilities message so all panel listeners stay in sync.
 
 @servers_bp.route('/<server_id>/refresh-capabilities', methods=['POST'])
-@jwt_required()
+@developer_required
 def remote_refresh_capabilities(server_id):
     user_id = get_jwt_identity()
     result = dispatch_agent_command(

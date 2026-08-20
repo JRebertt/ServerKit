@@ -62,6 +62,10 @@ def require_role(*allowed_roles):
             if user.role not in allowed_roles:
                 return jsonify({'error': 'Insufficient permissions'}), 403
             return fn(*args, **kwargs)
+        # Marks this view as carrying an explicit authorization decision, so the
+        # default-deny sweep test (tests/test_route_authz_sweep.py) recognizes it
+        # as gated rather than flagging it as an unguarded mutating route.
+        wrapper._sk_authz = ('require_role', allowed_roles)
         return wrapper
     return decorator
 
@@ -86,6 +90,7 @@ def admin_required(fn):
         if not user.is_admin:
             return jsonify({'error': 'Admin access required'}), 403
         return fn(*args, **kwargs)
+    wrapper._sk_authz = ('admin_required',)
     return wrapper
 
 
@@ -136,6 +141,7 @@ def developer_required(fn):
         if not user.is_developer:
             return jsonify({'error': 'Developer access required'}), 403
         return fn(*args, **kwargs)
+    wrapper._sk_authz = ('developer_required',)
     return wrapper
 
 
@@ -162,6 +168,7 @@ def permission_required(feature, level='read'):
                     'error': f'Permission denied: {level} access to {feature} required'
                 }), 403
             return fn(*args, **kwargs)
+        wrapper._sk_authz = ('permission_required', feature, level)
         return wrapper
     return decorator
 
@@ -278,5 +285,6 @@ def require_app_member(min_role='viewer', arg='app_id'):
                 return jsonify({'error': 'Access denied'}), 403
             g.current_application = application
             return fn(*args, **kwargs)
+        wrapper._sk_authz = ('require_app_member', min_role)
         return wrapper
     return decorator

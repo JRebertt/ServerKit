@@ -164,12 +164,15 @@ class WebhookGatewayService:
         db.session.add(delivery)
         db.session.commit()
 
-        if not signature_valid and signature_header:
+        # Reject unconditionally: every endpoint has a secret, so a request with
+        # a missing OR wrong signature is equally unauthenticated. The old
+        # `and signature_header` clause let unsigned requests through.
+        if not signature_valid:
             delivery.status = 'failed'
-            delivery.error_message = 'Invalid signature'
+            delivery.error_message = 'Invalid signature' if signature_header else 'Missing signature'
             delivery.completed_at = datetime.utcnow()
             db.session.commit()
-            return {'success': False, 'error': 'Invalid signature', 'event_id': event_id}, 401
+            return {'success': False, 'error': delivery.error_message, 'event_id': event_id}, 401
 
         try:
             payload_json = json.loads(payload.decode('utf-8', errors='replace')) if payload else {}

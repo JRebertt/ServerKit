@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.services.registrar_service import RegistrarService
-from app.middleware.rbac import get_current_user
+from app.middleware.rbac import admin_required, get_current_user
 
 registrars_bp = Blueprint('registrars', __name__)
 
@@ -54,7 +54,7 @@ def delete_connection(cid):
 
 
 @registrars_bp.route('/connections/<int:cid>/test', methods=['POST'])
-@jwt_required()
+@admin_required
 def test_connection(cid):
     conn = RegistrarService.get_connection(cid)
     if not conn:
@@ -71,7 +71,7 @@ def list_domains():
 
 
 @registrars_bp.route('/sync', methods=['POST'])
-@jwt_required()
+@admin_required
 def sync():
     """Force-refresh the portfolio (and stamp last_synced_at)."""
     return jsonify({'domains': RegistrarService.sync_now()})

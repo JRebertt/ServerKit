@@ -17,11 +17,12 @@ import shutil
 import tempfile
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app.services.buildpack_service import BuildpackService
 from app.services.git_service import GitService
 from app.services.source_connection_service import SourceConnectionService
+from app.middleware.rbac import developer_required, get_current_user
 
 buildpacks_bp = Blueprint('buildpacks', __name__)
 
@@ -36,7 +37,7 @@ def _build_response(plan: dict, app_name: str = 'app') -> dict:
 
 
 @buildpacks_bp.route('/detect', methods=['POST'])
-@jwt_required()
+@developer_required
 def detect():
     """Detect the build pack for a repository.
 
@@ -46,7 +47,10 @@ def detect():
     cloned shallowly to a temp workspace, inspected, and the workspace removed.
     """
     data = request.get_json() or {}
-    current_user_id = get_jwt_identity()
+    # Through the one identity door: @developer_required admits API-key
+    # callers, for whom reading the JWT directly raises.
+    caller = get_current_user()
+    current_user_id = caller.id if caller else None
 
     explicit_path = (data.get('path') or '').strip() or None
     repo_url = (data.get('repo_url') or '').strip()

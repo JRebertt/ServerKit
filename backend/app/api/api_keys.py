@@ -93,9 +93,11 @@ def get_key(key_id):
 @jwt_required()
 def update_key(key_id):
     """Update API key metadata."""
+    # Same bar as create_key: a viewer (e.g. demoted after key creation) must
+    # not widen an existing key's scopes/tier.
     user = get_current_user()
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
+    if not user or not user.is_developer:
+        return jsonify({'error': 'Developer access required'}), 403
 
     data = request.get_json() or {}
     api_key = ApiKeyService.update_key(
