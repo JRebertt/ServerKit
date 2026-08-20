@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import ServerKitLogo from '../components/ServerKitLogo';
@@ -8,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const Register = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -47,10 +49,14 @@ const Register = () => {
                             <ServerKitLogo width={40} height={40} />
                         </div>
                         <h1>{publicTitle}</h1>
-                        <p>Registration is currently disabled</p>
+                        <p>{t('auth.registrationDisabled', 'Registration is currently disabled')}</p>
                     </div>
                     <p className="auth-footer">
-                        Already have an account? <Link to="/login">Sign in</Link>
+                        <Trans
+                            i18nKey="auth.haveAccount"
+                            defaults="Already have an account? <0>Sign in</0>"
+                            components={[<Link key="login" to="/login" />]}
+                        />
                     </p>
                 </div>
             </div>
@@ -66,7 +72,7 @@ const Register = () => {
                             <ServerKitLogo width={40} height={40} />
                         </div>
                         <h1>{publicTitle}</h1>
-                        <p>Validating invitation...</p>
+                        <p>{t('auth.validatingInvitation', 'Validating invitation…')}</p>
                     </div>
                 </div>
             </div>
@@ -82,10 +88,14 @@ const Register = () => {
                             <ServerKitLogo width={40} height={40} />
                         </div>
                         <h1>{publicTitle}</h1>
-                        <p>This invitation is invalid or has expired</p>
+                        <p>{t('auth.invitationInvalid', 'This invitation is invalid or has expired')}</p>
                     </div>
                     <p className="auth-footer">
-                        Already have an account? <Link to="/login">Sign in</Link>
+                        <Trans
+                            i18nKey="auth.haveAccount"
+                            defaults="Already have an account? <0>Sign in</0>"
+                            components={[<Link key="login" to="/login" />]}
+                        />
                     </p>
                 </div>
             </div>
@@ -133,7 +143,7 @@ const Register = () => {
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">{t('auth.email', 'Email')}</Label>
                         <Input
                             type="email"
                             id="email"
@@ -146,48 +156,52 @@ const Register = () => {
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="username">Username</Label>
+                        <Label htmlFor="username">{t('auth.username', 'Username')}</Label>
                         <Input
                             type="text"
                             id="username"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Choose a username"
+                            placeholder={t('auth.usernameChoose', 'Choose a username')}
                             required
                         />
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="password">Password</Label>
+                        <Label htmlFor="password">{t('auth.password', 'Password')}</Label>
                         <Input
                             type="password"
                             id="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="At least 8 characters"
+                            placeholder={t('auth.passwordRule', 'At least 8 characters')}
                             required
                         />
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                        <Label htmlFor="confirmPassword">{t('auth.confirmPassword', 'Confirm Password')}</Label>
                         <Input
                             type="password"
                             id="confirmPassword"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm your password"
+                            placeholder={t('auth.confirmPasswordPlaceholder', 'Confirm your password')}
                             required
                         />
                     </div>
 
                     <Button type="submit" className="btn-full" disabled={loading}>
-                        {loading ? 'Creating account...' : 'Create Account'}
+                        {loading ? t('auth.creatingAccount', 'Creating account…') : t('auth.createAccount', 'Create Account')}
                     </Button>
                 </form>
 
                 <p className="auth-footer">
-                    Already have an account? <Link to="/login">Sign in</Link>
+                    <Trans
+                        i18nKey="auth.haveAccount"
+                        defaults="Already have an account? <0>Sign in</0>"
+                        components={[<Link key="login" to="/login" />]}
+                    />
                 </p>
             </div>
         </div>

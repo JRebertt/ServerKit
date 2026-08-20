@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import SSOProviderIcon from '../components/SSOProviderIcon';
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const Login = () => {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -218,8 +220,10 @@ const Login = () => {
                         <div className="brand-logo">
                             <ServerKitLogo width={40} height={40} />
                         </div>
-                        <h1>Two-Factor Authentication</h1>
-                        <p>{useBackupCode ? 'Enter a backup code' : 'Enter the 6-digit code from your authenticator app'}</p>
+                        <h1>{t('auth.twoFactor.title', 'Two-Factor Authentication')}</h1>
+                        <p>{useBackupCode
+                            ? t('auth.twoFactor.backupHint', 'Enter a backup code')
+                            : t('auth.twoFactor.codeHint', 'Enter the 6-digit code from your authenticator app')}</p>
                     </div>
 
                     {error && <div className="error-message">{error}</div>}
@@ -245,7 +249,7 @@ const Login = () => {
                             </div>
                         ) : (
                             <div className="form-group">
-                                <Label htmlFor="backupCode">Backup Code</Label>
+                                <Label htmlFor="backupCode">{t('auth.twoFactor.backupCode', 'Backup Code')}</Label>
                                 <Input
                                     type="text"
                                     id="backupCode"
@@ -275,7 +279,7 @@ const Login = () => {
                             variant="link"
                             onClick={handleBack}
                         >
-                            Back to login
+                            {t('auth.backToLogin', 'Back to login')}
                         </Button>
                     </div>
             </AuthLayout>
@@ -291,7 +295,7 @@ const Login = () => {
                             <ServerKitLogo width={40} height={40} />
                         </div>
                         <h1>{publicTitle}</h1>
-                        <p>Signing you in…</p>
+                        <p>{t('auth.signingYouIn', 'Signing you in…')}</p>
                     </div>
             </AuthLayout>
         );
@@ -305,19 +309,19 @@ const Login = () => {
                         <ServerKitLogo width={40} height={40} />
                     </div>
                     <h1>{publicTitle}</h1>
-                    <p>Sign in to your account</p>
+                    <p>{t('auth.signInSubtitle', 'Sign in to your account')}</p>
                 </div>
 
                 {error && <div className="error-message">{error}</div>}
 
                 {demoInfo && (
                     <div className="demo-hint">
-                        <div className="demo-hint__title">Demo mode — sign in read-only</div>
+                        <div className="demo-hint__title">{t('auth.demoMode', 'Demo mode — sign in read-only')}</div>
                         <div className="demo-hint__creds">
                             <code>{demoInfo.username}</code> / <code>{demoInfo.password}</code>
                         </div>
                         <Button type="button" variant="link" className="demo-hint__fill" onClick={fillDemoCredentials}>
-                            Use demo credentials
+                            {t('auth.useDemoCredentials', 'Use demo credentials')}
                         </Button>
                     </div>
                 )}
@@ -347,39 +351,43 @@ const Login = () => {
                 {passwordLoginEnabled && (
                     <form onSubmit={handleSubmit}>
                         <div className="form-group">
-                            <Label htmlFor="email">Username or Email</Label>
+                            <Label htmlFor="email">{t('auth.usernameOrEmail', 'Username or Email')}</Label>
                             <Input
                                 type="text"
                                 id="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin or you@example.com"
+                                placeholder={t('auth.usernamePlaceholder', 'admin or you@example.com')}
                                 required
                                 autoComplete="username"
                             />
                         </div>
 
                         <div className="form-group">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">{t('auth.password', 'Password')}</Label>
                             <Input
                                 type="password"
                                 id="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Enter your password"
+                                placeholder={t('auth.passwordPlaceholder', 'Enter your password')}
                                 required
                             />
                         </div>
 
                         <Button type="submit" className="btn-full" disabled={loading}>
-                            {loading ? 'Signing in...' : 'Sign In'}
+                            {loading ? t('auth.signingIn', 'Signing in…') : t('auth.signIn', 'Sign In')}
                         </Button>
                     </form>
                 )}
 
                 {registrationEnabled && passwordLoginEnabled && (
                     <p className="auth-footer">
-                        Don&apos;t have an account? <Link to="/register">Create one</Link>
+                        <Trans
+                            i18nKey="auth.noAccount"
+                            defaults="Don't have an account? <0>Create one</0>"
+                            components={[<Link key="register" to="/register" />]}
+                        />
                     </p>
                 )}
         </AuthLayout>

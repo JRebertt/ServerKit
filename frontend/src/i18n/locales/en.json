@@ -1,6 +1,39 @@
 {
+    "auth": {
+        "backToLogin": "Back to login",
+        "confirmPassword": "Confirm Password",
+        "confirmPasswordPlaceholder": "Confirm your password",
+        "createAccount": "Create Account",
+        "creatingAccount": "Creating account…",
+        "demoMode": "Demo mode — sign in read-only",
+        "email": "Email",
+        "haveAccount": "Already have an account? <0>Sign in</0>",
+        "invitationInvalid": "This invitation is invalid or has expired",
+        "noAccount": "Don't have an account? <0>Create one</0>",
+        "password": "Password",
+        "passwordPlaceholder": "Enter your password",
+        "passwordRule": "At least 8 characters",
+        "registrationDisabled": "Registration is currently disabled",
+        "signIn": "Sign In",
+        "signInSubtitle": "Sign in to your account",
+        "signingIn": "Signing in…",
+        "signingYouIn": "Signing you in…",
+        "twoFactor": {
+            "backupCode": "Backup Code",
+            "backupHint": "Enter a backup code",
+            "codeHint": "Enter the 6-digit code from your authenticator app",
+            "title": "Two-Factor Authentication"
+        },
+        "useDemoCredentials": "Use demo credentials",
+        "username": "Username",
+        "usernameChoose": "Choose a username",
+        "usernameOrEmail": "Username or Email",
+        "usernamePlaceholder": "admin or you@example.com",
+        "validatingInvitation": "Validating invitation…"
+    },
     "common": {
         "actions": {
+            "back": "Back",
             "logOut": "Log out",
             "refresh": "Refresh",
             "retry": "Retry",
@@ -35,6 +68,22 @@
             "hoursShort": "{{count}}h",
             "justNow": "just now",
             "minutesShort": "{{count}}m"
+        }
+    },
+    "errors": {
+        "auth": {
+            "accountDeactivated": "Account is deactivated",
+            "emailRegistered": "Email already registered",
+            "identityUnavailable": "This email or username is unavailable",
+            "invalidCredentials": "Invalid username/email or password",
+            "invitationInvalid": "Invalid or expired invitation",
+            "linkInvalid": "Invalid or expired link",
+            "missingCredentials": "Missing email/username or password",
+            "missingFields": "Missing required fields",
+            "passwordLoginDisabled": "Password login is disabled. Please use SSO.",
+            "passwordTooShort": "Password must be at least 8 characters",
+            "registrationDisabled": "Registration is disabled",
+            "usernameTaken": "Username already taken"
         }
     },
     "git": {
@@ -152,5 +201,9 @@
             "manifest": "Docs: serverkit.yaml manifest"
         },
         "label": "Command palette"
+    },
+    "setup": {
+        "subtitle": "Let’s get your server ready",
+        "welcome": "Welcome to {{panel}}"
     }
 }

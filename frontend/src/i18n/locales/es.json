@@ -1,6 +1,39 @@
 {
+    "auth": {
+        "backToLogin": "Volver al inicio de sesión",
+        "confirmPassword": "Confirmar contraseña",
+        "confirmPasswordPlaceholder": "Confirma tu contraseña",
+        "createAccount": "Crear cuenta",
+        "creatingAccount": "Creando la cuenta…",
+        "demoMode": "Modo demo: acceso de solo lectura",
+        "email": "Correo electrónico",
+        "haveAccount": "¿Ya tienes una cuenta? <0>Inicia sesión</0>",
+        "invitationInvalid": "Esta invitación no es válida o ha caducado",
+        "noAccount": "¿No tienes una cuenta? <0>Crea una</0>",
+        "password": "Contraseña",
+        "passwordPlaceholder": "Introduce tu contraseña",
+        "passwordRule": "Al menos 8 caracteres",
+        "registrationDisabled": "El registro está desactivado en este momento",
+        "signIn": "Iniciar sesión",
+        "signInSubtitle": "Inicia sesión en tu cuenta",
+        "signingIn": "Iniciando sesión…",
+        "signingYouIn": "Iniciando tu sesión…",
+        "twoFactor": {
+            "backupCode": "Código de recuperación",
+            "backupHint": "Introduce un código de recuperación",
+            "codeHint": "Introduce el código de 6 dígitos de tu app de autenticación",
+            "title": "Autenticación en dos pasos"
+        },
+        "useDemoCredentials": "Usar las credenciales de demo",
+        "username": "Nombre de usuario",
+        "usernameChoose": "Elige un nombre de usuario",
+        "usernameOrEmail": "Nombre de usuario o correo",
+        "usernamePlaceholder": "admin o tu@ejemplo.com",
+        "validatingInvitation": "Validando la invitación…"
+    },
     "common": {
         "actions": {
+            "back": "Atrás",
             "logOut": "Cerrar sesión",
             "refresh": "Actualizar",
             "retry": "Reintentar",
@@ -35,6 +68,22 @@
             "hoursShort": "{{count}} h",
             "justNow": "ahora mismo",
             "minutesShort": "{{count}} min"
+        }
+    },
+    "errors": {
+        "auth": {
+            "accountDeactivated": "La cuenta está desactivada",
+            "emailRegistered": "Ese correo ya está registrado",
+            "identityUnavailable": "Ese correo o nombre de usuario no está disponible",
+            "invalidCredentials": "Nombre de usuario/correo o contraseña incorrectos",
+            "invitationInvalid": "Invitación no válida o caducada",
+            "linkInvalid": "Enlace no válido o caducado",
+            "missingCredentials": "Falta el correo/nombre de usuario o la contraseña",
+            "missingFields": "Faltan campos obligatorios",
+            "passwordLoginDisabled": "El inicio de sesión con contraseña está desactivado. Usa SSO.",
+            "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+            "registrationDisabled": "El registro está desactivado",
+            "usernameTaken": "Ese nombre de usuario ya está en uso"
         }
     },
     "git": {
@@ -152,5 +201,9 @@
             "manifest": "Documentación: Manifiesto serverkit.yaml"
         },
         "label": "Paleta de comandos"
+    },
+    "setup": {
+        "subtitle": "Vamos a dejar tu servidor listo",
+        "welcome": "Te damos la bienvenida a {{panel}}"
     }
 }

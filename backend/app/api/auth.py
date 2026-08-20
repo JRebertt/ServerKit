@@ -19,6 +19,7 @@ from app.services import login_link_service
 from app.services import auth_throttle_service
 from app.utils.client_ip import get_client_ip
 from app.utils.i18n import normalize_language
+from app.exceptions import AuthenticationError, ConflictError, PermissionDeniedError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -77,32 +78,32 @@ def register():
         from app.services.invitation_service import InvitationService
         invitation = InvitationService.validate_token(invite_token)
         if not invitation:
-            return jsonify({'error': 'Invalid or expired invitation'}), 400
+            raise ValidationError('Invalid or expired invitation', code='auth.invitation_invalid')
 
     # Check if registration is allowed
     is_first_user = User.query.count() == 0
     if not is_first_user and not invitation:
         if not SettingsService.needs_setup() and not SettingsService.is_registration_enabled():
             logger.warning(f"Registration attempt blocked - setup already completed. IP: {request.remote_addr}")
-            return jsonify({'error': 'Registration is disabled'}), 403
+            raise PermissionDeniedError('Registration is disabled', code='auth.registration_disabled')
         if not SettingsService.is_registration_enabled():
-            return jsonify({'error': 'Registration is disabled'}), 403
+            raise PermissionDeniedError('Registration is disabled', code='auth.registration_disabled')
 
     email = data.get('email')
     username = data.get('username')
     password = data.get('password')
 
     if not all([email, username, password]):
-        return jsonify({'error': 'Missing required fields'}), 400
+        raise ValidationError('Missing required fields', code='auth.missing_fields')
 
     if User.query.filter(func.lower(User.email) == func.lower(email)).first():
-        return jsonify({'error': 'This email or username is unavailable'}), 409
+        raise ConflictError('This email or username is unavailable', code='auth.identity_unavailable')
 
     if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'This email or username is unavailable'}), 409
+        raise ConflictError('This email or username is unavailable', code='auth.identity_unavailable')
 
     if len(password) < 8:
-        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+        raise ValidationError('Password must be at least 8 characters', code='auth.password_too_short')
 
     # Determine role and permissions from invitation or defaults
     if is_first_user:
@@ -220,7 +221,7 @@ def login():
     # Check if password login is disabled (SSO-only mode)
     from app.services import sso_service
     if not sso_service.is_password_login_allowed():
-        return jsonify({'error': 'Password login is disabled. Please use SSO.'}), 403
+        raise PermissionDeniedError('Password login is disabled. Please use SSO.', code='auth.password_login_disabled')
 
     # Per-IP brute-force throttle — checked up front, before any password work,
     # so spraying wrong passwords across many usernames from one IP is blocked.
@@ -240,7 +241,7 @@ def login():
     password = data.get('password')
 
     if not all([login_id, password]):
-        return jsonify({'error': 'Missing email/username or password'}), 400
+        raise ValidationError('Missing email/username or password', code='auth.missing_credentials')
 
     # Try to find user by email (case-insensitive) or username
     user = User.query.filter(
@@ -262,7 +263,7 @@ def login():
             user.record_failed_login()
             AuditService.log_login(user.id, success=False, details={'reason': 'invalid_password'})
             db.session.commit()
-        return jsonify({'error': 'Invalid username/email or password'}), 401
+        raise AuthenticationError('Invalid username/email or password', code='auth.invalid_credentials')
 
     # Correct password — clear this IP's failure count (covers the 2FA-pending
     # and no-2FA paths below).
@@ -271,7 +272,7 @@ def login():
     if not user.is_active:
         AuditService.log_login(user.id, success=False, details={'reason': 'account_deactivated'})
         db.session.commit()
-        return jsonify({'error': 'Account is deactivated'}), 403
+        raise PermissionDeniedError('Account is deactivated', code='auth.account_deactivated')
 
     # Check if 2FA is enabled
     if user.totp_enabled:
@@ -399,7 +400,7 @@ def redeem_login_link():
     if not user:
         auth_throttle_service.register_failure(client_ip)
         logger.info(f"Login link redeem failed ({reason}) from {client_ip}")
-        return jsonify({'error': 'Invalid or expired link'}), 401
+        raise AuthenticationError('Invalid or expired link', code='auth.link_invalid')
 
     auth_throttle_service.reset(client_ip)
     user.reset_failed_login()
@@ -521,7 +522,7 @@ def update_current_user():
     if 'username' in data:
         existing = User.query.filter_by(username=data['username']).first()
         if existing and existing.id != user.id:
-            return jsonify({'error': 'Username already taken'}), 409
+            raise ConflictError('Username already taken', code='auth.username_taken')
         user.username = data['username']
 
     if 'email' in data:
@@ -529,7 +530,7 @@ def update_current_user():
             func.lower(User.email) == func.lower(data['email'])
         ).first()
         if existing and existing.id != user.id:
-            return jsonify({'error': 'Email already registered'}), 409
+            raise ConflictError('Email already registered', code='auth.email_registered')
         user.email = data['email']
 
     if 'password' in data:

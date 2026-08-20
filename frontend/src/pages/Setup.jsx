@@ -9,6 +9,7 @@ import SetupStepCapacity from '../components/setup/SetupStepCapacity';
 import SetupStepSecurity from '../components/setup/SetupStepSecurity';
 import SetupStepSummary from '../components/setup/SetupStepSummary';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const TOTAL_STEPS = 5;
 
@@ -21,6 +22,7 @@ const STEP_TITLES = [
 ];
 
 const Setup = () => {
+    const { t } = useTranslation();
     const { isAuthenticated, completeOnboarding, publicTitle } = useAuth();
     const navigate = useNavigate();
 
@@ -129,8 +131,8 @@ const Setup = () => {
             <div className="wizard-card">
                 <div className="wizard-header">
                     <ServerKitLogo className="wizard-logo" width={48} height={48} />
-                    <h1>Welcome to {publicTitle}</h1>
-                    <p>Let&apos;s get your server ready</p>
+                    <h1>{t('setup.welcome', 'Welcome to {{panel}}', { panel: publicTitle })}</h1>
+                    <p>{t('setup.subtitle', 'Let’s get your server ready')}</p>
                 </div>
 
                 {renderProgressBar()}
@@ -142,7 +144,7 @@ const Setup = () => {
                         onClick={handleBack}
                     >
                         <ArrowLeft size={16} />
-                        Back
+                        {t('common.actions.back', 'Back')}
                     </Button>
                 )}
 
