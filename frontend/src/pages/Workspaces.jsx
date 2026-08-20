@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useServerMutation, useServerQuery } from '../hooks/useServerQuery';
 
 // Preset views. `servers` and `users` are quota CEILINGS, not usage, so there
@@ -84,11 +85,14 @@ const Workspaces = () => {
     const toast = useToast();
     const navigate = useNavigate();
     const { activeWorkspaceId } = useWorkspace();
+    // Workspace creation is admin-only server-side (@admin_required); hide the
+    // entry points for everyone else instead of letting them hit a 403.
+    const { isAdmin } = useAuth();
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showCreateModal, setShowCreateModal] = useState(false);
     // Quick-create deep link: /workspaces?focus=create:workspace opens the modal.
-    useFocusParam('create', () => setShowCreateModal(true));
+    useFocusParam('create', () => { if (isAdmin) setShowCreateModal(true); });
     const [form, setForm] = useState({ name: '', description: '', max_servers: 0, max_users: 0, primary_color: '#6d7cff' });
 
     const loadWorkspaces = useCallback(
@@ -109,17 +113,19 @@ const Workspaces = () => {
 
     useTopbarActions(() => (
         <>
-            <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                <Plus size={16} />
-                New Workspace
-            </Button>
+            {isAdmin && (
+                <Button size="sm" onClick={() => setShowCreateModal(true)}>
+                    <Plus size={16} />
+                    New Workspace
+                </Button>
+            )}
             <SearchField
                 value={search}
                 onSearch={setSearch}
                 placeholder="Search workspaces…"
             />
         </>
-    ), [search]);
+    ), [search, isAdmin]);
 
     const handleCreate = async () => {
         try {
@@ -239,12 +245,14 @@ const Workspaces = () => {
             onClearSelection={() => setSelectedIds(new Set())}
             emptyIcon={LayoutGrid}
             emptyTitle="No workspaces yet"
-            emptyDescription="Create one to isolate servers by team or project."
-            emptyAction={
+            emptyDescription={isAdmin
+                ? 'Create one to isolate servers by team or project.'
+                : 'Workspaces isolate servers by team or project. Ask an admin to create one.'}
+            emptyAction={isAdmin ? (
                 <Button onClick={() => setShowCreateModal(true)}>
                     New Workspace
                 </Button>
-            }
+            ) : null}
             filteredEmptyIcon={LayoutGrid}
             filteredEmptyTitle="No workspaces found"
             filteredEmptyDescription="Try adjusting your search or filter."
