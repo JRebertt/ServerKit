@@ -2,6 +2,7 @@
     "common": {
         "actions": {
             "logOut": "Log out",
+            "refresh": "Refresh",
             "retry": "Retry",
             "tryAgain": "Try again"
         },
@@ -34,6 +35,25 @@
             "hoursShort": "{{count}}h",
             "justNow": "just now",
             "minutesShort": "{{count}}m"
+        }
+    },
+    "git": {
+        "picker": {
+            "branch": "Branch",
+            "connectAction": "Connect {{provider}}",
+            "connectMessage": "Authorize once, then choose a repository instead of pasting a URL.",
+            "connectTitle": "Connect with {{provider}}",
+            "empty": "No repositories found.",
+            "giteaAccount": "Local Gitea",
+            "giteaDetail": "Repositories on this ServerKit instance",
+            "giteaNotInstalled": "Install the ServerKit Git server in <0>Git</0> to pick a local repository instead of pasting a URL.",
+            "giteaNotRunning": "Your Gitea server is installed but not running. Start it from <0>Git</0>.",
+            "loading": "Loading repositories…",
+            "noDescription": "No description",
+            "notConfigured": "Set up the {{provider}} connection in <0>Settings</0> to pick a repo in one click instead of pasting a URL.",
+            "private": "Private",
+            "public": "Public",
+            "search": "Search your repositories"
         }
     },
     "nav": {
