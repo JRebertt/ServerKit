@@ -33,6 +33,7 @@ export const SETTINGS_INDEX = [
     { id: 'notifications-email-smtp', label: 'Email SMTP configuration', description: 'Set up SMTP server for sending email notifications', keywords: 'smtp email server notifications', tab: 'notifications', adminOnly: true },
     { id: 'notifications-webhook', label: 'Generic notification webhook', description: 'Send notifications to a custom webhook endpoint', keywords: 'webhook generic json payload', tab: 'notifications', adminOnly: true },
 
+    { id: 'appearance-language', labelKey: 'settings.language.title', label: 'Language', descriptionKey: 'settings.language.description', description: 'The language used across the panel.', keywords: 'language locale translation idioma english spanish', tab: 'appearance', adminOnly: false },
     { id: 'appearance-theme', label: 'Theme mode', description: 'Choose between dark, light, or system default theme', keywords: 'theme dark light system mode', tab: 'appearance', adminOnly: false },
     { id: 'appearance-theme-gallery', label: 'Color theme', description: 'Pick a color theme from the gallery (Paper, Nord Deep, Gruvbox, Phosphor, High Contrast)', keywords: 'theme color skin gallery paper nord gruvbox phosphor high contrast palette', tab: 'appearance', adminOnly: false },
     { id: 'appearance-accent-color', label: 'Accent color', description: 'Select the primary accent color for the UI', keywords: 'color accent primary indigo ocean forest sunset rose', tab: 'appearance', adminOnly: false },

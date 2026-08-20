@@ -7,7 +7,7 @@ import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, 
 import { api } from '../services/api';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import NotificationBell from './NotificationBell';
-import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, CATEGORY_LABEL_KEYS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
+import { SIDEBAR_CATEGORIES, SIDEBAR_CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useTranslation } from 'react-i18next';
 import useLabel from '../i18n/labels';
 import { useContributions } from '../plugins/contributions';
@@ -384,8 +384,8 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         <React.Fragment key={cat}>
                             <div className={`nav-category${isFirst ? ' nav-category--create' : ''}`}>
                                 {isFirst
-                                    ? <span>{t(CATEGORY_LABEL_KEYS[cat], { defaultValue: CATEGORY_LABELS[cat] })}</span>
-                                    : t(CATEGORY_LABEL_KEYS[cat], { defaultValue: CATEGORY_LABELS[cat] })}
+                                    ? <span>{label(SIDEBAR_CATEGORY_LABELS[cat])}</span>
+                                    : label(SIDEBAR_CATEGORY_LABELS[cat])}
                                 {isFirst && <QuickCreate variant="sidebar" />}
                             </div>
                             <nav className="nav">

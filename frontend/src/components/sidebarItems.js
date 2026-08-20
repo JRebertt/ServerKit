@@ -16,22 +16,25 @@ const groupPrefixes = (tabs) => tabs.map((t) => t.to);
 
 export const SIDEBAR_CATEGORIES = ['overview', 'infrastructure', 'operations', 'system'];
 
-// Category headings. Keys resolve at RENDER, not at import: a label
-// translated at module load would translate once and never follow a locale
-// switch (plan 79 §E).
-export const CATEGORY_LABELS = {
-    overview: 'Overview',
-    infrastructure: 'Infrastructure',
-    operations: 'Operations',
-    system: 'System'
+// Category headings. Key and English default sit in ONE object per category:
+// two parallel maps (labels here, keys there) are not sibling properties, so
+// the extractor cannot pair them and the keys never reach en.json -- which is
+// exactly how these headings stayed English in every locale until the locale
+// probe caught it.
+//
+// Keys resolve at RENDER, not at import: a label translated at module load
+// would translate once and never follow a locale switch (plan 79 §E).
+export const SIDEBAR_CATEGORY_LABELS = {
+    overview: { labelKey: 'nav.category.overview', label: 'Overview' },
+    infrastructure: { labelKey: 'nav.category.infrastructure', label: 'Infrastructure' },
+    operations: { labelKey: 'nav.category.operations', label: 'Operations' },
+    system: { labelKey: 'nav.category.system', label: 'System' }
 };
 
-export const CATEGORY_LABEL_KEYS = {
-    overview: 'nav.category.overview',
-    infrastructure: 'nav.category.infrastructure',
-    operations: 'nav.category.operations',
-    system: 'nav.category.system'
-};
+// Plain English map, for the few callers that only need a string.
+export const CATEGORY_LABELS = Object.fromEntries(
+    Object.entries(SIDEBAR_CATEGORY_LABELS).map(([key, entry]) => [key, entry.label]),
+);
 
 export const SIDEBAR_ITEMS = [
     {

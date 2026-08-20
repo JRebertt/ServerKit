@@ -20,13 +20,19 @@ import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json' with { type: 'json' };
 import { DEFAULT_LANGUAGE, SUPPORTED_CODES } from './resolveLocale';
 
-// Statically analysable by Vite; guarded so this module can be imported by
-// node-side tooling (which has no import.meta.glob) without exploding.
-// `en` is excluded: it is statically imported above and belongs in the main
-// chunk. Globbing it too would make rollup emit it both ways for no benefit.
-const localeModules = typeof import.meta.glob === 'function'
-    ? import.meta.glob(['./locales/*.json', '!./locales/en.json'])
-    : {};
+// Vite REPLACES this call at build time with a map of
+// './locales/<code>.json' -> () => import(…). It must be a BARE call.
+//
+// A runtime guard around it — `typeof import.meta.glob === 'function' ? … : {}`
+// — looks defensive and is always false in the browser: there is no such
+// function, only the compile-time transform. The guard therefore threw every
+// locale away and silently fell back to English for all of them. It shipped
+// that way for one commit; probe-locale.mjs is what caught it.
+//
+// `en` is matched too and simply never loaded (it is statically imported above
+// and belongs in the main chunk). Rollup notes that as INEFFECTIVE_DYNAMIC_
+// IMPORT, which is the correct outcome, not a problem to silence.
+const localeModules = import.meta.glob('./locales/*.json');
 
 const loaded = new Set([DEFAULT_LANGUAGE]);
 

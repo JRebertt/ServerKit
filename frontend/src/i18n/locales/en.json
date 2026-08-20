@@ -112,6 +112,12 @@
         "appearance": "Appearance",
         "backups": "Backups",
         "brand": "Brand",
+        "category": {
+            "infrastructure": "Infrastructure",
+            "operations": "Operations",
+            "overview": "Overview",
+            "system": "System"
+        },
         "closeMenu": "Close navigation menu",
         "collapseGroup": "Collapse {{group}}",
         "cron": "Cron Jobs",
@@ -201,6 +207,13 @@
             "manifest": "Docs: serverkit.yaml manifest"
         },
         "label": "Command palette"
+    },
+    "settings": {
+        "language": {
+            "description": "The language used across the panel.",
+            "provisional": "in progress",
+            "title": "Language"
+        }
     },
     "setup": {
         "subtitle": "Let’s get your server ready",

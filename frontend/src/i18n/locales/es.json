@@ -112,6 +112,12 @@
         "appearance": "Apariencia",
         "backups": "Copias de seguridad",
         "brand": "Marca",
+        "category": {
+            "infrastructure": "Infraestructura",
+            "operations": "Operaciones",
+            "overview": "Resumen",
+            "system": "Sistema"
+        },
         "closeMenu": "Cerrar el menú de navegación",
         "collapseGroup": "Contraer {{group}}",
         "cron": "Tareas programadas",
@@ -201,6 +207,13 @@
             "manifest": "Documentación: Manifiesto serverkit.yaml"
         },
         "label": "Paleta de comandos"
+    },
+    "settings": {
+        "language": {
+            "description": "El idioma que se usa en todo el panel.",
+            "provisional": "en curso",
+            "title": "Idioma"
+        }
     },
     "setup": {
         "subtitle": "Vamos a dejar tu servidor listo",
