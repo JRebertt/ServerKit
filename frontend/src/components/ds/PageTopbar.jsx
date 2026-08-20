@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useOverflowItems } from '@/hooks/useOverflowItems';
-import { t } from '@/i18n';
+import { t } from '@/i18n/t';
 
 // The demo's page top bar (see docs/REDESIGN_MAP.md §6 decision 3): infra pages
 // carry their own top bar — an icon + title, an optional routed sub-nav that

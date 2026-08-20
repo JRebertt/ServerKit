@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import api from '../services/api';
-import { t } from '../i18n';
+import { t } from '../i18n/t';
 
 // Class-based Error Boundary for catching React errors
 export class ErrorBoundary extends Component {

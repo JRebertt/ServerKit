@@ -52,15 +52,9 @@ i18next
         react: { useSuspense: false },
     });
 
-/**
- * Translate outside React — class components (ErrorBoundary), module-level
- * tables, non-component helpers.
- *
- * A bare export rather than reaching for `i18next.t` at the call site: the
- * extractor collects bare `t(...)` calls, so a member call would leave that
- * copy out of en.json and quietly untranslatable.
- */
-export const t = (...args) => i18next.t(...args);
+// Re-exported so `@/i18n` stays a valid import for browser-only callers;
+// node-reachable modules must import '@/i18n/t' directly (see that file).
+export { t } from './t';
 
 /**
  * Make a locale's bundle available, importing it on first use.

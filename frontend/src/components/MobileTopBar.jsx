@@ -1,5 +1,5 @@
 import { Menu, X } from 'lucide-react';
-import { t } from '../i18n';
+import { t } from '../i18n/t';
 import { useTheme } from '../contexts/ThemeContext';
 import ServerKitLogo from './ServerKitLogo';
 import NotificationBell from './NotificationBell';

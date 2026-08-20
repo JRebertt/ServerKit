@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { t } from '../i18n/t';
 /**
  * Full-screen initial loader shown while auth/setup state is resolved.
  *

@@ -1,6 +1,6 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { t } from '@/i18n';
+import { t } from '@/i18n/t';
 
 /**
  * Consistent error state for pages and panels. Shows an icon, title, message,

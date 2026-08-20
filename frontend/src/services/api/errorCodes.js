@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { t } from '../../i18n/t.js';
 
 /**
  * Translate a server error by its machine code (plan 79 F1).

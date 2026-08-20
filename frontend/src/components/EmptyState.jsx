@@ -1,6 +1,6 @@
 import { Inbox } from 'lucide-react';
 import { PageSkeleton } from './PageSkeleton';
-import { t } from '../i18n';
+import { t } from '../i18n/t';
 
 /**
  * `loadingVariant` names the shape of the page that is loading — see

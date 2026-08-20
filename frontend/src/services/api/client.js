@@ -1,6 +1,6 @@
 // Base HTTP client - constructor, token management, core request methods
 import { workspaceStore } from '../workspaceStore.js';
-import { translateServerError } from './errorCodes';
+import { translateServerError } from './errorCodes.js';
 
 const AUTH_EXPIRED_EVENT = 'serverkit:auth-expired';
 
