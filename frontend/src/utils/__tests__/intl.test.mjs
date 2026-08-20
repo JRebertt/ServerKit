@@ -143,3 +143,18 @@ test('switching locale invalidates the formatter cache', () => {
     assert.equal(formatDate(iso), first);
     assert.notEqual(first, second);
 });
+
+test('parts passes Intl component options through, still per locale', () => {
+    // The escape hatch that removes the reason to call toLocaleDateString
+    // directly: exact control of the components, panel locale either way.
+    const iso = '2026-08-19T10:00:00Z';
+    const english = formatDate(iso, { parts: { month: 'short', day: 'numeric' } });
+    setFormatLocale('es');
+    const spanish = formatDate(iso, { parts: { month: 'short', day: 'numeric' } });
+
+    assert.match(english, /Aug/);
+    assert.match(spanish, /ago/);
+    assert.notEqual(english, spanish);
+    // A named style still works unchanged.
+    assert.equal(formatDate(iso, { style: 'medium' }), formatDate(iso));
+});

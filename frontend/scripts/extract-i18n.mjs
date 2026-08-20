@@ -27,8 +27,20 @@ import { parse } from 'espree';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const srcDir = resolve(root, 'src');
-const outFile = resolve(srcDir, 'i18n', 'locales', 'en.json');
+
+// `--root <dir> --out <file>` extracts another tree — an extension repo's own
+// source into its own bundle. Extensions carry inline English defaults exactly
+// like core, so they get en.json generated the same way rather than a second
+// extractor that would drift from this one.
+const argOf = (name) => (process.argv.includes(name)
+    ? process.argv[process.argv.indexOf(name) + 1]
+    : null);
+const rootArg = argOf('--root');
+const outArg = argOf('--out');
+const srcDir = rootArg ? resolve(process.cwd(), rootArg) : resolve(root, 'src');
+const outFile = outArg
+    ? resolve(process.cwd(), outArg)
+    : resolve(srcDir, 'i18n', 'locales', 'en.json');
 
 const SKIP_DIRS = new Set(['node_modules', '__mocks__']);
 const SKIP_FILE = /\.(test|spec|stories)\.[jt]sx?$/;

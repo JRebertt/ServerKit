@@ -169,6 +169,12 @@ function collectStrings(node, out) {
     }
     if (!node.type) return;
     if (isTranslationCall(node)) return;
+    // Stop at nested JSX. A copy prop holding an element —
+    // `message={<span>… <a rel="noopener noreferrer">…</a></span>}` — must not
+    // have that element's OWN attributes counted: `rel` is not copy, and the
+    // walk reaches the element on its own terms anyway. Counting them made the
+    // ratchet unreachable on correct code.
+    if (node.type === 'JSXElement' || node.type === 'JSXFragment') return;
     if (node.type === 'Literal' && typeof node.value === 'string') {
         out.push(node);
         return;

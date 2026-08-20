@@ -86,29 +86,43 @@ function toNumber(value) {
 
 const DATE_STYLES = { short: 'short', medium: 'medium', long: 'long', full: 'full' };
 
-export function formatDate(value, { style = 'medium', fallback = '-' } = {}) {
+/**
+ * `parts` passes Intl.DateTimeFormat component options straight through
+ * (`{ month: 'short', day: 'numeric' }`) for the cases a named style cannot
+ * express — chart ticks, month labels. Without it callers reach for
+ * `toLocaleDateString([], {...})`, which silently follows the BROWSER's locale;
+ * this keeps the exact format AND the panel's language.
+ */
+export function formatDate(value, { style = 'medium', parts, fallback = '-' } = {}) {
     const date = toDate(value);
     if (!date) return fallback;
-    return cached('date', { style }, (locale, options) => new Intl.DateTimeFormat(locale, {
-        dateStyle: DATE_STYLES[options.style] || 'medium',
-    })).format(date);
+    return cached('date', { style, parts }, (locale, options) => new Intl.DateTimeFormat(
+        locale,
+        options.parts || { dateStyle: DATE_STYLES[options.style] || 'medium' },
+    )).format(date);
 }
 
-export function formatTime(value, { seconds = false, fallback = '-' } = {}) {
+export function formatTime(value, { seconds = false, parts, fallback = '-' } = {}) {
     const date = toDate(value);
     if (!date) return fallback;
-    return cached('time', { seconds }, (locale, options) => new Intl.DateTimeFormat(locale, {
-        timeStyle: options.seconds ? 'medium' : 'short',
-    })).format(date);
+    return cached('time', { seconds, parts }, (locale, options) => new Intl.DateTimeFormat(
+        locale,
+        options.parts || { timeStyle: options.seconds ? 'medium' : 'short' },
+    )).format(date);
 }
 
-export function formatDateTime(value, { style = 'medium', seconds = false, fallback = '-' } = {}) {
+export function formatDateTime(value, {
+    style = 'medium', seconds = false, parts, fallback = '-',
+} = {}) {
     const date = toDate(value);
     if (!date) return fallback;
-    return cached('datetime', { style, seconds }, (locale, options) => new Intl.DateTimeFormat(locale, {
-        dateStyle: DATE_STYLES[options.style] || 'medium',
-        timeStyle: options.seconds ? 'medium' : 'short',
-    })).format(date);
+    return cached('datetime', { style, seconds, parts }, (locale, options) => new Intl.DateTimeFormat(
+        locale,
+        options.parts || {
+            dateStyle: DATE_STYLES[options.style] || 'medium',
+            timeStyle: options.seconds ? 'medium' : 'short',
+        },
+    )).format(date);
 }
 
 // ------------------------------------------------------------- relative ---

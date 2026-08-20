@@ -40,11 +40,16 @@ const ALLOWED = new Set([
 
 const PATTERN = /\.toLocale(?:Date|Time)?String\s*\(|new\s+Intl\.\w+/g;
 
+// Build output is not source. An extension repo keeps its bundle in dist/, and
+// counting the bundle double-counts every call in it AND reports hits nobody
+// can fix without rebuilding.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '__tests__']);
+
 function walk(dir) {
     return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         const path = join(dir, entry.name);
         if (entry.isDirectory()) {
-            return entry.name === 'node_modules' ? [] : walk(path);
+            return SKIP_DIRS.has(entry.name) ? [] : walk(path);
         }
         return ['.js', '.jsx', '.mjs'].includes(extname(entry.name)) ? [path] : [];
     });
