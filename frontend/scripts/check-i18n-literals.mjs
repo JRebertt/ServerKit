@@ -77,6 +77,9 @@ const SKIP_FILE = /\.(test|spec|stories)\.[jt]sx?$/;
 // door's own fallback strings.
 const SKIP_PATH = /^(i18n\/|data\/bundledThemes)/;
 
+// A dotted, lowercase-namespaced path: `nav.dashboard`, `common.actions.save`.
+const TRANSLATION_KEY = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z0-9_]+)+$/;
+
 /**
  * Does this literal read as prose a user would notice?
  *
@@ -191,6 +194,10 @@ function censusFile(path, rel) {
     }
 
     const hits = [];
+    // Properties exempted because the object also declares a translation key
+    // for them: `{ labelKey: 'nav.apps', label: 'Applications' }`. The label is
+    // the English default for that key, resolved at render -- not stray copy.
+    const keyed = new WeakSet();
     const record = (node, kind, value) => {
         const text = String(value).trim().replace(/\s+/g, ' ');
         if (!isCopy(text)) return;
@@ -251,8 +258,26 @@ function censusFile(path, rel) {
                 break;
             }
 
+            // Declarative key pairs, marked before their properties are seen.
+            case 'ObjectExpression': {
+                const named = new Map();
+                for (const property of node.properties) {
+                    if (property.type !== 'Property' || property.computed) continue;
+                    named.set(property.key?.name || property.key?.value, property);
+                }
+                for (const [name, property] of named) {
+                    if (!name || !name.endsWith('Key')) continue;
+                    if (property.value?.type !== 'Literal') continue;
+                    if (!TRANSLATION_KEY.test(String(property.value.value))) continue;
+                    const sibling = named.get(name.slice(0, -3));
+                    if (sibling) keyed.add(sibling);
+                }
+                break;
+            }
+
             // 4. Copy keys in data objects.
             case 'Property': {
+                if (keyed.has(node)) return;
                 const key = propertyKey(node);
                 if (key && COPY_KEYS.has(key) && node.value?.type === 'Literal'
                     && typeof node.value.value === 'string') {

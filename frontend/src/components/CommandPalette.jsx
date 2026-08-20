@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../i18n/labels';
 import {
     History, SlidersHorizontal, LayoutGrid, Zap, Server, Globe,
     Database, Boxes, Puzzle, BookOpen, KeyRound, Clock, ExternalLink, Star,
@@ -67,13 +69,13 @@ const TYPE_LABEL = {
 // Docs entries derived from the single docsLinks map (plan 40). Hidden under
 // White Label since they point at the public serverkit.ai docs.
 const DOCS_ENTRIES = [
-    { key: 'deploySources', label: 'Docs: Deploy sources', keywords: 'deploy source repo git' },
-    { key: 'manifest', label: 'Docs: serverkit.yaml manifest', keywords: 'manifest yaml declarative' },
-    { key: 'extensions', label: 'Docs: Extensions', keywords: 'extension plugin' },
-    { key: 'extensionsInstalling', label: 'Docs: Installing extensions', keywords: 'install extension' },
-    { key: 'extensionsBuilding', label: 'Docs: Building extensions', keywords: 'build extension develop sdk' },
-    { key: 'extensionsPublishing', label: 'Docs: Publishing extensions', keywords: 'publish extension registry' },
-    { key: 'extensionsSecurity', label: 'Docs: Extension security', keywords: 'extension security permissions' },
+    { key: 'deploySources', labelKey: 'palette.docs.deploySources', label: 'Docs: Deploy sources', keywords: 'deploy source repo git' },
+    { key: 'manifest', labelKey: 'palette.docs.manifest', label: 'Docs: serverkit.yaml manifest', keywords: 'manifest yaml declarative' },
+    { key: 'extensions', labelKey: 'palette.docs.extensions', label: 'Docs: Extensions', keywords: 'extension plugin' },
+    { key: 'extensionsInstalling', labelKey: 'palette.docs.extensionsInstalling', label: 'Docs: Installing extensions', keywords: 'install extension' },
+    { key: 'extensionsBuilding', labelKey: 'palette.docs.extensionsBuilding', label: 'Docs: Building extensions', keywords: 'build extension develop sdk' },
+    { key: 'extensionsPublishing', labelKey: 'palette.docs.extensionsPublishing', label: 'Docs: Publishing extensions', keywords: 'publish extension registry' },
+    { key: 'extensionsSecurity', labelKey: 'palette.docs.extensionsSecurity', label: 'Docs: Extension security', keywords: 'extension security permissions' },
 ];
 
 const PER_GROUP_CAP = 6;
@@ -94,6 +96,7 @@ function capGroups(items, perGroup = PER_GROUP_CAP, overall = OVERALL_CAP) {
 }
 
 const CommandPalette = ({ open, onClose }) => {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [entityItems, setEntityItems] = useState([]);
     const navigate = useNavigate();
@@ -168,13 +171,13 @@ const CommandPalette = ({ open, onClose }) => {
             .filter((d) => DOCS_LINKS[d.key])
             .map((d) => ({
                 id: `docs:${d.key}`,
-                label: d.label,
+                label: translateLabel(t, d),
                 keywords: d.keywords || '',
                 path: DOCS_LINKS[d.key],
                 category: 'Docs',
                 external: true,
             }));
-    }, [whiteLabel]);
+    }, [whiteLabel, t]);
 
     // --- Favorites + visited entities (localStorage, refreshed per open) -----
     const favoriteItems = useMemo(
@@ -327,7 +330,7 @@ const CommandPalette = ({ open, onClose }) => {
         <CommandDialog
             open={open}
             shouldFilter={false}
-            label="Command palette"
+            label={t('palette.label', 'Command palette')}
             onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}
         >
             <CommandInput
@@ -336,7 +339,7 @@ const CommandPalette = ({ open, onClose }) => {
                 onValueChange={setQuery}
             />
             <CommandList>
-                <CommandEmpty>No results found</CommandEmpty>
+                <CommandEmpty>{t('common.state.noResults', 'No results found')}</CommandEmpty>
                 {grouped.map(([category, items]) => {
                     const Icon = CATEGORY_ICONS[category] || LayoutGrid;
                     return (

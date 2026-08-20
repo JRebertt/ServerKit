@@ -47,6 +47,16 @@ i18next
     });
 
 /**
+ * Translate outside React — class components (ErrorBoundary), module-level
+ * tables, non-component helpers.
+ *
+ * A bare export rather than reaching for `i18next.t` at the call site: the
+ * extractor collects bare `t(...)` calls, so a member call would leave that
+ * copy out of en.json and quietly untranslatable.
+ */
+export const t = (...args) => i18next.t(...args);
+
+/**
  * Make a locale's bundle available, importing it on first use.
  * Resolves to the code actually loaded — `en` if the bundle is missing, so a
  * half-shipped locale degrades to English instead of to key paths.

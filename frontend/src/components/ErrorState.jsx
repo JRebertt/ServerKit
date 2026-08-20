@@ -1,5 +1,6 @@
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { t } from '@/i18n';
 
 /**
  * Consistent error state for pages and panels. Shows an icon, title, message,
@@ -21,7 +22,7 @@ export function ErrorState({ title = 'Something went wrong', message, onRetry, c
             {message && <p className="sk-error-state__message">{message}</p>}
             {onRetry && (
                 <Button variant="outline" size="sm" onClick={onRetry}>
-                    <RefreshCw size={14} /> Try again
+                    <RefreshCw size={14} /> {t('common.actions.tryAgain', 'Try again')}
                 </Button>
             )}
         </div>

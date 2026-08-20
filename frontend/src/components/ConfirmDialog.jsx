@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Trans } from 'react-i18next';
 import { AlertTriangle, Info, AlertCircle } from 'lucide-react';
 import {
   AlertDialog,
@@ -53,7 +54,15 @@ export function ConfirmDialog({
           {requireConfirmation && (
             <div className="sk-confirm__confirm-field">
               <Label>
-                Type <strong className="text-foreground">{requireConfirmation}</strong> to confirm:
+                {/* One key, not a prefix/suffix pair: word order around the
+                    typed value differs by language, and split sentences cannot
+                    be reordered by a translator. */}
+                <Trans
+                  i18nKey="common.confirm.typeToConfirm"
+                  defaults="Type <0>{{value}}</0> to confirm:"
+                  values={{ value: requireConfirmation }}
+                  components={[<strong key="value" className="text-foreground" />]}
+                />
               </Label>
               <Input
                 value={inputValue}

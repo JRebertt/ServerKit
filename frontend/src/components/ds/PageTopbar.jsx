@@ -4,6 +4,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useOverflowItems } from '@/hooks/useOverflowItems';
+import { t } from '@/i18n';
 
 // The demo's page top bar (see docs/REDESIGN_MAP.md §6 decision 3): infra pages
 // carry their own top bar — an icon + title, an optional routed sub-nav that
@@ -40,7 +41,7 @@ export function PageTopbar({ icon, title, meta, tabs, actions, className, navLab
                 many sections — e.g. Security — stay on one row). Pages without
                 tabs keep the plain spacer that pushes actions to the right. */}
             {hasTabs
-                ? <TopbarTabs tabs={tabs} label={navLabel || title || 'Page'} />
+                ? <TopbarTabs tabs={tabs} label={navLabel || title || t('common.page', 'Page')} />
                 : <div className="sk-topbar__spacer" />}
 
             {actions && <div className="sk-topbar__actions">{actions}</div>}
@@ -105,10 +106,10 @@ function TopbarTabs({ tabs, label }) {
                                 ref={moreBtnRef}
                                 type="button"
                                 className="sk-topbar__tab sk-topbar__more"
-                                aria-label="More sections"
+                                aria-label={t('common.moreSections', 'More sections')}
                             >
                                 <MoreHorizontal size={16} />
-                                More
+                                {t('common.more', 'More')}
                             </button>
                         </PopoverTrigger>
                         <PopoverContent align="end" sideOffset={6} className="ui-popover-content">

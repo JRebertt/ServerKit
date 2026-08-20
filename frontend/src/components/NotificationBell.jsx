@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Bell, Check, X } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { timeAgo } from '../utils/time';
+import { useTranslation } from 'react-i18next';
 
 // Severity → dot color, mirroring the email/brand palette.
 const SEVERITY_DOT = {
@@ -14,6 +15,7 @@ const SEVERITY_DOT = {
 };
 
 export default function NotificationBell() {
+    const { t } = useTranslation();
     const ctx = useNotifications();
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -67,7 +69,9 @@ export default function NotificationBell() {
                 type="button"
                 className="sk-notif__bell"
                 onClick={toggle}
-                aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+                aria-label={unreadCount
+                    ? t('notifications.bellUnread', 'Notifications, {{count}} unread', { count: unreadCount })
+                    : t('notifications.bell', 'Notifications')}
                 aria-haspopup="true"
                 aria-expanded={open}
             >
@@ -76,19 +80,19 @@ export default function NotificationBell() {
             </button>
 
             {open && (
-                <div className="sk-notif__panel" role="menu" aria-label="Notifications">
+                <div className="sk-notif__panel" role="menu" aria-label={t('notifications.bell', 'Notifications')}>
                     <div className="sk-notif__head">
-                        <span className="sk-notif__heading">Notifications</span>
+                        <span className="sk-notif__heading">{t('notifications.heading', 'Notifications')}</span>
                         {unreadCount > 0 && (
                             <button type="button" className="sk-notif__markall" onClick={markAllRead}>
-                                <Check size={13} aria-hidden="true" /> Mark all read
+                                <Check size={13} aria-hidden="true" /> {t('notifications.markAllRead', 'Mark all read')}
                             </button>
                         )}
                     </div>
 
                     <div className="sk-notif__list">
                         {items.length === 0 ? (
-                            <div className="sk-notif__empty">You&rsquo;re all caught up.</div>
+                            <div className="sk-notif__empty">{t('notifications.empty', 'You’re all caught up.')}</div>
                         ) : (
                             items.map((item) => (
                                 item.kind === 'notice' ? (
@@ -115,7 +119,7 @@ export default function NotificationBell() {
                                             type="button"
                                             className="sk-notif__dismiss"
                                             onClick={() => dismissNotice && dismissNotice(item.notice_id)}
-                                            aria-label={`Dismiss ${item.title}`}
+                                            aria-label={t('notifications.dismissItem', 'Dismiss {{title}}', { title: item.title })}
                                         >
                                             <X size={14} aria-hidden="true" />
                                         </button>
@@ -151,7 +155,7 @@ export default function NotificationBell() {
                         className="sk-notif__seeall"
                         onClick={() => { setOpen(false); navigate('/notifications'); }}
                     >
-                        See all notifications
+                        {t('notifications.seeAll', 'See all notifications')}
                     </button>
                 </div>
             )}

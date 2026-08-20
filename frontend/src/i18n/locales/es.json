@@ -1,5 +1,13 @@
 {
     "common": {
+        "actions": {
+            "logOut": "Cerrar sesión",
+            "retry": "Reintentar",
+            "tryAgain": "Reintentar"
+        },
+        "confirm": {
+            "typeToConfirm": "Escribe <0>{{value}}</0> para confirmar:"
+        },
         "duration": {
             "hours": "{{count}} h",
             "hoursMinutes": "{{hours}} h {{minutes}} min",
@@ -7,11 +15,122 @@
             "minutesSeconds": "{{minutes}} min {{seconds}} s",
             "seconds": "{{count}} s"
         },
+        "error": {
+            "failedToLoad": "No se pudo cargar",
+            "loadingData": "Se produjo un error al cargar los datos",
+            "title": "Algo salió mal",
+            "unexpected": "Se produjo un error inesperado"
+        },
+        "more": "Más",
+        "moreSections": "Más secciones",
+        "page": "Página",
+        "state": {
+            "loading": "Cargando",
+            "loadingApp": "Cargando ServerKit",
+            "noResults": "No se encontraron resultados"
+        },
         "time": {
             "daysShort": "{{count}} d",
             "hoursShort": "{{count}} h",
             "justNow": "ahora mismo",
             "minutesShort": "{{count}} min"
         }
+    },
+    "nav": {
+        "accountMenu": "Cuenta y preferencias",
+        "allSettings": "Todos los ajustes",
+        "appMap": "Mapa de la app",
+        "appearance": "Apariencia",
+        "backups": "Copias de seguridad",
+        "brand": "Marca",
+        "closeMenu": "Cerrar el menú de navegación",
+        "collapseGroup": "Contraer {{group}}",
+        "cron": "Tareas programadas",
+        "customizeSidebar": "Personalizar la barra lateral",
+        "dashboard": "Panel",
+        "databases": "Bases de datos",
+        "devTools": "Herramientas de desarrollo",
+        "docker": "Docker",
+        "documentation": "Documentación",
+        "domains": "Dominios",
+        "expandGroup": "Expandir {{group}}",
+        "files": "Archivos",
+        "layout": "Diseño",
+        "layoutCompact": "Compacto",
+        "layoutCompactLong": "Diseño de barra compacta",
+        "layoutSidebar": "Barra lateral",
+        "layoutSidebarLong": "Diseño con barra lateral",
+        "layoutTopbar": "Barra superior",
+        "layoutTopbarLong": "Diseño con barra superior",
+        "mainNavigation": "Navegación principal",
+        "marketplace": "Extensiones",
+        "monitoring": "Monitorización",
+        "online": "En línea",
+        "openMenu": "Abrir el menú de navegación",
+        "organization": "Organización",
+        "preset": {
+            "devops": {
+                "description": "Docker, Git, monitorización y herramientas CI/CD",
+                "label": "Docker / DevOps"
+            },
+            "email": {
+                "description": "Servidor de correo, seguridad, DNS y monitorización",
+                "label": "Administración de correo"
+            },
+            "full": {
+                "description": "Todos los elementos de la barra lateral visibles",
+                "label": "Completo"
+            },
+            "minimal": {
+                "description": "Solo lo esencial: sin bases de datos, contenedores ni programación",
+                "label": "Mínimo"
+            },
+            "recommended": {
+                "description": "Lo esencial del día a día: las herramientas avanzadas quedan ocultas",
+                "label": "Recomendado"
+            },
+            "web": {
+                "description": "Dominios, SSL, bases de datos y lo esencial para la web",
+                "label": "Alojamiento web"
+            }
+        },
+        "queue": "Bus de colas",
+        "security": "Seguridad",
+        "servers": "Servidores",
+        "services": "Servicios",
+        "sidebarView": "Vista de la barra lateral",
+        "starOnGithub": "Marcar con estrella en GitHub",
+        "starOnGithubLong": "Marcar ServerKit con estrella en GitHub",
+        "styleGuide": "Guía de estilo",
+        "terminal": "Terminal / Registros",
+        "testSandbox": "Entorno de pruebas",
+        "theme": "Tema",
+        "themeDark": "Oscuro",
+        "themeDarkLong": "Tema oscuro",
+        "themeLight": "Claro",
+        "themeLightLong": "Tema claro",
+        "themeSystem": "Sistema",
+        "themeSystemLong": "Tema del sistema"
+    },
+    "notifications": {
+        "bell": "Notificaciones",
+        "bellUnread": "Notificaciones, {{count}} sin leer",
+        "dismissItem": "Descartar {{title}}",
+        "empty": "No tienes nada pendiente.",
+        "heading": "Notificaciones",
+        "markAllRead": "Marcar todo como leído",
+        "seeAll": "Ver todas las notificaciones"
+    },
+    "palette": {
+        "docs": {
+            "deploySources": "Documentación: Orígenes de despliegue",
+            "extensions": "Documentación: Extensiones",
+            "extensionsBuilding": "Documentación: Crear extensiones",
+            "extensionsInstalling": "Documentación: Instalar extensiones",
+            "extensionsPublishing": "Documentación: Publicar extensiones",
+            "extensionsSecurity": "Documentación: Seguridad de las extensiones",
+            "manifest": "Documentación: Manifiesto serverkit.yaml"
+        },
+        "label": "Paleta de comandos"
     }
 }

@@ -16,6 +16,9 @@ const groupPrefixes = (tabs) => tabs.map((t) => t.to);
 
 export const SIDEBAR_CATEGORIES = ['overview', 'infrastructure', 'operations', 'system'];
 
+// Category headings. Keys resolve at RENDER, not at import: a label
+// translated at module load would translate once and never follow a locale
+// switch (plan 79 §E).
 export const CATEGORY_LABELS = {
     overview: 'Overview',
     infrastructure: 'Infrastructure',
@@ -23,9 +26,17 @@ export const CATEGORY_LABELS = {
     system: 'System'
 };
 
+export const CATEGORY_LABEL_KEYS = {
+    overview: 'nav.category.overview',
+    infrastructure: 'nav.category.infrastructure',
+    operations: 'nav.category.operations',
+    system: 'nav.category.system'
+};
+
 export const SIDEBAR_ITEMS = [
     {
         id: 'dashboard',
+        labelKey: 'nav.dashboard',
         label: 'Dashboard',
         route: '/',
         category: 'overview',
@@ -41,6 +52,7 @@ export const SIDEBAR_ITEMS = [
         // page's PageTopbar (ORG_TABS via TabGroupLayout). matchPrefixes keeps
         // the single sidebar item lit across all three routes.
         id: 'organization',
+        labelKey: 'nav.organization',
         label: 'Organization',
         route: '/projects',
         matchPrefixes: groupPrefixes(ORG_TABS),
@@ -55,6 +67,7 @@ export const SIDEBAR_ITEMS = [
         // /server-templates are unchanged and reachable from those tabs.
         // (Fleet Monitor left this group for /monitoring.)
         id: 'servers',
+        labelKey: 'nav.servers',
         label: 'Servers',
         route: '/servers',
         // Keep "Servers" lit across the whole tab group (Agent Fleet, Fleet
@@ -69,6 +82,7 @@ export const SIDEBAR_ITEMS = [
         // bar (PageTopbar tabs), not as sidebar sub-items. Routes /dns and /ssl
         // are unchanged and still reachable from those tabs.
         id: 'domains',
+        labelKey: 'nav.domains',
         label: 'Domains',
         route: '/domains',
         matchPrefixes: groupPrefixes(DOMAIN_TABS),
@@ -81,6 +95,7 @@ export const SIDEBAR_ITEMS = [
         // bar (PageTopbar SERVICE_TABS), not as sidebar sub-items. Routes
         // /services/new, /templates, /deployments are unchanged.
         id: 'services',
+        labelKey: 'nav.services',
         label: 'Services',
         route: '/services',
         matchPrefixes: groupPrefixes(SERVICE_TABS),
@@ -96,6 +111,7 @@ export const SIDEBAR_ITEMS = [
     // item comes from the extension manifest.
     {
         id: 'databases',
+        labelKey: 'nav.databases',
         label: 'Databases',
         route: '/databases',
         category: 'infrastructure',
@@ -103,6 +119,7 @@ export const SIDEBAR_ITEMS = [
     },
     {
         id: 'docker',
+        labelKey: 'nav.docker',
         label: 'Docker',
         route: '/docker',
         category: 'infrastructure',
@@ -119,6 +136,7 @@ export const SIDEBAR_ITEMS = [
         // FTP Server now lives in the page's top bar (PageTopbar FILE_TABS), not
         // as a sidebar sub-item. Route /ftp is unchanged, reachable from the tab.
         id: 'files',
+        labelKey: 'nav.files',
         label: 'Files',
         route: '/files',
         matchPrefixes: groupPrefixes(FILE_TABS),
@@ -134,6 +152,7 @@ export const SIDEBAR_ITEMS = [
         // page. Labelled "Monitoring" to match the route and the page — this
         // used to say "Observability", which named the same thing twice.
         id: 'monitoring',
+        labelKey: 'nav.monitoring',
         label: 'Monitoring',
         route: '/monitoring',
         matchPrefixes: groupPrefixes(MONITOR_TABS),
@@ -142,6 +161,7 @@ export const SIDEBAR_ITEMS = [
     },
     {
         id: 'backups',
+        labelKey: 'nav.backups',
         label: 'Backups',
         route: '/backups',
         category: 'operations',
@@ -149,6 +169,7 @@ export const SIDEBAR_ITEMS = [
     },
     {
         id: 'cron',
+        labelKey: 'nav.cron',
         label: 'Cron Jobs',
         route: '/cron',
         category: 'operations',
@@ -156,6 +177,7 @@ export const SIDEBAR_ITEMS = [
     },
     {
         id: 'security',
+        labelKey: 'nav.security',
         label: 'Security',
         route: '/security',
         category: 'operations',
@@ -165,6 +187,7 @@ export const SIDEBAR_ITEMS = [
     // is contributed by the extension manifest.
     {
         id: 'queue',
+        labelKey: 'nav.queue',
         label: 'Queue Bus',
         route: '/queue',
         category: 'operations',
@@ -172,6 +195,7 @@ export const SIDEBAR_ITEMS = [
     },
     {
         id: 'terminal',
+        labelKey: 'nav.terminal',
         label: 'Terminal / Logs',
         route: '/terminal',
         category: 'system',
@@ -194,6 +218,7 @@ export const SIDEBAR_ITEMS = [
         // Downloads now lives in the page's top bar (PageTopbar MARKET_TABS), not
         // as a sidebar sub-item. Route /downloads is unchanged.
         id: 'marketplace',
+        labelKey: 'nav.marketplace',
         label: 'Extensions',
         route: '/extensions',
         matchPrefixes: groupPrefixes(MARKET_TABS),
@@ -217,32 +242,44 @@ export const ADVANCED_ITEM_IDS = ['queue'];
 // Preset profiles define which items are hidden (top-level only)
 export const SIDEBAR_PRESETS = {
     recommended: {
+        labelKey: 'nav.preset.recommended.label',
         label: 'Recommended',
+        descriptionKey: 'nav.preset.recommended.description',
         description: 'Everyday essentials — advanced tools hidden',
         hiddenItems: [...ADVANCED_ITEM_IDS]
     },
     full: {
+        labelKey: 'nav.preset.full.label',
         label: 'Full',
+        descriptionKey: 'nav.preset.full.description',
         description: 'All sidebar items visible',
         hiddenItems: []
     },
     web: {
+        labelKey: 'nav.preset.web.label',
         label: 'Web Hosting',
+        descriptionKey: 'nav.preset.web.description',
         description: 'Domains, SSL, databases, and web essentials',
         hiddenItems: ['docker', 'git', 'workflow', 'email', ...ADVANCED_ITEM_IDS]
     },
     email: {
+        labelKey: 'nav.preset.email.label',
         label: 'Email Admin',
+        descriptionKey: 'nav.preset.email.description',
         description: 'Email server, security, DNS, and monitoring',
         hiddenItems: ['services', 'workflow', 'databases', 'docker', 'git', 'cron', ...ADVANCED_ITEM_IDS]
     },
     devops: {
+        labelKey: 'nav.preset.devops.label',
         label: 'Docker / DevOps',
+        descriptionKey: 'nav.preset.devops.description',
         description: 'Docker, Git, monitoring, and CI/CD tools',
         hiddenItems: ['email', ...ADVANCED_ITEM_IDS]
     },
     minimal: {
+        labelKey: 'nav.preset.minimal.label',
         label: 'Minimal',
+        descriptionKey: 'nav.preset.minimal.description',
         description: 'Core only — no databases, containers, or scheduling',
         hiddenItems: ['workflow', 'databases', 'docker', 'git', 'email', 'cron', ...ADVANCED_ITEM_IDS]
     }

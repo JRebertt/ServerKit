@@ -55,6 +55,25 @@ function isTranslationCall(node) {
         && node.callee.name === 't';
 }
 
+/**
+ * Is SOME default declared? For a computed key the default is computed too
+ * (`t(item.labelKey, { defaultValue: item.label })`), so it cannot be
+ * extracted — but its presence is still what stops a missing bundle rendering
+ * the raw key path to a user, and that is what this gate is for.
+ */
+function hasDefault(node) {
+    const [, second, third] = node.arguments;
+    if (second?.type === 'Literal' && typeof second.value === 'string') return true;
+    for (const candidate of [second, third]) {
+        if (candidate?.type !== 'ObjectExpression') continue;
+        for (const property of candidate.properties) {
+            if (property.type !== 'Property' || property.computed) continue;
+            if ((property.key.name || property.key.value) === 'defaultValue') return true;
+        }
+    }
+    return false;
+}
+
 /** The English default declared at a call site, or null. */
 function defaultValueOf(node) {
     const [, second, third] = node.arguments;
@@ -72,17 +91,82 @@ function defaultValueOf(node) {
     return null;
 }
 
-function visit(node, onCall) {
+// Declarative keys in data files.
+//
+// A label sitting in a data table (sidebarItems.js, tab tables, column defs)
+// is still copy, but it cannot be a `t()` call: resolving at module load would
+// translate it once, at import, and never again on a locale switch. So the
+// data declares the pair
+//
+//     { labelKey: 'nav.dashboard', label: 'Dashboard' }
+//
+// and the renderer resolves `t(item.labelKey, item.label)` at render time.
+// This collects the pair at its declaration site, the only place both halves
+// are literal.
+// A dotted, lowercase-namespaced path: `nav.dashboard`, `common.actions.save`.
+const TRANSLATION_KEY = /^[a-z][a-zA-Z0-9]*(\.[a-zA-Z0-9_]+)+$/;
+
+function declarativePairs(node) {
+    if (node.type !== 'ObjectExpression') return null;
+    const literals = new Map();
+    for (const property of node.properties) {
+        if (property.type !== 'Property' || property.computed) continue;
+        const name = property.key.name || property.key.value;
+        if (property.value?.type === 'Literal' && typeof property.value.value === 'string') {
+            literals.set(name, property.value.value);
+        }
+    }
+    const pairs = [];
+    for (const [name, value] of literals) {
+        if (!name.endsWith('Key')) continue;
+        const sibling = name.slice(0, -3);
+        // The value must LOOK like a translation key. `Key` already means
+        // "identifier" in several places -- `archKey: 'amd64'` next to
+        // `arch: 'x64 (amd64)'` is a CPU architecture, not copy, and a looser
+        // rule silently pulled it into en.json.
+        if (!TRANSLATION_KEY.test(value)) continue;
+        if (literals.has(sibling)) pairs.push({ key: value, value: literals.get(sibling) });
+    }
+    return pairs.length ? pairs : null;
+}
+
+// <Trans i18nKey="..." defaults="Type <0>{{value}}</0> to confirm:" />
+//
+// A sentence with an element inside it cannot be a plain `t()` call, and it
+// must not be split into prefix/suffix keys either: word order differs by
+// language, and a split sentence cannot be reordered by a translator.
+function transPair(node) {
+    if (node.type !== 'JSXElement') return null;
+    const name = node.openingElement?.name;
+    if (name?.type !== 'JSXIdentifier' || name.name !== 'Trans') return null;
+
+    const literals = new Map();
+    for (const attribute of node.openingElement.attributes) {
+        if (attribute.type !== 'JSXAttribute') continue;
+        if (attribute.value?.type === 'Literal' && typeof attribute.value.value === 'string') {
+            literals.set(attribute.name.name, attribute.value.value);
+        }
+    }
+    const key = literals.get('i18nKey');
+    const value = literals.get('defaults');
+    return key && value ? { key, value } : null;
+}
+
+function visit(node, onCall, onPair) {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) {
-        for (const child of node) visit(child, onCall);
+        for (const child of node) visit(child, onCall, onPair);
         return;
     }
     if (!node.type) return;
     if (isTranslationCall(node)) onCall(node);
+    const pairs = declarativePairs(node);
+    if (pairs) for (const pair of pairs) onPair(pair, node);
+    const trans = transPair(node);
+    if (trans) onPair(trans, node);
     for (const key of Object.keys(node)) {
         if (key === 'type' || key === 'loc' || key === 'range') continue;
-        visit(node[key], onCall);
+        visit(node[key], onCall, onPair);
     }
 }
 
@@ -105,23 +189,7 @@ export function collect() {
             continue;
         }
 
-        visit(ast, (node) => {
-            const first = node.arguments[0];
-            const site = `${rel}:${node.loc.start.line}`;
-
-            if (first?.type !== 'Literal' || typeof first.value !== 'string') {
-                // A computed key cannot be extracted, so its English can only
-                // live in en.json by hand -- which the generated file forbids.
-                problems.push(`${site}: t() called with a non-literal key`);
-                return;
-            }
-            const key = first.value;
-            const value = defaultValueOf(node);
-            if (value === null) {
-                problems.push(`${site}: t('${key}') has no inline English default`);
-                return;
-            }
-
+        const record = (key, value, site) => {
             const existing = entries.get(key);
             if (existing && existing.value !== value) {
                 problems.push(
@@ -136,7 +204,33 @@ export function collect() {
                 return;
             }
             entries.set(key, { value, sites: [site] });
-        });
+        };
+
+        visit(
+            ast,
+            (node) => {
+                const first = node.arguments[0];
+                const site = `${rel}:${node.loc.start.line}`;
+                const value = defaultValueOf(node);
+
+                if (first?.type !== 'Literal' || typeof first.value !== 'string') {
+                    // A computed key is legitimate when the pair was declared
+                    // in data (see declarativePair) and this site only resolves
+                    // it -- but only if a default rides along, or a missing
+                    // bundle renders the raw key path to a user.
+                    if (!hasDefault(node)) {
+                        problems.push(`${site}: t() has a computed key and no defaultValue`);
+                    }
+                    return;
+                }
+                if (value === null) {
+                    problems.push(`${site}: t('${first.value}') has no inline English default`);
+                    return;
+                }
+                record(first.value, value, site);
+            },
+            (pair, node) => record(pair.key, pair.value, `${rel}:${node.loc.start.line}`),
+        );
     }
 
     return { entries, problems };

@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import api from '../services/api';
+import { t } from '../i18n';
 
 // Class-based Error Boundary for catching React errors
 export class ErrorBoundary extends Component {
@@ -45,13 +46,13 @@ export class ErrorBoundary extends Component {
                     <div className="error-boundary-icon">
                         <AlertTriangle size={32} />
                     </div>
-                    <h3>Something went wrong</h3>
+                    <h3>{t('common.error.title', 'Something went wrong')}</h3>
                     <p className="error-boundary-message">
-                        {this.state.error?.message || 'An unexpected error occurred'}
+                        {this.state.error?.message || t('common.error.unexpected', 'An unexpected error occurred')}
                     </p>
                     <button type="button" className="btn btn-primary" onClick={this.handleRetry}>
                         <RefreshCw size={14} />
-                        Try Again
+                        {t('common.actions.tryAgain', 'Try again')}
                     </button>
                 </div>
             );
@@ -63,13 +64,14 @@ export class ErrorBoundary extends Component {
 
 // Functional component for displaying API/fetch errors
 export function ErrorState({
-    title = 'Failed to load',
+    title = t('common.error.failedToLoad', 'Failed to load'),
     message,
     error,
     onRetry,
     compact = false
 }) {
-    const errorMessage = message || error?.message || 'An error occurred while loading data';
+    const errorMessage = message || error?.message
+        || t('common.error.loadingData', 'An error occurred while loading data');
 
     if (compact) {
         return (
@@ -78,7 +80,7 @@ export function ErrorState({
                 <span>{errorMessage}</span>
                 {onRetry && (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={onRetry}>
-                        <RefreshCw size={14} /> Retry
+                        <RefreshCw size={14} /> {t('common.actions.retry', 'Retry')}
                     </button>
                 )}
             </div>
@@ -95,7 +97,7 @@ export function ErrorState({
             {onRetry && (
                 <button type="button" className="btn btn-primary" onClick={onRetry}>
                     <RefreshCw size={14} />
-                    Try Again
+                    {t('common.actions.tryAgain', 'Try again')}
                 </button>
             )}
         </div>

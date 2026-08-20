@@ -1,4 +1,5 @@
 import { Menu, X } from 'lucide-react';
+import { t } from '../i18n';
 import { useTheme } from '../contexts/ThemeContext';
 import ServerKitLogo from './ServerKitLogo';
 import NotificationBell from './NotificationBell';
@@ -18,7 +19,9 @@ const MobileTopBar = ({ navOpen, onToggle }) => {
             <button
                 type="button"
                 className="mobile-topbar__toggle"
-                aria-label={navOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-label={navOpen
+                    ? t('nav.closeMenu', 'Close navigation menu')
+                    : t('nav.openMenu', 'Open navigation menu')}
                 aria-expanded={navOpen}
                 aria-controls="primary-navigation"
                 onClick={onToggle}
