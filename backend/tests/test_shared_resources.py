@@ -413,3 +413,28 @@ def test_audit_rows_written_on_mutations(app):
     assert {'tag.add', 'tag.remove', 'group.create', 'variable.create',
             'group.attach', 'group.detach', 'group.delete'} <= ops
     assert AuditLog.query.count() > before
+
+
+# ------------------------------------------------- tag write authorization
+
+def test_api_tag_write_is_authorized_not_just_authenticated(app, client, db_session):
+    """Tagging is a mutation on someone else's resource, so it needs the same
+    ``_check_resource_write`` gate as attach/detach.
+
+    ``POST``/``DELETE /shared/tags`` shipped behind ``@jwt_required()`` alone:
+    any authenticated account could label any resource of any type. ``service``
+    is the sharpest case — it has no ownership seam, so the gate resolves it to
+    admin-only and a developer must be refused.
+    """
+    from factories import make_user, headers_for
+
+    dev = headers_for(make_user(db_session, role='developer'))
+    admin = headers_for(make_user(db_session, role='admin'))
+    body = {'resource_type': 'service', 'resource_id': 'web-1', 'tag': 'prod'}
+
+    assert client.post('/api/v1/shared/tags', json=body, headers=dev).status_code == 403
+    assert client.delete('/api/v1/shared/tags', json=body, headers=dev).status_code == 403
+
+    # Non-vacuity: the same calls succeed for a caller the gate admits.
+    assert client.post('/api/v1/shared/tags', json=body, headers=admin).status_code == 201
+    assert client.delete('/api/v1/shared/tags', json=body, headers=admin).status_code == 200

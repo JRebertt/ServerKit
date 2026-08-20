@@ -246,3 +246,58 @@ def test_delivery_replay_requires_owner_role(client, vault_rbac, monkeypatch):
     assert client.post(url, headers=vault_rbac.ws_owner).status_code == 200
     assert client.post('/api/v1/webhooks/deliveries/999999/replay',
                        headers=s.admin).status_code == 404
+
+
+# ------------------- inbound receiver (public, signature-authenticated) ----
+
+def _sign(secret, payload):
+    import hashlib
+    import hmac
+    return 'sha256=' + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+
+
+def test_inbound_webhook_without_a_signature_is_rejected(client, vault_rbac, monkeypatch):
+    """The receiver is unauthenticated by design — the HMAC signature IS the
+    credential — so an *absent* signature has to fail exactly like a wrong one.
+
+    It did not: the reject branch read ``if not signature_valid and
+    signature_header``, which only fires for a request that bothered to sign.
+    Sending no ``X-Hub-Signature-256`` at all skipped the branch entirely and
+    the payload was logged, filtered and forwarded to ``forward_url``.
+    """
+    from app.services.webhook_gateway_service import WebhookGatewayService
+    forwarded = []
+    monkeypatch.setattr(WebhookGatewayService, '_forward',
+                        classmethod(lambda cls, e, d, p, h: forwarded.append(p) or
+                                    {'success': True, 'status': 200, 'body': ''}))
+
+    resp = client.post('/api/v1/webhooks/receive/scope-endpoint',
+                       data=b'{"a": 1}', content_type='application/json')
+    assert resp.status_code == 401
+    assert resp.get_json()['error'] == 'Missing signature'
+    assert forwarded == [], 'an unsigned payload was forwarded upstream'
+
+
+def test_inbound_webhook_with_a_wrong_signature_is_rejected(client, vault_rbac):
+    resp = client.post('/api/v1/webhooks/receive/scope-endpoint',
+                       data=b'{"a": 1}', content_type='application/json',
+                       headers={'X-Hub-Signature-256': _sign('not-the-secret', b'{"a": 1}')})
+    assert resp.status_code == 401
+    assert resp.get_json()['error'] == 'Invalid signature'
+
+
+def test_inbound_webhook_with_a_valid_signature_is_accepted(client, vault_rbac, monkeypatch):
+    """Non-vacuity for the two rejections: a correctly signed delivery still
+    reaches the forwarder."""
+    from app.services.webhook_gateway_service import WebhookGatewayService
+    forwarded = []
+    monkeypatch.setattr(WebhookGatewayService, '_forward',
+                        classmethod(lambda cls, e, d, p, h: forwarded.append(p) or
+                                    {'success': True, 'status': 200, 'body': ''}))
+
+    payload = b'{"a": 1}'
+    resp = client.post('/api/v1/webhooks/receive/scope-endpoint',
+                       data=payload, content_type='application/json',
+                       headers={'X-Hub-Signature-256': _sign('whsec', payload)})
+    assert resp.status_code == 200
+    assert forwarded == [payload]
