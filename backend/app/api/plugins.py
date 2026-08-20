@@ -456,13 +456,13 @@ def get_manifest_spec():
             'contributions': {
                 'type': 'object',
                 'properties': {
-                    'nav': {'type': 'array', 'description': 'Sidebar items: {id, label, route, category, icon}.'},
+                    'nav': {'type': 'array', 'description': 'Sidebar items: {id, label, route, category, icon, labelKey?}. labelKey is a translation key resolved at render; label is its English default, shown when the active locale has no entry.'},
                     'routes': {'type': 'array',
                                'description': 'SPA routes: {path, component, layout?, group?}. component matches a named export of the plugin index module. layout: padded (default) | full | bare | <custom-layout-id>. group nests the route inside that core tab group\'s TabGroupLayout instead (see tabs).'},
                     'tabs': {'type': 'array',
-                             'description': 'Tabs added to a core-owned tab group: {group, to, label, icon?, end?, order?}. group is the core group id (files | servers | monitoring; == the sidebar item id). Pair with a route contribution carrying the same group. icon is raw inner-SVG markup; order is an optional insertion index (default: appended).'},
+                             'description': 'Tabs added to a core-owned tab group: {group, to, label, labelKey?, icon?, end?, order?}. group is the core group id (files | servers | monitoring; == the sidebar item id). Pair with a route contribution carrying the same group. icon is raw inner-SVG markup; order is an optional insertion index (default: appended).'},
                     'page_titles': {'type': 'object', 'description': 'Map of route path → document title.'},
-                    'command_palette': {'type': 'array', 'description': '{label, path, category, keywords}.'},
+                    'command_palette': {'type': 'array', 'description': '{label, path, category, keywords, labelKey?}. labelKey is a translation key resolved at render; label is its English default.'},
                     'widgets': {'type': 'array', 'description': '{slot, component}. slot=global renders globally inside DashboardLayout.'},
                     'dashboard_widgets': {'type': 'array',
                                           'description': 'Placeable dashboard widget types: {id, name, component, icon?, category?, description?, w?, h?, min?, default_cfg?}. Unlike widgets (fixed host slot), these appear in the dashboard widget library and the user positions, resizes and configures instances of them.'},

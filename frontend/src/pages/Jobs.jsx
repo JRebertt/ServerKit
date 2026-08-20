@@ -29,7 +29,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { timeAgo } from '../utils/timeAgo';
+import { timeAgo } from '../utils/time';
 import { usePolling } from '@/hooks/usePolling';
 
 const titleCase = (value = '') => value.charAt(0).toUpperCase() + value.slice(1);

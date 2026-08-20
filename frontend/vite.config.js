@@ -2,6 +2,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'url'
+import { VENDOR_IMPORTMAP } from './src/plugins/runtime/vendorManifest.js'
 
 // Runtime-extension import map (plan 25 Decision 2). A runtime-loaded extension
 // bundle externalizes exactly these bare specifiers and resolves them at load
@@ -11,16 +12,9 @@ import { fileURLToPath } from 'url'
 // runtime loading is a production concern (dev uses the build-time glob path).
 // The map is inert for the host's own code (bundled to hashed relative chunks,
 // never bare specifiers) — it only affects the extension blobs.
-const VENDOR_IMPORTMAP = {
-    imports: {
-        'react': '/serverkit-vendor/react.mjs',
-        'react-dom': '/serverkit-vendor/react-dom.mjs',
-        'react-dom/client': '/serverkit-vendor/react-dom-client.mjs',
-        'react/jsx-runtime': '/serverkit-vendor/react-jsx-runtime.mjs',
-        'react-router-dom': '/serverkit-vendor/react-router-dom.mjs',
-        'serverkit-sdk': '/serverkit-vendor/serverkit-sdk.mjs',
-    },
-}
+// Sourced from the ONE vendor manifest, so the import map, the shims under
+// public/serverkit-vendor/ and vendorShare's namespace capture cannot drift
+// apart. They previously did: two mapped specifiers had no shim at all.
 
 function serverkitImportmap() {
     return {
@@ -74,14 +68,17 @@ export default defineConfig(({ mode }) => {
             // serves raw ESM, which (combined with pre-bundled
             // react-dom) recreates the same two-copies problem from the
             // other direction.
-            dedupe: ['react', 'react-dom', 'react-router-dom'],
+            // i18next/react-i18next join the list for the same reason: two
+            // instances means an extension's t() reads an uninitialised store
+            // and silently renders English forever (plan 79).
+            dedupe: ['react', 'react-dom', 'react-router-dom', 'i18next', 'react-i18next'],
         },
         optimizeDeps: {
             // Pre-bundle the renderer at server start instead of
             // discovering it lazily. Lazy discovery is what triggers the
             // mid-session re-bundle that strands the open browser tab
             // on a stale React URL.
-            include: ['react', 'react-dom', 'react-router-dom'],
+            include: ['react', 'react-dom', 'react-router-dom', 'i18next', 'react-i18next'],
         },
         server: {
             port: frontendPort,

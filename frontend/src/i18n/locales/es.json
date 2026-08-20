@@ -1,0 +1,249 @@
+{
+    "auth": {
+        "backToLogin": "Volver al inicio de sesión",
+        "confirmPassword": "Confirmar contraseña",
+        "confirmPasswordPlaceholder": "Confirma tu contraseña",
+        "createAccount": "Crear cuenta",
+        "creatingAccount": "Creando la cuenta…",
+        "demoMode": "Modo demo: acceso de solo lectura",
+        "email": "Correo electrónico",
+        "haveAccount": "¿Ya tienes una cuenta? <0>Inicia sesión</0>",
+        "invitationInvalid": "Esta invitación no es válida o ha caducado",
+        "noAccount": "¿No tienes una cuenta? <0>Crea una</0>",
+        "password": "Contraseña",
+        "passwordPlaceholder": "Introduce tu contraseña",
+        "passwordRule": "Al menos 8 caracteres",
+        "registrationDisabled": "El registro está desactivado en este momento",
+        "signIn": "Iniciar sesión",
+        "signInSubtitle": "Inicia sesión en tu cuenta",
+        "signingIn": "Iniciando sesión…",
+        "signingYouIn": "Iniciando tu sesión…",
+        "twoFactor": {
+            "backupCode": "Código de recuperación",
+            "backupHint": "Introduce un código de recuperación",
+            "codeHint": "Introduce el código de 6 dígitos de tu app de autenticación",
+            "title": "Autenticación de dos factores"
+        },
+        "useDemoCredentials": "Usar las credenciales de demo",
+        "username": "Nombre de usuario",
+        "usernameChoose": "Elige un nombre de usuario",
+        "usernameOrEmail": "Nombre de usuario o correo",
+        "usernamePlaceholder": "admin o tu@ejemplo.com",
+        "validatingInvitation": "Validando la invitación…"
+    },
+    "common": {
+        "actions": {
+            "back": "Atrás",
+            "close": "Cerrar",
+            "logOut": "Cerrar sesión",
+            "refresh": "Actualizar",
+            "retry": "Reintentar",
+            "tryAgain": "Reintentar"
+        },
+        "confirm": {
+            "typeToConfirm": "Escribe <0>{{value}}</0> para confirmar:"
+        },
+        "duration": {
+            "hours": "{{count}} h",
+            "hoursMinutes": "{{hours}} h {{minutes}} min",
+            "minutes": "{{count}} min",
+            "minutesSeconds": "{{minutes}} min {{seconds}} s",
+            "seconds": "{{count}} s"
+        },
+        "error": {
+            "failedToLoad": "No se pudo cargar",
+            "loadingData": "Se produjo un error al cargar los datos",
+            "title": "Algo salió mal",
+            "unexpected": "Se produjo un error inesperado"
+        },
+        "more": "Más",
+        "moreSections": "Más secciones",
+        "page": "Página",
+        "state": {
+            "loading": "Cargando",
+            "loadingApp": "Cargando ServerKit",
+            "noResults": "No se encontraron resultados"
+        },
+        "time": {
+            "daysShort": "{{count}} d",
+            "hoursShort": "{{count}} h",
+            "justNow": "ahora mismo",
+            "minutesShort": "{{count}} min"
+        }
+    },
+    "errors": {
+        "auth": {
+            "accountDeactivated": "La cuenta está desactivada",
+            "emailRegistered": "Ese correo ya está registrado",
+            "identityUnavailable": "Ese correo o nombre de usuario no está disponible",
+            "invalidCredentials": "Nombre de usuario/correo o contraseña incorrectos",
+            "invitationInvalid": "Invitación no válida o caducada",
+            "linkInvalid": "Enlace no válido o caducado",
+            "missingCredentials": "Falta el correo/nombre de usuario o la contraseña",
+            "missingFields": "Faltan campos obligatorios",
+            "passwordLoginDisabled": "El inicio de sesión con contraseña está desactivado. Usa SSO.",
+            "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+            "registrationDisabled": "El registro está desactivado",
+            "usernameTaken": "Ese nombre de usuario ya está en uso"
+        }
+    },
+    "git": {
+        "picker": {
+            "branch": "Rama",
+            "connectAction": "Conectar {{provider}}",
+            "connectMessage": "Autoriza una vez y elige un repositorio en lugar de pegar una URL.",
+            "connectTitle": "Conectar con {{provider}}",
+            "empty": "No se encontraron repositorios.",
+            "giteaAccount": "Gitea local",
+            "giteaDetail": "Repositorios en esta instancia de ServerKit",
+            "giteaNotInstalled": "Instala el servidor Git de ServerKit en <0>Git</0> para elegir un repositorio local en lugar de pegar una URL.",
+            "giteaNotRunning": "Tu servidor Gitea está instalado, pero no se está ejecutando. Inícialo desde <0>Git</0>.",
+            "loading": "Cargando repositorios…",
+            "noDescription": "Sin descripción",
+            "notConfigured": "Configura la conexión con {{provider}} en <0>Ajustes</0> para elegir un repositorio con un clic en lugar de pegar una URL.",
+            "private": "Privado",
+            "public": "Público",
+            "search": "Busca en tus repositorios"
+        }
+    },
+    "gui": {
+        "fps": "{{rate}} fps",
+        "frameAlt": "Fotograma del escritorio remoto",
+        "launcher": {
+            "label": "Escritorio",
+            "open": "Abrir la vista de escritorio",
+            "title": "Vista de escritorio"
+        },
+        "loadingSynthetic": "Cargando el escritorio sintético…",
+        "mode": {
+            "auto": "Automático",
+            "noDisplay": "sin pantalla",
+            "screenshot": "Captura",
+            "synthetic": "Sintético",
+            "unavailable": "No disponible: {{reason}}"
+        },
+        "pause": "Pausar",
+        "probing": "Comprobando si hay pantalla disponible…",
+        "resume": "Reanudar",
+        "toolbar": {
+            "quality": "Calidad",
+            "rate": "Frecuencia",
+            "scale": "Escala"
+        },
+        "waitingFirstFrame": "Esperando el primer fotograma…"
+    },
+    "nav": {
+        "accountMenu": "Cuenta y preferencias",
+        "allSettings": "Todos los ajustes",
+        "appMap": "Mapa de la app",
+        "appearance": "Apariencia",
+        "backups": "Copias de seguridad",
+        "brand": "Marca",
+        "category": {
+            "infrastructure": "Infraestructura",
+            "operations": "Operaciones",
+            "overview": "Resumen",
+            "system": "Sistema"
+        },
+        "closeMenu": "Cerrar el menú de navegación",
+        "collapseGroup": "Contraer {{group}}",
+        "cron": "Tareas cron",
+        "customizeSidebar": "Personalizar la barra lateral",
+        "dashboard": "Panel",
+        "databases": "Bases de datos",
+        "devTools": "Herramientas de desarrollo",
+        "docker": "Docker",
+        "documentation": "Documentación",
+        "domains": "Dominios",
+        "expandGroup": "Expandir {{group}}",
+        "files": "Archivos",
+        "layout": "Diseño",
+        "layoutCompact": "Compacto",
+        "layoutCompactLong": "Diseño de barra compacta",
+        "layoutSidebar": "Barra lateral",
+        "layoutSidebarLong": "Diseño con barra lateral",
+        "layoutTopbar": "Barra superior",
+        "layoutTopbarLong": "Diseño con barra superior",
+        "mainNavigation": "Navegación principal",
+        "marketplace": "Extensiones",
+        "monitoring": "Monitorización",
+        "online": "En línea",
+        "openMenu": "Abrir el menú de navegación",
+        "organization": "Organización",
+        "preset": {
+            "devops": {
+                "description": "Docker, Git, monitorización y herramientas CI/CD",
+                "label": "Docker / DevOps"
+            },
+            "email": {
+                "description": "Servidor de correo, seguridad, DNS y monitorización",
+                "label": "Administración de correo"
+            },
+            "full": {
+                "description": "Todos los elementos de la barra lateral visibles",
+                "label": "Completo"
+            },
+            "minimal": {
+                "description": "Solo lo esencial: sin bases de datos, contenedores ni tareas programadas",
+                "label": "Mínimo"
+            },
+            "recommended": {
+                "description": "Lo esencial del día a día: las herramientas avanzadas quedan ocultas",
+                "label": "Recomendado"
+            },
+            "web": {
+                "description": "Dominios, SSL, bases de datos y lo esencial para la web",
+                "label": "Alojamiento web"
+            }
+        },
+        "queue": "Bus de colas",
+        "security": "Seguridad",
+        "servers": "Servidores",
+        "services": "Servicios",
+        "sidebarView": "Vista de la barra lateral",
+        "starOnGithub": "Marcar con estrella en GitHub",
+        "starOnGithubLong": "Marcar ServerKit con estrella en GitHub",
+        "styleGuide": "Guía de estilo",
+        "terminal": "Terminal / Registros",
+        "testSandbox": "Entorno de pruebas",
+        "theme": "Tema",
+        "themeDark": "Oscuro",
+        "themeDarkLong": "Tema oscuro",
+        "themeLight": "Claro",
+        "themeLightLong": "Tema claro",
+        "themeSystem": "Sistema",
+        "themeSystemLong": "Tema del sistema"
+    },
+    "notifications": {
+        "bell": "Notificaciones",
+        "bellUnread": "Notificaciones, {{count}} sin leer",
+        "dismissItem": "Descartar {{title}}",
+        "empty": "No tienes nada pendiente.",
+        "heading": "Notificaciones",
+        "markAllRead": "Marcar todo como leído",
+        "seeAll": "Ver todas las notificaciones"
+    },
+    "palette": {
+        "docs": {
+            "deploySources": "Documentación: Orígenes de despliegue",
+            "extensions": "Documentación: Extensiones",
+            "extensionsBuilding": "Documentación: Crear extensiones",
+            "extensionsInstalling": "Documentación: Instalar extensiones",
+            "extensionsPublishing": "Documentación: Publicar extensiones",
+            "extensionsSecurity": "Documentación: Seguridad de las extensiones",
+            "manifest": "Documentación: Manifiesto serverkit.yaml"
+        },
+        "label": "Paleta de comandos"
+    },
+    "settings": {
+        "language": {
+            "description": "El idioma que se usa en todo el panel.",
+            "provisional": "en curso",
+            "title": "Idioma"
+        }
+    },
+    "setup": {
+        "subtitle": "Vamos a dejar tu servidor listo",
+        "welcome": "Te damos la bienvenida a {{panel}}"
+    }
+}

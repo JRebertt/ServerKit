@@ -1,54 +1,29 @@
-// Canonical relative-time helpers for the whole frontend.
+// Relative-time and duration helpers.
 //
-// Two output styles existed across the codebase; keep both, but in one place:
-//   - timeAgo(iso)          compact: "just now", "4m", "3h", "2d", else a date
-//   - formatRelativeTime    verbose: "just now", "4m ago", "3h ago", "2d ago"
+// Plan 79 §C: the implementations moved to `utils/intl.js`, which is the one
+// locale-aware formatting door. These names stay because ten files import
+// them and the two output shapes are deliberate — but they are now thin
+// delegations, not a second implementation. Notably the date tail of both
+// styles used to be `toLocaleDateString()` with no argument, which follows the
+// BROWSER's locale rather than the panel's.
 //
-// Replaces the scattered local copies in Dashboard.jsx, serviceTypes.js,
-// logHelpers.js, and the wordpress/* components.
+//   - timeAgo(iso)           compact: "just now", "4m", "3h", "2d", else a date
+//   - formatRelativeTime     verbose, now fully localized by Intl:
+//                            "4 minutes ago", "hace 4 minutos"
+//   - formatDuration(secs)   "45s", "3m 20s"
 
-// Compact relative time, e.g. "just now", "4m", "3h", "2d", else a date.
+import { formatRelative, formatRelativeShort, formatDuration as formatDurationIntl } from './intl.js';
+
 export function timeAgo(iso) {
-    if (!iso) return '';
-    const then = new Date(iso).getTime();
-    if (Number.isNaN(then)) return '';
-    const seconds = Math.floor((Date.now() - then) / 1000);
-    if (seconds < 45) return 'just now';
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d`;
-    return new Date(then).toLocaleDateString();
+    return formatRelativeShort(iso);
 }
 
-// Verbose relative time, e.g. "just now", "4m ago", "3h ago", "2d ago",
-// else a localized date once past ~30 days.
 export function formatRelativeTime(iso) {
-    if (!iso) return '';
-    const date = new Date(iso);
-    const then = date.getTime();
-    if (Number.isNaN(then)) return '';
-    const diffSec = Math.floor((Date.now() - then) / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffSec < 60) return 'just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    if (diffHour < 24) return `${diffHour}h ago`;
-    if (diffDay < 30) return `${diffDay}d ago`;
-    return date.toLocaleDateString();
+    return formatRelative(iso);
 }
 
-// Humanize a duration in seconds, e.g. "45s", "3m 20s".
 export function formatDuration(seconds) {
-    if (!seconds || seconds < 0) return '-';
-    if (seconds < 60) return `${Math.round(seconds)}s`;
-    const min = Math.floor(seconds / 60);
-    const sec = Math.round(seconds % 60);
-    return `${min}m ${sec}s`;
+    return formatDurationIntl(seconds);
 }
 
 export default timeAgo;

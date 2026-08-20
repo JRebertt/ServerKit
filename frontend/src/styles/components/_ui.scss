@@ -889,6 +889,17 @@
     line-height: 1.5;
 }
 
+// Form mode (Modal `onSubmit`) wraps body+footer so a submit button can live
+// inside the form it submits. It has to BE the flex column, or the body's
+// `flex: 1` would resolve against the form rather than the modal and the
+// footer would stop pinning to the bottom.
+.sk-modal__form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
 .sk-modal__body {
     flex: 1;
     min-height: 0;

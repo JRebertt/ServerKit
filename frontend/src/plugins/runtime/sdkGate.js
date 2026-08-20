@@ -9,7 +9,8 @@
  *
  *   'load'   — range covers the panel's SDK (or the panel didn't report one).
  *   'grace'  — the extension pins no range: warn-and-load for one release,
- *              matching install-time's fail-open (`_assert_manifest_sdk_compatible`).
+ *              matching the fail-open in install-time's
+ *              `plugin_service._assert_manifest_sdk_compatible`.
  *   'refuse' — the range excludes the panel's SDK; fail closed with an explain
  *              string on the failure card instead of a cryptic import error.
  */

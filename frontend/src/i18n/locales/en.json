@@ -1,0 +1,249 @@
+{
+    "auth": {
+        "backToLogin": "Back to login",
+        "confirmPassword": "Confirm Password",
+        "confirmPasswordPlaceholder": "Confirm your password",
+        "createAccount": "Create Account",
+        "creatingAccount": "Creating account…",
+        "demoMode": "Demo mode — sign in read-only",
+        "email": "Email",
+        "haveAccount": "Already have an account? <0>Sign in</0>",
+        "invitationInvalid": "This invitation is invalid or has expired",
+        "noAccount": "Don't have an account? <0>Create one</0>",
+        "password": "Password",
+        "passwordPlaceholder": "Enter your password",
+        "passwordRule": "At least 8 characters",
+        "registrationDisabled": "Registration is currently disabled",
+        "signIn": "Sign In",
+        "signInSubtitle": "Sign in to your account",
+        "signingIn": "Signing in…",
+        "signingYouIn": "Signing you in…",
+        "twoFactor": {
+            "backupCode": "Backup Code",
+            "backupHint": "Enter a backup code",
+            "codeHint": "Enter the 6-digit code from your authenticator app",
+            "title": "Two-Factor Authentication"
+        },
+        "useDemoCredentials": "Use demo credentials",
+        "username": "Username",
+        "usernameChoose": "Choose a username",
+        "usernameOrEmail": "Username or Email",
+        "usernamePlaceholder": "admin or you@example.com",
+        "validatingInvitation": "Validating invitation…"
+    },
+    "common": {
+        "actions": {
+            "back": "Back",
+            "close": "Close",
+            "logOut": "Log out",
+            "refresh": "Refresh",
+            "retry": "Retry",
+            "tryAgain": "Try again"
+        },
+        "confirm": {
+            "typeToConfirm": "Type <0>{{value}}</0> to confirm:"
+        },
+        "duration": {
+            "hours": "{{count}}h",
+            "hoursMinutes": "{{hours}}h {{minutes}}m",
+            "minutes": "{{count}}m",
+            "minutesSeconds": "{{minutes}}m {{seconds}}s",
+            "seconds": "{{count}}s"
+        },
+        "error": {
+            "failedToLoad": "Failed to load",
+            "loadingData": "An error occurred while loading data",
+            "title": "Something went wrong",
+            "unexpected": "An unexpected error occurred"
+        },
+        "more": "More",
+        "moreSections": "More sections",
+        "page": "Page",
+        "state": {
+            "loading": "Loading",
+            "loadingApp": "Loading ServerKit",
+            "noResults": "No results found"
+        },
+        "time": {
+            "daysShort": "{{count}}d",
+            "hoursShort": "{{count}}h",
+            "justNow": "just now",
+            "minutesShort": "{{count}}m"
+        }
+    },
+    "errors": {
+        "auth": {
+            "accountDeactivated": "Account is deactivated",
+            "emailRegistered": "Email already registered",
+            "identityUnavailable": "This email or username is unavailable",
+            "invalidCredentials": "Invalid username/email or password",
+            "invitationInvalid": "Invalid or expired invitation",
+            "linkInvalid": "Invalid or expired link",
+            "missingCredentials": "Missing email/username or password",
+            "missingFields": "Missing required fields",
+            "passwordLoginDisabled": "Password login is disabled. Please use SSO.",
+            "passwordTooShort": "Password must be at least 8 characters",
+            "registrationDisabled": "Registration is disabled",
+            "usernameTaken": "Username already taken"
+        }
+    },
+    "git": {
+        "picker": {
+            "branch": "Branch",
+            "connectAction": "Connect {{provider}}",
+            "connectMessage": "Authorize once, then choose a repository instead of pasting a URL.",
+            "connectTitle": "Connect with {{provider}}",
+            "empty": "No repositories found.",
+            "giteaAccount": "Local Gitea",
+            "giteaDetail": "Repositories on this ServerKit instance",
+            "giteaNotInstalled": "Install the ServerKit Git server in <0>Git</0> to pick a local repository instead of pasting a URL.",
+            "giteaNotRunning": "Your Gitea server is installed but not running. Start it from <0>Git</0>.",
+            "loading": "Loading repositories…",
+            "noDescription": "No description",
+            "notConfigured": "Set up the {{provider}} connection in <0>Settings</0> to pick a repo in one click instead of pasting a URL.",
+            "private": "Private",
+            "public": "Public",
+            "search": "Search your repositories"
+        }
+    },
+    "gui": {
+        "fps": "{{rate}} fps",
+        "frameAlt": "Remote desktop frame",
+        "launcher": {
+            "label": "Desktop",
+            "open": "Open desktop view",
+            "title": "Desktop view"
+        },
+        "loadingSynthetic": "Loading synthetic desktop…",
+        "mode": {
+            "auto": "Auto",
+            "noDisplay": "no display",
+            "screenshot": "Screenshot",
+            "synthetic": "Synthetic",
+            "unavailable": "Unavailable: {{reason}}"
+        },
+        "pause": "Pause",
+        "probing": "Probing display capability…",
+        "resume": "Resume",
+        "toolbar": {
+            "quality": "Quality",
+            "rate": "Rate",
+            "scale": "Scale"
+        },
+        "waitingFirstFrame": "Waiting for first frame…"
+    },
+    "nav": {
+        "accountMenu": "Account and preferences",
+        "allSettings": "All Settings",
+        "appMap": "App Map",
+        "appearance": "Appearance",
+        "backups": "Backups",
+        "brand": "Brand",
+        "category": {
+            "infrastructure": "Infrastructure",
+            "operations": "Operations",
+            "overview": "Overview",
+            "system": "System"
+        },
+        "closeMenu": "Close navigation menu",
+        "collapseGroup": "Collapse {{group}}",
+        "cron": "Cron Jobs",
+        "customizeSidebar": "Customize Sidebar",
+        "dashboard": "Dashboard",
+        "databases": "Databases",
+        "devTools": "Dev Tools",
+        "docker": "Docker",
+        "documentation": "Documentation",
+        "domains": "Domains",
+        "expandGroup": "Expand {{group}}",
+        "files": "Files",
+        "layout": "Layout",
+        "layoutCompact": "Compact",
+        "layoutCompactLong": "Compact rail layout",
+        "layoutSidebar": "Sidebar",
+        "layoutSidebarLong": "Sidebar layout",
+        "layoutTopbar": "Top bar",
+        "layoutTopbarLong": "Top bar layout",
+        "mainNavigation": "Main navigation",
+        "marketplace": "Extensions",
+        "monitoring": "Monitoring",
+        "online": "Online",
+        "openMenu": "Open navigation menu",
+        "organization": "Organization",
+        "preset": {
+            "devops": {
+                "description": "Docker, Git, monitoring, and CI/CD tools",
+                "label": "Docker / DevOps"
+            },
+            "email": {
+                "description": "Email server, security, DNS, and monitoring",
+                "label": "Email Admin"
+            },
+            "full": {
+                "description": "All sidebar items visible",
+                "label": "Full"
+            },
+            "minimal": {
+                "description": "Core only — no databases, containers, or scheduling",
+                "label": "Minimal"
+            },
+            "recommended": {
+                "description": "Everyday essentials — advanced tools hidden",
+                "label": "Recommended"
+            },
+            "web": {
+                "description": "Domains, SSL, databases, and web essentials",
+                "label": "Web Hosting"
+            }
+        },
+        "queue": "Queue Bus",
+        "security": "Security",
+        "servers": "Servers",
+        "services": "Services",
+        "sidebarView": "Sidebar View",
+        "starOnGithub": "Star on GitHub",
+        "starOnGithubLong": "Star ServerKit on GitHub",
+        "styleGuide": "Style Guide",
+        "terminal": "Terminal / Logs",
+        "testSandbox": "Test Sandbox",
+        "theme": "Theme",
+        "themeDark": "Dark",
+        "themeDarkLong": "Dark theme",
+        "themeLight": "Light",
+        "themeLightLong": "Light theme",
+        "themeSystem": "System",
+        "themeSystemLong": "System theme"
+    },
+    "notifications": {
+        "bell": "Notifications",
+        "bellUnread": "Notifications, {{count}} unread",
+        "dismissItem": "Dismiss {{title}}",
+        "empty": "You’re all caught up.",
+        "heading": "Notifications",
+        "markAllRead": "Mark all read",
+        "seeAll": "See all notifications"
+    },
+    "palette": {
+        "docs": {
+            "deploySources": "Docs: Deploy sources",
+            "extensions": "Docs: Extensions",
+            "extensionsBuilding": "Docs: Building extensions",
+            "extensionsInstalling": "Docs: Installing extensions",
+            "extensionsPublishing": "Docs: Publishing extensions",
+            "extensionsSecurity": "Docs: Extension security",
+            "manifest": "Docs: serverkit.yaml manifest"
+        },
+        "label": "Command palette"
+    },
+    "settings": {
+        "language": {
+            "description": "The language used across the panel.",
+            "provisional": "in progress",
+            "title": "Language"
+        }
+    },
+    "setup": {
+        "subtitle": "Let’s get your server ready",
+        "welcome": "Welcome to {{panel}}"
+    }
+}

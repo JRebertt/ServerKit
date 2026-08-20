@@ -1,5 +1,6 @@
 // Base HTTP client - constructor, token management, core request methods
 import { workspaceStore } from '../workspaceStore.js';
+import { translateServerError } from './errorCodes.js';
 
 const AUTH_EXPIRED_EVENT = 'serverkit:auth-expired';
 
@@ -199,8 +200,16 @@ class ApiClient {
             try {
                 fallback += `: ${new URL(response.url).pathname}`;
             } catch { /* keep the status-only message */ }
-            const err = new Error(data.error || data.msg || fallback);
+            // Plan 79 F1: when the route names a machine `code`, the message
+            // becomes translatable — `errors.<code>` with the server's own
+            // English as the inline default, so an un-keyed code degrades to
+            // exactly today's behaviour. The 257 `toast.error(err.message)`
+            // sites keep working unchanged and gain translations as codes land.
+            const serverMessage = data.error || data.msg || fallback;
+            const err = new Error(translateServerError(data.code, serverMessage));
             err.status = response.status;
+            err.code = data.code || null;
+            err.serverMessage = serverMessage;
             err.data = data;
             throw err;
         }

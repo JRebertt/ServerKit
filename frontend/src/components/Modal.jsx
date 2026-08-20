@@ -4,15 +4,35 @@ import { cn } from '@/lib/utils';
 // Generic modal built on the Radix Dialog primitive. SCSS owns all geometry
 // (styles/components/_ui.scss → .sk-modal*). `size` picks a max-width on
 // >=sm screens; mobile is always near full-width.
+//
+// Form mode (plan 79 G2 / plan 76 F2): pass `onSubmit` and the body AND footer
+// are wrapped in one <form>. This exists because a submit button must live
+// inside the form it submits — without it, every modal with a form had to
+// bypass `footer` and hand-roll its own footer row inside the body, which is
+// why 28 files stopped using this prop. Form mode also gets Enter-to-submit
+// for free, which the hand-rolled footers did not have.
 export default function Modal({
   open,
   onClose,
   title,
   children,
   footer,
+  onSubmit,
   className = '',
   size = 'md',
 }) {
+  const body = (
+    <>
+      <div className="sk-modal__body">{children}</div>
+      {footer && <div className="sk-modal__footer">{footer}</div>}
+    </>
+  );
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onSubmit(event);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className={cn('sk-modal', `sk-modal--${size}`, className)}>
@@ -22,9 +42,9 @@ export default function Modal({
           </div>
         )}
 
-        <div className="sk-modal__body">{children}</div>
-
-        {footer && <div className="sk-modal__footer">{footer}</div>}
+        {onSubmit
+          ? <form className="sk-modal__form" onSubmit={handleSubmit} noValidate>{body}</form>
+          : body}
       </DialogContent>
     </Dialog>
   );

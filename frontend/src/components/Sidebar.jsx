@@ -7,7 +7,9 @@ import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, 
 import { api } from '../services/api';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import NotificationBell from './NotificationBell';
-import { SIDEBAR_CATEGORIES, CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
+import { SIDEBAR_CATEGORIES, SIDEBAR_CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
+import { useTranslation } from 'react-i18next';
+import useLabel from '../i18n/labels';
 import { useContributions } from '../plugins/contributions';
 import { sanitizeSvgInner } from '../utils/sanitizeSvg';
 import useModules from '../hooks/useModules';
@@ -16,6 +18,8 @@ import QuickCreate from './QuickCreate';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 
 const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {} }) => {
+    const { t } = useTranslation();
+    const label = useLabel();
     const { user, logout, updateUser, hasPermission } = useAuth();
     const { theme, resolvedTheme, setTheme, whiteLabel } = useTheme();
     const { layout, setLayout } = useLayout();
@@ -268,14 +272,16 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             aria-hidden="true" focusable="false"
                             dangerouslySetInnerHTML={{ __html: sanitizeSvgInner(item.icon) }}
                         />
-                        {item.label}
+                        {label(item)}
                     </NavLink>
                     {visibleSubs.length > 0 && (
                         <button
                             type="button"
                             className={`nav-expand-btn ${isExpanded ? 'expanded' : ''}`}
                             aria-expanded={isExpanded}
-                            aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${item.label}`}
+                            aria-label={isExpanded
+                                ? t('nav.collapseGroup', 'Collapse {{group}}', { group: label(item) })
+                                : t('nav.expandGroup', 'Expand {{group}}', { group: label(item) })}
                             onClick={(e) => { e.stopPropagation(); toggleExpand(item.id); }}
                         >
                             <ChevronRight size={14} aria-hidden="true" />
@@ -292,7 +298,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             aria-hidden="true" focusable="false"
                             dangerouslySetInnerHTML={{ __html: sanitizeSvgInner(sub.icon) }}
                         />
-                        {sub.label}
+                        {label(sub)}
                     </NavLink>
                 ))}
             </React.Fragment>
@@ -304,13 +310,13 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
             ref={sidebarRef}
             id="primary-navigation"
             className={`sidebar${mobileOpen ? ' sidebar--mobile-open' : ''}`}
-            aria-label="Main navigation"
+            aria-label={t('nav.mainNavigation', 'Main navigation')}
         >
             {isMobile && (
                 <button
                     type="button"
                     className="sidebar__close"
-                    aria-label="Close navigation menu"
+                    aria-label={t('nav.closeMenu', 'Close navigation menu')}
                     onClick={onMobileClose}
                 >
                     <X size={20} aria-hidden="true" />
@@ -321,7 +327,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                     {whiteLabel.mode === 'image_full' ? (
                         <div className="brand-custom-banner">
                             {whiteLabel.logoData ? (
-                                <img src={whiteLabel.logoData} alt={whiteLabel.brandName || 'Brand'} />
+                                <img src={whiteLabel.logoData} alt={whiteLabel.brandName || t('nav.brand', 'Brand')} />
                             ) : (
                                 <Layers size={32} />
                             )}
@@ -334,7 +340,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         <>
                             <div className="brand-custom-logo">
                                 {whiteLabel.logoData ? (
-                                    <img src={whiteLabel.logoData} alt={whiteLabel.brandName || 'Brand'} />
+                                    <img src={whiteLabel.logoData} alt={whiteLabel.brandName || t('nav.brand', 'Brand')} />
                                 ) : (
                                     <Layers size={20} />
                                 )}
@@ -356,8 +362,8 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="brand-star"
-                        aria-label="Star ServerKit on GitHub"
-                        title="Star on GitHub"
+                        aria-label={t('nav.starOnGithubLong', 'Star ServerKit on GitHub')}
+                        title={t('nav.starOnGithub', 'Star on GitHub')}
                     >
                         <Star size={14} aria-hidden="true" />
                     </a>
@@ -377,7 +383,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                     return (
                         <React.Fragment key={cat}>
                             <div className={`nav-category${isFirst ? ' nav-category--create' : ''}`}>
-                                {isFirst ? <span>{CATEGORY_LABELS[cat]}</span> : CATEGORY_LABELS[cat]}
+                                {isFirst
+                                    ? <span>{label(SIDEBAR_CATEGORY_LABELS[cat])}</span>
+                                    : label(SIDEBAR_CATEGORY_LABELS[cat])}
                                 {isFirst && <QuickCreate variant="sidebar" />}
                             </div>
                             <nav className="nav">
@@ -390,7 +398,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
 
             {devMode && (
                 <>
-                    <div className="nav-category nav-category--dev">Dev Tools</div>
+                    <div className="nav-category nav-category--dev">{t('nav.devTools', 'Dev Tools')}</div>
                     <nav className="nav">
                         {import.meta.env.DEV && (
                             <>
@@ -403,7 +411,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                         <line x1="8" y1="2" x2="8" y2="18"/>
                                         <line x1="16" y1="6" x2="16" y2="22"/>
                                     </svg>
-                                    App Map
+                                    {t('nav.appMap', 'App Map')}
                                 </NavLink>
                                 <NavLink
                                     to="/documentation"
@@ -413,7 +421,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
                                         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
                                     </svg>
-                                    Documentation
+                                    {t('nav.documentation', 'Documentation')}
                                 </NavLink>
                                 <NavLink
                                     to="/style-guide"
@@ -422,7 +430,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                     <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                         <circle cx="13.5" cy="6.5" r="2.5"/><path d="M17 2H7a5 5 0 0 0-5 5v10a5 5 0 0 0 5 5h10a5 5 0 0 0 5-5V7a5 5 0 0 0-5-5z"/><path d="M9.5 14.5l-3 3"/><path d="M14.5 9.5l3-3"/>
                                     </svg>
-                                    Style Guide
+                                    {t('nav.styleGuide', 'Style Guide')}
                                 </NavLink>
                             </>
                         )}
@@ -437,7 +445,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>
                             </svg>
-                            Test Sandbox
+                            {t('nav.testSandbox', 'Test Sandbox')}
                         </NavLink>
                     </nav>
                 </>
@@ -445,17 +453,17 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
 
             <div className="sidebar-footer" ref={menuRef}>
                 {menuOpen && (
-                    <div className="user-context-menu" id="user-context-menu" aria-label="Account and preferences">
+                    <div className="user-context-menu" id="user-context-menu" aria-label={t('nav.accountMenu', 'Account and preferences')}>
                         <div className="context-menu-section">
-                            <div className="context-menu-label" id="theme-switcher-label">Theme</div>
+                            <div className="context-menu-label" id="theme-switcher-label">{t('nav.theme', 'Theme')}</div>
                             <div className="theme-switcher" role="group" aria-labelledby="theme-switcher-label">
                                 <button
                                     type="button"
                                     className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
                                     onClick={() => setTheme('dark')}
-                                    aria-label="Dark theme"
+                                    aria-label={t('nav.themeDarkLong', 'Dark theme')}
                                     aria-pressed={theme === 'dark'}
-                                    title="Dark"
+                                    title={t('nav.themeDark', 'Dark')}
                                 >
                                     <Moon size={14} aria-hidden="true" />
                                 </button>
@@ -463,9 +471,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                     type="button"
                                     className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
                                     onClick={() => setTheme('light')}
-                                    aria-label="Light theme"
+                                    aria-label={t('nav.themeLightLong', 'Light theme')}
                                     aria-pressed={theme === 'light'}
-                                    title="Light"
+                                    title={t('nav.themeLight', 'Light')}
                                 >
                                     <Sun size={14} aria-hidden="true" />
                                 </button>
@@ -473,24 +481,24 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                     type="button"
                                     className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
                                     onClick={() => setTheme('system')}
-                                    aria-label="System theme"
+                                    aria-label={t('nav.themeSystemLong', 'System theme')}
                                     aria-pressed={theme === 'system'}
-                                    title="System"
+                                    title={t('nav.themeSystem', 'System')}
                                 >
                                     <Monitor size={14} aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
                         <div className="context-menu-section">
-                            <div className="context-menu-label" id="layout-switcher-label">Layout</div>
+                            <div className="context-menu-label" id="layout-switcher-label">{t('nav.layout', 'Layout')}</div>
                             <div className="theme-switcher" role="group" aria-labelledby="layout-switcher-label">
                                 <button
                                     type="button"
                                     className={`theme-btn ${layout === 'sidebar' ? 'active' : ''}`}
                                     onClick={() => setLayout('sidebar')}
-                                    aria-label="Sidebar layout"
+                                    aria-label={t('nav.layoutSidebarLong', 'Sidebar layout')}
                                     aria-pressed={layout === 'sidebar'}
-                                    title="Sidebar"
+                                    title={t('nav.layoutSidebar', 'Sidebar')}
                                 >
                                     <PanelLeft size={14} aria-hidden="true" />
                                 </button>
@@ -498,9 +506,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                     type="button"
                                     className={`theme-btn ${layout === 'rail' ? 'active' : ''}`}
                                     onClick={() => setLayout('rail')}
-                                    aria-label="Compact rail layout"
+                                    aria-label={t('nav.layoutCompactLong', 'Compact rail layout')}
                                     aria-pressed={layout === 'rail'}
-                                    title="Compact"
+                                    title={t('nav.layoutCompact', 'Compact')}
                                 >
                                     <PanelLeftClose size={14} aria-hidden="true" />
                                 </button>
@@ -508,16 +516,16 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                     type="button"
                                     className={`theme-btn ${layout === 'topbar' ? 'active' : ''}`}
                                     onClick={() => setLayout('topbar')}
-                                    aria-label="Top bar layout"
+                                    aria-label={t('nav.layoutTopbarLong', 'Top bar layout')}
                                     aria-pressed={layout === 'topbar'}
-                                    title="Top bar"
+                                    title={t('nav.layoutTopbar', 'Top bar')}
                                 >
                                     <PanelTop size={14} aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
                         <div className="context-menu-section">
-                            <div className="context-menu-label" id="sidebar-view-label">Sidebar View</div>
+                            <div className="context-menu-label" id="sidebar-view-label">{t('nav.sidebarView', 'Sidebar View')}</div>
                             <div className="view-switcher" role="group" aria-labelledby="sidebar-view-label">
                                 {Object.entries(SIDEBAR_PRESETS).map(([key, preset]) => (
                                     <button
@@ -526,9 +534,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                                         className={`view-btn ${currentPreset === key ? 'active' : ''}`}
                                         onClick={() => handlePresetSwitch(key)}
                                         aria-pressed={currentPreset === key}
-                                        title={preset.description}
+                                        title={label(preset, 'description')}
                                     >
-                                        {preset.label}
+                                        {label(preset)}
                                         {currentPreset === key && <Check size={10} aria-hidden="true" />}
                                     </button>
                                 ))}
@@ -541,7 +549,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             onClick={() => { navigate('/settings/appearance'); setMenuOpen(false); }}
                         >
                             <Palette size={15} aria-hidden="true" />
-                            Appearance
+                            {t('nav.appearance', 'Appearance')}
                             <ChevronRight size={14} className="context-menu-arrow" aria-hidden="true" />
                         </button>
                         <button
@@ -550,7 +558,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             onClick={() => { navigate('/settings/sidebar'); setMenuOpen(false); }}
                         >
                             <PanelLeft size={15} aria-hidden="true" />
-                            Customize Sidebar
+                            {t('nav.customizeSidebar', 'Customize Sidebar')}
                             <ChevronRight size={14} className="context-menu-arrow" aria-hidden="true" />
                         </button>
                         <button
@@ -559,13 +567,13 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             onClick={() => { navigate('/settings'); setMenuOpen(false); }}
                         >
                             <Settings size={15} aria-hidden="true" />
-                            All Settings
+                            {t('nav.allSettings', 'All Settings')}
                             <ChevronRight size={14} className="context-menu-arrow" aria-hidden="true" />
                         </button>
                         <div className="context-menu-divider" />
                         <button type="button" className="context-menu-item danger" onClick={logout}>
                             <LogOut size={15} aria-hidden="true" />
-                            Log out
+                            {t('common.actions.logOut', 'Log out')}
                         </button>
                     </div>
                 )}
@@ -583,7 +591,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         </span>
                         <span className="user-meta">
                             <span className="user-handle">{user?.username || 'User'}</span>
-                            <span className="user-status">Online</span>
+                            <span className="user-status">{t('nav.online', 'Online')}</span>
                         </span>
                         <ChevronUp size={14} className={`user-menu-arrow ${menuOpen ? 'open' : ''}`} aria-hidden="true" />
                     </button>

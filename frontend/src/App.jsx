@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParam
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LocaleProvider } from './contexts/LocaleContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import { ResourceTierProvider } from './contexts/ResourceTierContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
@@ -10,6 +11,7 @@ import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { rememberRedirect } from './utils/redirectAfterLogin';
 import { Toaster } from './components/ui/sonner';
 import ThemeSync from './components/ThemeSync';
+import LocaleSync from './components/LocaleSync';
 import DashboardLayout from './layouts/DashboardLayout';
 import AppLoader from './components/AppLoader';
 import TabGroupLayout from './layouts/TabGroupLayout';
@@ -242,6 +244,9 @@ function AppRoutes() {
 function App() {
     return (
         <Router>
+            {/* Outermost: a toast raised while the theme or workspace is still
+                initialising must already be translatable (plan 79 B1). */}
+            <LocaleProvider>
             <WorkspaceProvider>
                 <ThemeProvider>
                     <LayoutProvider>
@@ -251,6 +256,7 @@ function App() {
                                 the provider. It stays inside Router for useLocation. */}
                             <PageTitleUpdater />
                             <ThemeSync />
+                            <LocaleSync />
                             <ResourceTierProvider>
                                 <ToastProvider>
                                     <NotificationsProvider>
@@ -263,6 +269,7 @@ function App() {
                     </LayoutProvider>
                 </ThemeProvider>
             </WorkspaceProvider>
+            </LocaleProvider>
         </Router>
     );
 }

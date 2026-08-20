@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import ServerGui from './ServerGui.jsx';
+import { useTranslation } from 'serverkit-sdk';
 
 /**
  * Floating launcher that appears only on /servers/:id pages.
@@ -13,6 +14,7 @@ import ServerGui from './ServerGui.jsx';
 const SERVER_DETAIL_RE = /^\/servers\/([^/]+)(\/[^/]*)?$/;
 
 export default function ServerGuiLauncher({ api }) {
+    const { t } = useTranslation();
     const location = useLocation();
     const [open, setOpen] = useState(false);
 
@@ -30,21 +32,21 @@ export default function ServerGuiLauncher({ api }) {
             <button type="button"
                 className="sk-gui-launcher"
                 onClick={() => setOpen(true)}
-                title="Open desktop view"
+                title={t('gui.launcher.open', 'Open desktop view')}
             >
                 <DesktopIcon />
-                <span>Desktop</span>
+                <span>{t('gui.launcher.label', 'Desktop')}</span>
             </button>
 
             {open && (
                 <div className="sk-gui-modal" onClick={() => setOpen(false)}>
                     <div className="sk-gui-modal__inner" onClick={e => e.stopPropagation()}>
                         <header className="sk-gui-modal__header">
-                            <h3>Desktop view</h3>
+                            <h3>{t('gui.launcher.title', 'Desktop view')}</h3>
                             <button type="button"
                                 className="sk-gui-modal__close"
                                 onClick={() => setOpen(false)}
-                                aria-label="Close"
+                                aria-label={t('common.actions.close', 'Close')}
                             >
                                 ×
                             </button>

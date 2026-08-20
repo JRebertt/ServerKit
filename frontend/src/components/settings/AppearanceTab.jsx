@@ -7,6 +7,7 @@ import { RotateCcw, Upload, Store, Sparkles, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import LanguageSelector from './LanguageSelector';
 import ThemeGallery from './ThemeGallery';
 import ThemeBrowseModal from './ThemeBrowseModal';
 import ThemeStudioModal from './ThemeStudioModal';
@@ -56,6 +57,8 @@ const AppearanceTab = () => {
                 <h2>Appearance</h2>
                 <p>Customize the look and feel of your dashboard</p>
             </div>
+
+            <LanguageSelector />
 
             <div {...register('appearance-theme', 'settings-card')}>
                 <h3>Theme</h3>

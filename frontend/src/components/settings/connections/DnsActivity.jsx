@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import api from '../../../services/api';
-import { timeAgo } from '../../../utils/timeAgo';
+import { timeAgo } from '../../../utils/time';
 
 // result → Badge-like pill tone. ok=green, error=red, conflict=amber, skipped=muted.
 const RESULT_TONE = {

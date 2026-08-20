@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'serverkit-sdk';
 
 // Synthetic desktop refresh cadence.
 const SYNTHETIC_REFRESH_MS = 4000;
@@ -10,6 +11,7 @@ const SYNTHETIC_REFRESH_MS = 4000;
  * display server. Each "window" is just data the agent already exposes.
  */
 export default function SyntheticDesktop({ api, serverId, fetchJson }) {
+    const { t } = useTranslation();
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
 
@@ -33,7 +35,7 @@ export default function SyntheticDesktop({ api, serverId, fetchJson }) {
     );
 
     if (error) return <div className="sk-gui__banner sk-gui__banner--error">{error}</div>;
-    if (!data) return <div className="sk-gui__loading">Loading synthetic desktop…</div>;
+    if (!data) return <div className="sk-gui__loading">{t('gui.loadingSynthetic', 'Loading synthetic desktop…')}</div>;
 
     return (
         <div className="sk-synth">

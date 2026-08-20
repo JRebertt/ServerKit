@@ -63,7 +63,8 @@ export function isRuntimeFrontend(frontends, slug) {
 // `sdk_version` range doesn't cover the panel's SDK version, BEFORE fetching any
 // bytes — the failure card then explains the version gap instead of a cryptic
 // import error. A missing/blank range is a one-release grace: warn (dev) and
-// load, matching install-time's fail-open (`_assert_manifest_sdk_compatible`).
+// load, matching the same fail-open in install-time's
+// `plugin_service._assert_manifest_sdk_compatible`.
 function assertSdkCompatible(slug, descriptor, panelSdkVersion) {
     const range = descriptor && descriptor.sdk_version;
     const decision = sdkGateDecision(range, panelSdkVersion);

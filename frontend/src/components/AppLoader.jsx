@@ -1,3 +1,4 @@
+import { t } from '../i18n/t';
 /**
  * Full-screen initial loader shown while auth/setup state is resolved.
  *
@@ -8,7 +9,7 @@
  */
 export function AppLoader() {
     return (
-        <div className="app-loader" role="status" aria-live="polite" aria-label="Loading ServerKit">
+        <div className="app-loader" role="status" aria-live="polite" aria-label={t('common.state.loadingApp', 'Loading ServerKit')}>
             <div className="app-loader__logo">
                 <svg
                     className="app-loader__glyph"
@@ -30,7 +31,7 @@ export function AppLoader() {
             <div className="app-loader__bar" aria-hidden="true">
                 <span className="app-loader__bar-fill" />
             </div>
-            <span className="app-loader__label">Loading ServerKit</span>
+            <span className="app-loader__label">{t('common.state.loadingApp', 'Loading ServerKit')}</span>
         </div>
     );
 }

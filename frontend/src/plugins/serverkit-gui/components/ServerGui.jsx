@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+// Imported from the SDK exactly as a third-party extension would (plan 79):
+// these resolve to the HOST's i18next instance and format door, so this
+// extension follows the panel's language and locale with no wiring of its own.
+import { useTranslation, useFormat } from 'serverkit-sdk';
 import SyntheticDesktop from './SyntheticDesktop.jsx';
 
 const FRAME_INTERVAL_MS_DEFAULT = 700;
@@ -27,6 +31,7 @@ function savePrefs(prefs) {
  * desktop based on user preference and what the agent reports.
  */
 export default function ServerGui({ api, serverId }) {
+    const { t } = useTranslation();
     const initial = loadPrefs();
     const [mode, setMode] = useState(initial.mode || MODES.AUTO);
     const [intervalMs, setIntervalMs] = useState(initial.intervalMs || FRAME_INTERVAL_MS_DEFAULT);
@@ -89,7 +94,7 @@ export default function ServerGui({ api, serverId }) {
             {error && <div className="sk-gui__banner sk-gui__banner--error">{error}</div>}
 
             {!caps && !error && (
-                <div className="sk-gui__loading">Probing display capability…</div>
+                <div className="sk-gui__loading">{t('gui.probing', 'Probing display capability…')}</div>
             )}
 
             {effectiveMode === MODES.SCREENSHOT && caps && (
@@ -120,25 +125,30 @@ function Toolbar({
     quality, onQualityChange,
     effectiveMode,
 }) {
+    const { t } = useTranslation();
     const screenshotDisabled = caps && caps.capability === 'none';
 
     return (
         <div className="sk-gui__toolbar">
             <div className="sk-gui__mode">
                 <ModeBtn
-                    label="Auto"
+                    label={t('gui.mode.auto', 'Auto')}
                     active={mode === MODES.AUTO}
                     onClick={() => onModeChange(MODES.AUTO)}
                 />
                 <ModeBtn
-                    label="Screenshot"
+                    label={t('gui.mode.screenshot', 'Screenshot')}
                     active={mode === MODES.SCREENSHOT}
                     disabled={screenshotDisabled}
-                    title={screenshotDisabled ? `Unavailable: ${caps.reason || 'no display'}` : ''}
+                    title={screenshotDisabled
+                        ? t('gui.mode.unavailable', 'Unavailable: {{reason}}', {
+                            reason: caps.reason || t('gui.mode.noDisplay', 'no display'),
+                        })
+                        : ''}
                     onClick={() => onModeChange(MODES.SCREENSHOT)}
                 />
                 <ModeBtn
-                    label="Synthetic"
+                    label={t('gui.mode.synthetic', 'Synthetic')}
                     active={mode === MODES.SYNTHETIC}
                     onClick={() => onModeChange(MODES.SYNTHETIC)}
                 />
@@ -160,17 +170,17 @@ function Toolbar({
             {effectiveMode === MODES.SCREENSHOT && (
                 <>
                     <label className="sk-gui__field">
-                        Rate
+                        {t('gui.toolbar.rate', 'Rate')}
                         <select value={intervalMs} onChange={e => onIntervalChange(Number(e.target.value))}>
-                            <option value={2000}>0.5 fps</option>
-                            <option value={1000}>1 fps</option>
-                            <option value={700}>1.5 fps</option>
-                            <option value={500}>2 fps</option>
-                            <option value={300}>3 fps</option>
+                            <option value={2000}>{t('gui.fps', '{{rate}} fps', { rate: 0.5 })}</option>
+                            <option value={1000}>{t('gui.fps', '{{rate}} fps', { rate: 1 })}</option>
+                            <option value={700}>{t('gui.fps', '{{rate}} fps', { rate: 1.5 })}</option>
+                            <option value={500}>{t('gui.fps', '{{rate}} fps', { rate: 2 })}</option>
+                            <option value={300}>{t('gui.fps', '{{rate}} fps', { rate: 3 })}</option>
                         </select>
                     </label>
                     <label className="sk-gui__field">
-                        Scale
+                        {t('gui.toolbar.scale', 'Scale')}
                         <select value={scale} onChange={e => onScaleChange(Number(e.target.value))}>
                             <option value={0.5}>50%</option>
                             <option value={0.75}>75%</option>
@@ -178,7 +188,7 @@ function Toolbar({
                         </select>
                     </label>
                     <label className="sk-gui__field">
-                        Quality
+                        {t('gui.toolbar.quality', 'Quality')}
                         <input
                             type="range"
                             min="20"
@@ -209,6 +219,8 @@ function ModeBtn({ label, active, disabled, title, onClick }) {
 }
 
 function ScreenshotView({ baseUrl, fetchJson, intervalMs, scale, quality }) {
+    const { t } = useTranslation();
+    const { formatTime } = useFormat();
     const [frame, setFrame] = useState(null);
     const [error, setError] = useState(null);
     const [paused, setPaused] = useState(false);
@@ -255,17 +267,17 @@ function ScreenshotView({ baseUrl, fetchJson, intervalMs, scale, quality }) {
                 className="sk-gui__viewport-btn"
                 onClick={() => setPaused(p => !p)}
             >
-                {paused ? 'Resume' : 'Pause'}
+                {paused ? t('gui.resume', 'Resume') : t('gui.pause', 'Pause')}
             </button>
             {error && <div className="sk-gui__banner sk-gui__banner--error">{error}</div>}
             {imgSrc ? (
-                <img className="sk-gui__frame" src={imgSrc} alt="Remote desktop frame" />
+                <img className="sk-gui__frame" src={imgSrc} alt={t('gui.frameAlt', 'Remote desktop frame')} />
             ) : (
-                <div className="sk-gui__loading">Waiting for first frame…</div>
+                <div className="sk-gui__loading">{t('gui.waitingFirstFrame', 'Waiting for first frame…')}</div>
             )}
             {frame?.captured_at && (
                 <div className="sk-gui__stamp">
-                    {frame.width}×{frame.height} · {new Date(frame.captured_at).toLocaleTimeString()}
+                    {frame.width}×{frame.height} · {formatTime(frame.captured_at, { seconds: true })}
                 </div>
             )}
         </div>

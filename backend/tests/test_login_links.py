@@ -1,6 +1,19 @@
 """One-time login links: mint / redeem / expiry / single-use / IP-bound / RBAC."""
 from datetime import datetime, timedelta
 
+def _assert_link_invalid(response):
+    """The typed-error contract body (plan 76 B), not a bare {'error': ...}.
+
+    `code` is what the frontend maps to a translation key (plan 79 F1), so it
+    is asserted rather than tolerated: dropping it would silently make the
+    message untranslatable again.
+    """
+    body = response.get_json()
+    assert body['error'] == 'Invalid or expired link'
+    assert body['status'] == 401
+    assert body['code'] == 'auth.link_invalid'
+    assert body['request_id']
+
 import pytest
 
 # Explicit import so the table registers with SQLAlchemy even though
@@ -87,7 +100,7 @@ def test_redeem_success_and_single_use(client, auth_headers):
     # Second redeem fails with a generic error
     again = client.post('/api/v1/auth/login-links/redeem', json={'token': token})
     assert again.status_code == 401
-    assert again.get_json() == {'error': 'Invalid or expired link'}
+    _assert_link_invalid(again)
 
 
 def test_redeem_expired_link_fails(app, client, auth_headers):
@@ -101,13 +114,13 @@ def test_redeem_expired_link_fails(app, client, auth_headers):
 
     resp = client.post('/api/v1/auth/login-links/redeem', json={'token': token})
     assert resp.status_code == 401
-    assert resp.get_json() == {'error': 'Invalid or expired link'}
+    _assert_link_invalid(resp)
 
 
 def test_redeem_unknown_token_fails(client):
     resp = client.post('/api/v1/auth/login-links/redeem', json={'token': 'bogus'})
     assert resp.status_code == 401
-    assert resp.get_json() == {'error': 'Invalid or expired link'}
+    _assert_link_invalid(resp)
 
 
 def test_ip_bound_link(client, auth_headers):

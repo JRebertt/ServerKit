@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 import { PageTopbar } from '@/components/ds';
 import { useContributions } from '@/plugins/contributions';
 import { sanitizeSvgInner } from '@/utils/sanitizeSvg';
+import { translateLabel } from '@/i18n/labels';
 
 // Generic shell for a PageTopbar tab group (Servers, Domains, Services, Files,
 // Monitoring, Marketplace, …). A parent route renders the PageTopbar + routed
@@ -50,6 +52,7 @@ function contributedIcon(inner) {
 }
 
 export default function TabGroupLayout({ tabs, groupId }) {
+    const { t: translate } = useTranslation();
     const location = useLocation();
     const [actions, setActions] = useState(null);
     // Two slots, not one. `actions` is the page's ("Add domain") and comes up
@@ -78,7 +81,9 @@ export default function TabGroupLayout({ tabs, groupId }) {
             .filter((t) => !tabs.some((core) => core.to === t.to))
             .map((t) => ({
                 to: t.to,
-                label: t.label,
+                // An extension tab may declare `labelKey` beside `label`;
+                // core tabs already do. Same resolver either way.
+                label: translateLabel(translate, t),
                 end: !!t.end,
                 icon: contributedIcon(t.icon),
                 order: t.order,
@@ -93,7 +98,7 @@ export default function TabGroupLayout({ tabs, groupId }) {
             merged.splice(idx, 0, tab);
         }
         return merged;
-    }, [tabs, groupId, contributedTabs]);
+    }, [tabs, groupId, contributedTabs, translate]);
 
     // The group renders no page title: the tab strip IS the heading, so it runs
     // flush-left in the bar (the active tab already names the section, as does

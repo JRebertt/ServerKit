@@ -46,6 +46,12 @@ class User(JsonColumnMixin, db.Model):
     # Sidebar preferences: { preset: 'full'|'web'|'email'|'devops'|'minimal'|'custom', hiddenItems: [...] }
     sidebar_config = db.Column(db.Text, nullable=True)
 
+    # Preferred UI language as a BCP-47 language code (plan 79 B2). NULL means
+    # "follow the panel default", which is a genuinely different state from an
+    # explicit choice of English -- the same distinction ThemeContext draws
+    # between an inherited skin and a picked one.
+    language = db.Column(db.String(10), nullable=True)
+
     # Per-user Setup Health item snoozes: JSON { item_key: iso_expiry } (plan 22
     # Phase 6). Panel-item snoozes live in a SettingsService map instead.
     setup_snoozes = db.Column(db.Text, nullable=True)
@@ -200,6 +206,7 @@ class User(JsonColumnMixin, db.Model):
             'has_password': self.has_password,
             'passkey_enabled': self.passkeys.filter_by(is_active=True).count() > 0,
             'sidebar_config': self.get_sidebar_config(),
+            'language': self.language,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
