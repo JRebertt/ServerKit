@@ -22,7 +22,14 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const srcDir = resolve(root, 'src');
+// `--root <dir>` censuses another tree — an extension repo's own src/. An
+// extension's `toLocaleDateString()` is the same bug as core's: with no
+// argument it follows the BROWSER, so its dates disagree with every date
+// around them on a panel set to another language.
+const rootArg = process.argv.includes('--root')
+    ? process.argv[process.argv.indexOf('--root') + 1]
+    : null;
+const srcDir = rootArg ? resolve(process.cwd(), rootArg) : resolve(root, 'src');
 const ceilingFile = resolve(here, 'INTL_DOOR_CEILING');
 
 // The door itself, and the tests that prove it behaves per locale.
@@ -84,6 +91,10 @@ const byFile = census();
 const count = [...byFile.values()].reduce((total, hits) => total + hits.length, 0);
 
 if (process.argv.includes('--update')) {
+    if (rootArg) {
+        console.error('--update writes the HOST ceiling; refusing to do that from --root.');
+        process.exit(2);
+    }
     writeFileSync(ceilingFile, `${count}\n`);
     console.log(`intl door ceiling updated to ${count}`);
     process.exit(0);

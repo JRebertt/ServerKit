@@ -560,6 +560,36 @@ def _assert_manifest_panel_compatible(manifest):
         )
 
 
+def _assert_manifest_sdk_compatible(manifest):
+    """Enforce a manifest's ``sdk_version`` range at install.
+
+    Two places already documented this check as existing — this module's own
+    loader comment in the frontend and ``app/utils/sdk.py``'s docstring ("checked
+    at install (manifest lint) and at load") — but nothing called
+    ``sdk_version_satisfies`` outside its unit test. The consequences differed by
+    extension kind, and both were bad:
+
+      * a runtime ESM extension installed cleanly and only failed later, at load,
+        on the version gate;
+      * a builtin/in-repo extension is compiled in and never passes the load
+        gate at all, so its range was never checked anywhere.
+
+    Fail-open on a missing range is deliberate and matches the load-time
+    'grace' decision: an extension that pins nothing installs anywhere.
+    """
+    from app.utils.sdk import SDK_VERSION, sdk_version_satisfies
+    range_str = manifest.get('sdk_version')
+    if not range_str or not str(range_str).strip():
+        return
+    if not sdk_version_satisfies(range_str):
+        raise ValueError(
+            f"{manifest.get('display_name') or manifest.get('name')} "
+            f"v{manifest.get('version')} needs panel SDK {range_str} "
+            f"(this panel offers {SDK_VERSION}) — update the panel, or install "
+            f"a build of the extension made for this SDK."
+        )
+
+
 def _safe_extract_path(dest_root, rel_path):
     """Resolve `rel_path` under `dest_root` and assert it stays inside.
 
@@ -924,6 +954,7 @@ def _install_from_buffer(buf, source_url, source_type, user_id=None, force=False
     manifest = json.loads(zf.read(manifest_path))
     _validate_manifest(manifest)
     _assert_manifest_panel_compatible(manifest)
+    _assert_manifest_sdk_compatible(manifest)
 
     slug = manifest['name']
 

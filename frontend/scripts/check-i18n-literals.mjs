@@ -35,7 +35,16 @@ import { parse } from 'espree';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const srcDir = resolve(root, 'src');
+
+// `--root <dir>` points the census at another tree — an extension repo's own
+// src/. Extensions ship UI with the same copy problem and none of them live
+// under frontend/src, so without this the ratchet cannot see them at all.
+// An extension repo runs this file from the host checkout rather than copying
+// it, which is how the vendor shims drifted.
+const rootArg = process.argv.includes('--root')
+    ? process.argv[process.argv.indexOf('--root') + 1]
+    : null;
+const srcDir = rootArg ? resolve(process.cwd(), rootArg) : resolve(root, 'src');
 const ceilingFile = resolve(here, 'I18N_LITERAL_CEILING');
 
 // Slack before the ceiling is considered stale. Larger than the style
@@ -316,6 +325,10 @@ const byFile = census();
 const count = [...byFile.values()].reduce((total, hits) => total + hits.length, 0);
 
 if (process.argv.includes('--update')) {
+    if (rootArg) {
+        console.error('--update writes the HOST ceiling; refusing to do that from --root.');
+        process.exit(2);
+    }
     writeFileSync(ceilingFile, `${count}\n`);
     console.log(`i18n literal ceiling updated to ${count}`);
     process.exit(0);

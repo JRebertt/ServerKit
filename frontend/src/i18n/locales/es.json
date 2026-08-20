@@ -34,6 +34,7 @@
     "common": {
         "actions": {
             "back": "Atrás",
+            "close": "Cerrar",
             "logOut": "Cerrar sesión",
             "refresh": "Actualizar",
             "retry": "Reintentar",
@@ -104,6 +105,32 @@
             "public": "Público",
             "search": "Busca en tus repositorios"
         }
+    },
+    "gui": {
+        "fps": "{{rate}} fps",
+        "frameAlt": "Fotograma del escritorio remoto",
+        "launcher": {
+            "label": "Escritorio",
+            "open": "Abrir la vista de escritorio",
+            "title": "Vista de escritorio"
+        },
+        "loadingSynthetic": "Cargando el escritorio sintético…",
+        "mode": {
+            "auto": "Automático",
+            "noDisplay": "sin pantalla",
+            "screenshot": "Captura",
+            "synthetic": "Sintético",
+            "unavailable": "No disponible: {{reason}}"
+        },
+        "pause": "Pausar",
+        "probing": "Comprobando la capacidad de pantalla…",
+        "resume": "Reanudar",
+        "toolbar": {
+            "quality": "Calidad",
+            "rate": "Frecuencia",
+            "scale": "Escala"
+        },
+        "waitingFirstFrame": "Esperando el primer fotograma…"
     },
     "nav": {
         "accountMenu": "Cuenta y preferencias",

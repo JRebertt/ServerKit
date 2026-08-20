@@ -34,6 +34,7 @@
     "common": {
         "actions": {
             "back": "Back",
+            "close": "Close",
             "logOut": "Log out",
             "refresh": "Refresh",
             "retry": "Retry",
@@ -104,6 +105,32 @@
             "public": "Public",
             "search": "Search your repositories"
         }
+    },
+    "gui": {
+        "fps": "{{rate}} fps",
+        "frameAlt": "Remote desktop frame",
+        "launcher": {
+            "label": "Desktop",
+            "open": "Open desktop view",
+            "title": "Desktop view"
+        },
+        "loadingSynthetic": "Loading synthetic desktop…",
+        "mode": {
+            "auto": "Auto",
+            "noDisplay": "no display",
+            "screenshot": "Screenshot",
+            "synthetic": "Synthetic",
+            "unavailable": "Unavailable: {{reason}}"
+        },
+        "pause": "Pause",
+        "probing": "Probing display capability…",
+        "resume": "Resume",
+        "toolbar": {
+            "quality": "Quality",
+            "rate": "Rate",
+            "scale": "Scale"
+        },
+        "waitingFirstFrame": "Waiting for first frame…"
     },
     "nav": {
         "accountMenu": "Account and preferences",

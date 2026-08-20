@@ -604,6 +604,25 @@ call `i18next.init()` or `changeLanguage()` from an extension: the panel owns
 both, and calling them would reconfigure or switch the language for the whole
 panel.
 
+### Checking your own extension
+
+The panel's censuses take a `--root`, so run them against your repo instead of
+copying them (copies drift — that is how the vendor shims broke):
+
+```bash
+SK=/path/to/ServerKit/frontend/scripts
+node $SK/check-i18n-literals.mjs --root frontend --report   # untranslated copy
+node $SK/check-intl-door.mjs     --root frontend --report   # browser-locale dates
+```
+
+The first lists user-visible strings not addressed by a key; the second lists
+`toLocaleDateString()` / `new Intl.*` calls, each of which follows the
+**browser's** locale rather than the panel's. `--update` is refused with
+`--root`: those ceilings belong to the panel, not to your extension.
+
+`frontend/src/plugins/serverkit-gui/` in the panel repo is a worked example —
+a builtin extension converted to the SDK surface, keys namespaced under `gui.*`.
+
 ## Permissions & compatibility
 
 `permissions` is a **consent signal**, and for most capabilities that is all it is.
@@ -643,8 +662,28 @@ its detail page so an operator can review and install it deliberately. Operators
 opt in with `SERVERKIT_ALLOW_PLUGIN_PIP=1`. Design your extension to degrade
 clearly when an optional dependency is absent rather than crashing on import.
 
-- `min_panel_version` / `max_panel_version` are enforced at install **and** update
-  for every source (URL/upload/local/builtin/registry).
+### Version compatibility
+
+Three independent bounds, all optional, all fail-open when omitted:
+
+| Field | Bounds | Checked |
+|---|---|---|
+| `min_panel_version` / `max_panel_version` | the **panel release** | install **and** update, every source (URL/upload/local/builtin/registry) |
+| `sdk_version` | the **frontend SDK surface** (a semver *range*) | install, and again at load for runtime ESM bundles — before any bytes are fetched |
+| *(none)* | — | an extension that pins nothing installs and loads anywhere |
+
+Pin `sdk_version` when you import something the SDK only started exporting in a
+given release; that is what turns "white screen on an older panel" into a
+readable *"needs panel SDK ^1.3.0 (this panel offers 1.2.0)"* at install time.
+
+| SDK | Added |
+|---|---|
+| `^1.3.0` | Localization: `useTranslation`, `Trans`, `t`, `useLocale`, `useLabel`, `useFormat` and the `formatDate`/`formatNumber`/`formatRelative` door. `i18next` and `react-i18next` became shared singletons, so an extension that **externalizes** them needs this SDK or newer. |
+| `^1.2.0` | Layout/feedback primitives, the `ui/*` form kit, common hooks, format utils, and the cross-feature embeds (git repo-connect, backups `ProtectionPanel`). |
+
+Both bumps were additive: an extension pinned to `^1.2.0` keeps installing and
+loading on a 1.3.0 panel. Pin the range you actually use — over-pinning locks
+your users out of upgrades for no reason.
 
 ---
 
