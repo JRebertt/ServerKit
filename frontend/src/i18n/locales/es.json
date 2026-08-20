@@ -22,7 +22,7 @@
             "backupCode": "Código de recuperación",
             "backupHint": "Introduce un código de recuperación",
             "codeHint": "Introduce el código de 6 dígitos de tu app de autenticación",
-            "title": "Autenticación en dos pasos"
+            "title": "Autenticación de dos factores"
         },
         "useDemoCredentials": "Usar las credenciales de demo",
         "username": "Nombre de usuario",
@@ -97,7 +97,7 @@
             "giteaAccount": "Gitea local",
             "giteaDetail": "Repositorios en esta instancia de ServerKit",
             "giteaNotInstalled": "Instala el servidor Git de ServerKit en <0>Git</0> para elegir un repositorio local en lugar de pegar una URL.",
-            "giteaNotRunning": "Tu servidor Gitea está instalado pero no se está ejecutando. Inícialo desde <0>Git</0>.",
+            "giteaNotRunning": "Tu servidor Gitea está instalado, pero no se está ejecutando. Inícialo desde <0>Git</0>.",
             "loading": "Cargando repositorios…",
             "noDescription": "Sin descripción",
             "notConfigured": "Configura la conexión con {{provider}} en <0>Ajustes</0> para elegir un repositorio con un clic en lugar de pegar una URL.",
@@ -123,7 +123,7 @@
             "unavailable": "No disponible: {{reason}}"
         },
         "pause": "Pausar",
-        "probing": "Comprobando la capacidad de pantalla…",
+        "probing": "Comprobando si hay pantalla disponible…",
         "resume": "Reanudar",
         "toolbar": {
             "quality": "Calidad",
@@ -147,7 +147,7 @@
         },
         "closeMenu": "Cerrar el menú de navegación",
         "collapseGroup": "Contraer {{group}}",
-        "cron": "Tareas programadas",
+        "cron": "Tareas cron",
         "customizeSidebar": "Personalizar la barra lateral",
         "dashboard": "Panel",
         "databases": "Bases de datos",
@@ -184,7 +184,7 @@
                 "label": "Completo"
             },
             "minimal": {
-                "description": "Solo lo esencial: sin bases de datos, contenedores ni programación",
+                "description": "Solo lo esencial: sin bases de datos, contenedores ni tareas programadas",
                 "label": "Mínimo"
             },
             "recommended": {
