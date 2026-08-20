@@ -17,6 +17,10 @@ export function AuthProvider({ children }) {
         panelTitle: import.meta.env.VITE_PANEL_TITLE || 'ServerKit',
         publicTitle: 'Control Panel',
         loginLayout: 'centered',
+        // Panel-wide default language for the pre-auth screens (plan 79 A4).
+        // null = not fetched yet, so the browser language does not win a race
+        // against a panel that has an opinion.
+        defaultLanguage: null,
         needsMigration: false,
         migrationInfo: null,
         checked: false
@@ -43,6 +47,7 @@ export function AuthProvider({ children }) {
                 panelTitle: status.panel_title || import.meta.env.VITE_PANEL_TITLE || 'ServerKit',
                 publicTitle: status.public_title || 'Control Panel',
                 loginLayout: status.login_layout || 'centered',
+                defaultLanguage: status.default_language || null,
                 needsMigration: status.needs_migration || false,
                 migrationInfo: status.migration_info || null,
                 checked: true

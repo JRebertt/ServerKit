@@ -18,6 +18,7 @@ from app.services.audit_service import AuditService
 from app.services import login_link_service
 from app.services import auth_throttle_service
 from app.utils.client_ip import get_client_ip
+from app.utils.i18n import normalize_language
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,9 @@ def get_setup_status():
         'panel_title': SettingsService.get('panel_title', 'ServerKit'),
         'public_title': SettingsService.get('public_title', 'Control Panel'),
         'login_layout': SettingsService.get('login_layout', 'centered'),
+        # Panel-default UI language for the sign-in/setup screens, which render
+        # before any authenticated call can report the user's own choice.
+        'default_language': SettingsService.get('default_language', 'en'),
         'needs_migration': migration_status['needs_migration'],
         'migration_info': {
             'pending_count': migration_status['pending_count'],
@@ -485,8 +489,25 @@ def get_current_user():
     return jsonify({'user': user.to_dict()}), 200
 
 
+def _is_preference_only_update():
+    """True when PUT /me carries no credential change.
+
+    The 3/minute limit on this route exists for username/email/password edits.
+    Cosmetic preferences (sidebar layout, language) go through the same route
+    and would otherwise burn that budget: switching language three times in a
+    minute returns 429, and since the client applies the change locally either
+    way, the preference silently fails to persist and reverts on the next
+    sign-in elsewhere. Credential changes stay throttled; the app-wide
+    100/minute default still covers everything else.
+    """
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict) or not data:
+        return False
+    return not ({'username', 'email', 'password'} & set(data.keys()))
+
+
 @auth_bp.route('/me', methods=['PUT'])
-@limiter.limit("3 per minute")
+@limiter.limit("3 per minute", exempt_when=_is_preference_only_update)
 @jwt_required()
 def update_current_user():
     current_user_id = get_jwt_identity()
@@ -527,6 +548,17 @@ def update_current_user():
             if not isinstance(hidden, list):
                 return jsonify({'error': 'hiddenItems must be a list'}), 400
             user.set_sidebar_config({'preset': preset, 'hiddenItems': hidden})
+
+    if 'language' in data:
+        raw = data['language']
+        if raw in (None, ''):
+            # Explicitly clearing the preference: fall back to the panel default.
+            user.language = None
+        else:
+            language = normalize_language(raw)
+            if not language:
+                return jsonify({'error': f'Unsupported language: {raw}'}), 400
+            user.language = language
 
     db.session.commit()
 

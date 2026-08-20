@@ -9,7 +9,10 @@ export default [
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
-      ecmaVersion: 2022,
+      // 'latest' rather than a pinned year: import attributes
+      // (`with { type: 'json' }`) are ES2025 and are required by Node's test
+      // runner for the i18n manifest imports.
+      ecmaVersion: 'latest',
       sourceType: 'module',
       globals: {
         ...globals.browser,

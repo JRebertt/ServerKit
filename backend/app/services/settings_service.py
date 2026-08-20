@@ -34,6 +34,11 @@ class SettingsService:
             'type': 'string',
             'description': 'Generic name shown on the public sign-in/register pages (kept brand-neutral on purpose)'
         },
+        'default_language': {
+            'value': 'en',
+            'type': 'string',
+            'description': 'Panel-default UI language (BCP-47 code) for the sign-in/setup screens and for users who have not chosen one'
+        },
         'login_layout': {
             'value': 'centered',
             'type': 'string',
