@@ -12,6 +12,8 @@
 //   formatBytes(2048, { iec: true })        -> "2 KiB"
 //   formatBytes(2048, { suffix: false })    -> "2"
 
+import { formatNumber } from './intl.js';
+
 const DECIMAL_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
 const IEC_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB'];
 
@@ -42,12 +44,13 @@ export function formatBytes(bytes, options = {}) {
 
     // Whole-byte values never need decimals.
     const places = exponent === 0 ? 0 : decimals;
-    let formatted = scaled.toFixed(places);
 
-    // Trim trailing zeros ("1.0" -> "1", "1.50" -> "1.5") for a cleaner read.
-    if (formatted.includes('.')) {
-        formatted = formatted.replace(/\.?0+$/, '');
-    }
+    // Plan 79 §C: through the format door rather than toFixed + a regex trim.
+    // `maximumFractionDigits` drops trailing zeros for free ("1.0" -> "1",
+    // "1.50" -> "1.5") AND uses the locale's decimal separator, which the
+    // string-trim could not: a Spanish panel showed "1.5 KB" where every other
+    // number on the page read "1,5".
+    const formatted = formatNumber(scaled, { maximumFractionDigits: places });
 
     const sign = negative ? '-' : '';
     return suffix ? `${sign}${formatted} ${units[exponent]}` : `${sign}${formatted}`;

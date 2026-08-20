@@ -6,7 +6,7 @@ import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationsContext';
-import { timeAgo } from '../utils/timeAgo';
+import { timeAgo } from '../utils/time';
 
 const SEVERITY_DOT = {
     critical: '#fb6f6f',

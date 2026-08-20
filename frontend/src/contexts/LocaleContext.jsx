@@ -2,6 +2,7 @@ import {
     createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { activateLocale } from '../i18n';
+import { setFormatLocale } from '../utils/intl';
 import {
     DEFAULT_LANGUAGE, LANGUAGES, STORAGE_KEY,
     directionFor, languageInfo, matchSupported, navigatorLanguages, resolveLocale,
@@ -35,6 +36,11 @@ export function LocaleProvider({ children }) {
     // Guards the one-shot server hydration so a user who switches language
     // during page load does not get overwritten by their own stored value.
     const hydratedRef = useRef(false);
+
+    // Publish to the format door BEFORE the render that follows, so a
+    // non-React caller (API error mapper, CSV export) can never format against
+    // the previous locale. Doing this in an effect would be one paint late.
+    setFormatLocale(language);
 
     useEffect(() => {
         let cancelled = false;

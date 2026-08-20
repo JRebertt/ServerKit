@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, X } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationsContext';
-import { timeAgo } from '../utils/timeAgo';
+import { timeAgo } from '../utils/time';
 
 // Severity → dot color, mirroring the email/brand palette.
 const SEVERITY_DOT = {

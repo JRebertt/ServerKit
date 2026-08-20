@@ -1,5 +1,5 @@
 // Shared formatting helpers for the backup "Protection" components.
-import { timeAgo } from '@/utils/timeAgo';
+import { timeAgo } from '@/utils/time';
 
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 

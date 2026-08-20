@@ -15,7 +15,7 @@ import EmptyState from '../components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { timeAgo } from '../utils/timeAgo';
+import { timeAgo } from '../utils/time';
 import EmailProviders from '../components/EmailProviders';
 import { usePolling } from '@/hooks/usePolling';
 
