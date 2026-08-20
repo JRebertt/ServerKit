@@ -7,7 +7,7 @@ bundles for, and shipping a language means putting a JSON file next to it.
 This module exists because the API has to validate what it stores: a user row
 carrying a code the panel cannot render is a preference that silently does
 nothing. Rather than have the backend fetch or parse the frontend at runtime,
-the list is restated here and ``tests/test_i18n_language_manifest.py`` fails
+the list is restated here and ``tests/test_user_language_preference.py`` fails
 the build if the two ever disagree. Two lists with a parity test beats one list
 the backend cannot see, and beats validating nothing at all.
 """

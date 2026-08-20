@@ -558,7 +558,7 @@ def update_current_user():
         else:
             language = normalize_language(raw)
             if not language:
-                return jsonify({'error': f'Unsupported language: {raw}'}), 400
+                raise ValidationError(f'Unsupported language: {raw}', code='auth.unsupported_language')
             user.language = language
 
     db.session.commit()

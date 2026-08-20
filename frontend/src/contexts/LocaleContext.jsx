@@ -44,6 +44,10 @@ export function LocaleProvider({ children }) {
 
     useEffect(() => {
         let cancelled = false;
+        // `en` is bundled, but other locales may need a dynamic import.
+        // Reset readiness on each language change so we rerender once the
+        // bundle is active.
+        setReady(language === DEFAULT_LANGUAGE);
         activateLocale(language).then((applied) => {
             if (cancelled) return;
             setReady(true);
