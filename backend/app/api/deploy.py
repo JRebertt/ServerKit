@@ -6,7 +6,7 @@ import os
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import paths
-from app.middleware.rbac import admin_required, app_access_tier
+from app.middleware.rbac import admin_required, app_access_tier, developer_required
 from app.models import User, Application
 from app.services.git_service import GitService
 from app.services.resource_grant_service import ResourceGrantService
@@ -225,7 +225,7 @@ def get_branches(app_id):
 
 
 @deploy_bp.route('/branches', methods=['POST'])
-@jwt_required()
+@developer_required
 def get_branches_from_url():
     """Get list of branches from a repository URL (before cloning)."""
     data = request.get_json()

@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.services.uptime_service import UptimeService
+from app.middleware.rbac import admin_required
 
 uptime_bp = Blueprint('uptime', __name__)
 
@@ -66,7 +67,7 @@ def get_uptime_history():
 
 
 @uptime_bp.route('/tracking/start', methods=['POST'])
-@jwt_required()
+@admin_required
 def start_tracking():
     """Start uptime tracking."""
     result = UptimeService.start_tracking()
@@ -76,7 +77,7 @@ def start_tracking():
 
 
 @uptime_bp.route('/tracking/stop', methods=['POST'])
-@jwt_required()
+@admin_required
 def stop_tracking():
     """Stop uptime tracking."""
     result = UptimeService.stop_tracking()

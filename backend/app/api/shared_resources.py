@@ -208,6 +208,9 @@ def add_tag():
     missing = _require(data, 'resource_type', 'resource_id', 'tag')
     if missing:
         return _bad(f'{missing} is required')
+    denied = _check_resource_write(data['resource_type'], data['resource_id'])
+    if denied:
+        return denied
     try:
         row = SharedResourceService.add_tag(
             data['resource_type'], data['resource_id'], data['tag']
@@ -230,6 +233,10 @@ def remove_tag():
 
     if not resource_type or resource_id in (None, '') or not tag:
         return _bad('resource_type, resource_id and tag are required')
+
+    denied = _check_resource_write(resource_type, resource_id)
+    if denied:
+        return denied
 
     removed = SharedResourceService.remove_tag(resource_type, resource_id, tag)
     return jsonify({'removed': removed})

@@ -12,7 +12,7 @@ from flask_jwt_extended import (
 from app import db, limiter
 from app.models import User, AuditLog, SystemSettings
 # Aliased: this module already has a `get_current_user` route handler.
-from app.middleware.rbac import admin_required, get_current_user as get_request_user
+from app.middleware.rbac import admin_required, get_current_user as get_request_user, require_admin_user
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
 from app.services import login_link_service
@@ -168,11 +168,7 @@ ALLOWED_USE_CASES = {'wordpress', 'web-apps', 'self-hosted', 'devops'}
 @jwt_required()
 def complete_onboarding():
     """Complete the onboarding wizard and mark setup as done."""
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-
-    if not user or user.role != User.ROLE_ADMIN:
-        return jsonify({'error': 'Admin access required'}), 403
+    user = require_admin_user()
 
     data = request.get_json() or {}
     use_cases = data.get('use_cases', [])

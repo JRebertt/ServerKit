@@ -51,7 +51,6 @@ def get_workspace(workspace_id):
 
 
 @workspaces_bp.route('/', methods=['POST'])
-@jwt_required()
 @admin_required
 def create_workspace():
     user = get_current_user()

@@ -33,6 +33,9 @@ def create_proxy():
 @nginx_advanced_bp.route('/test', methods=['POST'])
 @jwt_required()
 def test_config():
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
     result = NginxAdvancedService.test_config()
     return jsonify(result)
 
@@ -50,12 +53,19 @@ def reload():
 @nginx_advanced_bp.route('/diff', methods=['POST'])
 @jwt_required()
 def preview_diff():
+    # Admin-only: the diff includes the CURRENT vhost file's contents, so this
+    # is a file read as much as a preview.
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
     data = request.get_json() or {}
     domain = data.get('domain')
     new_config = data.get('config', '')
     if not domain:
         return jsonify({'error': 'domain required'}), 400
     result = NginxAdvancedService.preview_diff(domain, new_config)
+    if 'error' in result:
+        return jsonify(result), 400
     return jsonify(result)
 
 

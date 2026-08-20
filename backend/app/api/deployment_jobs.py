@@ -57,6 +57,10 @@ def simulate_deployment():
     synchronously (tests)."""
     if not current_app.config.get('DEMO_DEPLOYS_ENABLED'):
         return jsonify({'error': 'Not found'}), 404
+    # Even with the demo flag on, creating jobs is not a viewer capability.
+    user = get_current_user()
+    if not user or not user.is_developer:
+        return jsonify({'error': 'Developer access required'}), 403
     from flask_jwt_extended import get_jwt_identity
     from app.services.demo_deploy_service import DemoDeployService
 

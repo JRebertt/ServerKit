@@ -402,7 +402,7 @@ def compose_down():
 
 
 @docker_bp.route('/compose/ps', methods=['POST'])
-@jwt_required()
+@admin_required
 def compose_ps():
     """List Docker Compose services."""
     data = request.get_json()
@@ -415,7 +415,7 @@ def compose_ps():
 
 
 @docker_bp.route('/compose/logs', methods=['POST'])
-@jwt_required()
+@admin_required
 def compose_logs():
     """Get Docker Compose logs."""
     data = request.get_json()
@@ -633,7 +633,7 @@ def compose_pull():
 
 
 @docker_bp.route('/compose/validate', methods=['POST'])
-@jwt_required()
+@admin_required
 def compose_validate():
     """Validate a Docker Compose file."""
     data = request.get_json()
@@ -646,7 +646,7 @@ def compose_validate():
 
 
 @docker_bp.route('/compose/config', methods=['POST'])
-@jwt_required()
+@admin_required
 def compose_config():
     """Get parsed Docker Compose configuration."""
     data = request.get_json()

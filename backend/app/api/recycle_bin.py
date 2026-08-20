@@ -31,7 +31,7 @@ def list_deleted():
 
 
 @recycle_bin_bp.route('/<kind>/<int:record_id>/restore', methods=['POST'])
-@jwt_required()
+@admin_required
 def restore(kind, record_id):
     try:
         item, err = recycle_bin_service.restore(kind, record_id)
