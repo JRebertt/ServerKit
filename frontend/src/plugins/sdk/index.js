@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.2.0';
+export const SDK_VERSION = '1.3.0';
 
 export { api, default as defaultApi } from '../../services/api';
 
@@ -131,6 +131,27 @@ export { useTopbarActions } from '../../hooks/useTopbarActions';
 // Formatting utilities (canonical host implementations — no local copies).
 export { formatBytes } from '../../utils/formatBytes';
 export { timeAgo, formatRelativeTime, formatDuration } from '../../utils/time';
+
+// Localization (plan 79). These are the HOST's singletons, not a parallel
+// extension i18n: `useTranslation`/`Trans` resolve against the panel's own
+// i18next instance (shared via vendorManifest), so an extension's copy follows
+// the user's language, plural rules and locale switch with no wiring of its
+// own. An extension ships its keys as inline defaults exactly like core —
+// `t('myext.title', 'My Extension')` — so a missing bundle renders English
+// rather than a raw key path.
+export { useTranslation, Trans } from 'react-i18next';
+export { t } from '../../i18n/t';
+export { useLocale } from '../../contexts/LocaleContext';
+export { translateLabel, default as useLabel } from '../../i18n/labels';
+
+// The one locale-aware formatting door. An extension MUST NOT call
+// `toLocaleDateString()` itself: with no argument it follows the browser, not
+// the panel, so its dates would disagree with every date around them.
+export { default as useFormat } from '../../hooks/useFormat';
+export {
+    formatDate, formatTime, formatDateTime, formatRelative,
+    formatNumber, formatPercent, formatList,
+} from '../../utils/intl';
 
 // Generic page furniture + cross-feature embeds (plan 52 Phase 5 — the
 // WordPress runtime-ESM extraction proved these out). Two consumer classes:

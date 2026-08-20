@@ -157,12 +157,12 @@ const CommandPalette = ({ open, onClose }) => {
             .filter((it) => it && it.label && it.path)
             .map((it) => ({
                 id: `plugin:${it.path}:${it.label}`,
-                label: it.label,
+                label: translateLabel(t, it),
                 keywords: it.keywords || '',
                 path: it.path,
                 category: it.category || 'Extensions',
             })),
-        [pluginPaletteItems],
+        [pluginPaletteItems, t],
     );
 
     const docItems = useMemo(() => {

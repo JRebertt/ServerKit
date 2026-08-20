@@ -1,8 +1,9 @@
 /**
  * Host vendor sharing for runtime-loaded extension bundles (plan 25 Decision 2).
  *
- * A runtime extension bundle externalizes the shared libraries (`react`,
- * `react-dom`, `react/jsx-runtime`, `react-router-dom`, `serverkit-sdk`) and
+ * A runtime extension bundle externalizes the shared libraries (react,
+ * react-dom, react/jsx-runtime, react-router-dom, i18next, react-i18next,
+ * serverkit-sdk — the list lives in ./vendorManifest.js) and
  * resolves them at load time through a static import map injected into
  * index.html (see vite.config.js `serverkitImportmap`). Each mapped URL points
  * at a small shim under `/serverkit-vendor/*.mjs` that re-exports from THIS
@@ -21,6 +22,8 @@ import * as ReactDOM from 'react-dom';
 import * as ReactDOMClient from 'react-dom/client';
 import * as JsxRuntime from 'react/jsx-runtime';
 import * as ReactRouterDom from 'react-router-dom';
+import * as I18next from 'i18next';
+import * as ReactI18next from 'react-i18next';
 import * as ServerkitSdk from 'serverkit-sdk';
 
 const vendor = {
@@ -29,6 +32,11 @@ const vendor = {
     'react-dom/client': ReactDOMClient,
     'react/jsx-runtime': JsxRuntime,
     'react-router-dom': ReactRouterDom,
+    // Shared for the same reason React is: a second i18next instance would be
+    // uninitialised, so every t() in that extension would render its English
+    // default forever and nothing would report it.
+    'i18next': I18next,
+    'react-i18next': ReactI18next,
     'serverkit-sdk': ServerkitSdk,
 };
 

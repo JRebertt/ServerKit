@@ -525,6 +525,85 @@ def register():
     return {"connect": on_connect, "subscribe": on_subscribe}
 ```
 
+## Localization
+
+Extensions use the panel's own i18n — not a parallel one. `i18next` and
+`react-i18next` are shared singletons (see `vendorManifest.js`), so an
+extension's copy follows the user's language, plural rules and live locale
+switch with no wiring of its own.
+
+```jsx
+import { useTranslation, useFormat } from 'serverkit-sdk';
+
+export function MyPage() {
+    const { t } = useTranslation();
+    const { formatDate } = useFormat();
+    return (
+        <>
+            <h2>{t('myext.title', 'My Extension')}</h2>
+            <p>{t('myext.lastRun', 'Last run {{when}}', { when: formatDate(run.at) })}</p>
+        </>
+    );
+}
+```
+
+Three rules, the same ones core follows:
+
+1. **Always pass the English default** — `t('key', 'English')`. It is what
+   renders when the active locale has no entry for your key, so a partially
+   translated extension degrades to English instead of showing a raw key path.
+2. **Namespace your keys under your slug** (`myext.*`). The panel merges
+   extension bundles into one resource tree; an unprefixed `title` would
+   collide with core's.
+3. **Never call `toLocaleDateString()` / `new Intl.*` yourself.** With no
+   argument those follow the *browser's* locale, not the panel's, so your dates
+   would disagree with every date around them. Use `useFormat()` (or the
+   `formatDate`/`formatNumber`/`formatRelative` exports) — they read the panel
+   locale and cache their formatters.
+
+For a sentence containing a link or an element, use `<Trans>` rather than
+splitting it into prefix/suffix keys — word order around the element differs by
+language and split keys cannot be reordered by a translator.
+
+### Declarative labels in the manifest
+
+Manifest contributions are data, so they cannot call `t()` — a label resolved
+at module load would translate once, at import, and never follow a switch.
+Declare the key beside the English instead, and the panel resolves it at render:
+
+```jsonc
+"contributions": {
+  "nav": [
+    { "id": "myext", "route": "/myext", "labelKey": "myext.nav", "label": "My Extension" }
+  ],
+  "tabs": [
+    { "group": "servers", "to": "/myext/tab", "labelKey": "myext.tab", "label": "My Tab" }
+  ],
+  "command_palette": [
+    { "path": "/myext", "labelKey": "myext.palette", "label": "Open My Extension" }
+  ]
+}
+```
+
+`labelKey` is optional everywhere. Omit it and the panel renders `label`
+verbatim, which is exactly what every pre-existing extension does today.
+
+### Shipping translations
+
+Register your bundles against the shared instance at module load:
+
+```js
+import i18next from 'i18next';
+import es from './locales/es.json';
+
+i18next.addResourceBundle('es', 'translation', { myext: es }, true, true);
+```
+
+Because the instance is shared, this must be additive and namespaced — do not
+call `i18next.init()` or `changeLanguage()` from an extension: the panel owns
+both, and calling them would reconfigure or switch the language for the whole
+panel.
+
 ## Permissions & compatibility
 
 `permissions` is a **consent signal**, and for most capabilities that is all it is.
