@@ -52,8 +52,12 @@ function cached(kind, options, build) {
 /**
  * Translate with an inline English default, tolerating an uninitialised
  * i18next (node tooling, tests, a crash before the provider mounts).
+ *
+ * Named `t` so the extractor sees the literal keys at the call sites below; a
+ * differently-named wrapper would make this file's copy invisible to en.json
+ * generation, which is how copy quietly stops being translatable.
  */
-function translate(key, fallback, values) {
+function t(key, fallback, values) {
     if (i18next.isInitialized) {
         return i18next.t(key, { defaultValue: fallback, ...values });
     }
@@ -154,16 +158,16 @@ export function formatRelativeShort(value, { fallback = '' } = {}) {
     if (!date) return fallback;
 
     const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (seconds < 45) return translate('common.time.justNow', 'just now');
+    if (seconds < 45) return t('common.time.justNow', 'just now');
 
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return translate('common.time.minutesShort', '{{count}}m', { count: minutes });
+    if (minutes < 60) return t('common.time.minutesShort', '{{count}}m', { count: minutes });
 
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return translate('common.time.hoursShort', '{{count}}h', { count: hours });
+    if (hours < 24) return t('common.time.hoursShort', '{{count}}h', { count: hours });
 
     const days = Math.floor(hours / 24);
-    if (days < 7) return translate('common.time.daysShort', '{{count}}d', { count: days });
+    if (days < 7) return t('common.time.daysShort', '{{count}}d', { count: days });
 
     return formatDate(date, { style: 'short' });
 }
@@ -174,22 +178,22 @@ export function formatDuration(seconds, { fallback = '-' } = {}) {
     if (total === null || total < 0) return fallback;
 
     if (total < 60) {
-        return translate('common.duration.seconds', '{{count}}s', { count: Math.round(total) });
+        return t('common.duration.seconds', '{{count}}s', { count: Math.round(total) });
     }
     const minutes = Math.floor(total / 60);
     if (minutes < 60) {
         const rest = Math.round(total % 60);
         return rest
-            ? translate('common.duration.minutesSeconds', '{{minutes}}m {{seconds}}s',
+            ? t('common.duration.minutesSeconds', '{{minutes}}m {{seconds}}s',
                 { minutes, seconds: rest })
-            : translate('common.duration.minutes', '{{count}}m', { count: minutes });
+            : t('common.duration.minutes', '{{count}}m', { count: minutes });
     }
     const hours = Math.floor(minutes / 60);
     const restMinutes = minutes % 60;
     return restMinutes
-        ? translate('common.duration.hoursMinutes', '{{hours}}h {{minutes}}m',
+        ? t('common.duration.hoursMinutes', '{{hours}}h {{minutes}}m',
             { hours, minutes: restMinutes })
-        : translate('common.duration.hours', '{{count}}h', { count: hours });
+        : t('common.duration.hours', '{{count}}h', { count: hours });
 }
 
 // -------------------------------------------------------------- numbers ---

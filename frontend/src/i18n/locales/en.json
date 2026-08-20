@@ -1,1 +1,17 @@
-{}
+{
+    "common": {
+        "duration": {
+            "hours": "{{count}}h",
+            "hoursMinutes": "{{hours}}h {{minutes}}m",
+            "minutes": "{{count}}m",
+            "minutesSeconds": "{{minutes}}m {{seconds}}s",
+            "seconds": "{{count}}s"
+        },
+        "time": {
+            "daysShort": "{{count}}d",
+            "hoursShort": "{{count}}h",
+            "justNow": "just now",
+            "minutesShort": "{{count}}m"
+        }
+    }
+}
