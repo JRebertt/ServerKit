@@ -27,7 +27,19 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const localesDir = resolve(root, 'src', 'i18n', 'locales');
+
+// `--locales <dir>` checks another tree's bundles — an extension repo's own
+// locales/. Same four assertions; extensions get orphan and placeholder drift
+// exactly like the panel does, and a dropped {{count}} is just as invisible
+// there. `--no-manifest` skips the languages.json cross-check, which only the
+// panel has (an extension ships bundles, not a language list).
+const localesArg = process.argv.includes('--locales')
+    ? process.argv[process.argv.indexOf('--locales') + 1]
+    : null;
+const skipManifest = process.argv.includes('--no-manifest') || Boolean(localesArg);
+const localesDir = localesArg
+    ? resolve(process.cwd(), localesArg)
+    : resolve(root, 'src', 'i18n', 'locales');
 const manifestFile = resolve(root, 'src', 'i18n', 'languages.json');
 
 const DEFAULT_LOCALE = 'en';
@@ -56,22 +68,23 @@ function placeholders(value) {
 
 const problems = [];
 
-const manifest = readJson(manifestFile);
-const declared = manifest.languages.map((language) => language.code);
-
 const shipped = readdirSync(localesDir)
     .filter((name) => extname(name) === '.json')
     .map((name) => basename(name, '.json'));
 
-// 4. manifest <-> files
-for (const code of declared) {
-    if (!shipped.includes(code)) {
-        problems.push(`languages.json advertises '${code}' but src/i18n/locales/${code}.json is missing`);
+// 4. manifest <-> files (panel only)
+if (!skipManifest) {
+    const manifest = readJson(manifestFile);
+    const declared = manifest.languages.map((language) => language.code);
+    for (const code of declared) {
+        if (!shipped.includes(code)) {
+            problems.push(`languages.json advertises '${code}' but src/i18n/locales/${code}.json is missing`);
+        }
     }
-}
-for (const code of shipped) {
-    if (!declared.includes(code)) {
-        problems.push(`src/i18n/locales/${code}.json ships but languages.json does not advertise '${code}'`);
+    for (const code of shipped) {
+        if (!declared.includes(code)) {
+            problems.push(`src/i18n/locales/${code}.json ships but languages.json does not advertise '${code}'`);
+        }
     }
 }
 
@@ -112,6 +125,15 @@ if (problems.length) {
     for (const problem of problems) console.error(`  ${problem}`);
     console.error('');
     process.exit(1);
+}
+
+for (const code of shipped.filter((name) => name !== DEFAULT_LOCALE)) {
+    const translated = flatten(readJson(join(localesDir, `${code}.json`)));
+    const missing = [...base.keys()].filter((key) => !translated.has(key));
+    if (missing.length) {
+        console.log(`  ${code}: ${missing.length} key(s) not translated yet `
+            + `(they render English) — e.g. ${missing.slice(0, 3).join(', ')}`);
+    }
 }
 
 const translatedCount = shipped.filter((name) => name !== DEFAULT_LOCALE).length;
