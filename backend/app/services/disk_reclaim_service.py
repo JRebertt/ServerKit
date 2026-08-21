@@ -30,8 +30,9 @@ previewed with ``dry_run=True``.
 import os
 import re
 import shutil
-import subprocess
 from datetime import datetime, timedelta
+
+from app.utils.system import run_checked
 
 # ── Defaults (overridable per call so tests never touch real paths) ──────────
 
@@ -79,14 +80,21 @@ def human_bytes(n):
 
 
 def _run(cmd, timeout=300):
-    """Run a command, returning (ok, stdout, stderr). Never raises."""
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return proc.returncode == 0, proc.stdout or '', proc.stderr or ''
-    except (OSError, subprocess.SubprocessError) as exc:
-        # A missing binary (docker/journalctl not installed) is a normal
-        # outcome here, not an error worth aborting the whole sweep for.
-        return False, '', str(exc)
+    """Run a command, returning (ok, stdout, stderr). Never raises.
+
+    Routed through :func:`app.utils.system.run_checked` rather than calling
+    subprocess directly, so a bare ``journalctl``/``docker`` name still
+    resolves when the unit's $PATH omits sbin — that outage otherwise surfaces
+    here as "nothing to reclaim", which is a false fact about the operator's
+    disk rather than a visible error.
+
+    A missing binary is a normal outcome for this sweep (a host with no docker
+    or no systemd), so it degrades to a zero-sized candidate rather than
+    aborting the scan; ``run_checked`` still puts the reason in stderr.
+    """
+    result = run_checked(cmd, timeout=timeout)
+    return (result['success'], result['output'],
+            result['stderr'] or (result['error'] or ''))
 
 
 def _path_size(path):
