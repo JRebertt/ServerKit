@@ -125,7 +125,7 @@ const IconReferenceTab = () => {
 
             {Object.keys(filteredCatalog).length === 0 && (
                 <div className="settings-card">
-                    <p style={{ textAlign: 'center', opacity: 0.5 }}>{t('app.iconReferenceTab.noIconsMatch', 'No icons match "')}{searchQuery}&quot;</p>
+                    <p style={{ textAlign: 'center', opacity: 0.5 }}>{t('app.iconReferenceTab.noIconsMatch', 'No icons match "{{query}}"', { query: searchQuery })}</p>
                 </div>
             )}
         </div>

@@ -77,7 +77,7 @@ export default function LogFileList({ files, selectedPath, onSelect, onRefresh, 
                     </div>
                 ) : groups.length === 0 ? (
                     <div className="lv-empty-hint">
-                        <p>{t('app.logFileList.noMatchesFor', 'No matches for "')}{query}&quot;.</p>
+                        <p>{t('app.logFileList.noMatchesFor', 'No matches for "{{query}}".', { query })}</p>
                     </div>
                 ) : (
                     groups.map((group) => {

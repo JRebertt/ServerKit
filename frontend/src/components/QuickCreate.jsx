@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../i18n/labels';
 
 // Global quick-create (the CRM "+" button). One entry point for every "new
 // thing" flow, wherever you are. Route-based flows navigate directly; flows
@@ -54,7 +55,7 @@ export function QuickCreate({ className, variant = 'icon' }) {
                 {CREATE_ITEMS.map((item) => (
                     <DropdownMenuItem key={item.kind} onSelect={() => navigate(item.path)}>
                         <item.icon size={14} aria-hidden="true" />
-                        {t('app.quickCreate.new', 'New')} {item.label}
+                        {t('app.quickCreate.new', 'New')} {translateLabel(t, item)}
                     </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>

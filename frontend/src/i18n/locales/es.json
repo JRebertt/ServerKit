@@ -2565,10 +2565,9 @@
             "when": "Cuándo"
         },
         "extensionBoundary": {
-            "couldNotBeLoaded": "no se pudo cargar",
             "extensionCrashed": "La extensión falló",
             "itsOtherPagesAndTheRest": "Sus otras páginas y el resto del panel no se ven afectados. Prueba a reinstalarla o actualizarla desde el Marketplace.",
-            "theExtension": "La extensión"
+            "theExtensionCouldNotBeLoaded": "La extensión <0>{{slug}}</0> no se pudo cargar"
         },
         "extensionPermissionsDialog": {
             "blocked": "Bloqueado",
@@ -3454,7 +3453,7 @@
             "iconReference": "Referencia de iconos",
             "iconsClickAnIconNameTo": "iconos). Haz clic en el nombre de un icono para copiarlo.",
             "lucideReactIconsAvailableInThe": "Iconos de Lucide React disponibles en el proyecto (",
-            "noIconsMatch": "Ningún icono coincide con \"",
+            "noIconsMatch": "Ningún icono coincide con \"{{query}}\"",
             "searchIcons": "Buscar iconos..."
         },
         "imagesTab": {
@@ -3791,7 +3790,7 @@
         "logFileList": {
             "filterLogFiles": "Filtrar archivos de registro…",
             "noLogFilesFound": "No se encontraron archivos de registro.",
-            "noMatchesFor": "Sin coincidencias para \"",
+            "noMatchesFor": "No hay coincidencias para \"{{query}}\".",
             "reloadList": "Recargar lista"
         },
         "logHelpers": {

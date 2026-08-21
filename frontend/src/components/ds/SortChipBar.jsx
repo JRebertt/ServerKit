@@ -1,6 +1,7 @@
 import { ArrowUp, ArrowDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../../i18n/labels';
 
 // Active-sort chip bar (Twenty's EditableSortChip pattern). Renders one chip
 // per sort level above the table: click the chip body to flip direction, ✕ to
@@ -16,7 +17,7 @@ export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
     const labelFor = (key) => {
         const column = columns.find((c) => c.key === key);
         if (!column) return key;
-        return typeof column.header === 'string' && column.header ? column.header : column.key;
+        return typeof column.header === 'string' && column.header ? translateLabel(t, column, 'header') : column.key;
     };
 
     const flip = (key) => onChange?.(

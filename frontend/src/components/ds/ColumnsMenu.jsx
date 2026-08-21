@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../../i18n/labels';
 
 // Toolbar popover for column show/hide (datatables.net "column visibility"
 // button). Lists every hideable column with an eye toggle; the trigger shows
@@ -16,7 +17,7 @@ export function ColumnsMenu({ columns = [], hiddenKeys = [], onToggle, onShowAll
     const { t } = useTranslation();
     const hideable = columns.filter((c) => c.hideable !== false);
     const labelFor = (column) => (
-        typeof column.header === 'string' && column.header ? column.header : column.key
+        typeof column.header === 'string' && column.header ? translateLabel(t, column, 'header') : column.key
     );
 
     return (

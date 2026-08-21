@@ -9,7 +9,7 @@
  * `getRuntimeLoadState`, with the error string in a popover (plan 32 #5).
  */
 import { Component } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import { t } from '../../i18n/t';
 
 // Plain (dependency-free) card so it renders even if the SDK/design-system is
@@ -24,7 +24,15 @@ export function ExtensionFailureCard({ slug, title, message }) {
                     {title || 'Extension failed to load'}
                 </h2>
                 <p className="sk-ext-failcard__desc">
-                    {t('app.extensionBoundary.theExtension', 'The extension')} <code>{slug}</code> {t('app.extensionBoundary.couldNotBeLoaded', 'could not be loaded')}
+                    {/* One key with a component slot, not prefix/suffix
+                        fragments: split sentences cannot be reordered by a
+                        translator. */}
+                    <Trans
+                        i18nKey="app.extensionBoundary.theExtensionCouldNotBeLoaded"
+                        defaults="The extension <0>{{slug}}</0> could not be loaded"
+                        values={{ slug }}
+                        components={[<code key="slug" />]}
+                    />
                     {message ? ': ' : '.'}
                     {message && <span className="sk-ext-failcard__reason">{message}</span>}
                 </p>

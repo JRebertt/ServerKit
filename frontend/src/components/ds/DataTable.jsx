@@ -16,6 +16,7 @@ import EmptyState from '../EmptyState';
 import ColumnMenu from './grid/ColumnMenu';
 import { applyFilters, isDecorative, withInferredTypes } from './grid/fields';
 import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../../i18n/labels';
 
 /**
  * Declarative data table built on top of the shadcn/ui Table primitives.
@@ -407,7 +408,7 @@ export function DataTable({
                                     }
                                 >
                                     <span className="sk-dtable__head-inner">
-                                        {column.header}
+                                        {typeof column.header === 'string' ? translateLabel(t, column, 'header') : column.header}
                                         {canSort && (
                                             <span className="sk-dtable__sort">
                                                 {isSorted && sorts[sortIndex].direction === 'asc' ? (

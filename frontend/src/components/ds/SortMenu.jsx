@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../../i18n/labels';
 
 // Toolbar popover for user-controllable multi-column sorting (Frappe CRM
 // style). Each active sort is a row: field label, asc/desc toggle, remove.
@@ -18,7 +19,7 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
         const column = sortableColumns.find((c) => c.key === key);
         if (!column) return key;
         // Column headers may be React nodes; only plain text makes a usable label.
-        return typeof column.header === 'string' ? column.header : column.key;
+        return typeof column.header === 'string' ? translateLabel(t, column, 'header') : column.key;
     };
 
     const flip = (key) => onChange?.(
