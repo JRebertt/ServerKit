@@ -11,6 +11,11 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        &--full {
+            width: 100%;
+            max-width: none;
+        }
     }
 
     &__chevron {
