@@ -30,8 +30,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MetricCard, KpiBand, Pill, Gauge, DataTable, DataTableFooter, statusKind } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 const AgentFleet = () => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(true);
     const [health, setHealth] = useState(null);
@@ -59,7 +61,7 @@ const AgentFleet = () => {
     useTopbarActions(() =>
         <Button size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {t('app.agentFleet.refresh', 'Refresh')}
         </Button>,
         [loading]
     );
@@ -95,7 +97,7 @@ const AgentFleet = () => {
             }
         } catch (error) {
             console.error('Error fetching fleet data:', error);
-            toast.error('Failed to fetch fleet data');
+            toast.error(t('app.agentFleet.failedToFetchFleetData', 'Failed to fetch fleet data'));
         } finally {
             setLoading(false);
         }
@@ -104,13 +106,13 @@ const AgentFleet = () => {
     const startDiscovery = async () => {
         setIsScanning(true);
         try {
-            toast.info('Scanning network for agents...');
+            toast.info(t('app.agentFleet.scanningNetworkForAgents', 'Scanning network for agents...'));
             await api.startDiscovery(10);
             const data = await api.getDiscoveredAgents();
             setDiscoveredAgents(data);
-            toast.success(`Discovered ${data.length} agents`);
+            toast.success(t('app.agentFleet.discoveredAgents', 'Discovered {{length}} agents', { length: data.length }));
         } catch (error) {
-            toast.error('Discovery scan failed');
+            toast.error(t('app.agentFleet.discoveryScanFailed', 'Discovery scan failed'));
         } finally {
             setIsScanning(false);
         }
@@ -119,33 +121,33 @@ const AgentFleet = () => {
     const approveAgent = async (serverId) => {
         try {
             await api.approveRegistration(serverId);
-            toast.success('Agent registration approved');
+            toast.success(t('app.agentFleet.agentRegistrationApproved', 'Agent registration approved'));
             fetchData();
         } catch (error) {
-            toast.error('Failed to approve agent');
+            toast.error(t('app.agentFleet.failedToApproveAgent', 'Failed to approve agent'));
         }
     };
 
     const rejectAgent = async (serverId) => {
         try {
             await api.rejectRegistration(serverId);
-            toast.success('Agent registration rejected');
+            toast.success(t('app.agentFleet.agentRegistrationRejected', 'Agent registration rejected'));
             fetchData();
         } catch (error) {
-            toast.error('Failed to reject agent');
+            toast.error(t('app.agentFleet.failedToRejectAgent', 'Failed to reject agent'));
         }
     };
 
     const triggerUpgrade = async () => {
         if (!selectedVersion) {
-            toast.error('Select a target version');
+            toast.error(t('app.agentFleet.selectATargetVersion', 'Select a target version'));
             return;
         }
 
         try {
             if (rolloutStrategy === 'all') {
                 await api.upgradeFleet([], selectedVersion);
-                toast.success('Upgrade triggered for all online agents');
+                toast.success(t('app.agentFleet.upgradeTriggeredForAllOnlineAgents', 'Upgrade triggered for all online agents'));
             } else {
                 const data = {
                     version_id: selectedVersion,
@@ -154,31 +156,31 @@ const AgentFleet = () => {
                     delay_minutes: rolloutDelay
                 };
                 await api.startRollout(data);
-                toast.success('Staged rollout started');
+                toast.success(t('app.agentFleet.stagedRolloutStarted', 'Staged rollout started'));
             }
             fetchData();
         } catch (error) {
-            toast.error('Failed to trigger upgrade');
+            toast.error(t('app.agentFleet.failedToTriggerUpgrade', 'Failed to trigger upgrade'));
         }
     };
 
     const cancelRollout = async (rolloutId) => {
         try {
             await api.cancelRollout(rolloutId);
-            toast.success('Rollout cancelled');
+            toast.success(t('app.agentFleet.rolloutCancelled', 'Rollout cancelled'));
             fetchData();
         } catch (error) {
-            toast.error('Failed to cancel rollout');
+            toast.error(t('app.agentFleet.failedToCancelRollout', 'Failed to cancel rollout'));
         }
     };
 
     const retryCommand = async (commandId) => {
         try {
             await api.retryCommand(commandId);
-            toast.success('Command retry triggered');
+            toast.success(t('app.agentFleet.commandRetryTriggered', 'Command retry triggered'));
             fetchData();
         } catch (error) {
-            toast.error('Failed to retry command');
+            toast.error(t('app.agentFleet.failedToRetryCommand', 'Failed to retry command'));
         }
     };
 
@@ -188,7 +190,7 @@ const AgentFleet = () => {
             setDiagnostics(data);
             setDiagnosticsServerId(serverId);
         } catch (error) {
-            toast.error('Failed to load diagnostics');
+            toast.error(t('app.agentFleet.failedToLoadDiagnostics', 'Failed to load diagnostics'));
         }
     };
 
@@ -199,7 +201,7 @@ const AgentFleet = () => {
     const versionColumns = [
         {
             key: 'version',
-            header: 'Version',
+            headerKey: 'app.agentFleet.version', header: 'Version',
             sortable: true,
             hideable: false,
             sortValue: (v) => v.version || '',
@@ -208,7 +210,7 @@ const AgentFleet = () => {
         },
         {
             key: 'channel',
-            header: 'Channel',
+            headerKey: 'app.agentFleet.channel', header: 'Channel',
             sortable: true,
             sortValue: (v) => v.channel || '',
             render: (v) => (
@@ -217,19 +219,19 @@ const AgentFleet = () => {
         },
         {
             key: 'published',
-            header: 'Published',
+            headerKey: 'app.agentFleet.published', header: 'Published',
             sortable: true,
             sortValue: (v) => (v.published_at ? new Date(v.published_at).getTime() : null),
             render: (v) => new Date(v.published_at).toLocaleDateString(),
         },
         {
             key: 'compat',
-            header: 'Panel Compatibility',
+            headerKey: 'app.agentFleet.panelCompatibility', header: 'Panel Compatibility',
             render: (v) => `${v.min_panel_version || 'Any'} - ${v.max_panel_version || 'Latest'}`,
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.agentFleet.status', header: 'Status',
             sortable: true,
             sortValue: (v) => (v.is_active ? 'Active' : 'Inactive'),
             render: (v) => (
@@ -243,7 +245,7 @@ const AgentFleet = () => {
     const rolloutColumns = [
         {
             key: 'version',
-            header: 'Version',
+            headerKey: 'app.agentFleet.version2', header: 'Version',
             sortable: true,
             hideable: false,
             sortValue: (r) => r.version || '',
@@ -252,14 +254,14 @@ const AgentFleet = () => {
         },
         {
             key: 'strategy',
-            header: 'Strategy',
+            headerKey: 'app.agentFleet.strategy', header: 'Strategy',
             sortable: true,
             sortValue: (r) => r.strategy || '',
             render: (r) => r.strategy,
         },
         {
             key: 'progress',
-            header: 'Progress',
+            headerKey: 'app.agentFleet.progress', header: 'Progress',
             sortable: true,
             sortValue: (r) => (r.total_servers > 0 ? (r.processed_servers / r.total_servers * 100) : 0),
             render: (r) => (
@@ -280,7 +282,7 @@ const AgentFleet = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.agentFleet.status2', header: 'Status',
             sortable: true,
             sortValue: (r) => r.status || '',
             render: (r) => (
@@ -289,7 +291,7 @@ const AgentFleet = () => {
         },
         {
             key: 'started',
-            header: 'Started',
+            headerKey: 'app.agentFleet.started', header: 'Started',
             sortable: true,
             sortValue: (r) => (r.started_at ? new Date(r.started_at).getTime() : null),
             cellClassName: 'text-sm',
@@ -297,7 +299,7 @@ const AgentFleet = () => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.agentFleet.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -309,9 +311,9 @@ const AgentFleet = () => {
                             size="sm"
                             className="text-red-600"
                             onClick={() => cancelRollout(r.id)}
-                            title="Cancel Rollout"
+                            title={t('app.agentFleet.cancelRollout', 'Cancel Rollout')}
                         >
-                            <XCircle size={14} /> Cancel
+                            <XCircle size={14} /> {t('app.agentFleet.cancel', 'Cancel')}
                         </Button>
                     )}
                     {r.error && (
@@ -327,7 +329,7 @@ const AgentFleet = () => {
     const queueColumns = [
         {
             key: 'server',
-            header: 'Server',
+            headerKey: 'app.agentFleet.server', header: 'Server',
             sortable: true,
             hideable: false,
             sortValue: (cmd) => cmd.server_id || '',
@@ -335,7 +337,7 @@ const AgentFleet = () => {
         },
         {
             key: 'command',
-            header: 'Command',
+            headerKey: 'app.agentFleet.command', header: 'Command',
             sortable: true,
             sortValue: (cmd) => cmd.command_type || '',
             cellClassName: 'font-mono text-sm',
@@ -343,7 +345,7 @@ const AgentFleet = () => {
         },
         {
             key: 'retries',
-            header: 'Retries',
+            headerKey: 'app.agentFleet.retries', header: 'Retries',
             sortable: true,
             sortValue: (cmd) => cmd.retry_count ?? null,
             render: (cmd) => (
@@ -354,7 +356,7 @@ const AgentFleet = () => {
         },
         {
             key: 'queued',
-            header: 'Queued At',
+            headerKey: 'app.agentFleet.queuedAt', header: 'Queued At',
             sortable: true,
             sortValue: (cmd) => (cmd.created_at ? new Date(cmd.created_at).getTime() : null),
             cellClassName: 'text-sm',
@@ -362,7 +364,7 @@ const AgentFleet = () => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.agentFleet.actions2', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -371,9 +373,9 @@ const AgentFleet = () => {
                     variant="ghost"
                     size="sm"
                     onClick={() => retryCommand(cmd.id)}
-                    title="Retry now"
+                    title={t('app.agentFleet.retryNow', 'Retry now')}
                 >
-                    <RotateCcw size={14} /> Retry
+                    <RotateCcw size={14} /> {t('app.agentFleet.retry', 'Retry')}
                 </Button>
             ),
         },
@@ -382,7 +384,7 @@ const AgentFleet = () => {
     const approvalColumns = [
         {
             key: 'name',
-            header: 'Server Name',
+            headerKey: 'app.agentFleet.serverName', header: 'Server Name',
             sortable: true,
             hideable: false,
             sortValue: (server) => server.name || '',
@@ -391,28 +393,28 @@ const AgentFleet = () => {
         },
         {
             key: 'ip',
-            header: 'IP Address',
+            headerKey: 'app.agentFleet.ipAddress', header: 'IP Address',
             sortable: true,
             sortValue: (server) => server.ip_address || '',
             render: (server) => server.ip_address || 'N/A',
         },
         {
             key: 'requested',
-            header: 'Requested',
+            headerKey: 'app.agentFleet.requested', header: 'Requested',
             sortable: true,
             sortValue: (server) => (server.created_at ? new Date(server.created_at).getTime() : null),
             render: (server) => new Date(server.created_at).toLocaleString(),
         },
         {
             key: 'agent',
-            header: 'Agent Version',
+            headerKey: 'app.agentFleet.agentVersion', header: 'Agent Version',
             sortable: true,
             sortValue: (server) => server.agent_version || '',
             render: (server) => `v${server.agent_version || 'Unknown'}`,
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.agentFleet.actions3', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -423,7 +425,7 @@ const AgentFleet = () => {
                         className="flex items-center gap-1"
                         onClick={() => approveAgent(server.id)}
                     >
-                        <CheckCircle size={14} /> Approve
+                        <CheckCircle size={14} /> {t('app.agentFleet.approve', 'Approve')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -431,7 +433,7 @@ const AgentFleet = () => {
                         className="text-red-600"
                         onClick={() => rejectAgent(server.id)}
                     >
-                        <XCircle size={14} /> Reject
+                        <XCircle size={14} /> {t('app.agentFleet.reject', 'Reject')}
                     </Button>
                 </>
             ),
@@ -443,12 +445,12 @@ const AgentFleet = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     {[
-                        { key: 'dashboard', icon: Activity, label: 'Dashboard' },
-                        { key: 'versions', icon: Package, label: 'Versions' },
-                        { key: 'rollouts', icon: Zap, label: 'Rollouts' },
-                        { key: 'queue', icon: Clock, label: 'Command Queue' },
-                        { key: 'discovery', icon: Search, label: 'Discovery' },
-                        { key: 'approvals', icon: Shield, label: 'Approvals' },
+                        { key: 'dashboard', icon: Activity, labelKey: 'app.agentFleet.dashboard', label: 'Dashboard' },
+                        { key: 'versions', icon: Package, labelKey: 'app.agentFleet.versions', label: 'Versions' },
+                        { key: 'rollouts', icon: Zap, labelKey: 'app.agentFleet.rollouts', label: 'Rollouts' },
+                        { key: 'queue', icon: Clock, labelKey: 'app.agentFleet.commandQueue', label: 'Command Queue' },
+                        { key: 'discovery', icon: Search, labelKey: 'app.agentFleet.discovery', label: 'Discovery' },
+                        { key: 'approvals', icon: Shield, labelKey: 'app.agentFleet.approvals', label: 'Approvals' },
                     ].map(tab => (
                         <TabsTrigger key={tab.key} value={tab.key}>
                             <tab.icon size={18} />
@@ -469,27 +471,27 @@ const AgentFleet = () => {
                 {activeTab === 'dashboard' && health && (
                     <div className="space-y-6">
                         <KpiBand>
-                            <MetricCard icon={<Server size={16} />} tone="accent" label="Total Agents" value={health.total_servers} />
-                            <MetricCard icon={<CheckCircle size={16} />} tone="green" label="Online" value={health.online_servers} />
-                            <MetricCard icon={<AlertCircle size={16} />} tone="red" label="Offline" value={health.offline_servers} />
-                            <MetricCard icon={<Zap size={16} />} tone="cyan" label="Success Rate" value={`${health.command_success_rate}%`} />
+                            <MetricCard icon={<Server size={16} />} tone="accent" label={t('app.agentFleet.totalAgents', 'Total Agents')} value={health.total_servers} />
+                            <MetricCard icon={<CheckCircle size={16} />} tone="green" label={t('app.agentFleet.online', 'Online')} value={health.online_servers} />
+                            <MetricCard icon={<AlertCircle size={16} />} tone="red" label={t('app.agentFleet.offline', 'Offline')} value={health.offline_servers} />
+                            <MetricCard icon={<Zap size={16} />} tone="cyan" label={t('app.agentFleet.successRate', 'Success Rate')} value={`${health.command_success_rate}%`} />
                         </KpiBand>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div className="card">
                                 <div className="card-header">
-                                    <h2>Fleet Health Summary</h2>
+                                    <h2>{t('app.agentFleet.fleetHealthSummary', 'Fleet Health Summary')}</h2>
                                 </div>
                                 <div className="card-body">
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-gray-600">Overall Uptime</span>
+                                            <span className="text-gray-600">{t('app.agentFleet.overallUptime', 'Overall Uptime')}</span>
                                             <span className="font-semibold text-green-600">{health.uptime_percentage?.toFixed(2)}%</span>
                                         </div>
                                         <Gauge value={health.uptime_percentage} color="var(--green)" />
 
                                         <div className="flex justify-between items-center mt-6">
-                                            <span className="text-gray-600">Avg Heartbeat Latency</span>
+                                            <span className="text-gray-600">{t('app.agentFleet.avgHeartbeatLatency', 'Avg Heartbeat Latency')}</span>
                                             <span className="font-semibold">{health.avg_heartbeat_latency} ms</span>
                                         </div>
                                         <Gauge value={Math.min(100, health.avg_heartbeat_latency / 2)} color="var(--cyan)" />
@@ -497,7 +499,7 @@ const AgentFleet = () => {
                                         {health.queued_commands > 0 && (
                                             <div className="fleet-warnrow mt-4">
                                                 <span className="flex items-center gap-2">
-                                                    <Clock size={16} /> Queued Commands
+                                                    <Clock size={16} /> {t('app.agentFleet.queuedCommands', 'Queued Commands')}
                                                 </span>
                                                 <span className="font-semibold">{health.queued_commands}</span>
                                             </div>
@@ -508,7 +510,7 @@ const AgentFleet = () => {
 
                             <div className="card">
                                 <div className="card-header">
-                                    <h2>Version Distribution</h2>
+                                    <h2>{t('app.agentFleet.versionDistribution', 'Version Distribution')}</h2>
                                 </div>
                                 <div className="card-body">
                                     <div className="space-y-4">
@@ -516,13 +518,13 @@ const AgentFleet = () => {
                                             <div key={version} className="space-y-1">
                                                 <div className="flex justify-between text-sm">
                                                     <span>v{version}</span>
-                                                    <span className="text-gray-500">{count} agents ({(count / health.total_servers * 100).toFixed(0)}%)</span>
+                                                    <span className="text-gray-500">{count} {t('app.agentFleet.agents', 'agents (')}{(count / health.total_servers * 100).toFixed(0)}%)</span>
                                                 </div>
                                                 <Gauge value={count / health.total_servers * 100} color="var(--accent-bright)" />
                                             </div>
                                         ))}
                                         {Object.keys(health.version_distribution || {}).length === 0 && (
-                                            <p className="text-gray-500 text-center py-4">No agents registered yet.</p>
+                                            <p className="text-gray-500 text-center py-4">{t('app.agentFleet.noAgentsRegisteredYet', 'No agents registered yet.')}</p>
                                         )}
                                     </div>
                                 </div>
@@ -535,7 +537,7 @@ const AgentFleet = () => {
                 {activeTab === 'versions' && (
                     <div className="card">
                         <div className="card-header">
-                            <h2>Agent Versions</h2>
+                            <h2>{t('app.agentFleet.agentVersions', 'Agent Versions')}</h2>
                         </div>
                         <DataTable
                             columns={versionColumns}
@@ -545,7 +547,7 @@ const AgentFleet = () => {
                             className="overflow-x-auto"
                             emptyState={(
                                 <div className="text-center py-8 text-gray-500">
-                                    No agent versions registered in database.
+                                    {t('app.agentFleet.noAgentVersionsRegisteredInDatabase', 'No agent versions registered in database.')}
                                 </div>
                             )}
                             footer={(
@@ -558,7 +560,7 @@ const AgentFleet = () => {
                         />
                         {versions.length > 0 && versions[0].release_notes && (
                             <div className="card-body border-t">
-                                <h3 className="text-sm font-semibold mb-2">Latest Release Notes (v{versions[0].version})</h3>
+                                <h3 className="text-sm font-semibold mb-2">{t('app.agentFleet.latestReleaseNotesV', 'Latest Release Notes (v')}{versions[0].version})</h3>
                                 <p className="text-sm text-gray-600 whitespace-pre-wrap">{versions[0].release_notes}</p>
                             </div>
                         )}
@@ -570,42 +572,42 @@ const AgentFleet = () => {
                     <div className="space-y-6">
                         <div className="card">
                             <div className="card-header">
-                                <h2>Trigger Fleet Upgrade</h2>
+                                <h2>{t('app.agentFleet.triggerFleetUpgrade', 'Trigger Fleet Upgrade')}</h2>
                             </div>
                             <div className="card-body">
                                 <p className="text-gray-600 mb-4">
-                                    Push a specific agent version to multiple servers at once.
+                                    {t('app.agentFleet.pushASpecificAgentVersionTo', 'Push a specific agent version to multiple servers at once.')}
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="form-group">
-                                        <label>Target Version</label>
+                                        <label>{t('app.agentFleet.targetVersion', 'Target Version')}</label>
                                         <select
                                             className="form-select w-full"
                                             value={selectedVersion}
                                             onChange={e => setSelectedVersion(e.target.value)}
                                         >
-                                            <option value="">Select version...</option>
+                                            <option value="">{t('app.agentFleet.selectVersion', 'Select version...')}</option>
                                             {versions.map(v => (
                                                 <option key={v.id} value={v.id}>v{v.version} ({v.channel})</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>Rollout Strategy</label>
+                                        <label>{t('app.agentFleet.rolloutStrategy', 'Rollout Strategy')}</label>
                                         <select
                                             className="form-select w-full"
                                             value={rolloutStrategy}
                                             onChange={e => setRolloutStrategy(e.target.value)}
                                         >
-                                            <option value="all">All At Once</option>
-                                            <option value="staged">Staged (Batch by Batch)</option>
-                                            <option value="canary">Canary (1 server first)</option>
+                                            <option value="all">{t('app.agentFleet.allAtOnce', 'All At Once')}</option>
+                                            <option value="staged">{t('app.agentFleet.stagedBatchByBatch', 'Staged (Batch by Batch)')}</option>
+                                            <option value="canary">{t('app.agentFleet.canary1ServerFirst', 'Canary (1 server first)')}</option>
                                         </select>
                                     </div>
                                     {rolloutStrategy === 'staged' && (
                                         <>
                                             <div className="form-group">
-                                                <label>Batch Size</label>
+                                                <label>{t('app.agentFleet.batchSize', 'Batch Size')}</label>
                                                 <Input
                                                     type="number"
                                                     value={rolloutBatchSize}
@@ -614,7 +616,7 @@ const AgentFleet = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <label>Delay (minutes)</label>
+                                                <label>{t('app.agentFleet.delayMinutes', 'Delay (minutes)')}</label>
                                                 <Input
                                                     type="number"
                                                     value={rolloutDelay}
@@ -627,7 +629,7 @@ const AgentFleet = () => {
                                 </div>
                                 <div className="mt-6 flex justify-end">
                                     <Button onClick={triggerUpgrade} disabled={!selectedVersion}>
-                                        <Play size={18} /> Start Rollout
+                                        <Play size={18} /> {t('app.agentFleet.startRollout', 'Start Rollout')}
                                     </Button>
                                 </div>
                             </div>
@@ -635,7 +637,7 @@ const AgentFleet = () => {
 
                         <div className="card">
                             <div className="card-header">
-                                <h2>Rollout History</h2>
+                                <h2>{t('app.agentFleet.rolloutHistory', 'Rollout History')}</h2>
                             </div>
                             {rollouts.length > 0 ? (
                                 <DataTable
@@ -655,7 +657,7 @@ const AgentFleet = () => {
                             ) : (
                                 <div className="card-body py-12 text-center text-gray-500">
                                     <Zap size={48} className="mx-auto text-gray-300 mb-4" />
-                                    <p>No rollouts have been started yet.</p>
+                                    <p>{t('app.agentFleet.noRolloutsHaveBeenStartedYet', 'No rollouts have been started yet.')}</p>
                                 </div>
                             )}
                         </div>
@@ -666,8 +668,8 @@ const AgentFleet = () => {
                 {activeTab === 'queue' && (
                     <div className="card">
                         <div className="card-header flex justify-between items-center">
-                            <h2>Queued Commands</h2>
-                            <p className="text-sm text-gray-500">Commands waiting to be delivered when agents reconnect</p>
+                            <h2>{t('app.agentFleet.queuedCommands2', 'Queued Commands')}</h2>
+                            <p className="text-sm text-gray-500">{t('app.agentFleet.commandsWaitingToBeDeliveredWhen', 'Commands waiting to be delivered when agents reconnect')}</p>
                         </div>
                         {queuedCommands.length > 0 ? (
                             <DataTable
@@ -687,7 +689,7 @@ const AgentFleet = () => {
                         ) : (
                             <div className="card-body py-12 text-center text-gray-500">
                                 <CheckCircle size={48} className="mx-auto text-gray-300 mb-4" />
-                                <p>No queued commands. All agents are up to date.</p>
+                                <p>{t('app.agentFleet.noQueuedCommandsAllAgentsAre', 'No queued commands. All agents are up to date.')}</p>
                             </div>
                         )}
                     </div>
@@ -697,7 +699,7 @@ const AgentFleet = () => {
                 {activeTab === 'discovery' && (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center">
-                            <h2>Network Discovery</h2>
+                            <h2>{t('app.agentFleet.networkDiscovery', 'Network Discovery')}</h2>
                             <Button onClick={startDiscovery} disabled={isScanning}>
                                 {isScanning ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
                                 {isScanning ? 'Scanning...' : 'Start Scan'}
@@ -713,20 +715,20 @@ const AgentFleet = () => {
                                                 <Server size={20} />
                                             </div>
                                             {agent.is_registered ? (
-                                                <Pill kind="green">Registered</Pill>
+                                                <Pill kind="green">{t('app.agentFleet.registered', 'Registered')}</Pill>
                                             ) : (
-                                                <Pill kind="amber">New</Pill>
+                                                <Pill kind="amber">{t('app.agentFleet.new', 'New')}</Pill>
                                             )}
                                         </div>
                                         <h3 className="font-bold">{agent.hostname}</h3>
                                         <p className="text-sm text-gray-500">{agent.ip_address}</p>
                                         <div className="mt-4 space-y-2 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">OS:</span>
+                                                <span className="text-gray-500">{t('app.agentFleet.os', 'OS:')}</span>
                                                 <span>{agent.os} ({agent.arch})</span>
                                             </div>
                                             <div className="flex justify-between">
-                                                <span className="text-gray-500">Agent Version:</span>
+                                                <span className="text-gray-500">{t('app.agentFleet.agentVersion2', 'Agent Version:')}</span>
                                                 <span>v{agent.agent_version}</span>
                                             </div>
                                         </div>
@@ -742,10 +744,10 @@ const AgentFleet = () => {
                                                     loadDiagnostics(agent.server_id);
                                                 }}
                                             >
-                                                View Details
+                                                {t('app.agentFleet.viewDetails', 'View Details')}
                                             </Button>
                                         ) : (
-                                            <Button size="sm" className="w-full">Add to Fleet</Button>
+                                            <Button size="sm" className="w-full">{t('app.agentFleet.addToFleet', 'Add to Fleet')}</Button>
                                         )}
                                     </div>
                                 </div>
@@ -753,7 +755,7 @@ const AgentFleet = () => {
                             {discoveredAgents.length === 0 && !isScanning && (
                                 <div className="col-span-full py-12 text-center card">
                                     <Search size={48} className="mx-auto text-gray-300 mb-4" />
-                                    <p className="text-gray-500">No agents discovered yet. Start a scan to find agents on your local network.</p>
+                                    <p className="text-gray-500">{t('app.agentFleet.noAgentsDiscoveredYetStartA', 'No agents discovered yet. Start a scan to find agents on your local network.')}</p>
                                 </div>
                             )}
                         </div>
@@ -764,7 +766,7 @@ const AgentFleet = () => {
                 {activeTab === 'approvals' && (
                     <div className="card">
                         <div className="card-header">
-                            <h2>Pending Registrations</h2>
+                            <h2>{t('app.agentFleet.pendingRegistrations', 'Pending Registrations')}</h2>
                         </div>
                         <DataTable
                             columns={approvalColumns}
@@ -774,7 +776,7 @@ const AgentFleet = () => {
                             className="overflow-x-auto"
                             emptyState={(
                                 <div className="text-center py-8 text-gray-500">
-                                    No pending agent registrations.
+                                    {t('app.agentFleet.noPendingAgentRegistrations', 'No pending agent registrations.')}
                                 </div>
                             )}
                             footer={(
@@ -794,7 +796,7 @@ const AgentFleet = () => {
                         <div className="fleet-modal w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4" onClick={e => e.stopPropagation()}>
                             <div className="p-6 border-b flex justify-between items-center">
                                 <h2 className="text-lg font-semibold">
-                                    Agent Diagnostics - {diagnostics.server_name}
+                                    {t('app.agentFleet.agentDiagnostics', 'Agent Diagnostics -')} {diagnostics.server_name}
                                 </h2>
                                 <Button variant="ghost" size="sm" onClick={() => setDiagnostics(null)}>
                                     <XCircle size={18} />
@@ -803,21 +805,21 @@ const AgentFleet = () => {
                             <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm text-gray-500">Status</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.status3', 'Status')}</label>
                                         <p className="font-semibold flex items-center gap-2">
                                             {diagnostics.connection.is_connected ? (
-                                                <><Wifi size={16} className="text-green-500" /> Connected</>
+                                                <><Wifi size={16} className="text-green-500" /> {t('app.agentFleet.connected', 'Connected')}</>
                                             ) : (
-                                                <><WifiOff size={16} className="text-red-500" /> Disconnected</>
+                                                <><WifiOff size={16} className="text-red-500" /> {t('app.agentFleet.disconnected', 'Disconnected')}</>
                                             )}
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">Agent Version</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.agentVersion3', 'Agent Version')}</label>
                                         <p className="font-semibold">v{diagnostics.agent_version || 'Unknown'}</p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">Current Latency</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.currentLatency', 'Current Latency')}</label>
                                         <p className="font-semibold">
                                             {diagnostics.connection.current_latency_ms != null
                                                 ? `${diagnostics.connection.current_latency_ms.toFixed(1)} ms`
@@ -825,7 +827,7 @@ const AgentFleet = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">Avg Latency</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.avgLatency', 'Avg Latency')}</label>
                                         <p className="font-semibold">
                                             {diagnostics.connection.avg_latency_ms != null
                                                 ? `${diagnostics.connection.avg_latency_ms.toFixed(1)} ms`
@@ -833,11 +835,11 @@ const AgentFleet = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">IP Address</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.ipAddress2', 'IP Address')}</label>
                                         <p className="font-semibold">{diagnostics.connection.ip_address || 'N/A'}</p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">Connected Since</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.connectedSince', 'Connected Since')}</label>
                                         <p className="font-semibold">
                                             {diagnostics.connection.connected_since
                                                 ? new Date(diagnostics.connection.connected_since).toLocaleString()
@@ -847,23 +849,23 @@ const AgentFleet = () => {
                                 </div>
 
                                 <div>
-                                    <h3 className="font-semibold mb-3">Command Stats (24h)</h3>
+                                    <h3 className="font-semibold mb-3">{t('app.agentFleet.commandStats24h', 'Command Stats (24h)')}</h3>
                                     <div className="grid grid-cols-4 gap-3">
                                         <div className="fleet-statbox">
                                             <div className="text-lg font-bold">{diagnostics.commands_24h.total}</div>
-                                            <div className="text-xs text-gray-500">Total</div>
+                                            <div className="text-xs text-gray-500">{t('app.agentFleet.total', 'Total')}</div>
                                         </div>
                                         <div className="fleet-statbox is-green">
                                             <div className="text-lg font-bold text-green-600">{diagnostics.commands_24h.success}</div>
-                                            <div className="text-xs text-gray-500">Success</div>
+                                            <div className="text-xs text-gray-500">{t('app.agentFleet.success', 'Success')}</div>
                                         </div>
                                         <div className="fleet-statbox is-red">
                                             <div className="text-lg font-bold text-red-600">{diagnostics.commands_24h.failed}</div>
-                                            <div className="text-xs text-gray-500">Failed</div>
+                                            <div className="text-xs text-gray-500">{t('app.agentFleet.failed', 'Failed')}</div>
                                         </div>
                                         <div className="fleet-statbox is-amber">
                                             <div className="text-lg font-bold text-yellow-600">{diagnostics.commands_24h.timeout}</div>
-                                            <div className="text-xs text-gray-500">Timeout</div>
+                                            <div className="text-xs text-gray-500">{t('app.agentFleet.timeout', 'Timeout')}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -872,13 +874,13 @@ const AgentFleet = () => {
                                     <div className="fleet-warnrow">
                                         <span className="flex items-center gap-2">
                                             <Clock size={16} />
-                                            <span className="text-sm">{diagnostics.queued_commands} commands queued for delivery</span>
+                                            <span className="text-sm">{diagnostics.queued_commands} {t('app.agentFleet.commandsQueuedForDelivery', 'commands queued for delivery')}</span>
                                         </span>
                                     </div>
                                 )}
 
                                 <div>
-                                    <h3 className="font-semibold mb-3">Recent Sessions</h3>
+                                    <h3 className="font-semibold mb-3">{t('app.agentFleet.recentSessions', 'Recent Sessions')}</h3>
                                     <div className="space-y-2 max-h-48 overflow-y-auto">
                                         {diagnostics.recent_sessions.map(session => (
                                             <div key={session.id} className="fleet-statrow flex justify-between items-center text-sm p-2 rounded">

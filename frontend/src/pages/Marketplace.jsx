@@ -38,6 +38,7 @@ import {
     ExtensionBrandMark, hasBrandMark, extensionCoverStyle,
 } from '../components/icons/ExtensionBrands';
 import { resolveExtensionIcon } from '../components/icons/ExtensionIcons';
+import { useTranslation } from 'react-i18next';
 
 const CATEGORIES = ['ai', 'games', 'monitoring', 'security', 'deployment', 'integration', 'ui', 'utility'];
 
@@ -123,6 +124,7 @@ const sourceBadgeVariant = (source) => {
 // shows who/when in the tooltip; 'unreviewed' warns on registry entries
 // (built-in entries never carry a trust field).
 const TrustBadge = ({ entry }) => {
+    const { t } = useTranslation();
     if (entry.trust === 'reviewed') {
         const review = entry.review || {};
         const title = review.reviewer && review.date
@@ -130,12 +132,12 @@ const TrustBadge = ({ entry }) => {
             : 'Reviewed by the ServerKit maintainers';
         return (
             <Badge variant="success" title={title}>
-                <ShieldCheck aria-hidden="true" /> Reviewed
+                <ShieldCheck aria-hidden="true" /> {t('app.marketplace.reviewed', 'Reviewed')}
             </Badge>
         );
     }
     if (entry.trust === 'unreviewed' && entry.source === 'registry') {
-        return <Badge variant="warning">Unreviewed</Badge>;
+        return <Badge variant="warning">{t('app.marketplace.unreviewed', 'Unreviewed')}</Badge>;
     }
     return null;
 };
@@ -145,24 +147,25 @@ const TrustBadge = ({ entry }) => {
 // whose publisher key this panel trusts (verified cryptographically at
 // install); unsigned entries get the honest unsigned treatment.
 const SignatureBadge = ({ entry }) => {
+    const { t } = useTranslation();
     if (entry.source !== 'registry') return null;
     if (entry.signed && entry.publisherTrusted) {
         return (
-            <Badge variant="success" title="Release zip is signed; the panel verifies the ed25519 signature at install">
-                <ShieldCheck aria-hidden="true" /> Signed
+            <Badge variant="success" title={t('app.marketplace.releaseZipIsSignedThePanel', 'Release zip is signed; the panel verifies the ed25519 signature at install')}>
+                <ShieldCheck aria-hidden="true" /> {t('app.marketplace.signed', 'Signed')}
             </Badge>
         );
     }
     if (entry.signed) {
         return (
-            <Badge variant="warning" title={`Signed with publisher key '${entry.publisherKeyId}', which this panel does not pin`}>
-                <ShieldAlert aria-hidden="true" /> Unknown signer
+            <Badge variant="warning" title={t('app.marketplace.signedWithPublisherKeyWhichThis', 'Signed with publisher key \'{{publisherKeyId}}\', which this panel does not pin', { publisherKeyId: entry.publisherKeyId })}>
+                <ShieldAlert aria-hidden="true" /> {t('app.marketplace.unknownSigner', 'Unknown signer')}
             </Badge>
         );
     }
     return (
-        <Badge variant="outline" title="This release carries no publisher signature">
-            Unsigned
+        <Badge variant="outline" title={t('app.marketplace.thisReleaseCarriesNoPublisherSignature', 'This release carries no publisher signature')}>
+            {t('app.marketplace.unsigned', 'Unsigned')}
         </Badge>
     );
 };
@@ -211,6 +214,7 @@ const catalogEntryMatches = (entry, search, category) => {
 };
 
 const Marketplace = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [plugins, setPlugins] = useState([]);
     const [builtins, setBuiltins] = useState([]);
@@ -267,7 +271,7 @@ const Marketplace = () => {
             setRegistryExtensions(rData.extensions || []);
             setPluginUpdates(uData.updates || []);
         } catch {
-            toast.error('Failed to load extensions');
+            toast.error(t('app.marketplace.failedToLoadExtensions', 'Failed to load extensions'));
         } finally {
             setLoading(false);
         }
@@ -299,7 +303,7 @@ const Marketplace = () => {
         if (entry) {
             setDetailEntry(entry);
         } else {
-            toast.error(`No extension named "${installSlug}" in this panel's catalog.`);
+            toast.error(t('app.marketplace.noExtensionNamedInThisPanel', 'No extension named "{{installSlug}}" in this panel\'s catalog.', { installSlug: installSlug }));
         }
 
         // Drop the param either way so a refresh doesn't reopen it.
@@ -313,10 +317,10 @@ const Marketplace = () => {
         setInstalling(true);
         try {
             const result = await api.installBuiltinExtension(slug);
-            toast.success(`Installed "${result.display_name}". Hot-reload should pick it up; restart backend if blueprint routes do not appear.`);
+            toast.success(t('app.marketplace.installedHotReloadShouldPickIt', 'Installed "{{displayname}}". Hot-reload should pick it up; restart backend if blueprint routes do not appear.', { displayname: result.display_name }));
             loadExtensions();
         } catch (err) {
-            toast.error(err.message || 'Local install failed');
+            toast.error(err.message || t('app.marketplace.localInstallFailed', 'Local install failed'));
         } finally {
             setInstalling(false);
         }
@@ -327,14 +331,14 @@ const Marketplace = () => {
         try {
             const result = await api.installRegistryExtension(
                 slug, acknowledgeRisk ? { acknowledge_risk: true } : undefined);
-            toast.success(`Installed "${result.display_name}". Restart backend if blueprint routes do not appear.`);
+            toast.success(t('app.marketplace.installedRestartBackendIfBlueprintRoutes', 'Installed "{{displayname}}". Restart backend if blueprint routes do not appear.', { displayname: result.display_name }));
             loadExtensions();
         } catch (err) {
             // 409 trust gate — ask for explicit confirmation, then retry.
             if (err.status === 409 && err.data?.requires_acknowledgment) {
                 setRiskTarget({ slug, reason: err.data?.reason || 'unreviewed' });
             } else {
-                toast.error(err.message || 'Registry install failed');
+                toast.error(err.message || t('app.marketplace.registryInstallFailed', 'Registry install failed'));
             }
         } finally {
             setInstalling(false);
@@ -387,7 +391,7 @@ const Marketplace = () => {
         setBusyPlugin({ id: plugin.id, action: 'uninstall' });
         try {
             await api.uninstallPlugin(plugin.id, purge);
-            toast.success(purge ? 'Extension uninstalled; data purged' : 'Extension uninstalled; data kept');
+            toast.success(purge ? t('app.marketplace.extensionUninstalledDataPurged', 'Extension uninstalled; data purged') : t('app.marketplace.extensionUninstalledDataKept', 'Extension uninstalled; data kept'));
             await loadExtensions();
         } catch (err) {
             toast.error(err.message);
@@ -402,14 +406,14 @@ const Marketplace = () => {
         try {
             const result = await api.updatePlugin(
                 pluginId, acknowledgeRisk ? { acknowledge_risk: true } : undefined);
-            toast.success(`Extension "${result.display_name}" updated to v${result.version}.`);
+            toast.success(t('app.marketplace.extensionUpdatedToV', 'Extension "{{displayname}}" updated to v{{version}}.', { displayname: result.display_name, version: result.version }));
             await loadExtensions();
         } catch (err) {
             // 409 consent gate (audit M2) — same acknowledge flow as installs.
             if (err.status === 409 && err.data?.requires_acknowledgment) {
                 setRiskTarget({ updatePluginId: pluginId, reason: err.data?.reason || 'unsigned' });
             } else {
-                toast.error(err.message || 'Extension update failed');
+                toast.error(err.message || t('app.marketplace.extensionUpdateFailed', 'Extension update failed'));
             }
         } finally {
             setBusyPlugin(null);
@@ -422,10 +426,10 @@ const Marketplace = () => {
         try {
             if (plugin.status === 'active') {
                 await api.disablePlugin(plugin.id);
-                toast.success('Extension disabled');
+                toast.success(t('app.marketplace.extensionDisabled', 'Extension disabled'));
             } else {
                 await api.enablePlugin(plugin.id);
-                toast.success('Extension enabled');
+                toast.success(t('app.marketplace.extensionEnabled', 'Extension enabled'));
             }
             await loadExtensions();
         } catch (err) {
@@ -456,14 +460,14 @@ const Marketplace = () => {
                     <SearchField
                         value={search}
                         onSearch={setSearch}
-                        placeholder="Search extensions…"
+                        placeholder={t('app.marketplace.searchExtensions', 'Search extensions…')}
                     />
                     <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
                 </>
             )}
             <Button variant="outline" size="sm" onClick={() => setManualInstallSource('url')}>
                 <UploadCloud aria-hidden="true" />
-                Install manually
+                {t('app.marketplace.installManually', 'Install manually')}
             </Button>
         </>,
         [installedView, search, activeFilterCount],
@@ -499,16 +503,16 @@ const Marketplace = () => {
     const filterGroups = [
         {
             key: 'ownership',
-            label: 'Publisher',
+            labelKey: 'app.marketplace.publisher', label: 'Publisher',
             type: 'single',
             options: [
-                { value: 'serverkit', label: 'By ServerKit' },
-                { value: 'community', label: 'Community' },
+                { value: 'serverkit', labelKey: 'app.marketplace.byServerkit', label: 'By ServerKit' },
+                { value: 'community', labelKey: 'app.marketplace.community', label: 'Community' },
             ],
         },
         {
             key: 'category',
-            label: 'Categories',
+            labelKey: 'app.marketplace.categories', label: 'Categories',
             type: 'multi',
             options: catalogCategories.map((item) => ({ value: item, label: titleCase(item) })),
         },
@@ -534,7 +538,7 @@ const Marketplace = () => {
                     {hasFilters && (
                         <div className="marketplace-resultbar">
                             <Button variant="ghost" size="sm" onClick={resetFilters}>
-                                Reset filters
+                                {t('app.marketplace.resetFilters', 'Reset filters')}
                             </Button>
                         </div>
                     )}
@@ -556,10 +560,10 @@ const Marketplace = () => {
                         ) : (
                             <EmptyState
                                 icon={Package}
-                                title="No catalog entries found"
-                                description={hasFilters ? 'No built-in or registry entries match the current filter.' : 'No extension entries are available yet.'}
+                                title={t('app.marketplace.noCatalogEntriesFound', 'No catalog entries found')}
+                                description={hasFilters ? t('app.marketplace.noBuiltInOrRegistryEntries', 'No built-in or registry entries match the current filter.') : t('app.marketplace.noExtensionEntriesAreAvailableYet', 'No extension entries are available yet.')}
                                 action={hasFilters ? (
-                                    <Button variant="outline" size="sm" onClick={resetFilters}>Clear filters</Button>
+                                    <Button variant="outline" size="sm" onClick={resetFilters}>{t('app.marketplace.clearFilters', 'Clear filters')}</Button>
                                 ) : undefined}
                             />
                         )}
@@ -569,7 +573,7 @@ const Marketplace = () => {
                 <section className="marketplace-section">
                     <SectionHeader
                         kicker="Installed"
-                        title="Installed extensions"
+                        title={t('app.marketplace.installedExtensions', 'Installed extensions')}
                         meta={`${plugins.length} installed`}
                     />
                     {plugins.length > 0 ? (
@@ -592,11 +596,11 @@ const Marketplace = () => {
                     ) : (
                         <EmptyState
                             icon={PackageCheck}
-                            title="No extensions installed"
-                            description="Install one from the catalog or use Install manually."
+                            title={t('app.marketplace.noExtensionsInstalled', 'No extensions installed')}
+                            description={t('app.marketplace.installOneFromTheCatalogOr', 'Install one from the catalog or use Install manually.')}
                             action={(
                                 <Button variant="outline" size="sm" onClick={() => navigate('/extensions')}>
-                                    Browse catalog
+                                    {t('app.marketplace.browseCatalog', 'Browse catalog')}
                                 </Button>
                             )}
                         />
@@ -610,7 +614,7 @@ const Marketplace = () => {
                 groups={filterGroups}
                 value={filters}
                 onChange={setFilters}
-                title="Filter extensions"
+                title={t('app.marketplace.filterExtensions', 'Filter extensions')}
             />
 
             {manualInstallSource && (
@@ -647,16 +651,16 @@ const Marketplace = () => {
                     open
                     onClose={() => setRiskTarget(null)}
                     title={riskTarget.reason === 'unverified'
-                        ? 'Install without checksum verification?'
+                        ? t('app.marketplace.installWithoutChecksumVerification', 'Install without checksum verification?')
                         : riskTarget.reason === 'untrusted_key'
-                            ? 'Install with an unverifiable signature?'
+                            ? t('app.marketplace.installWithAnUnverifiableSignature', 'Install with an unverifiable signature?')
                             : riskTarget.reason === 'unsigned'
-                                ? `${riskTarget.updatePluginId ? 'Update' : 'Install'} an unsigned release?`
-                                : 'Install unreviewed extension?'}
+                                ? t('app.marketplace.anUnsignedRelease', '{{value}} an unsigned release?', { value: riskTarget.updatePluginId ? t('app.marketplace.update', 'Update') : t('app.marketplace.install', 'Install') })
+                                : t('app.marketplace.installUnreviewedExtension', 'Install unreviewed extension?')}
                     size="sm"
                     footer={
                         <>
-                            <Button variant="ghost" onClick={() => setRiskTarget(null)}>Cancel</Button>
+                            <Button variant="ghost" onClick={() => setRiskTarget(null)}>{t('app.marketplace.cancel', 'Cancel')}</Button>
                             <Button variant="destructive" onClick={confirmRiskyInstall}>
                                 {riskTarget.updatePluginId ? 'Update anyway' : 'Install anyway'}
                             </Button>
@@ -680,8 +684,7 @@ const Marketplace = () => {
                                           + 'been reviewed by the ServerKit maintainers.'}
                         </p>
                         <p className="text-muted">
-                            It runs with full panel privileges. Only install it if you trust
-                            the author.
+                            {t('app.marketplace.itRunsWithFullPanelPrivileges', 'It runs with full panel privileges. Only install it if you trust the author.')}
                         </p>
                     </div>
                 </Modal>
@@ -785,6 +788,7 @@ const ExtensionCover = ({ entry, category, brandSize = 34 }) => {
 };
 
 const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, statusVariant }) => {
+    const { t } = useTranslation();
     const category = entry.category || 'utility';
     const isLocal = entry.source === 'local';
     const installedLabel = entry.status && entry.status !== 'active'
@@ -811,7 +815,7 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, stat
                 <ExtensionCover entry={entry} category={category} brandSize={34} />
                 {entry.featured && (
                     <span className="extension-featured-badge">
-                        <Star aria-hidden="true" /> Featured
+                        <Star aria-hidden="true" /> {t('app.marketplace.featured', 'Featured')}
                     </span>
                 )}
             </div>
@@ -827,7 +831,7 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, stat
                 <div className="extension-card__info">
                     <span>v{entry.version}</span>
                     {entry.firstParty ? (
-                        <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
+                        <Badge variant="secondary" className="extension-firstparty">{t('app.marketplace.byServerkit2', 'by ServerKit')}</Badge>
                     ) : (
                         entry.author && <span>by {entry.author}</span>
                     )}
@@ -859,6 +863,7 @@ const CatalogExtensionCard = ({ entry, installing, onInstall, onOpenDetail, stat
 };
 
 const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onInstall }) => {
+    const { t } = useTranslation();
     const category = entry.category || 'utility';
     const isLocal = entry.source === 'local';
     const screenshots = entry.screenshots || [];
@@ -880,7 +885,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                     <div className="extension-detail__heading">
                         <div className="extension-detail__badges">
                             {entry.firstParty && (
-                                <Badge variant="secondary" className="extension-firstparty">by ServerKit</Badge>
+                                <Badge variant="secondary" className="extension-firstparty">{t('app.marketplace.byServerkit3', 'by ServerKit')}</Badge>
                             )}
                             <TrustBadge entry={entry} />
                             <SignatureBadge entry={entry} />
@@ -899,7 +904,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                                     className="extension-detail__repo-link"
                                 >
                                     <ExternalLink aria-hidden="true" />
-                                    Source repo
+                                    {t('app.marketplace.sourceRepo', 'Source repo')}
                                 </a>
                             )}
                         </div>
@@ -910,7 +915,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
 
                 {permissions.length > 0 && (
                     <div className="extension-detail__consent">
-                        <p className="extension-detail__section-label">This extension requests:</p>
+                        <p className="extension-detail__section-label">{t('app.marketplace.thisExtensionRequests', 'This extension requests:')}</p>
                         <div className="extension-detail__chips">
                             {permissions.map((permission) => (
                                 <Badge key={permission} variant="outline">{permission}</Badge>
@@ -921,7 +926,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
 
                 {configKeys.length > 0 && (
                     <div className="extension-detail__config">
-                        <p className="extension-detail__section-label">Configuration</p>
+                        <p className="extension-detail__section-label">{t('app.marketplace.configuration', 'Configuration')}</p>
                         <ul className="extension-detail__config-list">
                             {configKeys.map((key) => (
                                 <li key={key}><code>{key}</code></li>
@@ -931,7 +936,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                 )}
 
                 {screenshots.length > 0 && (
-                    <div className="extension-detail__gallery" aria-label="Screenshots">
+                    <div className="extension-detail__gallery" aria-label={t('app.marketplace.screenshots', 'Screenshots')}>
                         {screenshots.map((src, index) => (
                             <img
                                 key={src}
@@ -965,14 +970,15 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
 // Install-origin badge for installed rows. url/local/upload all collapse to
 // "Manual" — the raw origin lives in the tooltip.
 const PLUGIN_SOURCE_BADGES = {
-    builtin: { label: 'Built-in', variant: 'warning' },
-    registry: { label: 'Registry', variant: 'info' },
+    builtin: { labelKey: 'app.marketplace.builtIn', label: 'Built-in', variant: 'warning' },
+    registry: { labelKey: 'app.marketplace.registry', label: 'Registry', variant: 'info' },
 };
 
 const PluginRow = ({
     plugin, update, busy, onToggle, onUpdate, onUninstall, onConfigure,
     onInspectPermissions, statusVariant,
 }) => {
+    const { t } = useTranslation();
     const updateAvailable = Boolean(update?.update_available);
     const compatible = update?.compatible !== false;
     // A row action is in flight — disable every action on this row so it can't
@@ -982,7 +988,7 @@ const PluginRow = ({
         && typeof plugin.config_schema === 'object'
         && Object.keys(plugin.config_schema).length > 0;
     const sourceBadge = PLUGIN_SOURCE_BADGES[plugin.source_type]
-        || { label: 'Manual', variant: 'outline', title: plugin.source_url || undefined };
+        || { labelKey: 'app.marketplace.manual', label: 'Manual', variant: 'outline', title: plugin.source_url || undefined };
 
     return (
         <article className={`installed-item installed-item--plugin card ${plugin.status === 'error' ? 'installed-item--error' : ''}`}>
@@ -996,11 +1002,11 @@ const PluginRow = ({
                         <span className="text-muted">v{plugin.version}</span>
                         <Badge variant={statusVariant(plugin.status)}>{plugin.status}</Badge>
                         <Badge variant={sourceBadge.variant} title={sourceBadge.title}>{sourceBadge.label}</Badge>
-                        {plugin.has_backend && <Badge variant="secondary">Backend</Badge>}
-                        {plugin.has_frontend && <Badge variant="secondary">Frontend</Badge>}
+                        {plugin.has_backend && <Badge variant="secondary">{t('app.marketplace.backend', 'Backend')}</Badge>}
+                        {plugin.has_frontend && <Badge variant="secondary">{t('app.marketplace.frontend', 'Frontend')}</Badge>}
                         {updateAvailable && (
                             <Badge variant="info" className="plugin-update-badge">
-                                Update available → v{update.available_version}
+                                {t('app.marketplace.updateAvailableV', 'Update available → v')}{update.available_version}
                             </Badge>
                         )}
                     </div>
@@ -1013,7 +1019,7 @@ const PluginRow = ({
                     <Button
                         size="sm"
                         disabled={!compatible || isBusy}
-                        title={compatible ? undefined : 'Panel version is too old for this update'}
+                        title={compatible ? undefined : t('app.marketplace.panelVersionIsTooOldFor', 'Panel version is too old for this update')}
                         onClick={() => onUpdate(plugin.id)}
                     >
                         <DownloadCloud aria-hidden="true" />
@@ -1022,18 +1028,18 @@ const PluginRow = ({
                 )}
                 {configurable && (
                     <Button size="sm" variant="outline" disabled={isBusy} onClick={() => onConfigure(plugin)}>
-                        Configure
+                        {t('app.marketplace.configure', 'Configure')}
                     </Button>
                 )}
                 <Button
                     size="sm"
                     variant="outline"
                     disabled={isBusy}
-                    title="Declared permissions, what the panel has observed, and pending Python dependencies"
+                    title={t('app.marketplace.declaredPermissionsWhatThePanelHas', 'Declared permissions, what the panel has observed, and pending Python dependencies')}
                     onClick={() => onInspectPermissions(plugin)}
                 >
                     <ShieldQuestion aria-hidden="true" />
-                    Permissions
+                    {t('app.marketplace.permissions', 'Permissions')}
                 </Button>
                 <Button
                     size="sm"
@@ -1058,6 +1064,7 @@ const PluginRow = ({
 // via PUT /plugins/<id>/config and the plugin reads them on the backend via
 // plugins_sdk.config(slug).
 const PluginConfigDialog = ({ plugin, onClose }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [values, setValues] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -1079,10 +1086,10 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
         setSaving(true);
         try {
             await api.updatePluginConfig(plugin.id, values || {});
-            toast.success('Extension configuration saved');
+            toast.success(t('app.marketplace.extensionConfigurationSaved', 'Extension configuration saved'));
             onClose();
         } catch (err) {
-            toast.error(err.message || 'Failed to save configuration');
+            toast.error(err.message || t('app.marketplace.failedToSaveConfiguration', 'Failed to save configuration'));
         } finally {
             setSaving(false);
         }
@@ -1092,11 +1099,11 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
         <Modal
             open
             onClose={onClose}
-            title={`Configure ${plugin.display_name}`}
+            title={t('app.marketplace.configure2', 'Configure {{displayname}}', { displayname: plugin.display_name })}
             size="sm"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button variant="ghost" onClick={onClose}>{t('app.marketplace.cancel2', 'Cancel')}</Button>
                     <Button onClick={save} disabled={saving || values === null}>
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
@@ -1104,7 +1111,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
             }
         >
             {values === null ? (
-                <p className="text-muted">Loading…</p>
+                <p className="text-muted">{t('app.marketplace.loading', 'Loading…')}</p>
             ) : (
                 <div className="plugin-config-form">
                     {Object.entries(fields).map(([key, spec]) => {
@@ -1151,7 +1158,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
                         );
                     })}
                     {Object.keys(fields).length === 0 && (
-                        <p className="text-muted">This extension declares no configuration fields.</p>
+                        <p className="text-muted">{t('app.marketplace.thisExtensionDeclaresNoConfigurationFields', 'This extension declares no configuration fields.')}</p>
                     )}
                 </div>
             )}
@@ -1161,29 +1168,30 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
 
 // Data-policy dialog for plugin uninstall. Keeping data (default) leaves the
 // extension's tables intact for a later reinstall; purging drops them.
-const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => (
-    <Modal
-        open
-        onClose={onCancel}
-        title={`Uninstall ${plugin.display_name}?`}
-        size="sm"
-        footer={
-            <>
-                <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-                <Button variant="outline" onClick={() => onConfirm(false)}>Keep data</Button>
-                <Button variant="destructive" onClick={() => onConfirm(true)}>Purge data</Button>
-            </>
-        }
-    >
-        <div className="plugin-uninstall-dialog">
-            <p>Removing this extension stops its routes and UI contributions.</p>
-            <p className="text-muted">
-                <strong>Keep data</strong> leaves the extension&apos;s database tables intact so you can
-                reinstall later. <strong>Purge data</strong> permanently drops the extension&apos;s tables
-                and cannot be undone.
-            </p>
-        </div>
-    </Modal>
-);
+const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => {
+    const { t } = useTranslation();
+    return (
+        <Modal
+            open
+            onClose={onCancel}
+            title={t('app.marketplace.uninstall', 'Uninstall {{displayname}}?', { displayname: plugin.display_name })}
+            size="sm"
+            footer={
+                <>
+                    <Button variant="ghost" onClick={onCancel}>{t('app.marketplace.cancel3', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => onConfirm(false)}>{t('app.marketplace.keepData', 'Keep data')}</Button>
+                    <Button variant="destructive" onClick={() => onConfirm(true)}>{t('app.marketplace.purgeData', 'Purge data')}</Button>
+                </>
+            }
+        >
+            <div className="plugin-uninstall-dialog">
+                <p>{t('app.marketplace.removingThisExtensionStopsItsRoutes', 'Removing this extension stops its routes and UI contributions.')}</p>
+                <p className="text-muted">
+                    <strong>{t('app.marketplace.keepData2', 'Keep data')}</strong> {t('app.marketplace.leavesTheExtensionSDatabaseTables', 'leaves the extension\'s database tables intact so you can reinstall later.')} <strong>{t('app.marketplace.purgeData2', 'Purge data')}</strong> {t('app.marketplace.permanentlyDropsTheExtensionSTables', 'permanently drops the extension\'s tables and cannot be undone.')}
+                </p>
+            </div>
+        </Modal>
+    );
+};
 
 export default Marketplace;

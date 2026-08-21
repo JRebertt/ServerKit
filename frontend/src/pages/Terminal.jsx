@@ -17,6 +17,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import PageLayout from '../layouts/PageLayout';
 import { downloadBlob } from '@/utils/downloadBlob';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Log/journal tail cadence while auto-refresh is on.
 const LOG_TAIL_MS = 3000;
@@ -38,11 +39,11 @@ const VALID_TABS = ['logs', 'journal', 'processes', 'services', 'shell'];
 // paired agent — so it's listed first, keeping the highlighted tab and the
 // landing view in sync. The interactive Terminal sits next.
 const TERMINAL_TABS = [
-    { to: '/terminal', label: 'Log Files', end: true, icon: <FileText size={15} /> },
-    { to: '/terminal/shell', label: 'Terminal', icon: <TerminalIcon size={15} /> },
-    { to: '/terminal/journal', label: 'System Journal', icon: <ScrollText size={15} /> },
-    { to: '/terminal/processes', label: 'Processes', icon: <Cpu size={15} /> },
-    { to: '/terminal/services', label: 'Services', icon: <Settings size={15} /> },
+    { to: '/terminal', labelKey: 'app.terminal.logFiles', label: 'Log Files', end: true, icon: <FileText size={15} /> },
+    { to: '/terminal/shell', labelKey: 'app.terminal.terminal', label: 'Terminal', icon: <TerminalIcon size={15} /> },
+    { to: '/terminal/journal', labelKey: 'app.terminal.systemJournal', label: 'System Journal', icon: <ScrollText size={15} /> },
+    { to: '/terminal/processes', labelKey: 'app.terminal.processes', label: 'Processes', icon: <Cpu size={15} /> },
+    { to: '/terminal/services', labelKey: 'app.terminal.services', label: 'Services', icon: <Settings size={15} /> },
 ];
 
 const Terminal = () => {
@@ -72,6 +73,7 @@ const Terminal = () => {
 // Sessions run over the ServerKit agent (terminal:create); the panel host has
 // no PTY endpoint (§5 gap), so the rail lists paired agent servers only.
 const TerminalShellTab = () => {
+    const { t } = useTranslation();
     const [servers, setServers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState(null);
@@ -99,11 +101,11 @@ const TerminalShellTab = () => {
 
     return (
         <div className="term-shell">
-            <aside className="term-shell__rail" aria-label="Terminal targets">
-                <div className="term-shell__grp">Agent servers</div>
-                {loading && <div className="term-shell__hint">Loading servers…</div>}
+            <aside className="term-shell__rail" aria-label={t('app.terminal.terminalTargets', 'Terminal targets')}>
+                <div className="term-shell__grp">{t('app.terminal.agentServers', 'Agent servers')}</div>
+                {loading && <div className="term-shell__hint">{t('app.terminal.loadingServers', 'Loading servers…')}</div>}
                 {!loading && servers.length === 0 && (
-                    <div className="term-shell__hint">No agent servers with shell access are paired yet.</div>
+                    <div className="term-shell__hint">{t('app.terminal.noAgentServersWithShellAccess', 'No agent servers with shell access are paired yet.')}</div>
                 )}
                 {servers.map(s => {
                     const online = s.status === 'online';
@@ -114,7 +116,7 @@ const TerminalShellTab = () => {
                             className={`term-shell__row ${s.id === selectedId ? 'is-active' : ''}`}
                             onClick={() => setSelectedId(s.id)}
                             disabled={!online}
-                            title={online ? `Open a shell on ${s.name}` : `${s.name || s.id} is ${s.status || 'offline'}`}
+                            title={online ? t('app.terminal.openAShellOn', 'Open a shell on {{name}}', { name: s.name }) : `${s.name || s.id} is ${s.status || 'offline'}`}
                         >
                             <ServerIcon size={14} className="term-shell__ico" />
                             <span className="term-shell__name">{s.name || s.hostname || s.id}</span>
@@ -154,6 +156,7 @@ const LOG_PREFS = {
 const REMOTE_LOG_SUPPORTED = new Set(['list', 'read']);
 
 const LogFilesTab = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -205,7 +208,7 @@ const LogFilesTab = () => {
 
     function ensureSupported(op) {
         if (isRemote && !REMOTE_LOG_SUPPORTED.has(op)) {
-            toast.error(`This action isn't available on remote targets yet.`);
+            toast.error(t('app.terminal.thisActionIsnTAvailableOn', 'This action isn\'t available on remote targets yet.', {  }));
             return false;
         }
         return true;
@@ -296,19 +299,19 @@ const LogFilesTab = () => {
         if (!ensureSupported('clear')) return;
         if (!selectedLog) return;
         const confirmed = await confirm({
-            title: 'Truncate log file',
-            message: `This will permanently empty ${selectedLog}. Continue?`,
+            title: t('app.terminal.truncateLogFile', 'Truncate log file'),
+            message: t('app.terminal.thisWillPermanentlyEmptyContinue', 'This will permanently empty {{selectedLog}}. Continue?', { selectedLog: selectedLog }),
             variant: 'danger',
-            confirmText: 'Truncate',
+            confirmText: t('app.terminal.truncate', 'Truncate'),
         });
         if (!confirmed) return;
         try {
             await api.clearLog(selectedLog);
             setLogContent('');
-            toast.success('Log file truncated');
+            toast.success(t('app.terminal.logFileTruncated', 'Log file truncated'));
             loadLogFiles();
         } catch (err) {
-            toast.error(`Failed: ${err.message}`);
+            toast.error(t('app.terminal.failed', 'Failed: {{message}}', { message: err.message }));
         }
     }
 
@@ -326,7 +329,7 @@ const LogFilesTab = () => {
         <div className={`lv-page ${isFullscreen ? 'fullscreen' : ''}`}>
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">Source</span>
+                    <span className="lv-header-label">{t('app.terminal.source', 'Source')}</span>
                     <TargetPicker
                         feature="logs"
                         value={target}
@@ -335,7 +338,7 @@ const LogFilesTab = () => {
                     {isRemote && (
                         <span className="lv-header-hint">
                             <AlertCircle size={12} />
-                            Read-only. Most actions require panel-host access.
+                            {t('app.terminal.readOnlyMostActionsRequirePanel', 'Read-only. Most actions require panel-host access.')}
                         </span>
                     )}
                 </div>
@@ -348,11 +351,11 @@ const LogFilesTab = () => {
                             </span>
                             <span className="lv-stat-divider" />
                             <span className="lv-stat">
-                                <span className="lv-stat-label">Size</span>
+                                <span className="lv-stat-label">{t('app.terminal.size', 'Size')}</span>
                                 <span className="lv-stat-value">{formatBytes(selectedLogObj.size)}</span>
                             </span>
                             <span className="lv-stat">
-                                <span className="lv-stat-label">Showing</span>
+                                <span className="lv-stat-label">{t('app.terminal.showing', 'Showing')}</span>
                                 <span className="lv-stat-value">{visibleLineCount.toLocaleString()} lines</span>
                             </span>
                             {lastUpdated && (
@@ -421,10 +424,10 @@ const LogFilesTab = () => {
                         loading={loadingContent}
                         emptyMessage={
                             isRemote && logFiles.length === 0
-                                ? `Remote log browsing isn't supported yet for ${target.name}.`
+                                ? t('app.terminal.remoteLogBrowsingIsnTSupported', 'Remote log browsing isn\'t supported yet for {{name}}.', { name: target.name })
                                 : logFiles.length === 0
-                                    ? 'No log files were found on this server.'
-                                    : 'Select a log file from the list to view its contents.'
+                                    ? t('app.terminal.noLogFilesWereFoundOn', 'No log files were found on this server.')
+                                    : t('app.terminal.selectALogFileFromThe', 'Select a log file from the list to view its contents.')
                         }
                         showLineNumbers={showLineNumbers}
                         wrapLines={wrapLines}
@@ -437,30 +440,30 @@ const LogFilesTab = () => {
 };
 
 const COMMON_JOURNAL_UNITS = [
-    { id: 'nginx', label: 'Nginx', kind: 'nginx' },
-    { id: 'apache2', label: 'Apache', kind: 'apache' },
-    { id: 'mysql', label: 'MySQL', kind: 'database' },
-    { id: 'mariadb', label: 'MariaDB', kind: 'database' },
-    { id: 'postgresql', label: 'PostgreSQL', kind: 'database' },
-    { id: 'php-fpm', label: 'PHP-FPM', kind: 'php' },
-    { id: 'docker', label: 'Docker', kind: 'default' },
+    { id: 'nginx', labelKey: 'app.terminal.nginx', label: 'Nginx', kind: 'nginx' },
+    { id: 'apache2', labelKey: 'app.terminal.apache', label: 'Apache', kind: 'apache' },
+    { id: 'mysql', labelKey: 'app.terminal.mysql', label: 'MySQL', kind: 'database' },
+    { id: 'mariadb', labelKey: 'app.terminal.mariadb', label: 'MariaDB', kind: 'database' },
+    { id: 'postgresql', labelKey: 'app.terminal.postgresql', label: 'PostgreSQL', kind: 'database' },
+    { id: 'php-fpm', labelKey: 'app.terminal.phpFpm', label: 'PHP-FPM', kind: 'php' },
+    { id: 'docker', labelKey: 'app.terminal.docker', label: 'Docker', kind: 'default' },
     { id: 'sshd', label: 'SSH', kind: 'security' },
-    { id: 'cron', label: 'Cron', kind: 'system' },
+    { id: 'cron', labelKey: 'app.terminal.cron', label: 'Cron', kind: 'system' },
     { id: 'systemd', label: 'systemd', kind: 'system' },
     { id: 'fail2ban', label: 'fail2ban', kind: 'security' },
     { id: 'ufw', label: 'UFW', kind: 'security' },
 ];
 
 const PRIORITY_OPTIONS = [
-    { value: '', label: 'All' },
-    { value: '0', label: 'Emergency' },
-    { value: '1', label: 'Alert' },
-    { value: '2', label: 'Critical' },
-    { value: '3', label: 'Error' },
-    { value: '4', label: 'Warning' },
-    { value: '5', label: 'Notice' },
-    { value: '6', label: 'Info' },
-    { value: '7', label: 'Debug' },
+    { value: '', labelKey: 'app.terminal.all', label: 'All' },
+    { value: '0', labelKey: 'app.terminal.emergency', label: 'Emergency' },
+    { value: '1', labelKey: 'app.terminal.alert', label: 'Alert' },
+    { value: '2', labelKey: 'app.terminal.critical', label: 'Critical' },
+    { value: '3', labelKey: 'app.terminal.error', label: 'Error' },
+    { value: '4', labelKey: 'app.terminal.warning', label: 'Warning' },
+    { value: '5', labelKey: 'app.terminal.notice', label: 'Notice' },
+    { value: '6', labelKey: 'app.terminal.info', label: 'Info' },
+    { value: '7', labelKey: 'app.terminal.debug', label: 'Debug' },
 ];
 
 const JOURNAL_PREFS = {
@@ -472,6 +475,7 @@ const JOURNAL_PREFS = {
 const REMOTE_JOURNAL_SUPPORTED = new Set([]);
 
 const JournalTab = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [target, setTarget] = useState({ kind: 'local' });
     const isRemote = target.kind === 'agent';
@@ -586,12 +590,12 @@ const JournalTab = () => {
             <div className="lv-page">
                 <div className="lv-empty-hint is-tall">
                     <AlertCircle size={48} />
-                    <h3 className="lv-empty-hint__title">System Logs Unavailable</h3>
+                    <h3 className="lv-empty-hint__title">{t('app.terminal.systemLogsUnavailable', 'System Logs Unavailable')}</h3>
                     <p>
-                        No system log source was found. Neither <code>journalctl</code>,
-                        <code> /var/log/syslog</code>, nor the Windows Event Log are available.
+                        {t('app.terminal.noSystemLogSourceWasFound', 'No system log source was found. Neither')} <code>journalctl</code>,
+                        <code> /var/log/syslog</code>{t('app.terminal.norTheWindowsEventLogAre', ', nor the Windows Event Log are available.')}
                     </p>
-                    <p>Use the <strong>Log Files</strong> tab to browse available log files instead.</p>
+                    <p>{t('app.terminal.useThe', 'Use the')} <strong>{t('app.terminal.logFiles2', 'Log Files')}</strong> {t('app.terminal.tabToBrowseAvailableLogFiles', 'tab to browse available log files instead.')}</p>
                 </div>
             </div>
         );
@@ -601,30 +605,30 @@ const JournalTab = () => {
         <div className={`lv-page ${isFullscreen ? 'fullscreen' : ''}`}>
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">Source</span>
+                    <span className="lv-header-label">{t('app.terminal.source2', 'Source')}</span>
                     <TargetPicker feature="logs" value={target} onChange={setTarget} />
                     {isRemote && (
                         <span className="lv-header-hint">
                             <AlertCircle size={12} />
-                            Remote journal isn&apos;t available yet for {target.name}.
+                            {t('app.terminal.remoteJournalIsnTAvailableYet', 'Remote journal isn\'t available yet for')} {target.name}.
                         </span>
                     )}
                     {!isJournalctl && source && (
                         <span className="lv-header-hint lv-header-hint--info">
                             <AlertCircle size={12} />
-                            Reading from <strong>&nbsp;{sourceLabel}</strong>
+                            {t('app.terminal.readingFrom', 'Reading from')} <strong>&nbsp;{sourceLabel}</strong>
                         </span>
                     )}
                 </div>
                 <div className="lv-header-stats">
                     {unit && (
                         <span className="lv-stat">
-                            <span className="lv-stat-label">Unit</span>
+                            <span className="lv-stat-label">{t('app.terminal.unit', 'Unit')}</span>
                             <span className="lv-stat-value">{unit}</span>
                         </span>
                     )}
                     <span className="lv-stat">
-                        <span className="lv-stat-label">Showing</span>
+                        <span className="lv-stat-label">{t('app.terminal.showing2', 'Showing')}</span>
                         <span className="lv-stat-value">{visibleLineCount.toLocaleString()} lines</span>
                     </span>
                     {lastUpdated && (
@@ -645,10 +649,10 @@ const JournalTab = () => {
                                 value={unitInput}
                                 onChange={(e) => setUnitInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && applyUnitInput()}
-                                placeholder="Type unit name…"
+                                placeholder={t('app.terminal.typeUnitName', 'Type unit name…')}
                             />
                         </div>
-                        <button type="button" className="lv-icon-btn" onClick={applyUnitInput} title="Apply unit filter">
+                        <button type="button" className="lv-icon-btn" onClick={applyUnitInput} title={t('app.terminal.applyUnitFilter', 'Apply unit filter')}>
                             <Search size={13} />
                         </button>
                     </div>
@@ -660,14 +664,14 @@ const JournalTab = () => {
                                     onClick={clearUnit}
                                 >
                                 <span className="lv-file-dot" />
-                                <span className="lv-file-name">All services</span>
+                                <span className="lv-file-name">{t('app.terminal.allServices', 'All services')}</span>
                             </button>
                         </div>
 
                         <div className="lv-group">
                             <div className="lv-group-header is-static">
                                 <span className="lv-group-header__spacer" />
-                                <span>Common units</span>
+                                <span>{t('app.terminal.commonUnits', 'Common units')}</span>
                                 <span className="lv-group-count">{filteredUnits.length}</span>
                             </div>
                             <div className="lv-group-files">
@@ -683,7 +687,7 @@ const JournalTab = () => {
                                 ))}
                                 {filteredUnits.length === 0 && (
                                     <div className="lv-empty-hint is-compact">
-                                        <p>No matching units.</p>
+                                        <p>{t('app.terminal.noMatchingUnits', 'No matching units.')}</p>
                                     </div>
                                 )}
                             </div>
@@ -693,7 +697,7 @@ const JournalTab = () => {
                             <div className="lv-group">
                                 <div className="lv-group-header is-static">
                                     <span className="lv-group-header__spacer" />
-                                    <span>Priority</span>
+                                    <span>{t('app.terminal.priority', 'Priority')}</span>
                                 </div>
                                 <div className="lv-group-files">
                                     {PRIORITY_OPTIONS.map(opt => (
@@ -716,7 +720,7 @@ const JournalTab = () => {
                     {unit && (
                         <div className="lv-viewer-path">
                             <span className="lv-viewer-path-dot kind-system" />
-                            <code>journalctl -u {unit}</code>
+                            <code>{t('app.terminal.journalctlU', 'journalctl -u')} {unit}</code>
                         </div>
                     )}
 
@@ -737,7 +741,7 @@ const JournalTab = () => {
                         onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
                         onRefresh={() => loadJournalLogs()}
                         onDownload={handleDownload}
-                        onClear={() => toast.error('Journal logs cannot be truncated from the panel.')}
+                        onClear={() => toast.error(t('app.terminal.journalLogsCannotBeTruncatedFrom', 'Journal logs cannot be truncated from the panel.'))}
                         onScrollToBottom={scrollToBottom}
                         canAct={!loading && !isRemote}
                     />
@@ -750,8 +754,8 @@ const JournalTab = () => {
                         loading={loading}
                         emptyMessage={
                             isRemote
-                                ? `Remote journal isn't supported yet for ${target.name}.`
-                                : 'Loading journal…'
+                                ? t('app.terminal.remoteJournalIsnTSupportedYet', 'Remote journal isn\'t supported yet for {{name}}.', { name: target.name })
+                                : t('app.terminal.loadingJournal', 'Loading journal…')
                         }
                         showLineNumbers={showLineNumbers}
                         wrapLines={wrapLines}
@@ -778,6 +782,7 @@ function priorityColor(value) {
 const PROCESS_LIMITS = [25, 50, 100, 250];
 
 const ProcessesTab = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -823,7 +828,7 @@ const ProcessesTab = () => {
             setLastUpdated(new Date());
         } catch (err) {
             console.error('Failed to load processes:', err);
-            toast.error(`Failed: ${err.message}`);
+            toast.error(t('app.terminal.failed2', 'Failed: {{message}}', { message: err.message }));
         } finally {
             setLoading(false);
         }
@@ -855,19 +860,19 @@ const ProcessesTab = () => {
             ? `Force-kill PID ${pid}? Unsaved data may be lost.`
             : `Kill PID ${pid}?`;
         const confirmed = await confirm({
-            title: force ? 'Force-kill process' : 'Kill process',
+            title: force ? t('app.terminal.forceKillProcess', 'Force-kill process') : t('app.terminal.killProcess', 'Kill process'),
             message: confirmMsg,
             variant: force ? 'danger' : 'warning',
-            confirmText: force ? 'Force kill' : 'Kill',
+            confirmText: force ? t('app.terminal.forceKill', 'Force kill') : t('app.terminal.kill', 'Kill'),
         });
         if (!confirmed) return;
         try {
             await api.killProcess(pid, force);
-            toast.success(`PID ${pid} killed`);
+            toast.success(t('app.terminal.pidKilled', 'PID {{pid}} killed', { pid: pid }));
             loadProcesses();
             setSelectedProcess(null);
         } catch (err) {
-            toast.error(`Failed: ${err.message}`);
+            toast.error(t('app.terminal.failed3', 'Failed: {{message}}', { message: err.message }));
         }
     }
 
@@ -880,12 +885,12 @@ const ProcessesTab = () => {
         <div className="proc-page">
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">Source</span>
+                    <span className="lv-header-label">{t('app.terminal.source3', 'Source')}</span>
                     <TargetPicker feature="processes" value={target} onChange={setTarget} />
                     {isRemote && (
                         <span className="lv-header-hint">
                             <AlertCircle size={12} />
-                            Remote process control isn&apos;t available yet for {target.name}.
+                            {t('app.terminal.remoteProcessControlIsnTAvailable', 'Remote process control isn\'t available yet for')} {target.name}.
                         </span>
                     )}
                 </div>
@@ -897,7 +902,7 @@ const ProcessesTab = () => {
                         <span className="lv-stat-value">{totalCpu.toFixed(1)}%</span>
                     </span>
                     <span className="lv-stat">
-                        <span className="lv-stat-label">Memory</span>
+                        <span className="lv-stat-label">{t('app.terminal.memory', 'Memory')}</span>
                         <span className="lv-stat-value">{totalMem.toFixed(1)}%</span>
                     </span>
                     {lastUpdated && (
@@ -914,7 +919,7 @@ const ProcessesTab = () => {
                 whole table — chrome, active view, column rules, sort and scroll
                 position with it — then remounted a second later. */}
             {loading && processes.length === 0 ? (
-                <div className="lv-content-loading">Loading processes…</div>
+                <div className="lv-content-loading">{t('app.terminal.loadingProcesses', 'Loading processes…')}</div>
             ) : (
                 <ProcessTable
                     processes={processes}
@@ -933,10 +938,10 @@ const ProcessesTab = () => {
                                 className="lv-select"
                                 value={limit}
                                 onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                                title="Processes to fetch"
+                                title={t('app.terminal.processesToFetch', 'Processes to fetch')}
                             >
                                 {PROCESS_LIMITS.map((n) => (
-                                    <option key={n} value={n}>Top {n}</option>
+                                    <option key={n} value={n}>{t('app.terminal.top', 'Top')} {n}</option>
                                 ))}
                             </select>
                             <button type="button"
@@ -945,7 +950,7 @@ const ProcessesTab = () => {
                                 disabled={isRemote}
                             >
                                 <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
-                                <span>Live</span>
+                                <span>{t('app.terminal.live', 'Live')}</span>
                             </button>
                         </>
                     )}
@@ -958,7 +963,7 @@ const ProcessesTab = () => {
                 open={!!selectedProcess}
                 onOpenChange={(open) => { if (!open) setSelectedProcess(null); }}
                 title={selectedProcess?.name || ''}
-                subtitle={selectedProcess ? `PID ${selectedProcess.pid} · ${procUser(selectedProcess)}` : ''}
+                subtitle={selectedProcess ? t('app.terminal.pid', 'PID {{pid}} · {{value}}', { pid: selectedProcess.pid, value: procUser(selectedProcess) }) : ''}
                 icon={<Activity size={18} />}
                 width={520}
                 flush
@@ -971,15 +976,15 @@ const ProcessesTab = () => {
                                 <span className="meta-value mono">{selectedProcess.pid}</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">User</span>
+                                <span className="meta-label">{t('app.terminal.user', 'User')}</span>
                                 <span className="meta-value">{procUser(selectedProcess)}</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">Status</span>
+                                <span className="meta-label">{t('app.terminal.status', 'Status')}</span>
                                 <span className="meta-value">{selectedProcess.status}</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">Threads</span>
+                                <span className="meta-label">{t('app.terminal.threads', 'Threads')}</span>
                                 <span className="meta-value">{selectedProcess.num_threads ?? '—'}</span>
                             </div>
                             <div className="meta-item">
@@ -987,11 +992,11 @@ const ProcessesTab = () => {
                                 <span className="meta-value">{(selectedProcess.cpu_percent || 0).toFixed(2)}%</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">Memory</span>
+                                <span className="meta-label">{t('app.terminal.memory2', 'Memory')}</span>
                                 <span className="meta-value">{formatMemory(selectedProcess.memory_info?.rss)}</span>
                             </div>
                             <div className="meta-item meta-item-wide">
-                                <span className="meta-label">Started</span>
+                                <span className="meta-label">{t('app.terminal.started', 'Started')}</span>
                                 <span className="meta-value">
                                     {selectedProcess.create_time
                                         ? new Date(selectedProcess.create_time * 1000).toLocaleString()
@@ -1001,16 +1006,16 @@ const ProcessesTab = () => {
                         </div>
                         <div className="preview-drawer-actions">
                             <button type="button" className="drawer-action-btn" onClick={() => handleKillProcess(selectedProcess.pid)}>
-                                <X size={14} /> Kill (SIGTERM)
+                                <X size={14} /> {t('app.terminal.killSigterm', 'Kill (SIGTERM)')}
                             </button>
                             <button type="button" className="drawer-action-btn danger" onClick={() => handleKillProcess(selectedProcess.pid, true)}>
-                                <AlertTriangle size={14} /> Force kill (SIGKILL)
+                                <AlertTriangle size={14} /> {t('app.terminal.forceKillSigkill', 'Force kill (SIGKILL)')}
                             </button>
                         </div>
                         <div className="preview-drawer-body is-padded">
                             {selectedProcess.command && (
                                 <>
-                                    <div className="meta-label is-spaced">Command</div>
+                                    <div className="meta-label is-spaced">{t('app.terminal.command', 'Command')}</div>
                                     <pre className="proc-command">{selectedProcess.command}</pre>
                                 </>
                             )}
@@ -1027,13 +1032,14 @@ const ProcessesTab = () => {
 // is what the component's `serverId` already meant. Remounting on it keeps one
 // host's unit list, search and view state from bleeding into the other's.
 const ServicesTab = () => {
+    const { t } = useTranslation();
     const [target, setTarget] = useState({ kind: 'local' });
 
     return (
         <div className="svc-page">
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">Source</span>
+                    <span className="lv-header-label">{t('app.terminal.source4', 'Source')}</span>
                     <TargetPicker feature="services" value={target} onChange={setTarget} />
                 </div>
             </div>

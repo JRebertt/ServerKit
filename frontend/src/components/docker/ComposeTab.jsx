@@ -13,6 +13,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import { Package, Play, Square, RotateCw, FileText, Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     useServer,
     unwrapRemoteData,
@@ -82,6 +83,7 @@ const COMPOSE_VIEWS = [
 
 // Compose Tab
 const ComposeTab = ({ onStatsChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const { confirm: confirmCompose } = useConfirm();
@@ -123,7 +125,7 @@ const ComposeTab = ({ onStatsChange }) => {
     async function handleAction(project, action) {
         const projectPath = projectConfig(project);
         if (!projectPath) {
-            toast.error('Project path not found');
+            toast.error(t('app.composeTab.projectPathNotFound', 'Project path not found'));
             return;
         }
 
@@ -137,9 +139,9 @@ const ComposeTab = ({ onStatsChange }) => {
                 } else {
                     await api.composeUp(projectPath, true, false);
                 }
-                toast.success('Project started');
+                toast.success(t('app.composeTab.projectStarted', 'Project started'));
             } else if (action === 'down') {
-                const downConfirmed = await confirmCompose({ title: 'Stop Compose Project', message: 'Stop this compose project? Containers will be removed.' });
+                const downConfirmed = await confirmCompose({ titleKey: 'app.composeTab.stopComposeProject', title: 'Stop Compose Project', messageKey: 'app.composeTab.stopThisComposeProjectContainersWill', message: 'Stop this compose project? Containers will be removed.' });
                 if (!downConfirmed) {
                     setActionLoading(prev => ({ ...prev, [name]: false }));
                     return;
@@ -149,27 +151,27 @@ const ComposeTab = ({ onStatsChange }) => {
                 } else {
                     await api.composeDown(projectPath, false, true);
                 }
-                toast.success('Project stopped');
+                toast.success(t('app.composeTab.projectStopped', 'Project stopped'));
             } else if (action === 'restart') {
                 if (isRemote) {
                     await api.remoteComposeRestart(serverId, projectPath);
                 } else {
                     await api.composeRestart(projectPath);
                 }
-                toast.success('Project restarted');
+                toast.success(t('app.composeTab.projectRestarted', 'Project restarted'));
             } else if (action === 'pull') {
                 if (isRemote) {
                     await api.remoteComposePull(serverId, projectPath);
                 } else {
                     await api.composePull(projectPath);
                 }
-                toast.success('Images pulled');
+                toast.success(t('app.composeTab.imagesPulled', 'Images pulled'));
             }
             loadProjects();
             onStatsChange?.();
         } catch (err) {
             console.error(`Failed to ${action} project:`, err);
-            toast.error(err.message || `Failed to ${action} project`);
+            toast.error(err.message || t('app.composeTab.failedToProject', 'Failed to {{action}} project', { action: action }));
         } finally {
             setActionLoading(prev => ({ ...prev, [name]: false }));
         }
@@ -190,7 +192,7 @@ const ComposeTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Project',
+            headerKey: 'app.composeTab.project', header: 'Project',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -204,7 +206,7 @@ const ComposeTab = ({ onStatsChange }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.composeTab.status', header: 'Status',
             sortable: true,
             // Declared: two labels across a handful of rows infer as text, which
             // would turn both views above into typed-fragment matches. The
@@ -244,7 +246,7 @@ const ComposeTab = ({ onStatsChange }) => {
         },
         {
             key: 'config',
-            header: 'Config File',
+            headerKey: 'app.composeTab.configFile', header: 'Config File',
             sortable: true,
             type: 'text',
             value: projectConfig,
@@ -272,7 +274,7 @@ const ComposeTab = ({ onStatsChange }) => {
                             className="dx-row-action"
                             onClick={() => setLogsProject(project)}
                             disabled={busy}
-                            title="Logs"
+                            title={t('app.composeTab.logs', 'Logs')}
                         >
                             <FileText size={13} />
                         </button>
@@ -283,7 +285,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                     className="dx-row-action"
                                     onClick={() => handleAction(project, 'restart')}
                                     disabled={busy}
-                                    title="Restart"
+                                    title={t('app.composeTab.restart', 'Restart')}
                                 >
                                     <RotateCw size={13} />
                                 </button>
@@ -292,7 +294,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                     className="dx-row-action is-danger"
                                     onClick={() => handleAction(project, 'down')}
                                     disabled={busy}
-                                    title="Stop"
+                                    title={t('app.composeTab.stop', 'Stop')}
                                 >
                                     <Square size={13} />
                                 </button>
@@ -303,7 +305,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                 className="dx-row-action is-success"
                                 onClick={() => handleAction(project, 'up')}
                                 disabled={busy}
-                                title="Start"
+                                title={t('app.composeTab.start', 'Start')}
                             >
                                 <Play size={13} />
                             </button>
@@ -313,7 +315,7 @@ const ComposeTab = ({ onStatsChange }) => {
                             className="dx-row-action"
                             onClick={() => handleAction(project, 'pull')}
                             disabled={busy}
-                            title="Pull images"
+                            title={t('app.composeTab.pullImages', 'Pull images')}
                         >
                             <Download size={13} />
                         </button>
@@ -350,7 +352,7 @@ const ComposeTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">Loading compose projects...</div>
+                <div className="docker-loading">{t('app.composeTab.loadingComposeProjects', 'Loading compose projects...')}</div>
             </div>
         );
     }
@@ -366,7 +368,7 @@ const ComposeTab = ({ onStatsChange }) => {
                         <SearchField
                             value={searchTerm}
                             onSearch={setSearchTerm}
-                            placeholder="Filter project or config path…"
+                            placeholder={t('app.composeTab.filterProjectOrConfigPath', 'Filter project or config path…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -384,11 +386,11 @@ const ComposeTab = ({ onStatsChange }) => {
             {filteredProjects.length === 0 ? (
                 <EmptyState
                     icon={Package}
-                    title={projects.length === 0 ? 'No Compose projects' : 'No matching projects'}
+                    title={projects.length === 0 ? t('app.composeTab.noComposeProjects', 'No Compose projects') : t('app.composeTab.noMatchingProjects', 'No matching projects')}
                     description={projects.length === 0
-                        ? 'No Docker Compose projects are running on this server.'
-                        : 'No projects match the current search.'}
-                    action={projects.length === 0 ? <code>docker compose up -d</code> : null}
+                        ? t('app.composeTab.noDockerComposeProjectsAreRunning', 'No Docker Compose projects are running on this server.')
+                        : t('app.composeTab.noProjectsMatchTheCurrentSearch', 'No projects match the current search.')}
+                    action={projects.length === 0 ? <code>{t('app.composeTab.dockerComposeUpD', 'docker compose up -d')}</code> : null}
                 />
             ) : (
                 <section className="dx-resource-list">
@@ -426,6 +428,7 @@ const ComposeTab = ({ onStatsChange }) => {
 
 // Compose Logs Modal
 const ComposeLogsModal = ({ project, onClose }) => {
+    const { t } = useTranslation();
     const { serverId, isRemote } = useServer();
     const [logs, setLogs] = useState('');
     const [loading, setLoading] = useState(true);
@@ -484,21 +487,21 @@ const ComposeLogsModal = ({ project, onClose }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={`Logs: ${name}`} size="lg">
+        <Modal open onClose={onClose} title={t('app.composeTab.logs2', 'Logs: {{name}}', { name: name })} size="lg">
             <div className="modal-body">
                 <div className="logs-controls flex flex-wrap items-center gap-2 mb-2">
-                    <label>Service:</label>
+                    <label>{t('app.composeTab.service', 'Service:')}</label>
                     <select
                         value={selectedService}
                         onChange={(e) => setSelectedService(e.target.value)}
                         className="py-2 px-2"
                     >
-                        <option value="">All Services</option>
+                        <option value="">{t('app.composeTab.allServices', 'All Services')}</option>
                         {services.map(service => (
                             <option key={service} value={service}>{service}</option>
                         ))}
                     </select>
-                    <label>Lines:</label>
+                    <label>{t('app.composeTab.lines', 'Lines:')}</label>
                     <select value={tail} onChange={(e) => setTail(Number(e.target.value))} className="py-2 px-2">
                         <option value={50}>50</option>
                         <option value={100}>100</option>
@@ -513,7 +516,7 @@ const ComposeLogsModal = ({ project, onClose }) => {
                 <Button variant="outline" onClick={loadLogs} disabled={loading}>
                     {loading ? 'Loading...' : 'Refresh'}
                 </Button>
-                <Button onClick={onClose}>Close</Button>
+                <Button onClick={onClose}>{t('app.composeTab.close', 'Close')}</Button>
             </div>
         </Modal>
     );

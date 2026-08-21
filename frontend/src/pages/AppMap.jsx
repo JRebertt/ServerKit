@@ -14,25 +14,26 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageLayout from '../layouts/PageLayout';
 import useTabParam from '../hooks/useTabParam';
+import { useTranslation } from 'react-i18next';
 
 const VIEWS = [
     {
         id: 'stack',
-        label: 'Request Stack',
+        labelKey: 'app.appMap.requestStack', label: 'Request Stack',
         icon: Layers,
-        description: 'How a request flows from the browser through the frontend, backend, services and database.',
+        descriptionKey: 'app.appMap.howARequestFlowsFromThe', description: 'How a request flows from the browser through the frontend, backend, services and database.',
     },
     {
         id: 'routes',
-        label: 'Routes & APIs',
+        labelKey: 'app.appMap.routesApis', label: 'Routes & APIs',
         icon: Compass,
-        description: 'Sidebar navigation → pages → backend API blueprints they call.',
+        descriptionKey: 'app.appMap.sidebarNavigationPagesBackendApiBlueprints', description: 'Sidebar navigation → pages → backend API blueprints they call.',
     },
     {
         id: 'topology',
-        label: 'Runtime Topology',
+        labelKey: 'app.appMap.runtimeTopology', label: 'Runtime Topology',
         icon: Network,
-        description: 'How the panel connects to servers, agents, services and apps in production.',
+        descriptionKey: 'app.appMap.howThePanelConnectsToServers', description: 'How the panel connects to servers, agents, services and apps in production.',
     },
 ];
 
@@ -279,12 +280,13 @@ function Diagram({ viewId }) {
 }
 
 export default function AppMap() {
+    const { t } = useTranslation();
     const [activeView, setActiveView] = useTabParam('/app-map', VIEWS.map(v => v.id), 'stack');
     const [showLegend, setShowLegend] = useState(true);
     const view = VIEWS.find(v => v.id === activeView) || VIEWS[0];
 
     return (
-        <PageLayout className="app-map" icon={<MapIcon size={18} />} title="App Map">
+        <PageLayout className="app-map" icon={<MapIcon size={18} />} title={t('app.appMap.appMap', 'App Map')}>
             <Tabs value={activeView} onValueChange={setActiveView}>
                 <TabsList>
                     {VIEWS.map(v => (

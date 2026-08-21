@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Gauge } from '../ds';
 import { copyToClipboard } from '@/utils/clipboard';
 import { statusKind } from '@/components/ds/status';
+import { useTranslation } from 'react-i18next';
 
 // Server status → ds Pill tone (shared by the header pill and the
 // Overview "Status" row).
@@ -25,14 +26,15 @@ export const PRESET_LABELS = {
 // the Add Server modal uses (frontend/src/pages/Servers.jsx). Keep them in
 // sync if you tweak either list.
 export const TOKEN_EXPIRY_OPTIONS = [
-    { label: '1 hour',   value: 60 * 60 },
-    { label: '24 hours', value: 24 * 60 * 60 },
-    { label: '7 days',   value: 7 * 24 * 60 * 60 },
-    { label: '30 days',  value: 30 * 24 * 60 * 60 },
-    { label: 'Never',    value: -1 },
+    { labelKey: 'app.serverDetailShared.1Hour', label: '1 hour',   value: 60 * 60 },
+    { labelKey: 'app.serverDetailShared.24Hours', label: '24 hours', value: 24 * 60 * 60 },
+    { labelKey: 'app.serverDetailShared.7Days', label: '7 days',   value: 7 * 24 * 60 * 60 },
+    { labelKey: 'app.serverDetailShared.30Days', label: '30 days',  value: 30 * 24 * 60 * 60 },
+    { labelKey: 'app.serverDetailShared.never', label: 'Never',    value: -1 },
 ];
 
 export const SecurityAlertItem = ({ alert, onAcknowledge, onResolve }) => {
+    const { t } = useTranslation();
     const sev = (alert.severity || 'info').toLowerCase();
     const tone =
         sev === 'critical' || sev === 'high' ? 'danger' :
@@ -52,18 +54,18 @@ export const SecurityAlertItem = ({ alert, onAcknowledge, onResolve }) => {
                     </span>
                 </div>
                 <p className="notification__message">
-                    {alert.source_ip && <><strong>IP:</strong> {alert.source_ip}{'  '}</>}
+                    {alert.source_ip && <><strong>{t('app.serverDetailShared.ip', 'IP:')}</strong> {alert.source_ip}{'  '}</>}
                     {alert.details?.message || ''}
                     {alert.details?.attempts ? ` (${alert.details.attempts} attempts)` : ''}
                 </p>
                 <div className="notification__actions">
                     {alert.status === 'open' && (
                         <Button variant="outline" size="sm" onClick={() => onAcknowledge(alert.id)}>
-                            Acknowledge
+                            {t('app.serverDetailShared.acknowledge', 'Acknowledge')}
                         </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={() => onResolve(alert.id)}>
-                        Resolve
+                        {t('app.serverDetailShared.resolve', 'Resolve')}
                     </Button>
                 </div>
             </div>
@@ -113,6 +115,7 @@ export const KpiGauge = ({ icon, label, percent, color, sub }) => {
 };
 
 export const CopyChip = ({ label, value, title, mono }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const handleCopy = (e) => {
         e.preventDefault();
@@ -126,7 +129,7 @@ export const CopyChip = ({ label, value, title, mono }) => {
             type="button"
             className={`copy-chip${mono ? ' copy-chip--mono' : ''}`}
             onClick={handleCopy}
-            title={title || `Copy ${label}`}
+            title={title || t('app.serverDetailShared.copy', 'Copy {{label}}', { label: label })}
         >
             <span className="copy-chip__label">{label}</span>
             <code className="copy-chip__value">{value}</code>

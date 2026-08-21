@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import useDeployJobStream from '../hooks/useDeployJobStream';
+import { useTranslation } from 'react-i18next';
 
 // Shared "watch it come up live" compact panel: streams a DeploymentJob (socket
 // with an after_id poll fallback, via useDeployJobStream) and renders its
@@ -20,6 +21,7 @@ export default function DeploymentJobProgress({
     timeoutMs = 600000,
     showConsoleLink = true,
 }) {
+    const { t } = useTranslation();
     const { job, lines, error } = useDeployJobStream(jobId);
 
     // Keep callbacks in refs so a re-rendering parent doesn't re-fire them.
@@ -72,12 +74,12 @@ export default function DeploymentJobProgress({
             </div>
             {job?.current_step_name && (
                 <p className="deployment-job-progress__step text-muted">
-                    Current step: {job.current_step_name}
+                    {t('app.deploymentJobProgress.currentStep', 'Current step:')} {job.current_step_name}
                 </p>
             )}
             {error && (
                 <div className="alert alert-warning">
-                    Trouble reaching the deployment job: {error}. Retrying…
+                    {t('app.deploymentJobProgress.troubleReachingTheDeploymentJob', 'Trouble reaching the deployment job:')} {error}. Retrying…
                 </div>
             )}
             <pre className="log-viewer">
@@ -88,7 +90,7 @@ export default function DeploymentJobProgress({
             </pre>
             {showConsoleLink && jobId && (
                 <Link to={`/deployments/${jobId}`} className="deployment-job-progress__console-link">
-                    Open console →
+                    {t('app.deploymentJobProgress.openConsole', 'Open console →')}
                 </Link>
             )}
         </div>

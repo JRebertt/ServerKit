@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SegControl } from './SegControl';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 // Shared table footer — one standard way to answer "how much am I looking at
 // and how do I see more", replacing the four ad-hoc pagers pages grew
@@ -39,6 +40,7 @@ export function DataTableFooter({
     onPageChange,
     className,
 }) {
+    const { t } = useTranslation();
     const many = plural || `${noun}s`;
     const label = total == null || total === shown
         ? `${shown} ${shown === 1 ? noun : many}`
@@ -64,9 +66,9 @@ export function DataTableFooter({
                         onChange={(value) => onPageSizeChange(value === 'all' ? 'all' : Number(value))}
                         options={[
                             ...pageSizeOptions.map((n) => ({ value: String(n), label: String(n) })),
-                            { value: 'all', label: 'All' },
+                            { value: 'all', labelKey: 'app.dataTableFooter.all', label: 'All' },
                         ]}
-                        aria-label="Rows per page"
+                        aria-label={t('app.dataTableFooter.rowsPerPage', 'Rows per page')}
                     />
                 )}
                 {onLoadMore && hasMore && (
@@ -81,7 +83,7 @@ export function DataTableFooter({
                             size="icon"
                             onClick={() => onPageChange(page - 1)}
                             disabled={page <= 1}
-                            aria-label="Previous page"
+                            aria-label={t('app.dataTableFooter.previousPage', 'Previous page')}
                         >
                             <ChevronLeft aria-hidden="true" />
                         </Button>
@@ -93,7 +95,7 @@ export function DataTableFooter({
                             size="icon"
                             onClick={() => onPageChange(page + 1)}
                             disabled={page >= totalPages}
-                            aria-label="Next page"
+                            aria-label={t('app.dataTableFooter.nextPage', 'Next page')}
                         >
                             <ChevronRight aria-hidden="true" />
                         </Button>

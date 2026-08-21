@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Pill, ServiceTile, PageTopbar, statusKind } from '@/components/ds';
 import FavoriteStar from '@/components/FavoriteStar';
 import { useRecordVisit } from '@/hooks/useRecordVisit';
+import { useTranslation } from 'react-i18next';
 
 const TAB_LABELS = {
     overview: 'Overview',
@@ -71,6 +72,7 @@ const TAB_ICONS = {
 };
 
 const ServiceDetail = () => {
+    const { t } = useTranslation();
     const { id, tab: rawTab } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
@@ -114,7 +116,7 @@ const ServiceDetail = () => {
                 setVersions(data.versions || []);
                 setCurrentVersion(data.current);
             })
-            .catch(() => toast.error('Failed to load versions'))
+            .catch(() => toast.error(t('app.serviceDetail.failedToLoadVersions', 'Failed to load versions')))
             .finally(() => setVersionsLoading(false));
     }, [service?.source, id, toast]);
 
@@ -136,9 +138,9 @@ const ServiceDetail = () => {
         setActionLoading(action);
         try {
             await performAction(action);
-            toast.success(`Service ${action}ed successfully`);
+            toast.success(t('app.serviceDetail.serviceEdSuccessfully', 'Service {{action}}ed successfully', { action: action }));
         } catch (err) {
-            toast.error(err?.data?.error || err?.message || `Failed to ${action} service`);
+            toast.error(err?.data?.error || err?.message || t('app.serviceDetail.failedToService', 'Failed to {{action}} service', { action: action }));
         } finally {
             setActionLoading(null);
             setShowDeployMenu(false);
@@ -167,10 +169,10 @@ const ServiceDetail = () => {
             } else {
                 await api.triggerAppDeploy(service.id, true);
             }
-            toast.success('Deployment started');
+            toast.success(t('app.serviceDetail.deploymentStarted', 'Deployment started'));
             await reload();
         } catch (err) {
-            toast.error(err.message || 'Failed to deploy latest commit');
+            toast.error(err.message || t('app.serviceDetail.failedToDeployLatestCommit', 'Failed to deploy latest commit'));
         } finally {
             setActionLoading(null);
             setShowDeployMenu(false);
@@ -181,13 +183,13 @@ const ServiceDetail = () => {
         setActionLoading(`rollback-${version}`);
         try {
             await api.rollbackAppVersion(service.id, version);
-            toast.success(`Rolled back to version ${version}`);
+            toast.success(t('app.serviceDetail.rolledBackToVersion', 'Rolled back to version {{version}}', { version: version }));
             await reload();
             const data = await api.getAppVersions(service.id);
             setVersions(data.versions || []);
             setCurrentVersion(data.current);
         } catch (err) {
-            toast.error(err.message || 'Failed to rollback');
+            toast.error(err.message || t('app.serviceDetail.failedToRollback', 'Failed to rollback'));
         } finally {
             setActionLoading(null);
         }
@@ -204,22 +206,22 @@ const ServiceDetail = () => {
             formData.append('app_type', 'auto');
             formData.append('auto_deploy', 'true');
             await api.uploadAppZip(formData);
-            toast.success('New version uploaded');
+            toast.success(t('app.serviceDetail.newVersionUploaded', 'New version uploaded'));
             await reload();
             const data = await api.getAppVersions(service.id);
             setVersions(data.versions || []);
             setCurrentVersion(data.current);
         } catch (err) {
-            toast.error(err.message || 'Failed to upload new version');
+            toast.error(err.message || t('app.serviceDetail.failedToUploadNewVersion', 'Failed to upload new version'));
         } finally {
             setActionLoading(null);
         }
     }
 
     async function handleDelete() {
-        const firstConfirm = await confirm({ title: 'Delete Service', message: `Delete ${service.name}? This action cannot be undone.` });
+        const firstConfirm = await confirm({ title: t('app.serviceDetail.deleteService', 'Delete Service'), message: t('app.serviceDetail.deleteThisActionCannotBeUndone', 'Delete {{name}}? This action cannot be undone.', { name: service.name }) });
         if (!firstConfirm) return;
-        const secondConfirm = await confirm({ title: 'Confirm Deletion', message: 'Are you sure? This will permanently remove the service and all its data.' });
+        const secondConfirm = await confirm({ title: t('app.serviceDetail.confirmDeletion', 'Confirm Deletion'), message: t('app.serviceDetail.areYouSureThisWillPermanently', 'Are you sure? This will permanently remove the service and all its data.') });
         if (!secondConfirm) return;
 
         setActionLoading('delete');
@@ -227,7 +229,7 @@ const ServiceDetail = () => {
             await deleteService();
             navigate('/services');
         } catch (err) {
-            toast.error(err?.data?.error || err?.message || 'Failed to delete service');
+            toast.error(err?.data?.error || err?.message || t('app.serviceDetail.failedToDeleteService', 'Failed to delete service'));
             setActionLoading(null);
         }
     }
@@ -237,16 +239,16 @@ const ServiceDetail = () => {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="detail" title="Loading service" />;
+        return <EmptyState loading loadingVariant="detail" title={t('app.serviceDetail.loadingService', 'Loading service')} />;
     }
 
     if (error || !service) {
         return (
             <EmptyState
                 icon={Layers}
-                title="Service not found"
-                description={error || 'The service you are looking for does not exist.'}
-                action={<Button onClick={() => navigate('/services')}>Back to Services</Button>}
+                title={t('app.serviceDetail.serviceNotFound', 'Service not found')}
+                description={error || t('app.serviceDetail.theServiceYouAreLookingFor', 'The service you are looking for does not exist.')}
+                action={<Button onClick={() => navigate('/services')}>{t('app.serviceDetail.backToServices', 'Back to Services')}</Button>}
             />
         );
     }
@@ -273,7 +275,7 @@ const ServiceDetail = () => {
                 title={(
                     <>
                         <span className="svc-crumbs">
-                            <Link to="/services">Services</Link>
+                            <Link to="/services">{t('app.serviceDetail.services', 'Services')}</Link>
                             <span className="svc-crumbs__sep">/</span>
                             <span className="svc-crumbs__cur">{service.name}</span>
                         </span>
@@ -285,7 +287,7 @@ const ServiceDetail = () => {
                     {/* Deploy dropdown */}
                     <div className="svc-detail__dropdown" ref={deployMenuRef}>
                         <Button onClick={() => setShowDeployMenu(!showDeployMenu)}>
-                            Deploy
+                            {t('app.serviceDetail.deploy', 'Deploy')}
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-1">
                                 <polyline points="6 9 12 15 18 9"/>
                             </svg>
@@ -297,7 +299,7 @@ const ServiceDetail = () => {
                                         <polyline points="23 4 23 10 17 10"/>
                                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                                     </svg>
-                                    Manual Deploy (Restart)
+                                    {t('app.serviceDetail.manualDeployRestart', 'Manual Deploy (Restart)')}
                                 </button>
                                 {isGitBased && deployConfig && (
                                     <button type="button" onClick={handleDeployLatest} disabled={actionLoading === 'deploy-latest'}>
@@ -355,7 +357,7 @@ const ServiceDetail = () => {
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                             <rect x="6" y="6" width="12" height="12"/>
                                         </svg>
-                                        Suspend Service
+                                        {t('app.serviceDetail.suspendService', 'Suspend Service')}
                                     </button>
                                 )}
                                 {openUrl && (
@@ -370,7 +372,7 @@ const ServiceDetail = () => {
                                             <polyline points="15 3 21 3 21 9"/>
                                             <line x1="10" y1="14" x2="21" y2="3"/>
                                         </svg>
-                                        Open in Browser
+                                        {t('app.serviceDetail.openInBrowser', 'Open in Browser')}
                                     </a>
                                 )}
                                 <div className="svc-detail__dropdown-divider" />
@@ -383,7 +385,7 @@ const ServiceDetail = () => {
                                         <polyline points="3 6 5 6 21 6"/>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                     </svg>
-                                    Delete Service
+                                    {t('app.serviceDetail.deleteService3', 'Delete Service')}
                                 </button>
                             </div>
                         )}
@@ -409,8 +411,8 @@ const ServiceDetail = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="svc-detail__open"
-                                title={`Open ${openUrl}`}
-                                aria-label={`Open ${service.name} in a new tab`}
+                                title={t('app.serviceDetail.open', 'Open {{openUrl}}', { openUrl: openUrl })}
+                                aria-label={t('app.serviceDetail.openInANewTab', 'Open {{name}} in a new tab', { name: service.name })}
                             >
                                 <ExternalLink size={15} />
                             </a>
@@ -433,17 +435,17 @@ const ServiceDetail = () => {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="svc-detail__portlink"
-                                    title={`Open ${openUrl}`}
+                                    title={t('app.serviceDetail.open2', 'Open {{openUrl}}', { openUrl: openUrl })}
                                 >
-                                    Port {service.port}
+                                    {t('app.serviceDetail.port', 'Port')} {service.port}
                                     <ExternalLink size={12} />
                                 </a>
                             ) : (
-                                <span>Port {service.port}</span>
+                                <span>{t('app.serviceDetail.port2', 'Port')} {service.port}</span>
                             )
                         )}
                         {service.port && <span className="separator">&middot;</span>}
-                        <span>Created {new Date(service.created_at).toLocaleDateString()}</span>
+                        <span>{t('app.serviceDetail.created', 'Created')} {new Date(service.created_at).toLocaleDateString()}</span>
                         {primaryDomain && (
                             <>
                                 <span className="separator">&middot;</span>
@@ -469,9 +471,9 @@ const ServiceDetail = () => {
                             <polyline points="17 8 12 3 7 8"/>
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
-                        <span className="svc-detail__repo-url">Upload</span>
+                        <span className="svc-detail__repo-url">{t('app.serviceDetail.upload', 'Upload')}</span>
                         <span className="svc-detail__repo-arrow">&rarr;</span>
-                        <span className="svc-detail__repo-branch">Version {service.version || 1}</span>
+                        <span className="svc-detail__repo-branch">{t('app.serviceDetail.version', 'Version')} {service.version || 1}</span>
                     </span>
                 ) : isManual ? (
                     <span className="svc-detail__repo-pill svc-detail__repo-pill--static">
@@ -497,7 +499,7 @@ const ServiceDetail = () => {
                         <span className="svc-detail__repo-arrow">&rarr;</span>
                         <span className="svc-detail__repo-branch">{deployConfig.branch || 'main'}</span>
                         {deployConfig.auto_deploy && (
-                            <span className="svc-detail__auto-deploy-badge">Auto</span>
+                            <span className="svc-detail__auto-deploy-badge">{t('app.serviceDetail.auto', 'Auto')}</span>
                         )}
                     </div>
                 ) : (
@@ -507,7 +509,7 @@ const ServiceDetail = () => {
                             <circle cx="6" cy="6" r="3"/>
                             <path d="M6 21V9a9 9 0 0 0 9 9"/>
                         </svg>
-                        Connect a repository
+                        {t('app.serviceDetail.connectARepository', 'Connect a repository')}
                     </button>
                 )}
             </div>
@@ -516,7 +518,7 @@ const ServiceDetail = () => {
             {isUpload && (
                 <div className="svc-detail__versions">
                     <div className="svc-detail__versions-header">
-                        <h3>Versions</h3>
+                        <h3>{t('app.serviceDetail.versions', 'Versions')}</h3>
                         <label className="svc-detail__upload-label">
                             <input
                                 type="file"
@@ -529,7 +531,7 @@ const ServiceDetail = () => {
                         </label>
                     </div>
                     {versionsLoading ? (
-                        <div className="svc-detail__versions-loading">Loading versions...</div>
+                        <div className="svc-detail__versions-loading">{t('app.serviceDetail.loadingVersions', 'Loading versions...')}</div>
                     ) : (
                         <ul className="svc-detail__versions-list">
                             {versions.slice().reverse().map(v => (
@@ -537,7 +539,7 @@ const ServiceDetail = () => {
                                     <span className="svc-detail__version-name">v{v.version}</span>
                                     <span className="svc-detail__version-date">{new Date(v.created_at).toLocaleString()}</span>
                                     {v.version === currentVersion ? (
-                                        <span className="svc-detail__version-current">Current</span>
+                                        <span className="svc-detail__version-current">{t('app.serviceDetail.current', 'Current')}</span>
                                     ) : (
                                         <Button
                                             variant="outline"
@@ -546,7 +548,7 @@ const ServiceDetail = () => {
                                             disabled={actionLoading === `rollback-${v.version}`}
                                         >
                                             <RotateCcw size={14} />
-                                            Rollback
+                                            {t('app.serviceDetail.rollback', 'Rollback')}
                                         </Button>
                                     )}
                                 </li>

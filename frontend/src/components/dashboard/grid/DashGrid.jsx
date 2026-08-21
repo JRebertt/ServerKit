@@ -7,6 +7,7 @@ import {
     GRID_COLS, GRID_GAP, GRID_ROW, pushDown,
 } from './layout';
 import WidgetFrame from './WidgetFrame';
+import { useTranslation } from 'react-i18next';
 
 // Shortest board the host will render, so an empty/short dashboard still has a
 // drop target worth aiming at.
@@ -36,6 +37,7 @@ export function DashGrid({
     ctx,
     onWidgetMenu,
 }) {
+    const { t } = useTranslation();
     const hostRef = useRef(null);
     const [hostWidth, setHostWidth] = useState(0);
     const [drag, setDrag] = useState(null);
@@ -186,7 +188,7 @@ export function DashGrid({
             {list.length === 0 && (
                 <div className="skw-grid__empty">
                     <LayoutGrid size={22} aria-hidden="true" />
-                    <div>No widgets on this dashboard yet.</div>
+                    <div>{t('app.dashGrid.noWidgetsOnThisDashboardYet', 'No widgets on this dashboard yet.')}</div>
                 </div>
             )}
         </div>

@@ -27,13 +27,13 @@ import {
 // (tab-group contribution, #43) and merged in by TabGroupLayout
 // groupId="monitoring". TabGroupLayout overflows the tail into "⋯ More".
 export const MONITOR_TABS = [
-    { to: '/monitoring', label: 'Overview', end: true, icon: <Activity size={15} /> },
-    { to: '/monitoring/monitors', label: 'Monitors', icon: <Radar size={15} /> },
-    { to: '/monitoring/incidents', label: 'Incidents', icon: <AlertTriangle size={15} /> },
-    { to: '/monitoring/rules', label: 'Rules', icon: <SlidersHorizontal size={15} /> },
-    { to: '/monitoring/capacity', label: 'Capacity', icon: <Gauge size={15} /> },
-    { to: '/telemetry', label: 'Events', icon: <ScrollText size={15} /> },
-    { to: '/monitoring/jobs', label: 'Jobs', icon: <ListChecks size={15} /> },
-    { to: '/monitoring/errors', label: 'Errors', icon: <Bug size={15} /> },
-    { to: '/monitoring/doctor', label: 'Doctor', icon: <Stethoscope size={15} /> },
+    { to: '/monitoring', labelKey: 'app.monitorTabs.overview', label: 'Overview', end: true, icon: <Activity size={15} /> },
+    { to: '/monitoring/monitors', labelKey: 'app.monitorTabs.monitors', label: 'Monitors', icon: <Radar size={15} /> },
+    { to: '/monitoring/incidents', labelKey: 'app.monitorTabs.incidents', label: 'Incidents', icon: <AlertTriangle size={15} /> },
+    { to: '/monitoring/rules', labelKey: 'app.monitorTabs.rules', label: 'Rules', icon: <SlidersHorizontal size={15} /> },
+    { to: '/monitoring/capacity', labelKey: 'app.monitorTabs.capacity', label: 'Capacity', icon: <Gauge size={15} /> },
+    { to: '/telemetry', labelKey: 'app.monitorTabs.events', label: 'Events', icon: <ScrollText size={15} /> },
+    { to: '/monitoring/jobs', labelKey: 'app.monitorTabs.jobs', label: 'Jobs', icon: <ListChecks size={15} /> },
+    { to: '/monitoring/errors', labelKey: 'app.monitorTabs.errors', label: 'Errors', icon: <Bug size={15} /> },
+    { to: '/monitoring/doctor', labelKey: 'app.monitorTabs.doctor', label: 'Doctor', icon: <Stethoscope size={15} /> },
 ];

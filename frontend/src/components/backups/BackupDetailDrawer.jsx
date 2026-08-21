@@ -6,12 +6,14 @@ import { Drawer, Pill } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { Archive, RotateCcw, ShieldCheck, Download, Trash2, ExternalLink } from 'lucide-react';
 import { humanSize, formatMoney, formatDateTime, statusKind, storageLabel } from './format';
+import { useTranslation } from 'react-i18next';
 
 export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVerify, onDelete, onDownload }) {
+    const { t } = useTranslation();
     // No run selected: render an empty Drawer so the close animation still plays.
     if (!run) {
         return (
-            <Drawer open={open} onOpenChange={(v) => !v && onClose()} title="Backup" width={520}>
+            <Drawer open={open} onOpenChange={(v) => !v && onClose()} title={t('app.backupDetailDrawer.backup', 'Backup')} width={520}>
                 <div />
             </Drawer>
         );
@@ -34,7 +36,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
             <div className="backup-detail-drawer">
                 <div className="backup-detail-drawer__head">
                     <Pill kind={statusKind(run.status)}>{run.status}</Pill>
-                    {run.verified && <Pill kind="green" dot={false}>Verified</Pill>}
+                    {run.verified && <Pill kind="green" dot={false}>{t('app.backupDetailDrawer.verified', 'Verified')}</Pill>}
                 </div>
 
                 {run.status === 'failed' && run.error_message && (
@@ -42,43 +44,43 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
                 )}
 
                 <div className="backup-detail-drawer__meta">
-                    <div className="backup-detail-drawer__row"><span>Created</span><span>{formatDateTime(run.started_at)}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Finished</span><span>{formatDateTime(run.finished_at)}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Duration</span><span>{run.duration_seconds != null ? `${run.duration_seconds}s` : '—'}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Type</span><span>{run.kind}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Compression</span><span>{run.compression || '—'}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Storage</span><span>{storageLabel(run)}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Size (local)</span><span>{humanSize(run.size_local)}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Size (remote)</span><span>{run.size_remote ? humanSize(run.size_remote) : '—'}</span></div>
-                    <div className="backup-detail-drawer__row"><span>Verification</span><span>{verification}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.created', 'Created')}</span><span>{formatDateTime(run.started_at)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.finished', 'Finished')}</span><span>{formatDateTime(run.finished_at)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.duration', 'Duration')}</span><span>{run.duration_seconds != null ? `${run.duration_seconds}s` : '—'}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.type', 'Type')}</span><span>{run.kind}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.compression', 'Compression')}</span><span>{run.compression || '—'}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.storage', 'Storage')}</span><span>{storageLabel(run)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.sizeLocal', 'Size (local)')}</span><span>{humanSize(run.size_local)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.sizeRemote', 'Size (remote)')}</span><span>{run.size_remote ? humanSize(run.size_remote) : '—'}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.verification', 'Verification')}</span><span>{verification}</span></div>
                 </div>
 
                 <div className="backup-detail-drawer__cost">
-                    Estimated cost: {formatMoney(run.cost_local)} (local) + {formatMoney(run.cost_remote)} (remote) = {formatMoney(run.cost_total)} total
+                    {t('app.backupDetailDrawer.estimatedCost', 'Estimated cost:')} {formatMoney(run.cost_local)} {t('app.backupDetailDrawer.local', '(local) +')} {formatMoney(run.cost_remote)} {t('app.backupDetailDrawer.remote', '(remote) =')} {formatMoney(run.cost_total)} total
                 </div>
 
                 <div className="backup-detail-drawer__actions">
                     <Button variant="primary" size="sm" disabled={run.status !== 'success'} onClick={() => onRestore(run)}>
-                        <RotateCcw size={14} /> Restore
+                        <RotateCcw size={14} /> {t('app.backupDetailDrawer.restore', 'Restore')}
                     </Button>
                     {run.remote_key && (
                         <Button variant="outline" size="sm" onClick={() => onVerify(run)}>
-                            <ShieldCheck size={14} /> Verify remote
+                            <ShieldCheck size={14} /> {t('app.backupDetailDrawer.verifyRemote', 'Verify remote')}
                         </Button>
                     )}
                     {onDownload && run.storage_path && (
                         <Button variant="outline" size="sm" onClick={() => onDownload(run)}>
-                            <Download size={14} /> Download
+                            <Download size={14} /> {t('app.backupDetailDrawer.download', 'Download')}
                         </Button>
                     )}
                     <Button variant="destructive" size="sm" onClick={() => onDelete(run)}>
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} /> {t('app.backupDetailDrawer.delete', 'Delete')}
                     </Button>
                 </div>
 
                 {run.job_id && (
                     <a className="backup-detail-drawer__joblink" href="/monitoring/jobs">
-                        <ExternalLink size={13} /> View job
+                        <ExternalLink size={13} /> {t('app.backupDetailDrawer.viewJob', 'View job')}
                     </a>
                 )}
             </div>

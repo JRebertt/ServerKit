@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Modal from '@/components/Modal';
+import { useTranslation } from 'react-i18next';
 
 // Preset views. A project list is short, so these are about SHAPE rather than
 // status: which projects are actually carrying anything, and which are empty
@@ -48,6 +49,7 @@ const PROJECT_VIEWS = [
 ];
 
 const Projects = () => {
+    const { t } = useTranslation();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
@@ -64,7 +66,7 @@ const Projects = () => {
             setProjects(Array.isArray(data?.projects) ? data.projects : []);
         } catch (err) {
             console.error('Failed to load projects:', err);
-            toast.error('Failed to load projects');
+            toast.error(t('app.projects.failedToLoadProjects', 'Failed to load projects'));
         } finally {
             setLoading(false);
         }
@@ -77,9 +79,9 @@ const Projects = () => {
     useTopbarActions(() => (
         <>
             <Button size="sm" onClick={() => setShowCreate(true)}>
-                <Plus size={16} /> New Project
+                <Plus size={16} /> {t('app.projects.newProject', 'New Project')}
             </Button>
-            <SearchField value={search} onSearch={setSearch} placeholder="Search projects…" />
+            <SearchField value={search} onSearch={setSearch} placeholder={t('app.projects.searchProjects', 'Search projects…')} />
         </>
     ), [search]);
 
@@ -96,7 +98,7 @@ const Projects = () => {
     const columns = useMemo(() => [
         {
             key: 'name',
-            header: 'Project',
+            headerKey: 'app.projects.project', header: 'Project',
             sortable: true,
             hideable: false,
             value: (p) => p.name,
@@ -112,7 +114,7 @@ const Projects = () => {
         },
         {
             key: 'description',
-            header: 'Description',
+            headerKey: 'app.projects.description', header: 'Description',
             sortable: true,
             value: (p) => p.description || '',
             render: (p) => p.description || <span className="wp-list__dash">—</span>,
@@ -122,7 +124,7 @@ const Projects = () => {
         // these are derived counts with no matching key on the row — so both.
         {
             key: 'environments',
-            header: 'Environments',
+            headerKey: 'app.projects.environments', header: 'Environments',
             type: 'number',
             sortable: true,
             width: 140,
@@ -132,7 +134,7 @@ const Projects = () => {
         },
         {
             key: 'apps',
-            header: 'Services',
+            headerKey: 'app.projects.services', header: 'Services',
             type: 'number',
             sortable: true,
             width: 120,
@@ -161,7 +163,7 @@ const Projects = () => {
             emptyDescription="Group your applications into projects and environments (production, staging, development) to keep things organized."
             emptyAction={(
                 <Button onClick={() => setShowCreate(true)}>
-                    <Plus size={16} /> Create your first project
+                    <Plus size={16} /> {t('app.projects.createYourFirstProject', 'Create your first project')}
                 </Button>
             )}
             filteredEmptyIcon={FolderKanban}
@@ -181,6 +183,7 @@ const Projects = () => {
 };
 
 const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -194,7 +197,7 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
     async function handleSubmit(e) {
         e.preventDefault();
         if (!name.trim()) {
-            toast.error('Project name is required');
+            toast.error(t('app.projects.projectNameIsRequired', 'Project name is required'));
             return;
         }
         setSubmitting(true);
@@ -203,43 +206,42 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
                 name: name.trim(),
                 description: description.trim() || undefined,
             });
-            toast.success('Project created');
+            toast.success(t('app.projects.projectCreated', 'Project created'));
             reset();
             onCreated();
         } catch (err) {
-            toast.error(err.message || 'Failed to create project');
+            toast.error(err.message || t('app.projects.failedToCreateProject', 'Failed to create project'));
         } finally {
             setSubmitting(false);
         }
     }
 
     return (
-        <Modal open={open} onClose={() => { reset(); onOpenChange(false); }} title="New Project">
+        <Modal open={open} onClose={() => { reset(); onOpenChange(false); }} title={t('app.projects.newProject2', 'New Project')}>
             <form onSubmit={handleSubmit}>
                 <p className="sk-modal__subtitle">
-                    A project groups your applications. It starts with a default
-                    &quot;production&quot; environment you can rename or expand.
+                    {t('app.projects.aProjectGroupsYourApplicationsIt', 'A project groups your applications. It starts with a default "production" environment you can rename or expand.')}
                 </p>
 
                 <div className="projects-form">
                         <div className="projects-form__field">
-                            <Label htmlFor="project-name">Name</Label>
+                            <Label htmlFor="project-name">{t('app.projects.name', 'Name')}</Label>
                             <Input
                                 id="project-name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder="My Project"
+                                placeholder={t('app.projects.myProject', 'My Project')}
                                 autoFocus
                                 required
                             />
                         </div>
                         <div className="projects-form__field">
-                            <Label htmlFor="project-description">Description (optional)</Label>
+                            <Label htmlFor="project-description">{t('app.projects.descriptionOptional', 'Description (optional)')}</Label>
                             <Textarea
                                 id="project-description"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                placeholder="What this project is for…"
+                                placeholder={t('app.projects.whatThisProjectIsFor', 'What this project is for…')}
                                 rows={3}
                             />
                         </div>
@@ -247,7 +249,7 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
 
                     <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancel
+                            {t('app.projects.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={submitting || !name.trim()}>
                             {submitting ? 'Creating…' : 'Create Project'}

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { Gauge, Pill } from '@/components/ds';
 import { getWidgetType } from './registry';
+import { useTranslation } from 'react-i18next';
+import { t } from '../../../i18n/t';
 import {
     aggregate,
     chartDomain,
@@ -66,12 +68,13 @@ function Empty({ children }) {
 
 // Muted one-liner. A 403 is phrased as a permission note, not a failure.
 function Failed({ error, subject = 'data' }) {
+    const { t } = useTranslation();
     if (error?.forbidden) {
-        return <div className="skw-empty skw-empty--error">Your role cannot read {subject}.</div>;
+        return <div className="skw-empty skw-empty--error">{t('app.renderers.yourRoleCannotRead', 'Your role cannot read')} {subject}.</div>;
     }
     return (
         <div className="skw-empty skw-empty--error">
-            Could not load {subject}
+            {t('app.renderers.couldNotLoad', 'Could not load')} {subject}
             {error?.message ? ` — ${error.message}` : '.'}
         </div>
     );
@@ -271,6 +274,7 @@ function unsupportedNote(metric, resource) {
 /* -------------------------------------------------------------------- stat */
 
 function WStat({ cfg, ctx }) {
+    const { t } = useTranslation();
     const resource = resolveResource(cfg.resource, ctx);
     const label = useResourceLabel(resource);
     const agg = cfg.agg || 'last';
@@ -279,7 +283,7 @@ function WStat({ cfg, ctx }) {
     if (loading && !series.length) return <Loading />;
     if (error) return <Failed error={error} subject="metrics" />;
     if (!supported) return <Empty>{unsupportedNote(metric, resource)}</Empty>;
-    if (!series.length) return <Empty>No samples recorded in this range yet.</Empty>;
+    if (!series.length) return <Empty>{t('app.renderers.noSamplesRecordedInThisRange', 'No samples recorded in this range yet.')}</Empty>;
 
     const value = aggregate(series, agg);
     const delta = deltaPercent(series, agg);
@@ -290,7 +294,7 @@ function WStat({ cfg, ctx }) {
             <div className="skw-stat__value" style={{ color }}>{formatValue(value, metric.unit)}</div>
             <div className="skw-stat__meta mono">
                 {delta === null ? (
-                    <span className="faint">no trend yet</span>
+                    <span className="faint">{t('app.renderers.noTrendYet', 'no trend yet')}</span>
                 ) : (
                     // Written out rather than interpolated so the modifier is a
                     // literal a stylesheet audit can find.
@@ -400,6 +404,7 @@ const GAUGE_ARC = Math.PI * GAUGE_RADIUS;
 const GAUGE_PATH = 'M16 72 A54 54 0 0 1 124 72';
 
 function WGauge({ cfg, ctx }) {
+    const { t } = useTranslation();
     const resource = resolveResource(cfg.resource, ctx);
     const label = useResourceLabel(resource);
     const { series, loading, error, supported, metric } = useMetricSeries(resource, cfg.metric, ctx.range, ctx.tick);
@@ -407,7 +412,7 @@ function WGauge({ cfg, ctx }) {
     if (loading && !series.length) return <Loading />;
     if (error) return <Failed error={error} subject="metrics" />;
     if (!supported) return <Empty>{unsupportedNote(metric, resource)}</Empty>;
-    if (!series.length) return <Empty>No samples recorded in this range yet.</Empty>;
+    if (!series.length) return <Empty>{t('app.renderers.noSamplesRecordedInThisRange2', 'No samples recorded in this range yet.')}</Empty>;
 
     const value = aggregate(series, cfg.agg || 'last');
     // Percentage metrics have a real ceiling; rates do not, so scale to the
@@ -445,6 +450,7 @@ function WGauge({ cfg, ctx }) {
 const HEATMAP_KEY = { cpu: 'cpu', ram: 'memory', disk: 'disk' };
 
 function WTopN({ cfg, ctx }) {
+    const { t } = useTranslation();
     const { servers, loading, error } = useFleetHeatmap(ctx.tick);
     const metric = getMetric(cfg.metric);
     const key = HEATMAP_KEY[metric.id];
@@ -452,7 +458,7 @@ function WTopN({ cfg, ctx }) {
     if (loading && !servers.length) return <Loading />;
     if (error) return <Failed error={error} subject="fleet metrics" />;
     if (!key) {
-        return <Empty>{metric.label} cannot be ranked across servers — pick CPU, memory or disk.</Empty>;
+        return <Empty>{metric.label} {t('app.renderers.cannotBeRankedAcrossServersPick', 'cannot be ranked across servers — pick CPU, memory or disk.')}</Empty>;
     }
 
     const rows = servers
@@ -461,7 +467,7 @@ function WTopN({ cfg, ctx }) {
         .sort((a, b) => b.value - a.value)
         .slice(0, Math.max(1, Number(cfg.limit) || 5));
 
-    if (!rows.length) return <Empty>No fleet servers are reporting metrics yet.</Empty>;
+    if (!rows.length) return <Empty>{t('app.renderers.noFleetServersAreReportingMetrics', 'No fleet servers are reporting metrics yet.')}</Empty>;
 
     const peak = Math.max(...rows.map((r) => r.value), 1);
 
@@ -553,6 +559,7 @@ function WTable({ cfg, ctx }) {
 /* -------------------------------------------------------------------- logs */
 
 function WLogs({ cfg, ctx }) {
+    const { t } = useTranslation();
     const bodyRef = useRef(null);
     const { lines, label, unconfigured, loading, error } = useLogTail(cfg, ctx.tick);
 
@@ -565,14 +572,14 @@ function WLogs({ cfg, ctx }) {
     }, [shown.length]);
 
     if (unconfigured) {
-        return <Empty>Pick a log file or container in this widget&rsquo;s settings.</Empty>;
+        return <Empty>{t('app.renderers.pickALogFileOrContainer', 'Pick a log file or container in this widget’s settings.')}</Empty>;
     }
     if (loading && !lines.length) return <Loading />;
     if (error?.elevated) {
-        return <Empty>{label || 'This log'} needs elevated access — choose another source in settings.</Empty>;
+        return <Empty>{label || 'This log'} {t('app.renderers.needsElevatedAccessChooseAnotherSource', 'needs elevated access — choose another source in settings.')}</Empty>;
     }
     if (error) return <Failed error={error} subject="logs" />;
-    if (!lines.length) return <Empty>No log lines available.</Empty>;
+    if (!lines.length) return <Empty>{t('app.renderers.noLogLinesAvailable', 'No log lines available.')}</Empty>;
 
     const counts = lines.reduce((acc, l) => ({ ...acc, [l.lvl]: (acc[l.lvl] || 0) + 1 }), {});
 
@@ -586,7 +593,7 @@ function WLogs({ cfg, ctx }) {
             </div>
             <div className="skw-logs__body" ref={bodyRef}>
                 {shown.length === 0 ? (
-                    <Empty>No lines at this level.</Empty>
+                    <Empty>{t('app.renderers.noLinesAtThisLevel', 'No lines at this level.')}</Empty>
                 ) : shown.map((l, i) => (
                     <div className={`skw-logs__line lv-${l.lvl}`} key={i}>
                         {l.t ? <span className="t">{l.t}</span> : null}
@@ -618,11 +625,12 @@ function stepState(index, job) {
 }
 
 function WDeploys({ cfg, ctx }) {
+    const { t } = useTranslation();
     const { jobs, loading, error } = useDeployJobs(cfg.limit, ctx.tick);
 
     if (loading && !jobs.length) return <Loading />;
     if (error) return <Failed error={error} subject="deployments" />;
-    if (!jobs.length) return <Empty>No deployments yet.</Empty>;
+    if (!jobs.length) return <Empty>{t('app.renderers.noDeploymentsYet', 'No deployments yet.')}</Empty>;
 
     return (
         <div className="skw-list">
@@ -659,6 +667,7 @@ function WDeploys({ cfg, ctx }) {
 const SEVERITY_COLOR = { critical: 'var(--red)', warning: 'var(--amber)' };
 
 function WAlerts({ cfg, ctx }) {
+    const { t } = useTranslation();
     const { alerts, loading, error } = useOpenAlerts(cfg.limit, ctx.tick);
 
     if (loading && !alerts.length) return <Loading />;
@@ -668,7 +677,7 @@ function WAlerts({ cfg, ctx }) {
         ? alerts.filter((a) => a.severity === cfg.severity)
         : alerts;
 
-    if (!shown.length) return <Empty>No alerts firing.</Empty>;
+    if (!shown.length) return <Empty>{t('app.renderers.noAlertsFiring', 'No alerts firing.')}</Empty>;
 
     return (
         <div className="skw-list">
@@ -696,11 +705,12 @@ function WAlerts({ cfg, ctx }) {
 const STATE_COLOR = { up: 'var(--green)', down: 'var(--red)', unknown: 'var(--amber)' };
 
 function WStatus({ cfg, ctx }) {
+    const { t } = useTranslation();
     const { cells, loading, error, source } = useStatusCells(cfg.source, cfg.limit, ctx.tick);
 
     if (loading && !cells.length) return <Loading />;
     if (error) return <Failed error={error} subject={source} />;
-    if (!cells.length) return <Empty>Nothing to monitor yet.</Empty>;
+    if (!cells.length) return <Empty>{t('app.renderers.nothingToMonitorYet', 'Nothing to monitor yet.')}</Empty>;
 
     const target = source === 'services' ? '/services' : '/servers';
 
@@ -739,15 +749,16 @@ function describeLog(entry) {
 }
 
 function WFeed({ cfg, ctx }) {
+    const { t } = useTranslation();
     const isAdmin = Boolean(ctx.isAdmin);
     const { items, loading, error } = useActivity(cfg.limit, isAdmin, ctx.tick);
 
     // The audit trail lives behind /admin/activity/feed. Say so instead of
     // firing a request that can only come back 403.
-    if (!isAdmin) return <Empty>Requires admin.</Empty>;
+    if (!isAdmin) return <Empty>{t('app.renderers.requiresAdmin', 'Requires admin.')}</Empty>;
     if (loading && !items.length) return <Loading />;
     if (error) return <Failed error={error} subject="the activity feed" />;
-    if (!items.length) return <Empty>No recorded activity yet.</Empty>;
+    if (!items.length) return <Empty>{t('app.renderers.noRecordedActivityYet', 'No recorded activity yet.')}</Empty>;
 
     return (
         <div className="skw-list">
@@ -790,8 +801,9 @@ export const QUICK_ACTION_KEYS = Object.keys(ACTIONS);
 export const QUICK_ACTION_OPTIONS = Object.entries(ACTIONS).map(([key, [label]]) => [key, label]);
 
 function WActions({ cfg, ctx }) {
+    const { t } = useTranslation();
     const items = (Array.isArray(cfg.items) ? cfg.items : []).filter((key) => ACTIONS[key]);
-    if (!items.length) return <Empty>No actions selected.</Empty>;
+    if (!items.length) return <Empty>{t('app.renderers.noActionsSelected', 'No actions selected.')}</Empty>;
 
     return (
         <div className="skw-actions">
@@ -811,12 +823,13 @@ function WActions({ cfg, ctx }) {
 /* ------------------------------------------------------------------- specs */
 
 function WSpecs({ cfg, ctx }) {
+    const { t } = useTranslation();
     const resource = resolveResource(cfg.resource, ctx);
     const { rows, loading, error } = useSystemSpecs(resource, ctx.tick);
 
     if (loading && !rows.length) return <Loading />;
     if (error) return <Failed error={error} subject="host details" />;
-    if (!rows.length) return <Empty>This host reported no details.</Empty>;
+    if (!rows.length) return <Empty>{t('app.renderers.thisHostReportedNoDetails', 'This host reported no details.')}</Empty>;
 
     return (
         <div className="skw-kv">
@@ -857,8 +870,9 @@ function renderInline(text, keyPrefix) {
 }
 
 function WNote({ cfg }) {
+    const { t } = useTranslation();
     const text = typeof cfg.text === 'string' ? cfg.text : '';
-    if (!text.trim()) return <Empty>Empty note — add text in the widget settings.</Empty>;
+    if (!text.trim()) return <Empty>{t('app.renderers.emptyNoteAddTextInThe', 'Empty note — add text in the widget settings.')}</Empty>;
 
     return (
         <div className="skw-note">
@@ -956,7 +970,7 @@ class WidgetBoundary extends Component {
 
     render() {
         if (this.state.failed) {
-            return <div className="skw-empty skw-empty--error">This widget failed to render.</div>;
+            return <div className="skw-empty skw-empty--error">{t('app.renderers.thisWidgetFailedToRender', 'This widget failed to render.')}</div>;
         }
         return this.props.children;
     }
@@ -971,6 +985,7 @@ class WidgetBoundary extends Component {
  * An unknown type renders a `.skw-empty` notice and never throws.
  */
 export function WidgetBody({ widget, ctx }) {
+    const { t } = useTranslation();
     const safeCtx = ctx || {};
     const type = widget?.type;
 
@@ -981,7 +996,7 @@ export function WidgetBody({ widget, ctx }) {
     const Renderer = Core || contributed;
 
     if (!Renderer) {
-        return <div className="skw-empty">Unknown widget type “{String(type ?? '')}”.</div>;
+        return <div className="skw-empty">{t('app.renderers.unknownWidgetType', 'Unknown widget type “')}{String(type ?? '')}”.</div>;
     }
 
     return (

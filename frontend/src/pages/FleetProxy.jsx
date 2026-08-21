@@ -13,6 +13,8 @@ import {
     GridToolsMenu, GridFilterDrawer,
 } from '@/components/ds/grid';
 import EmptyState from '../components/EmptyState';
+import { useTranslation } from 'react-i18next';
+import { t } from '../i18n/t';
 
 // Fleet-wide reverse-proxy dashboard (Phase 4 of C6). Aggregates every
 // server's managed-proxy posture into one table: which proxy each server runs
@@ -24,9 +26,9 @@ import EmptyState from '../components/EmptyState';
 // Human label + Pill kind for each proxy type. Host nginx is the default and
 // reads as the "neutral" choice; the managed stacks get accent colors.
 const PROXY_TYPE_META = {
-    nginx: { label: 'Nginx', kind: 'gray' },
-    traefik: { label: 'Traefik', kind: 'cyan' },
-    caddy: { label: 'Caddy', kind: 'violet' },
+    nginx: { labelKey: 'app.fleetProxy.nginx', label: 'Nginx', kind: 'gray' },
+    traefik: { labelKey: 'app.fleetProxy.traefik', label: 'Traefik', kind: 'cyan' },
+    caddy: { labelKey: 'app.fleetProxy.caddy', label: 'Caddy', kind: 'violet' },
 };
 
 // Recommendation level → Pill kind. 'ok' reads green (aligned), 'info' is a
@@ -62,7 +64,7 @@ const statusLabel = (row) => dsStatusLabel(row.status);
 const FLEET_COLUMNS = [
     {
         key: 'server',
-        header: 'Server',
+        headerKey: 'app.fleetProxy.server', header: 'Server',
         sortable: true,
         hideable: false,
         type: 'text',
@@ -77,7 +79,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'type',
-        header: 'Proxy type',
+        headerKey: 'app.fleetProxy.proxyType', header: 'Proxy type',
         sortable: true,
         type: 'enum',
         groupable: true,
@@ -95,7 +97,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'status',
-        header: 'Status',
+        headerKey: 'app.fleetProxy.status', header: 'Status',
         sortable: true,
         type: 'enum',
         groupable: true,
@@ -108,7 +110,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'apps',
-        header: 'Apps',
+        headerKey: 'app.fleetProxy.apps', header: 'Apps',
         sortable: true,
         type: 'num',
         value: (row) => row.app_count ?? 0,
@@ -124,7 +126,7 @@ const FLEET_COLUMNS = [
         // below needs a real, positive mismatch — a missing count can never
         // look like a fault.
         key: 'mismatches',
-        header: 'Mismatches',
+        headerKey: 'app.fleetProxy.mismatches', header: 'Mismatches',
         sortable: true,
         type: 'num',
         value: (row) => row.mismatch_count ?? 0,
@@ -142,7 +144,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'recommendation',
-        header: 'Recommendation',
+        headerKey: 'app.fleetProxy.recommendation', header: 'Recommendation',
         sortable: true,
         type: 'enum',
         // The LEVEL is the filterable dimension — the text carries a per-row
@@ -168,7 +170,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'lastRegenerated',
-        header: 'Last regenerated',
+        headerKey: 'app.fleetProxy.lastRegenerated', header: 'Last regenerated',
         sortable: true,
         // Declared, not inferred: the sorter wants epoch ms, and letting that
         // number type the column would offer "is under 1754…" instead of a
@@ -184,7 +186,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'networks',
-        header: 'Networks',
+        headerKey: 'app.fleetProxy.networks', header: 'Networks',
         sortable: true,
         type: 'num',
         value: (row) => row.networks_count ?? 0,
@@ -199,7 +201,7 @@ const FLEET_COLUMNS = [
         cellClassName: 'fleet-proxy__col-actions',
         render: (row) => (
             <Button asChild variant="ghost" size="sm">
-                <Link to={`/servers/${row.server_id}/proxy`}>Manage</Link>
+                <Link to={`/servers/${row.server_id}/proxy`}>{t('app.fleetProxy.manage', 'Manage')}</Link>
             </Button>
         ),
     },
@@ -295,6 +297,7 @@ const FLEET_BUILTIN_VIEWS = [
 ];
 
 const FleetProxy = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -320,7 +323,7 @@ const FleetProxy = () => {
             setError(null);
         } catch (err) {
             setError(err.message || 'Failed to load fleet proxy overview');
-            toast.error('Failed to load fleet proxy overview');
+            toast.error(t('app.fleetProxy.failedToLoadFleetProxyOverview', 'Failed to load fleet proxy overview'));
         } finally {
             setLoading(false);
         }
@@ -334,7 +337,7 @@ const FleetProxy = () => {
     useTopbarActions(() => (
         <Button size="sm" onClick={load} disabled={loading}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {t('app.fleetProxy.refresh', 'Refresh')}
         </Button>
     ), [loading]);
 
@@ -377,7 +380,7 @@ const FleetProxy = () => {
             {error ? (
                 <div className="fleet-proxy__error">
                     <p>{error}</p>
-                    <Button variant="outline" size="sm" onClick={load}>Retry</Button>
+                    <Button variant="outline" size="sm" onClick={load}>{t('app.fleetProxy.retry', 'Retry')}</Button>
                 </div>
             ) : (
                 <>
@@ -406,8 +409,8 @@ const FleetProxy = () => {
                             emptyState={(
                                 <EmptyState
                                     icon={Network}
-                                    title="No servers in the fleet"
-                                    description="This is where each server's reverse-proxy posture lands: which proxy it runs, whether it's healthy, and when its config was last regenerated. Host Nginx is the default; a server can opt into a managed Traefik or Caddy stack from its Proxy tab. Add a server to start."
+                                    title={t('app.fleetProxy.noServersInTheFleet', 'No servers in the fleet')}
+                                    description={t('app.fleetProxy.thisIsWhereEachServerS', 'This is where each server\'s reverse-proxy posture lands: which proxy it runs, whether it\'s healthy, and when its config was last regenerated. Host Nginx is the default; a server can opt into a managed Traefik or Caddy stack from its Proxy tab. Add a server to start.')}
                                 />
                             )}
                         />

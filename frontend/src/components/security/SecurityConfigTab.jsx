@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
 
 const SecurityConfigTab = () => {
+    const { t } = useTranslation();
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -50,7 +52,7 @@ const SecurityConfigTab = () => {
     }
 
     if (loading) {
-        return <div className="loading-sm">Loading settings...</div>;
+        return <div className="loading-sm">{t('app.securityConfigTab.loadingSettings', 'Loading settings...')}</div>;
     }
 
     return (
@@ -63,12 +65,12 @@ const SecurityConfigTab = () => {
 
             <div className="card">
                 <div className="card-header">
-                    <h3>ClamAV Settings</h3>
+                    <h3>{t('app.securityConfigTab.clamavSettings', 'ClamAV Settings')}</h3>
                 </div>
                 <div className="card-body">
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="clamav-enabled">Enable ClamAV scanning</Label>
+                            <Label htmlFor="clamav-enabled">{t('app.securityConfigTab.enableClamavScanning', 'Enable ClamAV scanning')}</Label>
                             <Switch
                                 id="clamav-enabled"
                                 checked={config?.clamav?.enabled || false}
@@ -79,7 +81,7 @@ const SecurityConfigTab = () => {
 
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="clamav-scan-upload">Scan files on upload</Label>
+                            <Label htmlFor="clamav-scan-upload">{t('app.securityConfigTab.scanFilesOnUpload', 'Scan files on upload')}</Label>
                             <Switch
                                 id="clamav-scan-upload"
                                 checked={config?.clamav?.scan_on_upload || false}
@@ -89,7 +91,7 @@ const SecurityConfigTab = () => {
                     </div>
 
                     <div className="form-group">
-                        <Label>Quarantine Path</Label>
+                        <Label>{t('app.securityConfigTab.quarantinePath', 'Quarantine Path')}</Label>
                         <Input
                             type="text"
                             value={config?.clamav?.quarantine_path || '/var/quarantine'}
@@ -101,12 +103,12 @@ const SecurityConfigTab = () => {
 
             <div className="card">
                 <div className="card-header">
-                    <h3>File Integrity Settings</h3>
+                    <h3>{t('app.securityConfigTab.fileIntegritySettings', 'File Integrity Settings')}</h3>
                 </div>
                 <div className="card-body">
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="integrity-enabled">Enable file integrity monitoring</Label>
+                            <Label htmlFor="integrity-enabled">{t('app.securityConfigTab.enableFileIntegrityMonitoring', 'Enable file integrity monitoring')}</Label>
                             <Switch
                                 id="integrity-enabled"
                                 checked={config?.file_integrity?.enabled || false}
@@ -117,7 +119,7 @@ const SecurityConfigTab = () => {
 
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="integrity-alert">Alert on file changes</Label>
+                            <Label htmlFor="integrity-alert">{t('app.securityConfigTab.alertOnFileChanges', 'Alert on file changes')}</Label>
                             <Switch
                                 id="integrity-alert"
                                 checked={config?.file_integrity?.alert_on_change || false}
@@ -130,12 +132,12 @@ const SecurityConfigTab = () => {
 
             <div className="card">
                 <div className="card-header">
-                    <h3>Notification Settings</h3>
+                    <h3>{t('app.securityConfigTab.notificationSettings', 'Notification Settings')}</h3>
                 </div>
                 <div className="card-body">
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="notify-malware">Notify on malware detection</Label>
+                            <Label htmlFor="notify-malware">{t('app.securityConfigTab.notifyOnMalwareDetection', 'Notify on malware detection')}</Label>
                             <Switch
                                 id="notify-malware"
                                 checked={config?.notifications?.on_malware_found || false}
@@ -146,7 +148,7 @@ const SecurityConfigTab = () => {
 
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="notify-integrity">Notify on integrity changes</Label>
+                            <Label htmlFor="notify-integrity">{t('app.securityConfigTab.notifyOnIntegrityChanges', 'Notify on integrity changes')}</Label>
                             <Switch
                                 id="notify-integrity"
                                 checked={config?.notifications?.on_integrity_change || false}
@@ -157,7 +159,7 @@ const SecurityConfigTab = () => {
 
                     <div className="form-group">
                         <div className="toggle-switch-label">
-                            <Label htmlFor="notify-suspicious">Notify on suspicious activity</Label>
+                            <Label htmlFor="notify-suspicious">{t('app.securityConfigTab.notifyOnSuspiciousActivity', 'Notify on suspicious activity')}</Label>
                             <Switch
                                 id="notify-suspicious"
                                 checked={config?.notifications?.on_suspicious_activity || false}

@@ -21,8 +21,10 @@ import NetworksTab, { CreateNetworkButton } from '../components/docker/NetworksT
 import VolumesTab, { CreateVolumeButton } from '../components/docker/VolumesTab';
 import PruneButton from '../components/docker/PruneButton';
 import RequiresDocker from '../components/RequiresDocker';
+import { useTranslation } from 'react-i18next';
 
 const Docker = () => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useTabParam('/docker', VALID_TABS);
     const [dockerStatus, setDockerStatus] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -165,7 +167,7 @@ const Docker = () => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Checking Docker status..." />;
+        return <EmptyState loading loadingVariant="table" title={t('app.docker.checkingDockerStatus', 'Checking Docker status...')} />;
     }
 
     // No page header here: the unavailable panel below is its own heading, and
@@ -184,19 +186,19 @@ const Docker = () => {
                             <path d="M21 12c0 4-3 7-8 7s-8-3-8-7" strokeDasharray="2 2"/>
                         </svg>
                     </div>
-                    <h2>Docker Not Available</h2>
+                    <h2>{t('app.docker.dockerNotAvailable', 'Docker Not Available')}</h2>
                     <p className="docker-unavailable-message">
-                        Docker is not installed or not running on this system.
+                        {t('app.docker.dockerIsNotInstalledOrNot', 'Docker is not installed or not running on this system.')}
                     </p>
                     <div className="docker-unavailable-details">
                         <code>{dockerStatus?.error || 'Unable to connect to Docker daemon'}</code>
                     </div>
                     <div className="docker-unavailable-help">
-                        <h4>To use Docker management:</h4>
+                        <h4>{t('app.docker.toUseDockerManagement', 'To use Docker management:')}</h4>
                         <ul>
-                            <li>Ensure Docker Desktop is installed and running</li>
-                            <li>On Linux, make sure the Docker daemon is started</li>
-                            <li>Verify the user has permissions to access Docker</li>
+                            <li>{t('app.docker.ensureDockerDesktopIsInstalledAnd', 'Ensure Docker Desktop is installed and running')}</li>
+                            <li>{t('app.docker.onLinuxMakeSureTheDocker', 'On Linux, make sure the Docker daemon is started')}</li>
+                            <li>{t('app.docker.verifyTheUserHasPermissionsTo', 'Verify the user has permissions to access Docker')}</li>
                         </ul>
                     </div>
                     <Button onClick={checkDockerStatus}>
@@ -204,7 +206,7 @@ const Docker = () => {
                             <path d="M23 4v6h-6M1 20v-6h6"/>
                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                         </svg>
-                        Retry Connection
+                        {t('app.docker.retryConnection', 'Retry Connection')}
                     </Button>
                 </div>
             </div>
@@ -212,11 +214,11 @@ const Docker = () => {
     }
 
     const tabs = [
-        { id: 'containers', label: 'Containers', icon: Box, count: stats.containers.total },
-        { id: 'compose', label: 'Compose', icon: Package, count: null },
-        { id: 'images', label: 'Images', icon: Layers, count: stats.images.total },
-        { id: 'volumes', label: 'Volumes', icon: HardDrive, count: stats.volumes.total },
-        { id: 'networks', label: 'Networks', icon: NetworkIcon, count: stats.networks.total }
+        { id: 'containers', labelKey: 'app.docker.containers', label: 'Containers', icon: Box, count: stats.containers.total },
+        { id: 'compose', labelKey: 'app.docker.compose', label: 'Compose', icon: Package, count: null },
+        { id: 'images', labelKey: 'app.docker.images', label: 'Images', icon: Layers, count: stats.images.total },
+        { id: 'volumes', labelKey: 'app.docker.volumes', label: 'Volumes', icon: HardDrive, count: stats.volumes.total },
+        { id: 'networks', labelKey: 'app.docker.networks', label: 'Networks', icon: NetworkIcon, count: stats.networks.total }
     ];
 
     const activeTabMeta = tabs.find(tab => tab.id === activeTab) || tabs[0];
@@ -238,7 +240,7 @@ const Docker = () => {
                         <section className="dx-sidebar-section">
                             <div className="dx-sidebar-section-header">
                                 <ServerIcon size={14} />
-                                <span>Targets</span>
+                                <span>{t('app.docker.targets', 'Targets')}</span>
                             </div>
                             <div className="dx-resource-nav">
                                 {availableServers.map(server => (
@@ -259,7 +261,7 @@ const Docker = () => {
                     <section className="dx-sidebar-section">
                         <div className="dx-sidebar-section-header">
                             <Box size={14} />
-                            <span>Resources</span>
+                            <span>{t('app.docker.resources', 'Resources')}</span>
                         </div>
                         <div className="dx-resource-nav">
                             {tabs.map(tab => {
@@ -282,23 +284,23 @@ const Docker = () => {
                     <section className="dx-sidebar-section">
                         <div className="dx-sidebar-section-header">
                             <Activity size={14} />
-                            <span>Inventory</span>
+                            <span>{t('app.docker.inventory', 'Inventory')}</span>
                         </div>
                         <div className="dx-inventory-list">
                             <div className="dx-inventory-item">
-                                <span>Running</span>
+                                <span>{t('app.docker.running', 'Running')}</span>
                                 <strong>{stats.containers.running}</strong>
                             </div>
                             <div className="dx-inventory-item">
-                                <span>Stopped</span>
+                                <span>{t('app.docker.stopped', 'Stopped')}</span>
                                 <strong>{stats.containers.stopped}</strong>
                             </div>
                             <div className="dx-inventory-item">
-                                <span>Images</span>
+                                <span>{t('app.docker.images2', 'Images')}</span>
                                 <strong>{stats.images.size}</strong>
                             </div>
                             <div className="dx-inventory-item">
-                                <span>Volumes</span>
+                                <span>{t('app.docker.volumes2', 'Volumes')}</span>
                                 <strong>{stats.volumes.total}</strong>
                             </div>
                         </div>
@@ -307,7 +309,7 @@ const Docker = () => {
                     <section className="dx-sidebar-section">
                         <div className="dx-sidebar-section-header">
                             <Trash2 size={14} />
-                            <span>Maintenance</span>
+                            <span>{t('app.docker.maintenance', 'Maintenance')}</span>
                         </div>
                         <div className="dx-sidebar-section-content">
                             <PruneButton onPruned={loadStats} />
@@ -317,18 +319,18 @@ const Docker = () => {
 
                 <main className="dx-main">
                     <KpiBand>
-                        <MetricCard tone="accent" icon={<Box size={16} />} value={stats.containers.total} label="Containers">
+                        <MetricCard tone="accent" icon={<Box size={16} />} value={stats.containers.total} label={t('app.docker.containers2', 'Containers')}>
                             <div className="sk-kpi__sub"><span>{stats.containers.running} running</span></div>
                         </MetricCard>
-                        <MetricCard tone="cyan" icon={<Layers size={16} />} value={stats.images.total} label="Images">
+                        <MetricCard tone="cyan" icon={<Layers size={16} />} value={stats.images.total} label={t('app.docker.images3', 'Images')}>
                             <div className="sk-kpi__sub"><span>{stats.images.size}</span></div>
                         </MetricCard>
-                        <MetricCard tone="violet" icon={<HardDrive size={16} />} value={stats.volumes.total} label="Volumes" />
-                        <MetricCard tone="green" icon={<NetworkIcon size={16} />} value={stats.networks.total} label="Networks" />
+                        <MetricCard tone="violet" icon={<HardDrive size={16} />} value={stats.volumes.total} label={t('app.docker.volumes3', 'Volumes')} />
+                        <MetricCard tone="green" icon={<NetworkIcon size={16} />} value={stats.networks.total} label={t('app.docker.networks2', 'Networks')} />
                     </KpiBand>
                     <div className="dx-workbar">
                         <div className="dx-workbar-title">
-                            <span>Docker</span>
+                            <span>{t('app.docker.docker', 'Docker')}</span>
                             <strong>{activeTabMeta.label}</strong>
                             {hasMultipleTargets && <em>{selectedServer.name || selectedServer.id}</em>}
                         </div>

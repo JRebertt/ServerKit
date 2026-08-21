@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import api from '../../../services/api';
 import { timeAgo } from '../../../utils/time';
+import { useTranslation } from 'react-i18next';
 
 // result → Badge-like pill tone. ok=green, error=red, conflict=amber, skipped=muted.
 const RESULT_TONE = {
@@ -16,6 +17,7 @@ const RESULT_TONE = {
 };
 
 export default function DnsActivity({ configId, limit = 25 }) {
+    const { t } = useTranslation();
     const [changes, setChanges] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -36,7 +38,7 @@ export default function DnsActivity({ configId, limit = 25 }) {
     useEffect(() => { load(); }, [load]);
 
     if (loading) {
-        return <div className="dns-activity__status">Loading recent changes…</div>;
+        return <div className="dns-activity__status">{t('app.dnsActivity.loadingRecentChanges', 'Loading recent changes…')}</div>;
     }
 
     if (error) {
@@ -47,7 +49,7 @@ export default function DnsActivity({ configId, limit = 25 }) {
         return (
             <div className="dns-activity__empty">
                 <Activity size={16} />
-                <span>No DNS changes yet</span>
+                <span>{t('app.dnsActivity.noDnsChangesYet', 'No DNS changes yet')}</span>
             </div>
         );
     }
@@ -57,10 +59,10 @@ export default function DnsActivity({ configId, limit = 25 }) {
             <table className="dns-activity__table">
                 <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>Action</th>
-                        <th>Record</th>
-                        <th>Result</th>
+                        <th>{t('app.dnsActivity.time', 'Time')}</th>
+                        <th>{t('app.dnsActivity.action', 'Action')}</th>
+                        <th>{t('app.dnsActivity.record', 'Record')}</th>
+                        <th>{t('app.dnsActivity.result', 'Result')}</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -9,6 +9,7 @@ import { EngineIcon } from '../icons/DatabaseBrands';
 import EngineGlyph from './EngineGlyph';
 import { runQuery, connKey, ENGINE_META } from './dbAdapter';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 import {
     engineBrandKey, engineInitialDatabase, engineInstanceKey, engineMeta,
     engineTreeStatus, engineUnit, singular,
@@ -77,6 +78,7 @@ function targetFromEngine(instance) {
 }
 
 export default function CreateTableModal({ preset, engines = [], isAdmin = false, onClose, onCreated }) {
+    const { t } = useTranslation();
     const [targets, setTargets] = useState(null); // null while loading
     const [loadFailed, setLoadFailed] = useState(false);
     const [targetKey, setTargetKey] = useState('');
@@ -239,7 +241,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
     function copy() {
         copyToClipboard(statement).then((ok) => {
             if (!ok) {
-                setResult({ ok: false, message: 'Could not copy to the clipboard.' });
+                setResult({ ok: false, messageKey: 'app.createTableModal.couldNotCopyToTheClipboard', message: 'Could not copy to the clipboard.' });
                 return;
             }
             setCopied(true);
@@ -269,23 +271,23 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
     );
 
     return (
-        <Modal open onClose={onClose} title={`New ${unitOne}`} size="xl" footer={footer}>
+        <Modal open onClose={onClose} title={t('app.createTableModal.new', 'New {{unitOne}}', { unitOne: unitOne })} size="xl" footer={footer}>
             {targets === null ? (
                 <p className="dbx-builder__loading">
-                    <Loader2 size={15} className="dbx-spin" aria-hidden="true" /> Looking for databases…
+                    <Loader2 size={15} className="dbx-spin" aria-hidden="true" /> {t('app.createTableModal.lookingForDatabases', 'Looking for databases…')}
                 </p>
             ) : !targets.length ? (
                 <div className="dbx-notice dbx-notice--info">
                     <AlertTriangle size={15} aria-hidden="true" />
                     <div>
-                        <strong>Nothing to create into yet.</strong>
+                        <strong>{t('app.createTableModal.nothingToCreateIntoYet', 'Nothing to create into yet.')}</strong>
                         <p>
                             {loadFailed
                                 ? 'ServerKit could not reach any database server. Check that MySQL or PostgreSQL is running, then try again.'
                                 : 'Create a database first — the builder writes into an existing one.'}
                         </p>
                         <button type="button" className="dbx-inline-link" onClick={load}>
-                            <RefreshCw size={13} aria-hidden="true" /> Try again
+                            <RefreshCw size={13} aria-hidden="true" /> {t('app.createTableModal.tryAgain', 'Try again')}
                         </button>
                     </div>
                 </div>
@@ -294,13 +296,13 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                     {loadFailed && (
                         <div className="dbx-notice dbx-notice--warn">
                             <AlertTriangle size={15} aria-hidden="true" />
-                            <div><p>Some database servers did not answer, so this list may be incomplete.</p></div>
+                            <div><p>{t('app.createTableModal.someDatabaseServersDidNotAnswer', 'Some database servers did not answer, so this list may be incomplete.')}</p></div>
                         </div>
                     )}
 
                     <div className="dbx-field-row">
                         <div className="dbx-field">
-                            <label className="dbx-field__label" htmlFor="dbx-builder-target">Database</label>
+                            <label className="dbx-field__label" htmlFor="dbx-builder-target">{t('app.createTableModal.database', 'Database')}</label>
                             <div className="dbx-select">
                                 <select
                                     id="dbx-builder-target"
@@ -308,14 +310,14 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                     onChange={(e) => setTargetKey(e.target.value)}
                                 >
                                     {targets.some((t) => t.dialect) && (
-                                        <optgroup label="Databases ServerKit can write to">
+                                        <optgroup label={t('app.createTableModal.databasesServerkitCanWriteTo', 'Databases ServerKit can write to')}>
                                             {targets.filter((t) => t.dialect).map((t) => (
                                                 <option key={t.key} value={t.key}>{t.label} · {t.sub}</option>
                                             ))}
                                         </optgroup>
                                     )}
                                     {targets.some((t) => !t.dialect) && (
-                                        <optgroup label="Generate only — no client bridge">
+                                        <optgroup label={t('app.createTableModal.generateOnlyNoClientBridge', 'Generate only — no client bridge')}>
                                             {targets.filter((t) => !t.dialect).map((t) => (
                                                 <option key={t.key} value={t.key}>{t.label} · {t.sub}</option>
                                             ))}
@@ -351,7 +353,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                     : <EngineIcon engine={target.engine || 'database'} size={15} />}
                             </span>
                             {target.dialect
-                                ? <>Statements run as {SQL_DIALECTS[target.dialect].label} against <code>{target.label}</code>.</>
+                                ? <>{t('app.createTableModal.statementsRunAs', 'Statements run as')} {SQL_DIALECTS[target.dialect].label} against <code>{target.label}</code>.</>
                                 : <>{target.blockedReason}</>}
                         </p>
                     )}
@@ -360,8 +362,8 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                         <div className="dbx-notice dbx-notice--info">
                             <AlertTriangle size={15} aria-hidden="true" />
                             <div>
-                                <strong>Copy this into {target.client}.</strong>
-                                <p>The builder writes the statement; running it is a step you take in the engine&apos;s own client.</p>
+                                <strong>{t('app.createTableModal.copyThisInto', 'Copy this into')} {target.client}.</strong>
+                                <p>{t('app.createTableModal.theBuilderWritesTheStatementRunning', 'The builder writes the statement; running it is a step you take in the engine\'s own client.')}</p>
                             </div>
                         </div>
                     )}
@@ -370,8 +372,8 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                         <div className="dbx-notice dbx-notice--warn">
                             <ShieldAlert size={15} aria-hidden="true" />
                             <div>
-                                <strong>Read-only account.</strong>
-                                <p>Creating a {unitOne} is a write statement, and only administrators may run those. You can still build and copy it.</p>
+                                <strong>{t('app.createTableModal.readOnlyAccount', 'Read-only account.')}</strong>
+                                <p>{t('app.createTableModal.creatingA', 'Creating a')} {unitOne} {t('app.createTableModal.isAWriteStatementAndOnly', 'is a write statement, and only administrators may run those. You can still build and copy it.')}</p>
                             </div>
                         </div>
                     )}
@@ -380,11 +382,11 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                         <span className="dbx-field__label">{words.fields}</span>
                         <div className="dbx-colgrid">
                             <div className="dbx-colgrid__head">
-                                <span>Name</span>
-                                <span>Type</span>
+                                <span>{t('app.createTableModal.name', 'Name')}</span>
+                                <span>{t('app.createTableModal.type', 'Type')}</span>
                                 <span>{words.key}</span>
                                 <span>{words.required}</span>
-                                <span>Default</span>
+                                <span>{t('app.createTableModal.default', 'Default')}</span>
                                 <span aria-hidden="true" />
                             </div>
                             <div className="dbx-colgrid__rows">
@@ -398,14 +400,14 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                                 onChange={(e) => setCol(i, 'name', e.target.value)}
                                                 placeholder={target?.dialect ? 'column' : 'field'}
                                                 spellCheck="false"
-                                                aria-label={`Name of column ${i + 1}`}
+                                                aria-label={t('app.createTableModal.nameOfColumn', 'Name of column {{value}}', { value: i + 1 })}
                                             />
                                         </div>
                                         <div className="dbx-select dbx-select--sm">
                                             <select
                                                 value={c.type}
                                                 onChange={(e) => setCol(i, 'type', e.target.value)}
-                                                aria-label={`Type of column ${i + 1}`}
+                                                aria-label={t('app.createTableModal.typeOfColumn', 'Type of column {{value}}', { value: i + 1 })}
                                             >
                                                 {types.map((t) => <option key={t} value={t}>{t}</option>)}
                                             </select>
@@ -416,7 +418,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                             className={`dbx-cbox${c.pk ? ' is-on' : ''}`}
                                             onClick={() => setKeyCol(i)}
                                             aria-pressed={Boolean(c.pk)}
-                                            aria-label={`${words.key} on column ${i + 1}`}
+                                            aria-label={t('app.createTableModal.onColumn', '{{key}} on column {{value}}', { key: words.key, value: i + 1 })}
                                         >
                                             {c.pk && <Check size={12} aria-hidden="true" />}
                                         </button>
@@ -425,7 +427,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                             className={`dbx-cbox${c.notNull ? ' is-on' : ''}`}
                                             onClick={() => setCol(i, 'notNull', !c.notNull)}
                                             aria-pressed={Boolean(c.notNull)}
-                                            aria-label={`${words.required} on column ${i + 1}`}
+                                            aria-label={t('app.createTableModal.onColumn2', '{{required}} on column {{value}}', { required: words.required, value: i + 1 })}
                                         >
                                             {c.notNull && <Check size={12} aria-hidden="true" />}
                                         </button>
@@ -435,7 +437,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                                 onChange={(e) => setCol(i, 'def', e.target.value)}
                                                 placeholder="—"
                                                 spellCheck="false"
-                                                aria-label={`Default for column ${i + 1}`}
+                                                aria-label={t('app.createTableModal.defaultForColumn', 'Default for column {{value}}', { value: i + 1 })}
                                             />
                                         </div>
                                         <button
@@ -443,7 +445,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                             className="dbx-icon-xs"
                                             onClick={() => removeCol(i)}
                                             disabled={cols.length < 2}
-                                            aria-label={`Remove column ${i + 1}`}
+                                            aria-label={t('app.createTableModal.removeColumn', 'Remove column {{value}}', { value: i + 1 })}
                                         >
                                             <Trash2 size={13} aria-hidden="true" />
                                         </button>
@@ -451,18 +453,17 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                 ))}
                             </div>
                             <button type="button" className="dbx-inline-link dbx-colgrid__add" onClick={addCol}>
-                                <Plus size={13} aria-hidden="true" /> Add {target?.dialect ? 'column' : 'field'}
+                                <Plus size={13} aria-hidden="true" /> {t('app.createTableModal.add', 'Add')} {target?.dialect ? 'column' : 'field'}
                             </button>
                         </div>
                         <p className="dbx-field-hint">
                             {target?.dialect ? (
                                 <>
-                                    A whole-number key becomes <code>{SQL_DIALECTS[target.dialect].keyNote}</code>.
-                                    Defaults: numbers stay numbers, {DEFAULT_KEYWORD_LIST.join(' / ')} stay keywords,
-                                    anything else is quoted as text.
+                                    {t('app.createTableModal.aWholeNumberKeyBecomes', 'A whole-number key becomes')} <code>{SQL_DIALECTS[target.dialect].keyNote}</code>.
+                                    Defaults: numbers stay numbers, {DEFAULT_KEYWORD_LIST.join(' / ')} {t('app.createTableModal.stayKeywordsAnythingElseIsQuoted', 'stay keywords, anything else is quoted as text.')}
                                 </>
                             ) : (
-                                <>Field names and types are written into the statement below exactly as typed.</>
+                                <>{t('app.createTableModal.fieldNamesAndTypesAreWritten', 'Field names and types are written into the statement below exactly as typed.')}</>
                             )}
                         </p>
                     </div>

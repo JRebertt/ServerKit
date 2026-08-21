@@ -2,6 +2,7 @@ import { Activity, Archive, Cloud, HardDrive, Plus } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 import { Pill } from '@/components/ds';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const PROVIDER_META = {
     s3: { name: 'S3-compatible', type: 'Object storage', icon: Cloud },
@@ -15,6 +16,7 @@ const PROVIDER_META = {
 export default function StorageDestinations({
     stats, storageConfig, costSummary, onTest, onBrowse, onAdd, testing,
 }) {
+    const { t } = useTranslation();
     const provider = storageConfig?.provider || 'local';
     const rates = costSummary?.cost_rates || {};
     const remote = PROVIDER_META[provider];
@@ -107,7 +109,7 @@ export default function StorageDestinations({
                                 </Button>
                             )}
                             <Button variant="outline" size="sm" onClick={onBrowse}>
-                                <Archive size={14} /> Snapshots
+                                <Archive size={14} /> {t('app.storageDestinations.snapshots', 'Snapshots')}
                             </Button>
                         </div>
                     </article>

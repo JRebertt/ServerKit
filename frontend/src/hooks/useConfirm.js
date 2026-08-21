@@ -20,8 +20,8 @@ export function useConfirm() {
         isOpen: false,
         title: '',
         message: '',
-        confirmText: 'Confirm',
-        cancelText: 'Cancel',
+        confirmTextKey: 'app.useConfirm.confirm', confirmText: 'Confirm',
+        cancelTextKey: 'app.useConfirm.cancel', cancelText: 'Cancel',
         variant: 'danger',
         resolve: null,
     });

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { X, Plus, FolderTree } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 // Smart tracked-path selector for WordPress Git connections. Replaces the raw
 // textarea with removable chips, common-path shortcuts, and custom-path input.
 const QUICK_PATHS = [
-    { label: 'Themes', value: 'wp-content/themes' },
-    { label: 'Plugins', value: 'wp-content/plugins' },
-    { label: 'Uploads', value: 'wp-content/uploads' },
-    { label: 'MU Plugins', value: 'wp-content/mu-plugins' },
+    { labelKey: 'app.pathSelector.themes', label: 'Themes', value: 'wp-content/themes' },
+    { labelKey: 'app.pathSelector.plugins', label: 'Plugins', value: 'wp-content/plugins' },
+    { labelKey: 'app.pathSelector.uploads', label: 'Uploads', value: 'wp-content/uploads' },
+    { labelKey: 'app.pathSelector.muPlugins', label: 'MU Plugins', value: 'wp-content/mu-plugins' },
 ];
 
 function normalizePath(value) {
@@ -22,6 +23,7 @@ function normalizePath(value) {
 }
 
 const PathSelector = ({ paths, onChange, label, hint, id }) => {
+    const { t } = useTranslation();
     const [inputValue, setInputValue] = useState('');
 
     function addPath(raw) {
@@ -77,7 +79,7 @@ const PathSelector = ({ paths, onChange, label, hint, id }) => {
                     placeholder="wp-content/custom-path"
                 />
                 <Button type="button" variant="outline" size="sm" onClick={() => addPath(inputValue)}>
-                    <Plus size={14} aria-hidden="true" /> Add
+                    <Plus size={14} aria-hidden="true" /> {t('app.pathSelector.add', 'Add')}
                 </Button>
             </div>
 
@@ -90,7 +92,7 @@ const PathSelector = ({ paths, onChange, label, hint, id }) => {
                                 type="button"
                                 className="git-path-selector__remove"
                                 onClick={() => removePath(path)}
-                                aria-label={`Remove ${path}`}
+                                aria-label={t('app.pathSelector.remove', 'Remove {{path}}', { path: path })}
                             >
                                 <X size={12} aria-hidden="true" />
                             </button>
@@ -98,7 +100,7 @@ const PathSelector = ({ paths, onChange, label, hint, id }) => {
                     ))}
                 </ul>
             ) : (
-                <p className="git-path-selector__empty">No paths tracked yet. Choose a shortcut above or type a custom path.</p>
+                <p className="git-path-selector__empty">{t('app.pathSelector.noPathsTrackedYetChooseA', 'No paths tracked yet. Choose a shortcut above or type a custom path.')}</p>
             )}
 
             {hint && <span className="git-connect__field-hint">{hint}</span>}

@@ -3,8 +3,10 @@
 // Shared by the Domains drawer's per-record "Make dynamic" flow.
 import { AlertTriangle } from 'lucide-react';
 import CopyButton from '../CopyButton';
+import { useTranslation } from 'react-i18next';
 
 export default function DdnsTokenCallout({ host, onDismiss }) {
+    const { t } = useTranslation();
     // The public, token-authenticated endpoint a router/cron calls on IP change.
     const updateUrl = `${window.location.origin}/api/v1/ddns/update?token=${host.token}`;
 
@@ -13,25 +15,25 @@ export default function DdnsTokenCallout({ host, onDismiss }) {
             <div className="ddns-token-callout__head">
                 <AlertTriangle size={16} />
                 <span>
-                    Token for <strong>{host.hostname || host.record_name}</strong> — shown once. Save it now.
+                    {t('app.ddnsTokenCallout.tokenFor', 'Token for')} <strong>{host.hostname || host.record_name}</strong> {t('app.ddnsTokenCallout.shownOnceSaveItNow', '— shown once. Save it now.')}
                 </span>
                 {onDismiss && (
-                    <button type="button" className="ddns-token-callout__close" onClick={onDismiss} aria-label="Dismiss">
+                    <button type="button" className="ddns-token-callout__close" onClick={onDismiss} aria-label={t('app.ddnsTokenCallout.dismiss', 'Dismiss')}>
                         &times;
                     </button>
                 )}
             </div>
 
             <div className="ddns-token-callout__row">
-                <span className="ddns-token-callout__label">Token</span>
+                <span className="ddns-token-callout__label">{t('app.ddnsTokenCallout.token', 'Token')}</span>
                 <code className="ddns-token-callout__value">{host.token}</code>
-                <CopyButton value={host.token} label="Copy token" size="sm" variant="outline" />
+                <CopyButton value={host.token} label={t('app.ddnsTokenCallout.copyToken', 'Copy token')} size="sm" variant="outline" />
             </div>
 
             <div className="ddns-token-callout__row">
-                <span className="ddns-token-callout__label">Update URL</span>
+                <span className="ddns-token-callout__label">{t('app.ddnsTokenCallout.updateUrl', 'Update URL')}</span>
                 <code className="ddns-token-callout__value">{updateUrl}</code>
-                <CopyButton value={updateUrl} label="Copy URL" size="sm" variant="outline" />
+                <CopyButton value={updateUrl} label={t('app.ddnsTokenCallout.copyUrl', 'Copy URL')} size="sm" variant="outline" />
             </div>
         </div>
     );

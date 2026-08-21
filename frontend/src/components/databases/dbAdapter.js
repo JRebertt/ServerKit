@@ -8,10 +8,10 @@ import { api } from '../../services/api';
 // Engine display metadata. Brand accents live in SCSS via `.is-<engine>` so the
 // tree icons tint without inline styles.
 export const ENGINE_META = {
-    mysql:      { label: 'MySQL / MariaDB', short: 'MySQL' },
-    postgresql: { label: 'PostgreSQL',      short: 'PostgreSQL' },
-    sqlite:     { label: 'SQLite',          short: 'SQLite' },
-    docker:     { label: 'Docker apps',     short: 'Docker' },
+    mysql:      { labelKey: 'app.dbAdapter.mysqlMariadb', label: 'MySQL / MariaDB', short: 'MySQL' },
+    postgresql: { labelKey: 'app.dbAdapter.postgresql', label: 'PostgreSQL',      short: 'PostgreSQL' },
+    sqlite:     { labelKey: 'app.dbAdapter.sqlite', label: 'SQLite',          short: 'SQLite' },
+    docker:     { labelKey: 'app.dbAdapter.dockerApps', label: 'Docker apps',     short: 'Docker' },
 };
 
 // A docker container can host either engine; everything else maps 1:1.

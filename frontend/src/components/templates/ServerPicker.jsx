@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const GIB = 1024 ** 3;
 
@@ -15,6 +16,7 @@ function capacityLabel(server) {
 // service on a second box is a visible choice rather than a hidden default.
 // Gains a filter box once the fleet outgrows a glanceable list.
 export default function ServerPicker({ servers, value, onChange, filterThreshold = 6 }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
 
     const list = useMemo(() => {
@@ -34,14 +36,14 @@ export default function ServerPicker({ servers, value, onChange, filterThreshold
                     <Search size={14} />
                     <input
                         type="search"
-                        placeholder="Find a server…"
+                        placeholder={t('app.serverPicker.findAServer', 'Find a server…')}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        aria-label="Filter servers"
+                        aria-label={t('app.serverPicker.filterServers', 'Filter servers')}
                     />
                 </div>
             )}
-            <div className="sk-srvpick__list" role="radiogroup" aria-label="Deploy to server">
+            <div className="sk-srvpick__list" role="radiogroup" aria-label={t('app.serverPicker.deployToServer', 'Deploy to server')}>
                 {list.map((server) => {
                     const capacity = capacityLabel(server);
                     const selected = value === server.id;
@@ -67,7 +69,7 @@ export default function ServerPicker({ servers, value, onChange, filterThreshold
                     );
                 })}
                 {list.length === 0 && (
-                    <div className="sk-srvpick__empty">No servers match.</div>
+                    <div className="sk-srvpick__empty">{t('app.serverPicker.noServersMatch', 'No servers match.')}</div>
                 )}
             </div>
         </div>

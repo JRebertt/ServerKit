@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Copy, Download, Maximize2, Minimize2, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const LEVELS = ['all', 'info', 'warn', 'error', 'debug'];
 
@@ -16,6 +17,7 @@ export default function ConsoleToolbar({
     navCount = 0, navPos = 0, navLabel = '', onNavPrev, onNavNext,
     focused = false, onToggleFocus,
 }) {
+    const { t } = useTranslation();
     // Clicking a count filters to it, and clicking again clears — the count is
     // worth seeing on its own, so it earns the space either way.
     const toggleLevel = (target) => onLevelChange(level === target ? 'all' : target);
@@ -29,7 +31,7 @@ export default function ConsoleToolbar({
                     onClick={onToggleFollow}
                     aria-pressed={follow}
                 >
-                    Follow
+                    {t('app.consoleToolbar.follow', 'Follow')}
                 </button>
                 <button
                     type="button"
@@ -37,7 +39,7 @@ export default function ConsoleToolbar({
                     onClick={onToggleWrap}
                     aria-pressed={wrap}
                 >
-                    Wrap
+                    {t('app.consoleToolbar.wrap', 'Wrap')}
                 </button>
                 <button
                     type="button"
@@ -45,10 +47,10 @@ export default function ConsoleToolbar({
                     onClick={onToggleTimestamps}
                     aria-pressed={timestamps}
                 >
-                    Timestamps
+                    {t('app.consoleToolbar.timestamps', 'Timestamps')}
                 </button>
                 <label className="deploy-console__level">
-                    <span className="sr-only">Log level</span>
+                    <span className="sr-only">{t('app.consoleToolbar.logLevel', 'Log level')}</span>
                     <select value={level} onChange={(e) => onLevelChange(e.target.value)}>
                         {LEVELS.map((l) => (
                             <option key={l} value={l}>{l === 'all' ? 'All levels' : l}</option>
@@ -82,7 +84,7 @@ export default function ConsoleToolbar({
                     <Search size={14} />
                     <input
                         type="text"
-                        placeholder="Search logs…"
+                        placeholder={t('app.consoleToolbar.searchLogs', 'Search logs…')}
                         value={search}
                         onChange={(e) => onSearchChange(e.target.value)}
                     />
@@ -98,7 +100,7 @@ export default function ConsoleToolbar({
                         className="deploy-console__toggle"
                         onClick={onNavPrev}
                         disabled={!navCount}
-                        title={`Previous ${navLabel || 'match'}`}
+                        title={t('app.consoleToolbar.previous', 'Previous {{value}}', { value: navLabel || 'match' })}
                     >
                         <ArrowUp size={14} />
                     </button>
@@ -107,23 +109,23 @@ export default function ConsoleToolbar({
                         className="deploy-console__toggle"
                         onClick={onNavNext}
                         disabled={!navCount}
-                        title={`Next ${navLabel || 'match'}`}
+                        title={t('app.consoleToolbar.next', 'Next {{value}}', { value: navLabel || 'match' })}
                     >
                         <ArrowDown size={14} />
                     </button>
                 </div>
-                <button type="button" className="deploy-console__toggle" onClick={onCopy} title="Copy all logs">
-                    <Copy size={14} /> Copy
+                <button type="button" className="deploy-console__toggle" onClick={onCopy} title={t('app.consoleToolbar.copyAllLogs', 'Copy all logs')}>
+                    <Copy size={14} /> {t('app.consoleToolbar.copy', 'Copy')}
                 </button>
-                <button type="button" className="deploy-console__toggle" onClick={onDownload} title="Download logs as .txt">
-                    <Download size={14} /> Download
+                <button type="button" className="deploy-console__toggle" onClick={onDownload} title={t('app.consoleToolbar.downloadLogsAsTxt', 'Download logs as .txt')}>
+                    <Download size={14} /> {t('app.consoleToolbar.download', 'Download')}
                 </button>
                 <button
                     type="button"
                     className={`deploy-console__toggle ${focused ? 'is-active' : ''}`}
                     onClick={onToggleFocus}
                     aria-pressed={focused}
-                    title={focused ? 'Show the deployment details again' : 'Give the log the whole page'}
+                    title={focused ? t('app.consoleToolbar.showTheDeploymentDetailsAgain', 'Show the deployment details again') : t('app.consoleToolbar.giveTheLogTheWholePage', 'Give the log the whole page')}
                 >
                     {focused ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     {focused ? 'Exit' : 'Expand'}

@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Log tail refresh cadence while auto-refresh is on.
 const LOG_REFRESH_MS = 5000;
@@ -19,6 +20,7 @@ const LOG_REFRESH_MS = 5000;
 const LOG_LEVELS = ['all', 'error', 'warn', 'info', 'debug'];
 
 const LogsTab = ({ app }) => {
+    const { t } = useTranslation();
     const { openDrawer } = useLogsDrawer();
     const toast = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -98,7 +100,7 @@ const LogsTab = ({ app }) => {
             next.delete('deploy_job');
             setSearchParams(next, { replace: true });
         }
-        toast.success('Deployment finished successfully');
+        toast.success(t('app.logsTab.deploymentFinishedSuccessfully', 'Deployment finished successfully'));
         loadLogs();
     }
 
@@ -155,7 +157,7 @@ const LogsTab = ({ app }) => {
             {/* Live deploy progress (from repo create / template install) */}
             {deployJobId && (
                 <div className="deploy-job-banner">
-                    <h4 className="deploy-job-banner__title">Deploying this service</h4>
+                    <h4 className="deploy-job-banner__title">{t('app.logsTab.deployingThisService', 'Deploying this service')}</h4>
                     <DeploymentJobProgress
                         jobId={deployJobId}
                         onSuccess={handleDeploySuccess}
@@ -165,7 +167,7 @@ const LogsTab = ({ app }) => {
             )}
             {deployError && (
                 <div className="alert alert-danger">
-                    <strong>Deployment failed:</strong> {deployError}
+                    <strong>{t('app.logsTab.deploymentFailed', 'Deployment failed:')}</strong> {deployError}
                 </div>
             )}
 
@@ -179,7 +181,7 @@ const LogsTab = ({ app }) => {
                         </svg>
                         <Input
                             type="text"
-                            placeholder="Search logs..."
+                            placeholder={t('app.logsTab.searchLogs', 'Search logs...')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -203,36 +205,36 @@ const LogsTab = ({ app }) => {
                         value={lineCount}
                         onChange={(e) => setLineCount(Number(e.target.value))}
                     >
-                        <option value={100}>100 lines</option>
-                        <option value={200}>200 lines</option>
-                        <option value={500}>500 lines</option>
-                        <option value={1000}>1000 lines</option>
+                        <option value={100}>{t('app.logsTab.100Lines', '100 lines')}</option>
+                        <option value={200}>{t('app.logsTab.200Lines', '200 lines')}</option>
+                        <option value={500}>{t('app.logsTab.500Lines', '500 lines')}</option>
+                        <option value={1000}>{t('app.logsTab.1000Lines', '1000 lines')}</option>
                     </select>
                 </div>
                 <div className="logs-toolbar__right">
                     <label className="logs-toolbar__toggle">
                         <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
-                        <span>Auto-scroll</span>
+                        <span>{t('app.logsTab.autoScroll', 'Auto-scroll')}</span>
                     </label>
                     <label className="logs-toolbar__toggle">
                         <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-                        <span>Live</span>
+                        <span>{t('app.logsTab.live', 'Live')}</span>
                     </label>
                     <div className="logs-toolbar__divider" />
-                    <Button variant="ghost" size="icon" onClick={handleCopy} title="Copy logs">
+                    <Button variant="ghost" size="icon" onClick={handleCopy} title={t('app.logsTab.copyLogs', 'Copy logs')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                         </svg>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={handleDownload} title="Download logs">
+                    <Button variant="ghost" size="icon" onClick={handleDownload} title={t('app.logsTab.downloadLogs', 'Download logs')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="7 10 12 15 17 10"/>
                             <line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={loadLogs} title="Refresh">
+                    <Button variant="ghost" size="icon" onClick={loadLogs} title={t('app.logsTab.refresh', 'Refresh')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="23 4 23 10 17 10"/>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -248,7 +250,7 @@ const LogsTab = ({ app }) => {
                             logPath: app.log_path,
                             appType: app.app_type,
                         })}
-                        title="Pin to drawer"
+                        title={t('app.logsTab.pinToDrawer', 'Pin to drawer')}
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="12" y1="17" x2="12" y2="22"/>
@@ -269,7 +271,7 @@ const LogsTab = ({ app }) => {
             {/* Log Viewer */}
             <div className="logs-viewer" ref={logRef}>
                 {loading ? (
-                    <div className="logs-viewer__loading">Loading logs...</div>
+                    <div className="logs-viewer__loading">{t('app.logsTab.loadingLogs', 'Loading logs...')}</div>
                 ) : filteredLines.length === 0 ? (
                     <div className="logs-viewer__empty">
                         {searchTerm || levelFilter !== 'all'

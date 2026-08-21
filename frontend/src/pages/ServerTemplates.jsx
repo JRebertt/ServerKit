@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DataTable, Pill } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -203,6 +204,7 @@ const BUILTIN_VIEWS = [
 ];
 
 const ServerTemplates = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { user } = useAuth();
     const [templates, setTemplates] = useState([]);
@@ -250,7 +252,7 @@ const ServerTemplates = () => {
             // under whoever is reading it.
             setActiveTab(current => current ?? (mine.length > 0 ? 'templates' : 'library'));
         } catch (err) {
-            toast.error('Failed to load templates');
+            toast.error(t('app.serverTemplates.failedToLoadTemplates', 'Failed to load templates'));
         } finally {
             setLoading(false);
         }
@@ -268,7 +270,7 @@ const ServerTemplates = () => {
                 packages: form.packages.split('\n').map(p => p.trim()).filter(Boolean),
             };
             await api.createServerTemplate(data);
-            toast.success('Template created');
+            toast.success(t('app.serverTemplates.templateCreated', 'Template created'));
             setShowCreateModal(false);
             loadData();
         } catch (err) {
@@ -279,7 +281,7 @@ const ServerTemplates = () => {
     const handleCreateFromLibrary = async (key) => {
         try {
             await api.createServerTemplateFromLibrary(key);
-            toast.success('Template created from library');
+            toast.success(t('app.serverTemplates.templateCreatedFromLibrary', 'Template created from library'));
             loadData();
         } catch (err) {
             toast.error(err.message);
@@ -289,7 +291,7 @@ const ServerTemplates = () => {
     const handleDelete = async (id) => {
         try {
             await api.deleteServerTemplate(id);
-            toast.success('Template deleted');
+            toast.success(t('app.serverTemplates.templateDeleted', 'Template deleted'));
             setDeleteConfirm(null);
             loadData();
         } catch (err) {
@@ -300,7 +302,7 @@ const ServerTemplates = () => {
     const handleAssign = async (templateId, serverId) => {
         try {
             await api.assignServerTemplate(templateId, serverId);
-            toast.success('Template assigned');
+            toast.success(t('app.serverTemplates.templateAssigned', 'Template assigned'));
             setShowAssignModal(false);
             loadData();
         } catch (err) {
@@ -311,7 +313,7 @@ const ServerTemplates = () => {
     const handleCheckDrift = async (assignmentId) => {
         try {
             await api.checkTemplateDrift(assignmentId);
-            toast.success('Drift check initiated');
+            toast.success(t('app.serverTemplates.driftCheckInitiated', 'Drift check initiated'));
             loadData();
         } catch (err) {
             toast.error(err.message);
@@ -321,7 +323,7 @@ const ServerTemplates = () => {
     const handleRemediate = async (assignmentId) => {
         try {
             await api.remediateTemplateDrift(assignmentId);
-            toast.success('Remediation initiated');
+            toast.success(t('app.serverTemplates.remediationInitiated', 'Remediation initiated'));
             loadData();
         } catch (err) {
             toast.error(err.message);
@@ -331,7 +333,7 @@ const ServerTemplates = () => {
     // Publish the admin "Create Template" action to the shared tab-group top bar.
     useTopbarActions(() =>
         user?.is_admin ? (
-            <Button size="sm" onClick={() => setShowCreateModal(true)}>Create Template</Button>
+            <Button size="sm" onClick={() => setShowCreateModal(true)}>{t('app.serverTemplates.createTemplate', 'Create Template')}</Button>
         ) : null,
         [user?.is_admin]
     );
@@ -345,7 +347,7 @@ const ServerTemplates = () => {
     const columns = useMemo(() => [
         {
             key: 'name',
-            header: 'Template',
+            headerKey: 'app.serverTemplates.template', header: 'Template',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -371,7 +373,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'category',
-            header: 'Category',
+            headerKey: 'app.serverTemplates.category', header: 'Category',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -388,7 +390,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'servers',
-            header: 'Servers',
+            headerKey: 'app.serverTemplates.servers', header: 'Servers',
             sortable: true,
             type: 'num',
             // A template with no assignments reads 0 rather than a dash, so the
@@ -402,7 +404,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'compliance',
-            header: 'Compliance',
+            headerKey: 'app.serverTemplates.compliance', header: 'Compliance',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -416,7 +418,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'remediation',
-            header: 'Remediation',
+            headerKey: 'app.serverTemplates.remediation', header: 'Remediation',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -430,7 +432,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'version',
-            header: 'Version',
+            headerKey: 'app.serverTemplates.version', header: 'Version',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.version ?? 1,
@@ -443,7 +445,7 @@ const ServerTemplates = () => {
         // is a real gap, and inside one merged cell it could not be sorted.
         {
             key: 'packages',
-            header: 'Packages',
+            headerKey: 'app.serverTemplates.packages', header: 'Packages',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.packages?.length ?? 0,
@@ -452,7 +454,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'services',
-            header: 'Services',
+            headerKey: 'app.serverTemplates.services', header: 'Services',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.services?.length ?? 0,
@@ -465,7 +467,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'firewall',
-            header: 'Firewall',
+            headerKey: 'app.serverTemplates.firewall', header: 'Firewall',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.firewall_rules?.length ?? 0,
@@ -474,7 +476,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'updated',
-            header: 'Updated',
+            headerKey: 'app.serverTemplates.updated', header: 'Updated',
             sortable: true,
             type: 'date',
             value: (tmpl) => tmpl.updated_at || null,
@@ -496,11 +498,11 @@ const ServerTemplates = () => {
                         size="sm"
                         onClick={() => { setSelectedTemplate(tmpl); setShowAssignModal(true); }}
                     >
-                        Assign
+                        {t('app.serverTemplates.assign', 'Assign')}
                     </Button>
                     {user?.is_admin && (
                         <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(tmpl)}>
-                            Delete
+                            {t('app.serverTemplates.delete', 'Delete')}
                         </Button>
                     )}
                 </div>
@@ -554,9 +556,9 @@ const ServerTemplates = () => {
                 have templates of your own, those are what you came for. */}
             <Tabs value={activeTab || 'library'} onValueChange={setActiveTab}>
                 <TabsList>
-                    <TabsTrigger value="library">Library</TabsTrigger>
+                    <TabsTrigger value="library">{t('app.serverTemplates.library', 'Library')}</TabsTrigger>
                     <TabsTrigger value="templates">
-                        Templates{templates.length > 0 ? ` (${templates.length})` : ''}
+                        {t('app.serverTemplates.templates', 'Templates')}{templates.length > 0 ? ` (${templates.length})` : ''}
                     </TabsTrigger>
                 </TabsList>
 
@@ -564,11 +566,11 @@ const ServerTemplates = () => {
                     {templates.length === 0 ? (
                         <EmptyState
                             icon={LayoutTemplate}
-                            title="No templates yet"
-                            description="Start from a ready-made library template, or create one from scratch."
+                            title={t('app.serverTemplates.noTemplatesYet', 'No templates yet')}
+                            description={t('app.serverTemplates.startFromAReadyMadeLibrary', 'Start from a ready-made library template, or create one from scratch.')}
                             action={(
                                 <Button size="sm" onClick={() => setActiveTab('library')}>
-                                    Browse the library
+                                    {t('app.serverTemplates.browseTheLibrary', 'Browse the library')}
                                 </Button>
                             )}
                         />
@@ -612,11 +614,11 @@ const ServerTemplates = () => {
                                 <div className="template-card__spec">
                                     {tmpl.packages?.length > 0 && <span>{tmpl.packages.length} packages</span>}
                                     {tmpl.services?.length > 0 && <span>{tmpl.services.length} services</span>}
-                                    {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} firewall rules</span>}
+                                    {tmpl.firewall_rules?.length > 0 && <span>{tmpl.firewall_rules.length} {t('app.serverTemplates.firewallRules', 'firewall rules')}</span>}
                                 </div>
                                 <div className="template-card__actions">
                                     <Button size="sm" onClick={() => handleCreateFromLibrary(key)}>
-                                        Use Template
+                                        {t('app.serverTemplates.useTemplate', 'Use Template')}
                                     </Button>
                                 </div>
                             </div>
@@ -629,36 +631,36 @@ const ServerTemplates = () => {
             <Modal
                 open={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
-                title="Create Template"
+                title={t('app.serverTemplates.createTemplate2', 'Create Template')}
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
-                        <Button onClick={handleCreate} disabled={!form.name}>Create</Button>
+                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>{t('app.serverTemplates.cancel', 'Cancel')}</Button>
+                        <Button onClick={handleCreate} disabled={!form.name}>{t('app.serverTemplates.create', 'Create')}</Button>
                     </>
                 )}
             >
                 <div className="form-group">
-                    <label>Name</label>
+                    <label>{t('app.serverTemplates.name', 'Name')}</label>
                     <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                 </div>
                 <div className="form-group">
-                    <label>Description</label>
+                    <label>{t('app.serverTemplates.description', 'Description')}</label>
                     <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
                 </div>
                 <div className="form-group">
-                    <label>Category</label>
+                    <label>{t('app.serverTemplates.category2', 'Category')}</label>
                     <select className="form-select" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
                         {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                 </div>
                 <div className="form-group">
-                    <label>Packages (one per line)</label>
-                    <Textarea className="form-input--mono" value={form.packages} onChange={e => setForm({...form, packages: e.target.value})} rows={4} placeholder={"nginx\nphp-fpm\ncertbot"} />
+                    <label>{t('app.serverTemplates.packagesOnePerLine', 'Packages (one per line)')}</label>
+                    <Textarea className="form-input--mono" value={form.packages} onChange={e => setForm({...form, packages: e.target.value})} rows={4} placeholder={t('app.serverTemplates.nginxPhpFpmCertbot', 'nginx\nphp-fpm\ncertbot')} />
                 </div>
                 <div className="form-group">
                     <label className="checkbox-label">
                         <input type="checkbox" checked={form.auto_remediate} onChange={e => setForm({...form, auto_remediate: e.target.checked})} />
-                        Auto-remediate drift
+                        {t('app.serverTemplates.autoRemediateDrift', 'Auto-remediate drift')}
                     </label>
                 </div>
             </Modal>
@@ -667,11 +669,11 @@ const ServerTemplates = () => {
             <Modal
                 open={Boolean(showAssignModal && selectedTemplate)}
                 onClose={() => setShowAssignModal(false)}
-                title={selectedTemplate ? `Assign ${selectedTemplate.name}` : 'Assign template'}
+                title={selectedTemplate ? t('app.serverTemplates.assign2', 'Assign {{name}}', { name: selectedTemplate.name }) : t('app.serverTemplates.assignTemplate', 'Assign template')}
             >
                 {selectedTemplate && (
                     <>
-                        <p>Select a server to apply this template:</p>
+                        <p>{t('app.serverTemplates.selectAServerToApplyThis', 'Select a server to apply this template:')}</p>
                         <div className="server-select-list">
                             {servers.map(server => (
                                 <div key={server.id} className="server-select-item" onClick={() => handleAssign(selectedTemplate.id, server.id)}>
@@ -686,8 +688,8 @@ const ServerTemplates = () => {
 
             {deleteConfirm && (
                 <ConfirmDialog
-                    title="Delete Template"
-                    message={`Delete "${deleteConfirm.name}"? This cannot be undone.`}
+                    title={t('app.serverTemplates.deleteTemplate', 'Delete Template')}
+                    message={t('app.serverTemplates.deleteThisCannotBeUndone', 'Delete "{{name}}"? This cannot be undone.', { name: deleteConfirm.name })}
                     onConfirm={() => handleDelete(deleteConfirm.id)}
                     onCancel={() => setDeleteConfirm(null)}
                     variant="danger"

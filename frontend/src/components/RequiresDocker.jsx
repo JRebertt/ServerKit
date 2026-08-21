@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Boxes, Terminal } from 'lucide-react';
 import { useResourceTier } from '../contexts/ResourceTierContext';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Explains a Dockerless install instead of letting the page fail at click time.
@@ -14,6 +15,7 @@ import { useResourceTier } from '../contexts/ResourceTierContext';
  * as normal. A capability probe must never be able to hide a working page.
  */
 const RequiresDocker = ({ children, what = 'This page' }) => {
+    const { t } = useTranslation();
     const { canHostApps, loading, profile, profiles } = useResourceTier();
 
     if (loading || canHostApps) return children;
@@ -26,33 +28,28 @@ const RequiresDocker = ({ children, what = 'This page' }) => {
                 <Boxes size={40} />
             </div>
 
-            <h2 className="requires-docker__title">Docker isn&apos;t available</h2>
+            <h2 className="requires-docker__title">{t('app.requiresDocker.dockerIsnTAvailable', 'Docker isn\'t available')}</h2>
 
             <p className="requires-docker__text">
-                {what} needs Docker to run containers, and this server was
-                installed with the <strong>{profileLabel}</strong> profile, which
-                leaves it out. Nothing is locked — adding Docker turns this page
-                on.
+                {what} {t('app.requiresDocker.needsDockerToRunContainersAnd', 'needs Docker to run containers, and this server was installed with the')} <strong>{profileLabel}</strong> {t('app.requiresDocker.profileWhichLeavesItOutNothing', 'profile, which leaves it out. Nothing is locked — adding Docker turns this page on.')}
             </p>
 
             <div className="requires-docker__how">
                 <div className="requires-docker__how-label">
                     <Terminal size={15} />
-                    Install it on the server, then restart ServerKit:
+                    {t('app.requiresDocker.installItOnTheServerThen', 'Install it on the server, then restart ServerKit:')}
                 </div>
                 <code className="requires-docker__cmd">
-                    curl -fsSL https://get.docker.com | sh
+                    {t('app.requiresDocker.curlFsslHttpsGetDockerCom', 'curl -fsSL https://get.docker.com | sh')}
                 </code>
                 <code className="requires-docker__cmd">
-                    sudo systemctl restart serverkit
+                    {t('app.requiresDocker.sudoSystemctlRestartServerkit', 'sudo systemctl restart serverkit')}
                 </code>
             </div>
 
             <p className="requires-docker__footnote">
-                ServerKit re-checks for Docker automatically. Monitoring, domains,
-                certificates, cron and DNS keep working without it — see{' '}
-                <Link to="/settings?tab=system">Settings → System</Link> for this
-                install&apos;s profile.
+                {t('app.requiresDocker.serverkitReChecksForDockerAutomatically', 'ServerKit re-checks for Docker automatically. Monitoring, domains, certificates, cron and DNS keep working without it — see')}{' '}
+                <Link to="/settings/system">{t('app.requiresDocker.settingsSystem', 'Settings → System')}</Link> {t('app.requiresDocker.forThisInstallSProfile', 'for this install\'s profile.')}
             </p>
         </div>
     );

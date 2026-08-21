@@ -18,6 +18,7 @@ import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/time';
 import EmailProviders from '../components/EmailProviders';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const STATUSES = ['all', 'pending', 'sent', 'failed', 'skipped'];
 const CHANNELS = ['all', 'inapp', 'email', 'discord', 'slack', 'telegram', 'webhook'];
@@ -77,6 +78,7 @@ const DELIVERY_BUILTIN_VIEWS = [
 ];
 
 export default function DeliveryLog() {
+    const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const toast = useToast();
     const [deliveries, setDeliveries] = useState([]);
@@ -108,10 +110,10 @@ export default function DeliveryLog() {
     const onRetry = async (id) => {
         try {
             await api.retryDelivery(id);
-            toast.success('Delivery re-queued');
+            toast.success(t('app.deliveryLog.deliveryReQueued', 'Delivery re-queued'));
             load();
         } catch {
-            toast.error('Retry failed');
+            toast.error(t('app.deliveryLog.retryFailed', 'Retry failed'));
         }
     };
 
@@ -140,7 +142,7 @@ export default function DeliveryLog() {
     const columns = [
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.deliveryLog.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // Explicit rather than leaning on the sortValue fallback: without it
@@ -154,7 +156,7 @@ export default function DeliveryLog() {
         },
         {
             key: 'channel',
-            header: 'Channel',
+            headerKey: 'app.deliveryLog.channel', header: 'Channel',
             sortable: true,
             type: 'enum',
             value: (d) => d.channel || '',
@@ -172,7 +174,7 @@ export default function DeliveryLog() {
         },
         {
             key: 'notification',
-            header: 'Notification',
+            headerKey: 'app.deliveryLog.notification', header: 'Notification',
             sortable: true,
             sortValue: (d) => d.title || d.event_key || '',
             render: (d) => (
@@ -184,14 +186,14 @@ export default function DeliveryLog() {
         },
         {
             key: 'tries',
-            header: 'Tries',
+            headerKey: 'app.deliveryLog.tries', header: 'Tries',
             sortable: true,
             sortValue: (d) => d.attempts ?? 0,
             render: (d) => d.attempts,
         },
         {
             key: 'when',
-            header: 'When',
+            headerKey: 'app.deliveryLog.when', header: 'When',
             sortable: true,
             // `date`, declared: the sortValue below is epoch milliseconds, and
             // left to infer, the header menu would offer "is under 1723…" on a
@@ -209,7 +211,7 @@ export default function DeliveryLog() {
             hideable: false,
             render: (d) => (
                 (d.status === 'failed' || d.status === 'skipped') && d.channel !== 'inapp' && (
-                    <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>Retry</Button>
+                    <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>{t('app.deliveryLog.retry', 'Retry')}</Button>
                 )
             ),
         },
@@ -231,8 +233,8 @@ export default function DeliveryLog() {
 
     if (!isAdmin) {
         return (
-            <PageLayout icon={<Send size={18} />} title="Notification Delivery Log">
-                <div className="sk-dlog"><EmptyState title="Admins only." /></div>
+            <PageLayout icon={<Send size={18} />} title={t('app.deliveryLog.notificationDeliveryLog', 'Notification Delivery Log')}>
+                <div className="sk-dlog"><EmptyState title={t('app.deliveryLog.adminsOnly', 'Admins only.')} /></div>
             </PageLayout>
         );
     }
@@ -242,14 +244,14 @@ export default function DeliveryLog() {
     return (
         <PageLayout
             icon={<Send size={18} />}
-            title="Notification Delivery Log"
+            title={t('app.deliveryLog.notificationDeliveryLog2', 'Notification Delivery Log')}
             meta="Outbound deliveries across all channels"
             actions={(
                 // Labelled "Server filters" to keep it apart from the toolbar's
                 // filter icon: this one re-queries the whole table, that one
                 // narrows the rows already on screen.
                 <FilterButton
-                    label="Server filters"
+                    label={t('app.deliveryLog.serverFilters', 'Server filters')}
                     count={serverFilterCount}
                     onClick={() => setFiltersOpen(true)}
                 />
@@ -289,14 +291,14 @@ export default function DeliveryLog() {
                 <GridChips {...chrome.chipProps} />
 
                 {loading && deliveries.length === 0 ? (
-                    <EmptyState loading loadingVariant="table" title="Loading…" />
+                    <EmptyState loading loadingVariant="table" title={t('app.deliveryLog.loading', 'Loading…')} />
                 ) : deliveries.length === 0 ? (
                     <EmptyState
                         icon={Inbox}
-                        title="No deliveries match these filters."
+                        title={t('app.deliveryLog.noDeliveriesMatchTheseFilters', 'No deliveries match these filters.')}
                         action={serverFilterCount > 0 ? (
                             <Button variant="outline" onClick={() => { setStatus('all'); setChannel('all'); }}>
-                                Clear filters
+                                {t('app.deliveryLog.clearFilters', 'Clear filters')}
                             </Button>
                         ) : undefined}
                     />
@@ -324,12 +326,12 @@ export default function DeliveryLog() {
             <FilterDrawer
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
-                title="Filter deliveries"
+                title={t('app.deliveryLog.filterDeliveries', 'Filter deliveries')}
                 activeCount={serverFilterCount}
                 groups={[
-                    { key: 'status', label: 'Status', type: 'single',
+                    { key: 'status', labelKey: 'app.deliveryLog.status2', label: 'Status', type: 'single',
                       options: STATUSES.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
-                    { key: 'channel', label: 'Channel', type: 'single',
+                    { key: 'channel', labelKey: 'app.deliveryLog.channel2', label: 'Channel', type: 'single',
                       options: CHANNELS.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
                 ]}
                 value={{

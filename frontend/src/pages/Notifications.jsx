@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { timeAgo } from '../utils/time';
+import { useTranslation } from 'react-i18next';
 
 const SEVERITY_DOT = {
     critical: '#fb6f6f',
@@ -19,21 +20,22 @@ const SEVERITY_DOT = {
 const PAGE_SIZE = 25;
 
 const CATEGORY_CHIPS = [
-    { key: '', label: 'All categories' },
-    { key: 'system', label: 'System' },
-    { key: 'security', label: 'Security' },
-    { key: 'backups', label: 'Backups' },
-    { key: 'apps', label: 'Apps' },
+    { key: '', labelKey: 'app.notifications.allCategories', label: 'All categories' },
+    { key: 'system', labelKey: 'app.notifications.system', label: 'System' },
+    { key: 'security', labelKey: 'app.notifications.security', label: 'Security' },
+    { key: 'backups', labelKey: 'app.notifications.backups', label: 'Backups' },
+    { key: 'apps', labelKey: 'app.notifications.apps', label: 'Apps' },
 ];
 const SEVERITY_CHIPS = [
-    { key: '', label: 'Any' },
-    { key: 'critical', label: 'Critical' },
-    { key: 'warning', label: 'Warning' },
-    { key: 'success', label: 'Success' },
-    { key: 'info', label: 'Info' },
+    { key: '', labelKey: 'app.notifications.any', label: 'Any' },
+    { key: 'critical', labelKey: 'app.notifications.critical', label: 'Critical' },
+    { key: 'warning', labelKey: 'app.notifications.warning', label: 'Warning' },
+    { key: 'success', labelKey: 'app.notifications.success', label: 'Success' },
+    { key: 'info', labelKey: 'app.notifications.info', label: 'Info' },
 ];
 
 export default function Notifications() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
     const { refresh: refreshBell, items: ctxItems = [], dismissNotice } = useNotifications() || {};
@@ -94,13 +96,13 @@ export default function Notifications() {
     return (
         <PageLayout
             icon={<Bell size={18} />}
-            title="Notifications"
+            title={t('app.notifications.notifications', 'Notifications')}
             meta={unreadCount ? `${unreadCount} unread` : 'All caught up'}
             actions={(
                 <>
                     {isAdmin && (
                         <Button variant="ghost" size="sm" onClick={() => navigate('/admin/notifications')}>
-                            <ScrollText size={15} /> Delivery log
+                            <ScrollText size={15} /> {t('app.notifications.deliveryLog', 'Delivery log')}
                         </Button>
                     )}
                     <Button variant="outline" size="sm" onClick={onMarkAll} disabled={!unreadCount}>
@@ -110,7 +112,7 @@ export default function Notifications() {
             )}
         >
             <div className="sk-notif-page">
-                <div className="sk-notif-page__filters" role="tablist" aria-label="Filter notifications">
+                <div className="sk-notif-page__filters" role="tablist" aria-label={t('app.notifications.filterNotifications', 'Filter notifications')}>
                     <button
                         type="button"
                         role="tab"
@@ -118,7 +120,7 @@ export default function Notifications() {
                         className={!unreadOnly ? 'is-active' : ''}
                         onClick={() => setUnreadOnly(false)}
                     >
-                        All
+                        {t('app.notifications.all', 'All')}
                     </button>
                     <button
                         type="button"
@@ -127,12 +129,12 @@ export default function Notifications() {
                         className={unreadOnly ? 'is-active' : ''}
                         onClick={() => setUnreadOnly(true)}
                     >
-                        Unread
+                        {t('app.notifications.unread', 'Unread')}
                     </button>
                 </div>
 
                 <div className="sk-notif-page__chips">
-                    <div className="sk-notif-chipset" aria-label="Filter by category">
+                    <div className="sk-notif-chipset" aria-label={t('app.notifications.filterByCategory', 'Filter by category')}>
                         {CATEGORY_CHIPS.map((c) => (
                             <button
                                 type="button"
@@ -144,7 +146,7 @@ export default function Notifications() {
                             </button>
                         ))}
                     </div>
-                    <div className="sk-notif-chipset" aria-label="Filter by severity">
+                    <div className="sk-notif-chipset" aria-label={t('app.notifications.filterBySeverity', 'Filter by severity')}>
                         {SEVERITY_CHIPS.map((s) => (
                             <button
                                 type="button"
@@ -159,7 +161,7 @@ export default function Notifications() {
                 </div>
 
                 {loading && items.length === 0 && noticeItems.length === 0 ? (
-                    <div className="sk-notif-page__state">Loading…</div>
+                    <div className="sk-notif-page__state">{t('app.notifications.loading', 'Loading…')}</div>
                 ) : items.length === 0 && noticeItems.length === 0 ? (
                     <div className="sk-notif-page__state">
                         <Bell size={26} aria-hidden="true" />
@@ -189,7 +191,7 @@ export default function Notifications() {
                                     type="button"
                                     className="sk-notif-row__dismiss"
                                     onClick={(e) => { e.stopPropagation(); if (dismissNotice) dismissNotice(item.notice_id); }}
-                                    aria-label={`Dismiss ${item.title}`}
+                                    aria-label={t('app.notifications.dismiss', 'Dismiss {{title}}', { title: item.title })}
                                 >
                                     <X size={15} aria-hidden="true" />
                                 </button>
@@ -222,7 +224,7 @@ export default function Notifications() {
                 {hasMore && !loading && (
                     <div className="sk-notif-page__more">
                         <Button variant="outline" size="sm" onClick={() => fetchPage(items.length, false)}>
-                            Load more
+                            {t('app.notifications.loadMore', 'Load more')}
                         </Button>
                     </div>
                 )}

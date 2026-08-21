@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { Button } from '@/components/ui/button';
 import { rooms, SOCKET_EVENTS } from '@/constants/events';
 import { useServerStream } from '@/hooks/useServerStream';
+import { useTranslation } from 'react-i18next';
 
 // Subscribes to a remote agent's job:<id> stream channel and renders
 // the live log output. Used by PackagesTab and ServicesTab for
@@ -21,6 +22,7 @@ export default function JobProgressModal({
     onClose,
     onComplete,
 }) {
+    const { t } = useTranslation();
     const [lines, setLines] = useState([]);
     const [done, setDone] = useState(null); // null | { exitCode, error, extra }
     const logEndRef = useRef(null);
@@ -76,11 +78,11 @@ export default function JobProgressModal({
             footer={
                 <div className="flex items-center gap-3 w-full">
                     <div className="flex-1">
-                        {!done && <span className="text-muted-foreground text-sm">Streaming progress…</span>}
-                        {success && <span className="text-success text-sm">Completed successfully</span>}
+                        {!done && <span className="text-muted-foreground text-sm">{t('app.jobProgressModal.streamingProgress', 'Streaming progress…')}</span>}
+                        {success && <span className="text-success text-sm">{t('app.jobProgressModal.completedSuccessfully', 'Completed successfully')}</span>}
                         {failure && (
                             <span className="text-destructive text-sm">
-                                Failed{done.exitCode !== null ? ` (exit ${done.exitCode})` : ''}
+                                {t('app.jobProgressModal.failed', 'Failed')}{done.exitCode !== null ? ` (exit ${done.exitCode})` : ''}
                                 {done.error ? `: ${done.error}` : ''}
                             </span>
                         )}
@@ -93,7 +95,7 @@ export default function JobProgressModal({
         >
             <div className="job-progress-modal">
                 {lines.length === 0 && !done && (
-                    <p className="text-muted-foreground text-sm">Waiting for the agent to begin…</p>
+                    <p className="text-muted-foreground text-sm">{t('app.jobProgressModal.waitingForTheAgentToBegin', 'Waiting for the agent to begin…')}</p>
                 )}
                 {lines.length > 0 && (
                     <pre className="job-progress-modal__log">

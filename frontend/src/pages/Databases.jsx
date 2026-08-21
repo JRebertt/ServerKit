@@ -36,6 +36,7 @@ import {
 import { listTables, connKey, connLabel, quoteIdent, ENGINE_META } from '../components/databases/dbAdapter';
 import { copyToClipboard } from '@/utils/clipboard';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Cadence while an engine install is in flight.
 const ENGINE_POLL_MS = 4000;
@@ -83,6 +84,7 @@ function TabIcon({ tab }) {
 }
 
 export default function Databases() {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const navigate = useNavigate();
@@ -435,7 +437,7 @@ export default function Databases() {
     }
 
     function openBackups() {
-        setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', title: 'Backups' }]);
+        setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', titleKey: 'app.databases.backups', title: 'Backups' }]);
         showTab('backups');
     }
 
@@ -519,29 +521,29 @@ export default function Databases() {
     async function backupDatabase(node) {
         try {
             const res = node.engine === 'mysql' ? await api.backupMySQLDatabase(node.label) : await api.backupPostgreSQLDatabase(node.label);
-            if (res.success) toast.success(`Backup created: ${res.backup_path}`);
+            if (res.success) toast.success(t('app.databases.backupCreated', 'Backup created: {{backuppath}}', { backuppath: res.backup_path }));
         } catch {
-            toast.error('Failed to create backup');
+            toast.error(t('app.databases.failedToCreateBackup', 'Failed to create backup'));
         }
     }
 
     async function dropDatabase(node) {
         const ok = await confirm({
-            title: 'Drop database',
-            message: `Drop database "${node.label}"? This permanently deletes the database and all its data.`,
-            confirmText: `Drop ${node.label}`,
+            title: t('app.databases.dropDatabase', 'Drop database'),
+            message: t('app.databases.dropDatabaseThisPermanentlyDeletesThe', 'Drop database "{{label}}"? This permanently deletes the database and all its data.', { label: node.label }),
+            confirmText: t('app.databases.drop', 'Drop {{label}}', { label: node.label }),
             variant: 'danger',
         });
         if (!ok) return;
         try {
             if (node.engine === 'mysql') await api.dropMySQLDatabase(node.label);
             else await api.dropPostgreSQLDatabase(node.label);
-            toast.success(`Dropped database "${node.label}"`);
+            toast.success(t('app.databases.droppedDatabase', 'Dropped database "{{label}}"', { label: node.label }));
             const eng = roots.find((r) => r.engine === node.engine);
             if (eng) refresh(eng);
             setTabs((prev) => prev.filter((t) => !(t.conn && connKey(t.conn) === connKey(node.conn))));
         } catch {
-            toast.error('Failed to drop database');
+            toast.error(t('app.databases.failedToDropDatabase', 'Failed to drop database'));
         }
     }
 
@@ -568,8 +570,8 @@ export default function Databases() {
 
     function copyName(node) {
         copyToClipboard(node.label).then((ok) => (ok
-            ? toast.success('Copied name')
-            : toast.error('Could not copy')));
+            ? toast.success(t('app.databases.copiedName', 'Copied name'))
+            : toast.error(t('app.databases.couldNotCopy', 'Could not copy'))));
     }
 
     function ctxActions(node) {
@@ -580,65 +582,65 @@ export default function Databases() {
                 if (node.instance) {
                     const appId = engineInstanceKey(node.instance);
                     return [
-                        { label: 'Open service', icon: ExternalLink, onClick: () => navigate(`/services/${appId}`) },
-                        { label: 'Deploy activity', icon: Activity, onClick: () => navigate('/deployments') },
-                        { label: 'Refresh', icon: RefreshCw, onClick: () => loadEngines() },
+                        { labelKey: 'app.databases.openService', label: 'Open service', icon: ExternalLink, onClick: () => navigate(`/services/${appId}`) },
+                        { labelKey: 'app.databases.deployActivity', label: 'Deploy activity', icon: Activity, onClick: () => navigate('/deployments') },
+                        { labelKey: 'app.databases.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => loadEngines() },
                     ];
                 }
                 if (node.engine === 'mysql' && node.status === 'active') {
                     return [
-                        { label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'mysql-db' }) },
-                        { label: 'Create user', icon: Plus, onClick: () => openUserModal('mysql') },
-                        { label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'mysql' }, 'mysql') },
-                        { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'app.databases.createDatabase', label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'mysql-db' }) },
+                        { labelKey: 'app.databases.createUser', label: 'Create user', icon: Plus, onClick: () => openUserModal('mysql') },
+                        { labelKey: 'app.databases.processes', label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'mysql' }, 'mysql') },
+                        { labelKey: 'app.databases.refresh2', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
                 if (node.engine === 'postgresql' && node.status === 'active') {
                     return [
-                        { label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'pg-db' }) },
-                        { label: 'Create user', icon: Plus, onClick: () => openUserModal('postgresql') },
-                        { label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'postgresql' }, 'postgresql') },
-                        { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'app.databases.createDatabase2', label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'pg-db' }) },
+                        { labelKey: 'app.databases.createUser2', label: 'Create user', icon: Plus, onClick: () => openUserModal('postgresql') },
+                        { labelKey: 'app.databases.processes2', label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'postgresql' }, 'postgresql') },
+                        { labelKey: 'app.databases.refresh3', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
                 if (node.installers?.length) {
                     return [
                         { label: `Install ${node.label}…`, icon: Download, onClick: () => startInstall(node) },
-                        { label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'app.databases.refresh4', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
-                return [{ label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
+                return [{ labelKey: 'app.databases.refresh5', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'database': {
                 const actions = [
                     { label: `New ${singular(engineUnit(node))}`, icon: Plus, onClick: () => setModal({ type: 'new-table', preset: dbPreset(node) }) },
-                    { label: 'Open SQL console', icon: Terminal, onClick: () => openConsole(node.conn, node.engine) },
-                    { label: 'Refresh tables', icon: RefreshCw, onClick: () => refresh(node) },
+                    { labelKey: 'app.databases.openSqlConsole', label: 'Open SQL console', icon: Terminal, onClick: () => openConsole(node.conn, node.engine) },
+                    { labelKey: 'app.databases.refreshTables', label: 'Refresh tables', icon: RefreshCw, onClick: () => refresh(node) },
                 ];
                 // Only host MySQL / PostgreSQL have a restore route; a SQLite
                 // file or a containerised database has nothing to import into.
                 if (node.conn?.dbType === 'mysql' || node.conn?.dbType === 'postgresql') {
-                    actions.splice(2, 0, { label: 'Import SQL dump…', icon: Download, onClick: () => setModal({ type: 'import', preset: dbPreset(node) }) });
+                    actions.splice(2, 0, { labelKey: 'app.databases.importSqlDump', label: 'Import SQL dump…', icon: Download, onClick: () => setModal({ type: 'import', preset: dbPreset(node) }) });
                 }
                 if (node.engine === 'mysql' || node.engine === 'postgresql') {
                     // Processes live at the server/container level; the db node
                     // is just the natural place to reach them from.
-                    actions.splice(1, 0, { label: 'Server processes', icon: Activity, onClick: () => openProcesses(node.conn, node.engine) });
+                    actions.splice(1, 0, { labelKey: 'app.databases.serverProcesses', label: 'Server processes', icon: Activity, onClick: () => openProcesses(node.conn, node.engine) });
                     if (node.conn?.dbType === 'docker' && node.conn.container) {
                         // Curated config tuner is container-scoped (docker-only).
-                        actions.splice(2, 0, { label: 'Config tuner', icon: SlidersHorizontal, onClick: () => setTunerTarget({ container: node.conn.container, engine: node.engine, password: node.conn.password }) });
+                        actions.splice(2, 0, { labelKey: 'app.databases.configTuner', label: 'Config tuner', icon: SlidersHorizontal, onClick: () => setTunerTarget({ container: node.conn.container, engine: node.engine, password: node.conn.password }) });
                     }
-                    actions.splice(2, 0, { label: 'Back up database', icon: DatabaseBackup, onClick: () => backupDatabase(node) });
-                    actions.push({ label: 'Drop database', icon: Trash2, danger: true, onClick: () => dropDatabase(node) });
+                    actions.splice(2, 0, { labelKey: 'app.databases.backUpDatabase', label: 'Back up database', icon: DatabaseBackup, onClick: () => backupDatabase(node) });
+                    actions.push({ labelKey: 'app.databases.dropDatabase3', label: 'Drop database', icon: Trash2, danger: true, onClick: () => dropDatabase(node) });
                 }
                 return actions;
             }
             case 'app':
-                return [{ label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
+                return [{ labelKey: 'app.databases.refresh6', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'table':
                 return [
-                    { label: 'Open data', icon: Table2, onClick: () => openTableTab(node) },
-                    { label: 'Query in console', icon: FileCode2, onClick: () => openConsole(node.conn, node.engine, `SELECT * FROM ${quoteIdent(node.conn, node.table)} LIMIT 100;`) },
-                    { label: 'Copy name', icon: Copy, onClick: () => copyName(node) },
+                    { labelKey: 'app.databases.openData', label: 'Open data', icon: Table2, onClick: () => openTableTab(node) },
+                    { labelKey: 'app.databases.queryInConsole', label: 'Query in console', icon: FileCode2, onClick: () => openConsole(node.conn, node.engine, `SELECT * FROM ${quoteIdent(node.conn, node.table)} LIMIT 100;`) },
+                    { labelKey: 'app.databases.copyName', label: 'Copy name', icon: Copy, onClick: () => copyName(node) },
                 ];
             default:
                 return [];
@@ -703,12 +705,12 @@ export default function Databases() {
                         type="button"
                         className="dbx-icon-btn"
                         onClick={() => setSidebarVisible((v) => !v)}
-                        aria-label={sidebarVisible ? 'Hide sources' : 'Show sources'}
-                        title={sidebarVisible ? 'Hide sources' : 'Show sources'}
+                        aria-label={sidebarVisible ? t('app.databases.hideSources', 'Hide sources') : t('app.databases.showSources', 'Show sources')}
+                        title={sidebarVisible ? t('app.databases.hideSources2', 'Hide sources') : t('app.databases.showSources2', 'Show sources')}
                     >
                         {sidebarVisible ? <PanelLeftClose size={16} aria-hidden="true" /> : <PanelLeftOpen size={16} aria-hidden="true" />}
                     </button>
-                    <h1 className="dbx-title"><Database size={17} aria-hidden="true" /> Database Explorer</h1>
+                    <h1 className="dbx-title"><Database size={17} aria-hidden="true" /> {t('app.databases.databaseExplorer', 'Database Explorer')}</h1>
                 </div>
 
                 <div className="dbx-toolbar-right">
@@ -720,7 +722,7 @@ export default function Databases() {
                             aria-haspopup="menu"
                             aria-expanded={showNewMenu}
                         >
-                            <Plus size={15} aria-hidden="true" /> New <ChevronDown size={13} aria-hidden="true" />
+                            <Plus size={15} aria-hidden="true" /> {t('app.databases.new', 'New')} <ChevronDown size={13} aria-hidden="true" />
                         </button>
                         {showNewMenu && (
                             <div className="dbx-menu" role="menu">
@@ -730,49 +732,49 @@ export default function Databases() {
                                     disabled={!newConsoleConn}
                                     onClick={() => { if (newConsoleConn) openConsole(newConsoleConn, selectedNode.engine); setShowNewMenu(false); }}
                                 >
-                                    <Terminal size={14} aria-hidden="true" /> SQL console
-                                    {!newConsoleConn && <span className="dbx-menu-hint">select a database</span>}
+                                    <Terminal size={14} aria-hidden="true" /> {t('app.databases.sqlConsole', 'SQL console')}
+                                    {!newConsoleConn && <span className="dbx-menu-hint">{t('app.databases.selectADatabase', 'select a database')}</span>}
                                 </button>
                                 <button
                                     type="button"
                                     role="menuitem"
                                     onClick={() => { setModal({ type: 'new-table', preset: dbPreset(selectedNode) }); setShowNewMenu(false); }}
                                 >
-                                    <Table2 size={14} aria-hidden="true" /> Table or collection
+                                    <Table2 size={14} aria-hidden="true" /> {t('app.databases.tableOrCollection', 'Table or collection')}
                                 </button>
                                 <button
                                     type="button"
                                     role="menuitem"
                                     onClick={() => { setModal({ type: 'import', preset: dbPreset(selectedNode) }); setShowNewMenu(false); }}
                                 >
-                                    <Download size={14} aria-hidden="true" /> Import SQL dump…
+                                    <Download size={14} aria-hidden="true" /> {t('app.databases.importSqlDump2', 'Import SQL dump…')}
                                 </button>
                                 <div className="dbx-menu-sep" />
                                 <button type="button" role="menuitem" disabled={engineState('mysql', status) !== 'active'} onClick={() => { setModal({ type: 'mysql-db' }); setShowNewMenu(false); }}>
-                                    <Database size={14} aria-hidden="true" /> MySQL database
+                                    <Database size={14} aria-hidden="true" /> {t('app.databases.mysqlDatabase', 'MySQL database')}
                                 </button>
                                 <button type="button" role="menuitem" disabled={engineState('postgresql', status) !== 'active'} onClick={() => { setModal({ type: 'pg-db' }); setShowNewMenu(false); }}>
-                                    <Database size={14} aria-hidden="true" /> PostgreSQL database
+                                    <Database size={14} aria-hidden="true" /> {t('app.databases.postgresqlDatabase', 'PostgreSQL database')}
                                 </button>
                                 <div className="dbx-menu-sep" />
                                 <button type="button" role="menuitem" disabled={engineState('mysql', status) !== 'active'} onClick={() => { openUserModal('mysql'); setShowNewMenu(false); }}>
-                                    <Server size={14} aria-hidden="true" /> MySQL user
+                                    <Server size={14} aria-hidden="true" /> {t('app.databases.mysqlUser', 'MySQL user')}
                                 </button>
                                 <button type="button" role="menuitem" disabled={engineState('postgresql', status) !== 'active'} onClick={() => { openUserModal('postgresql'); setShowNewMenu(false); }}>
-                                    <Server size={14} aria-hidden="true" /> PostgreSQL user
+                                    <Server size={14} aria-hidden="true" /> {t('app.databases.postgresqlUser', 'PostgreSQL user')}
                                 </button>
                                 <div className="dbx-menu-sep" />
                                 <button type="button" role="menuitem" onClick={() => { openCatalog(); setShowNewMenu(false); }}>
-                                    <Layers size={14} aria-hidden="true" /> Install a database engine…
+                                    <Layers size={14} aria-hidden="true" /> {t('app.databases.installADatabaseEngine', 'Install a database engine…')}
                                 </button>
                             </div>
                         )}
                     </div>
                     <button type="button" className="dbx-chip" onClick={() => setShowManaged(true)}>
-                        <BookMarked size={14} aria-hidden="true" /> Managed
+                        <BookMarked size={14} aria-hidden="true" /> {t('app.databases.managed', 'Managed')}
                     </button>
                     <button type="button" className="dbx-chip" onClick={openBackups}>
-                        <Archive size={14} aria-hidden="true" /> Backups
+                        <Archive size={14} aria-hidden="true" /> {t('app.databases.backups2', 'Backups')}
                     </button>
                 </div>
             </header>
@@ -780,7 +782,7 @@ export default function Databases() {
             {/* ─── Body: tree + workspace ─────────────────── */}
             <div className={`dbx-body ${sidebarVisible ? '' : 'is-collapsed'}`}>
                 {sidebarVisible && (
-                    <aside className="dbx-tree-panel" aria-label="Database sources">
+                    <aside className="dbx-tree-panel" aria-label={t('app.databases.databaseSources', 'Database sources')}>
                         <div className="dbx-tree-search">
                             {/* The shared search box, not a hand-rolled input —
                                 it debounces and clears itself, which is what the
@@ -788,12 +790,12 @@ export default function Databases() {
                             <SearchField
                                 value={filter}
                                 onSearch={setFilter}
-                                placeholder="Filter tables…"
+                                placeholder={t('app.databases.filterTables', 'Filter tables…')}
                             />
                         </div>
                         <div className="dbx-tree-scroll">
                             {statusLoading ? (
-                                <div className="dbx-tree-loading"><RefreshCw size={14} className="dbx-spin" aria-hidden="true" /> Checking servers…</div>
+                                <div className="dbx-tree-loading"><RefreshCw size={14} className="dbx-spin" aria-hidden="true" /> {t('app.databases.checkingServers', 'Checking servers…')}</div>
                             ) : (
                                 <>
                                     <SourceTree
@@ -815,11 +817,11 @@ export default function Databases() {
                                             className="dbx-tree-install"
                                             onClick={() => openCatalog()}
                                         >
-                                            <Layers size={14} aria-hidden="true" /> Install a database engine
+                                            <Layers size={14} aria-hidden="true" /> {t('app.databases.installADatabaseEngine2', 'Install a database engine')}
                                             {engineData.catalog.length > 0 && (
                                                 <span
                                                     className="dbx-tree-install-count"
-                                                    title={`${engineData.catalog.length} engines in the catalog`}
+                                                    title={t('app.databases.enginesInTheCatalog', '{{length}} engines in the catalog', { length: engineData.catalog.length })}
                                                 >
                                                     {engineData.catalog.length}
                                                 </span>
@@ -834,7 +836,7 @@ export default function Databases() {
 
                 <main className="dbx-workspace">
                     {tabs.length > 0 && (
-                        <div className="dbx-tabbar" role="tablist" aria-label="Open tabs">
+                        <div className="dbx-tabbar" role="tablist" aria-label={t('app.databases.openTabs', 'Open tabs')}>
                             {tabs.map((tab) => (
                                 <div
                                     key={tab.id}
@@ -851,7 +853,7 @@ export default function Databases() {
                                         type="button"
                                         className="dbx-tab-close"
                                         onClick={(e) => closeTab(tab.id, e)}
-                                        aria-label={`Close ${tab.title}`}
+                                        aria-label={t('app.databases.close', 'Close {{title}}', { title: tab.title })}
                                     >
                                         <X size={13} aria-hidden="true" />
                                     </button>
@@ -862,8 +864,8 @@ export default function Databases() {
                                 className="dbx-tab dbx-tab-new"
                                 disabled={!newConsoleConn}
                                 onClick={() => { if (newConsoleConn) openConsole(newConsoleConn, selectedNode.engine); }}
-                                title={newConsoleConn ? 'New SQL console' : 'Select a database to open a console'}
-                                aria-label="New SQL console"
+                                title={newConsoleConn ? t('app.databases.newSqlConsole', 'New SQL console') : t('app.databases.selectADatabaseToOpenA', 'Select a database to open a console')}
+                                aria-label={t('app.databases.newSqlConsole2', 'New SQL console')}
                             >
                                 <Plus size={14} aria-hidden="true" />
                             </button>
@@ -908,10 +910,10 @@ export default function Databases() {
                             <div className="dbx-welcome">
                                 <EmptyState
                                     icon={Database}
-                                    title="Open a table or console"
+                                    title={t('app.databases.openATableOrConsole', 'Open a table or console')}
                                     description={statusLoading
-                                        ? 'Checking your database servers…'
-                                        : 'Pick a table from the left to browse its rows, or open a SQL console on any database. Right-click a node for more actions.'}
+                                        ? t('app.databases.checkingYourDatabaseServers', 'Checking your database servers…')
+                                        : t('app.databases.pickATableFromTheLeft', 'Pick a table from the left to browse its rows, or open a SQL console on any database. Right-click a node for more actions.')}
                                 />
                             </div>
                         ) : null}
@@ -964,13 +966,13 @@ export default function Databases() {
                             <span className="dbx-status-item"><Database size={12} aria-hidden="true" /> {activeStatus.connText}</span>
                             {activeStatus.readonly != null && (
                                 <span className={`dbx-status-item ${activeStatus.readonly ? '' : 'is-write'}`}>
-                                    {activeStatus.readonly ? <><Lock size={11} aria-hidden="true" /> Read-only</> : 'Writes enabled'}
+                                    {activeStatus.readonly ? <><Lock size={11} aria-hidden="true" /> {t('app.databases.readOnly', 'Read-only')}</> : 'Writes enabled'}
                                 </span>
                             )}
-                            <span className="dbx-status-item dbx-status-muted">UTF-8</span>
+                            <span className="dbx-status-item dbx-status-muted">{t('app.databases.utf8', 'UTF-8')}</span>
                         </>
                     ) : (
-                        <span className="dbx-status-item dbx-status-muted">No tab open</span>
+                        <span className="dbx-status-item dbx-status-muted">{t('app.databases.noTabOpen', 'No tab open')}</span>
                     )}
                 </div>
                 <div className="dbx-statusbar-right">
@@ -979,7 +981,7 @@ export default function Databases() {
                         <span className="dbx-status-item">{activeStatus.rowCount} row{activeStatus.rowCount === 1 ? '' : 's'}{activeStatus.truncated ? ` of ${activeStatus.totalRows}` : ''}</span>
                     )}
                     {activeStatus?.execTime != null && <span className="dbx-status-item dbx-mono">{activeStatus.execTime}s</span>}
-                    {activeStatus && <span className="dbx-status-item is-connected">Connected</span>}
+                    {activeStatus && <span className="dbx-status-item is-connected">{t('app.databases.connected', 'Connected')}</span>}
                 </div>
             </footer>
 
@@ -1050,11 +1052,11 @@ export default function Databases() {
                 onInstalled={onEngineInstalled}
             />
 
-            <Modal open={showManaged} onClose={() => setShowManaged(false)} title="Managed databases" size="lg">
+            <Modal open={showManaged} onClose={() => setShowManaged(false)} title={t('app.databases.managedDatabases', 'Managed databases')} size="lg">
                 <ManagedDatabasesPanel />
             </Modal>
 
-            <Modal open={!!tunerTarget} onClose={() => setTunerTarget(null)} title="Config tuner" size="lg">
+            <Modal open={!!tunerTarget} onClose={() => setTunerTarget(null)} title={t('app.databases.configTuner2', 'Config tuner')} size="lg">
                 {tunerTarget && (
                     <ConfigTunerPanel target={tunerTarget.container} engine={tunerTarget.engine} password={tunerTarget.password} />
                 )}

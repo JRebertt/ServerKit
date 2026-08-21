@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { deriveWidgetTitle, getWidgetType, useWidgetTypes } from '../widgets/registry';
 import { WidgetBody } from '../widgets/renderers';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Modal that blows one widget up to a comfortable reading size. Escape or a
@@ -9,6 +10,7 @@ import { WidgetBody } from '../widgets/renderers';
  * land inside the dialog rather than back at the top of the board.
  */
 export function WidgetFullscreen({ widget, type, ctx, onClose }) {
+    const { t } = useTranslation();
     const panelRef = useRef(null);
     const types = useWidgetTypes();
 
@@ -46,8 +48,8 @@ export function WidgetFullscreen({ widget, type, ctx, onClose }) {
                             <button
                                 type="button"
                                 className="skw-iconbtn skw-iconbtn--bare"
-                                title="Close"
-                                aria-label="Close fullscreen widget"
+                                title={t('app.widgetFullscreen.close', 'Close')}
+                                aria-label={t('app.widgetFullscreen.closeFullscreenWidget', 'Close fullscreen widget')}
                                 onClick={onClose}
                             >
                                 <X size={15} />

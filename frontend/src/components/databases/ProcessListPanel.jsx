@@ -12,6 +12,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 
 const REFRESH_MS = 5000;
 const QUERY_PREVIEW_LEN = 120;
@@ -72,6 +73,7 @@ function formatTime(s) {
 // engine or container, with an admin-only kill action and a 5s auto-refresh
 // toggle. `active` gates polling so hidden tabs don't keep hammering the API.
 export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -124,7 +126,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         const verb = engineKind === 'postgresql' ? 'Terminate' : 'Kill';
         const ok = await confirm({
             title: `${verb} process ${proc.id}`,
-            message: `${verb} process ${proc.id}${proc.user ? ` (${proc.user}` : ''}${proc.user && proc.db ? ` on ${proc.db}` : ''}${proc.user ? ')' : ''}? Its running query will be aborted.`,
+            message: t('app.processListPanel.processItsRunningQueryWillBe', '{{verb}} process {{id}}{{value}}{{value2}}{{value3}}? Its running query will be aborted.', { verb: verb, id: proc.id, value: proc.user ? ` (${proc.user}` : '', value2: proc.user && proc.db ? ` on ${proc.db}` : '', value3: proc.user ? ')' : '' }),
             confirmText: `${verb} ${proc.id}`,
             variant: 'danger',
         });
@@ -136,10 +138,10 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
             } else {
                 await api.killHostDbProcess(engineKind, proc.id);
             }
-            toast.success(`Process ${proc.id} ${engineKind === 'postgresql' ? 'terminated' : 'killed'}`);
+            toast.success(t('app.processListPanel.process2', 'Process {{id}} {{value}}', { id: proc.id, value: engineKind === 'postgresql' ? 'terminated' : 'killed' }));
             load(true);
         } catch (err) {
-            toast.error(err.message || `Failed to ${verb.toLowerCase()} process ${proc.id}`);
+            toast.error(err.message || t('app.processListPanel.failedToProcess', 'Failed to {{value}} process {{id}}', { value: verb.toLowerCase(), id: proc.id }));
         } finally {
             setKilling(null);
         }
@@ -163,7 +165,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'user',
-            header: 'User',
+            headerKey: 'app.processListPanel.user', header: 'User',
             sortable: true,
             type: 'enum',
             value: (p) => p.user || NO_DB,
@@ -172,7 +174,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'db',
-            header: 'Database',
+            headerKey: 'app.processListPanel.database', header: 'Database',
             sortable: true,
             // Grouping is the whole point of the "By database" view, and
             // `groupValue` has to be spelled out: the grouper falls back to
@@ -200,7 +202,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'time',
-            header: 'Time',
+            headerKey: 'app.processListPanel.time', header: 'Time',
             sortable: true,
             // Declared as seconds, not as the "3m 12s" the cell shows: the rule
             // engine has to compare numbers for "Long running" to mean anything.
@@ -213,7 +215,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'query',
-            header: 'Query',
+            headerKey: 'app.processListPanel.query', header: 'Query',
             sortable: false,
             // High cardinality by definition — you type a fragment of a table
             // name, you never pick a whole statement off a list.
@@ -244,8 +246,8 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
                     className="dbx-icon-btn is-danger"
                     onClick={() => killProcess(p)}
                     disabled={killing === p.id}
-                    aria-label={`Kill process ${p.id}`}
-                    title={isPg ? 'Terminate backend' : 'Kill process'}
+                    aria-label={t('app.processListPanel.killProcess', 'Kill process {{id}}', { id: p.id })}
+                    title={isPg ? t('app.processListPanel.terminateBackend', 'Terminate backend') : t('app.processListPanel.killProcess2', 'Kill process')}
                 >
                     <Ban size={14} aria-hidden="true" />
                 </button>
@@ -316,12 +318,12 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
                                 checked={autoRefresh}
                                 onChange={(e) => setAutoRefresh(e.target.checked)}
                             />
-                            <TimerReset size={13} aria-hidden="true" /> Auto-refresh (5s)
+                            <TimerReset size={13} aria-hidden="true" /> {t('app.processListPanel.autoRefresh5s', 'Auto-refresh (5s)')}
                         </label>
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Filter sessions…"
+                            placeholder={t('app.processListPanel.filterSessions', 'Filter sessions…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -340,16 +342,16 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
                 <div className="dbp-empty">
                     <EmptyState
                         icon={Activity}
-                        title="No processes"
-                        description="No client sessions are currently connected to this server."
+                        title={t('app.processListPanel.noProcesses', 'No processes')}
+                        description={t('app.processListPanel.noClientSessionsAreCurrentlyConnected', 'No client sessions are currently connected to this server.')}
                     />
                 </div>
             ) : shown.length === 0 && !loading ? (
                 <div className="dbp-empty">
                     <EmptyState
                         icon={Activity}
-                        title="No matching sessions"
-                        description="No session matches the current search."
+                        title={t('app.processListPanel.noMatchingSessions', 'No matching sessions')}
+                        description={t('app.processListPanel.noSessionMatchesTheCurrentSearch', 'No session matches the current search.')}
                     />
                 </div>
             ) : (

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, RefreshCw, ChevronDown, ChevronRight, FileText, AlertTriangle, Activity, Database, Globe, Mail, Shield, Server } from 'lucide-react';
 import { LOG_GROUPS, categoriseLog, logKindFromPath, formatBytes, formatRelativeTime } from './logHelpers';
+import { useTranslation } from 'react-i18next';
 
 const GROUP_ICONS = {
     web: Globe,
@@ -13,6 +14,7 @@ const GROUP_ICONS = {
 };
 
 export default function LogFileList({ files, selectedPath, onSelect, onRefresh, loading }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState(new Set());
 
@@ -54,14 +56,14 @@ export default function LogFileList({ files, selectedPath, onSelect, onRefresh, 
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Filter log files…"
+                        placeholder={t('app.logFileList.filterLogFiles', 'Filter log files…')}
                     />
                 </div>
                 <button type="button"
                     className="lv-icon-btn"
                     onClick={onRefresh}
                     disabled={loading}
-                    title="Reload list"
+                    title={t('app.logFileList.reloadList', 'Reload list')}
                 >
                     <RefreshCw size={13} className={loading ? 'spinning' : ''} />
                 </button>
@@ -71,11 +73,11 @@ export default function LogFileList({ files, selectedPath, onSelect, onRefresh, 
                 {files.length === 0 ? (
                     <div className="lv-empty-hint">
                         <AlertTriangle size={20} />
-                        <p>No log files found.</p>
+                        <p>{t('app.logFileList.noLogFilesFound', 'No log files found.')}</p>
                     </div>
                 ) : groups.length === 0 ? (
                     <div className="lv-empty-hint">
-                        <p>No matches for &quot;{query}&quot;.</p>
+                        <p>{t('app.logFileList.noMatchesFor', 'No matches for "{{query}}".', { query })}</p>
                     </div>
                 ) : (
                     groups.map((group) => {

@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Reusable polymorphic tags panel for any resource.
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
  *   readOnly      hide the add/remove controls (default false)
  */
 const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [tags, setTags] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
             setNewTag('');
             load();
         } catch (err) {
-            toast.error(err.message || 'Failed to add tag');
+            toast.error(err.message || t('app.tagsPanel.failedToAddTag', 'Failed to add tag'));
         } finally {
             setSaving(false);
         }
@@ -55,7 +57,7 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
             await api.removeResourceTag(resourceType, resourceId, tag);
             setTags((prev) => prev.filter((t) => t.tag !== tag));
         } catch (err) {
-            toast.error(err.message || 'Failed to remove tag');
+            toast.error(err.message || t('app.tagsPanel.failedToRemoveTag', 'Failed to remove tag'));
         }
     }
 
@@ -63,9 +65,9 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
         <div className="shared-tags">
             <div className="shared-tags__list">
                 {loading ? (
-                    <span className="shared-tags__hint">Loading…</span>
+                    <span className="shared-tags__hint">{t('app.tagsPanel.loading', 'Loading…')}</span>
                 ) : tags.length === 0 ? (
-                    <span className="shared-tags__hint">No tags yet</span>
+                    <span className="shared-tags__hint">{t('app.tagsPanel.noTagsYet', 'No tags yet')}</span>
                 ) : (
                     tags.map((t) => (
                         <span key={t.id} className="shared-tag">
@@ -75,8 +77,8 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
                                     type="button"
                                     className="shared-tag__remove"
                                     onClick={() => handleRemove(t.tag)}
-                                    aria-label={`Remove tag ${t.tag}`}
-                                    title="Remove tag"
+                                    aria-label={t('app.tagsPanel.removeTag', 'Remove tag {{tag}}', { tag: t.tag })}
+                                    title={t('app.tagsPanel.removeTag2', 'Remove tag')}
                                 >
                                     &times;
                                 </button>
@@ -92,11 +94,11 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
                         type="text"
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
-                        placeholder="Add a tag…"
+                        placeholder={t('app.tagsPanel.addATag', 'Add a tag…')}
                         className="shared-tags__input"
                     />
                     <Button type="submit" size="sm" disabled={saving || !newTag.trim()}>
-                        Add
+                        {t('app.tagsPanel.add', 'Add')}
                     </Button>
                 </form>
             )}

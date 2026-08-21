@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import EmptyState from '../EmptyState';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 // DataTable columns. Cell markup and classNames are identical to the
 // hand-rolled table they replace, so _service-detail.scss keeps applying
@@ -12,7 +13,7 @@ import { DataTable, DataTableFooter } from '@/components/ds';
 const PACKAGE_COLUMNS = [
     {
         key: 'name',
-        header: 'Package',
+        headerKey: 'app.packagesTab.package', header: 'Package',
         sortable: true,
         hideable: false,
         cellClassName: 'sk-cell-mono svc-pkg-name',
@@ -21,7 +22,7 @@ const PACKAGE_COLUMNS = [
     },
     {
         key: 'version',
-        header: 'Version',
+        headerKey: 'app.packagesTab.version', header: 'Version',
         sortable: true,
         cellClassName: 'sk-cell-mono',
         sortValue: (pkg) => pkg.version || '',
@@ -30,6 +31,7 @@ const PACKAGE_COLUMNS = [
 ];
 
 const PackagesTab = ({ appId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -70,24 +72,24 @@ const PackagesTab = ({ appId }) => {
     async function handleFreeze() {
         try {
             await api.freezePythonRequirements(appId);
-            toast.success('requirements.txt updated');
+            toast.success(t('app.packagesTab.requirementsTxtUpdated', 'requirements.txt updated'));
         } catch (err) {
-            toast.error('Failed to freeze requirements');
+            toast.error(t('app.packagesTab.failedToFreezeRequirements', 'Failed to freeze requirements'));
         }
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading packages..." />;
+        return <EmptyState loading title={t('app.packagesTab.loadingPackages', 'Loading packages...')} />;
     }
 
     return (
         <div>
             <div className="section-header">
                 <h3 className="svc-eyebrow">
-                    Installed Packages <span className="svc-eyebrow__count">&middot; {packages.length}</span>
+                    {t('app.packagesTab.installedPackages', 'Installed Packages')} <span className="svc-eyebrow__count">&middot; {packages.length}</span>
                 </h3>
                 <Button variant="outline" size="sm" onClick={handleFreeze}>
-                    Freeze to requirements.txt
+                    {t('app.packagesTab.freezeToRequirementsTxt', 'Freeze to requirements.txt')}
                 </Button>
             </div>
 
@@ -96,7 +98,7 @@ const PackagesTab = ({ appId }) => {
                     type="text"
                     value={newPackage}
                     onChange={(e) => setNewPackage(e.target.value)}
-                    placeholder="Package name (e.g., requests, flask==2.0.0)"
+                    placeholder={t('app.packagesTab.packageNameEGRequestsFlask', 'Package name (e.g., requests, flask==2.0.0)')}
                 />
                 <Button type="submit" disabled={installing}>
                     {installing ? 'Installing...' : 'Install'}
@@ -110,7 +112,7 @@ const PackagesTab = ({ appId }) => {
                 storageKey="serverkit-table-packages"
                 className="svc-card"
                 emptyTitle="No packages"
-                emptyMessage="Install a package above to get started."
+                emptyMessage={t('app.packagesTab.installAPackageAboveToGet', 'Install a package above to get started.')}
                 footer={<DataTableFooter shown={packages.length} total={packages.length} noun="package" />}
             />
         </div>

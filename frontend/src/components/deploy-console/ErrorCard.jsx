@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { AlertTriangle, RefreshCw, Copy, Sparkles, ChevronDown, ChevronRight } from 'lucide-react';
 import { AIContext } from '../../contexts/AIContext';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // Pinned failure card (plan 51 §1.1): failed step name, the one-line error, a
 // plain-language hint when a heuristic matched, actions (Retry / Copy / Ask AI)
@@ -13,6 +14,7 @@ import { copyToClipboard } from '@/utils/clipboard';
 // the offending line and the severity map marks it, the duplicate is worth
 // having on demand rather than always.
 export default function ErrorCard({ failedStepName, failureTail, hint, errorMessage, onRetry, retrying }) {
+    const { t } = useTranslation();
     const [showTail, setShowTail] = useState(false);
     // Read the AI drawer context directly (null when no AIProvider is mounted),
     // so the hook is called unconditionally and the "Ask AI" button degrades
@@ -48,7 +50,7 @@ export default function ErrorCard({ failedStepName, failureTail, hint, errorMess
             <div className="deploy-console__error-head">
                 <AlertTriangle size={18} />
                 <div>
-                    <strong>Deployment failed{failedStepName ? ` at "${failedStepName}"` : ''}</strong>
+                    <strong>{t('app.errorCard.deploymentFailed', 'Deployment failed')}{failedStepName ? ` at "${failedStepName}"` : ''}</strong>
                     {errorMessage && <p className="deploy-console__error-msg">{errorMessage}</p>}
                 </div>
             </div>
@@ -69,11 +71,11 @@ export default function ErrorCard({ failedStepName, failureTail, hint, errorMess
                     {retrying ? 'Retrying…' : 'Retry deploy'}
                 </button>
                 <button type="button" className="deploy-console__btn" onClick={copyError}>
-                    <Copy size={14} /> Copy error
+                    <Copy size={14} /> {t('app.errorCard.copyError', 'Copy error')}
                 </button>
                 {ai?.open && (
                     <button type="button" className="deploy-console__btn" onClick={askAI}>
-                        <Sparkles size={14} /> Ask AI
+                        <Sparkles size={14} /> {t('app.errorCard.askAi', 'Ask AI')}
                     </button>
                 )}
                 {tailLines.length > 0 && (

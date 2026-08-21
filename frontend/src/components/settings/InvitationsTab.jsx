@@ -12,6 +12,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // A pending invite whose window has closed still carries status 'pending' in
 // the database — the row only becomes 'expired' on screen. One accessor for
@@ -65,6 +66,7 @@ const INVITATION_VIEWS = [
 ];
 
 const InvitationsTab = () => {
+    const { t } = useTranslation();
     const [invitations, setInvitations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showInviteModal, setShowInviteModal] = useState(false);
@@ -157,17 +159,17 @@ const InvitationsTab = () => {
     const columns = [
         {
             key: 'recipient',
-            header: 'Recipient',
+            headerKey: 'app.invitationsTab.recipient', header: 'Recipient',
             sortable: true,
             hideable: false,
             type: 'text',
             value: (inv) => inv.email || '',
             sortValue: (inv) => inv.email || '',
-            render: (inv) => inv.email || <span className="text-muted">Link only</span>,
+            render: (inv) => inv.email || <span className="text-muted">{t('app.invitationsTab.linkOnly', 'Link only')}</span>,
         },
         {
             key: 'role',
-            header: 'Role',
+            headerKey: 'app.invitationsTab.role', header: 'Role',
             type: 'enum',
             value: (inv) => inv.role || '',
             render: (inv) => (
@@ -178,7 +180,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.invitationsTab.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: effectiveStatus,
@@ -191,7 +193,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.invitationsTab.created', header: 'Created',
             sortable: true,
             type: 'date',
             value: (inv) => inv.created_at || null,
@@ -203,7 +205,7 @@ const InvitationsTab = () => {
             // Sortable now: "Pending" leads with whatever lapses first, which
             // needs a real accessor behind the column rather than a render.
             key: 'expires',
-            header: 'Expires',
+            headerKey: 'app.invitationsTab.expires', header: 'Expires',
             sortable: true,
             type: 'date',
             value: (inv) => inv.expires_at || null,
@@ -213,7 +215,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.invitationsTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -224,7 +226,7 @@ const InvitationsTab = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => copyLink(inv.token)}
-                            title="Copy invite link"
+                            title={t('app.invitationsTab.copyInviteLink', 'Copy invite link')}
                         >
                             {copied === inv.token ? 'Copied!' : 'Copy Link'}
                         </Button>
@@ -233,19 +235,19 @@ const InvitationsTab = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleResend(inv.id)}
-                                title="Resend email"
+                                title={t('app.invitationsTab.resendEmail', 'Resend email')}
                             >
-                                Resend
+                                {t('app.invitationsTab.resend', 'Resend')}
                             </Button>
                         )}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRevoke(inv.id)}
-                            title="Revoke invitation"
+                            title={t('app.invitationsTab.revokeInvitation', 'Revoke invitation')}
                             className="text-destructive hover:text-destructive"
                         >
-                            Revoke
+                            {t('app.invitationsTab.revoke', 'Revoke')}
                         </Button>
                     </>
                 )
@@ -291,7 +293,7 @@ const InvitationsTab = () => {
                                 <line x1="20" y1="8" x2="20" y2="14"/>
                                 <line x1="23" y1="11" x2="17" y2="11"/>
                             </svg>
-                            Invite User
+                            {t('app.invitationsTab.inviteUser', 'Invite User')}
                         </Button>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -305,9 +307,9 @@ const InvitationsTab = () => {
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <div className="loading-state">Loading invitations...</div>
+                <div className="loading-state">{t('app.invitationsTab.loadingInvitations', 'Loading invitations...')}</div>
             ) : invitations.length === 0 ? (
-                <EmptyState title="No invitations yet" />
+                <EmptyState title={t('app.invitationsTab.noInvitationsYet', 'No invitations yet')} />
             ) : (
                 <div className="users-table-container">
                     <DataTable

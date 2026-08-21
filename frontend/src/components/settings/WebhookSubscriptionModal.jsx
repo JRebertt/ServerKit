@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useTranslation } from 'react-i18next';
 
 const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
     const [selectedEvents, setSelectedEvents] = useState([]);
@@ -74,22 +76,22 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
     }, {});
 
     return (
-        <Modal open={true} onClose={onClose} title={subscription ? 'Edit Subscription' : 'Create Webhook Subscription'} className="webhook-modal">
+        <Modal open={true} onClose={onClose} title={subscription ? t('app.webhookSubscriptionModal.editSubscription', 'Edit Subscription') : t('app.webhookSubscriptionModal.createWebhookSubscription', 'Create Webhook Subscription')} className="webhook-modal">
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <Label>Name</Label>
+                            <Label>{t('app.webhookSubscriptionModal.name', 'Name')}</Label>
                             <Input
                                 type="text"
                                 value={name}
                                 onChange={e => setName(e.target.value)}
-                                placeholder="e.g. Slack Notifications, CI Trigger"
+                                placeholder={t('app.webhookSubscriptionModal.eGSlackNotificationsCiTrigger', 'e.g. Slack Notifications, CI Trigger')}
                                 required
                             />
                         </div>
 
                         <div className="form-group">
-                            <Label>Payload URL</Label>
+                            <Label>{t('app.webhookSubscriptionModal.payloadUrl', 'Payload URL')}</Label>
                             <Input
                                 type="url"
                                 value={url}
@@ -100,7 +102,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
 
                         <div className="form-group">
-                            <Label>Events</Label>
+                            <Label>{t('app.webhookSubscriptionModal.events', 'Events')}</Label>
                             <div className="webhook-modal__events">
                                 {Object.entries(groupedEvents).map(([category, events]) => {
                                     const categoryEvents = events.map(e => e.type);
@@ -134,7 +136,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
 
                         <div className="form-row">
                             <div className="form-group">
-                                <Label>Retry Count</Label>
+                                <Label>{t('app.webhookSubscriptionModal.retryCount', 'Retry Count')}</Label>
                                 <Input
                                     type="number"
                                     value={retryCount}
@@ -144,7 +146,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                                 />
                             </div>
                             <div className="form-group">
-                                <Label>Timeout (seconds)</Label>
+                                <Label>{t('app.webhookSubscriptionModal.timeoutSeconds', 'Timeout (seconds)')}</Label>
                                 <Input
                                     type="number"
                                     value={timeoutSeconds}
@@ -156,7 +158,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={onClose}>{t('app.webhookSubscriptionModal.cancel', 'Cancel')}</Button>
                         <Button
                             type="submit"
                             variant="default"

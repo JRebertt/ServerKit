@@ -8,6 +8,7 @@ import { InfoList, InfoItem } from '../InfoList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const POLL_INTERVAL = 5000;
 
@@ -23,6 +24,7 @@ function formatTimestamp(iso) {
 // no Go agent install). Polls the link status while visible so the connection
 // badge flips to Connected live.
 const LinkPanelForm = ({ onClose }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [status, setStatus] = useState(null); // null = still loading
     const [masterUrl, setMasterUrl] = useState('');
@@ -54,7 +56,7 @@ const LinkPanelForm = ({ onClose }) => {
                 registration_token: token.trim(),
                 name: name.trim() || undefined,
             });
-            toast.success('Panel linked to master');
+            toast.success(t('app.linkPanelForm.panelLinkedToMaster', 'Panel linked to master'));
             setStatus(result.status || { linked: true, master_url: masterUrl.trim() });
             setToken('');
         } catch (err) {
@@ -67,11 +69,11 @@ const LinkPanelForm = ({ onClose }) => {
     async function handleUnlink() {
         try {
             await api.unlinkPanel();
-            toast.success('Panel unlinked');
+            toast.success(t('app.linkPanelForm.panelUnlinked', 'Panel unlinked'));
             setUnlinkOpen(false);
             setStatus({ linked: false });
         } catch (err) {
-            toast.error(err?.data?.error || err.message || 'Failed to unlink panel');
+            toast.error(err?.data?.error || err.message || t('app.linkPanelForm.failedToUnlinkPanel', 'Failed to unlink panel'));
         }
     }
 
@@ -82,19 +84,19 @@ const LinkPanelForm = ({ onClose }) => {
                     <div className="link-panel-status">
                         <StatusBadge status={status.connected ? 'connected' : 'disconnected'} />
                         <InfoList>
-                            <InfoItem label="Master" value={status.master_url} mono />
+                            <InfoItem label={t('app.linkPanelForm.master', 'Master')} value={status.master_url} mono />
                             <InfoItem
-                                label="Remote server"
+                                label={t('app.linkPanelForm.remoteServer', 'Remote server')}
                                 value={status.remote_server_name
                                     ? `${status.remote_server_name}${status.remote_server_id ? ` (#${status.remote_server_id})` : ''}`
                                     : (status.remote_server_id ? `#${status.remote_server_id}` : '—')}
                             />
-                            <InfoItem label="Linked since" value={formatTimestamp(status.created_at)} />
-                            <InfoItem label="Last heartbeat" value={formatTimestamp(status.last_heartbeat_at)} />
+                            <InfoItem label={t('app.linkPanelForm.linkedSince', 'Linked since')} value={formatTimestamp(status.created_at)} />
+                            <InfoItem label={t('app.linkPanelForm.lastHeartbeat', 'Last heartbeat')} value={formatTimestamp(status.last_heartbeat_at)} />
                         </InfoList>
                         {status.last_error && (
                             <div className="error-message">
-                                Connection error: {status.last_error}
+                                {t('app.linkPanelForm.connectionError', 'Connection error:')} {status.last_error}
                             </div>
                         )}
                     </div>
@@ -102,18 +104,18 @@ const LinkPanelForm = ({ onClose }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        Close
+                        {t('app.linkPanelForm.close', 'Close')}
                     </Button>
                     <Button type="button" variant="destructive" onClick={() => setUnlinkOpen(true)}>
-                        <Unlink size={14} /> Unlink
+                        <Unlink size={14} /> {t('app.linkPanelForm.unlink', 'Unlink')}
                     </Button>
                 </div>
 
                 <ConfirmDialog
                     isOpen={unlinkOpen}
-                    title="Unlink from master panel?"
-                    message={`This server will stop being manageable by ${status?.master_url || 'the master panel'}. The link credentials are removed from this panel.`}
-                    confirmText="Unlink"
+                    title={t('app.linkPanelForm.unlinkFromMasterPanel', 'Unlink from master panel?')}
+                    message={t('app.linkPanelForm.thisServerWillStopBeingManageable', 'This server will stop being manageable by {{value}}. The link credentials are removed from this panel.', { value: status?.master_url || 'the master panel' })}
+                    confirmText={t('app.linkPanelForm.unlink2', 'Unlink')}
                     variant="danger"
                     onConfirm={handleUnlink}
                     onCancel={() => setUnlinkOpen(false)}
@@ -126,15 +128,13 @@ const LinkPanelForm = ({ onClose }) => {
         <form className="server-setup-form" onSubmit={handleLink}>
             <div className="server-setup-form__body">
                 <p className="section-description">
-                    Link this panel to a master ServerKit so it can manage this server — no
-                    separate agent install needed. Generate a registration token on the
-                    master: Servers → Add Server / regenerate token.
+                    {t('app.linkPanelForm.linkThisPanelToAMaster', 'Link this panel to a master ServerKit so it can manage this server — no separate agent install needed. Generate a registration token on the master: Servers → Add Server / regenerate token.')}
                 </p>
 
                 {linkError && <div className="error-message">{linkError}</div>}
 
                 <div className="form-group">
-                    <label>Master URL *</label>
+                    <label>{t('app.linkPanelForm.masterUrl', 'Master URL *')}</label>
                     <Input
                         type="url"
                         value={masterUrl}
@@ -145,31 +145,31 @@ const LinkPanelForm = ({ onClose }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Registration token *</label>
+                    <label>{t('app.linkPanelForm.registrationToken', 'Registration token *')}</label>
                     <Input
                         type="password"
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
-                        placeholder="Token generated on the master"
+                        placeholder={t('app.linkPanelForm.tokenGeneratedOnTheMaster', 'Token generated on the master')}
                         required
                     />
                 </div>
 
                 <div className="form-group">
-                    <label>Display name</label>
+                    <label>{t('app.linkPanelForm.displayName', 'Display name')}</label>
                     <Input
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Optional"
+                        placeholder={t('app.linkPanelForm.optional', 'Optional')}
                     />
-                    <span className="form-hint">How this server appears on the master panel.</span>
+                    <span className="form-hint">{t('app.linkPanelForm.howThisServerAppearsOnThe', 'How this server appears on the master panel.')}</span>
                 </div>
             </div>
 
             <div className="modal-actions">
                 <Button type="button" variant="outline" onClick={onClose}>
-                    Cancel
+                    {t('app.linkPanelForm.cancel', 'Cancel')}
                 </Button>
                 <Button type="submit" disabled={submitting || status === null}>
                     {submitting ? 'Linking…' : 'Link panel'}

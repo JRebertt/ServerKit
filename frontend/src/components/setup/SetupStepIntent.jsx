@@ -1,35 +1,37 @@
 import { useState } from 'react';
 import { Globe, Code, Server, GitBranch, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const USE_CASE_OPTIONS = [
     {
         id: 'wordpress',
-        label: 'WordPress Sites',
-        description: 'Blogs, stores, content sites with managed MySQL & PHP',
+        labelKey: 'app.setupStepIntent.wordpressSites', label: 'WordPress Sites',
+        descriptionKey: 'app.setupStepIntent.blogsStoresContentSitesWithManaged', description: 'Blogs, stores, content sites with managed MySQL & PHP',
         icon: Globe,
     },
     {
         id: 'web-apps',
-        label: 'Web Applications',
-        description: 'Node.js, Python, PHP, or Docker-based apps',
+        labelKey: 'app.setupStepIntent.webApplications', label: 'Web Applications',
+        descriptionKey: 'app.setupStepIntent.nodeJsPythonPhpOrDocker', description: 'Node.js, Python, PHP, or Docker-based apps',
         icon: Code,
     },
     {
         id: 'self-hosted',
-        label: 'Self-Hosted Services',
-        description: 'Nextcloud, Vaultwarden, Wiki.js, media servers',
+        labelKey: 'app.setupStepIntent.selfHostedServices', label: 'Self-Hosted Services',
+        descriptionKey: 'app.setupStepIntent.nextcloudVaultwardenWikiJsMediaServers', description: 'Nextcloud, Vaultwarden, Wiki.js, media servers',
         icon: Server,
     },
     {
         id: 'devops',
-        label: 'DevOps & Monitoring',
-        description: 'CI/CD, Grafana, Prometheus, log aggregation',
+        labelKey: 'app.setupStepIntent.devopsMonitoring', label: 'DevOps & Monitoring',
+        descriptionKey: 'app.setupStepIntent.ciCdGrafanaPrometheusLogAggregation', description: 'CI/CD, Grafana, Prometheus, log aggregation',
         icon: GitBranch,
     },
 ];
 
 const SetupStepIntent = ({ selections, onComplete }) => {
+    const { t } = useTranslation();
     const [selectedSet, setSelectedSet] = useState(new Set(selections || []));
 
     function toggleSelection(id) {
@@ -50,9 +52,9 @@ const SetupStepIntent = ({ selections, onComplete }) => {
 
     return (
         <div className="wizard-step">
-            <h2 className="wizard-step-title">What will you use this server for?</h2>
+            <h2 className="wizard-step-title">{t('app.setupStepIntent.whatWillYouUseThisServer', 'What will you use this server for?')}</h2>
             <p className="wizard-step-description">
-                Select all that apply. This helps us tailor recommendations for you.
+                {t('app.setupStepIntent.selectAllThatApplyThisHelps', 'Select all that apply. This helps us tailor recommendations for you.')}
             </p>
 
             <div className="option-grid">
@@ -80,7 +82,7 @@ const SetupStepIntent = ({ selections, onComplete }) => {
 
             <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
                 <button type="button" className="btn-wizard-next" onClick={handleContinue}>
-                    Continue
+                    {t('app.setupStepIntent.continue', 'Continue')}
                 </button>
             </div>
         </div>

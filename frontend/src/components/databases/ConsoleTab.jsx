@@ -5,6 +5,7 @@ import { runQuery, connKey } from './dbAdapter';
 import ResultsGrid from './ResultsGrid';
 import SqlEditor from './SqlEditor';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 const HISTORY_KEY = 'serverkit_query_history';
 const MAX_HISTORY = 50;
@@ -19,6 +20,7 @@ const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl';
 // readonly flag, and per-connection history. `active` gates keyboard handling so
 // background (hidden) consoles don't steal Ctrl+Enter.
 export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery = '', onStatus }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const editorRef = useRef(null);
     const key = connKey(conn);
@@ -78,7 +80,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
             if (result.success) {
                 setResults(result);
                 saveToHistory(sql);
-                toast.success(`${result.row_count} row${result.row_count === 1 ? '' : 's'} · ${result.execution_time}s`);
+                toast.success(t('app.consoleTab.rowS', '{{rowcount}} row{{value}} · {{executiontime}}s', { rowcount: result.row_count, value: result.row_count === 1 ? '' : 's', executiontime: result.execution_time }));
             } else {
                 setError(result.error || 'Query failed.');
             }
@@ -108,7 +110,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
             ...results.rows.map((r) => r.map(esc).join(',')),
         ].join('\n');
         downloadBlob(csv, `${conn.name || 'query'}_${new Date().toISOString().slice(0, 10)}.csv`, { type: 'text/csv' });
-        toast.success('Exported results to CSV');
+        toast.success(t('app.consoleTab.exportedResultsToCsv', 'Exported results to CSV'));
     }
 
     return (
@@ -119,7 +121,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                     className="dbx-run"
                     onClick={execute}
                     disabled={loading || !query.trim()}
-                    title={`Run query (${MOD_KEY}+Enter)`}
+                    title={t('app.consoleTab.runQueryEnter', 'Run query ({{MODKEY}}+Enter)', { MODKEY: MOD_KEY })}
                 >
                     <Play size={14} aria-hidden="true" />
                     {loading ? 'Running…' : 'Run'}
@@ -132,7 +134,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                         className={`dbx-toggle ${readonly ? '' : 'is-write'}`}
                         onClick={() => setReadonly((r) => !r)}
                         aria-pressed={!readonly}
-                        title={readonly ? 'Read-only: only SELECT / SHOW / DESCRIBE' : 'Writes enabled — be careful'}
+                        title={readonly ? t('app.consoleTab.readOnlyOnlySelectShowDescribe', 'Read-only: only SELECT / SHOW / DESCRIBE') : t('app.consoleTab.writesEnabledBeCareful', 'Writes enabled — be careful')}
                     >
                         {readonly ? <Lock size={13} aria-hidden="true" /> : <Unlock size={13} aria-hidden="true" />}
                         {readonly ? 'Read-only' : 'Writes on'}
@@ -147,13 +149,13 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                     onClick={() => setShowHistory((s) => !s)}
                     aria-pressed={showHistory}
                 >
-                    <History size={14} aria-hidden="true" /> History
+                    <History size={14} aria-hidden="true" /> {t('app.consoleTab.history', 'History')}
                 </button>
                 <button type="button" className="dbx-chip" onClick={() => { setQuery(''); editorRef.current?.focus(); }}>
-                    <Eraser size={14} aria-hidden="true" /> Clear
+                    <Eraser size={14} aria-hidden="true" /> {t('app.consoleTab.clear', 'Clear')}
                 </button>
                 <button type="button" className="dbx-chip" onClick={exportCsv} disabled={!results?.rows?.length}>
-                    <Download size={14} aria-hidden="true" /> Export
+                    <Download size={14} aria-hidden="true" /> {t('app.consoleTab.export', 'Export')}
                 </button>
             </div>
 
@@ -164,21 +166,21 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={`SELECT * FROM …  —  querying ${conn.name || conn.path || conn.container}`}
+                        placeholder={t('app.consoleTab.selectFromQuerying', 'SELECT * FROM … — querying {{value}}', { value: conn.name || conn.path || conn.container })}
                         ariaLabel="SQL editor"
                     />
                     {readonly && (
                         <span className="dbx-editor-badge">
-                            <Lock size={11} aria-hidden="true" /> Read-only
+                            <Lock size={11} aria-hidden="true" /> {t('app.consoleTab.readOnly', 'Read-only')}
                         </span>
                     )}
                 </div>
 
                 {showHistory && (
-                    <aside className="dbx-history" aria-label="Query history">
-                        <div className="dbx-history-head">Recent queries</div>
+                    <aside className="dbx-history" aria-label={t('app.consoleTab.queryHistory', 'Query history')}>
+                        <div className="dbx-history-head">{t('app.consoleTab.recentQueries', 'Recent queries')}</div>
                         {history.length === 0 ? (
-                            <p className="dbx-history-empty">No queries yet.</p>
+                            <p className="dbx-history-empty">{t('app.consoleTab.noQueriesYet', 'No queries yet.')}</p>
                         ) : (
                             <ul>
                                 {history.map((item, idx) => (
@@ -217,7 +219,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                     />
                 ) : (
                     <div className="dbx-console-hint">
-                        <p>Write SQL above and press <kbd>{MOD_KEY}</kbd> + <kbd>Enter</kbd> to run.</p>
+                        <p>{t('app.consoleTab.writeSqlAboveAndPress', 'Write SQL above and press')} <kbd>{MOD_KEY}</kbd> + <kbd>{t('app.consoleTab.enter', 'Enter')}</kbd> {t('app.consoleTab.toRun', 'to run.')}</p>
                     </div>
                 )}
             </div>

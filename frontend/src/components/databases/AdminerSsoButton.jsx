@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 // Adminer accepts a plain form POST into its login screen; submitting the
 // descriptor from a hidden form means the single-use password never touches
@@ -37,6 +38,7 @@ function postToAdminer(descriptor) {
 // One-click DB admin: mints a 5-minute, single-database credential server-side
 // and opens Adminer in a new tab already logged in as it.
 export default function AdminerSsoButton({ databaseId, disabled = false }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [busy, setBusy] = useState(false);
 
@@ -45,9 +47,9 @@ export default function AdminerSsoButton({ databaseId, disabled = false }) {
         try {
             const descriptor = await api.launchManagedDbSso(databaseId);
             postToAdminer(descriptor);
-            toast.success('Opened Adminer with a 5-minute scoped credential');
+            toast.success(t('app.adminerSsoButton.openedAdminerWithA5Minute', 'Opened Adminer with a 5-minute scoped credential'));
         } catch (err) {
-            toast.error(err.message || 'Failed to launch Adminer');
+            toast.error(err.message || t('app.adminerSsoButton.failedToLaunchAdminer', 'Failed to launch Adminer'));
         } finally {
             setBusy(false);
         }

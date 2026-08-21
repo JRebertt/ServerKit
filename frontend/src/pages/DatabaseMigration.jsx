@@ -9,6 +9,7 @@ import {
 import ServerKitLogo from '../components/ServerKitLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 const TOTAL_STEPS = 4;
 const STEP_TITLES = ['Overview', 'Backup', 'Apply', 'Done'];
@@ -16,6 +17,7 @@ const STEP_TITLES = ['Overview', 'Backup', 'Apply', 'Done'];
 const MIGRATION_PREVIEW_COUNT = 4;
 
 const DatabaseMigration = () => {
+    const { t } = useTranslation();
     const { isAuthenticated, isAdmin, needsMigration, migrationInfo, refreshSetupStatus, login } = useAuth();
     const navigate = useNavigate();
 
@@ -138,8 +140,8 @@ const DatabaseMigration = () => {
             <div className="wizard-card">
                 <div className="wizard-header">
                     <ServerKitLogo className="wizard-logo" />
-                    <h1>Database Update Required</h1>
-                    <p>ServerKit needs to update the database before continuing</p>
+                    <h1>{t('app.databaseMigration.databaseUpdateRequired', 'Database Update Required')}</h1>
+                    <p>{t('app.databaseMigration.serverkitNeedsToUpdateTheDatabase', 'ServerKit needs to update the database before continuing')}</p>
                 </div>
 
                 {renderProgressBar()}
@@ -147,27 +149,26 @@ const DatabaseMigration = () => {
                 {/* Step 1: Overview */}
                 {currentStep === 1 && (
                     <div className="wizard-step">
-                        <div className="wizard-step-title">Update Overview</div>
+                        <div className="wizard-step-title">{t('app.databaseMigration.updateOverview', 'Update Overview')}</div>
                         <div className="wizard-step-description">
-                            A new version of ServerKit requires database changes.
-                            The panel is paused until these are applied.
+                            {t('app.databaseMigration.aNewVersionOfServerkitRequires', 'A new version of ServerKit requires database changes. The panel is paused until these are applied.')}
                         </div>
 
                         <div className="migration-status-panel">
                             <div className="migration-status-row">
-                                <span className="migration-status-label">Current version</span>
+                                <span className="migration-status-label">{t('app.databaseMigration.currentVersion', 'Current version')}</span>
                                 <code className="migration-status-value">
                                     {status.current_revision ? status.current_revision.substring(0, 12) : 'none'}
                                 </code>
                             </div>
                             <div className="migration-status-row">
-                                <span className="migration-status-label">Target version</span>
+                                <span className="migration-status-label">{t('app.databaseMigration.targetVersion', 'Target version')}</span>
                                 <code className="migration-status-value">
                                     {status.head_revision ? status.head_revision.substring(0, 12) : 'unknown'}
                                 </code>
                             </div>
                             <div className="migration-status-row">
-                                <span className="migration-status-label">Pending updates</span>
+                                <span className="migration-status-label">{t('app.databaseMigration.pendingUpdates', 'Pending updates')}</span>
                                 <span className="migration-status-value">{pendingCount}</span>
                             </div>
                         </div>
@@ -176,11 +177,8 @@ const DatabaseMigration = () => {
                             <div className="wizard-info-banner wizard-info-banner--warn">
                                 <AlertTriangle size={20} className="wizard-info-icon" />
                                 <p>
-                                    This database is stamped at <code>{status.current_revision}</code>,
-                                    which does not exist in this build — usually a branch that added a
-                                    migration and was then reverted. The schema cannot be upgraded
-                                    until it is stamped back to a known revision:
-                                    {' '}<code>flask db stamp {status.head_revision || 'head'}</code>
+                                    {t('app.databaseMigration.thisDatabaseIsStampedAt', 'This database is stamped at')} <code>{status.current_revision}</code>{t('app.databaseMigration.whichDoesNotExistInThis', ', which does not exist in this build — usually a branch that added a migration and was then reverted. The schema cannot be upgraded until it is stamped back to a known revision:')}
+                                    {' '}<code>{t('app.databaseMigration.flaskDbStamp', 'flask db stamp')} {status.head_revision || 'head'}</code>
                                 </p>
                             </div>
                         )}
@@ -218,7 +216,7 @@ const DatabaseMigration = () => {
                                 </div>
                                 {!showAllMigrations && hiddenCount > 0 && (
                                     <div className="migration-list-more">
-                                        + {hiddenCount} earlier {hiddenCount === 1 ? 'update' : 'updates'}, applied first
+                                        + {hiddenCount} earlier {hiddenCount === 1 ? 'update' : 'updates'}{t('app.databaseMigration.appliedFirst', ', applied first')}
                                     </div>
                                 )}
                             </div>
@@ -226,9 +224,9 @@ const DatabaseMigration = () => {
 
                         {!isAuthenticated && (
                             <div className="migration-login-section">
-                                <div className="wizard-step-title">Admin Login Required</div>
+                                <div className="wizard-step-title">{t('app.databaseMigration.adminLoginRequired', 'Admin Login Required')}</div>
                                 <p className="wizard-step-description">
-                                    Sign in with an admin account to apply the update.
+                                    {t('app.databaseMigration.signInWithAnAdminAccount', 'Sign in with an admin account to apply the update.')}
                                 </p>
                                 <form onSubmit={handleLogin} className="migration-login-form">
                                     {loginError && (
@@ -236,14 +234,14 @@ const DatabaseMigration = () => {
                                     )}
                                     <Input
                                         type="text"
-                                        placeholder="Email or username"
+                                        placeholder={t('app.databaseMigration.emailOrUsername', 'Email or username')}
                                         value={loginEmail}
                                         onChange={e => setLoginEmail(e.target.value)}
                                         required
                                     />
                                     <Input
                                         type="password"
-                                        placeholder="Password"
+                                        placeholder={t('app.databaseMigration.password', 'Password')}
                                         value={loginPassword}
                                         onChange={e => setLoginPassword(e.target.value)}
                                         required
@@ -258,7 +256,7 @@ const DatabaseMigration = () => {
                         {isAuthenticated && !isAdmin && (
                             <div className="wizard-info-banner">
                                 <AlertTriangle size={20} className="wizard-info-icon" />
-                                <p>Only admin users can apply database updates. Please sign in with an admin account.</p>
+                                <p>{t('app.databaseMigration.onlyAdminUsersCanApplyDatabase', 'Only admin users can apply database updates. Please sign in with an admin account.')}</p>
                             </div>
                         )}
 
@@ -271,7 +269,7 @@ const DatabaseMigration = () => {
                                 // Continue would just fail at "Can't locate revision".
                                 disabled={!isAuthenticated || !isAdmin || status.orphaned_revision}
                             >
-                                Continue <ArrowRight size={16} />
+                                {t('app.databaseMigration.continue', 'Continue')} <ArrowRight size={16} />
                             </Button>
                         </div>
                     </div>
@@ -280,16 +278,15 @@ const DatabaseMigration = () => {
                 {/* Step 2: Backup */}
                 {currentStep === 2 && (
                     <div className="wizard-step">
-                        <div className="wizard-step-title">Create Backup</div>
+                        <div className="wizard-step-title">{t('app.databaseMigration.createBackup', 'Create Backup')}</div>
                         <div className="wizard-step-description">
-                            We recommend backing up your database before applying updates.
+                            {t('app.databaseMigration.weRecommendBackingUpYourDatabase', 'We recommend backing up your database before applying updates.')}
                         </div>
 
                         <div className="wizard-info-banner">
                             <Shield size={20} className="wizard-info-icon" />
                             <p>
-                                A backup allows you to restore your database if anything goes wrong
-                                during the update process.
+                                {t('app.databaseMigration.aBackupAllowsYouToRestore', 'A backup allows you to restore your database if anything goes wrong during the update process.')}
                             </p>
                         </div>
 
@@ -301,9 +298,9 @@ const DatabaseMigration = () => {
                                     disabled={backupLoading}
                                 >
                                     {backupLoading ? (
-                                        <><Loader size={16} className="spin" /> Creating Backup...</>
+                                        <><Loader size={16} className="spin" /> {t('app.databaseMigration.creatingBackup', 'Creating Backup...')}</>
                                     ) : (
-                                        <><Download size={16} /> Create Backup</>
+                                        <><Download size={16} /> {t('app.databaseMigration.createBackup2', 'Create Backup')}</>
                                     )}
                                 </Button>
                             </div>
@@ -313,7 +310,7 @@ const DatabaseMigration = () => {
                             <div className="backup-status backup-status--success">
                                 <CheckCircle size={20} />
                                 <div>
-                                    <strong>Backup created successfully</strong>
+                                    <strong>{t('app.databaseMigration.backupCreatedSuccessfully', 'Backup created successfully')}</strong>
                                     <code>{backupResult.path}</code>
                                 </div>
                             </div>
@@ -323,7 +320,7 @@ const DatabaseMigration = () => {
                             <div className="backup-status backup-status--error">
                                 <XCircle size={20} />
                                 <div>
-                                    <strong>Backup failed</strong>
+                                    <strong>{t('app.databaseMigration.backupFailed', 'Backup failed')}</strong>
                                     <span>{backupResult.error}</span>
                                 </div>
                             </div>
@@ -331,7 +328,7 @@ const DatabaseMigration = () => {
 
                         <div className="wizard-nav">
                             <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(1)}>
-                                Back
+                                {t('app.databaseMigration.back', 'Back')}
                             </Button>
                             <div className="migration-nav-right">
                                 {!backupResult?.success && (
@@ -339,7 +336,7 @@ const DatabaseMigration = () => {
                                         variant="link"
                                         onClick={() => setCurrentStep(3)}
                                     >
-                                        Skip backup
+                                        {t('app.databaseMigration.skipBackup', 'Skip backup')}
                                     </Button>
                                 )}
                                 <Button
@@ -347,7 +344,7 @@ const DatabaseMigration = () => {
                                     onClick={() => setCurrentStep(3)}
                                     disabled={!backupResult?.success}
                                 >
-                                    Continue <ArrowRight size={16} />
+                                    {t('app.databaseMigration.continue2', 'Continue')} <ArrowRight size={16} />
                                 </Button>
                             </div>
                         </div>
@@ -357,7 +354,7 @@ const DatabaseMigration = () => {
                 {/* Step 3: Apply */}
                 {currentStep === 3 && (
                     <div className="wizard-step">
-                        <div className="wizard-step-title">Apply Updates</div>
+                        <div className="wizard-step-title">{t('app.databaseMigration.applyUpdates', 'Apply Updates')}</div>
                         <div className="wizard-step-description">
                             {applyLoading
                                 ? 'Applying database updates. Please do not close this page...'
@@ -368,7 +365,7 @@ const DatabaseMigration = () => {
                         {!applyLoading && !applyError && (
                             <div className="migration-apply-actions">
                                 <Button className="btn-wizard-next" onClick={handleApply}>
-                                    <Database size={16} /> Apply Updates
+                                    <Database size={16} /> {t('app.databaseMigration.applyUpdates2', 'Apply Updates')}
                                 </Button>
                             </div>
                         )}
@@ -376,7 +373,7 @@ const DatabaseMigration = () => {
                         {applyLoading && (
                             <div className="migration-progress">
                                 <Loader size={32} className="spin" />
-                                <span>Updating database schema...</span>
+                                <span>{t('app.databaseMigration.updatingDatabaseSchema', 'Updating database schema...')}</span>
                             </div>
                         )}
 
@@ -384,11 +381,11 @@ const DatabaseMigration = () => {
                             <div className="migration-error">
                                 <XCircle size={20} />
                                 <div>
-                                    <strong>Update failed</strong>
+                                    <strong>{t('app.databaseMigration.updateFailed', 'Update failed')}</strong>
                                     <span>{applyError}</span>
                                 </div>
                                 <Button variant="ghost" className="btn-wizard-prev" onClick={handleApply}>
-                                    <RotateCcw size={14} /> Retry
+                                    <RotateCcw size={14} /> {t('app.databaseMigration.retry', 'Retry')}
                                 </Button>
                             </div>
                         )}
@@ -396,7 +393,7 @@ const DatabaseMigration = () => {
                         {!applyLoading && (
                             <div className="wizard-nav">
                                 <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(2)}>
-                                    Back
+                                    {t('app.databaseMigration.back2', 'Back')}
                                 </Button>
                                 <div />
                             </div>
@@ -409,11 +406,11 @@ const DatabaseMigration = () => {
                     <div className="wizard-step">
                         <div className="migration-success">
                             <CheckCircle size={48} />
-                            <h2>Database Updated Successfully</h2>
+                            <h2>{t('app.databaseMigration.databaseUpdatedSuccessfully', 'Database Updated Successfully')}</h2>
                             <p>
-                                All migrations have been applied.
+                                {t('app.databaseMigration.allMigrationsHaveBeenApplied', 'All migrations have been applied.')}
                                 {migrationStatus?.current_revision && (
-                                    <> Now at revision <code>{migrationStatus.current_revision.substring(0, 12)}</code>.</>
+                                    <> {t('app.databaseMigration.nowAtRevision', 'Now at revision')} <code>{migrationStatus.current_revision.substring(0, 12)}</code>.</>
                                 )}
                             </p>
                         </div>
@@ -421,7 +418,7 @@ const DatabaseMigration = () => {
                         <div className="wizard-nav">
                             <div />
                             <Button className="btn-wizard-next" onClick={handleFinish}>
-                                Continue to ServerKit <ArrowRight size={16} />
+                                {t('app.databaseMigration.continueToServerkit', 'Continue to ServerKit')} <ArrowRight size={16} />
                             </Button>
                         </div>
                     </div>

@@ -18,10 +18,12 @@ import {
     SecurityConfigTab,
 } from '../components/security';
 import EmptyState from '../components/EmptyState';
+import { useTranslation } from 'react-i18next';
 
 const VALID_TABS = ['overview', 'firewall', 'fail2ban', 'ssh-keys', 'ip-lists', 'scanner', 'quarantine', 'integrity', 'audit', 'vulnerability', 'updates', 'events', 'settings'];
 
 const Security = () => {
+    const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useTabParam('/security', VALID_TABS);
     const [status, setStatus] = useState(null);
@@ -65,7 +67,7 @@ const Security = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner security-page">
-                <EmptyState loading loadingVariant="detail" title="Loading security status..." />
+                <EmptyState loading loadingVariant="detail" title={t('app.security.loadingSecurityStatus', 'Loading security status...')} />
             </div>
         );
     }

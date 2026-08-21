@@ -9,6 +9,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 // What the Status cell shows when the row carries none. A real word, not '':
 // `ruleIsArmed` drops any rule whose value is empty.
@@ -40,6 +41,7 @@ const WORKSPACE_SITE_VIEWS = [
 ];
 
 const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ws-sites-sort' });
     const {
@@ -51,7 +53,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Site',
+            headerKey: 'app.workspaceSitesTab.site', header: 'Site',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -69,7 +71,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.workspaceSitesTab.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a workspace holding two sites of two
             // statuses fails the enum cardinality test and would fall back to
@@ -89,8 +91,8 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
             hideable: false,
             render: (a) => (
                 <div className="ws-detail__rowactions" onClick={e => e.stopPropagation()}>
-                    <Button size="sm" variant="outline" onClick={() => onShare(a)}>Share</Button>
-                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>Remove</Button>
+                    <Button size="sm" variant="outline" onClick={() => onShare(a)}>{t('app.workspaceSitesTab.share', 'Share')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>{t('app.workspaceSitesTab.remove', 'Remove')}</Button>
                 </div>
             ),
         },
@@ -143,7 +145,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
                 onRowClick={(a) => navigate(`/services/${a.id}`)}
                 className="ws-detail__tablecard"
                 emptyState={(
-                    <EmptyState icon={Globe} title="No sites in this workspace yet" description="Move one in below." />
+                    <EmptyState icon={Globe} title={t('app.workspaceSitesTab.noSitesInThisWorkspaceYet', 'No sites in this workspace yet')} description={t('app.workspaceSitesTab.moveOneInBelow', 'Move one in below.')} />
                 )}
                 footer={(
                     <DataTableFooter
@@ -158,7 +160,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
 
             {appsOut.length > 0 && (
                 <>
-                    <div className="ws-pick-label">Move a site into this workspace</div>
+                    <div className="ws-pick-label">{t('app.workspaceSitesTab.moveASiteIntoThisWorkspace', 'Move a site into this workspace')}</div>
                     <div className="ws-pick">
                         {appsOut.map(a => (
                             <div key={a.id} className="ws-pick__item" onClick={() => onMoveApp(a.id, wsId)}>

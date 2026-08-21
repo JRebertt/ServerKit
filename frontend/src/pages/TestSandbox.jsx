@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { timeAgo, formatDuration } from '../utils/time';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 import {
     FlaskConical, Play, Square, ChevronDown, ChevronRight,
     Zap, Package, AlertTriangle, RefreshCw,
@@ -17,7 +18,7 @@ const POLL_MS = 2500;
 const HISTORY_LIMIT = 20;
 
 const FAMILY_META = {
-    debian: { label: 'Debian', kind: 'cyan' },
+    debian: { labelKey: 'app.testSandbox.debian', label: 'Debian', kind: 'cyan' },
     rhel: { label: 'RHEL', kind: 'amber' },
     suse: { label: 'SUSE', kind: 'violet' },
 };
@@ -26,14 +27,14 @@ const MODES = [
     {
         value: 'quick',
         icon: Zap,
-        title: 'Quick',
+        titleKey: 'app.testSandbox.quick', title: 'Quick',
         desc: 'Shell unit suites in plain distro containers.',
         eta: '~1–2 min per distro',
     },
     {
         value: 'full',
         icon: Package,
-        title: 'Full install',
+        titleKey: 'app.testSandbox.fullInstall', title: 'Full install',
         desc: 'Real install.sh in privileged systemd containers.',
         eta: '~5–15 min per distro',
     },
@@ -52,6 +53,7 @@ const summarizeRun = (run) => {
 // Per-distro results list with expandable log viewers. Shared between the
 // active run panel and expanded history rows.
 function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
+    const { t } = useTranslation();
     const results = run.results || {};
     const keys = run.distros?.length ? run.distros : Object.keys(results);
 
@@ -92,7 +94,7 @@ function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
                                 {log?.error ? (
                                     <pre className="ts-log ts-log--error">{log.error}</pre>
                                 ) : log?.loading && !log?.text ? (
-                                    <pre className="ts-log ts-log--muted">Loading log…</pre>
+                                    <pre className="ts-log ts-log--muted">{t('app.testSandbox.loadingLog', 'Loading log…')}</pre>
                                 ) : (
                                     <pre className="ts-log">{log?.text || 'No log output yet.'}</pre>
                                 )}
@@ -106,6 +108,7 @@ function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
 }
 
 const TestSandbox = () => {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [distros, setDistros] = useState([]);
@@ -187,7 +190,7 @@ const TestSandbox = () => {
                     `Run finished: ${passed}/${total} passed${failed ? ` (${failed} failed)` : ''}`
                 );
             } else if (res.run.status === 'error') {
-                toast.error(res.run.error || 'Run failed');
+                toast.error(res.run.error || t('app.testSandbox.runFailed', 'Run failed'));
             }
             loadRuns();
         } catch (err) {
@@ -285,7 +288,7 @@ const TestSandbox = () => {
         try {
             const res = await api.startTestSandboxRun([...selected], mode);
             setActiveRun(res.run);
-            toast.success(`Started ${mode} run across ${res.run.distros.length} distro(s)`);
+            toast.success(t('app.testSandbox.startedRunAcrossDistroS', 'Started {{mode}} run across {{length}} distro(s)', { mode: mode, length: res.run.distros.length }));
             loadRuns();
         } catch (err) {
             toast.error(err.message);
@@ -299,7 +302,7 @@ const TestSandbox = () => {
         setCancelling(true);
         try {
             await api.cancelTestSandboxRun(activeRun.id);
-            toast.success('Run cancelled');
+            toast.success(t('app.testSandbox.runCancelled', 'Run cancelled'));
             const res = await api.getTestSandboxRun(activeRun.id);
             setActiveRun(res.run);
             loadRuns();
@@ -329,8 +332,8 @@ const TestSandbox = () => {
 
     if (loading) {
         return (
-            <PageLayout className="test-sandbox-page" icon={<FlaskConical size={18} />} title="Test Sandbox">
-                <EmptyState loading loadingVariant="table" size="lg" title="Loading test sandbox..." />
+            <PageLayout className="test-sandbox-page" icon={<FlaskConical size={18} />} title={t('app.testSandbox.testSandbox', 'Test Sandbox')}>
+                <EmptyState loading loadingVariant="table" size="lg" title={t('app.testSandbox.loadingTestSandbox', 'Loading test sandbox...')} />
             </PageLayout>
         );
     }
@@ -339,7 +342,7 @@ const TestSandbox = () => {
         <PageLayout
             className="test-sandbox-page"
             icon={<FlaskConical size={18} />}
-            title="Test Sandbox"
+            title={t('app.testSandbox.testSandbox2', 'Test Sandbox')}
             actions={(
                 <Button
                     variant="outline"
@@ -347,7 +350,7 @@ const TestSandbox = () => {
                     disabled={runsLoading}
                 >
                     <RefreshCw size={15} />
-                    Refresh
+                    {t('app.testSandbox.refresh', 'Refresh')}
                 </Button>
             )}
         >
@@ -361,25 +364,25 @@ const TestSandbox = () => {
             {!dockerAvailable && (
                 <div className="alert alert-warning">
                     <AlertTriangle size={16} />
-                    Docker is not available on this host — test runs cannot start until the Docker daemon is reachable.
+                    {t('app.testSandbox.dockerIsNotAvailableOnThis', 'Docker is not available on this host — test runs cannot start until the Docker daemon is reachable.')}
                 </div>
             )}
 
             {/* ── New run ─────────────────────────────────── */}
             <Card className="ts-setup">
                 <CardHeader className="ts-setup__head">
-                    <CardTitle>New run</CardTitle>
+                    <CardTitle>{t('app.testSandbox.newRun', 'New run')}</CardTitle>
                     <div className="ts-setup__picker-actions">
                         <Button variant="ghost" size="sm" onClick={handleSelectAll} disabled={selectableKeys.length === 0}>
-                            Select all
+                            {t('app.testSandbox.selectAll', 'Select all')}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={handleClear} disabled={selected.size === 0}>
-                            Clear
+                            {t('app.testSandbox.clear', 'Clear')}
                         </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="ts-modes" role="radiogroup" aria-label="Test mode">
+                    <div className="ts-modes" role="radiogroup" aria-label={t('app.testSandbox.testMode', 'Test mode')}>
                         {MODES.map((m) => {
                             const ModeIcon = m.icon;
                             return (
@@ -416,7 +419,7 @@ const TestSandbox = () => {
                                     }
                                     disabled={disabled}
                                     aria-pressed={isSelected}
-                                    title={disabled ? `${d.label} only supports quick mode` : d.label}
+                                    title={disabled ? t('app.testSandbox.onlySupportsQuickMode', '{{label}} only supports quick mode', { label: d.label }) : d.label}
                                     onClick={() => toggleDistro(d.key)}
                                 >
                                     <span className="ts-distro__label">{d.label}</span>
@@ -440,7 +443,7 @@ const TestSandbox = () => {
                             {starting ? 'Starting…' : `Start ${mode} run${selected.size ? ` (${selected.size})` : ''}`}
                         </Button>
                         {isRunning && (
-                            <span className="ts-launch__note">A run is already in progress.</span>
+                            <span className="ts-launch__note">{t('app.testSandbox.aRunIsAlreadyInProgress', 'A run is already in progress.')}</span>
                         )}
                     </div>
                 </CardContent>
@@ -450,7 +453,7 @@ const TestSandbox = () => {
             {activeRun && (
                 <Card className="ts-active">
                     <CardHeader className="ts-active__head">
-                        <CardTitle>Run #{activeRun.id}</CardTitle>
+                        <CardTitle>{t('app.testSandbox.run', 'Run #')}{activeRun.id}</CardTitle>
                         <Pill kind="gray" dot={false}>{activeRun.mode}</Pill>
                         <Pill kind={statusKind(activeRun.status)}>{activeRun.status}</Pill>
                         {isRunning && (
@@ -482,26 +485,26 @@ const TestSandbox = () => {
 
             {/* ── History ─────────────────────────────────── */}
             <section className="ts-history">
-                <h2 className="ts-section-title">Run history</h2>
+                <h2 className="ts-section-title">{t('app.testSandbox.runHistory', 'Run history')}</h2>
                 {runsLoading ? (
-                    <EmptyState loading loadingVariant="table" title="Loading run history..." />
+                    <EmptyState loading loadingVariant="table" title={t('app.testSandbox.loadingRunHistory', 'Loading run history...')} />
                 ) : runs.length === 0 ? (
                     <EmptyState
                         icon={FlaskConical}
-                        title="No runs yet"
-                        description="Pick distros above and start your first sandbox run."
+                        title={t('app.testSandbox.noRunsYet', 'No runs yet')}
+                        description={t('app.testSandbox.pickDistrosAboveAndStartYour', 'Pick distros above and start your first sandbox run.')}
                     />
                 ) : (
                     <div className="ts-history-card">
                         <table className="sk-dtable ts-table">
                             <thead>
                                 <tr>
-                                    <th>Run</th>
-                                    <th>Mode</th>
-                                    <th>Distros</th>
-                                    <th>Result</th>
-                                    <th>Started</th>
-                                    <th>Status</th>
+                                    <th>{t('app.testSandbox.run2', 'Run')}</th>
+                                    <th>{t('app.testSandbox.mode', 'Mode')}</th>
+                                    <th>{t('app.testSandbox.distros', 'Distros')}</th>
+                                    <th>{t('app.testSandbox.result', 'Result')}</th>
+                                    <th>{t('app.testSandbox.started', 'Started')}</th>
+                                    <th>{t('app.testSandbox.status', 'Status')}</th>
                                 </tr>
                             </thead>
                             <tbody>

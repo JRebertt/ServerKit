@@ -23,6 +23,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useTableSort } from '../hooks/useTableSort';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
@@ -79,6 +80,7 @@ function DnsIcon({ state }) {
 }
 
 export default function Email() {
+    const { t } = useTranslation();
     const [activeTab] = useTabParam('/email', VALID_TABS);
 
     const [status, setStatus] = useState(null);
@@ -126,13 +128,13 @@ export default function Email() {
             tabs={tabs}
             actions={(
                 <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>
-                    <RefreshCw size={14} /> Refresh
+                    <RefreshCw size={14} /> {t('app.email.refresh', 'Refresh')}
                 </Button>
             )}
         >
             <div className="sk-email">
                 {loading ? (
-                    <div className="sk-email__empty">Loading…</div>
+                    <div className="sk-email__empty">{t('app.email.loading', 'Loading…')}</div>
                 ) : (
                     <>
                         {activeTab === 'overview' && (
@@ -157,6 +159,7 @@ export default function Email() {
 
 // ---------- Overview ----------
 function OverviewTab({ status, installed, onChange }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [installError, setInstallError] = useState(null);
     const components = status?.components || {};
@@ -176,7 +179,7 @@ function OverviewTab({ status, installed, onChange }) {
         setInstallError(null);
         try {
             await api.installEmailServer();
-            toast.success('Email server install started');
+            toast.success(t('app.email.emailServerInstallStarted', 'Email server install started'));
             onChange();
         } catch (err) {
             // err.message is the server's top-line reason ("Postfix
@@ -196,7 +199,7 @@ function OverviewTab({ status, installed, onChange }) {
             toast.success(`${component}: ${action}`);
             onChange();
         } catch {
-            toast.error(`Failed to ${action} ${component}`);
+            toast.error(t('app.email.failedTo', 'Failed to {{action}} {{component}}', { action: action, component: component }));
         }
     };
 
@@ -205,17 +208,16 @@ function OverviewTab({ status, installed, onChange }) {
             <div className="sk-email__hero">
                 <EmptyState
                     icon={Server}
-                    title="Mail server not installed"
-                    description="Most panels never run a mail server, install it when you need it."
+                    title={t('app.email.mailServerNotInstalled', 'Mail server not installed')}
+                    description={t('app.email.mostPanelsNeverRunAMail', 'Most panels never run a mail server, install it when you need it.')}
                     action={(
                         <Button size="sm" onClick={install}>
-                            <Plus size={14} /> Install mail server
+                            <Plus size={14} /> {t('app.email.installMailServer', 'Install mail server')}
                         </Button>
                     )}
                 />
                 <p className="sk-email__hero-note">
-                    A deliverability preflight (PTR, port 25, RBL) gates outbound sending before mail
-                    can leave this host.
+                    {t('app.email.aDeliverabilityPreflightPtrPort25', 'A deliverability preflight (PTR, port 25, RBL) gates outbound sending before mail can leave this host.')}
                 </p>
                 {installError && (
                     <p className="sk-email__hero-error" role="alert">{installError}</p>
@@ -230,10 +232,10 @@ function OverviewTab({ status, installed, onChange }) {
     });
 
     const serviceColumns = [
-        { key: 'component', header: 'Component', sortable: true, hideable: false, sortValue: (r) => r.name, render: (r) => r.name },
+        { key: 'component', headerKey: 'app.email.component', header: 'Component', sortable: true, hideable: false, sortValue: (r) => r.name, render: (r) => r.name },
         {
             key: 'state',
-            header: 'State',
+            headerKey: 'app.email.state', header: 'State',
             sortable: true,
             sortValue: (r) => (r.running ? 1 : 0),
             render: (r) => <Pill kind={r.running ? 'green' : 'red'}>{r.running ? 'Running' : 'Stopped'}</Pill>,
@@ -250,7 +252,7 @@ function OverviewTab({ status, installed, onChange }) {
                         {r.running ? 'Restart' : 'Start'}
                     </Button>
                     {r.running && (
-                        <Button variant="ghost" size="sm" onClick={() => control(r.name, 'stop')}>Stop</Button>
+                        <Button variant="ghost" size="sm" onClick={() => control(r.name, 'stop')}>{t('app.email.stop', 'Stop')}</Button>
                     )}
                 </div>
             ),
@@ -260,12 +262,12 @@ function OverviewTab({ status, installed, onChange }) {
     return (
         <section className="sk-email__section">
             <KpiBand>
-                <MetricCard label="Domains" value={status?.domains_count ?? 0} tone="accent" icon={<Globe size={16} />} />
-                <MetricCard label="Accounts" value={status?.accounts_count ?? 0} tone="cyan" icon={<Users size={16} />} />
-                <MetricCard label="Queue" value={status?.queue_count ?? 0} tone="amber" icon={<Inbox size={16} />} />
+                <MetricCard label={t('app.email.domains', 'Domains')} value={status?.domains_count ?? 0} tone="accent" icon={<Globe size={16} />} />
+                <MetricCard label={t('app.email.accounts', 'Accounts')} value={status?.accounts_count ?? 0} tone="cyan" icon={<Users size={16} />} />
+                <MetricCard label={t('app.email.queue', 'Queue')} value={status?.queue_count ?? 0} tone="amber" icon={<Inbox size={16} />} />
             </KpiBand>
 
-            <h2 className="sk-email__section-title"><Server size={16} /> Services</h2>
+            <h2 className="sk-email__section-title"><Server size={16} /> {t('app.email.services', 'Services')}</h2>
             <DataTable
                 columns={serviceColumns}
                 data={serviceRows}
@@ -281,6 +283,7 @@ function OverviewTab({ status, installed, onChange }) {
 
 // ---------- Domains ----------
 function DomainsTab({ domains, onChange }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [newDomain, setNewDomain] = useState('');
@@ -292,28 +295,28 @@ function DomainsTab({ domains, onChange }) {
         if (!newDomain.trim()) return;
         try {
             await api.addEmailDomain({ name: newDomain.trim() });
-            toast.success('Domain added');
+            toast.success(t('app.email.domainAdded', 'Domain added'));
             setNewDomain('');
             onChange();
         } catch {
-            toast.error('Could not add domain');
+            toast.error(t('app.email.couldNotAddDomain', 'Could not add domain'));
         }
     };
 
     const remove = async (domain) => {
         const ok = await confirm({
-            title: 'Delete domain',
-            message: `Delete ${domain.name} and all of its accounts and aliases?`,
-            confirmLabel: 'Delete',
+            title: t('app.email.deleteDomain', 'Delete domain'),
+            message: t('app.email.deleteAndAllOfItsAccounts', 'Delete {{name}} and all of its accounts and aliases?', { name: domain.name }),
+            confirmLabel: t('app.email.delete', 'Delete'),
             danger: true,
         });
         if (!ok) return;
         try {
             await api.deleteEmailDomain(domain.id);
-            toast.success('Domain deleted');
+            toast.success(t('app.email.domainDeleted', 'Domain deleted'));
             onChange();
         } catch {
-            toast.error('Delete failed');
+            toast.error(t('app.email.deleteFailed', 'Delete failed'));
         }
     };
 
@@ -322,9 +325,9 @@ function DomainsTab({ domains, onChange }) {
         try {
             const res = await api.verifyEmailDNS(domain.id);
             setDnsResults((r) => ({ ...r, [domain.id]: res?.records || res || {} }));
-            toast.success('DNS checked');
+            toast.success(t('app.email.dnsChecked', 'DNS checked'));
         } catch {
-            toast.error('DNS check failed');
+            toast.error(t('app.email.dnsCheckFailed', 'DNS check failed'));
         } finally {
             setVerifying((v) => ({ ...v, [domain.id]: false }));
         }
@@ -333,9 +336,9 @@ function DomainsTab({ domains, onChange }) {
     const deploy = async (domain) => {
         try {
             await api.deployEmailDNS(domain.id);
-            toast.success('DNS records deployed to provider');
+            toast.success(t('app.email.dnsRecordsDeployedToProvider', 'DNS records deployed to provider'));
         } catch {
-            toast.error('Deploy failed (no linked DNS provider?)');
+            toast.error(t('app.email.deployFailedNoLinkedDnsProvider', 'Deploy failed (no linked DNS provider?)'));
         }
     };
 
@@ -346,15 +349,15 @@ function DomainsTab({ domains, onChange }) {
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
                     placeholder="example.com"
-                    aria-label="New mail domain"
+                    aria-label={t('app.email.newMailDomain', 'New mail domain')}
                 />
-                <Button type="submit" size="sm"><Plus size={14} /> Add domain</Button>
+                <Button type="submit" size="sm"><Plus size={14} /> {t('app.email.addDomain', 'Add domain')}</Button>
             </form>
 
             {domains.length === 0 ? (
                 <div className="sk-email__empty">
                     <Globe size={24} aria-hidden="true" />
-                    <p>No mail domains yet.</p>
+                    <p>{t('app.email.noMailDomainsYet', 'No mail domains yet.')}</p>
                 </div>
             ) : (
                 <ul className="sk-email__domains">
@@ -380,7 +383,7 @@ function DomainsTab({ domains, onChange }) {
                                 <div className="sk-email__domain-meta">
                                     <span>{domain.accounts_count ?? 0} accounts</span>
                                     <span>{domain.aliases_count ?? 0} aliases</span>
-                                    {domain.dkim_selector && <span>DKIM selector: {domain.dkim_selector}</span>}
+                                    {domain.dkim_selector && <span>{t('app.email.dkimSelector', 'DKIM selector:')} {domain.dkim_selector}</span>}
                                 </div>
 
                                 <div className="sk-email__actions">
@@ -393,10 +396,10 @@ function DomainsTab({ domains, onChange }) {
                                         <ShieldCheck size={14} /> {verifying[domain.id] ? 'Checking…' : 'Verify DNS'}
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={() => deploy(domain)}>
-                                        <ExternalLink size={14} /> Deploy DNS
+                                        <ExternalLink size={14} /> {t('app.email.deployDns', 'Deploy DNS')}
                                     </Button>
                                     <Button variant="ghost" size="sm" onClick={() => remove(domain)}>
-                                        <Trash2 size={14} /> Delete
+                                        <Trash2 size={14} /> {t('app.email.delete2', 'Delete')}
                                     </Button>
                                 </div>
                             </li>
@@ -459,6 +462,7 @@ const ACCOUNT_VIEWS = [
 ];
 
 function AccountsTab({ domains }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [domainId, setDomainId] = useState(domains[0]?.id ? String(domains[0].id) : '');
@@ -499,28 +503,28 @@ function AccountsTab({ domains }) {
         if (!form.username.trim() || !form.password) return;
         try {
             await api.createEmailAccount(domainId, form);
-            toast.success('Account created');
+            toast.success(t('app.email.accountCreated', 'Account created'));
             setForm({ username: '', password: '', quota_mb: 1024 });
             load();
         } catch {
-            toast.error('Create failed');
+            toast.error(t('app.email.createFailed', 'Create failed'));
         }
     };
 
     const remove = async (account) => {
         const ok = await confirm({
-            title: 'Delete account',
-            message: `Delete ${account.email}?`,
-            confirmLabel: 'Delete',
+            title: t('app.email.deleteAccount', 'Delete account'),
+            message: t('app.email.delete3', 'Delete {{email}}?', { email: account.email }),
+            confirmLabel: t('app.email.delete4', 'Delete'),
             danger: true,
         });
         if (!ok) return;
         try {
             await api.deleteEmailAccount(account.id);
-            toast.success('Account deleted');
+            toast.success(t('app.email.accountDeleted', 'Account deleted'));
             load();
         } catch {
-            toast.error('Delete failed');
+            toast.error(t('app.email.deleteFailed2', 'Delete failed'));
         }
     };
 
@@ -533,7 +537,7 @@ function AccountsTab({ domains }) {
     const accountColumns = [
         {
             key: 'email',
-            header: 'Address',
+            headerKey: 'app.email.address', header: 'Address',
             sortable: true,
             hideable: false,
             sortValue: (a) => a.email || '',
@@ -541,7 +545,7 @@ function AccountsTab({ domains }) {
         },
         {
             key: 'quota',
-            header: 'Quota',
+            headerKey: 'app.email.quota', header: 'Quota',
             sortable: true,
             type: 'num',
             unit: ' MB',
@@ -553,7 +557,7 @@ function AccountsTab({ domains }) {
         },
         {
             key: 'used',
-            header: 'Used',
+            headerKey: 'app.email.used', header: 'Used',
             sortable: true,
             type: 'num',
             unit: '%',
@@ -566,7 +570,7 @@ function AccountsTab({ domains }) {
         },
         {
             key: 'state',
-            header: 'State',
+            headerKey: 'app.email.state2', header: 'State',
             sortable: true,
             // Filter on the label the pill shows; keep the 1/0 sortValue so
             // "Active first" still puts active first when the column sorts desc.
@@ -584,7 +588,7 @@ function AccountsTab({ domains }) {
             render: (a) => (
                 <div className="sk-email__actions">
                     <Button variant="ghost" size="sm" onClick={() => remove(a)}>
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} /> {t('app.email.delete5', 'Delete')}
                     </Button>
                 </div>
             ),
@@ -611,7 +615,7 @@ function AccountsTab({ domains }) {
         return (
             <div className="sk-email__empty">
                 <Users size={24} aria-hidden="true" />
-                <p>Add a mail domain first.</p>
+                <p>{t('app.email.addAMailDomainFirst', 'Add a mail domain first.')}</p>
             </div>
         );
     }
@@ -637,7 +641,7 @@ function AccountsTab({ domains }) {
             />
             <ListToolbar className="sk-email__filters">
                 <label>
-                    Domain
+                    {t('app.email.domain', 'Domain')}
                     <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
                         {domains.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
                     </select>
@@ -648,8 +652,8 @@ function AccountsTab({ domains }) {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search accounts by address..."
-                        aria-label="Search accounts"
+                        placeholder={t('app.email.searchAccountsByAddress', 'Search accounts by address...')}
+                        aria-label={t('app.email.searchAccounts', 'Search accounts')}
                     />
                 </label>
             </ListToolbar>
@@ -661,23 +665,23 @@ function AccountsTab({ domains }) {
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     placeholder="username"
-                    aria-label="Mailbox username"
+                    aria-label={t('app.email.mailboxUsername', 'Mailbox username')}
                 />
                 <Input
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     placeholder="password"
-                    aria-label="Mailbox password"
+                    aria-label={t('app.email.mailboxPassword', 'Mailbox password')}
                 />
                 <Input
                     type="number"
                     value={form.quota_mb}
                     onChange={(e) => setForm({ ...form, quota_mb: Number(e.target.value) })}
-                    placeholder="Quota (MB)"
-                    aria-label="Quota in MB"
+                    placeholder={t('app.email.quotaMb', 'Quota (MB)')}
+                    aria-label={t('app.email.quotaInMb', 'Quota in MB')}
                 />
-                <Button type="submit" size="sm"><Plus size={14} /> Create</Button>
+                <Button type="submit" size="sm"><Plus size={14} /> {t('app.email.create', 'Create')}</Button>
             </form>
 
             <DataTable
@@ -700,6 +704,7 @@ function AccountsTab({ domains }) {
 
 // ---------- Relay (smarthost) ----------
 function RelayTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [relay, setRelay] = useState({ host: '', port: 587, username: '', password: '', enabled: false });
     const [loading, setLoading] = useState(true);
@@ -717,18 +722,18 @@ function RelayTab() {
         e.preventDefault();
         try {
             await api.updateEmailRelay(relay);
-            toast.success('Relay saved');
+            toast.success(t('app.email.relaySaved', 'Relay saved'));
         } catch {
-            toast.error('Save failed');
+            toast.error(t('app.email.saveFailed', 'Save failed'));
         }
     };
 
     const test = async () => {
         try {
             await api.testEmailRelay(relay);
-            toast.success('Relay reachable');
+            toast.success(t('app.email.relayReachable', 'Relay reachable'));
         } catch {
-            toast.error('Relay test failed');
+            toast.error(t('app.email.relayTestFailed', 'Relay test failed'));
         }
     };
 
@@ -736,30 +741,30 @@ function RelayTab() {
         try {
             await api.disableEmailRelay();
             setRelay((r) => ({ ...r, enabled: false }));
-            toast.success('Relay disabled');
+            toast.success(t('app.email.relayDisabled', 'Relay disabled'));
         } catch {
-            toast.error('Failed to disable relay');
+            toast.error(t('app.email.failedToDisableRelay', 'Failed to disable relay'));
         }
     };
 
-    if (loading) return <div className="sk-email__empty">Loading…</div>;
+    if (loading) return <div className="sk-email__empty">{t('app.email.loading2', 'Loading…')}</div>;
 
     return (
         <section className="sk-email__section">
-            <h2 className="sk-email__section-title"><Send size={16} /> Outbound relay (smarthost)</h2>
+            <h2 className="sk-email__section-title"><Send size={16} /> {t('app.email.outboundRelaySmarthost', 'Outbound relay (smarthost)')}</h2>
             <form className="sk-email__form" onSubmit={save}>
-                <label>Host<Input value={relay.host || ''} onChange={(e) => setRelay({ ...relay, host: e.target.value })} placeholder="smtp.provider.com" /></label>
-                <label>Port<Input type="number" value={relay.port || 587} onChange={(e) => setRelay({ ...relay, port: Number(e.target.value) })} /></label>
-                <label>Username<Input value={relay.username || ''} onChange={(e) => setRelay({ ...relay, username: e.target.value })} /></label>
-                <label>Password<Input type="password" value={relay.password || ''} onChange={(e) => setRelay({ ...relay, password: e.target.value })} /></label>
+                <label>{t('app.email.host', 'Host')}<Input value={relay.host || ''} onChange={(e) => setRelay({ ...relay, host: e.target.value })} placeholder="smtp.provider.com" /></label>
+                <label>{t('app.email.port', 'Port')}<Input type="number" value={relay.port || 587} onChange={(e) => setRelay({ ...relay, port: Number(e.target.value) })} /></label>
+                <label>{t('app.email.username', 'Username')}<Input value={relay.username || ''} onChange={(e) => setRelay({ ...relay, username: e.target.value })} /></label>
+                <label>{t('app.email.password', 'Password')}<Input type="password" value={relay.password || ''} onChange={(e) => setRelay({ ...relay, password: e.target.value })} /></label>
                 <label className="sk-email__check">
                     <input type="checkbox" checked={!!relay.enabled} onChange={(e) => setRelay({ ...relay, enabled: e.target.checked })} />
-                    Enable relay
+                    {t('app.email.enableRelay', 'Enable relay')}
                 </label>
                 <div className="sk-email__actions">
-                    <Button type="submit" size="sm">Save</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={test}>Test</Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={disable}>Disable</Button>
+                    <Button type="submit" size="sm">{t('app.email.save', 'Save')}</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={test}>{t('app.email.test', 'Test')}</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={disable}>{t('app.email.disable', 'Disable')}</Button>
                 </div>
             </form>
         </section>
@@ -768,6 +773,7 @@ function RelayTab() {
 
 // ---------- Spam ----------
 function SpamTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [config, setConfig] = useState({ enabled: true, required_score: 5 });
     const [loading, setLoading] = useState(true);
@@ -785,35 +791,35 @@ function SpamTab() {
         e.preventDefault();
         try {
             await api.updateSpamConfig(config);
-            toast.success('Spam config saved');
+            toast.success(t('app.email.spamConfigSaved', 'Spam config saved'));
         } catch {
-            toast.error('Save failed');
+            toast.error(t('app.email.saveFailed2', 'Save failed'));
         }
     };
 
     const updateRules = async () => {
         try {
             await api.updateSpamRules();
-            toast.success('Rule update started');
+            toast.success(t('app.email.ruleUpdateStarted', 'Rule update started'));
         } catch {
-            toast.error('Rule update failed');
+            toast.error(t('app.email.ruleUpdateFailed', 'Rule update failed'));
         }
     };
 
-    if (loading) return <div className="sk-email__empty">Loading…</div>;
+    if (loading) return <div className="sk-email__empty">{t('app.email.loading3', 'Loading…')}</div>;
 
     return (
         <section className="sk-email__section">
-            <h2 className="sk-email__section-title"><Filter size={16} /> SpamAssassin</h2>
+            <h2 className="sk-email__section-title"><Filter size={16} /> {t('app.email.spamassassin', 'SpamAssassin')}</h2>
             <form className="sk-email__form" onSubmit={save}>
                 <label className="sk-email__check">
                     <input type="checkbox" checked={!!config.enabled} onChange={(e) => setConfig({ ...config, enabled: e.target.checked })} />
-                    Enable spam filtering
+                    {t('app.email.enableSpamFiltering', 'Enable spam filtering')}
                 </label>
-                <label>Required score<Input type="number" step="0.1" value={config.required_score ?? 5} onChange={(e) => setConfig({ ...config, required_score: Number(e.target.value) })} /></label>
+                <label>{t('app.email.requiredScore', 'Required score')}<Input type="number" step="0.1" value={config.required_score ?? 5} onChange={(e) => setConfig({ ...config, required_score: Number(e.target.value) })} /></label>
                 <div className="sk-email__actions">
-                    <Button type="submit" size="sm">Save</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={updateRules}>Update rules</Button>
+                    <Button type="submit" size="sm">{t('app.email.save2', 'Save')}</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={updateRules}>{t('app.email.updateRules', 'Update rules')}</Button>
                 </div>
             </form>
         </section>
@@ -822,6 +828,7 @@ function SpamTab() {
 
 // ---------- Webmail ----------
 function WebmailTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [state, setState] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -842,35 +849,35 @@ function WebmailTab() {
     const install = async () => {
         try {
             await api.installWebmail();
-            toast.success('Webmail install started');
+            toast.success(t('app.email.webmailInstallStarted', 'Webmail install started'));
             load();
         } catch {
-            toast.error('Install failed');
+            toast.error(t('app.email.installFailed', 'Install failed'));
         }
     };
 
     const control = async (action) => {
         try {
             await api.controlWebmail(action);
-            toast.success(`Webmail: ${action}`);
+            toast.success(t('app.email.webmail', 'Webmail: {{action}}', { action: action }));
             load();
         } catch {
-            toast.error(`Failed to ${action} webmail`);
+            toast.error(t('app.email.failedToWebmail', 'Failed to {{action}} webmail', { action: action }));
         }
     };
 
-    if (loading) return <div className="sk-email__empty">Loading…</div>;
+    if (loading) return <div className="sk-email__empty">{t('app.email.loading4', 'Loading…')}</div>;
 
     const installed = state?.installed ?? state?.is_installed;
     const running = state?.running;
 
     return (
         <section className="sk-email__section">
-            <h2 className="sk-email__section-title"><Inbox size={16} /> Roundcube webmail</h2>
+            <h2 className="sk-email__section-title"><Inbox size={16} /> {t('app.email.roundcubeWebmail', 'Roundcube webmail')}</h2>
             {!installed ? (
                 <div className="sk-email__empty">
-                    <p>Webmail is not installed.</p>
-                    <Button size="sm" onClick={install}><Plus size={14} /> Install webmail</Button>
+                    <p>{t('app.email.webmailIsNotInstalled', 'Webmail is not installed.')}</p>
+                    <Button size="sm" onClick={install}><Plus size={14} /> {t('app.email.installWebmail', 'Install webmail')}</Button>
                 </div>
             ) : (
                 <div className="sk-email__actions">
@@ -878,7 +885,7 @@ function WebmailTab() {
                     <Button variant="outline" size="sm" onClick={() => control(running ? 'restart' : 'start')}>
                         {running ? 'Restart' : 'Start'}
                     </Button>
-                    {running && <Button variant="ghost" size="sm" onClick={() => control('stop')}>Stop</Button>}
+                    {running && <Button variant="ghost" size="sm" onClick={() => control('stop')}>{t('app.email.stop2', 'Stop')}</Button>}
                 </div>
             )}
         </section>
@@ -913,6 +920,7 @@ const QUEUE_VIEWS = [
 ];
 
 function QueueTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [queue, setQueue] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -944,10 +952,10 @@ function QueueTab() {
     const flush = async () => {
         try {
             await api.flushMailQueue();
-            toast.success('Queue flushed');
+            toast.success(t('app.email.queueFlushed', 'Queue flushed'));
             load();
         } catch {
-            toast.error('Flush failed');
+            toast.error(t('app.email.flushFailed', 'Flush failed'));
         }
     };
 
@@ -956,7 +964,7 @@ function QueueTab() {
             await api.deleteMailQueueItem(id);
             load();
         } catch {
-            toast.error('Delete failed');
+            toast.error(t('app.email.deleteFailed3', 'Delete failed'));
         }
     };
 
@@ -978,11 +986,11 @@ function QueueTab() {
             sortValue: (item) => item.id || item.queue_id || '',
             render: (item) => <span className="sk-email__mono">{item.id || item.queue_id}</span>,
         },
-        { key: 'sender', header: 'Sender', sortable: true, sortValue: (item) => item.sender || null, render: (item) => item.sender || '-' },
-        { key: 'recipient', header: 'Recipient', sortable: true, sortValue: (item) => item.recipient || null, render: (item) => item.recipient || '-' },
+        { key: 'sender', headerKey: 'app.email.sender', header: 'Sender', sortable: true, sortValue: (item) => item.sender || null, render: (item) => item.sender || '-' },
+        { key: 'recipient', headerKey: 'app.email.recipient', header: 'Recipient', sortable: true, sortValue: (item) => item.recipient || null, render: (item) => item.recipient || '-' },
         {
             key: 'size',
-            header: 'Size',
+            headerKey: 'app.email.size', header: 'Size',
             sortable: true,
             // Bytes, straight off mailq. Typed explicitly because a preset
             // filters on it — inference would land on 'num' here anyway, but
@@ -1002,7 +1010,7 @@ function QueueTab() {
             render: (item) => (
                 <div className="sk-email__actions">
                     <Button variant="ghost" size="sm" onClick={() => remove(item.id || item.queue_id)}>
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} /> {t('app.email.delete6', 'Delete')}
                     </Button>
                 </div>
             ),
@@ -1034,11 +1042,11 @@ function QueueTab() {
                 onCreate={chrome.createView}
                 actions={(
                     <>
-                        <Button variant="outline" size="sm" onClick={flush}>Flush queue</Button>
+                        <Button variant="outline" size="sm" onClick={flush}>{t('app.email.flushQueue', 'Flush queue')}</Button>
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Search queue by sender, recipient, or ID…"
+                            placeholder={t('app.email.searchQueueBySenderRecipientOr', 'Search queue by sender, recipient, or ID…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}

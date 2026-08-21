@@ -1,4 +1,5 @@
 import { Search, RefreshCw, Download, Trash2, Maximize2, Minimize2, X, ArrowDownToLine, Hash, WrapText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function LogToolbar({
     searchPattern, onSearchChange, onSearchSubmit, onSearchClear,
@@ -10,6 +11,7 @@ export default function LogToolbar({
     onRefresh, onDownload, onClear, onScrollToBottom,
     canAct,
 }) {
+    const { t } = useTranslation();
     return (
         <div className="lv-toolbar">
             <div className="lv-toolbar-left">
@@ -17,13 +19,13 @@ export default function LogToolbar({
                     <Search size={13} className="lv-search-field-icon" />
                     <input
                         type="text"
-                        placeholder="Search in log…"
+                        placeholder={t('app.logToolbar.searchInLog', 'Search in log…')}
                         value={searchPattern}
                         onChange={(e) => onSearchChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && onSearchSubmit()}
                     />
                     {searchPattern && (
-                        <button type="button" className="lv-search-field-clear" onClick={onSearchClear} title="Clear">
+                        <button type="button" className="lv-search-field-clear" onClick={onSearchClear} title={t('app.logToolbar.clear', 'Clear')}>
                             <X size={11} />
                         </button>
                     )}
@@ -32,7 +34,7 @@ export default function LogToolbar({
                     className="lv-select"
                     value={lineCount}
                     onChange={(e) => onLineCountChange(parseInt(e.target.value, 10))}
-                    title="Lines to fetch"
+                    title={t('app.logToolbar.linesToFetch', 'Lines to fetch')}
                 >
                     {lineCountOptions.map((n) => (
                         <option key={n} value={n}>{n.toLocaleString()} lines</option>
@@ -45,22 +47,22 @@ export default function LogToolbar({
                     className={`lv-chip ${autoRefresh ? 'active' : ''}`}
                     onClick={onAutoRefreshToggle}
                     disabled={!canAct}
-                    title="Auto-refresh every 3s and follow tail"
+                    title={t('app.logToolbar.autoRefreshEvery3sAndFollow', 'Auto-refresh every 3s and follow tail')}
                 >
                     <span className={`lv-pulse ${autoRefresh ? 'on' : ''}`} />
-                    <span>Live</span>
+                    <span>{t('app.logToolbar.live', 'Live')}</span>
                 </button>
                 <button type="button"
                     className={`lv-icon-btn ${showLineNumbers ? 'active' : ''}`}
                     onClick={onToggleLineNumbers}
-                    title="Toggle line numbers"
+                    title={t('app.logToolbar.toggleLineNumbers', 'Toggle line numbers')}
                 >
                     <Hash size={13} />
                 </button>
                 <button type="button"
                     className={`lv-icon-btn ${wrapLines ? 'active' : ''}`}
                     onClick={onToggleWrap}
-                    title="Toggle word wrap"
+                    title={t('app.logToolbar.toggleWordWrap', 'Toggle word wrap')}
                 >
                     <WrapText size={13} />
                 </button>
@@ -68,7 +70,7 @@ export default function LogToolbar({
                     className="lv-icon-btn"
                     onClick={onScrollToBottom}
                     disabled={!canAct}
-                    title="Jump to end"
+                    title={t('app.logToolbar.jumpToEnd', 'Jump to end')}
                 >
                     <ArrowDownToLine size={13} />
                 </button>
@@ -76,7 +78,7 @@ export default function LogToolbar({
                     className="lv-icon-btn"
                     onClick={onRefresh}
                     disabled={!canAct}
-                    title="Refresh"
+                    title={t('app.logToolbar.refresh', 'Refresh')}
                 >
                     <RefreshCw size={13} />
                 </button>
@@ -84,7 +86,7 @@ export default function LogToolbar({
                     className="lv-icon-btn"
                     onClick={onDownload}
                     disabled={!canAct}
-                    title="Download"
+                    title={t('app.logToolbar.download', 'Download')}
                 >
                     <Download size={13} />
                 </button>
@@ -92,14 +94,14 @@ export default function LogToolbar({
                     className="lv-icon-btn danger"
                     onClick={onClear}
                     disabled={!canAct}
-                    title="Truncate log file"
+                    title={t('app.logToolbar.truncateLogFile', 'Truncate log file')}
                 >
                     <Trash2 size={13} />
                 </button>
                 <button type="button"
                     className="lv-icon-btn"
                     onClick={onToggleFullscreen}
-                    title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                    title={isFullscreen ? t('app.logToolbar.exitFullscreen', 'Exit fullscreen') : t('app.logToolbar.fullscreen', 'Fullscreen')}
                 >
                     {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
                 </button>

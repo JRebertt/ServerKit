@@ -1,6 +1,7 @@
 import { Archive, Database, Globe, HardDrive, Package, Play, ShieldCheck, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { DataTable, DataTableFooter } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 const KIND_ICON = {
     application: Package,
@@ -73,13 +74,14 @@ function frequencyLabel(schedule) {
 export default function SchedulesTable({
     schedules, retentionDays, remoteLabel, onToggle, onRemove, onRun,
 }) {
+    const { t } = useTranslation();
     // DataTable columns. Cell markup and classNames are identical to the
     // hand-rolled table they replace, so _backups.scss keeps applying
     // (.bk-name, .bk-ret, .bk-lastrun, .bk-paused, .bk-col-on, .bk-actions).
     const columns = [
         {
             key: 'policy',
-            header: 'Policy',
+            headerKey: 'app.schedulesTable.policy', header: 'Policy',
             sortable: true,
             hideable: false,
             sortValue: (s) => s.name || '',
@@ -104,7 +106,7 @@ export default function SchedulesTable({
         },
         {
             key: 'frequency',
-            header: 'Frequency',
+            headerKey: 'app.schedulesTable.frequency', header: 'Frequency',
             sortable: true,
             sortValue: (s) => frequencyLabel(s),
             cellClassName: 'sk-cell-mono',
@@ -113,7 +115,7 @@ export default function SchedulesTable({
         {
             // Same retentionDays on every row — sorting it would be noise.
             key: 'retention',
-            header: 'Retention',
+            headerKey: 'app.schedulesTable.retention', header: 'Retention',
             render: () => (
                 <span className="bk-ret">
                     <span>{retentionDays} d</span>
@@ -122,7 +124,7 @@ export default function SchedulesTable({
         },
         {
             key: 'destination',
-            header: 'Destination',
+            headerKey: 'app.schedulesTable.destination', header: 'Destination',
             sortable: true,
             sortValue: (s) => (s.upload_remote ? remoteLabel : 'Local disk'),
             cellClassName: 'sk-cell-mono',
@@ -130,7 +132,7 @@ export default function SchedulesTable({
         },
         {
             key: 'lastRun',
-            header: 'Last run',
+            headerKey: 'app.schedulesTable.lastRun', header: 'Last run',
             sortable: true,
             sortValue: (s) => (s.last_run ? new Date(s.last_run).getTime() : null),
             render: (schedule) => {
@@ -146,7 +148,7 @@ export default function SchedulesTable({
         },
         {
             key: 'next',
-            header: 'Next',
+            headerKey: 'app.schedulesTable.next', header: 'Next',
             sortable: true,
             sortValue: (s) => {
                 const next = s.enabled ? nextFire(s) : null;
@@ -171,7 +173,9 @@ export default function SchedulesTable({
                 <Switch
                     checked={Boolean(schedule.enabled)}
                     onCheckedChange={() => onToggle(schedule)}
-                    aria-label={`${schedule.enabled ? 'Disable' : 'Enable'} ${schedule.name}`}
+                    aria-label={schedule.enabled
+                        ? t('app.schedulesTable.disable', 'Disable {{name}}', { name: schedule.name })
+                        : t('app.schedulesTable.enable', 'Enable {{name}}', { name: schedule.name })}
                 />
             ),
         },
@@ -187,8 +191,8 @@ export default function SchedulesTable({
                             type="button"
                             className="bk-iconbtn"
                             onClick={() => onRun(schedule)}
-                            title="Run this policy now"
-                            aria-label={`Run ${schedule.name} now`}
+                            title={t('app.schedulesTable.runThisPolicyNow', 'Run this policy now')}
+                            aria-label={t('app.schedulesTable.runNow', 'Run {{name}} now', { name: schedule.name })}
                         >
                             <Play size={15} />
                         </button>
@@ -197,8 +201,8 @@ export default function SchedulesTable({
                         type="button"
                         className="bk-iconbtn bk-iconbtn--danger"
                         onClick={() => onRemove(schedule.id)}
-                        title="Delete this policy"
-                        aria-label={`Delete ${schedule.name}`}
+                        title={t('app.schedulesTable.deleteThisPolicy', 'Delete this policy')}
+                        aria-label={t('app.schedulesTable.delete', 'Delete {{name}}', { name: schedule.name })}
                     >
                         <Trash2 size={15} />
                     </button>
@@ -228,8 +232,7 @@ export default function SchedulesTable({
             </div>
             <p className="bk-hint bk-hint--foot">
                 <ShieldCheck size={13} />
-                Snapshots older than {retentionDays} days are pruned automatically. Per-resource
-                policies (with their own retention) are set on each site or database.
+                {t('app.schedulesTable.snapshotsOlderThan', 'Snapshots older than')} {retentionDays} {t('app.schedulesTable.daysArePrunedAutomaticallyPerResource', 'days are pruned automatically. Per-resource policies (with their own retention) are set on each site or database.')}
             </p>
         </>
     );

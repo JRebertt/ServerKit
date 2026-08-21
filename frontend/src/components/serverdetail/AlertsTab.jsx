@@ -1,5 +1,6 @@
 import EmptyState from '../EmptyState';
 import { BellRing } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     SecurityAlertItem,
     AlertIcon,
@@ -7,6 +8,7 @@ import {
 } from './serverDetailShared';
 
 const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) => {
+    const { t } = useTranslation();
     const sysItems = notifications || [];
     const secItems = securityAlerts || [];
     const openSec = secItems.filter(a => a.status === 'open');
@@ -17,8 +19,8 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             <div className="alerts-tab">
                 <EmptyState
                     icon={BellRing}
-                    title="All clear"
-                    description="No active alerts for this server."
+                    title={t('app.alertsTab.allClear', 'All clear')}
+                    description={t('app.alertsTab.noActiveAlertsForThisServer', 'No active alerts for this server.')}
                 />
             </div>
         );
@@ -29,7 +31,7 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             {sysItems.length > 0 && (
                 <section className="alerts-section">
                     <header className="alerts-section__header">
-                        <h3>System</h3>
+                        <h3>{t('app.alertsTab.system', 'System')}</h3>
                         <span className="alerts-section__count">{sysItems.length}</span>
                     </header>
                     <ul className="notifications-list">
@@ -51,7 +53,7 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             {openSec.length > 0 && (
                 <section className="alerts-section">
                     <header className="alerts-section__header">
-                        <h3>Security</h3>
+                        <h3>{t('app.alertsTab.security', 'Security')}</h3>
                         <span className="alerts-section__count">{openSec.length} open</span>
                     </header>
                     <ul className="notifications-list">
@@ -70,7 +72,7 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             {ackSec.length > 0 && (
                 <section className="alerts-section alerts-section--muted">
                     <header className="alerts-section__header">
-                        <h3>Acknowledged</h3>
+                        <h3>{t('app.alertsTab.acknowledged', 'Acknowledged')}</h3>
                         <span className="alerts-section__count">{ackSec.length}</span>
                     </header>
                     <ul className="notifications-list">

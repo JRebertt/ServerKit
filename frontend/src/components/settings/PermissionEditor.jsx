@@ -1,16 +1,17 @@
 import { Checkbox } from '@/components/ui/checkbox';
+import { useTranslation } from 'react-i18next';
 
 const PERMISSION_GROUPS = [
     {
-        label: 'Infrastructure',
+        labelKey: 'app.permissionEditor.infrastructure', label: 'Infrastructure',
         features: ['applications', 'databases', 'docker', 'domains', 'servers']
     },
     {
-        label: 'Operations',
+        labelKey: 'app.permissionEditor.operations', label: 'Operations',
         features: ['files', 'monitoring', 'backups', 'cron', 'security', 'email', 'git']
     },
     {
-        label: 'System',
+        labelKey: 'app.permissionEditor.system', label: 'System',
         features: ['terminal', 'users', 'settings']
     }
 ];
@@ -34,6 +35,7 @@ const FEATURE_LABELS = {
 };
 
 const PermissionEditor = ({ permissions = {}, onChange, disabled = false }) => {
+    const { t } = useTranslation();
     function handleToggle(feature, level) {
         const current = permissions[feature] || { read: false, write: false };
         const updated = { ...permissions };
@@ -58,9 +60,9 @@ const PermissionEditor = ({ permissions = {}, onChange, disabled = false }) => {
     return (
         <div className="permission-editor">
             <div className="permission-header-row">
-                <span className="permission-feature-label">Feature</span>
-                <span className="permission-level-label">Read</span>
-                <span className="permission-level-label">Write</span>
+                <span className="permission-feature-label">{t('app.permissionEditor.feature', 'Feature')}</span>
+                <span className="permission-level-label">{t('app.permissionEditor.read', 'Read')}</span>
+                <span className="permission-level-label">{t('app.permissionEditor.write', 'Write')}</span>
             </div>
             {PERMISSION_GROUPS.map(group => (
                 <div key={group.label} className="permission-group">

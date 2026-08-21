@@ -9,17 +9,19 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 const ACTION_OPTIONS = [
-    { value: 'block', label: 'Block' },
-    { value: 'managed_challenge', label: 'Managed Challenge' },
-    { value: 'js_challenge', label: 'JS Challenge' },
-    { value: 'log', label: 'Log' },
+    { value: 'block', labelKey: 'app.cloudflareWafPanel.block', label: 'Block' },
+    { value: 'managed_challenge', labelKey: 'app.cloudflareWafPanel.managedChallenge', label: 'Managed Challenge' },
+    { value: 'js_challenge', labelKey: 'app.cloudflareWafPanel.jsChallenge', label: 'JS Challenge' },
+    { value: 'log', labelKey: 'app.cloudflareWafPanel.log', label: 'Log' },
 ];
 
 const EXPRESSION_PLACEHOLDER = '(http.request.uri.path contains "/admin")';
 
 export default function CloudflareWafPanel({ zoneId, isAdmin }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
             await api.applyCloudflareWafPreset(zoneId, activePreset.key, presetParams);
             await loadRules();
             setPresetParams({});
-            toast.success(`Added quick rule: ${activePreset.label}`);
+            toast.success(t('app.cloudflareWafPanel.addedQuickRule', 'Added quick rule: {{label}}', { label: activePreset.label }));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -114,7 +116,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
             setCustomDescription('');
             setCustomExpression('');
             setCustomAction('block');
-            toast.success('Custom rule added');
+            toast.success(t('app.cloudflareWafPanel.customRuleAdded', 'Custom rule added'));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -141,7 +143,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
         try {
             await api.deleteCloudflareWafRule(zoneId, rulesetId, rule.id);
             await loadRules();
-            toast.success('Rule deleted');
+            toast.success(t('app.cloudflareWafPanel.ruleDeleted', 'Rule deleted'));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -150,14 +152,14 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
     };
 
     if (loading) {
-        return <div className="cf-waf__loading">Loading firewall rules…</div>;
+        return <div className="cf-waf__loading">{t('app.cloudflareWafPanel.loadingFirewallRules', 'Loading firewall rules…')}</div>;
     }
 
     if (error) {
         return (
             <EmptyState
                 icon={ShieldAlert}
-                title="Firewall rules unavailable"
+                title={t('app.cloudflareWafPanel.firewallRulesUnavailable', 'Firewall rules unavailable')}
                 description={error}
             />
         );
@@ -169,9 +171,9 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
         <div className="cf-waf">
             {/* Presets / quick rules */}
             <section className="cf-waf__section">
-                <h3 className="cf-waf__heading">Quick rules</h3>
+                <h3 className="cf-waf__heading">{t('app.cloudflareWafPanel.quickRules', 'Quick rules')}</h3>
                 <p className="cf-waf__hint">
-                    Apply a curated Cloudflare rule without writing an expression by hand.
+                    {t('app.cloudflareWafPanel.applyACuratedCloudflareRuleWithout', 'Apply a curated Cloudflare rule without writing an expression by hand.')}
                 </p>
 
                 <div className="cf-waf__field">
@@ -181,7 +183,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                         disabled={writeDisabled}
                     >
                         <SelectTrigger className="cf-waf__select">
-                            <SelectValue placeholder="Choose a quick rule…" />
+                            <SelectValue placeholder={t('app.cloudflareWafPanel.chooseAQuickRule', 'Choose a quick rule…')} />
                         </SelectTrigger>
                         <SelectContent>
                             {presets.map((preset) => (
@@ -219,30 +221,30 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                         onClick={handleApplyPreset}
                         disabled={writeDisabled || !activePreset}
                     >
-                        Add rule
+                        {t('app.cloudflareWafPanel.addRule', 'Add rule')}
                     </Button>
                 </div>
             </section>
 
             {/* Custom rule */}
             <section className="cf-waf__section">
-                <h3 className="cf-waf__heading">Custom rule</h3>
+                <h3 className="cf-waf__heading">{t('app.cloudflareWafPanel.customRule', 'Custom rule')}</h3>
                 <p className="cf-waf__hint">
-                    Write your own Cloudflare firewall expression for full control.
+                    {t('app.cloudflareWafPanel.writeYourOwnCloudflareFirewallExpression', 'Write your own Cloudflare firewall expression for full control.')}
                 </p>
 
                 <div className="cf-waf__field">
-                    <label className="cf-waf__label">Description</label>
+                    <label className="cf-waf__label">{t('app.cloudflareWafPanel.description', 'Description')}</label>
                     <Input
                         value={customDescription}
-                        placeholder="Block admin from outside the office"
+                        placeholder={t('app.cloudflareWafPanel.blockAdminFromOutsideTheOffice', 'Block admin from outside the office')}
                         onChange={(e) => setCustomDescription(e.target.value)}
                         disabled={writeDisabled}
                     />
                 </div>
 
                 <div className="cf-waf__field">
-                    <label className="cf-waf__label">Expression</label>
+                    <label className="cf-waf__label">{t('app.cloudflareWafPanel.expression', 'Expression')}</label>
                     <Textarea
                         rows={3}
                         value={customExpression}
@@ -253,7 +255,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                 </div>
 
                 <div className="cf-waf__field">
-                    <label className="cf-waf__label">Action</label>
+                    <label className="cf-waf__label">{t('app.cloudflareWafPanel.action', 'Action')}</label>
                     <Select
                         value={customAction}
                         onValueChange={setCustomAction}
@@ -278,20 +280,20 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                         onClick={handleAddCustomRule}
                         disabled={writeDisabled || !customExpression.trim()}
                     >
-                        Add custom rule
+                        {t('app.cloudflareWafPanel.addCustomRule', 'Add custom rule')}
                     </Button>
                 </div>
             </section>
 
             {/* Active rules list */}
             <section className="cf-waf__section">
-                <h3 className="cf-waf__heading">Active rules ({rules.length})</h3>
+                <h3 className="cf-waf__heading">{t('app.cloudflareWafPanel.activeRules', 'Active rules (')}{rules.length})</h3>
 
                 {rules.length === 0 ? (
                     <EmptyState
                         icon={ShieldAlert}
-                        title="No custom firewall rules"
-                        description="Add a quick rule or a custom rule above."
+                        title={t('app.cloudflareWafPanel.noCustomFirewallRules', 'No custom firewall rules')}
+                        description={t('app.cloudflareWafPanel.addAQuickRuleOrA', 'Add a quick rule or a custom rule above.')}
                     />
                 ) : (
                     <ul className="cf-waf__list">
@@ -323,7 +325,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteRule(rule)}
                                         disabled={writeDisabled}
                                     >
-                                        Delete
+                                        {t('app.cloudflareWafPanel.delete', 'Delete')}
                                     </Button>
                                 </div>
                             </li>

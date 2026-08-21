@@ -15,6 +15,7 @@ import {
 import { QUICK_ACTION_OPTIONS, WidgetBody } from '../widgets/renderers';
 import { deriveWidgetTitle } from '../widgets/registry';
 import { GRID_COLS, GRID_GAP, GRID_ROW } from './layout';
+import { useTranslation } from 'react-i18next';
 
 // Tallest a widget may be dragged/stepped to. Twelve columns wide is the board;
 // height is only bounded so a stepper can't run away.
@@ -129,13 +130,14 @@ function Select({ value, onChange, options, label }) {
 }
 
 function Stepper({ label, value, onStep, suffix }) {
+    const { t } = useTranslation();
     return (
         <div className="skwe-stepper">
             <button
                 type="button"
                 className="skwe-stepper__btn"
-                title={`Decrease ${label}`}
-                aria-label={`Decrease ${label}`}
+                title={t('app.widgetEditor.decrease', 'Decrease {{label}}', { label: label })}
+                aria-label={t('app.widgetEditor.decrease2', 'Decrease {{label}}', { label: label })}
                 onClick={() => onStep(-1)}
             >
                 <Minus size={13} aria-hidden="true" />
@@ -144,8 +146,8 @@ function Stepper({ label, value, onStep, suffix }) {
             <button
                 type="button"
                 className="skwe-stepper__btn"
-                title={`Increase ${label}`}
-                aria-label={`Increase ${label}`}
+                title={t('app.widgetEditor.increase', 'Increase {{label}}', { label: label })}
+                aria-label={t('app.widgetEditor.increase2', 'Increase {{label}}', { label: label })}
                 onClick={() => onStep(1)}
             >
                 <Plus size={13} aria-hidden="true" />
@@ -177,6 +179,7 @@ function Stepper({ label, value, onStep, suffix }) {
  * colour — the alternatives are a click away.
  */
 function SeriesColor({ value, fallback, index, onChange }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -184,8 +187,8 @@ function SeriesColor({ value, fallback, index, onChange }) {
                 <button
                     type="button"
                     className="skwe-edit__color"
-                    aria-label={`Series ${index + 1} colour`}
-                    title="Series colour"
+                    aria-label={t('app.widgetEditor.seriesColour', 'Series {{value}} colour', { value: index + 1 })}
+                    title={t('app.widgetEditor.seriesColour2', 'Series colour')}
                     style={{ background: value || fallback }}
                 />
             </PopoverTrigger>
@@ -216,6 +219,7 @@ export function WidgetEditor({
     onDuplicate,
     onRemove,
 }) {
+    const { t } = useTranslation();
     const resourceOptions = useMemo(() => [
         ['$server', 'Dashboard variable'],
         ...resources.map((resource) => [
@@ -278,7 +282,7 @@ export function WidgetEditor({
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
             title={title}
-            subtitle={`${type?.name || kind} · ${widget.w}×${widget.h} cells`}
+            subtitle={t('app.widgetEditor.cells', '{{value}} · {{w}}×{{h}} cells', { value: type?.name || kind, w: widget.w, h: widget.h })}
             icon={<Icon size={18} aria-hidden="true" />}
             // ds/Drawer caps itself at 95vw, so the effective width is
             // min(1100px, 95vw) — a hair under the 96vw asked for, and the
@@ -288,7 +292,7 @@ export function WidgetEditor({
         >
             <div className="skwe-edit">
                 <div className="skwe-edit__cols">
-                    <section className="skwe-edit__preview" aria-label="Live preview">
+                    <section className="skwe-edit__preview" aria-label={t('app.widgetEditor.livePreview', 'Live preview')}>
                         <div className="skwe-edit__stage">
                             {/* Same chrome the board draws, driven by the same
                                 renderer — so "preview" costs no second
@@ -306,17 +310,17 @@ export function WidgetEditor({
                             is capped by max-width, so quoting its board size
                             would describe something the operator isn't seeing. */}
                         <div className="skwe-edit__caption mono">
-                            live preview · {widget.w}×{widget.h} of 12 columns
+                            {t('app.widgetEditor.livePreview2', 'live preview ·')} {widget.w}×{widget.h} {t('app.widgetEditor.of12Columns', 'of 12 columns')}
                         </div>
                     </section>
 
-                    <section className="skwe-edit__pane" aria-label="Widget settings">
-                        <Group title="Widget">
-                            <Field label="Title">
+                    <section className="skwe-edit__pane" aria-label={t('app.widgetEditor.widgetSettings', 'Widget settings')}>
+                        <Group title={t('app.widgetEditor.widget', 'Widget')}>
+                            <Field label={t('app.widgetEditor.title', 'Title')}>
                                 <input
                                     type="text"
                                     className="skwe-edit__field"
-                                    aria-label="Widget title"
+                                    aria-label={t('app.widgetEditor.widgetTitle', 'Widget title')}
                                     placeholder={deriveWidgetTitle({ ...widget, cfg: { ...cfg, title: '' } }, type)}
                                     value={cfg.title || ''}
                                     onChange={(event) => set('title', event.target.value)}
@@ -325,26 +329,26 @@ export function WidgetEditor({
                         </Group>
 
                         {CONFIGURABLE_TYPES.includes(kind) && (
-                            <Group title="Data">
+                            <Group title={t('app.widgetEditor.data', 'Data')}>
                                 {RESOURCE_TYPES.includes(kind) && (multiResource ? (
-                                    <Field label="Resource">
+                                    <Field label={t('app.widgetEditor.resource', 'Resource')}>
                                         <Select
-                                            label="Resource"
+                                            label={t('app.widgetEditor.resource2', 'Resource')}
                                             value={cfg.resource || '$server'}
                                             onChange={(value) => set('resource', value)}
                                             options={resourceOptions}
                                         />
                                     </Field>
                                 ) : (
-                                    <Field label="Resource" hint="One machine is connected, so this widget reads it.">
+                                    <Field label={t('app.widgetEditor.resource3', 'Resource')} hint={t('app.widgetEditor.oneMachineIsConnectedSoThis', 'One machine is connected, so this widget reads it.')}>
                                         <div className="skwe-edit__static mono">{resolvedResource(cfg.resource)}</div>
                                     </Field>
                                 ))}
 
                                 {['stat', 'gauge'].includes(kind) && (
-                                    <Field label="Metric">
+                                    <Field label={t('app.widgetEditor.metric', 'Metric')}>
                                         <Select
-                                            label="Metric"
+                                            label={t('app.widgetEditor.metric2', 'Metric')}
                                             value={cfg.metric || 'cpu'}
                                             onChange={(value) => set('metric', value)}
                                             options={metricOptionsFor(cfg.resource, cfg.metric || 'cpu')}
@@ -353,7 +357,7 @@ export function WidgetEditor({
                                 )}
 
                                 {['stat', 'gauge', 'topn'].includes(kind) && (
-                                    <Field label="Aggregation">
+                                    <Field label={t('app.widgetEditor.aggregation', 'Aggregation')}>
                                         <SegControl
                                             options={toOptions(AGGREGATIONS)}
                                             value={cfg.agg || 'last'}
@@ -363,7 +367,7 @@ export function WidgetEditor({
                                 )}
 
                                 {['stat', 'gauge'].includes(kind) && (
-                                    <Field label="Thresholds" hint="Value colours turn amber, then red.">
+                                    <Field label={t('app.widgetEditor.thresholds', 'Thresholds')} hint={t('app.widgetEditor.valueColoursTurnAmberThenRed', 'Value colours turn amber, then red.')}>
                                         <div className="skwe-edit__pair">
                                             {[0, 1].map((index) => (
                                                 <div className="skwe-edit__pairitem" key={index}>
@@ -371,7 +375,7 @@ export function WidgetEditor({
                                                     <input
                                                         type="number"
                                                         className="skwe-edit__field skwe-edit__field--mono"
-                                                        aria-label={index ? 'Red threshold' : 'Amber threshold'}
+                                                        aria-label={index ? t('app.widgetEditor.redThreshold', 'Red threshold') : t('app.widgetEditor.amberThreshold', 'Amber threshold')}
                                                         value={(cfg.thresholds || [])[index] ?? ''}
                                                         onChange={(event) => {
                                                             const next = [...(cfg.thresholds || [null, null])];
@@ -388,10 +392,10 @@ export function WidgetEditor({
                                 )}
 
                                 {kind === 'stat' && (
-                                    <Field label="Sparkline" inline>
+                                    <Field label={t('app.widgetEditor.sparkline', 'Sparkline')} inline>
                                         <Switch
                                             checked={cfg.spark !== false}
-                                            aria-label="Show sparkline"
+                                            aria-label={t('app.widgetEditor.showSparkline', 'Show sparkline')}
                                             onCheckedChange={(checked) => set('spark', checked)}
                                         />
                                     </Field>
@@ -399,11 +403,11 @@ export function WidgetEditor({
 
                                 {kind === 'timeseries' && (
                                     <>
-                                        <Field label="Series">
+                                        <Field label={t('app.widgetEditor.series', 'Series')}>
                                             <div className="skwe-edit__series">
                                                 {(cfg.series || []).length === 0 && (
                                                     <div className="skwe-edit__empty">
-                                                        No series yet — the chart draws nothing until you add one.
+                                                        {t('app.widgetEditor.noSeriesYetTheChartDraws', 'No series yet — the chart draws nothing until you add one.')}
                                                     </div>
                                                 )}
                                                 {(cfg.series || []).map((series, index) => (
@@ -421,14 +425,14 @@ export function WidgetEditor({
                                                         />
                                                         {multiResource && (
                                                             <Select
-                                                                label={`Series ${index + 1} resource`}
+                                                                label={t('app.widgetEditor.seriesResource', 'Series {{value}} resource', { value: index + 1 })}
                                                                 value={series.resource}
                                                                 onChange={(value) => setSeries(index, 'resource', value)}
                                                                 options={resourceOptions}
                                                             />
                                                         )}
                                                         <Select
-                                                            label={`Series ${index + 1} metric`}
+                                                            label={t('app.widgetEditor.seriesMetric', 'Series {{value}} metric', { value: index + 1 })}
                                                             value={series.metric}
                                                             onChange={(value) => setSeries(index, 'metric', value)}
                                                             options={metricOptionsFor(series.resource, series.metric)}
@@ -436,8 +440,8 @@ export function WidgetEditor({
                                                         <button
                                                             type="button"
                                                             className="skwe-edit__del"
-                                                            title={`Remove series ${index + 1}`}
-                                                            aria-label={`Remove series ${index + 1}`}
+                                                            title={t('app.widgetEditor.removeSeries', 'Remove series {{value}}', { value: index + 1 })}
+                                                            aria-label={t('app.widgetEditor.removeSeries2', 'Remove series {{value}}', { value: index + 1 })}
                                                             onClick={() => set(
                                                                 'series',
                                                                 (cfg.series || []).filter((_, i) => i !== index),
@@ -455,29 +459,29 @@ export function WidgetEditor({
                                                         { resource: '$server', metric: 'cpu' },
                                                     ])}
                                                 >
-                                                    <Plus size={12} aria-hidden="true" /> Add series
+                                                    <Plus size={12} aria-hidden="true" /> {t('app.widgetEditor.addSeries', 'Add series')}
                                                 </button>
                                             </div>
                                         </Field>
-                                        <Field label="Legend" inline>
+                                        <Field label={t('app.widgetEditor.legend', 'Legend')} inline>
                                             <Switch
                                                 checked={cfg.legend !== false}
-                                                aria-label="Show legend"
+                                                aria-label={t('app.widgetEditor.showLegend', 'Show legend')}
                                                 onCheckedChange={(checked) => set('legend', checked)}
                                             />
                                         </Field>
-                                        <Field label="Line style">
+                                        <Field label={t('app.widgetEditor.lineStyle', 'Line style')}>
                                             <SegControl
                                                 options={LINE_STYLES.map(([value, label]) => ({ value, label }))}
                                                 value={cfg.lineStyle || 'smooth'}
                                                 onChange={(value) => set('lineStyle', value)}
-                                                aria-label="Line style"
+                                                aria-label={t('app.widgetEditor.lineStyle2', 'Line style')}
                                             />
                                         </Field>
-                                        <Field label="Area fill" inline>
+                                        <Field label={t('app.widgetEditor.areaFill', 'Area fill')} inline>
                                             <Switch
                                                 checked={cfg.fill !== false}
-                                                aria-label="Fill the area under each series"
+                                                aria-label={t('app.widgetEditor.fillTheAreaUnderEachSeries', 'Fill the area under each series')}
                                                 onCheckedChange={(checked) => set('fill', checked)}
                                             />
                                         </Field>
@@ -486,7 +490,7 @@ export function WidgetEditor({
 
                                 {kind === 'topn' && (
                                     <>
-                                        <Field label="Dimension">
+                                        <Field label={t('app.widgetEditor.dimension', 'Dimension')}>
                                             <SegControl
                                                 options={toOptions(TOPN_DIMENSIONS)}
                                                 value={cfg.dim || 'servers'}
@@ -495,9 +499,9 @@ export function WidgetEditor({
                                         </Field>
                                         {/* Top N always ranks remote resources, so it offers the
                                             server-side catalog whatever the board variable is. */}
-                                        <Field label="Metric">
+                                        <Field label={t('app.widgetEditor.metric3', 'Metric')}>
                                             <Select
-                                                label="Metric"
+                                                label={t('app.widgetEditor.metric4', 'Metric')}
                                                 value={cfg.metric || 'cpu'}
                                                 onChange={(value) => set('metric', value)}
                                                 options={topnMetricOptions(cfg.metric || 'cpu')}
@@ -507,9 +511,9 @@ export function WidgetEditor({
                                 )}
 
                                 {kind === 'table' && (
-                                    <Field label="Source">
+                                    <Field label={t('app.widgetEditor.source', 'Source')}>
                                         <Select
-                                            label="Source"
+                                            label={t('app.widgetEditor.source2', 'Source')}
                                             value={cfg.source || 'services'}
                                             onChange={(value) => set('source', value)}
                                             options={TABLE_SOURCES}
@@ -520,20 +524,20 @@ export function WidgetEditor({
                                 {kind === 'logs' && (
                                     <>
                                         {multiResource ? (
-                                            <Field label="Source">
+                                            <Field label={t('app.widgetEditor.source3', 'Source')}>
                                                 <Select
-                                                    label="Log source"
+                                                    label={t('app.widgetEditor.logSource', 'Log source')}
                                                     value={cfg.source || '$server'}
                                                     onChange={(value) => set('source', value)}
                                                     options={resourceOptions}
                                                 />
                                             </Field>
                                         ) : (
-                                            <Field label="Source" hint="One machine is connected, so this widget tails it.">
+                                            <Field label={t('app.widgetEditor.source4', 'Source')} hint={t('app.widgetEditor.oneMachineIsConnectedSoThis2', 'One machine is connected, so this widget tails it.')}>
                                                 <div className="skwe-edit__static mono">{resolvedResource(cfg.source)}</div>
                                             </Field>
                                         )}
-                                        <Field label="Level">
+                                        <Field label={t('app.widgetEditor.level', 'Level')}>
                                             <SegControl
                                                 options={toOptions(LOG_LEVELS)}
                                                 value={cfg.level || 'all'}
@@ -544,7 +548,7 @@ export function WidgetEditor({
                                 )}
 
                                 {kind === 'alerts' && (
-                                    <Field label="Severity">
+                                    <Field label={t('app.widgetEditor.severity', 'Severity')}>
                                         <SegControl
                                             options={toOptions(SEVERITIES)}
                                             value={cfg.severity || 'all'}
@@ -554,7 +558,7 @@ export function WidgetEditor({
                                 )}
 
                                 {['table', 'logs', 'deploys', 'feed'].includes(kind) && (
-                                    <Field label={countsLines ? 'Lines' : 'Rows'}>
+                                    <Field label={countsLines ? t('app.widgetEditor.lines', 'Lines') : t('app.widgetEditor.rows', 'Rows')}>
                                         <Stepper
                                             label={countsLines ? 'lines' : 'rows'}
                                             value={countValue}
@@ -564,7 +568,7 @@ export function WidgetEditor({
                                 )}
 
                                 {kind === 'actions' && (
-                                    <Field label="Shortcuts">
+                                    <Field label={t('app.widgetEditor.shortcuts', 'Shortcuts')}>
                                         <div className="skwe-edit__checks">
                                             {QUICK_ACTION_OPTIONS.map(([key, label]) => {
                                                 const on = (cfg.items || []).includes(key);
@@ -589,10 +593,10 @@ export function WidgetEditor({
                                 )}
 
                                 {kind === 'note' && (
-                                    <Field label="Text" hint="**bold** and `code` are supported.">
+                                    <Field label={t('app.widgetEditor.text', 'Text')} hint={t('app.widgetEditor.boldAndCodeAreSupported', '**bold** and `code` are supported.')}>
                                         <textarea
                                             className="skwe-edit__textarea"
-                                            aria-label="Note text"
+                                            aria-label={t('app.widgetEditor.noteText', 'Note text')}
                                             value={cfg.text || ''}
                                             onChange={(event) => set('text', event.target.value)}
                                         />
@@ -601,8 +605,8 @@ export function WidgetEditor({
                             </Group>
                         )}
 
-                        <Group title="Layout">
-                            <Field label="Size" hint="Cells on the 12-column board — the preview follows.">
+                        <Group title={t('app.widgetEditor.layout', 'Layout')}>
+                            <Field label={t('app.widgetEditor.size', 'Size')} hint={t('app.widgetEditor.cellsOnThe12ColumnBoard', 'Cells on the 12-column board — the preview follows.')}>
                                 <div className="skwe-edit__pair">
                                     <Stepper
                                         label="width"
@@ -624,14 +628,14 @@ export function WidgetEditor({
 
                 <div className="skwe-edit__foot">
                     <button type="button" className="btn btn-sm" onClick={onDuplicate}>
-                        <Copy size={13} aria-hidden="true" /> Duplicate
+                        <Copy size={13} aria-hidden="true" /> {t('app.widgetEditor.duplicate', 'Duplicate')}
                     </button>
                     <button type="button" className="btn btn-sm btn-danger" onClick={onRemove}>
-                        <Trash2 size={13} aria-hidden="true" /> Remove
+                        <Trash2 size={13} aria-hidden="true" /> {t('app.widgetEditor.remove', 'Remove')}
                     </button>
                     <span className="skwe-edit__spacer" />
                     <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
-                        Done
+                        {t('app.widgetEditor.done', 'Done')}
                     </button>
                 </div>
             </div>

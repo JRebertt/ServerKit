@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { EngineIcon } from '../icons/DatabaseBrands';
 import { formatBytes } from '@/utils/formatBytes';
 import { ENGINE_META } from './dbAdapter';
+import { useTranslation } from 'react-i18next';
 
 // Import a SQL dump into an existing database.
 //
@@ -25,14 +26,15 @@ import { ENGINE_META } from './dbAdapter';
 // snapshot first, so the pre-import backup here is an explicit extra call.
 
 const SOURCES = [
-    { id: 'backup', label: 'A backup on this server' },
-    { id: 'path', label: 'A path on the server' },
+    { id: 'backup', labelKey: 'app.importDumpModal.aBackupOnThisServer', label: 'A backup on this server' },
+    { id: 'path', labelKey: 'app.importDumpModal.aPathOnTheServer', label: 'A path on the server' },
 ];
 
 // SQLite and containerised databases have no restore route at all.
 const RESTORABLE = ['mysql', 'postgresql'];
 
 export default function ImportDumpModal({ preset, isAdmin = false, onClose, onImported }) {
+    const { t } = useTranslation();
     const [databases, setDatabases] = useState(null); // null while loading
     const [loadFailed, setLoadFailed] = useState(false);
     const [targetKey, setTargetKey] = useState('');
@@ -115,7 +117,7 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                 if (!safety?.success) {
                     setResult({
                         ok: false,
-                        message: 'The pre-import backup failed, so nothing was imported.',
+                        messageKey: 'app.importDumpModal.thePreImportBackupFailedSo', message: 'The pre-import backup failed, so nothing was imported.',
                         detail: safety?.error || 'The backup endpoint did not report success.',
                     });
                     return;
@@ -129,7 +131,7 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                 setResult({ ok: true, message: res.message || `Dump imported into ${target.name}.` });
                 onImported?.(target);
             } else {
-                setResult({ ok: false, message: 'The import failed.', detail: res?.error || 'The server did not say why.' });
+                setResult({ ok: false, messageKey: 'app.importDumpModal.theImportFailed', message: 'The import failed.', detail: res?.error || 'The server did not say why.' });
             }
         } catch (err) {
             setResult({
@@ -158,23 +160,23 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
     );
 
     return (
-        <Modal open onClose={onClose} title="Import SQL dump" size="lg" footer={footer}>
+        <Modal open onClose={onClose} title={t('app.importDumpModal.importSqlDump', 'Import SQL dump')} size="lg" footer={footer}>
             {databases === null ? (
                 <p className="dbx-builder__loading">
-                    <Loader2 size={15} className="dbx-spin" aria-hidden="true" /> Looking for databases…
+                    <Loader2 size={15} className="dbx-spin" aria-hidden="true" /> {t('app.importDumpModal.lookingForDatabases', 'Looking for databases…')}
                 </p>
             ) : !databases.length ? (
                 <div className="dbx-notice dbx-notice--info">
                     <AlertTriangle size={15} aria-hidden="true" />
                     <div>
-                        <strong>No database can accept a dump right now.</strong>
+                        <strong>{t('app.importDumpModal.noDatabaseCanAcceptADump', 'No database can accept a dump right now.')}</strong>
                         <p>
                             {loadFailed
                                 ? 'Neither MySQL nor PostgreSQL answered. Check that the server is running, then try again.'
                                 : `Importing is only wired for ${RESTORABLE.map((e) => ENGINE_META[e].short).join(' and ')} databases on this host — SQLite files and containerised databases have no restore route.`}
                         </p>
                         <button type="button" className="dbx-inline-link" onClick={load}>
-                            <RefreshCw size={13} aria-hidden="true" /> Try again
+                            <RefreshCw size={13} aria-hidden="true" /> {t('app.importDumpModal.tryAgain', 'Try again')}
                         </button>
                     </div>
                 </div>
@@ -184,14 +186,14 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                         <div className="dbx-notice dbx-notice--warn">
                             <ShieldAlert size={15} aria-hidden="true" />
                             <div>
-                                <strong>Read-only account.</strong>
-                                <p>Importing a dump rewrites a database, and only administrators may do that.</p>
+                                <strong>{t('app.importDumpModal.readOnlyAccount', 'Read-only account.')}</strong>
+                                <p>{t('app.importDumpModal.importingADumpRewritesADatabase', 'Importing a dump rewrites a database, and only administrators may do that.')}</p>
                             </div>
                         </div>
                     )}
 
                     <div className="dbx-field">
-                        <label className="dbx-field__label" htmlFor="dbx-import-target">Import into</label>
+                        <label className="dbx-field__label" htmlFor="dbx-import-target">{t('app.importDumpModal.importInto', 'Import into')}</label>
                         <div className="dbx-select">
                             <select id="dbx-import-target" value={targetKey} onChange={(e) => setTargetKey(e.target.value)}>
                                 {databases.map((d) => (
@@ -205,15 +207,15 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                         {target && (
                             <p className="dbx-field-hint">
                                 <span className="dbx-builder__target-ico"><EngineIcon engine={target.engine} size={13} /></span>
-                                {' '}The dump is piped into <code>{target.name}</code> on this server&apos;s
-                                {' '}{ENGINE_META[target.engine].short} as the database superuser.
+                                {' '}{t('app.importDumpModal.theDumpIsPipedInto', 'The dump is piped into')} <code>{target.name}</code> {t('app.importDumpModal.onThisServerS', 'on this server\'s')}
+                                {' '}{ENGINE_META[target.engine].short} {t('app.importDumpModal.asTheDatabaseSuperuser', 'as the database superuser.')}
                             </p>
                         )}
                     </div>
 
                     <div className="dbx-field">
-                        <span className="dbx-field__label">Dump file</span>
-                        <div className="dbx-choice" role="group" aria-label="Where the dump lives">
+                        <span className="dbx-field__label">{t('app.importDumpModal.dumpFile', 'Dump file')}</span>
+                        <div className="dbx-choice" role="group" aria-label={t('app.importDumpModal.whereTheDumpLives', 'Where the dump lives')}>
                             {SOURCES.map((s) => (
                                 <button
                                     key={s.id}
@@ -231,12 +233,12 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                             <div className="dbx-dumps">
                                 {backupsLoading ? (
                                     <p className="dbx-dumps__empty">
-                                        <Loader2 size={14} className="dbx-spin" aria-hidden="true" /> Reading the backup directory…
+                                        <Loader2 size={14} className="dbx-spin" aria-hidden="true" /> {t('app.importDumpModal.readingTheBackupDirectory', 'Reading the backup directory…')}
                                     </p>
                                 ) : !backups.length ? (
                                     <p className="dbx-dumps__empty">
                                         <HardDrive size={14} aria-hidden="true" />
-                                        No dumps in ServerKit&apos;s backup directory yet. Back up a database, or point at a path below.
+                                        {t('app.importDumpModal.noDumpsInServerkitSBackup', 'No dumps in ServerKit\'s backup directory yet. Back up a database, or point at a path below.')}
                                     </p>
                                 ) : backups.map((b) => (
                                     <button
@@ -268,14 +270,11 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                                         onChange={(e) => setManualPath(e.target.value)}
                                         placeholder="/var/backups/serverkit/app_prod.sql.gz"
                                         spellCheck="false"
-                                        aria-label="Path to the dump file on the server"
+                                        aria-label={t('app.importDumpModal.pathToTheDumpFileOn', 'Path to the dump file on the server')}
                                     />
                                 </div>
                                 <p className="dbx-field-hint">
-                                    An absolute path on the server that runs ServerKit. There is no upload
-                                    endpoint, so a file on your own machine has to be copied across first
-                                    (scp, the file manager, or a backup taken here). <code>.gz</code> is
-                                    decompressed automatically.
+                                    {t('app.importDumpModal.anAbsolutePathOnTheServer', 'An absolute path on the server that runs ServerKit. There is no upload endpoint, so a file on your own machine has to be copied across first (scp, the file manager, or a backup taken here).')} <code>.gz</code> {t('app.importDumpModal.isDecompressedAutomatically', 'is decompressed automatically.')}
                                 </p>
                             </>
                         )}
@@ -286,8 +285,7 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                             <AlertTriangle size={15} aria-hidden="true" />
                             <div>
                                 <p>
-                                    That dump was taken from {ENGINE_META[chosen.type]?.short || chosen.type} and you are
-                                    importing into {ENGINE_META[target.engine].short}. The statements are unlikely to apply cleanly.
+                                    {t('app.importDumpModal.thatDumpWasTakenFrom', 'That dump was taken from')} {ENGINE_META[chosen.type]?.short || chosen.type} {t('app.importDumpModal.andYouAreImportingInto', 'and you are importing into')} {ENGINE_META[target.engine].short}. The statements are unlikely to apply cleanly.
                                 </p>
                             </div>
                         </div>
@@ -296,9 +294,9 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                     <label className="dbx-check">
                         <input type="checkbox" checked={backupFirst} onChange={(e) => setBackupFirst(e.target.checked)} />
                         <span>
-                            <span className="dbx-check__title">Back up {target?.name || 'the database'} first</span>
+                            <span className="dbx-check__title">{t('app.importDumpModal.backUp', 'Back up')} {target?.name || 'the database'} first</span>
                             <span className="dbx-check__sub">
-                                Takes a dump through ServerKit&apos;s own backup route before importing. If it fails, the import does not run.
+                                {t('app.importDumpModal.takesADumpThroughServerkitS', 'Takes a dump through ServerKit\'s own backup route before importing. If it fails, the import does not run.')}
                             </span>
                         </span>
                     </label>
@@ -306,18 +304,16 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                     <div className="dbx-notice dbx-notice--danger">
                         <AlertTriangle size={15} aria-hidden="true" />
                         <div>
-                            <strong>This rewrites {target?.name || 'the database'}.</strong>
+                            <strong>{t('app.importDumpModal.thisRewrites', 'This rewrites')} {target?.name || 'the database'}.</strong>
                             <p>
-                                Every statement in the dump is executed against it. Tables the dump
-                                recreates lose whatever they hold now, and there is no undo beyond the
-                                backup above.
+                                {t('app.importDumpModal.everyStatementInTheDumpIs', 'Every statement in the dump is executed against it. Tables the dump recreates lose whatever they hold now, and there is no undo beyond the backup above.')}
                             </p>
                         </div>
                     </div>
 
                     <div className="dbx-field">
                         <label className="dbx-field__label" htmlFor="dbx-import-confirm">
-                            Type <code>{target?.name}</code> to confirm
+                            {t('app.importDumpModal.type', 'Type')} <code>{target?.name}</code> {t('app.importDumpModal.toConfirm', 'to confirm')}
                         </label>
                         <div className="dbx-input">
                             <Check size={15} aria-hidden="true" />
@@ -331,7 +327,7 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
                             />
                         </div>
                         {!backupPath && (
-                            <p className="dbx-field-hint">Pick a dump file above before importing.</p>
+                            <p className="dbx-field-hint">{t('app.importDumpModal.pickADumpFileAboveBefore', 'Pick a dump file above before importing.')}</p>
                         )}
                     </div>
 

@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Github, Loader2 } from 'lucide-react';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 // Lands here after the operator confirms the one-click GitHub App on github.com.
 // We convert the returned manifest code into stored app credentials, then chain
 // straight into the connect flow (install + authorize) so the whole thing is a
 // single hop for the user.
 const GithubAppCallback = () => {
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const toast = useToast();
@@ -28,7 +30,7 @@ const GithubAppCallback = () => {
             }
             try {
                 const result = await api.completeGithubAppManifest(code, state);
-                toast.success(`GitHub App "${result.name || result.slug}" created`);
+                toast.success(t('app.githubAppCallback.githubAppCreated', 'GitHub App "{{value}}" created', { value: result.name || result.slug }));
                 // Chain into connect: this points at the app install screen, which
                 // grants repo access and authorizes in one hop.
                 try {
@@ -53,18 +55,18 @@ const GithubAppCallback = () => {
                 <div className="auth-logo">
                     <Github size={32} />
                 </div>
-                <h1>Setting up GitHub</h1>
+                <h1>{t('app.githubAppCallback.settingUpGithub', 'Setting up GitHub')}</h1>
                 {error ? (
                     <>
                         <p className="auth-error">{error}</p>
                         <button type="button" className="btn btn-primary" onClick={() => navigate('/settings/connections')}>
-                            Back to Connections
+                            {t('app.githubAppCallback.backToConnections', 'Back to Connections')}
                         </button>
                     </>
                 ) : (
                     <div className="sso-loading">
                         <Loader2 size={24} className="spinning" />
-                        <p>Creating your GitHub App and connecting…</p>
+                        <p>{t('app.githubAppCallback.creatingYourGithubAppAndConnecting', 'Creating your GitHub App and connecting…')}</p>
                     </div>
                 )}
             </div>

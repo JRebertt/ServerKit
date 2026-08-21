@@ -10,11 +10,13 @@ import { Button } from '@/components/ui/button';
 import { DataTable, DataTableFooter, Pill } from '@/components/ds';
 import { CHART_COLORS, METRIC_LABELS } from './fleetMetrics';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 // The three fleet-wide questions that only make sense across servers: how do
 // these boxes compare, which one is behaving unlike itself, and when does a
 // disk run out. Host-scoped gauges live on the Overview tab.
 export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [servers, setServers] = useState([]);
 
@@ -63,7 +65,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         try {
             setCompData(await api.getFleetComparison(selectedServers, compMetric, compPeriod));
         } catch {
-            toast.error('Failed to load comparison data');
+            toast.error(t('app.fleetCapacityPanel.failedToLoadComparisonData', 'Failed to load comparison data'));
         } finally {
             setComparing(false);
         }
@@ -74,7 +76,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         try {
             setForecast(await api.getCapacityForecast(forecastServer, forecastMetric));
         } catch {
-            toast.error('Failed to load forecast');
+            toast.error(t('app.fleetCapacityPanel.failedToLoadForecast', 'Failed to load forecast'));
         }
     };
 
@@ -84,7 +86,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
             const blob = await api.exportFleetCsv(selectedServers, compMetric, compPeriod);
             downloadBlob(blob, `fleet_${compMetric}_${compPeriod}.csv`);
         } catch {
-            toast.error('Export failed');
+            toast.error(t('app.fleetCapacityPanel.exportFailed', 'Export failed'));
         }
     };
 
@@ -100,7 +102,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
     const anomalyColumns = [
         {
             key: 'server',
-            header: 'Server',
+            headerKey: 'app.fleetCapacityPanel.server', header: 'Server',
             sortable: true,
             hideable: false,
             sortValue: (a) => a.server_name || '',
@@ -108,14 +110,14 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'metric',
-            header: 'Metric',
+            headerKey: 'app.fleetCapacityPanel.metric', header: 'Metric',
             sortable: true,
             sortValue: (a) => METRIC_LABELS[a.metric] || a.metric,
             render: (a) => METRIC_LABELS[a.metric] || a.metric,
         },
         {
             key: 'current',
-            header: 'Current',
+            headerKey: 'app.fleetCapacityPanel.current', header: 'Current',
             sortable: true,
             sortValue: (a) => a.current_value ?? null,
             cellClassName: 'sk-cell-mono',
@@ -123,7 +125,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'baseline',
-            header: 'Baseline (mean)',
+            headerKey: 'app.fleetCapacityPanel.baselineMean', header: 'Baseline (mean)',
             sortable: true,
             sortValue: (a) => a.mean ?? null,
             cellClassName: 'sk-cell-mono',
@@ -131,7 +133,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'stddev',
-            header: 'Std dev',
+            headerKey: 'app.fleetCapacityPanel.stdDev', header: 'Std dev',
             sortable: true,
             sortValue: (a) => a.stddev ?? null,
             cellClassName: 'sk-cell-mono',
@@ -139,7 +141,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'zscore',
-            header: 'Z-score',
+            headerKey: 'app.fleetCapacityPanel.zScore', header: 'Z-score',
             sortable: true,
             sortValue: (a) => a.z_score ?? null,
             cellClassName: 'sk-cell-mono',
@@ -147,7 +149,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'direction',
-            header: 'Direction',
+            headerKey: 'app.fleetCapacityPanel.direction', header: 'Direction',
             sortable: true,
             sortValue: (a) => a.direction || '',
             render: (a) => (
@@ -176,10 +178,10 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         <div className="monitoring-stack">
             <section className="monitoring-panel">
                 <div className="monitoring-panel__header">
-                    <h3>Server Comparison</h3>
+                    <h3>{t('app.fleetCapacityPanel.serverComparison', 'Server Comparison')}</h3>
                     <div>
                         <Button variant="outline" size="sm" onClick={exportCsv} disabled={selectedServers.length === 0}>
-                            <Download size={14} /> Export CSV
+                            <Download size={14} /> {t('app.fleetCapacityPanel.exportCsv', 'Export CSV')}
                         </Button>
                         <Button size="sm" onClick={loadComparison} disabled={selectedServers.length === 0 || comparing}>
                             <BarChart3 size={14} /> {comparing ? 'Comparing…' : 'Compare'}
@@ -189,10 +191,10 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
 
                 <div className="mon-compare-controls">
                     <div className="mon-compare-controls__servers">
-                        <span className="mon-field-label">Servers</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.servers', 'Servers')}</span>
                         <div className="mon-server-picker">
                             {servers.length === 0 ? (
-                                <span className="mon-field-hint">No servers paired yet.</span>
+                                <span className="mon-field-hint">{t('app.fleetCapacityPanel.noServersPairedYet', 'No servers paired yet.')}</span>
                             ) : servers.map((s) => (
                                 <Button
                                     key={s.id}
@@ -206,7 +208,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                         </div>
                     </div>
                     <div className="form-group">
-                        <span className="mon-field-label">Metric</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric2', 'Metric')}</span>
                         <select value={compMetric} onChange={(e) => setCompMetric(e.target.value)}>
                             {Object.entries(METRIC_LABELS).map(([k, v]) => (
                                 <option key={k} value={k}>{v}</option>
@@ -214,7 +216,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                         </select>
                     </div>
                     <div className="form-group">
-                        <span className="mon-field-label">Period</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.period', 'Period')}</span>
                         <div className="mon-period-switch">
                             {['1h', '6h', '24h', '7d'].map((p) => (
                                 <Button
@@ -262,14 +264,14 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     </ResponsiveContainer>
                 ) : (
                     <p className="mon-panel-hint">
-                        Pick two or more servers, then Compare to plot the same metric across all of them.
+                        {t('app.fleetCapacityPanel.pickTwoOrMoreServersThen', 'Pick two or more servers, then Compare to plot the same metric across all of them.')}
                     </p>
                 )}
             </section>
 
             <section className="monitoring-panel">
                 <div className="monitoring-panel__header">
-                    <h3>Anomaly Detection</h3>
+                    <h3>{t('app.fleetCapacityPanel.anomalyDetection', 'Anomaly Detection')}</h3>
                 </div>
                 {anomalies.length > 0 ? (
                     <DataTable
@@ -288,32 +290,32 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     />
                 ) : (
                     <p className="mon-panel-hint">
-                        <CheckCircle size={14} /> Every metric is within its own recent baseline.
+                        <CheckCircle size={14} /> {t('app.fleetCapacityPanel.everyMetricIsWithinItsOwn', 'Every metric is within its own recent baseline.')}
                     </p>
                 )}
             </section>
 
             <section className="monitoring-panel">
                 <div className="monitoring-panel__header">
-                    <h3>Capacity Forecast</h3>
+                    <h3>{t('app.fleetCapacityPanel.capacityForecast', 'Capacity Forecast')}</h3>
                     <Button size="sm" onClick={loadForecast} disabled={!forecastServer}>
-                        <TrendingUp size={14} /> Forecast
+                        <TrendingUp size={14} /> {t('app.fleetCapacityPanel.forecast', 'Forecast')}
                     </Button>
                 </div>
 
                 <div className="mon-compare-controls">
                     <div className="form-group">
-                        <span className="mon-field-label">Server</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.server2', 'Server')}</span>
                         <select value={forecastServer} onChange={(e) => setForecastServer(e.target.value)}>
-                            <option value="">Select a server…</option>
+                            <option value="">{t('app.fleetCapacityPanel.selectAServer', 'Select a server…')}</option>
                             {servers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
                     <div className="form-group">
-                        <span className="mon-field-label">Metric</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric3', 'Metric')}</span>
                         <select value={forecastMetric} onChange={(e) => setForecastMetric(e.target.value)}>
-                            <option value="disk">Disk</option>
-                            <option value="memory">Memory</option>
+                            <option value="disk">{t('app.fleetCapacityPanel.disk', 'Disk')}</option>
+                            <option value="memory">{t('app.fleetCapacityPanel.memory', 'Memory')}</option>
                             <option value="cpu">CPU</option>
                         </select>
                     </div>
@@ -325,15 +327,15 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     <div className="mon-forecast">
                         <div className="mon-forecast__stats">
                             <div className="fleet-statbox">
-                                <span className="mon-field-label">Current</span>
+                                <span className="mon-field-label">{t('app.fleetCapacityPanel.current2', 'Current')}</span>
                                 <strong>{forecast.current_value}%</strong>
                             </div>
                             <div className="fleet-statbox">
-                                <span className="mon-field-label">Growth rate</span>
+                                <span className="mon-field-label">{t('app.fleetCapacityPanel.growthRate', 'Growth rate')}</span>
                                 <strong>{forecast.growth_rate_per_day}%/day</strong>
                             </div>
                             <div className="fleet-statbox">
-                                <span className="mon-field-label">Trend</span>
+                                <span className="mon-field-label">{t('app.fleetCapacityPanel.trend', 'Trend')}</span>
                                 <strong>{forecast.trend}</strong>
                             </div>
                         </div>
@@ -341,7 +343,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                         {forecast.predictions && (
                             <div className="mon-forecast__predictions">
                                 <div className={`fleet-predbox ${forecast.predictions.days_to_90pct === 0 ? 'is-red' : 'is-amber'}`}>
-                                    <span className="mon-field-label">Reaches 90%</span>
+                                    <span className="mon-field-label">{t('app.fleetCapacityPanel.reaches90', 'Reaches 90%')}</span>
                                     <strong>
                                         {forecast.predictions.date_90pct || 'N/A'}
                                         {forecast.predictions.days_to_90pct > 0 && (
@@ -350,7 +352,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                                     </strong>
                                 </div>
                                 <div className="fleet-predbox is-red">
-                                    <span className="mon-field-label">Reaches 100%</span>
+                                    <span className="mon-field-label">{t('app.fleetCapacityPanel.reaches100', 'Reaches 100%')}</span>
                                     <strong>
                                         {forecast.predictions.date_100pct || 'N/A'}
                                         {forecast.predictions.days_to_100pct > 0 && (
@@ -377,7 +379,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     </div>
                 ) : !forecast && (
                     <p className="mon-panel-hint">
-                        Pick a server and a metric to project when it runs out of headroom.
+                        {t('app.fleetCapacityPanel.pickAServerAndAMetric', 'Pick a server and a metric to project when it runs out of headroom.')}
                     </p>
                 )}
             </section>

@@ -13,6 +13,8 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
+import { t } from '../../i18n/t';
 
 // Both lists have the same columns; only the accent tone and the remove
 // target differ, so one factory builds both. Two accessors per column on
@@ -21,7 +23,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 const ipListColumns = (listType, tone, onRemove) => [
     {
         key: 'ip',
-        header: 'IP / CIDR',
+        headerKey: 'app.iPListsTab.ipCidr', header: 'IP / CIDR',
         sortable: true,
         hideable: false,
         type: 'text',
@@ -32,7 +34,7 @@ const ipListColumns = (listType, tone, onRemove) => [
     },
     {
         key: 'comment',
-        header: 'Comment',
+        headerKey: 'app.iPListsTab.comment', header: 'Comment',
         sortable: true,
         type: 'text',
         // Filters read the em dash the empty cell actually shows. That is what
@@ -47,7 +49,7 @@ const ipListColumns = (listType, tone, onRemove) => [
     },
     {
         key: 'added',
-        header: 'Added',
+        headerKey: 'app.iPListsTab.added', header: 'Added',
         sortable: true,
         // Declared, not inferred: the sorter wants epoch ms, and letting that
         // number type the column would offer "is under 1754…" instead of a date
@@ -69,7 +71,7 @@ const ipListColumns = (listType, tone, onRemove) => [
         cellClassName: 'sec-rowend',
         render: (item) => (
             <Button variant="destructive" size="sm" onClick={() => onRemove(item, listType)}>
-                Remove
+                {t('app.iPListsTab.remove', 'Remove')}
             </Button>
         ),
     },
@@ -125,6 +127,7 @@ const IP_LIST_VIEWS = [
 ];
 
 const IPListsTab = () => {
+    const { t } = useTranslation();
     const [lists, setLists] = useState({ allowlist: [], blocklist: [] });
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(null);
@@ -163,13 +166,13 @@ const IPListsTab = () => {
         setActionLoading(true);
         try {
             await api.addToIPList(newIP, showAddModal, newComment);
-            toast.success(`IP added to ${showAddModal}`);
+            toast.success(t('app.iPListsTab.ipAddedTo', 'IP added to {{showAddModal}}', { showAddModal: showAddModal }));
             setShowAddModal(null);
             setNewIP('');
             setNewComment('');
             await loadLists();
         } catch (error) {
-            toast.error(`Failed to add IP: ${error.message}`);
+            toast.error(t('app.iPListsTab.failedToAddIp', 'Failed to add IP: {{message}}', { message: error.message }));
         } finally {
             setActionLoading(false);
         }
@@ -177,32 +180,32 @@ const IPListsTab = () => {
 
     const handleRemove = async (item, listType) => {
         const confirmed = await confirm({
-            title: `Remove from ${listType}`,
-            message: `Are you sure you want to remove ${item.ip} from the ${listType}?`,
-            confirmText: 'Remove',
+            title: t('app.iPListsTab.removeFrom', 'Remove from {{listType}}', { listType: listType }),
+            message: t('app.iPListsTab.areYouSureYouWantTo', 'Are you sure you want to remove {{ip}} from the {{listType}}?', { ip: item.ip, listType: listType }),
+            confirmText: t('app.iPListsTab.remove2', 'Remove'),
             variant: 'warning',
         });
         if (!confirmed) return;
         try {
             await api.removeFromIPList(item.ip, listType);
-            toast.success(`IP removed from ${listType}`, {
+            toast.success(t('app.iPListsTab.ipRemovedFrom', 'IP removed from {{listType}}', { listType: listType }), {
                 duration: 8000,
                 action: {
-                    label: 'Undo',
+                    label: t('app.iPListsTab.undo', 'Undo'),
                     onClick: async () => {
                         try {
                             await api.addToIPList(item.ip, listType, item.comment || '');
-                            toast.success(`IP restored to ${listType}`);
+                            toast.success(t('app.iPListsTab.ipRestoredTo', 'IP restored to {{listType}}', { listType: listType }));
                             await loadLists();
                         } catch (error) {
-                            toast.error(`Could not restore IP: ${error.message}`);
+                            toast.error(t('app.iPListsTab.couldNotRestoreIp', 'Could not restore IP: {{message}}', { message: error.message }));
                         }
                     },
                 },
             });
             await loadLists();
         } catch (error) {
-            toast.error(`Failed to remove IP: ${error.message}`);
+            toast.error(t('app.iPListsTab.failedToRemoveIp', 'Failed to remove IP: {{message}}', { message: error.message }));
         }
     };
 
@@ -265,14 +268,14 @@ const IPListsTab = () => {
                 />
                 <div className="sec-tableactions">
                     <Button variant="default" size="sm" onClick={() => setShowAddModal(listType)}>
-                        Add to {listType}
+                        {t('app.iPListsTab.addTo', 'Add to')} {listType}
                     </Button>
                 </div>
             </div>
             <GridChips {...chrome.chipProps} />
             {items.length === 0 ? (
                 <div className="card-body">
-                    <p className="text-muted">No IPs in {listType}.</p>
+                    <p className="text-muted">{t('app.iPListsTab.noIpsIn', 'No IPs in')} {listType}.</p>
                 </div>
             ) : (
                 <DataTable
@@ -297,7 +300,7 @@ const IPListsTab = () => {
     };
 
     if (loading) {
-        return <div className="loading-sm">Loading IP lists...</div>;
+        return <div className="loading-sm">{t('app.iPListsTab.loadingIpLists', 'Loading IP lists...')}</div>;
     }
 
     return (
@@ -307,27 +310,27 @@ const IPListsTab = () => {
                 {renderList('blocklist', lists.blocklist, blockSorts, blockChrome)}
             </div>
 
-            <Modal open={!!showAddModal} onClose={() => setShowAddModal(null)} title={`Add to ${showAddModal || ''}`}>
+            <Modal open={!!showAddModal} onClose={() => setShowAddModal(null)} title={t('app.iPListsTab.addTo2', 'Add to {{value}}', { value: showAddModal || '' })}>
                 <div className="form-group">
-                    <Label>IP Address or CIDR</Label>
+                    <Label>{t('app.iPListsTab.ipAddressOrCidr', 'IP Address or CIDR')}</Label>
                     <Input
                         type="text"
                         value={newIP}
                         onChange={(e) => setNewIP(e.target.value)}
-                        placeholder="192.168.1.100 or 10.0.0.0/24"
+                        placeholder={t('app.iPListsTab.1921681100Or10', '192.168.1.100 or 10.0.0.0/24')}
                     />
                 </div>
                 <div className="form-group">
-                    <Label>Comment (optional)</Label>
+                    <Label>{t('app.iPListsTab.commentOptional', 'Comment (optional)')}</Label>
                     <Input
                         type="text"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Office IP, VPN, etc."
+                        placeholder={t('app.iPListsTab.officeIpVpnEtc', 'Office IP, VPN, etc.')}
                     />
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowAddModal(null)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowAddModal(null)}>{t('app.iPListsTab.cancel', 'Cancel')}</Button>
                     <Button variant="default" onClick={handleAdd} disabled={actionLoading || !newIP.trim()}>
                         {actionLoading ? 'Adding...' : 'Add'}
                     </Button>

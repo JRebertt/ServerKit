@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useTranslation } from 'react-i18next';
 
 // Short SHA helper for image digests (handles "sha256:abcdef..." or bare hashes)
 function shortDigest(digest) {
@@ -28,6 +29,7 @@ function formatStatusLabel(status) {
 // Image update section
 // ============================================================
 const ImageUpdateSection = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [info, setInfo] = useState(app.image_update || null);
@@ -55,13 +57,13 @@ const ImageUpdateSection = ({ app, onChanged }) => {
             const data = await api.checkImageUpdate(app.id);
             setInfo(data);
             if (data.update_available) {
-                toast.info('An image update is available.');
+                toast.info(t('app.containerOpsPanel.anImageUpdateIsAvailable', 'An image update is available.'));
             } else {
-                toast.success('Image is up to date.');
+                toast.success(t('app.containerOpsPanel.imageIsUpToDate', 'Image is up to date.'));
             }
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to check for updates');
+            toast.error(err.message || t('app.containerOpsPanel.failedToCheckForUpdates', 'Failed to check for updates'));
         } finally {
             setChecking(false);
         }
@@ -69,16 +71,16 @@ const ImageUpdateSection = ({ app, onChanged }) => {
 
     async function handleApply() {
         const confirmed = await confirm({
-            title: 'Update image',
-            message: 'Pull the latest image and recreate the container? The app will briefly restart.',
-            confirmText: 'Update now',
+            title: t('app.containerOpsPanel.updateImage', 'Update image'),
+            message: t('app.containerOpsPanel.pullTheLatestImageAndRecreate', 'Pull the latest image and recreate the container? The app will briefly restart.'),
+            confirmText: t('app.containerOpsPanel.updateNow', 'Update now'),
         });
         if (!confirmed) return;
 
         setApplying(true);
         try {
             const data = await api.applyImageUpdate(app.id);
-            toast.success(data.message || 'Image updated.');
+            toast.success(data.message || t('app.containerOpsPanel.imageUpdated', 'Image updated.'));
             onChanged?.();
             // Refresh the local check after applying
             try {
@@ -86,7 +88,7 @@ const ImageUpdateSection = ({ app, onChanged }) => {
                 if (refreshed) setInfo(refreshed);
             } catch { /* optional */ }
         } catch (err) {
-            toast.error(err.message || 'Failed to apply update');
+            toast.error(err.message || t('app.containerOpsPanel.failedToApplyUpdate', 'Failed to apply update'));
         } finally {
             setApplying(false);
         }
@@ -100,7 +102,7 @@ const ImageUpdateSection = ({ app, onChanged }) => {
         <div className="app-panel container-ops__section">
             <div className="app-panel-header">
                 <RefreshCw />
-                <span>Image Update</span>
+                <span>{t('app.containerOpsPanel.imageUpdate', 'Image Update')}</span>
                 <span className="app-panel-header-actions">
                     {status && (
                         <Pill kind={statusKind(status)}>
@@ -112,22 +114,21 @@ const ImageUpdateSection = ({ app, onChanged }) => {
             <div className="app-panel-body">
                 {!isCompose && (
                     <p className="app-panel-hint">
-                        Image updates apply to Docker Compose apps. You can still check this app&apos;s
-                        digest, but &quot;Update now&quot; is only available for docker-compose apps.
+                        {t('app.containerOpsPanel.imageUpdatesApplyToDockerCompose', 'Image updates apply to Docker Compose apps. You can still check this app\'s digest, but "Update now" is only available for docker-compose apps.')}
                     </p>
                 )}
 
                 <div className="app-info-grid container-ops__digests">
                     <div className="app-info-item">
-                        <span className="app-info-label">Current digest</span>
+                        <span className="app-info-label">{t('app.containerOpsPanel.currentDigest', 'Current digest')}</span>
                         <span className="app-info-value mono">{shortDigest(info?.current_digest)}</span>
                     </div>
                     <div className="app-info-item">
-                        <span className="app-info-label">Latest digest</span>
+                        <span className="app-info-label">{t('app.containerOpsPanel.latestDigest', 'Latest digest')}</span>
                         <span className="app-info-value mono">{shortDigest(info?.latest_digest)}</span>
                     </div>
                     <div className="app-info-item">
-                        <span className="app-info-label">Last checked</span>
+                        <span className="app-info-label">{t('app.containerOpsPanel.lastChecked', 'Last checked')}</span>
                         <span className="app-info-value">
                             {checkedAt ? new Date(checkedAt).toLocaleString() : 'Never'}
                         </span>
@@ -155,6 +156,7 @@ const ImageUpdateSection = ({ app, onChanged }) => {
 // authenticate with before pulling this app's image (docker login).
 // ============================================================
 const RegistrySection = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [registries, setRegistries] = useState([]);
     const [selected, setSelected] = useState(app.registry_id ?? '');
@@ -184,10 +186,10 @@ const RegistrySection = ({ app, onChanged }) => {
         setSaving(true);
         try {
             await api.updateApp(app.id, { registry_id: next });
-            toast.success(next ? 'Registry attached.' : 'Registry detached — pulls are anonymous.');
+            toast.success(next ? t('app.containerOpsPanel.registryAttached', 'Registry attached.') : t('app.containerOpsPanel.registryDetachedPullsAreAnonymous', 'Registry detached — pulls are anonymous.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to update registry');
+            toast.error(err.message || t('app.containerOpsPanel.failedToUpdateRegistry', 'Failed to update registry'));
             setSelected(app.registry_id ?? '');
         } finally {
             setSaving(false);
@@ -198,19 +200,18 @@ const RegistrySection = ({ app, onChanged }) => {
         <div className="app-panel container-ops__section">
             <div className="app-panel-header">
                 <Boxes />
-                <span>Private Registry</span>
+                <span>{t('app.containerOpsPanel.privateRegistry', 'Private Registry')}</span>
             </div>
             <div className="app-panel-body">
                 <p className="app-panel-hint">
-                    Authenticate with stored credentials before pulling this app&apos;s image. Add
-                    registries under <Link to="/settings/connections">Settings → Connections</Link>.
+                    {t('app.containerOpsPanel.authenticateWithStoredCredentialsBeforePulling', 'Authenticate with stored credentials before pulling this app\'s image. Add registries under')} <Link to="/settings/connections">{t('app.containerOpsPanel.settingsConnections', 'Settings → Connections')}</Link>.
                 </p>
 
                 <div className="container-ops__field">
                     <div className="container-ops__field-text">
-                        <Label htmlFor={`registry-${app.id}`}>Registry</Label>
+                        <Label htmlFor={`registry-${app.id}`}>{t('app.containerOpsPanel.registry', 'Registry')}</Label>
                         <span className="container-ops__field-hint">
-                            Public images pull anonymously; pick a registry for private images.
+                            {t('app.containerOpsPanel.publicImagesPullAnonymouslyPickA', 'Public images pull anonymously; pick a registry for private images.')}
                         </span>
                     </div>
                     <select
@@ -220,7 +221,7 @@ const RegistrySection = ({ app, onChanged }) => {
                         onChange={(e) => handleChange(e.target.value)}
                         disabled={loading || saving}
                     >
-                        <option value="">Public (no auth)</option>
+                        <option value="">{t('app.containerOpsPanel.publicNoAuth', 'Public (no auth)')}</option>
                         {registries.map((r) => (
                             <option key={r.id} value={r.id}>
                                 {r.name} · {r.login_host}
@@ -237,6 +238,7 @@ const RegistrySection = ({ app, onChanged }) => {
 // Auto-sleep section
 // ============================================================
 const AutoSleepSection = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [policy, setPolicy] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -266,10 +268,10 @@ const AutoSleepSection = ({ app, onChanged }) => {
         try {
             const data = await api.updateSleepPolicy(app.id, next);
             setPolicy((prev) => ({ ...prev, ...(data || next) }));
-            toast.success('Auto-sleep policy saved.');
+            toast.success(t('app.containerOpsPanel.autoSleepPolicySaved', 'Auto-sleep policy saved.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to save policy');
+            toast.error(err.message || t('app.containerOpsPanel.failedToSavePolicy', 'Failed to save policy'));
             load();
         } finally {
             setSaving(false);
@@ -294,15 +296,15 @@ const AutoSleepSection = ({ app, onChanged }) => {
         try {
             if (policy?.asleep) {
                 await api.wakeApp(app.id);
-                toast.success('App woken.');
+                toast.success(t('app.containerOpsPanel.appWoken', 'App woken.'));
             } else {
                 await api.sleepApp(app.id);
-                toast.success('App put to sleep.');
+                toast.success(t('app.containerOpsPanel.appPutToSleep', 'App put to sleep.'));
             }
             await load();
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Action failed');
+            toast.error(err.message || t('app.containerOpsPanel.actionFailed', 'Action failed'));
         } finally {
             setBusy(false);
         }
@@ -314,7 +316,7 @@ const AutoSleepSection = ({ app, onChanged }) => {
         <div className="app-panel container-ops__section">
             <div className="app-panel-header">
                 <Moon />
-                <span>Auto-Sleep</span>
+                <span>{t('app.containerOpsPanel.autoSleep', 'Auto-Sleep')}</span>
                 <span className="app-panel-header-actions">
                     {!loading && (
                         <Pill kind={asleep ? 'gray' : 'green'}>{asleep ? 'Asleep' : 'Awake'}</Pill>
@@ -323,15 +325,14 @@ const AutoSleepSection = ({ app, onChanged }) => {
             </div>
             <div className="app-panel-body">
                 <p className="app-panel-hint">
-                    Stop the container after a period of inactivity to free resources. It wakes
-                    automatically on the next request.
+                    {t('app.containerOpsPanel.stopTheContainerAfterAPeriod', 'Stop the container after a period of inactivity to free resources. It wakes automatically on the next request.')}
                 </p>
 
                 <div className="container-ops__field">
                     <div className="container-ops__field-text">
-                        <Label htmlFor={`sleep-enabled-${app.id}`}>Enable auto-sleep</Label>
+                        <Label htmlFor={`sleep-enabled-${app.id}`}>{t('app.containerOpsPanel.enableAutoSleep', 'Enable auto-sleep')}</Label>
                         <span className="container-ops__field-hint">
-                            Idle apps are suspended after the timeout below.
+                            {t('app.containerOpsPanel.idleAppsAreSuspendedAfterThe', 'Idle apps are suspended after the timeout below.')}
                         </span>
                     </div>
                     <Switch
@@ -344,7 +345,7 @@ const AutoSleepSection = ({ app, onChanged }) => {
 
                 <div className="container-ops__field">
                     <div className="container-ops__field-text">
-                        <Label htmlFor={`sleep-timeout-${app.id}`}>Idle timeout (minutes)</Label>
+                        <Label htmlFor={`sleep-timeout-${app.id}`}>{t('app.containerOpsPanel.idleTimeoutMinutes', 'Idle timeout (minutes)')}</Label>
                         <span className="container-ops__field-hint">
                             {policy?.last_activity_at
                                 ? `Last activity ${new Date(policy.last_activity_at).toLocaleString()}`
@@ -389,6 +390,7 @@ const DEFAULT_SCALE = {
 };
 
 const AutoScaleSection = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [form, setForm] = useState(DEFAULT_SCALE);
     const [loading, setLoading] = useState(true);
@@ -430,10 +432,10 @@ const AutoScaleSection = ({ app, onChanged }) => {
             };
             const data = await api.updateScalePolicy(app.id, payload);
             setForm((prev) => ({ ...prev, ...(data || payload) }));
-            toast.success('Auto-scale policy saved.');
+            toast.success(t('app.containerOpsPanel.autoScalePolicySaved', 'Auto-scale policy saved.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to save policy');
+            toast.error(err.message || t('app.containerOpsPanel.failedToSavePolicy2', 'Failed to save policy'));
         } finally {
             setSaving(false);
         }
@@ -444,11 +446,11 @@ const AutoScaleSection = ({ app, onChanged }) => {
         setScaling(true);
         try {
             await api.scaleApp(app.id, replicas);
-            toast.success(`Scaled to ${replicas} replica${replicas === 1 ? '' : 's'}.`);
+            toast.success(t('app.containerOpsPanel.scaledToReplica', 'Scaled to {{replicas}} replica{{value}}.', { replicas: replicas, value: replicas === 1 ? '' : 's' }));
             await load();
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to scale');
+            toast.error(err.message || t('app.containerOpsPanel.failedToScale', 'Failed to scale'));
         } finally {
             setScaling(false);
         }
@@ -458,7 +460,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
         <div className="app-panel container-ops__section">
             <div className="app-panel-header">
                 <GaugeIcon />
-                <span>Auto-Scale</span>
+                <span>{t('app.containerOpsPanel.autoScale', 'Auto-Scale')}</span>
                 <span className="app-panel-header-actions">
                     {!loading && (
                         <Pill kind={form.enabled ? 'green' : 'gray'}>
@@ -469,15 +471,14 @@ const AutoScaleSection = ({ app, onChanged }) => {
             </div>
             <div className="app-panel-body">
                 <p className="app-panel-hint">
-                    Adjust replica count based on CPU load. Requires a scale-capable Docker Compose
-                    service (one that can run multiple replicas).
+                    {t('app.containerOpsPanel.adjustReplicaCountBasedOnCpu', 'Adjust replica count based on CPU load. Requires a scale-capable Docker Compose service (one that can run multiple replicas).')}
                 </p>
 
                 <div className="container-ops__field">
                     <div className="container-ops__field-text">
-                        <Label htmlFor={`scale-enabled-${app.id}`}>Enable auto-scale</Label>
+                        <Label htmlFor={`scale-enabled-${app.id}`}>{t('app.containerOpsPanel.enableAutoScale', 'Enable auto-scale')}</Label>
                         <span className="container-ops__field-hint">
-                            Currently running {form.current_replicas ?? '—'} replica(s).
+                            {t('app.containerOpsPanel.currentlyRunning', 'Currently running')} {form.current_replicas ?? '—'} replica(s).
                         </span>
                     </div>
                     <Switch
@@ -490,7 +491,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
 
                 <div className="container-ops__grid">
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-service-${app.id}`}>Service name</Label>
+                        <Label htmlFor={`scale-service-${app.id}`}>{t('app.containerOpsPanel.serviceName', 'Service name')}</Label>
                         <Input
                             id={`scale-service-${app.id}`}
                             type="text"
@@ -501,7 +502,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         />
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-cooldown-${app.id}`}>Cooldown (seconds)</Label>
+                        <Label htmlFor={`scale-cooldown-${app.id}`}>{t('app.containerOpsPanel.cooldownSeconds', 'Cooldown (seconds)')}</Label>
                         <Input
                             id={`scale-cooldown-${app.id}`}
                             type="number"
@@ -512,7 +513,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         />
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-min-${app.id}`}>Min replicas</Label>
+                        <Label htmlFor={`scale-min-${app.id}`}>{t('app.containerOpsPanel.minReplicas', 'Min replicas')}</Label>
                         <Input
                             id={`scale-min-${app.id}`}
                             type="number"
@@ -523,7 +524,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         />
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-max-${app.id}`}>Max replicas</Label>
+                        <Label htmlFor={`scale-max-${app.id}`}>{t('app.containerOpsPanel.maxReplicas', 'Max replicas')}</Label>
                         <Input
                             id={`scale-max-${app.id}`}
                             type="number"
@@ -534,7 +535,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         />
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-cpu-high-${app.id}`}>CPU high (%)</Label>
+                        <Label htmlFor={`scale-cpu-high-${app.id}`}>{t('app.containerOpsPanel.cpuHigh', 'CPU high (%)')}</Label>
                         <Input
                             id={`scale-cpu-high-${app.id}`}
                             type="number"
@@ -546,7 +547,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         />
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-cpu-low-${app.id}`}>CPU low (%)</Label>
+                        <Label htmlFor={`scale-cpu-low-${app.id}`}>{t('app.containerOpsPanel.cpuLow', 'CPU low (%)')}</Label>
                         <Input
                             id={`scale-cpu-low-${app.id}`}
                             type="number"
@@ -567,7 +568,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
 
                 <div className="container-ops__manual">
                     <div className="container-ops__input">
-                        <Label htmlFor={`scale-manual-${app.id}`}>Manual replicas</Label>
+                        <Label htmlFor={`scale-manual-${app.id}`}>{t('app.containerOpsPanel.manualReplicas', 'Manual replicas')}</Label>
                         <Input
                             id={`scale-manual-${app.id}`}
                             type="number"

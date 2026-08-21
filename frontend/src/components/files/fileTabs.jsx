@@ -6,5 +6,5 @@ import { FolderOpen } from 'lucide-react';
 // The FTP Server tab is contributed by the serverkit-ftp builtin extension
 // (tab-group contribution, #43) and merged in by TabGroupLayout groupId="files".
 export const FILE_TABS = [
-    { to: '/files', label: 'Files', end: true, icon: <FolderOpen size={15} /> },
+    { to: '/files', labelKey: 'app.fileTabs.files', label: 'Files', end: true, icon: <FolderOpen size={15} /> },
 ];

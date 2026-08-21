@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ListToolbar } from '../ds';
 import JobProgressModal from '../JobProgressModal';
+import { useTranslation } from 'react-i18next';
 
 // Quick-install presets — packages most users want first when setting
 // up a new server. The agent's manager-detect handles distro mapping;
@@ -25,6 +26,7 @@ const QUICK_PRESETS = [
 ];
 
 const PackagesTab = ({ serverId, serverStatus }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -44,7 +46,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             setInstalledRaw(data?.output || '');
             setManager(data?.manager || '');
         } catch (err) {
-            toast.error(err.message || 'Failed to load packages');
+            toast.error(err.message || t('app.serverPackagesTab.failedToLoadPackages', 'Failed to load packages'));
         } finally {
             setLoadingInstalled(false);
         }
@@ -70,7 +72,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             const data = await api.searchRemotePackages(serverId, q, 100);
             setSearchResults(data?.results || []);
         } catch (err) {
-            toast.error(err.message || 'Search failed');
+            toast.error(err.message || t('app.serverPackagesTab.searchFailed', 'Search failed'));
             setSearchResults([]);
         } finally {
             setSearching(false);
@@ -83,14 +85,14 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             const channel = result?.channel || `job:${result?.job_id}`;
             setJob({ channel, title: `Installing ${name}` });
         } catch (err) {
-            toast.error(err.message || `Failed to start install`);
+            toast.error(err.message || t('app.serverPackagesTab.failedToStartInstall', 'Failed to start install', {  }));
         }
     }
 
     async function handleRemove(name) {
         const ok = await confirm({
-            title: `Remove ${name}`,
-            message: `Uninstall ${name} from this server?`,
+            title: t('app.serverPackagesTab.remove', 'Remove {{name}}', { name: name }),
+            message: t('app.serverPackagesTab.uninstallFromThisServer', 'Uninstall {{name}} from this server?', { name: name }),
             variant: 'danger',
         });
         if (!ok) return;
@@ -98,31 +100,31 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             await api.removeRemotePackage(serverId, name);
             toast.success(`${name} removed`);
         } catch (err) {
-            toast.error(err.message || 'Remove failed');
+            toast.error(err.message || t('app.serverPackagesTab.removeFailed', 'Remove failed'));
         }
     }
 
     async function handleUpdateCache() {
         try {
             await api.updateRemotePackageCache(serverId);
-            toast.success(`Package cache updated (${manager || 'manager'})`);
+            toast.success(t('app.serverPackagesTab.packageCacheUpdated', 'Package cache updated ({{value}})', { value: manager || 'manager' }));
         } catch (err) {
-            toast.error(err.message || 'Update failed');
+            toast.error(err.message || t('app.serverPackagesTab.updateFailed', 'Update failed'));
         }
     }
 
     async function handleUpgradeAll() {
         const ok = await confirm({
-            title: 'Upgrade all packages',
-            message: 'Run a full system upgrade? This may take several minutes.',
+            title: t('app.serverPackagesTab.upgradeAllPackages', 'Upgrade all packages'),
+            message: t('app.serverPackagesTab.runAFullSystemUpgradeThis', 'Run a full system upgrade? This may take several minutes.'),
         });
         if (!ok) return;
         try {
             const result = await api.upgradeRemotePackages(serverId, { all: true });
             const channel = result?.channel || `job:${result?.job_id}`;
-            setJob({ channel, title: 'Upgrading all packages' });
+            setJob({ channel, titleKey: 'app.serverPackagesTab.upgradingAllPackages', title: 'Upgrading all packages' });
         } catch (err) {
-            toast.error(err.message || 'Upgrade failed to start');
+            toast.error(err.message || t('app.serverPackagesTab.upgradeFailedToStart', 'Upgrade failed to start'));
         }
     }
 
@@ -135,7 +137,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
     if (serverStatus !== 'online') {
         return (
             <div className="empty-state">
-                <p>Server is offline. Reconnect to manage packages.</p>
+                <p>{t('app.serverPackagesTab.serverIsOfflineReconnectToManage', 'Server is offline. Reconnect to manage packages.')}</p>
             </div>
         );
     }
@@ -145,8 +147,8 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             <ListToolbar
                 tools={(
                     <div className="server-packages__actions">
-                        <Button variant="outline" onClick={handleUpdateCache}>Update cache</Button>
-                        <Button variant="outline" onClick={handleUpgradeAll}>Upgrade all</Button>
+                        <Button variant="outline" onClick={handleUpdateCache}>{t('app.serverPackagesTab.updateCache', 'Update cache')}</Button>
+                        <Button variant="outline" onClick={handleUpgradeAll}>{t('app.serverPackagesTab.upgradeAll', 'Upgrade all')}</Button>
                     </div>
                 )}
             >
@@ -154,7 +156,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search packages…"
+                        placeholder={t('app.serverPackagesTab.searchPackages', 'Search packages…')}
                     />
                     <Button type="submit" variant="outline" disabled={searching}>
                         {searching ? 'Searching…' : 'Search'}
@@ -163,7 +165,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             </ListToolbar>
 
             <section className="server-packages__presets">
-                <h3>Quick install</h3>
+                <h3>{t('app.serverPackagesTab.quickInstall', 'Quick install')}</h3>
                 <div className="server-packages__chips">
                     {QUICK_PRESETS.map((p) => (
                         <button
@@ -180,9 +182,9 @@ const PackagesTab = ({ serverId, serverStatus }) => {
 
             {searchResults !== null && (
                 <section className="server-packages__results">
-                    <h3>Search results {manager && <Badge>{manager}</Badge>}</h3>
+                    <h3>{t('app.serverPackagesTab.searchResults', 'Search results')} {manager && <Badge>{manager}</Badge>}</h3>
                     {searchResults.length === 0 ? (
-                        <p className="text-muted-foreground">No matches.</p>
+                        <p className="text-muted-foreground">{t('app.serverPackagesTab.noMatches', 'No matches.')}</p>
                     ) : (
                         <ul className="server-packages__list">
                             {searchResults.map((line, i) => {
@@ -194,7 +196,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
                                     <li key={`${name}-${i}`} className="server-packages__list-item">
                                         <span className="server-packages__list-name">{line}</span>
                                         <Button size="sm" variant="outline" onClick={() => handleInstall(name)}>
-                                            Install
+                                            {t('app.serverPackagesTab.install', 'Install')}
                                         </Button>
                                     </li>
                                 );
@@ -205,17 +207,16 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             )}
 
             <section className="server-packages__installed">
-                <h3>Installed packages {manager && <Badge>{manager}</Badge>}</h3>
+                <h3>{t('app.serverPackagesTab.installedPackages', 'Installed packages')} {manager && <Badge>{manager}</Badge>}</h3>
                 {loadingInstalled ? (
-                    <p className="text-muted-foreground">Loading…</p>
+                    <p className="text-muted-foreground">{t('app.serverPackagesTab.loading', 'Loading…')}</p>
                 ) : (
                     <pre className="server-packages__raw">
                         {installedRaw || 'No packages reported.'}
                     </pre>
                 )}
                 <p className="server-packages__hint text-muted-foreground">
-                    Output is the raw package-manager listing. Use search to find a specific
-                    package, then click Install.
+                    {t('app.serverPackagesTab.outputIsTheRawPackageManager', 'Output is the raw package-manager listing. Use search to find a specific package, then click Install.')}
                 </p>
             </section>
 
@@ -229,10 +230,9 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             />
 
             <div className="server-packages__remove-tip text-muted-foreground">
-                Tip: to remove a specific package, search for it and use the row&apos;s
-                <em> Install </em>
-                button to reinstall, or open a terminal session for advanced operations.
-                Direct remove from this UI:
+                {t('app.serverPackagesTab.tipToRemoveASpecificPackage', 'Tip: to remove a specific package, search for it and use the row\'s')}
+                <em> {t('app.serverPackagesTab.install2', 'Install')} </em>
+                {t('app.serverPackagesTab.buttonToReinstallOrOpenA', 'button to reinstall, or open a terminal session for advanced operations. Direct remove from this UI:')}
                 <RemoveByName onRemove={handleRemove} />
             </div>
         </div>
@@ -242,6 +242,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
 // Small inline form for ad-hoc package removal. Kept separate so the
 // main render stays readable.
 function RemoveByName({ onRemove }) {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     return (
         <form
@@ -256,11 +257,11 @@ function RemoveByName({ onRemove }) {
             <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="package name"
+                placeholder={t('app.serverPackagesTab.packageName', 'package name')}
                 size="sm"
             />
             <Button type="submit" variant="outline" size="sm" disabled={!name.trim()}>
-                Remove
+                {t('app.serverPackagesTab.remove2', 'Remove')}
             </Button>
         </form>
     );

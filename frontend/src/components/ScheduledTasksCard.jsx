@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Clock, CheckCircle2, AlertCircle, History } from 'lucide-react';
 import api from '../services/api';
 import { Pill, Drawer } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 // Read-only summary of an app's scheduled (cron) jobs. Rendered on the service
 // detail and WordPress detail Overview tabs. The backend endpoint is
 // workspace-scoped, so on any error (including 403 for non-members) we render
 // nothing to keep the page clean.
 const ScheduledTasksCard = ({ appId }) => {
+    const { t } = useTranslation();
     const [jobs, setJobs] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -52,12 +54,12 @@ const ScheduledTasksCard = ({ appId }) => {
         <div className="scheduled-tasks-card">
             <div className="scheduled-tasks-card__header">
                 <Clock size={14} />
-                <span>Scheduled tasks</span>
+                <span>{t('app.scheduledTasksCard.scheduledTasks', 'Scheduled tasks')}</span>
             </div>
             {loading ? (
-                <div className="scheduled-tasks-card__loading">Loading…</div>
+                <div className="scheduled-tasks-card__loading">{t('app.scheduledTasksCard.loading', 'Loading…')}</div>
             ) : !jobs || jobs.length === 0 ? (
-                <div className="scheduled-tasks-card__empty">No scheduled tasks for this app.</div>
+                <div className="scheduled-tasks-card__empty">{t('app.scheduledTasksCard.noScheduledTasksForThisApp', 'No scheduled tasks for this app.')}</div>
             ) : (
                 <ul className="scheduled-tasks-card__list">
                     {jobs.map((job) => (
@@ -76,7 +78,7 @@ const ScheduledTasksCard = ({ appId }) => {
                                     type="button"
                                     className="scheduled-tasks-card__runs-btn"
                                     onClick={() => openRuns(job)}
-                                    title="View recent runs"
+                                    title={t('app.scheduledTasksCard.viewRecentRuns', 'View recent runs')}
                                 >
                                     <History size={13} />
                                 </button>
@@ -92,14 +94,14 @@ const ScheduledTasksCard = ({ appId }) => {
             <Drawer
                 open={!!runsJob}
                 onOpenChange={(open) => { if (!open) setRunsJob(null); }}
-                title={runsJob?.name || 'Scheduled task'}
-                subtitle="recent runs"
+                title={runsJob?.name || t('app.scheduledTasksCard.scheduledTask', 'Scheduled task')}
+                subtitle={t('app.scheduledTasksCard.recentRuns', 'recent runs')}
                 icon={<History size={16} />}
                 width={520}
             >
                 <div className="scheduled-tasks-runs">
                     {runsLoading ? (
-                        <div className="scheduled-tasks-runs__empty">Loading…</div>
+                        <div className="scheduled-tasks-runs__empty">{t('app.scheduledTasksCard.loading2', 'Loading…')}</div>
                     ) : !runsData || runsData.runs.length === 0 ? (
                         <div className="scheduled-tasks-runs__empty">
                             {runsJob && !runsJob.tracked
@@ -110,8 +112,8 @@ const ScheduledTasksCard = ({ appId }) => {
                         <>
                             {runsData.stats?.success_rate != null && (
                                 <div className="scheduled-tasks-runs__rate">
-                                    {Math.round(runsData.stats.success_rate * 100)}% success
-                                    <span className="scheduled-tasks-runs__count"> · last {runsData.stats.total} runs</span>
+                                    {Math.round(runsData.stats.success_rate * 100)}{t('app.scheduledTasksCard.success', '% success')}
+                                    <span className="scheduled-tasks-runs__count"> {t('app.scheduledTasksCard.last', '· last')} {runsData.stats.total} runs</span>
                                 </div>
                             )}
                             <ul className="scheduled-tasks-runs__list">

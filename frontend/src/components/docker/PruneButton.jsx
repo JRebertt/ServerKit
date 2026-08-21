@@ -4,8 +4,10 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { useServer } from './dockerHelpers';
+import { useTranslation } from 'react-i18next';
 
 const PruneButton = ({ onPruned }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { isRemote } = useServer();
     const [loading, setLoading] = useState(false);
@@ -13,19 +15,19 @@ const PruneButton = ({ onPruned }) => {
 
     async function handlePrune() {
         if (isRemote) {
-            toast.error('Prune is only available on the local Docker target right now');
+            toast.error(t('app.pruneButton.pruneIsOnlyAvailableOnThe', 'Prune is only available on the local Docker target right now'));
             return;
         }
-        const confirmed = await confirm({ title: 'Docker Cleanup', message: 'Remove unused Docker resources? This will remove stopped containers, unused images, and unused networks.' });
+        const confirmed = await confirm({ title: t('app.pruneButton.dockerCleanup', 'Docker Cleanup'), message: t('app.pruneButton.removeUnusedDockerResourcesThisWill', 'Remove unused Docker resources? This will remove stopped containers, unused images, and unused networks.') });
         if (!confirmed) return;
 
         setLoading(true);
         try {
             await api.request('/docker/cleanup', { method: 'POST', body: {} });
-            toast.success('Docker cleanup completed');
+            toast.success(t('app.pruneButton.dockerCleanupCompleted', 'Docker cleanup completed'));
             onPruned?.();
         } catch {
-            toast.error('Failed to cleanup Docker resources');
+            toast.error(t('app.pruneButton.failedToCleanupDockerResources', 'Failed to cleanup Docker resources'));
         } finally {
             setLoading(false);
         }
@@ -38,7 +40,7 @@ const PruneButton = ({ onPruned }) => {
                 size="sm"
                 onClick={handlePrune}
                 disabled={loading || isRemote}
-                title={isRemote ? 'Prune is only available on the local Docker target right now' : 'Prune unused Docker resources'}
+                title={isRemote ? t('app.pruneButton.pruneIsOnlyAvailableOnThe2', 'Prune is only available on the local Docker target right now') : t('app.pruneButton.pruneUnusedDockerResources', 'Prune unused Docker resources')}
             >
                 {loading ? 'Cleaning...' : 'Prune Unused'}
             </Button>

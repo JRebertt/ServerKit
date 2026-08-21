@@ -23,6 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ProviderBrandIcon } from '../../icons/ProviderBrands';
 import { deriveScope, REGISTRY_PROVIDERS } from './providerCatalog';
 import DnsActivity from './DnsActivity';
+import { useTranslation } from 'react-i18next';
 
 export default function ConnectProviderModal({
     provider, open, onOpenChange, isAdmin,
@@ -116,6 +117,7 @@ export default function ConnectProviderModal({
 
 // ── Source: GitHub / GitLab / Bitbucket ──
 function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect, onSaveConfig, onSetupApp }) {
+    const { t } = useTranslation();
     const connection = status?.connection;
     const configured = status?.configured;
     const isGithub = provider.provider === 'github';
@@ -143,7 +145,7 @@ function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect
                         <span>@{connection.provider_username}</span>
                     </div>
                     <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onDisconnect}>
-                        <Trash2 size={15} /> Disconnect
+                        <Trash2 size={15} /> {t('app.connectProviderModal.disconnect', 'Disconnect')}
                     </Button>
                 </div>
             ) : (
@@ -158,7 +160,7 @@ function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect
                                 : 'An admin needs to add an OAuth app below before anyone can connect.'}</span>
                     </div>
                     <Button type="button" size="sm" disabled={!configured || busy} onClick={onConnect}>
-                        <PlugZap size={15} /> Connect {provider.name}
+                        <PlugZap size={15} /> {t('app.connectProviderModal.connect', 'Connect')} {provider.name}
                     </Button>
                 </div>
             )}
@@ -166,17 +168,16 @@ function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect
             {/* One-click GitHub App setup (admin, GitHub only). */}
             {isAdmin && isGithub && (
                 <div className="conn-oneclick">
-                    <div className="conn-oneclick__head"><Zap size={15} /> One-click setup</div>
+                    <div className="conn-oneclick__head"><Zap size={15} /> {t('app.connectProviderModal.oneClickSetup', 'One-click setup')}</div>
                     <p className="conn-oneclick__blurb">
-                        Create a dedicated GitHub App for this server. You confirm once on GitHub —
-                        no OAuth secrets to copy — and its credentials are stored locally on your server.
+                        {t('app.connectProviderModal.createADedicatedGithubAppFor', 'Create a dedicated GitHub App for this server. You confirm once on GitHub — no OAuth secrets to copy — and its credentials are stored locally on your server.')}
                     </p>
                     {appSlug && (
                         <div className="conn-oneclick__done">
-                            <CheckCircle2 size={14} /> App <strong>{config.app_name || appSlug}</strong> is set up.
+                            <CheckCircle2 size={14} /> {t('app.connectProviderModal.app', 'App')} <strong>{config.app_name || appSlug}</strong> {t('app.connectProviderModal.isSetUp', 'is set up.')}
                             {config.app_html_url && (
                                 <a href={config.app_html_url} target="_blank" rel="noreferrer">
-                                    <ExternalLink size={12} /> Manage on GitHub
+                                    <ExternalLink size={12} /> {t('app.connectProviderModal.manageOnGithub', 'Manage on GitHub')}
                                 </a>
                             )}
                         </div>
@@ -198,29 +199,29 @@ function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect
                             onClick={() => setAdvancedOpen((o) => !o)}
                             aria-expanded={advancedOpen}
                         >
-                            <span><KeyRound size={14} /> Advanced: use your own OAuth app</span>
+                            <span><KeyRound size={14} /> {t('app.connectProviderModal.advancedUseYourOwnOauthApp', 'Advanced: use your own OAuth app')}</span>
                             <ChevronDown size={15} className={advancedOpen ? 'conn-list__chev is-open' : 'conn-list__chev'} />
                         </button>
                     )}
                     {advancedOpen && (
                         <form className="conn-form" onSubmit={save}>
-                            {!isGithub && <div className="conn-form__heading"><KeyRound size={15} /> OAuth app credentials</div>}
+                            {!isGithub && <div className="conn-form__heading"><KeyRound size={15} /> {t('app.connectProviderModal.oauthAppCredentials', 'OAuth app credentials')}</div>}
                             <div className="conn-form__grid">
                                 <div className="form-group">
-                                    <Label htmlFor="src-client-id">Client ID</Label>
-                                    <Input id="src-client-id" value={cfg.client_id} onChange={(e) => setCfg((c) => ({ ...c, client_id: e.target.value }))} placeholder={`${provider.name} OAuth client ID`} autoComplete="off" />
+                                    <Label htmlFor="src-client-id">{t('app.connectProviderModal.clientId', 'Client ID')}</Label>
+                                    <Input id="src-client-id" value={cfg.client_id} onChange={(e) => setCfg((c) => ({ ...c, client_id: e.target.value }))} placeholder={t('app.connectProviderModal.oauthClientId', '{{name}} OAuth client ID', { name: provider.name })} autoComplete="off" />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="src-client-secret">Client Secret</Label>
-                                    <Input id="src-client-secret" type="password" value={cfg.client_secret} onChange={(e) => setCfg((c) => ({ ...c, client_secret: e.target.value }))} placeholder={`${provider.name} OAuth client secret`} autoComplete="off" />
+                                    <Label htmlFor="src-client-secret">{t('app.connectProviderModal.clientSecret', 'Client Secret')}</Label>
+                                    <Input id="src-client-secret" type="password" value={cfg.client_secret} onChange={(e) => setCfg((c) => ({ ...c, client_secret: e.target.value }))} placeholder={t('app.connectProviderModal.oauthClientSecret', '{{name}} OAuth client secret', { name: provider.name })} autoComplete="off" />
                                 </div>
                             </div>
                             <div className="conn-form__callback">
-                                <CheckCircle2 size={14} /> Callback URL: <code>{callbackUrl}</code>
+                                <CheckCircle2 size={14} /> {t('app.connectProviderModal.callbackUrl', 'Callback URL:')} <code>{callbackUrl}</code>
                             </div>
                             {provider.docUrl && (
                                 <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">
-                                    <ExternalLink size={13} /> Create an OAuth app on {provider.name}
+                                    <ExternalLink size={13} /> {t('app.connectProviderModal.createAnOauthAppOn', 'Create an OAuth app on')} {provider.name}
                                 </a>
                             )}
                             <div className="conn-form__actions">
@@ -238,6 +239,7 @@ function SourceBody({ provider, status, config, isAdmin, onConnect, onDisconnect
 const EMPTY_DNS = { name: '', api_key: '', api_secret: '', api_email: '' };
 
 function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
+    const { t } = useTranslation();
     const isCloudflare = provider.provider === 'cloudflare';
     const isRoute53 = provider.provider === 'route53';
     const isDigitalOcean = provider.provider === 'digitalocean';
@@ -289,13 +291,13 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
                                             onClick={() => setActivityId(showActivity ? null : c.id)}
                                             aria-expanded={showActivity}
                                         >
-                                            <Activity size={14} /> Recent changes
+                                            <Activity size={14} /> {t('app.connectProviderModal.recentChanges', 'Recent changes')}
                                             <ChevronDown size={14} className={`conn-list__chev${showActivity ? ' is-open' : ''}`} />
                                         </Button>
                                         {isAdmin && (
                                             <>
-                                                <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(c.id))}>Test</Button>
-                                                <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c))} aria-label={`Remove ${c.name}`}><Trash2 size={15} /></Button>
+                                                <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(c.id))}>{t('app.connectProviderModal.test', 'Test')}</Button>
+                                                <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c))} aria-label={t('app.connectProviderModal.remove', 'Remove {{name}}', { name: c.name })}><Trash2 size={15} /></Button>
                                             </>
                                         )}
                                     </div>
@@ -308,46 +310,46 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
             )}
 
             {!isAdmin ? (
-                <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can add or change connections.</p>
+                <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanAddOrChange', 'Only administrators can add or change connections.')}</p>
             ) : (
                 <form className="conn-form" onSubmit={add}>
                     <div className="conn-form__heading">{connections.length > 0 ? 'Add another connection' : `Connect ${provider.name}`}</div>
 
                     {isCloudflare && (
-                        <div className="conn-scope" role="radiogroup" aria-label="Access level">
+                        <div className="conn-scope" role="radiogroup" aria-label={t('app.connectProviderModal.accessLevel', 'Access level')}>
                             <button type="button" className={`conn-scope__opt${cfMode === 'scoped' ? ' is-active' : ''}`} onClick={() => setCfMode('scoped')} role="radio" aria-checked={cfMode === 'scoped'}>
-                                <span className="conn-scope__head"><ShieldCheck size={16} /> Scoped token <span className="conn-scope__rec">Recommended</span></span>
-                                <span className="conn-scope__desc">A Cloudflare token limited to DNS:Edit on the zones you choose. ServerKit can only touch DNS.</span>
+                                <span className="conn-scope__head"><ShieldCheck size={16} /> {t('app.connectProviderModal.scopedToken', 'Scoped token')} <span className="conn-scope__rec">{t('app.connectProviderModal.recommended', 'Recommended')}</span></span>
+                                <span className="conn-scope__desc">{t('app.connectProviderModal.aCloudflareTokenLimitedToDns', 'A Cloudflare token limited to DNS:Edit on the zones you choose. ServerKit can only touch DNS.')}</span>
                             </button>
                             <button type="button" className={`conn-scope__opt${cfMode === 'global' ? ' is-active' : ''}`} onClick={() => setCfMode('global')} role="radio" aria-checked={cfMode === 'global'}>
-                                <span className="conn-scope__head"><ShieldAlert size={16} /> Global API key</span>
-                                <span className="conn-scope__desc">Your account email + global key. Simplest to set up, but grants full account access.</span>
+                                <span className="conn-scope__head"><ShieldAlert size={16} /> {t('app.connectProviderModal.globalApiKey', 'Global API key')}</span>
+                                <span className="conn-scope__desc">{t('app.connectProviderModal.yourAccountEmailGlobalKeySimplest', 'Your account email + global key. Simplest to set up, but grants full account access.')}</span>
                             </button>
                         </div>
                     )}
 
                     <div className="conn-form__grid">
                         <div className="form-group">
-                            <Label htmlFor="dns-name">Connection name</Label>
+                            <Label htmlFor="dns-name">{t('app.connectProviderModal.connectionName', 'Connection name')}</Label>
                             <Input id="dns-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={provider.name} />
                         </div>
 
                         {(isDigitalOcean || (isCloudflare && cfMode === 'scoped')) && (
                             <div className="form-group conn-form__wide">
-                                <Label htmlFor="dns-token">API token</Label>
-                                <Input id="dns-token" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={isDigitalOcean ? 'DigitalOcean personal access token' : 'Cloudflare scoped API token'} autoComplete="off" />
+                                <Label htmlFor="dns-token">{t('app.connectProviderModal.apiToken', 'API token')}</Label>
+                                <Input id="dns-token" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={isDigitalOcean ? t('app.connectProviderModal.digitaloceanPersonalAccessToken', 'DigitalOcean personal access token') : t('app.connectProviderModal.cloudflareScopedApiToken', 'Cloudflare scoped API token')} autoComplete="off" />
                             </div>
                         )}
 
                         {isCloudflare && cfMode === 'global' && (
                             <>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-email">Account email</Label>
+                                    <Label htmlFor="dns-email">{t('app.connectProviderModal.accountEmail', 'Account email')}</Label>
                                     <Input id="dns-email" type="email" value={form.api_email} onChange={(e) => setForm((f) => ({ ...f, api_email: e.target.value }))} placeholder="you@example.com" autoComplete="off" />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-key">Global API key</Label>
-                                    <Input id="dns-key" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="Cloudflare global API key" autoComplete="off" />
+                                    <Label htmlFor="dns-key">{t('app.connectProviderModal.globalApiKey2', 'Global API key')}</Label>
+                                    <Input id="dns-key" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={t('app.connectProviderModal.cloudflareGlobalApiKey', 'Cloudflare global API key')} autoComplete="off" />
                                 </div>
                             </>
                         )}
@@ -355,12 +357,12 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
                         {isRoute53 && (
                             <>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-akid">Access key ID</Label>
-                                    <Input id="dns-akid" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="AKIA…" autoComplete="off" />
+                                    <Label htmlFor="dns-akid">{t('app.connectProviderModal.accessKeyId', 'Access key ID')}</Label>
+                                    <Input id="dns-akid" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={t('app.connectProviderModal.akia', 'AKIA…')} autoComplete="off" />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-secret">Secret access key</Label>
-                                    <Input id="dns-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder="Secret access key" autoComplete="off" />
+                                    <Label htmlFor="dns-secret">{t('app.connectProviderModal.secretAccessKey', 'Secret access key')}</Label>
+                                    <Input id="dns-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder={t('app.connectProviderModal.secretAccessKey2', 'Secret access key')} autoComplete="off" />
                                 </div>
                             </>
                         )}
@@ -368,12 +370,12 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
                         {isGoDaddy && (
                             <>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-gd-key">API key</Label>
-                                    <Input id="dns-gd-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder="GoDaddy API key" autoComplete="off" />
+                                    <Label htmlFor="dns-gd-key">{t('app.connectProviderModal.apiKey', 'API key')}</Label>
+                                    <Input id="dns-gd-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={t('app.connectProviderModal.godaddyApiKey', 'GoDaddy API key')} autoComplete="off" />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="dns-gd-secret">API secret</Label>
-                                    <Input id="dns-gd-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder="GoDaddy API secret" autoComplete="off" />
+                                    <Label htmlFor="dns-gd-secret">{t('app.connectProviderModal.apiSecret', 'API secret')}</Label>
+                                    <Input id="dns-gd-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder={t('app.connectProviderModal.godaddyApiSecret', 'GoDaddy API secret')} autoComplete="off" />
                                 </div>
                             </>
                         )}
@@ -381,7 +383,7 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
 
                     {provider.docUrl && (
                         <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink size={13} /> Where do I get this?
+                            <ExternalLink size={13} /> {t('app.connectProviderModal.whereDoIGetThis', 'Where do I get this?')}
                         </a>
                     )}
 
@@ -396,6 +398,7 @@ function DnsBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
 
 // ── Cloud: DigitalOcean / Hetzner / Vultr / Linode (server provisioning) ──
 function CloudBody({ provider, isAdmin, connections, onAdd, onRemove }) {
+    const { t } = useTranslation();
     const [form, setForm] = useState({ name: provider.name, api_key: '' });
     const [busy, setBusy] = useState(false);
 
@@ -415,11 +418,11 @@ function CloudBody({ provider, isAdmin, connections, onAdd, onRemove }) {
                         <div key={c.id} className="conn-list__row">
                             <div className="conn-list__info">
                                 <strong>{c.name}</strong>
-                                <span className="conn-list__key">Connected</span>
+                                <span className="conn-list__key">{t('app.connectProviderModal.connected', 'Connected')}</span>
                             </div>
                             {isAdmin && (
                                 <div className="conn-list__actions">
-                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c.id))} aria-label={`Disconnect ${c.name}`}><Trash2 size={15} /></Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c.id))} aria-label={t('app.connectProviderModal.disconnect2', 'Disconnect {{name}}', { name: c.name })}><Trash2 size={15} /></Button>
                                 </div>
                             )}
                         </div>
@@ -428,27 +431,27 @@ function CloudBody({ provider, isAdmin, connections, onAdd, onRemove }) {
             )}
 
             <p className="conn-modal__note">
-                <Server size={15} /> Once connected, provision and manage servers from <Link className="conn-modal__link" to="/servers">Servers →</Link>
+                <Server size={15} /> {t('app.connectProviderModal.onceConnectedProvisionAndManageServers', 'Once connected, provision and manage servers from')} <Link className="conn-modal__link" to="/servers">{t('app.connectProviderModal.servers', 'Servers →')}</Link>
             </p>
 
             {!isAdmin ? (
-                <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can connect cloud accounts.</p>
+                <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanConnectCloudAccounts', 'Only administrators can connect cloud accounts.')}</p>
             ) : (
                 <form className="conn-form" onSubmit={add}>
                     <div className="conn-form__heading">{connections.length > 0 ? 'Add another account' : `Connect ${provider.name}`}</div>
                     <div className="conn-form__grid">
                         <div className="form-group">
-                            <Label htmlFor="cloud-name">Account name</Label>
+                            <Label htmlFor="cloud-name">{t('app.connectProviderModal.accountName', 'Account name')}</Label>
                             <Input id="cloud-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={provider.name} />
                         </div>
                         <div className="form-group conn-form__wide">
-                            <Label htmlFor="cloud-token">API token</Label>
-                            <Input id="cloud-token" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={`${provider.name} API token`} autoComplete="off" />
+                            <Label htmlFor="cloud-token">{t('app.connectProviderModal.apiToken2', 'API token')}</Label>
+                            <Input id="cloud-token" type="password" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={t('app.connectProviderModal.apiToken3', '{{name}} API token', { name: provider.name })} autoComplete="off" />
                         </div>
                     </div>
                     {provider.docUrl && (
                         <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink size={13} /> Where do I get this?
+                            <ExternalLink size={13} /> {t('app.connectProviderModal.whereDoIGetThis2', 'Where do I get this?')}
                         </a>
                     )}
                     <div className="conn-form__actions">
@@ -463,23 +466,24 @@ function CloudBody({ provider, isAdmin, connections, onAdd, onRemove }) {
 // ── Storage: S3-compatible / Backblaze B2 ──
 const STORAGE_FIELDS = {
     s3: [
-        { k: 'bucket', label: 'Bucket' },
-        { k: 'region', label: 'Region', placeholder: 'us-east-1' },
-        { k: 'access_key', label: 'Access key ID', placeholder: 'AKIA…' },
-        { k: 'secret_key', label: 'Secret access key', secret: true },
-        { k: 'endpoint_url', label: 'Endpoint URL (optional)', placeholder: 'https://… for Wasabi / MinIO / Spaces', wide: true },
-        { k: 'path_prefix', label: 'Path prefix', placeholder: 'serverkit-backups' },
+        { k: 'bucket', labelKey: 'app.connectProviderModal.bucket', label: 'Bucket' },
+        { k: 'region', labelKey: 'app.connectProviderModal.region', label: 'Region', placeholder: 'us-east-1' },
+        { k: 'access_key', labelKey: 'app.connectProviderModal.accessKeyId2', label: 'Access key ID', placeholderKey: 'app.connectProviderModal.akia2', placeholder: 'AKIA…' },
+        { k: 'secret_key', labelKey: 'app.connectProviderModal.secretAccessKey3', label: 'Secret access key', secret: true },
+        { k: 'endpoint_url', labelKey: 'app.connectProviderModal.endpointUrlOptional', label: 'Endpoint URL (optional)', placeholder: 'https://… for Wasabi / MinIO / Spaces', wide: true },
+        { k: 'path_prefix', labelKey: 'app.connectProviderModal.pathPrefix', label: 'Path prefix', placeholder: 'serverkit-backups' },
     ],
     b2: [
-        { k: 'bucket', label: 'Bucket' },
-        { k: 'key_id', label: 'Key ID' },
-        { k: 'application_key', label: 'Application key', secret: true },
-        { k: 'endpoint_url', label: 'Endpoint URL', placeholder: 'https://s3.us-west-…backblazeb2.com', wide: true },
-        { k: 'path_prefix', label: 'Path prefix', placeholder: 'serverkit-backups' },
+        { k: 'bucket', labelKey: 'app.connectProviderModal.bucket2', label: 'Bucket' },
+        { k: 'key_id', labelKey: 'app.connectProviderModal.keyId', label: 'Key ID' },
+        { k: 'application_key', labelKey: 'app.connectProviderModal.applicationKey', label: 'Application key', secret: true },
+        { k: 'endpoint_url', labelKey: 'app.connectProviderModal.endpointUrl', label: 'Endpoint URL', placeholder: 'https://s3.us-west-…backblazeb2.com', wide: true },
+        { k: 'path_prefix', labelKey: 'app.connectProviderModal.pathPrefix2', label: 'Path prefix', placeholder: 'serverkit-backups' },
     ],
 };
 
 function StorageBody({ provider, isAdmin, storageConfig, onSave, onTest }) {
+    const { t } = useTranslation();
     const sp = provider.storageProvider; // 's3' | 'b2'
     const fields = STORAGE_FIELDS[sp] || [];
     const existing = (storageConfig && storageConfig[sp]) || {};
@@ -500,13 +504,13 @@ function StorageBody({ provider, isAdmin, storageConfig, onSave, onTest }) {
     async function test() { await withBusy(() => onTest(buildConfig())); }
 
     if (!isAdmin) {
-        return <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can configure storage.</p>;
+        return <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanConfigureStorage', 'Only administrators can configure storage.')}</p>;
     }
 
     return (
         <>
             <p className="conn-modal__note">
-                <HardDrive size={15} /> {isActive ? 'This is the active backup destination.' : 'Saving makes this the active offsite destination.'} Manage backups in <Link className="conn-modal__link" to="/backups">Backups →</Link>
+                <HardDrive size={15} /> {isActive ? 'This is the active backup destination.' : 'Saving makes this the active offsite destination.'} {t('app.connectProviderModal.manageBackupsIn', 'Manage backups in')} <Link className="conn-modal__link" to="/backups">{t('app.connectProviderModal.backups', 'Backups →')}</Link>
             </p>
             <form className="conn-form" onSubmit={save}>
                 <div className="conn-form__heading"><KeyRound size={15} /> {provider.name} credentials</div>
@@ -527,11 +531,11 @@ function StorageBody({ provider, isAdmin, storageConfig, onSave, onTest }) {
                 </div>
                 {provider.docUrl && (
                     <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink size={13} /> Where do I get this?
+                        <ExternalLink size={13} /> {t('app.connectProviderModal.whereDoIGetThis3', 'Where do I get this?')}
                     </a>
                 )}
                 <div className="conn-form__actions conn-form__actions--split">
-                    <Button type="button" variant="outline" size="sm" disabled={busy || !form.bucket} onClick={test}>Test</Button>
+                    <Button type="button" variant="outline" size="sm" disabled={busy || !form.bucket} onClick={test}>{t('app.connectProviderModal.test2', 'Test')}</Button>
                     <Button type="submit" size="sm" disabled={busy || !form.bucket}>{busy ? 'Saving…' : 'Save'}</Button>
                 </div>
             </form>
@@ -541,6 +545,7 @@ function StorageBody({ provider, isAdmin, storageConfig, onSave, onTest }) {
 
 // ── Registrar: GoDaddy (domain portfolio + expiry) ──
 function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest }) {
+    const { t } = useTranslation();
     const isNamecheap = provider.provider === 'namecheap';
     const [form, setForm] = useState({ name: provider.name, api_key: '', api_secret: '', username: '', client_ip: '' });
     const [busy, setBusy] = useState(false);
@@ -574,8 +579,8 @@ function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest
                             </div>
                             {isAdmin && (
                                 <div className="conn-list__actions">
-                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(c.id))}>Test</Button>
-                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c.id))} aria-label={`Disconnect ${c.name}`}><Trash2 size={15} /></Button>
+                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(c.id))}>{t('app.connectProviderModal.test3', 'Test')}</Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(c.id))} aria-label={t('app.connectProviderModal.disconnect3', 'Disconnect {{name}}', { name: c.name })}><Trash2 size={15} /></Button>
                                 </div>
                             )}
                         </div>
@@ -584,44 +589,44 @@ function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest
             )}
 
             <p className="conn-modal__note">
-                <Globe size={15} /> See every domain and its expiry on the <Link className="conn-modal__link" to="/domains">Domains →</Link> page.
+                <Globe size={15} /> {t('app.connectProviderModal.seeEveryDomainAndItsExpiry', 'See every domain and its expiry on the')} <Link className="conn-modal__link" to="/domains">{t('app.connectProviderModal.domains', 'Domains →')}</Link> page.
             </p>
 
             {!isAdmin ? (
-                <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can connect a registrar.</p>
+                <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanConnectARegistrar', 'Only administrators can connect a registrar.')}</p>
             ) : (
                 <form className="conn-form" onSubmit={add}>
                     <div className="conn-form__heading">{connections.length > 0 ? 'Add another account' : `Connect ${provider.name}`}</div>
                     <div className="conn-form__grid">
                         <div className="form-group conn-form__wide">
-                            <Label htmlFor="reg-name">Account name</Label>
+                            <Label htmlFor="reg-name">{t('app.connectProviderModal.accountName2', 'Account name')}</Label>
                             <Input id="reg-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={provider.name} />
                         </div>
                         <div className="form-group">
-                            <Label htmlFor="reg-key">API key</Label>
-                            <Input id="reg-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={isNamecheap ? 'Namecheap API key' : 'GoDaddy API key (Production)'} autoComplete="off" />
+                            <Label htmlFor="reg-key">{t('app.connectProviderModal.apiKey2', 'API key')}</Label>
+                            <Input id="reg-key" value={form.api_key} onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))} placeholder={isNamecheap ? t('app.connectProviderModal.namecheapApiKey', 'Namecheap API key') : t('app.connectProviderModal.godaddyApiKeyProduction', 'GoDaddy API key (Production)')} autoComplete="off" />
                         </div>
                         {isNamecheap ? (
                             <>
                                 <div className="form-group">
-                                    <Label htmlFor="reg-user">API username</Label>
-                                    <Input id="reg-user" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="Namecheap account username" autoComplete="off" />
+                                    <Label htmlFor="reg-user">{t('app.connectProviderModal.apiUsername', 'API username')}</Label>
+                                    <Input id="reg-user" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder={t('app.connectProviderModal.namecheapAccountUsername', 'Namecheap account username')} autoComplete="off" />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="reg-ip">Allow-listed IP</Label>
-                                    <Input id="reg-ip" value={form.client_ip} onChange={(e) => setForm((f) => ({ ...f, client_ip: e.target.value }))} placeholder="This server's public IP" autoComplete="off" />
+                                    <Label htmlFor="reg-ip">{t('app.connectProviderModal.allowListedIp', 'Allow-listed IP')}</Label>
+                                    <Input id="reg-ip" value={form.client_ip} onChange={(e) => setForm((f) => ({ ...f, client_ip: e.target.value }))} placeholder={t('app.connectProviderModal.thisServerSPublicIp', 'This server\'s public IP')} autoComplete="off" />
                                 </div>
                             </>
                         ) : (
                             <div className="form-group">
-                                <Label htmlFor="reg-secret">API secret</Label>
-                                <Input id="reg-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder="GoDaddy API secret" autoComplete="off" />
+                                <Label htmlFor="reg-secret">{t('app.connectProviderModal.apiSecret2', 'API secret')}</Label>
+                                <Input id="reg-secret" type="password" value={form.api_secret} onChange={(e) => setForm((f) => ({ ...f, api_secret: e.target.value }))} placeholder={t('app.connectProviderModal.godaddyApiSecret2', 'GoDaddy API secret')} autoComplete="off" />
                             </div>
                         )}
                     </div>
                     {provider.docUrl && (
                         <a className="conn-form__doc" href={provider.docUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink size={13} /> Where do I get this?
+                            <ExternalLink size={13} /> {t('app.connectProviderModal.whereDoIGetThis4', 'Where do I get this?')}
                         </a>
                     )}
                     <div className="conn-form__actions">
@@ -636,6 +641,7 @@ function RegistrarBody({ provider, isAdmin, connections, onAdd, onRemove, onTest
 // ── Container registries: GHCR / Docker Hub / GitLab / ECR / generic ──
 // One card holds every registry; a provider selector presets the login host.
 function RegistryBody({ isAdmin, registries, onAdd, onRemove, onTest }) {
+    const { t } = useTranslation();
     const [providerId, setProviderId] = useState(REGISTRY_PROVIDERS[0].id);
     const preset = REGISTRY_PROVIDERS.find((p) => p.id === providerId) || REGISTRY_PROVIDERS[0];
     const [form, setForm] = useState({ name: '', registry_url: REGISTRY_PROVIDERS[0].url, username: '', secret: '' });
@@ -676,11 +682,11 @@ function RegistryBody({ isAdmin, registries, onAdd, onRemove, onTest }) {
                                 <strong>{r.name}</strong>
                                 <span className="conn-list__key">{r.login_host}{r.username ? ` · ${r.username}` : ''}</span>
                             </div>
-                            <span className="conn-pill conn-pill--neutral" title="Registry provider">{r.provider}</span>
+                            <span className="conn-pill conn-pill--neutral" title={t('app.connectProviderModal.registryProvider', 'Registry provider')}>{r.provider}</span>
                             {isAdmin && (
                                 <div className="conn-list__actions">
-                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(r.id))}>Test</Button>
-                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(r.id))} aria-label={`Remove ${r.name}`}><Trash2 size={15} /></Button>
+                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => withBusy(() => onTest(r.id))}>{t('app.connectProviderModal.test4', 'Test')}</Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => withBusy(() => onRemove(r.id))} aria-label={t('app.connectProviderModal.remove2', 'Remove {{name}}', { name: r.name })}><Trash2 size={15} /></Button>
                                 </div>
                             )}
                         </div>
@@ -689,16 +695,16 @@ function RegistryBody({ isAdmin, registries, onAdd, onRemove, onTest }) {
             )}
 
             <p className="conn-modal__note">
-                <Boxes size={15} /> Attach a registry to a service on the <Link className="conn-modal__link" to="/services/new">New Service →</Link> page to deploy its private images.
+                <Boxes size={15} /> {t('app.connectProviderModal.attachARegistryToAService', 'Attach a registry to a service on the')} <Link className="conn-modal__link" to="/services/new">{t('app.connectProviderModal.newService', 'New Service →')}</Link> {t('app.connectProviderModal.pageToDeployItsPrivateImages', 'page to deploy its private images.')}
             </p>
 
             {!isAdmin ? (
-                <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can add registries.</p>
+                <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanAddRegistries', 'Only administrators can add registries.')}</p>
             ) : (
                 <form className="conn-form" onSubmit={add}>
                     <div className="conn-form__heading">{registries.length > 0 ? 'Add another registry' : 'Connect a registry'}</div>
 
-                    <div className="conn-presets" role="radiogroup" aria-label="Registry provider">
+                    <div className="conn-presets" role="radiogroup" aria-label={t('app.connectProviderModal.registryProvider2', 'Registry provider')}>
                         {REGISTRY_PROVIDERS.map((p) => (
                             <button
                                 type="button"
@@ -715,23 +721,23 @@ function RegistryBody({ isAdmin, registries, onAdd, onRemove, onTest }) {
 
                     <div className="conn-form__grid">
                         <div className="form-group">
-                            <Label htmlFor="reg-name">Connection name</Label>
+                            <Label htmlFor="reg-name">{t('app.connectProviderModal.connectionName2', 'Connection name')}</Label>
                             <Input id="reg-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={`${preset.name} (team)`} />
                         </div>
                         <div className="form-group">
-                            <Label htmlFor="reg-url">Registry host</Label>
+                            <Label htmlFor="reg-url">{t('app.connectProviderModal.registryHost', 'Registry host')}</Label>
                             <Input
                                 id="reg-url"
                                 value={form.registry_url}
                                 onChange={(e) => setForm((f) => ({ ...f, registry_url: e.target.value }))}
-                                placeholder={preset.id === 'dockerhub' ? 'index.docker.io (Docker Hub)' : 'registry.example.com'}
+                                placeholder={preset.id === 'dockerhub' ? t('app.connectProviderModal.indexDockerIoDockerHub', 'index.docker.io (Docker Hub)') : 'registry.example.com'}
                                 disabled={preset.urlLocked}
                                 autoComplete="off"
                             />
                         </div>
                         {needsUsername && (
                             <div className="form-group">
-                                <Label htmlFor="reg-username">Username</Label>
+                                <Label htmlFor="reg-username">{t('app.connectProviderModal.username', 'Username')}</Label>
                                 <Input id="reg-username" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder={preset.usernameHint} autoComplete="off" />
                             </div>
                         )}
@@ -742,7 +748,7 @@ function RegistryBody({ isAdmin, registries, onAdd, onRemove, onTest }) {
                     </div>
 
                     <a className="conn-form__doc" href="https://docs.docker.com/engine/reference/commandline/login/" target="_blank" rel="noreferrer">
-                        <ExternalLink size={13} /> How registry login works
+                        <ExternalLink size={13} /> {t('app.connectProviderModal.howRegistryLoginWorks', 'How registry login works')}
                     </a>
 
                     <div className="conn-form__actions">
@@ -764,6 +770,7 @@ const SMTP_PRESETS = [
 ];
 
 function EmailBody({ isAdmin, relayConfig, onSave, onTest, onDisable }) {
+    const { t } = useTranslation();
     const cfg = relayConfig || {};
     const [form, setForm] = useState({
         provider_hint: cfg.provider_hint || 'custom',
@@ -799,14 +806,14 @@ function EmailBody({ isAdmin, relayConfig, onSave, onTest, onDisable }) {
     async function test() { await withBusy(() => onTest(payload())); }
 
     if (!isAdmin) {
-        return <p className="conn-modal__note"><ShieldCheck size={15} /> Only administrators can configure the mail relay.</p>;
+        return <p className="conn-modal__note"><ShieldCheck size={15} /> {t('app.connectProviderModal.onlyAdministratorsCanConfigureTheMail', 'Only administrators can configure the mail relay.')}</p>;
     }
 
     return (
         <form className="conn-form" onSubmit={save}>
-            <div className="conn-form__heading"><Mail size={15} /> Outbound relay</div>
+            <div className="conn-form__heading"><Mail size={15} /> {t('app.connectProviderModal.outboundRelay', 'Outbound relay')}</div>
 
-            <div className="conn-presets" role="radiogroup" aria-label="Provider preset">
+            <div className="conn-presets" role="radiogroup" aria-label={t('app.connectProviderModal.providerPreset', 'Provider preset')}>
                 {SMTP_PRESETS.map((p) => (
                     <button
                         type="button"
@@ -823,42 +830,42 @@ function EmailBody({ isAdmin, relayConfig, onSave, onTest, onDisable }) {
 
             <div className="conn-form__grid">
                 <div className="form-group conn-form__wide">
-                    <Label htmlFor="relay-host">SMTP host</Label>
+                    <Label htmlFor="relay-host">{t('app.connectProviderModal.smtpHost', 'SMTP host')}</Label>
                     <Input id="relay-host" value={form.host} onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))} placeholder="smtp.provider.com" autoComplete="off" />
                 </div>
                 <div className="form-group">
-                    <Label htmlFor="relay-port">Port</Label>
+                    <Label htmlFor="relay-port">{t('app.connectProviderModal.port', 'Port')}</Label>
                     <Input id="relay-port" type="number" value={form.port} onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))} placeholder="587" />
                 </div>
                 <div className="form-group">
-                    <Label htmlFor="relay-user">Username</Label>
-                    <Input id="relay-user" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder="SMTP username / API token" autoComplete="off" />
+                    <Label htmlFor="relay-user">{t('app.connectProviderModal.username2', 'Username')}</Label>
+                    <Input id="relay-user" value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} placeholder={t('app.connectProviderModal.smtpUsernameApiToken', 'SMTP username / API token')} autoComplete="off" />
                 </div>
                 <div className="form-group conn-form__wide">
-                    <Label htmlFor="relay-pass">Password{cfg.password_set ? ' (leave blank to keep)' : ''}</Label>
-                    <Input id="relay-pass" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={cfg.password_set ? '•••••••• stored' : 'SMTP password / API token'} autoComplete="off" />
+                    <Label htmlFor="relay-pass">{t('app.connectProviderModal.password', 'Password')}{cfg.password_set ? ' (leave blank to keep)' : ''}</Label>
+                    <Input id="relay-pass" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder={cfg.password_set ? t('app.connectProviderModal.stored', '•••••••• stored') : t('app.connectProviderModal.smtpPasswordApiToken', 'SMTP password / API token')} autoComplete="off" />
                 </div>
             </div>
 
             <label className="conn-check">
                 <Checkbox checked={form.use_tls} onCheckedChange={(v) => setForm((f) => ({ ...f, use_tls: Boolean(v) }))} />
-                <span>Use STARTTLS (recommended)</span>
+                <span>{t('app.connectProviderModal.useStarttlsRecommended', 'Use STARTTLS (recommended)')}</span>
             </label>
             <label className="conn-check">
                 <Checkbox checked={form.enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: Boolean(v) }))} />
-                <span>Route the mail server&apos;s outbound mail through this relay</span>
+                <span>{t('app.connectProviderModal.routeTheMailServerSOutbound', 'Route the mail server\'s outbound mail through this relay')}</span>
             </label>
 
             <div className="conn-form__actions conn-form__actions--split">
                 <span>
                     {configured && (
                         <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => withBusy(() => onDisable())}>
-                            <Trash2 size={15} /> Disable
+                            <Trash2 size={15} /> {t('app.connectProviderModal.disable', 'Disable')}
                         </Button>
                     )}
                 </span>
                 <span className="conn-form__actions-group">
-                    <Button type="button" variant="outline" size="sm" disabled={busy || !form.host.trim()} onClick={test}>Test</Button>
+                    <Button type="button" variant="outline" size="sm" disabled={busy || !form.host.trim()} onClick={test}>{t('app.connectProviderModal.test5', 'Test')}</Button>
                     <Button type="submit" size="sm" disabled={busy || !form.host.trim()}>{busy ? 'Saving…' : 'Save'}</Button>
                 </span>
             </div>

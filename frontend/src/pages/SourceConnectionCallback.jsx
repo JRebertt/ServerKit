@@ -4,6 +4,7 @@ import { Github, Gitlab, GitBranch, Loader2 } from 'lucide-react';
 import { SiBitbucket } from 'react-icons/si';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 const PROVIDER_LABELS = {
     github: 'GitHub',
@@ -18,6 +19,7 @@ const PROVIDER_ICONS = {
 };
 
 const SourceConnectionCallback = () => {
+    const { t } = useTranslation();
     const { provider } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -62,18 +64,18 @@ const SourceConnectionCallback = () => {
                 <div className="auth-logo">
                     <Icon size={32} />
                 </div>
-                <h1>Connecting {label}</h1>
+                <h1>{t('app.sourceConnectionCallback.connecting', 'Connecting')} {label}</h1>
                 {error ? (
                     <>
                         <p className="auth-error">{error}</p>
                         <button type="button" className="btn btn-primary" onClick={() => navigate('/settings/connections')}>
-                            Back to Connections
+                            {t('app.sourceConnectionCallback.backToConnections', 'Back to Connections')}
                         </button>
                     </>
                 ) : (
                     <div className="sso-loading">
                         <Loader2 size={24} className="spinning" />
-                        <p>Finishing provider authorization...</p>
+                        <p>{t('app.sourceConnectionCallback.finishingProviderAuthorization', 'Finishing provider authorization...')}</p>
                     </div>
                 )}
             </div>

@@ -3,6 +3,7 @@ import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // Platform icons as SVG components
 const LinuxIcon = () => (
@@ -62,6 +63,7 @@ const RefreshIcon = () => (
 );
 
 function Downloads() {
+    const { t } = useTranslation();
     const [versionInfo, setVersionInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -141,7 +143,7 @@ function Downloads() {
         <>
             <Button size="sm" variant="outline" onClick={fetchVersionInfo}>
                 <RefreshIcon />
-                Refresh
+                {t('app.downloads.refresh', 'Refresh')}
             </Button>
         </>,
         [],
@@ -152,7 +154,7 @@ function Downloads() {
             <div className="sk-tabgroup__inner downloads-page">
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
-                    <p>Loading version information...</p>
+                    <p>{t('app.downloads.loadingVersionInformation', 'Loading version information...')}</p>
                 </div>
             </div>
         );
@@ -163,7 +165,7 @@ function Downloads() {
             {error && (
                 <div className="alert alert-error">
                     <p>{error}</p>
-                    <button type="button" onClick={fetchVersionInfo}>Try Again</button>
+                    <button type="button" onClick={fetchVersionInfo}>{t('app.downloads.tryAgain', 'Try Again')}</button>
                 </div>
             )}
 
@@ -171,9 +173,9 @@ function Downloads() {
                 <>
                     <div className="version-banner">
                         <div className="version-info">
-                            <span className="version-label">Latest Version</span>
+                            <span className="version-label">{t('app.downloads.latestVersion', 'Latest Version')}</span>
                             <span className="version-number">v{versionInfo.version}</span>
-                            <span className="version-date">Released {new Date(versionInfo.published_at).toLocaleDateString()}</span>
+                            <span className="version-date">{t('app.downloads.released', 'Released')} {new Date(versionInfo.published_at).toLocaleDateString()}</span>
                         </div>
                         <div className="version-actions">
                             {versionInfo.release_notes_url && (
@@ -183,7 +185,7 @@ function Downloads() {
                                     rel="noopener noreferrer"
                                     className="btn btn-banner-outline"
                                 >
-                                    Release Notes
+                                    {t('app.downloads.releaseNotes', 'Release Notes')}
                                 </a>
                             )}
                             <a href="#downloads" className="btn btn-banner-primary" onClick={(e) => {
@@ -191,15 +193,15 @@ function Downloads() {
                                 document.querySelector('.download-cards')?.scrollIntoView({ behavior: 'smooth' });
                             }}>
                                 <DownloadIcon />
-                                Download Now
+                                {t('app.downloads.downloadNow', 'Download Now')}
                             </a>
                         </div>
                     </div>
 
                     <section className="downloads-section">
-                        <h2>Direct Downloads</h2>
+                        <h2>{t('app.downloads.directDownloads', 'Direct Downloads')}</h2>
                         <p className="section-description">
-                            Download the agent binary for your platform. After downloading, follow the installation instructions below.
+                            {t('app.downloads.downloadTheAgentBinaryForYour', 'Download the agent binary for your platform. After downloading, follow the installation instructions below.')}
                         </p>
 
                         <div className="download-cards">
@@ -235,16 +237,16 @@ function Downloads() {
                     </section>
 
                     <section className="downloads-section">
-                        <h2>Quick Install Commands</h2>
+                        <h2>{t('app.downloads.quickInstallCommands', 'Quick Install Commands')}</h2>
                         <p className="section-description">
-                            Use these one-liner commands to download and install the agent. Replace <code>YOUR_TOKEN</code> with the server registration token.
+                            {t('app.downloads.useTheseOneLinerCommandsTo', 'Use these one-liner commands to download and install the agent. Replace')} <code>YOUR_TOKEN</code> {t('app.downloads.withTheServerRegistrationToken', 'with the server registration token.')}
                         </p>
 
                         <div className="install-commands">
                             <div className="command-block">
                                 <div className="command-header">
                                     <LinuxIcon />
-                                    <h3>Linux (Bash)</h3>
+                                    <h3>{t('app.downloads.linuxBash', 'Linux (Bash)')}</h3>
                                 </div>
                                 <div className="command-content">
                                     <pre>
@@ -253,7 +255,7 @@ function Downloads() {
                                     <button type="button"
                                         className="copy-btn"
                                         onClick={() => copyCommand(platforms[0].command, 'linux')}
-                                        title="Copy to clipboard"
+                                        title={t('app.downloads.copyToClipboard', 'Copy to clipboard')}
                                     >
                                         {copiedCommand === 'linux' ? <CheckIcon /> : <CopyIcon />}
                                     </button>
@@ -263,7 +265,7 @@ function Downloads() {
                             <div className="command-block">
                                 <div className="command-header">
                                     <WindowsIcon />
-                                    <h3>Windows (PowerShell)</h3>
+                                    <h3>{t('app.downloads.windowsPowershell', 'Windows (PowerShell)')}</h3>
                                 </div>
                                 <div className="command-content">
                                     <pre>
@@ -272,62 +274,62 @@ function Downloads() {
                                     <button type="button"
                                         className="copy-btn"
                                         onClick={() => copyCommand(platforms[2].command, 'windows')}
-                                        title="Copy to clipboard"
+                                        title={t('app.downloads.copyToClipboard2', 'Copy to clipboard')}
                                     >
                                         {copiedCommand === 'windows' ? <CheckIcon /> : <CopyIcon />}
                                     </button>
                                 </div>
-                                <p className="command-note">Run PowerShell as Administrator</p>
+                                <p className="command-note">{t('app.downloads.runPowershellAsAdministrator', 'Run PowerShell as Administrator')}</p>
                             </div>
                         </div>
                     </section>
 
                     <section className="downloads-section">
-                        <h2>Manual Installation</h2>
+                        <h2>{t('app.downloads.manualInstallation', 'Manual Installation')}</h2>
                         <div className="manual-steps">
                             <div className="step">
                                 <div className="step-number">1</div>
                                 <div className="step-content">
-                                    <h4>Download the Agent</h4>
-                                    <p>Download the appropriate binary for your platform from the downloads above.</p>
+                                    <h4>{t('app.downloads.downloadTheAgent', 'Download the Agent')}</h4>
+                                    <p>{t('app.downloads.downloadTheAppropriateBinaryForYour', 'Download the appropriate binary for your platform from the downloads above.')}</p>
                                 </div>
                             </div>
                             <div className="step">
                                 <div className="step-number">2</div>
                                 <div className="step-content">
-                                    <h4>Extract and Install</h4>
+                                    <h4>{t('app.downloads.extractAndInstall', 'Extract and Install')}</h4>
                                     <p>
-                                        <strong>Linux:</strong> Extract with <code>tar -xzf serverkit-agent-*.tar.gz</code> and move to <code>/usr/local/bin/</code>
+                                        <strong>{t('app.downloads.linux', 'Linux:')}</strong> {t('app.downloads.extractWith', 'Extract with')} <code>{t('app.downloads.tarXzfServerkitAgentTarGz', 'tar -xzf serverkit-agent-*.tar.gz')}</code> {t('app.downloads.andMoveTo', 'and move to')} <code>/usr/local/bin/</code>
                                     </p>
                                     <p>
-                                        <strong>Windows:</strong> Extract the ZIP and move to <code>C:\Program Files\ServerKit\</code>
+                                        <strong>{t('app.downloads.windows', 'Windows:')}</strong> {t('app.downloads.extractTheZipAndMoveTo', 'Extract the ZIP and move to')} <code>{t('app.downloads.cProgramFilesServerkit', 'C:\\Program Files\\ServerKit\\')}</code>
                                     </p>
                                 </div>
                             </div>
                             <div className="step">
                                 <div className="step-number">3</div>
                                 <div className="step-content">
-                                    <h4>Register the Agent</h4>
-                                    <p>Run the registration command with your token:</p>
+                                    <h4>{t('app.downloads.registerTheAgent', 'Register the Agent')}</h4>
+                                    <p>{t('app.downloads.runTheRegistrationCommandWithYour', 'Run the registration command with your token:')}</p>
                                     <pre><code>{`serverkit-agent register --token "YOUR_TOKEN" --server "${getBaseUrl()}"`}</code></pre>
                                 </div>
                             </div>
                             <div className="step">
                                 <div className="step-number">4</div>
                                 <div className="step-content">
-                                    <h4>Start the Agent</h4>
-                                    <p>Start the agent service:</p>
-                                    <pre><code>serverkit-agent start</code></pre>
-                                    <p className="step-note">Or use systemd/Windows Service for automatic startup</p>
+                                    <h4>{t('app.downloads.startTheAgent', 'Start the Agent')}</h4>
+                                    <p>{t('app.downloads.startTheAgentService', 'Start the agent service:')}</p>
+                                    <pre><code>{t('app.downloads.serverkitAgentStart', 'serverkit-agent start')}</code></pre>
+                                    <p className="step-note">{t('app.downloads.orUseSystemdWindowsServiceFor', 'Or use systemd/Windows Service for automatic startup')}</p>
                                 </div>
                             </div>
                         </div>
                     </section>
 
                     <section className="downloads-section">
-                        <h2>Verification</h2>
+                        <h2>{t('app.downloads.verification', 'Verification')}</h2>
                         <p className="section-description">
-                            Verify your download using the SHA256 checksums:
+                            {t('app.downloads.verifyYourDownloadUsingTheSha256', 'Verify your download using the SHA256 checksums:')}
                         </p>
                         {versionInfo.checksums_url && (
                             <Button variant="outline" asChild>
@@ -337,12 +339,12 @@ function Downloads() {
                                     rel="noopener noreferrer"
                                 >
                                     <DownloadIcon />
-                                    Download Checksums
+                                    {t('app.downloads.downloadChecksums', 'Download Checksums')}
                                 </a>
                             </Button>
                         )}
                         <div className="verification-command">
-                            <pre><code>sha256sum -c checksums.txt</code></pre>
+                            <pre><code>{t('app.downloads.sha256sumCChecksumsTxt', 'sha256sum -c checksums.txt')}</code></pre>
                         </div>
                     </section>
                 </>

@@ -7,30 +7,33 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 function InstallBox({ command }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     if (!command) {
-        return <p className="cf-tunnels__hint">No install command available.</p>;
+        return <p className="cf-tunnels__hint">{t('app.tunnelsPanel.noInstallCommandAvailable', 'No install command available.')}</p>;
     }
 
     const handleCopy = async () => {
-        if (await copyToClipboard(command)) toast.success('Copied');
-        else toast.error('Could not copy the install command');
+        if (await copyToClipboard(command)) toast.success(t('app.tunnelsPanel.copied', 'Copied'));
+        else toast.error(t('app.tunnelsPanel.couldNotCopyTheInstallCommand', 'Could not copy the install command'));
     };
 
     return (
         <div className="cf-tunnels__install">
             <code className="cf-tunnels__cmd">{command}</code>
             <Button size="sm" variant="outline" onClick={handleCopy}>
-                Copy
+                {t('app.tunnelsPanel.copy', 'Copy')}
             </Button>
         </div>
     );
 }
 
 function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [install, setInstall] = useState(null);
@@ -77,7 +80,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
         setWorking(true);
         try {
             await api.deleteCloudflareTunnel(zoneId, tunnel.id);
-            toast.success(`Deleted Cloudflare Tunnel "${tunnel.name}"`);
+            toast.success(t('app.tunnelsPanel.deletedCloudflareTunnel', 'Deleted Cloudflare Tunnel "{{name}}"', { name: tunnel.name }));
             onChanged();
         } catch (err) {
             toast.error(err.message);
@@ -90,7 +93,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
         setWorking(true);
         try {
             await api.removeCloudflareTunnelHostname(zoneId, tunnel.id, h.hostname);
-            toast.success('Hostname removed');
+            toast.success(t('app.tunnelsPanel.hostnameRemoved', 'Hostname removed'));
             await loadHostnames();
         } catch (err) {
             toast.error(err.message);
@@ -108,9 +111,9 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                 hostname,
                 service,
             );
-            toast.success('Hostname routed');
+            toast.success(t('app.tunnelsPanel.hostnameRouted', 'Hostname routed'));
             if (res.dns && !res.dns.created) {
-                toast.error('Route set, but the DNS record failed: ' + res.dns.error);
+                toast.error(t('app.tunnelsPanel.routeSetButTheDnsRecord', 'Route set, but the DNS record failed: ') + res.dns.error);
             }
             setHostname('');
             setService('');
@@ -135,7 +138,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                 {tunnel.connections != null && (
                     <span className="cf-tunnels__meta">{tunnel.connections}</span>
                 )}
-                {tunnel.managed && <Badge variant="secondary">ServerKit</Badge>}
+                {tunnel.managed && <Badge variant="secondary">{t('app.tunnelsPanel.serverkit', 'ServerKit')}</Badge>}
             </div>
 
             <div className="cf-tunnels__item-actions">
@@ -145,7 +148,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                     onClick={handleToggleInstall}
                     disabled={!isAdmin || working}
                 >
-                    Install command
+                    {t('app.tunnelsPanel.installCommand', 'Install command')}
                 </Button>
                 <Button
                     size="sm"
@@ -153,7 +156,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                     onClick={handleToggleHostnames}
                     disabled={working}
                 >
-                    Hostnames
+                    {t('app.tunnelsPanel.hostnames', 'Hostnames')}
                 </Button>
                 <Button
                     variant="destructive"
@@ -161,7 +164,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                     onClick={handleDelete}
                     disabled={writeDisabled}
                 >
-                    Delete
+                    {t('app.tunnelsPanel.delete', 'Delete')}
                 </Button>
             </div>
 
@@ -170,7 +173,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
             {expanded && (
                 <div className="cf-tunnels__hostnames">
                     {hostnames.length === 0 ? (
-                        <p className="cf-tunnels__hint">No public hostnames routed yet.</p>
+                        <p className="cf-tunnels__hint">{t('app.tunnelsPanel.noPublicHostnamesRoutedYet', 'No public hostnames routed yet.')}</p>
                     ) : (
                         hostnames.map((h) => (
                             <div className="cf-tunnels__host" key={h.hostname}>
@@ -183,7 +186,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                                     onClick={() => handleRemoveHostname(h)}
                                     disabled={writeDisabled}
                                 >
-                                    Remove
+                                    {t('app.tunnelsPanel.remove', 'Remove')}
                                 </Button>
                             </div>
                         ))
@@ -207,12 +210,11 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                             onClick={handleAddHostname}
                             disabled={writeDisabled || !hostname.trim() || !service.trim()}
                         >
-                            Add
+                            {t('app.tunnelsPanel.add', 'Add')}
                         </Button>
                     </div>
                     <p className="cf-tunnels__hint">
-                        The hostname should be inside this zone&apos;s domain; a proxied DNS
-                        record is created automatically.
+                        {t('app.tunnelsPanel.theHostnameShouldBeInsideThis', 'The hostname should be inside this zone\'s domain; a proxied DNS record is created automatically.')}
                     </p>
                 </div>
             )}
@@ -221,6 +223,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
 }
 
 export default function TunnelsPanel({ zoneId, isAdmin }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [loading, setLoading] = useState(true);
@@ -266,7 +269,7 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
         setCreating(true);
         try {
             const res = await api.createCloudflareTunnel(zoneId, name);
-            toast.success(`Created tunnel "${name}"`);
+            toast.success(t('app.tunnelsPanel.createdTunnel', 'Created tunnel "{{name}}"', { name: name }));
             setLastInstall({ name, install: res.install, token: res.token });
             setName('');
             await loadData();
@@ -278,14 +281,14 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
     };
 
     if (loading) {
-        return <div className="cf-tunnels__loading">Loading Cloudflare Tunnels…</div>;
+        return <div className="cf-tunnels__loading">{t('app.tunnelsPanel.loadingCloudflareTunnels', 'Loading Cloudflare Tunnels…')}</div>;
     }
 
     if (error) {
         return (
             <EmptyState
                 icon={Network}
-                title="Cloudflare Tunnels unavailable"
+                title={t('app.tunnelsPanel.cloudflareTunnelsUnavailable', 'Cloudflare Tunnels unavailable')}
                 description={error}
             />
         );
@@ -297,14 +300,13 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
         <div className="cf-tunnels">
             {/* Create a Cloudflare Tunnel */}
             <section className="cf-tunnels__section">
-                <h3 className="cf-tunnels__heading">Create a Cloudflare Tunnel</h3>
+                <h3 className="cf-tunnels__heading">{t('app.tunnelsPanel.createACloudflareTunnel', 'Create a Cloudflare Tunnel')}</h3>
                 <p className="cf-tunnels__hint">
-                    A Cloudflare Tunnel exposes a local or private service through
-                    Cloudflare&apos;s edge — no public IP or open ports required.
+                    {t('app.tunnelsPanel.aCloudflareTunnelExposesALocal', 'A Cloudflare Tunnel exposes a local or private service through Cloudflare\'s edge — no public IP or open ports required.')}
                 </p>
 
                 <div className="cf-tunnels__field">
-                    <label className="cf-tunnels__label">Name</label>
+                    <label className="cf-tunnels__label">{t('app.tunnelsPanel.name', 'Name')}</label>
                     <Input
                         value={name}
                         placeholder="home-jellyfin"
@@ -315,15 +317,14 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
 
                 <div className="cf-tunnels__actions">
                     <Button onClick={handleCreate} disabled={createDisabled}>
-                        Create
+                        {t('app.tunnelsPanel.create', 'Create')}
                     </Button>
                 </div>
 
                 {lastInstall && (
                     <div className="cf-tunnels__install">
                         <p className="cf-tunnels__hint">
-                            Run this once on the machine hosting your local service. The
-                            connector token is shown only now.
+                            {t('app.tunnelsPanel.runThisOnceOnTheMachine', 'Run this once on the machine hosting your local service. The connector token is shown only now.')}
                         </p>
                         <InstallBox command={lastInstall.install} />
                         <Button
@@ -331,7 +332,7 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
                             variant="ghost"
                             onClick={() => setLastInstall(null)}
                         >
-                            Dismiss
+                            {t('app.tunnelsPanel.dismiss', 'Dismiss')}
                         </Button>
                     </div>
                 )}
@@ -339,13 +340,13 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
 
             {/* Cloudflare Tunnels list */}
             <section className="cf-tunnels__section">
-                <h3 className="cf-tunnels__heading">Cloudflare Tunnels ({tunnels.length})</h3>
+                <h3 className="cf-tunnels__heading">{t('app.tunnelsPanel.cloudflareTunnels', 'Cloudflare Tunnels (')}{tunnels.length})</h3>
 
                 {tunnels.length === 0 ? (
                     <EmptyState
                         icon={Network}
-                        title="No Cloudflare Tunnels"
-                        description="Create one above to expose a local service without a public IP."
+                        title={t('app.tunnelsPanel.noCloudflareTunnels', 'No Cloudflare Tunnels')}
+                        description={t('app.tunnelsPanel.createOneAboveToExposeA', 'Create one above to expose a local service without a public IP.')}
                     />
                 ) : (
                     <ul className="cf-tunnels__list">

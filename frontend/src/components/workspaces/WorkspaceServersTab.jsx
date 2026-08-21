@@ -10,6 +10,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
 import { statusKind } from '@/components/ds/status';
+import { useTranslation } from 'react-i18next';
 
 
 // What the Status cell shows when the row carries none. A real word, not '':
@@ -43,6 +44,7 @@ const WORKSPACE_SERVER_VIEWS = [
 ];
 
 const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ws-servers-sort' });
     const {
@@ -54,7 +56,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Server',
+            headerKey: 'app.workspaceServersTab.server', header: 'Server',
             sortable: true,
             hideable: false,
             // Hostnames are near-unique per row — you type a fragment.
@@ -73,7 +75,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.workspaceServersTab.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a workspace holding two servers of two
             // statuses fails the enum cardinality test and would fall back to
@@ -93,7 +95,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
             hideable: false,
             render: (s) => (
                 <div className="ws-detail__rowactions" onClick={e => e.stopPropagation()}>
-                    <Button size="sm" variant="destructive" onClick={() => onMoveServer(s.id, null)}>Remove</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onMoveServer(s.id, null)}>{t('app.workspaceServersTab.remove', 'Remove')}</Button>
                 </div>
             ),
         },
@@ -146,7 +148,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
                 onRowClick={(s) => navigate(`/servers/${s.id}`)}
                 className="ws-detail__tablecard"
                 emptyState={(
-                    <EmptyState icon={Server} title="No servers in this workspace yet" description="Move one in below." />
+                    <EmptyState icon={Server} title={t('app.workspaceServersTab.noServersInThisWorkspaceYet', 'No servers in this workspace yet')} description={t('app.workspaceServersTab.moveOneInBelow', 'Move one in below.')} />
                 )}
                 footer={(
                     <DataTableFooter
@@ -164,7 +166,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
 
             {srvOut.length > 0 && (
                 <>
-                    <div className="ws-pick-label">Move a server into this workspace</div>
+                    <div className="ws-pick-label">{t('app.workspaceServersTab.moveAServerIntoThisWorkspace', 'Move a server into this workspace')}</div>
                     <div className="ws-pick">
                         {srvOut.map(s => (
                             <div key={s.id} className="ws-pick__item" onClick={() => onMoveServer(s.id, wsId)}>

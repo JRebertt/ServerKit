@@ -14,6 +14,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Network as NetworkIcon, Trash2, Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     useServer,
     normalizeListResponse,
@@ -21,6 +22,7 @@ import {
 } from './dockerHelpers';
 
 export const CreateNetworkButton = () => {
+    const { t } = useTranslation();
     const [showModal, setShowModal] = useState(false);
     const { isRemote } = useServer();
     return (
@@ -28,9 +30,9 @@ export const CreateNetworkButton = () => {
             <Button
                 onClick={() => setShowModal(true)}
                 disabled={isRemote}
-                title={isRemote ? 'Creating networks is only available on the local Docker target right now' : 'Create network'}
+                title={isRemote ? t('app.networksTab.creatingNetworksIsOnlyAvailableOn', 'Creating networks is only available on the local Docker target right now') : t('app.networksTab.createNetwork', 'Create network')}
             >
-                <span>+</span> Create Network
+                <span>+</span> {t('app.networksTab.createNetwork2', 'Create Network')}
             </Button>
             {showModal && <CreateNetworkModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
@@ -95,6 +97,7 @@ const NETWORK_VIEWS = [
 
 // Networks Tab
 const NetworksTab = ({ onStatsChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const { confirm: confirmNetwork } = useConfirm();
@@ -133,7 +136,7 @@ const NetworksTab = ({ onStatsChange }) => {
     }
 
     async function handleRemove(network) {
-        const confirmed = await confirmNetwork({ title: 'Remove Network', message: 'Remove this network?' });
+        const confirmed = await confirmNetwork({ titleKey: 'app.networksTab.removeNetwork', title: 'Remove Network', messageKey: 'app.networksTab.removeThisNetwork', message: 'Remove this network?' });
         if (!confirmed) return;
 
         try {
@@ -142,12 +145,12 @@ const NetworksTab = ({ onStatsChange }) => {
             } else {
                 await api.removeNetwork(networkId(network));
             }
-            toast.success('Network removed successfully');
+            toast.success(t('app.networksTab.networkRemovedSuccessfully', 'Network removed successfully'));
             loadNetworks();
             onStatsChange?.();
         } catch (err) {
             console.error('Failed to remove network:', err);
-            toast.error('Failed to remove network. It may be in use.');
+            toast.error(t('app.networksTab.failedToRemoveNetworkItMay', 'Failed to remove network. It may be in use.'));
         }
     }
 
@@ -165,7 +168,7 @@ const NetworksTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.networksTab.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -182,7 +185,7 @@ const NetworksTab = ({ onStatsChange }) => {
         },
         {
             key: 'kind',
-            header: 'Kind',
+            headerKey: 'app.networksTab.kind', header: 'Kind',
             sortable: true,
             // Declared: three built-ins plus one custom network is a two-value
             // column that infers as text, which would turn the view above into a
@@ -200,7 +203,7 @@ const NetworksTab = ({ onStatsChange }) => {
         },
         {
             key: 'driver',
-            header: 'Driver',
+            headerKey: 'app.networksTab.driver', header: 'Driver',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -214,7 +217,7 @@ const NetworksTab = ({ onStatsChange }) => {
         },
         {
             key: 'scope',
-            header: 'Scope',
+            headerKey: 'app.networksTab.scope', header: 'Scope',
             sortable: true,
             type: 'enum',
             width: 110,
@@ -234,15 +237,15 @@ const NetworksTab = ({ onStatsChange }) => {
             render: (network) => (
                 <div className="dx-row-actions">
                     {networkKind(network) === 'Built-in' ? (
-                        <span className="dx-row-protected" title="Ships with the Docker daemon — it cannot be removed">
-                            <Lock size={11} /> System
+                        <span className="dx-row-protected" title={t('app.networksTab.shipsWithTheDockerDaemonIt', 'Ships with the Docker daemon — it cannot be removed')}>
+                            <Lock size={11} /> {t('app.networksTab.system', 'System')}
                         </span>
                     ) : (
                         <button
                             type="button"
                             className="dx-row-action is-danger"
                             onClick={() => handleRemove(network)}
-                            title="Remove network"
+                            title={t('app.networksTab.removeNetwork2', 'Remove network')}
                         >
                             <Trash2 size={13} />
                         </button>
@@ -281,7 +284,7 @@ const NetworksTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">Loading networks...</div>
+                <div className="docker-loading">{t('app.networksTab.loadingNetworks', 'Loading networks...')}</div>
             </div>
         );
     }
@@ -297,7 +300,7 @@ const NetworksTab = ({ onStatsChange }) => {
                         <SearchField
                             value={searchTerm}
                             onSearch={setSearchTerm}
-                            placeholder="Filter name or ID…"
+                            placeholder={t('app.networksTab.filterNameOrId', 'Filter name or ID…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -313,10 +316,10 @@ const NetworksTab = ({ onStatsChange }) => {
             {filteredNetworks.length === 0 ? (
                 <EmptyState
                     icon={NetworkIcon}
-                    title={networks.length === 0 ? 'No networks' : 'No matching networks'}
+                    title={networks.length === 0 ? t('app.networksTab.noNetworks', 'No networks') : t('app.networksTab.noMatchingNetworks', 'No matching networks')}
                     description={networks.length === 0
-                        ? 'Create a network to connect containers.'
-                        : 'No networks match the current search.'}
+                        ? t('app.networksTab.createANetworkToConnectContainers', 'Create a network to connect containers.')
+                        : t('app.networksTab.noNetworksMatchTheCurrentSearch', 'No networks match the current search.')}
                 />
             ) : (
                 <section className="dx-resource-list">
@@ -348,6 +351,7 @@ const NetworksTab = ({ onStatsChange }) => {
 };
 
 const CreateNetworkModal = ({ onClose, onCreated }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [driver, setDriver] = useState('bridge');
     const [loading, setLoading] = useState(false);
@@ -370,12 +374,12 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title="Create Network" size="md">
+        <Modal open onClose={onClose} title={t('app.networksTab.createNetwork3', 'Create Network')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Network Name *</label>
+                    <label>{t('app.networksTab.networkName', 'Network Name *')}</label>
                     <Input
                         type="text"
                         value={name}
@@ -386,7 +390,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Driver</label>
+                    <label>{t('app.networksTab.driver2', 'Driver')}</label>
                     <select value={driver} onChange={(e) => setDriver(e.target.value)}>
                         <option value="bridge">bridge</option>
                         <option value="overlay">overlay</option>
@@ -396,7 +400,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('app.networksTab.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Network'}

@@ -12,6 +12,7 @@ import BitbucketRepoPicker from './BitbucketRepoPicker';
 import GiteaRepoPicker from './GiteaRepoPicker';
 import PathSelector from './PathSelector';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useTranslation } from 'react-i18next';
 
 // Canonical "connect a repository" form, shared across ServerKit's surfaces
 // (WordPress Git settings, the New Service page, the service connect modal).
@@ -37,8 +38,8 @@ const RepoConnectForm = ({
     onConnect,
     onDisconnect,
     intro = {
-        title: 'Connect a Git repository',
-        subtitle: 'Track this service in version control — push to deploy.',
+        titleKey: 'app.repoConnectForm.connectAGitRepository', title: 'Connect a Git repository',
+        subtitleKey: 'app.repoConnectForm.trackThisServiceInVersionControl', subtitle: 'Track this service in version control — push to deploy.',
     },
     showPaths = false,
     defaultPaths = [],
@@ -49,6 +50,7 @@ const RepoConnectForm = ({
     idPrefix = 'repo',
     enableGithub = true,
 }) => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const [formData, setFormData] = useState({
         repoUrl: '',
@@ -117,9 +119,9 @@ const RepoConnectForm = ({
 
     async function handleDisconnect() {
         if (!await confirm({
-            title: 'Disconnect repository',
-            message: 'Disconnect this Git repository? This will not delete any files.',
-            confirmText: 'Disconnect',
+            title: t('app.repoConnectForm.disconnectRepository', 'Disconnect repository'),
+            message: t('app.repoConnectForm.disconnectThisGitRepositoryThisWill', 'Disconnect this Git repository? This will not delete any files.'),
+            confirmText: t('app.repoConnectForm.disconnect', 'Disconnect'),
         })) return;
         setLoading(true);
         try {
@@ -139,7 +141,7 @@ const RepoConnectForm = ({
                         <GitBranch size={19} />
                     </span>
                     <div className="git-connect-status__title">
-                        <strong>Repository connected</strong>
+                        <strong>{t('app.repoConnectForm.repositoryConnected', 'Repository connected')}</strong>
                         <a
                             href={gitStatus.repo_url}
                             target="_blank"
@@ -153,22 +155,22 @@ const RepoConnectForm = ({
 
                 <div className="git-connect-status__meta">
                     <div className="git-connect-status__meta-item">
-                        <span>Branch</span>
+                        <span>{t('app.repoConnectForm.branch', 'Branch')}</span>
                         <strong>{gitStatus.branch}</strong>
                     </div>
                     <div className="git-connect-status__meta-item">
-                        <span>Auto Deploy</span>
+                        <span>{t('app.repoConnectForm.autoDeploy', 'Auto Deploy')}</span>
                         <strong>{gitStatus.auto_deploy ? 'Enabled' : 'Disabled'}</strong>
                     </div>
                     {gitStatus.last_deploy_commit && (
                         <div className="git-connect-status__meta-item">
-                            <span>Last Deploy</span>
+                            <span>{t('app.repoConnectForm.lastDeploy', 'Last Deploy')}</span>
                             <strong className="mono">{gitStatus.last_deploy_commit.substring(0, 7)}</strong>
                         </div>
                     )}
                     {gitStatus.last_deploy_at && (
                         <div className="git-connect-status__meta-item">
-                            <span>Deployed At</span>
+                            <span>{t('app.repoConnectForm.deployedAt', 'Deployed At')}</span>
                             <strong>{new Date(gitStatus.last_deploy_at).toLocaleString()}</strong>
                         </div>
                     )}
@@ -208,21 +210,21 @@ const RepoConnectForm = ({
             {selectedKey === 'github' && enableGithub && (
                 <>
                     <GithubRepoPicker onPick={handleRepoPick} />
-                    <div className="git-connect__or"><span>or paste a URL</span></div>
+                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl', 'or paste a URL')}</span></div>
                 </>
             )}
 
             {selectedKey === 'gitlab' && (
                 <>
                     <GitlabRepoPicker onPick={handleRepoPick} />
-                    <div className="git-connect__or"><span>or paste a URL</span></div>
+                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl2', 'or paste a URL')}</span></div>
                 </>
             )}
 
             {selectedKey === 'bitbucket' && (
                 <>
                     <BitbucketRepoPicker onPick={handleRepoPick} />
-                    <div className="git-connect__or"><span>or paste a URL</span></div>
+                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl3', 'or paste a URL')}</span></div>
                 </>
             )}
 
@@ -230,7 +232,7 @@ const RepoConnectForm = ({
                 <>
                     <GiteaRepoPicker onPick={handleRepoPick} />
                     {!giteaRunning && (
-                        <div className="git-connect__or"><span>or paste a URL</span></div>
+                        <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl4', 'or paste a URL')}</span></div>
                     )}
                 </>
             )}
@@ -238,7 +240,7 @@ const RepoConnectForm = ({
             {error && <div className="error-message">{error}</div>}
 
             <div className="git-connect__field">
-                <Label htmlFor={`${idPrefix}-repo-url`}>Repository URL</Label>
+                <Label htmlFor={`${idPrefix}-repo-url`}>{t('app.repoConnectForm.repositoryUrl', 'Repository URL')}</Label>
                 <Input
                     id={`${idPrefix}-repo-url`}
                     type="text"
@@ -252,7 +254,7 @@ const RepoConnectForm = ({
             </div>
 
             <div className="git-connect__field">
-                <Label htmlFor={`${idPrefix}-branch`}>Branch</Label>
+                <Label htmlFor={`${idPrefix}-branch`}>{t('app.repoConnectForm.branch2', 'Branch')}</Label>
                 <Input
                     id={`${idPrefix}-branch`}
                     type="text"
@@ -275,8 +277,8 @@ const RepoConnectForm = ({
 
             <div className="git-connect__toggle">
                 <div>
-                    <strong>Auto-deploy on push</strong>
-                    <span>Automatically deploy when new commits land on this branch.</span>
+                    <strong>{t('app.repoConnectForm.autoDeployOnPush', 'Auto-deploy on push')}</strong>
+                    <span>{t('app.repoConnectForm.automaticallyDeployWhenNewCommitsLand', 'Automatically deploy when new commits land on this branch.')}</span>
                 </div>
                 <Switch
                     checked={formData.autoDeploy}

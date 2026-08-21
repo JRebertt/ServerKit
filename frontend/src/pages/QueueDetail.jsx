@@ -29,6 +29,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const STATUS_ORDER = ['pending', 'in_flight', 'completed', 'failed', 'dead_letter'];
 
@@ -97,6 +98,7 @@ const BUILTIN_VIEWS = [
 ];
 
 const QueueDetail = () => {
+    const { t } = useTranslation();
     const { groupSlug, queueSlug } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
@@ -182,7 +184,7 @@ const QueueDetail = () => {
         try {
             payload = JSON.parse(sendForm.payload);
         } catch {
-            toast.error('Payload must be valid JSON');
+            toast.error(t('app.queueDetail.payloadMustBeValidJson', 'Payload must be valid JSON'));
             return;
         }
         try {
@@ -190,7 +192,7 @@ const QueueDetail = () => {
                 priority: parseInt(sendForm.priority, 10) || 0,
                 delay_ms: parseInt(sendForm.delay_ms, 10) || 0,
             });
-            toast.success('Message sent');
+            toast.success(t('app.queueDetail.messageSent', 'Message sent'));
             setShowSend(false);
             setSendForm({ payload: '{}', priority: 0, delay_ms: 0 });
             loadMessages(statusFilter);
@@ -202,7 +204,7 @@ const QueueDetail = () => {
     const handleRequeue = async (msg) => {
         try {
             await api.requeueMessage(groupSlug, queueSlug, msg.id);
-            toast.success('Message requeued');
+            toast.success(t('app.queueDetail.messageRequeued', 'Message requeued'));
             loadMessages(statusFilter);
         } catch (err) {
             toast.error(err.message);
@@ -211,14 +213,14 @@ const QueueDetail = () => {
 
     const handleDelete = async (msg) => {
         const confirmed = await confirm({
-            title: 'Delete Message',
-            message: 'Permanently delete this message?',
+            title: t('app.queueDetail.deleteMessage', 'Delete Message'),
+            message: t('app.queueDetail.permanentlyDeleteThisMessage', 'Permanently delete this message?'),
             variant: 'danger',
         });
         if (!confirmed) return;
         try {
             await api.deleteMessage(groupSlug, queueSlug, msg.id);
-            toast.success('Message deleted');
+            toast.success(t('app.queueDetail.messageDeleted', 'Message deleted'));
             if (selectedMessage?.id === msg.id) setSelectedMessage(null);
             loadMessages(statusFilter);
         } catch (err) {
@@ -232,7 +234,7 @@ const QueueDetail = () => {
     const columns = [
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.queueDetail.status', header: 'Status',
             sortable: true,
             // `value` is not optional here. The rule engine falls back to
             // sortValue when a column has none, and this sortValue is a
@@ -247,7 +249,7 @@ const QueueDetail = () => {
         },
         {
             key: 'payload',
-            header: 'Payload',
+            headerKey: 'app.queueDetail.payload', header: 'Payload',
             sortable: false,
             // The raw payload is an object, and `contains` over one stringifies
             // to '[object Object]' for every row. Match the text the cell
@@ -258,7 +260,7 @@ const QueueDetail = () => {
         },
         {
             key: 'attempts',
-            header: 'Attempts',
+            headerKey: 'app.queueDetail.attempts', header: 'Attempts',
             sortable: true,
             // Declared rather than inferred: the "Retried" preset compares
             // against this, and an inference that saw only zeroes on a fresh
@@ -270,7 +272,7 @@ const QueueDetail = () => {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.queueDetail.created', header: 'Created',
             sortable: true,
             // Same split as elsewhere: epoch ms sorts, the ISO string filters.
             // Without `value` the column menu would offer "is under 1755…".
@@ -289,11 +291,11 @@ const QueueDetail = () => {
             render: (msg) => (
                 <div className="queue-actions" onClick={e => e.stopPropagation()}>
                     {(msg.status === 'failed' || msg.status === 'dead_letter') && (
-                        <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title="Requeue">
+                        <Button variant="ghost" size="sm" onClick={() => handleRequeue(msg)} title={t('app.queueDetail.requeue', 'Requeue')}>
                             <RefreshCw size={14} />
                         </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title="Delete message">
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(msg)} title={t('app.queueDetail.deleteMessage3', 'Delete message')}>
                         <Trash2 size={14} />
                     </Button>
                 </div>
@@ -322,7 +324,7 @@ const QueueDetail = () => {
             <div className="queue-page queue-page--loading">
                 <div className="queue-loading-card">
                     <Inbox size={24} />
-                    <span>Loading queue...</span>
+                    <span>{t('app.queueDetail.loadingQueue', 'Loading queue...')}</span>
                 </div>
             </div>
         );
@@ -332,34 +334,34 @@ const QueueDetail = () => {
         <div className="queue-page queue-detail">
             <div className="queue-detail-header">
                 <button type="button" className="queue-back" onClick={() => navigate('/queue')}>
-                    <ArrowLeft size={16} /> Queue Bus
+                    <ArrowLeft size={16} /> {t('app.queueDetail.queueBus', 'Queue Bus')}
                 </button>
                 <div className="queue-detail-headline">
                     <div className="queue-workbar-title">
-                        <span>Queue</span>
+                        <span>{t('app.queueDetail.queue', 'Queue')}</span>
                         <h1>{queue?.name || queueSlug}</h1>
                         <em>{groupSlug} / {queueSlug}</em>
                     </div>
                     <div className="queue-detail-actions">
                         {viewOnly && (
                             <span className="queue-readonly-badge">
-                                <Lock size={12} /> Read-only
+                                <Lock size={12} /> {t('app.queueDetail.readOnly', 'Read-only')}
                             </span>
                         )}
                         {!viewOnly && (
                             <Button variant="outline" onClick={() => setShowSend(true)}>
-                                <Send size={16} /> Send Message
+                                <Send size={16} /> {t('app.queueDetail.sendMessage', 'Send Message')}
                             </Button>
                         )}
                         <Button variant="outline" onClick={() => { loadMeta(); loadMessages(statusFilter); }}>
-                            <RefreshCw size={16} /> Refresh
+                            <RefreshCw size={16} /> {t('app.queueDetail.refresh', 'Refresh')}
                         </Button>
                     </div>
                 </div>
             </div>
 
             <KpiBand>
-                <MetricCard label="Total" value={stats.total || 0} />
+                <MetricCard label={t('app.queueDetail.total', 'Total')} value={stats.total || 0} />
                 {STATUS_ORDER.map(s => (
                     <MetricCard
                         key={s}
@@ -403,7 +405,7 @@ const QueueDetail = () => {
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
                             >
-                                <option value="all">All statuses</option>
+                                <option value="all">{t('app.queueDetail.allStatuses', 'All statuses')}</option>
                                 {STATUS_ORDER.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
                             </select>
                         </div>
@@ -416,10 +418,10 @@ const QueueDetail = () => {
                     {messages.length === 0 ? (
                         <EmptyState
                             icon={Inbox}
-                            title="No messages"
+                            title={t('app.queueDetail.noMessages', 'No messages')}
                             description={viewOnly
-                                ? 'This system queue has no messages in this view.'
-                                : 'This queue is empty. Send a message to get started.'}
+                                ? t('app.queueDetail.thisSystemQueueHasNoMessages', 'This system queue has no messages in this view.')
+                                : t('app.queueDetail.thisQueueIsEmptySendA', 'This queue is empty. Send a message to get started.')}
                         />
                     ) : (
                         <DataTable
@@ -447,24 +449,24 @@ const QueueDetail = () => {
                 {selectedMessage && (
                     <aside className="queue-detail-panel">
                         <div className="queue-detail-panel-header">
-                            <h2>Message</h2>
-                            <button type="button" className="queue-panel-close" onClick={() => setSelectedMessage(null)} aria-label="Close">
+                            <h2>{t('app.queueDetail.message', 'Message')}</h2>
+                            <button type="button" className="queue-panel-close" onClick={() => setSelectedMessage(null)} aria-label={t('app.queueDetail.close', 'Close')}>
                                 <X size={16} />
                             </button>
                         </div>
                         <div className="queue-message-detail">
-                            <div><strong>ID:</strong> <code>{selectedMessage.id}</code></div>
-                            <div><strong>Status:</strong> <Pill kind={statusKind(selectedMessage.status)}>{selectedMessage.status}</Pill></div>
-                            <div><strong>Attempts:</strong> {selectedMessage.attempts} / {selectedMessage.max_attempts}</div>
-                            <div><strong>Created:</strong> {new Date(selectedMessage.created_at).toLocaleString()}</div>
+                            <div><strong>{t('app.queueDetail.id', 'ID:')}</strong> <code>{selectedMessage.id}</code></div>
+                            <div><strong>{t('app.queueDetail.status2', 'Status:')}</strong> <Pill kind={statusKind(selectedMessage.status)}>{selectedMessage.status}</Pill></div>
+                            <div><strong>{t('app.queueDetail.attempts2', 'Attempts:')}</strong> {selectedMessage.attempts} / {selectedMessage.max_attempts}</div>
+                            <div><strong>{t('app.queueDetail.created2', 'Created:')}</strong> {new Date(selectedMessage.created_at).toLocaleString()}</div>
                             {selectedMessage.error_message && (
-                                <div className="queue-message-error"><strong>Error:</strong> {selectedMessage.error_message}</div>
+                                <div className="queue-message-error"><strong>{t('app.queueDetail.error', 'Error:')}</strong> {selectedMessage.error_message}</div>
                             )}
-                            <div className="queue-message-section"><strong>Payload:</strong>
+                            <div className="queue-message-section"><strong>{t('app.queueDetail.payload2', 'Payload:')}</strong>
                                 <pre>{JSON.stringify(selectedMessage.payload, null, 2)}</pre>
                             </div>
                             {selectedMessage.result && (
-                                <div className="queue-message-section"><strong>Result:</strong>
+                                <div className="queue-message-section"><strong>{t('app.queueDetail.result', 'Result:')}</strong>
                                     <pre>{JSON.stringify(selectedMessage.result, null, 2)}</pre>
                                 </div>
                             )}
@@ -472,7 +474,7 @@ const QueueDetail = () => {
                         {!viewOnly && (selectedMessage.status === 'failed' || selectedMessage.status === 'dead_letter') && (
                             <div className="queue-detail-panel-footer">
                                 <Button onClick={() => handleRequeue(selectedMessage)}>
-                                    <RefreshCw size={14} className="mr-2" /> Requeue
+                                    <RefreshCw size={14} className="mr-2" /> {t('app.queueDetail.requeue2', 'Requeue')}
                                 </Button>
                             </div>
                         )}
@@ -480,25 +482,25 @@ const QueueDetail = () => {
                 )}
             </div>
 
-            <Modal open={showSend && !viewOnly} onClose={() => setShowSend(false)} title="Send Message">
+            <Modal open={showSend && !viewOnly} onClose={() => setShowSend(false)} title={t('app.queueDetail.sendMessage2', 'Send Message')}>
                         <form onSubmit={handleSend}>
                                 <div className="form-group">
-                                    <Label htmlFor="payload">Payload (JSON)</Label>
+                                    <Label htmlFor="payload">{t('app.queueDetail.payloadJson', 'Payload (JSON)')}</Label>
                                     <Textarea id="payload" value={sendForm.payload} onChange={(e) => setSendForm({ ...sendForm, payload: e.target.value })} rows={6} required />
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
-                                        <Label htmlFor="priority">Priority</Label>
+                                        <Label htmlFor="priority">{t('app.queueDetail.priority', 'Priority')}</Label>
                                         <Input id="priority" type="number" value={sendForm.priority} onChange={(e) => setSendForm({ ...sendForm, priority: e.target.value })} />
                                     </div>
                                     <div className="form-group">
-                                        <Label htmlFor="delay_ms">Delay (ms)</Label>
+                                        <Label htmlFor="delay_ms">{t('app.queueDetail.delayMs', 'Delay (ms)')}</Label>
                                         <Input id="delay_ms" type="number" value={sendForm.delay_ms} onChange={(e) => setSendForm({ ...sendForm, delay_ms: e.target.value })} />
                                     </div>
                                 </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="outline" onClick={() => setShowSend(false)}>Cancel</Button>
-                                <Button type="submit"><Send size={14} className="mr-2" /> Send</Button>
+                                <Button type="button" variant="outline" onClick={() => setShowSend(false)}>{t('app.queueDetail.cancel', 'Cancel')}</Button>
+                                <Button type="submit"><Send size={14} className="mr-2" /> {t('app.queueDetail.send', 'Send')}</Button>
                             </div>
                         </form>
             </Modal>

@@ -3,6 +3,7 @@ import { useResourceTier } from '../../contexts/ResourceTierContext';
 import { Sparkles, Check, Loader, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 import {
     SIDEBAR_ITEMS,
     SIDEBAR_PRESETS,
@@ -18,6 +19,7 @@ const USE_CASE_LABELS = {
 };
 
 const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish }) => {
+    const { t } = useTranslation();
     const { specs, headroom, profile, profiles, loading } = useResourceTier();
 
     // Sidebar profile. Pre-selected from the use cases already picked, so the
@@ -116,7 +118,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
 
     function renderRecStatus(rec) {
         if (rec.installed) {
-            return <span className="recommendation-item__status recommendation-item__status--installed">Installed</span>;
+            return <span className="recommendation-item__status recommendation-item__status--installed">{t('app.setupStepSummary.installed', 'Installed')}</span>;
         }
         const state = installState[rec.slug];
         if (state === 'installing') {
@@ -133,26 +135,26 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
 
     return (
         <div className="wizard-step">
-            <h2 className="wizard-step-title">You&apos;re all set</h2>
+            <h2 className="wizard-step-title">{t('app.setupStepSummary.youReAllSet', 'You\'re all set')}</h2>
             <p className="wizard-step-description">
-                Here&apos;s a summary of your setup. You can change these later in Settings.
+                {t('app.setupStepSummary.hereSASummaryOfYour', 'Here\'s a summary of your setup. You can change these later in Settings.')}
             </p>
 
             <div className="summary-panel">
                 <div className="summary-section">
-                    <div className="summary-section-title">Account</div>
+                    <div className="summary-section-title">{t('app.setupStepSummary.account', 'Account')}</div>
                     <div className="summary-row">
-                        <span className="summary-label">Username</span>
+                        <span className="summary-label">{t('app.setupStepSummary.username', 'Username')}</span>
                         <span className="summary-value">{accountInfo?.username || '-'}</span>
                     </div>
                     <div className="summary-row">
-                        <span className="summary-label">Email</span>
+                        <span className="summary-label">{t('app.setupStepSummary.email', 'Email')}</span>
                         <span className="summary-value">{accountInfo?.email || '-'}</span>
                     </div>
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">Use Cases</div>
+                    <div className="summary-section-title">{t('app.setupStepSummary.useCases', 'Use Cases')}</div>
                     {useCases && useCases.length > 0 ? (
                         <div className="summary-tags">
                             {useCases.map((uc) => (
@@ -163,33 +165,33 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                         </div>
                     ) : (
                         <div className="summary-row">
-                            <span className="summary-label">None selected</span>
+                            <span className="summary-label">{t('app.setupStepSummary.noneSelected', 'None selected')}</span>
                         </div>
                     )}
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">Server</div>
+                    <div className="summary-section-title">{t('app.setupStepSummary.server', 'Server')}</div>
                     <div className="summary-row">
-                        <span className="summary-label">Profile</span>
+                        <span className="summary-label">{t('app.setupStepSummary.profile', 'Profile')}</span>
                         <span className="summary-value">{profileLabel()}</span>
                     </div>
                     <div className="summary-row">
-                        <span className="summary-label">Specs</span>
+                        <span className="summary-label">{t('app.setupStepSummary.specs', 'Specs')}</span>
                         <span className="summary-value">{formatSpecs()}</span>
                     </div>
                     {headroom?.summary && (
                         <div className="summary-row">
-                            <span className="summary-label">Capacity</span>
+                            <span className="summary-label">{t('app.setupStepSummary.capacity', 'Capacity')}</span>
                             <span className="summary-value">{headroom.summary}</span>
                         </div>
                     )}
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">Security</div>
+                    <div className="summary-section-title">{t('app.setupStepSummary.security', 'Security')}</div>
                     <div className="summary-row">
-                        <span className="summary-label">Two-factor</span>
+                        <span className="summary-label">{t('app.setupStepSummary.twoFactor', 'Two-factor')}</span>
                         <span className="summary-value">
                             {twoFactorEnabled ? 'Enabled' : 'Off — you can turn it on in Settings'}
                         </span>
@@ -197,9 +199,9 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">Sidebar</div>
+                    <div className="summary-section-title">{t('app.setupStepSummary.sidebar', 'Sidebar')}</div>
                     <div className="summary-row">
-                        <span className="summary-label">View</span>
+                        <span className="summary-label">{t('app.setupStepSummary.view', 'View')}</span>
                         <span className="summary-value summary-value--action">
                             {SIDEBAR_PRESETS[sidebarPreset]?.label || 'Recommended'}
                             <span className="summary-value-note">
@@ -219,8 +221,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                     {presetOpen && (
                         <div className="summary-preset-picker">
                             <p className="recommendation-hint">
-                                Hidden pages stay reachable by URL and from search — this
-                                only trims the sidebar. Change it any time in Settings.
+                                {t('app.setupStepSummary.hiddenPagesStayReachableByUrl', 'Hidden pages stay reachable by URL and from search — this only trims the sidebar. Change it any time in Settings.')}
                             </p>
                             <div className="summary-preset-list">
                                 {Object.entries(SIDEBAR_PRESETS).map(([key, profile]) => (
@@ -251,17 +252,16 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                     <div className="summary-section">
                         <div className="summary-section-title">
                             <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-                            Recommended for you
+                            {t('app.setupStepSummary.recommendedForYou', 'Recommended for you')}
                         </div>
                         {recsLoading ? (
                             <div className="summary-row">
-                                <span className="summary-label">Loading recommendations...</span>
+                                <span className="summary-label">{t('app.setupStepSummary.loadingRecommendations', 'Loading recommendations...')}</span>
                             </div>
                         ) : (
                             <>
                                 <p className="recommendation-hint">
-                                    We&apos;ll install what you check. Uncheck anything you don&apos;t
-                                    need — you can add it later from Extensions.
+                                    {t('app.setupStepSummary.weLlInstallWhatYouCheck', 'We\'ll install what you check. Uncheck anything you don\'t need — you can add it later from Extensions.')}
                                 </p>
                                 <div className="recommendation-list">
                                     {recommendations.map((rec) => (
@@ -289,8 +289,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                                 </div>
                                 {anyError && (
                                     <p className="recommendation-error">
-                                        Some extensions couldn&apos;t be installed. You can retry
-                                        from the <a href="/extensions">Extensions</a> page.
+                                        {t('app.setupStepSummary.someExtensionsCouldnTBeInstalled', 'Some extensions couldn\'t be installed. You can retry from the')} <a href="/extensions">{t('app.setupStepSummary.extensions', 'Extensions')}</a> page.
                                     </p>
                                 )}
                             </>

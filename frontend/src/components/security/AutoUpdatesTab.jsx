@@ -5,8 +5,10 @@ import { useToast } from '../../contexts/ToastContext';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 const AutoUpdatesTab = () => {
+    const { t } = useTranslation();
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -32,10 +34,10 @@ const AutoUpdatesTab = () => {
         setActionLoading(true);
         try {
             await api.installAutoUpdates();
-            toast.success('Auto-updates package installed');
+            toast.success(t('app.autoUpdatesTab.autoUpdatesPackageInstalled', 'Auto-updates package installed'));
             await loadStatus();
         } catch (error) {
-            toast.error(`Failed to install: ${error.message}`);
+            toast.error(t('app.autoUpdatesTab.failedToInstall', 'Failed to install: {{message}}', { message: error.message }));
         } finally {
             setActionLoading(false);
         }
@@ -45,10 +47,10 @@ const AutoUpdatesTab = () => {
         setActionLoading(true);
         try {
             await api.enableAutoUpdates();
-            toast.success('Automatic updates enabled');
+            toast.success(t('app.autoUpdatesTab.automaticUpdatesEnabled', 'Automatic updates enabled'));
             await loadStatus();
         } catch (error) {
-            toast.error(`Failed to enable: ${error.message}`);
+            toast.error(t('app.autoUpdatesTab.failedToEnable', 'Failed to enable: {{message}}', { message: error.message }));
         } finally {
             setActionLoading(false);
         }
@@ -58,17 +60,17 @@ const AutoUpdatesTab = () => {
         setActionLoading(true);
         try {
             await api.disableAutoUpdates();
-            toast.success('Automatic updates disabled');
+            toast.success(t('app.autoUpdatesTab.automaticUpdatesDisabled', 'Automatic updates disabled'));
             await loadStatus();
         } catch (error) {
-            toast.error(`Failed to disable: ${error.message}`);
+            toast.error(t('app.autoUpdatesTab.failedToDisable', 'Failed to disable: {{message}}', { message: error.message }));
         } finally {
             setActionLoading(false);
         }
     };
 
     if (loading) {
-        return <div className="loading-sm">Loading auto-updates status...</div>;
+        return <div className="loading-sm">{t('app.autoUpdatesTab.loadingAutoUpdatesStatus', 'Loading auto-updates status...')}</div>;
     }
 
     if (!status?.supported) {
@@ -76,8 +78,8 @@ const AutoUpdatesTab = () => {
             <div className="auto-updates-tab">
                 <EmptyState
                     icon={AlertTriangle}
-                    title="Not Supported"
-                    description="Automatic security updates are not supported on this system."
+                    title={t('app.autoUpdatesTab.notSupported', 'Not Supported')}
+                    description={t('app.autoUpdatesTab.automaticSecurityUpdatesAreNotSupported', 'Automatic security updates are not supported on this system.')}
                 />
             </div>
         );
@@ -87,23 +89,23 @@ const AutoUpdatesTab = () => {
         <div className="auto-updates-tab">
             <div className="card">
                 <div className="card-header">
-                    <h3>Automatic Security Updates</h3>
-                    <Button variant="outline" size="sm" onClick={loadStatus}>Refresh</Button>
+                    <h3>{t('app.autoUpdatesTab.automaticSecurityUpdates', 'Automatic Security Updates')}</h3>
+                    <Button variant="outline" size="sm" onClick={loadStatus}>{t('app.autoUpdatesTab.refresh', 'Refresh')}</Button>
                 </div>
                 <div className="card-body">
                     <div className="sec-rows">
                         <div className="sk-info-row">
-                            <span className="k">Package</span>
+                            <span className="k">{t('app.autoUpdatesTab.package', 'Package')}</span>
                             <span className="v">{status.package}</span>
                         </div>
                         <div className="sk-info-row">
-                            <span className="k">Installed</span>
+                            <span className="k">{t('app.autoUpdatesTab.installed', 'Installed')}</span>
                             <Pill kind={status.installed ? 'green' : 'amber'}>
                                 {status.installed ? 'Yes' : 'No'}
                             </Pill>
                         </div>
                         <div className="sk-info-row">
-                            <span className="k">Status</span>
+                            <span className="k">{t('app.autoUpdatesTab.status', 'Status')}</span>
                             <Pill kind={status.enabled ? 'green' : 'gray'}>
                                 {status.enabled ? 'Enabled' : 'Disabled'}
                             </Pill>
@@ -128,9 +130,8 @@ const AutoUpdatesTab = () => {
 
                     <div className="sec-note">
                         <p>
-                            <strong>What are automatic security updates?</strong><br/>
-                            When enabled, your server will automatically download and install security updates,
-                            helping protect against known vulnerabilities without manual intervention.
+                            <strong>{t('app.autoUpdatesTab.whatAreAutomaticSecurityUpdates', 'What are automatic security updates?')}</strong><br/>
+                            {t('app.autoUpdatesTab.whenEnabledYourServerWillAutomatically', 'When enabled, your server will automatically download and install security updates, helping protect against known vulnerabilities without manual intervention.')}
                         </p>
                     </div>
                 </div>

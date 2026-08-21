@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { Pill, statusKind } from '@/components/ds';
 import { ShieldCheck, AlertTriangle, Info, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Compact "how set-up is this panel" card for the dashboard (admin-only).
 // Reads GET /setup-health and shows the score + the top open items, each
@@ -20,6 +21,7 @@ function openItems(items) {
 }
 
 const SetupHealthWidget = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ const SetupHealthWidget = () => {
             <div className="setup-health-widget setup-health-widget--loading">
                 <div className="setup-health-widget__head">
                     <ShieldCheck size={16} />
-                    <span>Setup Health</span>
+                    <span>{t('app.setupHealthWidget.setupHealth', 'Setup Health')}</span>
                 </div>
                 <p className="setup-health-widget__muted">
                     {loading ? 'Checking…' : 'Unavailable'}
@@ -60,7 +62,7 @@ const SetupHealthWidget = () => {
             >
                 <ShieldCheck size={16} />
                 <span className="setup-health-widget__cleanlabel">
-                    All set — {summary.score}% setup health
+                    {t('app.setupHealthWidget.allSet', 'All set —')} {summary.score}{t('app.setupHealthWidget.setupHealth2', '% setup health')}
                 </span>
                 <ChevronRight size={14} />
             </button>
@@ -72,7 +74,7 @@ const SetupHealthWidget = () => {
             <div className="setup-health-widget__head">
                 <span className="setup-health-widget__title">
                     <ShieldCheck size={16} />
-                    Setup Health
+                    {t('app.setupHealthWidget.setupHealth3', 'Setup Health')}
                 </span>
                 <span className="setup-health-widget__score">{summary.score}%</span>
             </div>
@@ -112,7 +114,7 @@ const SetupHealthWidget = () => {
                     className="setup-health-widget__more"
                     onClick={() => navigate('/monitoring/doctor')}
                 >
-                    {open.length - TOP_N} more in Doctor
+                    {open.length - TOP_N} {t('app.setupHealthWidget.moreInDoctor', 'more in Doctor')}
                 </button>
             )}
         </div>

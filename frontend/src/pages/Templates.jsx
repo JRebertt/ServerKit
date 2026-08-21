@@ -22,6 +22,7 @@ import ServerPicker from '@/components/templates/ServerPicker';
 import { useTopbarChrome } from '@/hooks/useTopbarActions';
 import { applyTableSorts, useTableSort } from '@/hooks/useTableSort';
 import EmptyState from '../components/EmptyState';
+import { useTranslation } from 'react-i18next';
 
 // Featured templates (curated list)
 const FEATURED_TEMPLATES = [
@@ -162,8 +163,8 @@ const TEMPLATE_ICONS = {
 };
 
 const KIND_OPTIONS = [
-    { value: 'compose', label: 'One-click' },
-    { value: 'repo', label: 'Git repo' },
+    { value: 'compose', labelKey: 'app.templates.oneClick', label: 'One-click' },
+    { value: 'repo', labelKey: 'app.templates.gitRepo', label: 'Git repo' },
 ];
 
 const isFeatured = (templateId) => FEATURED_TEMPLATES.includes(templateId);
@@ -174,10 +175,10 @@ const kindLabel = (template) => ((template.kind || 'compose') === 'repo' ? 'Git 
 // These descriptors are what the saved views sort by and what the "⋮" exports;
 // nothing renders them, so none of them carries a `render`.
 const templateColumns = [
-    { key: 'name', header: 'Template', type: 'text', value: (t) => t.name || '', sortValue: (t) => t.name || '' },
+    { key: 'name', headerKey: 'app.templates.template', header: 'Template', type: 'text', value: (t) => t.name || '', sortValue: (t) => t.name || '' },
     {
         key: 'featured',
-        header: 'Featured',
+        headerKey: 'app.templates.featured', header: 'Featured',
         type: 'bool',
         value: (t) => isFeatured(t.id),
         // 1/0 rather than the boolean: applyTableSorts compares booleans as the
@@ -185,10 +186,10 @@ const templateColumns = [
         // the moment anyone renamed the labels.
         sortValue: (t) => (isFeatured(t.id) ? 1 : 0),
     },
-    { key: 'kind', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
-    { key: 'version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
-    { key: 'categories', header: 'Categories', type: 'text', value: (t) => (t.categories || []).join(', ') },
-    { key: 'description', header: 'Description', type: 'text', value: (t) => t.description || '' },
+    { key: 'kind', headerKey: 'app.templates.type', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
+    { key: 'version', headerKey: 'app.templates.version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
+    { key: 'categories', headerKey: 'app.templates.categories', header: 'Categories', type: 'text', value: (t) => (t.categories || []).join(', ') },
+    { key: 'description', headerKey: 'app.templates.description', header: 'Description', type: 'text', value: (t) => t.description || '' },
 ];
 
 // Sort orders are built-in saved views now. The two-button Featured / A–Z strip
@@ -214,6 +215,7 @@ const TEMPLATE_VIEWS = [
 ];
 
 const Templates = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const toast = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -311,7 +313,7 @@ const Templates = () => {
             setTemplates(templatesRes.templates || []);
             setCategories(categoriesRes.categories || []);
         } catch (err) {
-            toast.error('Failed to load templates');
+            toast.error(t('app.templates.failedToLoadTemplates', 'Failed to load templates'));
         } finally {
             setLoading(false);
         }
@@ -438,7 +440,7 @@ const Templates = () => {
                 setSelectedTemplate(result.template);
             }
         } catch (err) {
-            toast.error('Failed to load template details');
+            toast.error(t('app.templates.failedToLoadTemplateDetails', 'Failed to load template details'));
         }
     }
 
@@ -463,7 +465,7 @@ const Templates = () => {
                 setShowInstallModal(true);
             }
         } catch (err) {
-            toast.error('Failed to load template details');
+            toast.error(t('app.templates.failedToLoadTemplateDetails2', 'Failed to load template details'));
         }
     }
 
@@ -499,13 +501,13 @@ const Templates = () => {
     const filterGroups = [
         {
             key: 'kind',
-            label: 'Type',
+            labelKey: 'app.templates.type2', label: 'Type',
             type: 'single',
             options: KIND_OPTIONS.map(o => ({ ...o, count: optionCounts.byKind[o.value] || 0 })),
         },
         {
             key: 'category',
-            label: 'Category',
+            labelKey: 'app.templates.category', label: 'Category',
             type: 'single',
             options: categories.map(cat => ({
                 value: cat,
@@ -552,7 +554,7 @@ const Templates = () => {
             <SearchField
                 value={searchQuery}
                 onSearch={setSearchQueryFilter}
-                placeholder="Search templates…"
+                placeholder={t('app.templates.searchTemplates', 'Search templates…')}
             />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
             <GridToolsMenu {...chrome.toolsProps} onRefresh={loadData} />
@@ -562,7 +564,7 @@ const Templates = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner">
-                <EmptyState loading loadingVariant="cards" title="Loading templates" />
+                <EmptyState loading loadingVariant="cards" title={t('app.templates.loadingTemplates', 'Loading templates')} />
             </div>
         );
     }
@@ -577,16 +579,16 @@ const Templates = () => {
                 <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=github')}>
                     <span className="tpl-quickstart__ico"><GitBranch size={18} /></span>
                     <span className="tpl-quickstart__body">
-                        <span className="tpl-quickstart__title">Import from GitHub</span>
-                        <span className="tpl-quickstart__sub">Connect a repo and auto-deploy on every push</span>
+                        <span className="tpl-quickstart__title">{t('app.templates.importFromGithub', 'Import from GitHub')}</span>
+                        <span className="tpl-quickstart__sub">{t('app.templates.connectARepoAndAutoDeploy', 'Connect a repo and auto-deploy on every push')}</span>
                     </span>
                     <ChevronRight size={16} className="tpl-quickstart__arrow" />
                 </button>
                 <button type="button" className="tpl-quickstart__card" onClick={() => navigate('/services/new?source=archive')}>
                     <span className="tpl-quickstart__ico"><Download size={18} /></span>
                     <span className="tpl-quickstart__body">
-                        <span className="tpl-quickstart__title">Import a ZIP</span>
-                        <span className="tpl-quickstart__sub">Drop in a project archive to build &amp; run</span>
+                        <span className="tpl-quickstart__title">{t('app.templates.importAZip', 'Import a ZIP')}</span>
+                        <span className="tpl-quickstart__sub">{t('app.templates.dropInAProjectArchiveTo', 'Drop in a project archive to build & run')}</span>
                     </span>
                     <ChevronRight size={16} className="tpl-quickstart__arrow" />
                 </button>
@@ -607,11 +609,11 @@ const Templates = () => {
                 {sortedTemplates.length === 0 ? (
                     <EmptyState
                         icon={LayoutTemplate}
-                        title="No templates found"
-                        description={hasActiveFilters ? 'Try adjusting your filters' : 'No templates are available yet'}
+                        title={t('app.templates.noTemplatesFound', 'No templates found')}
+                        description={hasActiveFilters ? t('app.templates.tryAdjustingYourFilters', 'Try adjusting your filters') : t('app.templates.noTemplatesAreAvailableYet', 'No templates are available yet')}
                         action={hasActiveFilters && (
                             <Button variant="outline" size="sm" onClick={clearAllFilters}>
-                                Clear Filters
+                                {t('app.templates.clearFilters', 'Clear Filters')}
                             </Button>
                         )}
                     />
@@ -621,7 +623,7 @@ const Templates = () => {
                         return (
                             <div key={template.id} className="tpl-card" onClick={() => handleDeploy(template)}>
                                 {isFeatured(template.id) && (
-                                    <span className="tpl-ft" title="Featured">
+                                    <span className="tpl-ft" title={t('app.templates.featured2', 'Featured')}>
                                         <Star size={14} />
                                     </span>
                                 )}
@@ -645,12 +647,12 @@ const Templates = () => {
                                         </span>
                                     ))}
                                     {template.website && (
-                                        <span className="tpl-link" title="Has website">
+                                        <span className="tpl-link" title={t('app.templates.hasWebsite', 'Has website')}>
                                             <ExternalLink size={12} />
                                         </span>
                                     )}
                                     {template.documentation && (
-                                        <span className="tpl-link" title="Has documentation">
+                                        <span className="tpl-link" title={t('app.templates.hasDocumentation', 'Has documentation')}>
                                             <BookOpen size={12} />
                                         </span>
                                     )}
@@ -662,7 +664,7 @@ const Templates = () => {
                                             handleDeploy(template);
                                         }}
                                     >
-                                        <Rocket size={12} /> Deploy
+                                        <Rocket size={12} /> {t('app.templates.deploy', 'Deploy')}
                                     </Button>
                                 </div>
                             </div>
@@ -694,7 +696,7 @@ const Templates = () => {
                     onSuccess={(appId) => {
                         setShowInstallModal(false);
                         setSelectedTemplate(null);
-                        toast.success('Application installed successfully!');
+                        toast.success(t('app.templates.applicationInstalledSuccessfully', 'Application installed successfully!'));
                         navigate(`/services/${appId}/logs`);
                     }}
                 />
@@ -706,7 +708,7 @@ const Templates = () => {
                 groups={filterGroups}
                 value={filterValue}
                 onChange={handleFilterChange}
-                title="Filter templates"
+                title={t('app.templates.filterTemplates', 'Filter templates')}
                 activeCount={activeFilterCount}
                 resultCount={sortedTemplates.length}
                 resultNoun="template"
@@ -724,10 +726,10 @@ const Templates = () => {
 // resized, an app that idles far below its documented minimum). The job here is
 // to make sure nobody is *surprised*, not to hold the door shut.
 const CAPACITY_TONES = {
-    ok: { icon: CheckCircle2, label: 'Fits' },
-    tight: { icon: AlertTriangle, label: 'Tight' },
-    insufficient: { icon: XCircle, label: "Won't fit" },
-    unknown: { icon: HelpCircle, label: 'Unknown' },
+    ok: { icon: CheckCircle2, labelKey: 'app.templates.fits', label: 'Fits' },
+    tight: { icon: AlertTriangle, labelKey: 'app.templates.tight', label: 'Tight' },
+    insufficient: { icon: XCircle, labelKey: 'app.templates.wonTFit', label: 'Won\'t fit' },
+    unknown: { icon: HelpCircle, labelKey: 'app.templates.unknown', label: 'Unknown' },
 };
 
 const CapacityNote = ({ capacity, loading }) => {
@@ -752,6 +754,7 @@ const CapacityNote = ({ capacity, loading }) => {
 };
 
 const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const navigate = useNavigate();
     const isRepo = (template.kind || 'compose') === 'repo';
@@ -896,7 +899,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
             flush
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
-            title={`Deploy ${template.name}`}
+            title={t('app.templates.deploy2', 'Deploy {{name}}', { name: template.name })}
             subtitle={[`v${template.version}`, ...(template.categories || []).slice(0, 3)].join(' · ')}
             icon={renderIcon(template, 20)}
             width={520}
@@ -915,7 +918,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     <p className="sk-formdrawer__desc">{template.description}</p>
 
                     <div className="sk-formdrawer__field">
-                        <label htmlFor="tpl-deploy-name">Service name</label>
+                        <label htmlFor="tpl-deploy-name">{t('app.templates.serviceName', 'Service name')}</label>
                         <div className="sk-formdrawer__input">
                             <Box size={15} />
                             <input
@@ -929,7 +932,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                             />
                         </div>
                         <span className="sk-formdrawer__hint">
-                            Lowercase letters, numbers, and hyphens only (min 2 chars)
+                            {t('app.templates.lowercaseLettersNumbersAndHyphensOnly', 'Lowercase letters, numbers, and hyphens only (min 2 chars)')}
                         </span>
                     </div>
 
@@ -937,7 +940,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         thing the template cannot decide for you. */}
                     {isRepo && (
                         <div className="sk-formdrawer__field">
-                            <label htmlFor="tpl-deploy-branch">Branch</label>
+                            <label htmlFor="tpl-deploy-branch">{t('app.templates.branch', 'Branch')}</label>
                             <div className="sk-formdrawer__input">
                                 <GitBranch size={15} />
                                 <input
@@ -959,7 +962,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         field would be worse than none. */}
                     {domainPreview && (
                         <div className="sk-formdrawer__field">
-                            <span className="sk-formdrawer__label">Domain</span>
+                            <span className="sk-formdrawer__label">{t('app.templates.domain', 'Domain')}</span>
                             <div className="sk-formdrawer__input sk-formdrawer__input--readonly">
                                 <Globe size={15} />
                                 <span className="sk-formdrawer__domain">{domainPreview}</span>
@@ -973,7 +976,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     )}
 
                     <div className="sk-formdrawer__field">
-                        <span className="sk-formdrawer__label">Deploy to server</span>
+                        <span className="sk-formdrawer__label">{t('app.templates.deployToServer', 'Deploy to server')}</span>
                         <ServerPicker
                             servers={servers}
                             value={selectedServerId}
@@ -986,7 +989,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
 
                     {visibleVars.length > 0 && (
                         <div className="sk-formdrawer__field">
-                            <span className="sk-formdrawer__label">Configuration</span>
+                            <span className="sk-formdrawer__label">{t('app.templates.configuration', 'Configuration')}</span>
                             {visibleVars.map(variable => (
                                 <div key={variable.name} className="form-group">
                                     <label>
@@ -999,7 +1002,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                                             onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
                                             required={variable.required}
                                         >
-                                            <option value="">Select...</option>
+                                            <option value="">{t('app.templates.select', 'Select...')}</option>
                                             {variable.options.map(opt => (
                                                 <option key={opt} value={opt}>{opt}</option>
                                             ))}
@@ -1032,7 +1035,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
 
                 <div className="sk-formdrawer__foot">
                     <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
-                        Cancel
+                        {t('app.templates.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={installing}>
                         <Rocket size={15} />

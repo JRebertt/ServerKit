@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, DataTableFooter, Pill } from '../ds';
 import EmptyState from '../EmptyState';
 import { Boxes, Container } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     OfflineIcon,
     RefreshIcon,
@@ -58,7 +59,7 @@ const parseDockerSize = (size) => {
 const IMAGE_COLUMNS = [
     {
         key: 'repository',
-        header: 'Repository',
+        headerKey: 'app.serverDockerTab.repository', header: 'Repository',
         sortable: true,
         hideable: false,
         sortValue: (image) => image.repository || '<none>',
@@ -66,27 +67,27 @@ const IMAGE_COLUMNS = [
     },
     {
         key: 'tag',
-        header: 'Tag',
+        headerKey: 'app.serverDockerTab.tag', header: 'Tag',
         sortable: true,
         sortValue: (image) => image.tag || '<none>',
         render: (image) => image.tag || '<none>',
     },
     {
         key: 'id',
-        header: 'Image ID',
+        headerKey: 'app.serverDockerTab.imageId', header: 'Image ID',
         cellClassName: 'mono',
         render: (image) => image.id?.substring(0, 12),
     },
     {
         key: 'size',
-        header: 'Size',
+        headerKey: 'app.serverDockerTab.size', header: 'Size',
         sortable: true,
         sortValue: (image) => parseDockerSize(image.size),
         render: (image) => image.size,
     },
     {
         key: 'created',
-        header: 'Created',
+        headerKey: 'app.serverDockerTab.created', header: 'Created',
         sortable: true,
         sortValue: (image) => image.created || null,
         render: (image) => image.created,
@@ -94,6 +95,7 @@ const IMAGE_COLUMNS = [
 ];
 
 const ServerDockerTab = ({ serverId, serverStatus, server }) => {
+    const { t } = useTranslation();
     const [containers, setContainers] = useState([]);
     const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -140,13 +142,13 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
             <div className="docker-empty-state">
                 <EmptyState
                     icon={Container}
-                    title="Docker not reachable from this agent"
-                    description="The agent connected but could not talk to a Docker daemon. Make sure Docker is running on the host (and the agent user is in the docker group on Linux), then click Refresh on the Overview tab to re-probe capabilities."
+                    title={t('app.serverDockerTab.dockerNotReachableFromThisAgent', 'Docker not reachable from this agent')}
+                    description={t('app.serverDockerTab.theAgentConnectedButCouldNot', 'The agent connected but could not talk to a Docker daemon. Make sure Docker is running on the host (and the agent user is in the docker group on Linux), then click Refresh on the Overview tab to re-probe capabilities.')}
                 />
                 <ul className="docker-empty-state__causes">
-                    <li>Docker Desktop / dockerd is not running on the host</li>
-                    <li>The agent user isn&apos;t in the <code>docker</code> group (Linux)</li>
-                    <li>The npipe socket <code>{'//./pipe/docker_engine'}</code> isn&apos;t accessible (Windows)</li>
+                    <li>{t('app.serverDockerTab.dockerDesktopDockerdIsNotRunning', 'Docker Desktop / dockerd is not running on the host')}</li>
+                    <li>{t('app.serverDockerTab.theAgentUserIsnTIn', 'The agent user isn\'t in the')} <code>docker</code> {t('app.serverDockerTab.groupLinux', 'group (Linux)')}</li>
+                    <li>{t('app.serverDockerTab.theNpipeSocket', 'The npipe socket')} <code>{'//./pipe/docker_engine'}</code> {t('app.serverDockerTab.isnTAccessibleWindows', 'isn\'t accessible (Windows)')}</li>
                 </ul>
             </div>
         );
@@ -157,22 +159,22 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
             let result;
             if (action === 'start') {
                 result = await api.startRemoteContainer(serverId, containerId);
-                toast.success('Container started');
+                toast.success(t('app.serverDockerTab.containerStarted', 'Container started'));
             } else if (action === 'stop') {
                 result = await api.stopRemoteContainer(serverId, containerId);
-                toast.success('Container stopped');
+                toast.success(t('app.serverDockerTab.containerStopped', 'Container stopped'));
             } else if (action === 'restart') {
                 result = await api.restartRemoteContainer(serverId, containerId);
-                toast.success('Container restarted');
+                toast.success(t('app.serverDockerTab.containerRestarted', 'Container restarted'));
             } else if (action === 'remove') {
-                const removeConfirmed = await confirmDocker({ title: 'Remove Container', message: 'Remove this container?' });
+                const removeConfirmed = await confirmDocker({ titleKey: 'app.serverDockerTab.removeContainer', title: 'Remove Container', messageKey: 'app.serverDockerTab.removeThisContainer', message: 'Remove this container?' });
                 if (!removeConfirmed) return;
                 result = await api.removeRemoteContainer(serverId, containerId, true);
-                toast.success('Container removed');
+                toast.success(t('app.serverDockerTab.containerRemoved', 'Container removed'));
             }
             loadDockerData();
         } catch (err) {
-            toast.error(err.message || `Failed to ${action} container`);
+            toast.error(err.message || t('app.serverDockerTab.failedToContainer', 'Failed to {{action}} container', { action: action }));
         }
     }
 
@@ -180,14 +182,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         return (
             <div className="offline-notice">
                 <OfflineIcon />
-                <h4>Server Offline</h4>
-                <p>Docker management requires the server to be online.</p>
+                <h4>{t('app.serverDockerTab.serverOffline', 'Server Offline')}</h4>
+                <p>{t('app.serverDockerTab.dockerManagementRequiresTheServerTo', 'Docker management requires the server to be online.')}</p>
             </div>
         );
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading Docker data" />;
+        return <EmptyState loading title={t('app.serverDockerTab.loadingDockerData', 'Loading Docker data')} />;
     }
 
     // Containers table columns. Cell markup and classNames are identical to
@@ -196,7 +198,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
     const containerColumns = [
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.serverDockerTab.name', header: 'Name',
             sortable: true,
             hideable: false,
             sortValue: (container) => container.name || '',
@@ -209,14 +211,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         },
         {
             key: 'image',
-            header: 'Image',
+            headerKey: 'app.serverDockerTab.image', header: 'Image',
             sortable: true,
             sortValue: (container) => container.image || '',
             render: (container) => container.image,
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.serverDockerTab.status', header: 'Status',
             sortable: true,
             sortValue: (container) => container.state || '',
             render: (container) => {
@@ -230,7 +232,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         },
         {
             key: 'ports',
-            header: 'Ports',
+            headerKey: 'app.serverDockerTab.ports', header: 'Ports',
             sortable: true,
             sortValue: (container) => {
                 const text = formatPorts(container.ports);
@@ -240,7 +242,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.serverDockerTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -251,14 +253,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
                         <button type="button"
                             className="btn-icon"
                             onClick={() => handleContainerAction(container.id, 'restart')}
-                            title="Restart"
+                            title={t('app.serverDockerTab.restart', 'Restart')}
                         >
                             <RefreshIcon />
                         </button>
                         <button type="button"
                             className="btn-icon danger"
                             onClick={() => handleContainerAction(container.id, 'stop')}
-                            title="Stop"
+                            title={t('app.serverDockerTab.stop', 'Stop')}
                         >
                             <StopIcon />
                         </button>
@@ -268,14 +270,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
                         <button type="button"
                             className="btn-icon success"
                             onClick={() => handleContainerAction(container.id, 'start')}
-                            title="Start"
+                            title={t('app.serverDockerTab.start', 'Start')}
                         >
                             <PlayIcon />
                         </button>
                         <button type="button"
                             className="btn-icon danger"
                             onClick={() => handleContainerAction(container.id, 'remove')}
-                            title="Remove"
+                            title={t('app.serverDockerTab.remove', 'Remove')}
                         >
                             <TrashIcon />
                         </button>
@@ -289,8 +291,8 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         <div className="docker-tab">
             {loadError && (
                 <div className="docker-tab__error">
-                    <strong>Couldn&apos;t load Docker data:</strong> {loadError}
-                    <Button size="sm" variant="outline" onClick={loadDockerData}>Retry</Button>
+                    <strong>{t('app.serverDockerTab.couldnTLoadDockerData', 'Couldn\'t load Docker data:')}</strong> {loadError}
+                    <Button size="sm" variant="outline" onClick={loadDockerData}>{t('app.serverDockerTab.retry', 'Retry')}</Button>
                 </div>
             )}
             <div className="docker-sub-tabs">
@@ -298,20 +300,20 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
                     className={`sub-tab ${subTab === 'containers' ? 'active' : ''}`}
                     onClick={() => setSubTab('containers')}
                 >
-                    Containers ({containers.length})
+                    {t('app.serverDockerTab.containers', 'Containers (')}{containers.length})
                 </button>
                 <button type="button"
                     className={`sub-tab ${subTab === 'images' ? 'active' : ''}`}
                     onClick={() => setSubTab('images')}
                 >
-                    Images ({images.length})
+                    {t('app.serverDockerTab.images', 'Images (')}{images.length})
                 </button>
             </div>
 
             {subTab === 'containers' && (
                 <div className="containers-list">
                     {containers.length === 0 ? (
-                        <EmptyState icon={Container} title="No containers" description="No containers are running on this server." />
+                        <EmptyState icon={Container} title={t('app.serverDockerTab.noContainers', 'No containers')} description={t('app.serverDockerTab.noContainersAreRunningOnThis', 'No containers are running on this server.')} />
                     ) : (
                         <DataTable
                             columns={containerColumns}
@@ -334,7 +336,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
             {subTab === 'images' && (
                 <div className="images-list">
                     {images.length === 0 ? (
-                        <EmptyState icon={Boxes} title="No images" description="No Docker images are present on this server." />
+                        <EmptyState icon={Boxes} title={t('app.serverDockerTab.noImages', 'No images')} description={t('app.serverDockerTab.noDockerImagesArePresentOn', 'No Docker images are present on this server.')} />
                     ) : (
                         <DataTable
                             columns={IMAGE_COLUMNS}

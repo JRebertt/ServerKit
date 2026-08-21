@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
 import MonitorsSummary from './MonitorsSummary';
 import { HOST_SCOPE, useScopeMetrics, trendOf } from './useMonitorScope';
+import { useTranslation } from 'react-i18next';
 
 const PERIODS = ['1h', '6h', '24h', '7d'];
 
@@ -45,6 +46,7 @@ export default function MonitoringOverview({
     speedTest, speedTestRunning, onRunSpeedTest,
     thresholds = {}, onScopeChange, refreshKey = 0,
 }) {
+    const { t } = useTranslation();
     const [period, setPeriod] = useState('24h');
     const { series, loading } = useScopeMetrics(scope, period, refreshKey);
 
@@ -119,7 +121,7 @@ export default function MonitoringOverview({
     const tiles = [
         {
             key: 'cpu',
-            label: 'CPU usage',
+            labelKey: 'app.monitoringOverview.cpuUsage', label: 'CPU usage',
             icon: Cpu,
             value: fmt(current.cpu),
             unit: '%',
@@ -130,7 +132,7 @@ export default function MonitoringOverview({
         },
         {
             key: 'memory',
-            label: 'Memory usage',
+            labelKey: 'app.monitoringOverview.memoryUsage', label: 'Memory usage',
             icon: MemoryStick,
             value: fmt(current.memory),
             unit: '%',
@@ -143,7 +145,7 @@ export default function MonitoringOverview({
         },
         {
             key: 'disk',
-            label: 'Disk usage',
+            labelKey: 'app.monitoringOverview.diskUsage', label: 'Disk usage',
             icon: HardDrive,
             value: fmt(current.disk),
             unit: '%',
@@ -160,7 +162,7 @@ export default function MonitoringOverview({
         isHost
             ? {
                 key: 'load',
-                label: 'Load average',
+                labelKey: 'app.monitoringOverview.loadAverage', label: 'Load average',
                 icon: GaugeIcon,
                 value: fmt(current.load, 2),
                 unit: '',
@@ -171,7 +173,7 @@ export default function MonitoringOverview({
             }
             : {
                 key: 'containers',
-                label: 'Containers running',
+                labelKey: 'app.monitoringOverview.containersRunning', label: 'Containers running',
                 icon: Boxes,
                 value: current.containers == null ? '—' : String(current.containers),
                 unit: '',
@@ -192,7 +194,7 @@ export default function MonitoringOverview({
             <MonitorsSummary refreshKey={refreshKey} />
 
             <div className="mon-section-head">
-                <h3>Host health</h3>
+                <h3>{t('app.monitoringOverview.hostHealth', 'Host health')}</h3>
                 <span className="mon-section-head__meta">{scopeLabel}</span>
             </div>
 
@@ -242,10 +244,10 @@ export default function MonitoringOverview({
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
                         <div>
-                            <h3>Processor</h3>
-                            <span className="mon-panel-sub">{scopeLabel} · CPU % · last {period}</span>
+                            <h3>{t('app.monitoringOverview.processor', 'Processor')}</h3>
+                            <span className="mon-panel-sub">{scopeLabel} {t('app.monitoringOverview.cpuLast', '· CPU % · last')} {period}</span>
                         </div>
-                        <div className="mon-period-switch" role="group" aria-label="Chart period">
+                        <div className="mon-period-switch" role="group" aria-label={t('app.monitoringOverview.chartPeriod', 'Chart period')}>
                             {PERIODS.map((p) => (
                                 <Button
                                     key={p}
@@ -266,12 +268,12 @@ export default function MonitoringOverview({
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
                         <div>
-                            <h3>Memory &amp; disk</h3>
-                            <span className="mon-panel-sub">{scopeLabel} · percent used · last {period}</span>
+                            <h3>{t('app.monitoringOverview.memoryDisk', 'Memory & disk')}</h3>
+                            <span className="mon-panel-sub">{scopeLabel} {t('app.monitoringOverview.percentUsedLast', '· percent used · last')} {period}</span>
                         </div>
                         <div className="mon-legend">
-                            <span><i className="is-memory" />Memory</span>
-                            <span><i className="is-disk" />Disk</span>
+                            <span><i className="is-memory" />{t('app.monitoringOverview.memory', 'Memory')}</span>
+                            <span><i className="is-disk" />{t('app.monitoringOverview.disk', 'Disk')}</span>
                         </div>
                     </div>
                     <ChartBody loading={loading} values={series?.memory}>
@@ -289,9 +291,9 @@ export default function MonitoringOverview({
             {fleet.length > 0 && (
                 <>
                     <div className="mon-section-head">
-                        <h3>All hosts</h3>
+                        <h3>{t('app.monitoringOverview.allHosts', 'All hosts')}</h3>
                         <span className="mon-section-head__meta">
-                            {online}/{fleet.length} online · click a card to re-scope
+                            {online}/{fleet.length} {t('app.monitoringOverview.onlineClickACardToRe', 'online · click a card to re-scope')}
                         </span>
                     </div>
                     <div className="mon-fleet-grid">
@@ -331,11 +333,11 @@ export default function MonitoringOverview({
             <div className="mon-grid2">
                 <section className={`monitoring-panel${activeAlerts.length ? ' monitoring-panel--warning' : ''}`}>
                     <div className="monitoring-panel__header">
-                        <h3>Active alerts</h3>
+                        <h3>{t('app.monitoringOverview.activeAlerts', 'Active alerts')}</h3>
                         <span className="mon-panel-sub">{activeAlerts.length} firing</span>
                     </div>
                     {activeAlerts.length === 0 ? (
-                        <p className="mon-panel-hint"><Siren size={14} /> Nothing is over its limit right now.</p>
+                        <p className="mon-panel-hint"><Siren size={14} /> {t('app.monitoringOverview.nothingIsOverItsLimitRight', 'Nothing is over its limit right now.')}</p>
                     ) : (
                         <div className="mon-alert-list">
                             {activeAlerts.map((alert, i) => (
@@ -356,7 +358,7 @@ export default function MonitoringOverview({
 
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
-                        <h3>Speed test</h3>
+                        <h3>{t('app.monitoringOverview.speedTest', 'Speed test')}</h3>
                         <Button size="sm" variant="outline" onClick={onRunSpeedTest} disabled={speedTestRunning}>
                             <Zap size={14} />
                             {speedTestRunning ? 'Running…' : 'Run test'}
@@ -366,9 +368,9 @@ export default function MonitoringOverview({
                         <>
                             <div className="mon-speed-row">
                                 {[
-                                    { icon: ArrowDown, label: 'Down', value: fmt(speedTest.last_result.download_mbps), unit: 'Mbps', tone: 'cpu' },
+                                    { icon: ArrowDown, labelKey: 'app.monitoringOverview.down', label: 'Down', value: fmt(speedTest.last_result.download_mbps), unit: 'Mbps', tone: 'cpu' },
                                     { icon: ArrowUp, label: 'Up', value: fmt(speedTest.last_result.upload_mbps), unit: 'Mbps', tone: 'memory' },
-                                    { icon: Timer, label: 'Latency', value: fmt(speedTest.last_result.latency_ms, 0), unit: 'ms', tone: 'extra' },
+                                    { icon: Timer, labelKey: 'app.monitoringOverview.latency', label: 'Latency', value: fmt(speedTest.last_result.latency_ms, 0), unit: 'ms', tone: 'extra' },
                                 ].map((s) => {
                                     const Icon = s.icon;
                                     return (
@@ -385,7 +387,7 @@ export default function MonitoringOverview({
                                     {speedTest.last_result.success === false ? 'failed' : 'ok'}
                                 </Pill>
                                 <span>
-                                    Tested {speedTest.last_result.tested_at
+                                    {t('app.monitoringOverview.tested', 'Tested')} {speedTest.last_result.tested_at
                                         ? new Date(speedTest.last_result.tested_at).toLocaleString()
                                         : 'never'}
                                 </span>
@@ -393,7 +395,7 @@ export default function MonitoringOverview({
                         </>
                     ) : (
                         <p className="mon-panel-hint">
-                            No speed test yet — run one to measure this server&apos;s connection.
+                            {t('app.monitoringOverview.noSpeedTestYetRunOne', 'No speed test yet — run one to measure this server\'s connection.')}
                         </p>
                     )}
                 </section>
@@ -405,11 +407,12 @@ export default function MonitoringOverview({
 // A chart with nothing behind it should say so rather than draw an empty box:
 // on a fresh install the collector simply hasn't run yet.
 function ChartBody({ loading, values, children }) {
-    if (loading) return <EmptyState loading loadingVariant="chart" title="Loading metrics" />;
+    const { t } = useTranslation();
+    if (loading) return <EmptyState loading loadingVariant="chart" title={t('app.monitoringOverview.loadingMetrics', 'Loading metrics')} />;
     if (!values || values.length < 2) {
         return (
             <p className="mon-panel-hint">
-                No history yet for this host — samples are collected on the monitoring interval.
+                {t('app.monitoringOverview.noHistoryYetForThisHost', 'No history yet for this host — samples are collected on the monitoring interval.')}
             </p>
         );
     }
@@ -417,6 +420,7 @@ function ChartBody({ loading, values, children }) {
 }
 
 function HostCard({ active, name, sub, status, cpu, memory, disk, spark, onClick }) {
+    const { t } = useTranslation();
     const kind = status === 'online' ? 'green' : status === 'offline' ? 'red' : 'gray';
     const hot = typeof cpu === 'number' && cpu > 75;
     return (
@@ -425,7 +429,7 @@ function HostCard({ active, name, sub, status, cpu, memory, disk, spark, onClick
             className={`mon-host${active ? ' is-active' : ''}`}
             onClick={onClick}
             aria-pressed={active}
-            title={`Monitor ${name}`}
+            title={t('app.monitoringOverview.monitor', 'Monitor {{name}}', { name: name })}
         >
             <span className="mon-host__head">
                 <span className="mon-host__ico"><ServerIcon size={14} /></span>

@@ -9,9 +9,11 @@ import LinkAppModal from '../LinkAppModal';
 import TagsPanel from '../shared/TagsPanel';
 import EnvironmentVariablesPanel from '../shared/EnvironmentVariablesPanel';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 // Overview Tab with new grid layout
 const OverviewTab = ({ app, onUpdate }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { confirm: confirmOverview } = useConfirm();
     const [status, setStatus] = useState(null);
@@ -76,7 +78,7 @@ const OverviewTab = ({ app, onUpdate }) => {
     }
 
     async function handleUnlink() {
-        const confirmed = await confirmOverview({ title: 'Unlink Apps', message: 'Are you sure you want to unlink these apps? Database credentials will remain unchanged.', variant: 'warning' });
+        const confirmed = await confirmOverview({ titleKey: 'app.overviewTab.unlinkApps', title: 'Unlink Apps', messageKey: 'app.overviewTab.areYouSureYouWantTo', message: 'Are you sure you want to unlink these apps? Database credentials will remain unchanged.', variant: 'warning' });
         if (!confirmed) {
             return;
         }
@@ -108,15 +110,15 @@ const OverviewTab = ({ app, onUpdate }) => {
             <div className="app-overview-left">
                 {/* Application Info Panel */}
                 <div className="app-panel">
-                    <div className="app-panel-header">Application Info</div>
+                    <div className="app-panel-header">{t('app.overviewTab.applicationInfo', 'Application Info')}</div>
                     <div className="app-panel-body">
                         <div className="app-info-grid">
                             <div className="app-info-item">
-                                <span className="app-info-label">Type</span>
+                                <span className="app-info-label">{t('app.overviewTab.type', 'Type')}</span>
                                 <span className="app-info-value">{app.app_type === 'docker' ? 'Docker Container' : app.app_type.toUpperCase()}</span>
                             </div>
                             <div className="app-info-item">
-                                <span className="app-info-label">Port</span>
+                                <span className="app-info-label">{t('app.overviewTab.port', 'Port')}</span>
                                 <span className="app-info-value">
                                     {app.port || '-'}
                                     {appStatus && app.port && (
@@ -128,18 +130,18 @@ const OverviewTab = ({ app, onUpdate }) => {
                             </div>
                             {app.python_version && (
                                 <div className="app-info-item">
-                                    <span className="app-info-label">Python Version</span>
+                                    <span className="app-info-label">{t('app.overviewTab.pythonVersion', 'Python Version')}</span>
                                     <span className="app-info-value">{app.python_version}</span>
                                 </div>
                             )}
                             {app.php_version && (
                                 <div className="app-info-item">
-                                    <span className="app-info-label">PHP Version</span>
+                                    <span className="app-info-label">{t('app.overviewTab.phpVersion', 'PHP Version')}</span>
                                     <span className="app-info-value">{app.php_version}</span>
                                 </div>
                             )}
                             <div className="app-info-item full-width">
-                                <span className="app-info-label">Root Path</span>
+                                <span className="app-info-label">{t('app.overviewTab.rootPath', 'Root Path')}</span>
                                 <div><span className="app-path-value">{app.root_path || `/var/serverkit/apps/${app.name}`}</span></div>
                             </div>
                         </div>
@@ -153,10 +155,10 @@ const OverviewTab = ({ app, onUpdate }) => {
 
                 {/* Environment Linking Panel */}
                 <div className="app-panel">
-                    <div className="app-panel-header">Environment Linking</div>
+                    <div className="app-panel-header">{t('app.overviewTab.environmentLinking', 'Environment Linking')}</div>
                     <div className="app-panel-body">
                         <p className="app-panel-hint">
-                            Link this app to another to create a production/development pair. Linked apps can share database credentials.
+                            {t('app.overviewTab.linkThisAppToAnotherTo', 'Link this app to another to create a production/development pair. Linked apps can share database credentials.')}
                         </p>
                         <LinkedAppsSection
                             app={app}
@@ -173,15 +175,15 @@ const OverviewTab = ({ app, onUpdate }) => {
                 {/* Process Status (Python apps) */}
                 {status && (
                     <div className="app-panel">
-                        <div className="app-panel-header">Process Status</div>
+                        <div className="app-panel-header">{t('app.overviewTab.processStatus', 'Process Status')}</div>
                         <div className="app-panel-body">
                             <div className="app-info-grid">
                                 <div className="app-info-item">
-                                    <span className="app-info-label">Service</span>
+                                    <span className="app-info-label">{t('app.overviewTab.service', 'Service')}</span>
                                     <span className="app-info-value mono">{status.service_name}</span>
                                 </div>
                                 <div className="app-info-item">
-                                    <span className="app-info-label">State</span>
+                                    <span className="app-info-label">{t('app.overviewTab.state', 'State')}</span>
                                     <span className="app-info-value">{status.active_state} ({status.sub_state})</span>
                                 </div>
                                 {status.main_pid !== '0' && (
@@ -192,7 +194,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                                 )}
                                 {status.memory && status.memory !== '0' && (
                                     <div className="app-info-item">
-                                        <span className="app-info-label">Memory</span>
+                                        <span className="app-info-label">{t('app.overviewTab.memory', 'Memory')}</span>
                                         <span className="app-info-value">{formatBytes(parseInt(status.memory))}</span>
                                     </div>
                                 )}
@@ -204,7 +206,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                 {/* Domains Panel */}
                 {app.domains && app.domains.length > 0 && (
                     <div className="app-panel">
-                        <div className="app-panel-header">Domains</div>
+                        <div className="app-panel-header">{t('app.overviewTab.domains', 'Domains')}</div>
                         <div className="app-panel-body">
                             <div className="domains-list">
                                 {app.domains.map(domain => (
@@ -233,11 +235,11 @@ const OverviewTab = ({ app, onUpdate }) => {
                 {/* Live Resources Panel */}
                 {app.app_type === 'docker' && (
                     <div className="app-panel">
-                        <div className="app-panel-header">Live Resources</div>
+                        <div className="app-panel-header">{t('app.overviewTab.liveResources', 'Live Resources')}</div>
                         <div className="app-panel-body">
                             <div className="resource-bar-container">
                                 <div className="resource-bar-header">
-                                    <span className="resource-bar-label">CPU Load</span>
+                                    <span className="resource-bar-label">{t('app.overviewTab.cpuLoad', 'CPU Load')}</span>
                                     <span className="resource-bar-value">
                                         {containerStats ? `${parseResourceValue(containerStats.CPUPerc).toFixed(0)}%` : '-'}
                                     </span>
@@ -251,7 +253,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                             </div>
                             <div className="resource-bar-container">
                                 <div className="resource-bar-header">
-                                    <span className="resource-bar-label">RAM Usage</span>
+                                    <span className="resource-bar-label">{t('app.overviewTab.ramUsage', 'RAM Usage')}</span>
                                     <span className="resource-bar-value">
                                         {containerStats?.MemUsage || '-'}
                                     </span>
@@ -264,7 +266,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                                 </div>
                             </div>
                             {!containerStats && app.status !== 'running' && (
-                                <p className="resource-hint">Start the container to see live resources.</p>
+                                <p className="resource-hint">{t('app.overviewTab.startTheContainerToSeeLive', 'Start the container to see live resources.')}</p>
                             )}
                         </div>
                     </div>
@@ -272,7 +274,7 @@ const OverviewTab = ({ app, onUpdate }) => {
 
                 {/* Tags Panel (polymorphic shared resource) */}
                 <div className="app-panel">
-                    <div className="app-panel-header">Tags</div>
+                    <div className="app-panel-header">{t('app.overviewTab.tags', 'Tags')}</div>
                     <div className="app-panel-body">
                         <TagsPanel resourceType="application" resourceId={app.id} />
                     </div>
@@ -299,6 +301,7 @@ const OverviewTab = ({ app, onUpdate }) => {
 
 // Routing Diagnostics Panel
 const RoutingDiagnosticsPanel = ({ appId }) => {
+    const { t } = useTranslation();
     const [diagnostics, setDiagnostics] = useState(null);
     const [loading, setLoading] = useState(false);
     const [lastChecked, setLastChecked] = useState(null);
@@ -321,7 +324,7 @@ const RoutingDiagnosticsPanel = ({ appId }) => {
     return (
         <div className="app-panel">
             <div className="app-panel-header">
-                <span>Routing Diagnostics</span>
+                <span>{t('app.overviewTab.routingDiagnostics', 'Routing Diagnostics')}</span>
                 <span className="app-panel-header-actions">
                     <Button
                         variant="ghost"
@@ -358,7 +361,7 @@ const RoutingDiagnosticsPanel = ({ appId }) => {
                     </>
                 ) : (
                     <p className="app-panel-hint">
-                        Click &quot;Run Diagnostics&quot; to check routing configuration and identify issues.
+                        {t('app.overviewTab.clickRunDiagnosticsToCheckRouting', 'Click "Run Diagnostics" to check routing configuration and identify issues.')}
                     </p>
                 )}
             </div>

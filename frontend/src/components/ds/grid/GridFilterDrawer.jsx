@@ -4,6 +4,7 @@ import { Drawer } from '../Drawer';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import {
     OPS, byKey, columnLabel, coerceValue, emptyValueFor, fieldValue,
     isFilterable, isSortable, optionsFor,
@@ -21,6 +22,7 @@ export function GridFilterDrawer({
     showRowDetail = true,
     showDensity = true,
 }) {
+    const { t } = useTranslation();
     const [tab, setTab] = useState('filters');
     const [dragging, setDragging] = useState(null);
 
@@ -53,10 +55,10 @@ export function GridFilterDrawer({
                     <select
                         value={String(rule.value)}
                         onChange={(e) => patchRule(rule.id, { value: e.target.value === 'true' })}
-                        aria-label="Value"
+                        aria-label={t('app.gridFilterDrawer.value', 'Value')}
                     >
                         <option value="true">On</option>
-                        <option value="false">Off</option>
+                        <option value="false">{t('app.gridFilterDrawer.off', 'Off')}</option>
                     </select>
                     <ChevronDown size={13} />
                 </div>
@@ -89,7 +91,7 @@ export function GridFilterDrawer({
                 type={column.type === 'num' ? 'number' : column.type === 'date' ? 'date' : 'text'}
                 value={rule.value ?? ''}
                 placeholder="value"
-                aria-label="Value"
+                aria-label={t('app.gridFilterDrawer.value2', 'Value')}
                 onChange={(e) => patchRule(rule.id, { value: coerceValue(column.type, e.target.value) })}
             />
         );
@@ -99,8 +101,8 @@ export function GridFilterDrawer({
         <Drawer
             open={open}
             onOpenChange={onOpenChange}
-            title="Filters & fields"
-            subtitle={`${rules.length} condition${rules.length === 1 ? '' : 's'} · ${cfg.cols.length} fields shown`}
+            title={t('app.gridFilterDrawer.filtersFields', 'Filters & fields')}
+            subtitle={t('app.gridFilterDrawer.conditionFieldsShown', '{{length}} condition{{value}} · {{length2}} fields shown', { length: rules.length, value: rules.length === 1 ? '' : 's', length2: cfg.cols.length })}
             icon={<Filter size={18} />}
             iconColor="var(--accent-bright)"
             width={470}
@@ -125,14 +127,14 @@ export function GridFilterDrawer({
                 {tab === 'filters' && (
                     <div className="sk-gridsec">
                         <div className="sk-gridsec__head">
-                            <div className="sk-gridsec__t">Conditions</div>
+                            <div className="sk-gridsec__t">{t('app.gridFilterDrawer.conditions', 'Conditions')}</div>
                             <button type="button" className="sk-gridsec__add" onClick={() => grid.addRule(columns)}>
-                                <Plus size={13} />Add condition
+                                <Plus size={13} />{t('app.gridFilterDrawer.addCondition', 'Add condition')}
                             </button>
                         </div>
 
                         <div className="sk-gridmatch">
-                            Match
+                            {t('app.gridFilterDrawer.match', 'Match')}
                             <div className="sk-gridseg">
                                 {['all', 'any'].map((value) => (
                                     <button
@@ -145,12 +147,12 @@ export function GridFilterDrawer({
                                     </button>
                                 ))}
                             </div>
-                            of the following
+                            {t('app.gridFilterDrawer.ofTheFollowing', 'of the following')}
                         </div>
 
                         {rules.length === 0 && (
                             <div className="sk-gridsec__none">
-                                No conditions — this view shows every {noun.replace(/s$/, '')}.
+                                {t('app.gridFilterDrawer.noConditionsThisViewShowsEvery', 'No conditions — this view shows every')} {noun.replace(/s$/, '')}.
                             </div>
                         )}
 
@@ -172,7 +174,7 @@ export function GridFilterDrawer({
                                         <div className="sk-gridrule__sel">
                                             <select
                                                 value={rule.field}
-                                                aria-label="Field"
+                                                aria-label={t('app.gridFilterDrawer.field', 'Field')}
                                                 onChange={(e) => {
                                                     const next = map.get(e.target.value);
                                                     patchRule(rule.id, {
@@ -191,7 +193,7 @@ export function GridFilterDrawer({
                                         <div className="sk-gridrule__sel">
                                             <select
                                                 value={rule.op}
-                                                aria-label="Operator"
+                                                aria-label={t('app.gridFilterDrawer.operator', 'Operator')}
                                                 onChange={(e) => patchRule(rule.id, { op: e.target.value })}
                                             >
                                                 {OPS[column.type].map(([op, text]) => (
@@ -204,7 +206,7 @@ export function GridFilterDrawer({
                                             type="button"
                                             className="sk-gridrule__del"
                                             onClick={() => grid.removeRule(rule.id)}
-                                            aria-label="Remove condition"
+                                            aria-label={t('app.gridFilterDrawer.removeCondition', 'Remove condition')}
                                         >
                                             <X size={14} />
                                         </button>
@@ -220,7 +222,7 @@ export function GridFilterDrawer({
                     <>
                         <div className="sk-gridsec">
                             <div className="sk-gridsec__head">
-                                <div className="sk-gridsec__t">Fields · {cfg.cols.length} shown</div>
+                                <div className="sk-gridsec__t">{t('app.gridFilterDrawer.fields', 'Fields ·')} {cfg.cols.length} shown</div>
                             </div>
                             {ordered.map((key, i) => {
                                 const column = map.get(key);
@@ -247,7 +249,7 @@ export function GridFilterDrawer({
                                                 <Switch
                                                     checked={on}
                                                     onCheckedChange={() => grid.toggleColumn(key, allKeys)}
-                                                    aria-label={`Show ${columnLabel(column)}`}
+                                                    aria-label={t('app.gridFilterDrawer.show', 'Show {{value}}', { value: columnLabel(column) })}
                                                 />
                                             )}
                                     </div>
@@ -259,8 +261,8 @@ export function GridFilterDrawer({
                         <div className="sk-gridsec">
                             {showRowDetail && (
                             <>
-                            <div className="sk-gridsec__head"><div className="sk-gridsec__t">Row detail</div></div>
-                            <p className="sk-gridsec__hint">Extra fields printed under the first column.</p>
+                            <div className="sk-gridsec__head"><div className="sk-gridsec__t">{t('app.gridFilterDrawer.rowDetail', 'Row detail')}</div></div>
+                            <p className="sk-gridsec__hint">{t('app.gridFilterDrawer.extraFieldsPrintedUnderTheFirst', 'Extra fields printed under the first column.')}</p>
                             <div className="sk-gridsec__tags">
                                 {columns.filter((c) => !c.locked && isSortable(c)).map((c) => {
                                     const on = cfg.sub.includes(c.key);
@@ -284,7 +286,7 @@ export function GridFilterDrawer({
                             {showDensity && (
                             <>
                             <div className="sk-gridsec__head" style={showRowDetail ? { marginTop: 18 } : undefined}>
-                                <div className="sk-gridsec__t">Density</div>
+                                <div className="sk-gridsec__t">{t('app.gridFilterDrawer.density', 'Density')}</div>
                             </div>
                             <div className="sk-gridseg sk-gridseg--wide">
                                 {[['cozy', 'Cozy'], ['compact', 'Compact']].map(([value, text]) => (
@@ -308,10 +310,10 @@ export function GridFilterDrawer({
 
             <div className="sk-griddrawer__foot">
                 <Button variant="ghost" size="sm" onClick={grid.resetToView}>
-                    <History size={14} /> Reset
+                    <History size={14} /> {t('app.gridFilterDrawer.reset', 'Reset')}
                 </Button>
                 <span className="sk-griddrawer__sp" />
-                <Button size="sm" onClick={() => onOpenChange(false)}>Done</Button>
+                <Button size="sm" onClick={() => onOpenChange(false)}>{t('app.gridFilterDrawer.done', 'Done')}</Button>
             </div>
         </Drawer>
     );

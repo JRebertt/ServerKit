@@ -7,6 +7,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const NO_RULES = { match: 'all', rules: [] };
 const BY_NAME = [{ key: 'name', direction: 'asc' }];
@@ -32,6 +33,7 @@ const WORKSPACE_MEMBER_VIEWS = [
 ];
 
 const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMember }) => {
+    const { t } = useTranslation();
     const { sorts, setSorts } = useTableSort({ storageKey: 'serverkit-table-ws-members-sort' });
     const {
         hiddenKeys, setHiddenKeys,
@@ -42,7 +44,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
     const columns = [
         {
             key: 'name',
-            header: 'Member',
+            headerKey: 'app.workspaceMembersTab.member', header: 'Member',
             sortable: true,
             hideable: false,
             // There is no `name` key on the row — the cell falls back from
@@ -63,7 +65,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
         },
         {
             key: 'role',
-            header: 'Role',
+            headerKey: 'app.workspaceMembersTab.role', header: 'Role',
             sortable: true,
             // Declared, not inferred: a workspace with an owner and one member
             // fails the enum cardinality test and would fall back to text,
@@ -86,7 +88,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
             hideable: false,
             render: (m) => (
                 m.role !== 'owner' && (
-                    <Button size="sm" variant="destructive" onClick={() => onRemoveMember(m.id)}>Remove</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onRemoveMember(m.id)}>{t('app.workspaceMembersTab.remove', 'Remove')}</Button>
                 )
             ),
         },
@@ -140,7 +142,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
                 {...chrome.tableProps}
                 className="ws-detail__tablecard"
                 emptyTitle="No members"
-                emptyMessage="This workspace has no members yet."
+                emptyMessage={t('app.workspaceMembersTab.thisWorkspaceHasNoMembersYet', 'This workspace has no members yet.')}
                 footer={(
                     <DataTableFooter
                         shown={chrome.shownCount}
@@ -154,7 +156,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
 
             {unassigned.length > 0 && (
                 <>
-                    <div className="ws-pick-label">Add a member</div>
+                    <div className="ws-pick-label">{t('app.workspaceMembersTab.addAMember', 'Add a member')}</div>
                     <div className="ws-pick">
                         {unassigned.map(u => (
                             <div key={u.id} className="ws-pick__item" onClick={() => onAddMember(u.id)}>

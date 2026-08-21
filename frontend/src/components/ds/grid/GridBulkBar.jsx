@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // The selection bar: one component, one place on screen. Appears only when rows
 // are picked, and holds the actions that only make sense in bulk — so the
@@ -20,6 +21,7 @@ import { X } from 'lucide-react';
 // list, and a hand-rolled copy inside ResourceListPage floating at the bottom.
 // Same feature, two places, two behaviours depending on which page you were on.
 export function GridBulkBar({ count, noun = 'row', onClear, children }) {
+    const { t } = useTranslation();
     if (!count) return null;
     return (
         <div className="sk-bulkbar" role="status">
@@ -32,7 +34,7 @@ export function GridBulkBar({ count, noun = 'row', onClear, children }) {
                     type="button"
                     className="sk-bulkbar__clear"
                     onClick={onClear}
-                    aria-label="Clear selection"
+                    aria-label={t('app.gridBulkBar.clearSelection', 'Clear selection')}
                 >
                     <X size={14} />
                 </button>

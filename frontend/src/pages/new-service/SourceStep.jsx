@@ -1,5 +1,6 @@
 import { GitBranch, FolderOpen, FileArchive } from 'lucide-react';
 import { SiGithub } from 'react-icons/si';
+import { useTranslation } from 'react-i18next';
 
 // Step 1 — Source. Four clean radio-cards; selecting one advances to Connect.
 //
@@ -8,13 +9,14 @@ import { SiGithub } from 'react-icons/si';
 // nothing left to ask. Templates deploy from the drawer on /templates, which is
 // also what their cards and Deploy buttons open — one surface, not two.
 const SOURCES = [
-    { mode: 'github', Icon: SiGithub, title: 'GitHub', sub: 'Connect with OAuth and choose a repository' },
-    { mode: 'manual', Icon: GitBranch, title: 'Other Git Remote', sub: 'GitLab, Bitbucket, Gitea, or SSH' },
-    { mode: 'local', Icon: FolderOpen, title: 'Manual / Local', sub: 'Register an app already on the server' },
-    { mode: 'upload', Icon: FileArchive, title: 'Upload ZIP', sub: 'Deploy or update from a zip archive' },
+    { mode: 'github', Icon: SiGithub, titleKey: 'app.sourceStep.github', title: 'GitHub', sub: 'Connect with OAuth and choose a repository' },
+    { mode: 'manual', Icon: GitBranch, titleKey: 'app.sourceStep.otherGitRemote', title: 'Other Git Remote', sub: 'GitLab, Bitbucket, Gitea, or SSH' },
+    { mode: 'local', Icon: FolderOpen, titleKey: 'app.sourceStep.manualLocal', title: 'Manual / Local', sub: 'Register an app already on the server' },
+    { mode: 'upload', Icon: FileArchive, titleKey: 'app.sourceStep.uploadZip', title: 'Upload ZIP', sub: 'Deploy or update from a zip archive' },
 ];
 
 const SourceStep = ({ form }) => {
+    const { t } = useTranslation();
     const choose = (mode) => {
         form.selectSource(mode);
         form.setStep(2);
@@ -23,10 +25,10 @@ const SourceStep = ({ form }) => {
     return (
         <div className="new-service-page__step">
             <div className="new-service-page__step-head">
-                <h2>How do you want to deploy?</h2>
-                <p>Pick a source. You can change it on the next step.</p>
+                <h2>{t('app.sourceStep.howDoYouWantToDeploy', 'How do you want to deploy?')}</h2>
+                <p>{t('app.sourceStep.pickASourceYouCanChange', 'Pick a source. You can change it on the next step.')}</p>
             </div>
-            <div className="new-service-page__sources" role="radiogroup" aria-label="Service source">
+            <div className="new-service-page__sources" role="radiogroup" aria-label={t('app.sourceStep.serviceSource', 'Service source')}>
                 {SOURCES.map(({ mode, Icon, title, sub }) => (
                     <button
                         key={mode}

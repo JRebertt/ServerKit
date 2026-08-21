@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
 
 // Docker memory limit: number + one-letter unit (b/k/m/g), e.g. "512m", "2g".
 const MEMORY_LIMIT_RE = /^\d+(\.\d+)?(b|k|m|g)$/i;
@@ -38,6 +39,7 @@ function barWidth(percent) {
 // first-class app fields with live usage next to them, instead of asking
 // people to hand-edit the compose file.
 const ResourceLimitsPanel = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [cpuLimit, setCpuLimit] = useState('');
     const [memoryLimit, setMemoryLimit] = useState('');
@@ -75,11 +77,11 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
             });
             setRestartRequired(!data.applied && data.note === 'restart required');
             toast.success(data.applied
-                ? 'Resource limits saved and applied.'
-                : 'Resource limits saved.');
+                ? t('app.resourceLimitsPanel.resourceLimitsSavedAndApplied', 'Resource limits saved and applied.')
+                : t('app.resourceLimitsPanel.resourceLimitsSaved', 'Resource limits saved.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to save resource limits');
+            toast.error(err.message || t('app.resourceLimitsPanel.failedToSaveResourceLimits', 'Failed to save resource limits'));
         } finally {
             setSaving(false);
         }
@@ -97,13 +99,11 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
         <div className="app-panel">
             <div className="app-panel-header">
                 <Gauge />
-                <span>Resource Limits</span>
+                <span>{t('app.resourceLimitsPanel.resourceLimits', 'Resource Limits')}</span>
             </div>
             <div className="app-panel-body">
                 <p className="app-panel-hint">
-                    Cap how much CPU and memory this service&apos;s container may use. Leave a
-                    field empty for no limit. Limits are written into the generated compose
-                    configuration and enforced by Docker.
+                    {t('app.resourceLimitsPanel.capHowMuchCpuAndMemory', 'Cap how much CPU and memory this service\'s container may use. Leave a field empty for no limit. Limits are written into the generated compose configuration and enforced by Docker.')}
                 </p>
 
                 {usage ? (
@@ -125,7 +125,7 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
                         </div>
                         <div className="resource-bar-container">
                             <div className="resource-bar-header">
-                                <span className="resource-bar-label">Memory</span>
+                                <span className="resource-bar-label">{t('app.resourceLimitsPanel.memory', 'Memory')}</span>
                                 <span className="resource-bar-value">
                                     {usage.memory_usage || '—'}
                                     {usage.memory_limit ? ` / ${usage.memory_limit}` : ''}
@@ -147,25 +147,25 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
 
                 <div className="container-ops__grid">
                     <div className="container-ops__input">
-                        <Label htmlFor={`res-cpu-${app.id}`}>CPU limit (cores)</Label>
+                        <Label htmlFor={`res-cpu-${app.id}`}>{t('app.resourceLimitsPanel.cpuLimitCores', 'CPU limit (cores)')}</Label>
                         <Input
                             id={`res-cpu-${app.id}`}
                             type="text"
                             value={cpuLimit}
                             onChange={(e) => setCpuLimit(e.target.value)}
-                            placeholder="e.g. 1.5"
+                            placeholder={t('app.resourceLimitsPanel.eG15', 'e.g. 1.5')}
                             disabled={loading || saving}
                         />
                         {cpuError && <span className="error-text">{cpuError}</span>}
                     </div>
                     <div className="container-ops__input">
-                        <Label htmlFor={`res-mem-${app.id}`}>Memory limit</Label>
+                        <Label htmlFor={`res-mem-${app.id}`}>{t('app.resourceLimitsPanel.memoryLimit', 'Memory limit')}</Label>
                         <Input
                             id={`res-mem-${app.id}`}
                             type="text"
                             value={memoryLimit}
                             onChange={(e) => setMemoryLimit(e.target.value)}
-                            placeholder="e.g. 512m"
+                            placeholder={t('app.resourceLimitsPanel.eG512m', 'e.g. 512m')}
                             disabled={loading || saving}
                         />
                         {memoryError && <span className="error-text">{memoryError}</span>}
@@ -174,7 +174,7 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
 
                 {restartRequired && (
                     <p className="app-panel-hint">
-                        Limits saved — restart or redeploy the service for them to take effect.
+                        {t('app.resourceLimitsPanel.limitsSavedRestartOrRedeployThe', 'Limits saved — restart or redeploy the service for them to take effect.')}
                     </p>
                 )}
 

@@ -1,7 +1,9 @@
 import { ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react';
 import Spinner from '../Spinner';
+import { useTranslation } from 'react-i18next';
 
 function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, onNavigate, onToggle }) {
+    const { t } = useTranslation();
     const isExpanded = expanded.has(node.path);
     const isActive = currentPath === node.path;
     const isLoading = treeLoading.has(node.path);
@@ -17,7 +19,7 @@ function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, 
                 <button type="button"
                     className="tree-chevron"
                     onClick={(e) => { e.stopPropagation(); onToggle(node.path); }}
-                    aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                    aria-label={isExpanded ? t('app.folderTree.collapse', 'Collapse') : t('app.folderTree.expand', 'Expand')}
                 >
                     {isLoading ? (
                         <span className="tree-chevron-spinner"><Spinner size="sm" /></span>
@@ -53,7 +55,7 @@ function TreeNode({ node, level, expanded, treeCache, treeLoading, currentPath, 
             )}
             {isExpanded && children && children.length === 0 && !isLoading && (
                 <div className="tree-empty" style={{ paddingLeft: 26 + level * 14 }}>
-                    Empty
+                    {t('app.folderTree.empty', 'Empty')}
                 </div>
             )}
         </div>

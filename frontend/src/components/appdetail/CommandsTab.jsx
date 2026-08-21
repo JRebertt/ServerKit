@@ -2,23 +2,25 @@ import { useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 const CommandsTab = ({ appId, appType }) => {
+    const { t } = useTranslation();
     const [command, setCommand] = useState('');
     const [output, setOutput] = useState(null);
     const [running, setRunning] = useState(false);
 
     const quickCommands = appType === 'django' ? [
-        { label: 'Run Migrations', cmd: 'python manage.py migrate' },
-        { label: 'Collect Static', cmd: 'python manage.py collectstatic --noinput' },
-        { label: 'Create Superuser', cmd: 'python manage.py createsuperuser' },
-        { label: 'Shell', cmd: 'python manage.py shell' },
-        { label: 'Check', cmd: 'python manage.py check' },
+        { labelKey: 'app.commandsTab.runMigrations', label: 'Run Migrations', cmd: 'python manage.py migrate' },
+        { labelKey: 'app.commandsTab.collectStatic', label: 'Collect Static', cmd: 'python manage.py collectstatic --noinput' },
+        { labelKey: 'app.commandsTab.createSuperuser', label: 'Create Superuser', cmd: 'python manage.py createsuperuser' },
+        { labelKey: 'app.commandsTab.shell', label: 'Shell', cmd: 'python manage.py shell' },
+        { labelKey: 'app.commandsTab.check', label: 'Check', cmd: 'python manage.py check' },
     ] : [
-        { label: 'Flask Routes', cmd: 'flask routes' },
-        { label: 'Flask Shell', cmd: 'flask shell' },
-        { label: 'DB Upgrade', cmd: 'flask db upgrade' },
-        { label: 'DB Migrate', cmd: 'flask db migrate' },
+        { labelKey: 'app.commandsTab.flaskRoutes', label: 'Flask Routes', cmd: 'flask routes' },
+        { labelKey: 'app.commandsTab.flaskShell', label: 'Flask Shell', cmd: 'flask shell' },
+        { labelKey: 'app.commandsTab.dbUpgrade', label: 'DB Upgrade', cmd: 'flask db upgrade' },
+        { labelKey: 'app.commandsTab.dbMigrate', label: 'DB Migrate', cmd: 'flask db migrate' },
     ];
 
     async function handleRun(cmd) {
@@ -40,8 +42,8 @@ const CommandsTab = ({ appId, appType }) => {
 
     return (
         <div>
-            <h3 className="app-eyebrow">Run Commands</h3>
-            <p className="hint">Commands run in the app&apos;s virtual environment context.</p>
+            <h3 className="app-eyebrow">{t('app.commandsTab.runCommands', 'Run Commands')}</h3>
+            <p className="hint">{t('app.commandsTab.commandsRunInTheAppS', 'Commands run in the app\'s virtual environment context.')}</p>
 
             <div className="quick-commands">
                 {quickCommands.map(({ label, cmd }) => (
@@ -62,7 +64,7 @@ const CommandsTab = ({ appId, appType }) => {
                     type="text"
                     value={command}
                     onChange={(e) => setCommand(e.target.value)}
-                    placeholder="Enter command..."
+                    placeholder={t('app.commandsTab.enterCommand', 'Enter command...')}
                     onKeyDown={(e) => e.key === 'Enter' && handleRun()}
                 />
                 <Button

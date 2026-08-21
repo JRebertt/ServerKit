@@ -2,15 +2,16 @@ import { useMemo, useState } from 'react';
 import { Boxes, ChevronDown, FileCode2, Layers, Terminal, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
 
 // Map a plan's language to the primary version-override field.
 const VERSION_FIELD = {
-    node: { key: 'node_version', label: 'Node version', versionKey: 'node' },
-    python: { key: 'python_version', label: 'Python version', versionKey: 'python' },
-    go: { key: 'go_version', label: 'Go version', versionKey: 'go' },
-    php: { key: 'php_version', label: 'PHP version', versionKey: 'php' },
-    ruby: { key: 'ruby_version', label: 'Ruby version', versionKey: 'ruby' },
-    rust: { key: 'rust_version', label: 'Rust version', versionKey: 'rust' },
+    node: { key: 'node_version', labelKey: 'app.buildpackPreview.nodeVersion', label: 'Node version', versionKey: 'node' },
+    python: { key: 'python_version', labelKey: 'app.buildpackPreview.pythonVersion', label: 'Python version', versionKey: 'python' },
+    go: { key: 'go_version', labelKey: 'app.buildpackPreview.goVersion', label: 'Go version', versionKey: 'go' },
+    php: { key: 'php_version', labelKey: 'app.buildpackPreview.phpVersion', label: 'PHP version', versionKey: 'php' },
+    ruby: { key: 'ruby_version', labelKey: 'app.buildpackPreview.rubyVersion', label: 'Ruby version', versionKey: 'ruby' },
+    rust: { key: 'rust_version', labelKey: 'app.buildpackPreview.rustVersion', label: 'Rust version', versionKey: 'rust' },
 };
 
 const BUILDER_LABEL = {
@@ -40,6 +41,7 @@ function confidenceLabel(confidence) {
  *   loading     — bool, shows a loading shell
  */
 function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading = false }) {
+    const { t } = useTranslation();
     const [dockerfileOpen, setDockerfileOpen] = useState(false);
 
     const versionField = useMemo(() => {
@@ -52,7 +54,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
             <div className="buildpack-preview buildpack-preview--loading">
                 <div className="buildpack-preview__head">
                     <Zap size={16} className="spinning" />
-                    <span>Detecting build pack…</span>
+                    <span>{t('app.buildpackPreview.detectingBuildPack', 'Detecting build pack…')}</span>
                 </div>
             </div>
         );
@@ -105,15 +107,15 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
 
             <div className="buildpack-preview__facts">
                 <div className="buildpack-preview__fact">
-                    <span><Layers size={13} /> Language</span>
+                    <span><Layers size={13} /> {t('app.buildpackPreview.language', 'Language')}</span>
                     <strong>{plan.language || '—'}</strong>
                 </div>
                 <div className="buildpack-preview__fact">
-                    <span><Zap size={13} /> Framework</span>
+                    <span><Zap size={13} /> {t('app.buildpackPreview.framework', 'Framework')}</span>
                     <strong>{plan.framework || 'Generic'}</strong>
                 </div>
                 <div className="buildpack-preview__fact">
-                    <span><Boxes size={13} /> Port</span>
+                    <span><Boxes size={13} /> {t('app.buildpackPreview.port', 'Port')}</span>
                     <strong>{plan.port || 'Auto'}</strong>
                 </div>
             </div>
@@ -141,7 +143,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
                         </div>
                     )}
                     <div className="buildpack-preview__field">
-                        <Label htmlFor="bp-port">Port</Label>
+                        <Label htmlFor="bp-port">{t('app.buildpackPreview.port2', 'Port')}</Label>
                         <Input
                             id="bp-port"
                             type="number"
@@ -153,17 +155,17 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
                         />
                     </div>
                     <div className="buildpack-preview__field buildpack-preview__field--wide">
-                        <Label htmlFor="bp-build">Build command</Label>
+                        <Label htmlFor="bp-build">{t('app.buildpackPreview.buildCommand', 'Build command')}</Label>
                         <Input
                             id="bp-build"
                             value={buildValue}
                             onChange={(e) => emit('build_command', e.target.value)}
-                            placeholder={plan.build_command || 'No build step'}
+                            placeholder={plan.build_command || t('app.buildpackPreview.noBuildStep', 'No build step')}
                             autoComplete="off"
                         />
                     </div>
                     <div className="buildpack-preview__field buildpack-preview__field--wide">
-                        <Label htmlFor="bp-start">Start command</Label>
+                        <Label htmlFor="bp-start">{t('app.buildpackPreview.startCommand', 'Start command')}</Label>
                         <Input
                             id="bp-start"
                             value={startValue}
@@ -185,7 +187,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
                     >
                         <span>
                             <FileCode2 size={15} />
-                            Generated Dockerfile
+                            {t('app.buildpackPreview.generatedDockerfile', 'Generated Dockerfile')}
                         </span>
                         <ChevronDown
                             size={16}
@@ -203,7 +205,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
             {present && dockerfile && (
                 <div className="buildpack-preview__present-note">
                     <Terminal size={14} />
-                    <span>Using the repository&apos;s own Dockerfile.</span>
+                    <span>{t('app.buildpackPreview.usingTheRepositorySOwnDockerfile', 'Using the repository\'s own Dockerfile.')}</span>
                 </div>
             )}
         </div>

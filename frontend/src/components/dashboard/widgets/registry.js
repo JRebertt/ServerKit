@@ -39,7 +39,7 @@ export const CORE_WIDGET_TYPES = [
         h: 2,
         min: [2, 2],
         defaultCfg: {
-            title: 'CPU usage',
+            titleKey: 'app.registry.cpuUsage', title: 'CPU usage',
             resource: '$server',
             metric: 'cpu',
             agg: 'last',
@@ -58,7 +58,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [3, 3],
         defaultCfg: {
-            title: 'Real-time performance',
+            titleKey: 'app.registry.realTimePerformance', title: 'Real-time performance',
             series: [
                 { resource: '$server', metric: 'cpu' },
                 { resource: '$server', metric: 'ram' },
@@ -77,7 +77,7 @@ export const CORE_WIDGET_TYPES = [
         h: 3,
         min: [2, 3],
         defaultCfg: {
-            title: 'Disk usage',
+            titleKey: 'app.registry.diskUsage', title: 'Disk usage',
             resource: '$server',
             metric: 'disk',
             agg: 'last',
@@ -94,7 +94,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [3, 3],
         defaultCfg: {
-            title: 'Busiest servers',
+            titleKey: 'app.registry.busiestServers', title: 'Busiest servers',
             dim: 'servers',
             metric: 'cpu',
             limit: 5,
@@ -110,7 +110,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [4, 3],
         defaultCfg: {
-            title: 'Applications',
+            titleKey: 'app.registry.applications', title: 'Applications',
             source: 'services',
             limit: 6,
         },
@@ -125,7 +125,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [3, 3],
         defaultCfg: {
-            title: 'Live logs',
+            titleKey: 'app.registry.liveLogs', title: 'Live logs',
             source: 'file',
             path: '',
             containerId: '',
@@ -143,7 +143,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [3, 3],
         defaultCfg: {
-            title: 'Deploy activity',
+            titleKey: 'app.registry.deployActivity', title: 'Deploy activity',
             limit: 5,
         },
     },
@@ -157,7 +157,7 @@ export const CORE_WIDGET_TYPES = [
         h: 3,
         min: [3, 2],
         defaultCfg: {
-            title: 'Open alerts',
+            titleKey: 'app.registry.openAlerts', title: 'Open alerts',
             severity: 'all',
             limit: 8,
         },
@@ -172,7 +172,7 @@ export const CORE_WIDGET_TYPES = [
         h: 3,
         min: [3, 2],
         defaultCfg: {
-            title: 'Status grid',
+            titleKey: 'app.registry.statusGrid', title: 'Status grid',
             source: 'servers',
             limit: 12,
         },
@@ -187,7 +187,7 @@ export const CORE_WIDGET_TYPES = [
         h: 4,
         min: [3, 3],
         defaultCfg: {
-            title: 'Recent activity',
+            titleKey: 'app.registry.recentActivity', title: 'Recent activity',
             limit: 6,
         },
     },
@@ -201,7 +201,7 @@ export const CORE_WIDGET_TYPES = [
         h: 3,
         min: [2, 2],
         defaultCfg: {
-            title: 'Quick actions',
+            titleKey: 'app.registry.quickActions', title: 'Quick actions',
             items: ['servers', 'docker', 'terminal'],
         },
     },
@@ -215,7 +215,7 @@ export const CORE_WIDGET_TYPES = [
         h: 3,
         min: [2, 2],
         defaultCfg: {
-            title: 'Host details',
+            titleKey: 'app.registry.hostDetails', title: 'Host details',
             resource: '$server',
         },
     },
@@ -245,7 +245,7 @@ export const CORE_WIDGET_TYPES = [
         h: 2,
         min: [2, 2],
         defaultCfg: {
-            title: 'Note',
+            titleKey: 'app.registry.note', title: 'Note',
             text: 'On-call: check **deploy activity** before restarting anything.',
         },
     },

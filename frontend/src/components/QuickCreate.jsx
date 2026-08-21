@@ -9,6 +9,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
+import { translateLabel } from '../i18n/labels';
 
 // Global quick-create (the CRM "+" button). One entry point for every "new
 // thing" flow, wherever you are. Route-based flows navigate directly; flows
@@ -16,16 +18,17 @@ import { cn } from '@/lib/utils';
 // `?focus=create:<kind>` deep link, which the destination page opens via
 // useFocusParam.
 const CREATE_ITEMS = [
-    { kind: 'service', label: 'Service', icon: Boxes, path: '/services/new' },
-    { kind: 'server', label: 'Server', icon: Server, path: '/servers?focus=create:server' },
-    { kind: 'monitor', label: 'Monitor', icon: Activity, path: '/monitoring/monitors?focus=create:monitor' },
-    { kind: 'domain', label: 'Domain', icon: Globe, path: '/domains?focus=create:domain' },
-    { kind: 'cron', label: 'Cron job', icon: Clock, path: '/cron?focus=create:cron' },
-    { kind: 'workspace', label: 'Workspace', icon: LayoutGrid, path: '/workspaces?focus=create:workspace' },
-    { kind: 'project', label: 'Project', icon: FolderKanban, path: '/projects?focus=create:project' },
+    { kind: 'service', labelKey: 'app.quickCreate.service', label: 'Service', icon: Boxes, path: '/services/new' },
+    { kind: 'server', labelKey: 'app.quickCreate.server', label: 'Server', icon: Server, path: '/servers?focus=create:server' },
+    { kind: 'monitor', labelKey: 'app.quickCreate.monitor', label: 'Monitor', icon: Activity, path: '/monitoring/monitors?focus=create:monitor' },
+    { kind: 'domain', labelKey: 'app.quickCreate.domain', label: 'Domain', icon: Globe, path: '/domains?focus=create:domain' },
+    { kind: 'cron', labelKey: 'app.quickCreate.cronJob', label: 'Cron job', icon: Clock, path: '/cron?focus=create:cron' },
+    { kind: 'workspace', labelKey: 'app.quickCreate.workspace', label: 'Workspace', icon: LayoutGrid, path: '/workspaces?focus=create:workspace' },
+    { kind: 'project', labelKey: 'app.quickCreate.project', label: 'Project', icon: FolderKanban, path: '/projects?focus=create:project' },
 ];
 
 export function QuickCreate({ className, variant = 'icon' }) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     // 'icon' — compact square button (mobile top bar). 'sidebar' — small
     // circular accent FAB (AI chat-bubble style) that lives on the first
@@ -38,8 +41,8 @@ export function QuickCreate({ className, variant = 'icon' }) {
                 <button
                     type="button"
                     className={cn('quick-create', fab && 'quick-create--fab', className)}
-                    title="Create new…"
-                    aria-label="Create new"
+                    title={t('app.quickCreate.createNew', 'Create new…')}
+                    aria-label={t('app.quickCreate.createNew2', 'Create new')}
                 >
                     <Plus size={fab ? 15 : 16} />
                 </button>
@@ -52,7 +55,7 @@ export function QuickCreate({ className, variant = 'icon' }) {
                 {CREATE_ITEMS.map((item) => (
                     <DropdownMenuItem key={item.kind} onSelect={() => navigate(item.path)}>
                         <item.icon size={14} aria-hidden="true" />
-                        New {item.label}
+                        {t('app.quickCreate.new', 'New')} {translateLabel(t, item)}
                     </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>

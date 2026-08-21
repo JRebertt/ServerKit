@@ -12,19 +12,21 @@ import ThemeGallery from './ThemeGallery';
 import ThemeBrowseModal from './ThemeBrowseModal';
 import ThemeStudioModal from './ThemeStudioModal';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 const ACCENT_PRESETS = [
-    { label: 'Indigo', color: '#6366f1' },
-    { label: 'Ocean', color: '#0ea5e9' },
-    { label: 'Forest', color: '#10b981' },
-    { label: 'Sunset', color: '#f97316' },
-    { label: 'Rose', color: '#f43f5e' },
-    { label: 'Violet', color: '#8b5cf6' },
-    { label: 'Amber', color: '#f59e0b' },
-    { label: 'Cyan', color: '#06b6d4' },
+    { labelKey: 'app.appearanceTab.indigo', label: 'Indigo', color: '#6366f1' },
+    { labelKey: 'app.appearanceTab.ocean', label: 'Ocean', color: '#0ea5e9' },
+    { labelKey: 'app.appearanceTab.forest', label: 'Forest', color: '#10b981' },
+    { labelKey: 'app.appearanceTab.sunset', label: 'Sunset', color: '#f97316' },
+    { labelKey: 'app.appearanceTab.rose', label: 'Rose', color: '#f43f5e' },
+    { labelKey: 'app.appearanceTab.violet', label: 'Violet', color: '#8b5cf6' },
+    { labelKey: 'app.appearanceTab.amber', label: 'Amber', color: '#f59e0b' },
+    { labelKey: 'app.appearanceTab.cyan', label: 'Cyan', color: '#06b6d4' },
 ];
 
 const AppearanceTab = () => {
+    const { t } = useTranslation();
     const {
         theme, setTheme, accentColor, setAccentColor, hasCustomAccent, resetAccentColor,
         refreshInstalledThemes, setSkin,
@@ -45,24 +47,24 @@ const AppearanceTab = () => {
             const imported = await api.importThemeFile(file);
             await refreshInstalledThemes();
             if (imported?.slug) setSkin(imported.slug);
-            toast.success(`Imported theme "${imported?.name || imported?.slug}"`);
+            toast.success(t('app.appearanceTab.importedTheme', 'Imported theme "{{value}}"', { value: imported?.name || imported?.slug }));
         } catch (err) {
-            toast.error(err?.message || 'Could not import that theme.json');
+            toast.error(err?.message || t('app.appearanceTab.couldNotImportThatThemeJson', 'Could not import that theme.json'));
         }
     };
 
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2>Appearance</h2>
-                <p>Customize the look and feel of your dashboard</p>
+                <h2>{t('app.appearanceTab.appearance', 'Appearance')}</h2>
+                <p>{t('app.appearanceTab.customizeTheLookAndFeelOf', 'Customize the look and feel of your dashboard')}</p>
             </div>
 
             <LanguageSelector />
 
             <div {...register('appearance-theme', 'settings-card')}>
-                <h3>Theme</h3>
-                <p>Select your preferred color scheme</p>
+                <h3>{t('app.appearanceTab.theme', 'Theme')}</h3>
+                <p>{t('app.appearanceTab.selectYourPreferredColorScheme', 'Select your preferred color scheme')}</p>
                 <div className="theme-options">
                     <button type="button"
                         className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
@@ -75,7 +77,7 @@ const AppearanceTab = () => {
                                 <div className="preview-card"></div>
                             </div>
                         </div>
-                        <span>Dark</span>
+                        <span>{t('app.appearanceTab.dark', 'Dark')}</span>
                     </button>
                     <button type="button"
                         className={`theme-option ${theme === 'light' ? 'active' : ''}`}
@@ -88,7 +90,7 @@ const AppearanceTab = () => {
                                 <div className="preview-card"></div>
                             </div>
                         </div>
-                        <span>Light</span>
+                        <span>{t('app.appearanceTab.light', 'Light')}</span>
                     </button>
                     <button type="button"
                         className={`theme-option ${theme === 'system' ? 'active' : ''}`}
@@ -101,7 +103,7 @@ const AppearanceTab = () => {
                                 <div className="preview-card"></div>
                             </div>
                         </div>
-                        <span>System</span>
+                        <span>{t('app.appearanceTab.system', 'System')}</span>
                     </button>
                 </div>
             </div>
@@ -109,13 +111,13 @@ const AppearanceTab = () => {
             <div {...register('appearance-theme-gallery', 'settings-card')}>
                 <div className="theme-gallery-header">
                     <div>
-                        <h3>Theme</h3>
-                        <p>Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.</p>
+                        <h3>{t('app.appearanceTab.theme2', 'Theme')}</h3>
+                        <p>{t('app.appearanceTab.pickAColorThemeAppliesInstantly', 'Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.')}</p>
                     </div>
                     <div className="theme-gallery-actions">
                         <Button variant="outline" size="sm" onClick={() => setStudioOpen(true)}>
                             <Sparkles size={14} />
-                            Create theme
+                            {t('app.appearanceTab.createTheme', 'Create theme')}
                         </Button>
                         {isAdmin && (
                             <>
@@ -128,11 +130,11 @@ const AppearanceTab = () => {
                                 />
                                 <Button variant="outline" size="sm" onClick={() => setBrowseOpen(true)}>
                                     <Store size={14} />
-                                    Browse themes
+                                    {t('app.appearanceTab.browseThemes', 'Browse themes')}
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                                     <Upload size={14} />
-                                    Import theme.json
+                                    {t('app.appearanceTab.importThemeJson', 'Import theme.json')}
                                 </Button>
                             </>
                         )}
@@ -144,8 +146,8 @@ const AppearanceTab = () => {
             </div>
 
             <div {...register('appearance-accent-color', 'settings-card')}>
-                <h3>Accent Color</h3>
-                <p>Choose the primary accent color used across the interface</p>
+                <h3>{t('app.appearanceTab.accentColor', 'Accent Color')}</h3>
+                <p>{t('app.appearanceTab.chooseThePrimaryAccentColorUsed', 'Choose the primary accent color used across the interface')}</p>
                 <div className="accent-presets">
                     {ACCENT_PRESETS.map(({ label, color }) => (
                         <button type="button"
@@ -159,7 +161,7 @@ const AppearanceTab = () => {
                     ))}
                 </div>
                 <div className="accent-custom">
-                    <label className="accent-custom-label">Custom color</label>
+                    <label className="accent-custom-label">{t('app.appearanceTab.customColor', 'Custom color')}</label>
                     <div className="accent-custom-row">
                         <input
                             type="color"
@@ -173,9 +175,9 @@ const AppearanceTab = () => {
                                 type="button"
                                 className="accent-custom-reset"
                                 onClick={resetAccentColor}
-                                title="Use the theme's accent"
+                                title={t('app.appearanceTab.useTheThemeSAccent', 'Use the theme\'s accent')}
                             >
-                                <RotateCcw size={13} /> Use theme accent
+                                <RotateCcw size={13} /> {t('app.appearanceTab.useThemeAccent', 'Use theme accent')}
                             </button>
                         )}
                     </div>
@@ -183,15 +185,14 @@ const AppearanceTab = () => {
             </div>
 
             <div {...register('appearance-widgets', 'settings-card')}>
-                <h3>Dashboard Widgets</h3>
+                <h3>{t('app.appearanceTab.dashboardWidgets', 'Dashboard Widgets')}</h3>
                 <p>
-                    Widgets are arranged on the dashboard itself now — add, move, resize and
-                    configure them in place, across as many boards as you need.
+                    {t('app.appearanceTab.widgetsAreArrangedOnTheDashboard', 'Widgets are arranged on the dashboard itself now — add, move, resize and configure them in place, across as many boards as you need.')}
                 </p>
                 <Button variant="outline" size="sm" asChild>
                     <Link to="/">
                         <LayoutGrid size={14} />
-                        Edit dashboards
+                        {t('app.appearanceTab.editDashboards', 'Edit dashboards')}
                     </Link>
                 </Button>
             </div>

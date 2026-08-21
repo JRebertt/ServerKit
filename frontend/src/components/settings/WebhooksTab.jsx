@@ -14,6 +14,7 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { Plus, MoreVertical, Copy, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import EmptyState from '../EmptyState';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
 
@@ -26,6 +27,7 @@ const formatDate = (d) => (d ? new Date(d).toLocaleString() : '—');
  * (Secret storage moved to the Organization tab group at /vaults earlier.)
  */
 export default function WebhooksTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -47,7 +49,7 @@ export default function WebhooksTab() {
             const e = await api.listWebhookEndpoints();
             setEndpoints(e.endpoints || []);
         } catch (err) {
-            toast.error(`Load failed: ${err.message}`);
+            toast.error(t('app.webhooksTab.loadFailed', 'Load failed: {{message}}', { message: err.message }));
         } finally {
             setLoading(false);
         }
@@ -65,25 +67,25 @@ export default function WebhooksTab() {
             });
             setEndpointForm({ open: false, name: '', forward_url: '', filter_paths: '', retry_count: 3 });
             loadAll();
-            toast.success('Endpoint created');
+            toast.success(t('app.webhooksTab.endpointCreated', 'Endpoint created'));
         } catch (err) {
-            toast.error(`Failed to create endpoint: ${err.message}`);
+            toast.error(t('app.webhooksTab.failedToCreateEndpoint', 'Failed to create endpoint: {{message}}', { message: err.message }));
         }
     }
 
     async function deleteEndpoint(id) {
         const confirmed = await confirm({
-            title: 'Delete Webhook Endpoint',
-            message: 'Delete this webhook endpoint? Inbound deliveries to its URL will stop being accepted.',
+            title: t('app.webhooksTab.deleteWebhookEndpoint', 'Delete Webhook Endpoint'),
+            message: t('app.webhooksTab.deleteThisWebhookEndpointInboundDeliveries', 'Delete this webhook endpoint? Inbound deliveries to its URL will stop being accepted.'),
         });
         if (!confirmed) return;
         try {
             await api.deleteWebhookEndpoint(id);
             if (selectedEndpoint?.id === id) setSelectedEndpoint(null);
             loadAll();
-            toast.success('Endpoint deleted');
+            toast.success(t('app.webhooksTab.endpointDeleted', 'Endpoint deleted'));
         } catch (err) {
-            toast.error(`Failed to delete endpoint: ${err.message}`);
+            toast.error(t('app.webhooksTab.failedToDeleteEndpoint', 'Failed to delete endpoint: {{message}}', { message: err.message }));
         }
     }
 
@@ -94,7 +96,7 @@ export default function WebhooksTab() {
             loadAll();
             if (selectedEndpoint?.id === id) openEndpoint(data.endpoint.id);
         } catch (err) {
-            toast.error(`Regenerate failed: ${err.message}`);
+            toast.error(t('app.webhooksTab.regenerateFailed', 'Regenerate failed: {{message}}', { message: err.message }));
         }
     }
 
@@ -105,7 +107,7 @@ export default function WebhooksTab() {
             setSelectedEndpoint(endpoint);
             setDeliveries(deliveries || []);
         } catch (err) {
-            toast.error(`Failed to load endpoint: ${err.message}`);
+            toast.error(t('app.webhooksTab.failedToLoadEndpoint', 'Failed to load endpoint: {{message}}', { message: err.message }));
         }
     }
 
@@ -116,12 +118,12 @@ export default function WebhooksTab() {
             const res = await api.replayWebhookDelivery(deliveryId);
             openEndpoint(selectedEndpoint.id);
             if (res && res.success === false) {
-                toast.error('Replayed, but the forward target did not accept it');
+                toast.error(t('app.webhooksTab.replayedButTheForwardTargetDid', 'Replayed, but the forward target did not accept it'));
             } else {
-                toast.success('Replayed delivery');
+                toast.success(t('app.webhooksTab.replayedDelivery', 'Replayed delivery'));
             }
         } catch (err) {
-            toast.error(`Replay failed: ${err.message}`);
+            toast.error(t('app.webhooksTab.replayFailed', 'Replay failed: {{message}}', { message: err.message }));
         }
     }
 
@@ -132,7 +134,7 @@ export default function WebhooksTab() {
     }, [selectedEndpoint]);
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading webhooks..." />;
+        return <EmptyState loading loadingVariant="table" title={t('app.webhooksTab.loadingWebhooks', 'Loading webhooks...')} />;
     }
 
     return (
@@ -142,26 +144,26 @@ export default function WebhooksTab() {
                     <CardHeader>
                         <div className="secrets__header">
                             <div>
-                                <CardTitle>Webhook Endpoints</CardTitle>
-                                <CardDescription>Receive, verify, and forward inbound webhooks.</CardDescription>
+                                <CardTitle>{t('app.webhooksTab.webhookEndpoints', 'Webhook Endpoints')}</CardTitle>
+                                <CardDescription>{t('app.webhooksTab.receiveVerifyAndForwardInboundWebhooks', 'Receive, verify, and forward inbound webhooks.')}</CardDescription>
                             </div>
                             <Button onClick={() => setEndpointForm({ open: true, name: '', forward_url: '', filter_paths: '', retry_count: 3 })}>
-                                <Plus size={14} /> New Endpoint
+                                <Plus size={14} /> {t('app.webhooksTab.newEndpoint', 'New Endpoint')}
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
                         {endpoints.length === 0 ? (
-                            <EmptyState title="No webhook endpoints" description="Create an endpoint to receive webhooks." />
+                            <EmptyState title={t('app.webhooksTab.noWebhookEndpoints', 'No webhook endpoints')} description={t('app.webhooksTab.createAnEndpointToReceiveWebhooks', 'Create an endpoint to receive webhooks.')} />
                         ) : (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Slug</TableHead>
-                                        <TableHead>Forward URL</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead>{t('app.webhooksTab.name', 'Name')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.slug', 'Slug')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.forwardUrl', 'Forward URL')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.status', 'Status')}</TableHead>
+                                        <TableHead className="text-right">{t('app.webhooksTab.actions', 'Actions')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -177,9 +179,9 @@ export default function WebhooksTab() {
                                                         <Button variant="ghost" size="icon"><MoreVertical size={14} /></Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => openEndpoint(ep.id)}>View deliveries</DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => regenerateSecret(ep.id)}><RefreshCw size={12} className="mr-2" /> Regenerate secret</DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteEndpoint(ep.id)}>Delete</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => openEndpoint(ep.id)}>{t('app.webhooksTab.viewDeliveries', 'View deliveries')}</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => regenerateSecret(ep.id)}><RefreshCw size={12} className="mr-2" /> {t('app.webhooksTab.regenerateSecret', 'Regenerate secret')}</DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteEndpoint(ep.id)}>{t('app.webhooksTab.delete', 'Delete')}</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
@@ -195,29 +197,29 @@ export default function WebhooksTab() {
                     <CardHeader>
                         <div className="secrets__header">
                             <div>
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedEndpoint(null)}>← Back</Button>
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedEndpoint(null)}>{t('app.webhooksTab.back', '← Back')}</Button>
                                 <CardTitle className="mt-2">{selectedEndpoint.name}</CardTitle>
                                 <CardDescription>
-                                    POST to <code className="secrets__code">{receiverUrl}</code>
+                                    {t('app.webhooksTab.postTo', 'POST to')} <code className="secrets__code">{receiverUrl}</code>
                                 </CardDescription>
                             </div>
                             <Button variant="outline" onClick={() => regenerateSecret(selectedEndpoint.id)}>
-                                <RefreshCw size={14} /> Regenerate secret
+                                <RefreshCw size={14} /> {t('app.webhooksTab.regenerateSecret2', 'Regenerate secret')}
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
                         {deliveries.length === 0 ? (
-                            <EmptyState title="No deliveries yet" description="Send a test payload to see it here." />
+                            <EmptyState title={t('app.webhooksTab.noDeliveriesYet', 'No deliveries yet')} description={t('app.webhooksTab.sendATestPayloadToSee', 'Send a test payload to see it here.')} />
                         ) : (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Event ID</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Signature</TableHead>
-                                        <TableHead>Received</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead>{t('app.webhooksTab.eventId', 'Event ID')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.status2', 'Status')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.signature', 'Signature')}</TableHead>
+                                        <TableHead>{t('app.webhooksTab.received', 'Received')}</TableHead>
+                                        <TableHead className="text-right">{t('app.webhooksTab.actions2', 'Actions')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -228,7 +230,7 @@ export default function WebhooksTab() {
                                             <TableCell>{d.signature_valid === true ? 'Valid' : d.signature_valid === false ? 'Invalid' : '—'}</TableCell>
                                             <TableCell>{formatDate(d.received_at)}</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => replayDelivery(d.id)} title="Replay">
+                                                <Button variant="ghost" size="icon" onClick={() => replayDelivery(d.id)} title={t('app.webhooksTab.replay', 'Replay')}>
                                                     <ArrowRightLeft size={14} />
                                                 </Button>
                                             </TableCell>
@@ -241,27 +243,27 @@ export default function WebhooksTab() {
                 </Card>
             )}
 
-            <Modal open={endpointForm.open} onClose={() => setEndpointForm({ ...endpointForm, open: false })} title="New Webhook Endpoint">
-                <p className="sk-modal__subtitle">Create a slug, secret, and optional forward URL.</p>
+            <Modal open={endpointForm.open} onClose={() => setEndpointForm({ ...endpointForm, open: false })} title={t('app.webhooksTab.newWebhookEndpoint', 'New Webhook Endpoint')}>
+                <p className="sk-modal__subtitle">{t('app.webhooksTab.createASlugSecretAndOptional', 'Create a slug, secret, and optional forward URL.')}</p>
                 <form onSubmit={createEndpoint} className="space-y-4">
                         <div>
-                            <Label htmlFor="epName">Name</Label>
+                            <Label htmlFor="epName">{t('app.webhooksTab.name2', 'Name')}</Label>
                             <Input id="epName" value={endpointForm.name} onChange={(e) => setEndpointForm({ ...endpointForm, name: e.target.value })} required />
                         </div>
                         <div>
-                            <Label htmlFor="epForward">Forward URL (optional)</Label>
+                            <Label htmlFor="epForward">{t('app.webhooksTab.forwardUrlOptional', 'Forward URL (optional)')}</Label>
                             <Input id="epForward" type="url" value={endpointForm.forward_url} onChange={(e) => setEndpointForm({ ...endpointForm, forward_url: e.target.value })} />
                         </div>
                         <div>
-                            <Label htmlFor="epFilters">Filter paths (one per line, optional)</Label>
-                            <Textarea id="epFilters" value={endpointForm.filter_paths} onChange={(e) => setEndpointForm({ ...endpointForm, filter_paths: e.target.value })} placeholder="repository.full_name&#10;action" />
+                            <Label htmlFor="epFilters">{t('app.webhooksTab.filterPathsOnePerLineOptional', 'Filter paths (one per line, optional)')}</Label>
+                            <Textarea id="epFilters" value={endpointForm.filter_paths} onChange={(e) => setEndpointForm({ ...endpointForm, filter_paths: e.target.value })} placeholder={t('app.webhooksTab.repositoryFullNameAction', 'repository.full_name\naction')} />
                         </div>
                         <div>
-                            <Label htmlFor="epRetry">Retries</Label>
+                            <Label htmlFor="epRetry">{t('app.webhooksTab.retries', 'Retries')}</Label>
                             <Input id="epRetry" type="number" min={0} max={10} value={endpointForm.retry_count} onChange={(e) => setEndpointForm({ ...endpointForm, retry_count: e.target.value })} />
                         </div>
                         <div className="modal-actions">
-                            <Button type="submit">Create Endpoint</Button>
+                            <Button type="submit">{t('app.webhooksTab.createEndpoint', 'Create Endpoint')}</Button>
                         </div>
                     </form>
             </Modal>
@@ -269,19 +271,19 @@ export default function WebhooksTab() {
             <Modal
                 open={!!regeneratedSecret}
                 onClose={() => setRegeneratedSecret(null)}
-                title="Webhook Secret"
+                title={t('app.webhooksTab.webhookSecret', 'Webhook Secret')}
                 footer={(
-                    <Button onClick={() => setRegeneratedSecret(null)}>Done</Button>
+                    <Button onClick={() => setRegeneratedSecret(null)}>{t('app.webhooksTab.done', 'Done')}</Button>
                 )}
             >
-                <p className="sk-modal__subtitle">Copy this secret now. It will not be shown again.</p>
+                <p className="sk-modal__subtitle">{t('app.webhooksTab.copyThisSecretNowItWill', 'Copy this secret now. It will not be shown again.')}</p>
                 <div className="space-y-2">
-                        <Label>Endpoint</Label>
+                        <Label>{t('app.webhooksTab.endpoint', 'Endpoint')}</Label>
                         <Input readOnly value={regeneratedSecret?.name || ''} />
-                        <Label>Secret</Label>
+                        <Label>{t('app.webhooksTab.secret', 'Secret')}</Label>
                         <div className="flex gap-2">
                             <Input readOnly type="text" value={regeneratedSecret?.secret || ''} />
-                            <Button variant="outline" onClick={() => { copyToClipboard(regeneratedSecret?.secret || ''); toast.success('Copied') }}>
+                            <Button variant="outline" onClick={() => { copyToClipboard(regeneratedSecret?.secret || ''); toast.success(t('app.webhooksTab.copied', 'Copied')) }}>
                                 <Copy size={14} />
                             </Button>
                         </div>

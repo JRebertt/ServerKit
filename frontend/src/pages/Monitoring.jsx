@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Pill } from '@/components/ds';
 import { ProviderBrandIcon } from '../components/icons/ProviderBrands';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
+import { useTranslation } from 'react-i18next';
 import {
     Activity, Bell, Cpu, Gauge as GaugeIcon, HardDrive, MemoryStick,
     PlayCircle, RefreshCw, Settings,
@@ -45,11 +46,11 @@ const DEFAULT_THRESHOLDS = {
 // look broken. `brand` maps to the shared Connections icon set so a channel
 // wears the same face here as it does everywhere else in the panel.
 const CHANNEL_META = {
-    discord: { label: 'Discord', brand: 'chat_discord' },
-    slack: { label: 'Slack', brand: 'chat_slack' },
-    telegram: { label: 'Telegram', brand: 'chat_telegram' },
-    email: { label: 'Email', brand: 'smtp' },
-    generic_webhook: { label: 'Webhook', brand: 'chat_webhook' },
+    discord: { labelKey: 'app.monitoring.discord', label: 'Discord', brand: 'chat_discord' },
+    slack: { labelKey: 'app.monitoring.slack', label: 'Slack', brand: 'chat_slack' },
+    telegram: { labelKey: 'app.monitoring.telegram', label: 'Telegram', brand: 'chat_telegram' },
+    email: { labelKey: 'app.monitoring.email', label: 'Email', brand: 'smtp' },
+    generic_webhook: { labelKey: 'app.monitoring.webhook', label: 'Webhook', brand: 'chat_webhook' },
 };
 
 const RULE_ICONS = {
@@ -68,6 +69,7 @@ function formatNumber(value, digits = 1) {
 }
 
 const Monitoring = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [status, setStatus] = useState(null);
     const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS);
@@ -135,22 +137,22 @@ const Monitoring = () => {
         const metrics = status?.current_metrics || {};
         return [
             {
-                key: 'cpu_percent', label: 'CPU usage', unit: '%',
+                key: 'cpu_percent', labelKey: 'app.monitoring.cpuUsage', label: 'CPU usage', unit: '%',
                 current: metrics.cpu?.percent,
                 threshold: thresholdForm.cpu_percent,
             },
             {
-                key: 'memory_percent', label: 'Memory usage', unit: '%',
+                key: 'memory_percent', labelKey: 'app.monitoring.memoryUsage', label: 'Memory usage', unit: '%',
                 current: metrics.memory?.percent,
                 threshold: thresholdForm.memory_percent,
             },
             {
-                key: 'disk_percent', label: 'Disk usage', unit: '%',
+                key: 'disk_percent', labelKey: 'app.monitoring.diskUsage', label: 'Disk usage', unit: '%',
                 current: metrics.disk?.percent,
                 threshold: thresholdForm.disk_percent,
             },
             {
-                key: 'load_average', label: 'Load average', unit: '',
+                key: 'load_average', labelKey: 'app.monitoring.loadAverage', label: 'Load average', unit: '',
                 current: metrics.load_average?.['1min'],
                 threshold: thresholdForm.load_average,
             },
@@ -171,10 +173,10 @@ const Monitoring = () => {
         try {
             if (status?.enabled) {
                 await api.stopMonitoring();
-                toast.success('Monitoring stopped');
+                toast.success(t('app.monitoring.monitoringStopped', 'Monitoring stopped'));
             } else {
                 await api.startMonitoring();
-                toast.success('Monitoring started');
+                toast.success(t('app.monitoring.monitoringStarted', 'Monitoring started'));
             }
             await loadData();
         } catch (err) {
@@ -195,10 +197,10 @@ const Monitoring = () => {
                 if (configForm.enabled) await api.startMonitoring();
                 else await api.stopMonitoring();
             }
-            toast.success('Monitoring delivery saved');
+            toast.success(t('app.monitoring.monitoringDeliverySaved', 'Monitoring delivery saved'));
             await loadData();
         } catch (err) {
-            toast.error(err.message || 'Failed to save monitoring settings');
+            toast.error(err.message || t('app.monitoring.failedToSaveMonitoringSettings', 'Failed to save monitoring settings'));
         } finally {
             setSavingConfig(false);
         }
@@ -214,10 +216,10 @@ const Monitoring = () => {
                 disk_percent: Number(thresholdForm.disk_percent),
                 load_average: Number(thresholdForm.load_average),
             });
-            toast.success('Alert rules saved');
+            toast.success(t('app.monitoring.alertRulesSaved', 'Alert rules saved'));
             await loadData();
         } catch (err) {
-            toast.error(err.message || 'Failed to save alert rules');
+            toast.error(err.message || t('app.monitoring.failedToSaveAlertRules', 'Failed to save alert rules'));
         } finally {
             setSavingThresholds(false);
         }
@@ -234,14 +236,14 @@ const Monitoring = () => {
                 const res = await loadSpeedTest();
                 const latest = res?.last_result;
                 if (latest?.tested_at && latest.tested_at !== previousTestedAt) {
-                    if (latest.success === false) toast.error(latest.error || 'Speed test failed');
-                    else toast.success('Speed test complete');
+                    if (latest.success === false) toast.error(latest.error || t('app.monitoring.speedTestFailed', 'Speed test failed'));
+                    else toast.success(t('app.monitoring.speedTestComplete', 'Speed test complete'));
                     return;
                 }
             }
-            toast.warning('Speed test is still running — refresh in a moment');
+            toast.warning(t('app.monitoring.speedTestIsStillRunningRefresh', 'Speed test is still running — refresh in a moment'));
         } catch (err) {
-            toast.error(err.message || 'Failed to start speed test');
+            toast.error(err.message || t('app.monitoring.failedToStartSpeedTest', 'Failed to start speed test'));
         } finally {
             setSpeedTestRunning(false);
         }
@@ -260,7 +262,7 @@ const Monitoring = () => {
                     onClick={() => { loadData(); setRefreshKey((k) => k + 1); }}
                 >
                     <RefreshCw size={16} />
-                    Refresh
+                    {t('app.monitoring.refresh', 'Refresh')}
                 </Button>
                 <Button
                     size="sm"
@@ -268,8 +270,8 @@ const Monitoring = () => {
                     onClick={handleToggleMonitoring}
                 >
                     {status?.enabled
-                        ? <><Activity size={16} />Stop Monitoring</>
-                        : <><PlayCircle size={16} />Start Monitoring</>}
+                        ? <><Activity size={16} />{t('app.monitoring.stopMonitoring', 'Stop Monitoring')}</>
+                        : <><PlayCircle size={16} />{t('app.monitoring.startMonitoring', 'Start Monitoring')}</>}
                 </Button>
                 <ServerScopePicker
                     scope={scope}
@@ -285,7 +287,7 @@ const Monitoring = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner monitoring-page">
-                <EmptyState loading loadingVariant="chart" size="lg" title="Loading monitoring data" />
+                <EmptyState loading loadingVariant="chart" size="lg" title={t('app.monitoring.loadingMonitoringData', 'Loading monitoring data')} />
             </div>
         );
     }
@@ -320,8 +322,8 @@ const Monitoring = () => {
                     <form className="monitoring-panel" onSubmit={handleSaveThresholds}>
                         <div className="monitoring-panel__header">
                             <div>
-                                <h3>This server</h3>
-                                <span className="mon-panel-sub">Limits for the machine running the panel</span>
+                                <h3>{t('app.monitoring.thisServer', 'This server')}</h3>
+                                <span className="mon-panel-sub">{t('app.monitoring.limitsForTheMachineRunningThe', 'Limits for the machine running the panel')}</span>
                             </div>
                             <Button type="submit" size="sm" disabled={savingThresholds}>
                                 {savingThresholds ? 'Saving…' : 'Save rules'}
@@ -343,7 +345,7 @@ const Monitoring = () => {
                                             </div>
                                         </div>
                                         <div className="metric-rule-editor__threshold">
-                                            <Label htmlFor={`threshold-${rule.key}`}>Trigger above</Label>
+                                            <Label htmlFor={`threshold-${rule.key}`}>{t('app.monitoring.triggerAbove', 'Trigger above')}</Label>
                                             <Input
                                                 id={`threshold-${rule.key}`}
                                                 type="number"
@@ -371,8 +373,8 @@ const Monitoring = () => {
                         <form className="monitoring-panel" onSubmit={handleSaveConfig}>
                             <div className="monitoring-panel__header">
                                 <div>
-                                    <h3>Scheduler</h3>
-                                    <span className="mon-panel-sub">How often the checks run</span>
+                                    <h3>{t('app.monitoring.scheduler', 'Scheduler')}</h3>
+                                    <span className="mon-panel-sub">{t('app.monitoring.howOftenTheChecksRun', 'How often the checks run')}</span>
                                 </div>
                                 <Button type="submit" size="sm" disabled={savingConfig}>
                                     {savingConfig ? 'Saving…' : 'Save'}
@@ -380,7 +382,7 @@ const Monitoring = () => {
                             </div>
                             <div className="monitoring-switch-row">
                                 <div>
-                                    <strong>Run resource checks</strong>
+                                    <strong>{t('app.monitoring.runResourceChecks', 'Run resource checks')}</strong>
                                     <span>{configForm.enabled ? 'Enabled' : 'Paused'}</span>
                                 </div>
                                 <Switch
@@ -389,7 +391,7 @@ const Monitoring = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <Label htmlFor="monitoring-interval">Check interval</Label>
+                                <Label htmlFor="monitoring-interval">{t('app.monitoring.checkInterval', 'Check interval')}</Label>
                                 <Input
                                     id="monitoring-interval"
                                     type="number"
@@ -398,19 +400,19 @@ const Monitoring = () => {
                                     value={configForm.check_interval}
                                     onChange={(e) => setConfigForm({ ...configForm, check_interval: e.target.value })}
                                 />
-                                <span className="form-help">Seconds between checks.</span>
+                                <span className="form-help">{t('app.monitoring.secondsBetweenChecks', 'Seconds between checks.')}</span>
                             </div>
                         </form>
 
                         <section className="monitoring-panel">
                             <div className="monitoring-panel__header">
                                 <div>
-                                    <h3>Delivery</h3>
-                                    <span className="mon-panel-sub">Where an alert goes when it fires</span>
+                                    <h3>{t('app.monitoring.delivery', 'Delivery')}</h3>
+                                    <span className="mon-panel-sub">{t('app.monitoring.whereAnAlertGoesWhenIt', 'Where an alert goes when it fires')}</span>
                                 </div>
                                 <Button size="sm" asChild>
                                     <Link to="/settings/notifications">
-                                        <Settings size={14} /> Configure
+                                        <Settings size={14} /> {t('app.monitoring.configure', 'Configure')}
                                     </Link>
                                 </Button>
                             </div>

@@ -9,9 +9,9 @@ import { Archive, Clock, Cloud, LayoutGrid, Settings } from 'lucide-react';
 // Snapshots ("show me every file") — two different questions, and the summary
 // band that belongs to the first used to repeat above all of them.
 export const BACKUP_TABS = [
-    { to: '/backups', label: 'Overview', end: true, icon: <LayoutGrid size={15} /> },
-    { to: '/backups/schedules', label: 'Schedules', icon: <Clock size={15} /> },
-    { to: '/backups/snapshots', label: 'Snapshots', icon: <Archive size={15} /> },
-    { to: '/backups/storage', label: 'Storage', icon: <Cloud size={15} /> },
-    { to: '/backups/settings', label: 'Settings', icon: <Settings size={15} /> },
+    { to: '/backups', labelKey: 'app.backupTabs.overview', label: 'Overview', end: true, icon: <LayoutGrid size={15} /> },
+    { to: '/backups/schedules', labelKey: 'app.backupTabs.schedules', label: 'Schedules', icon: <Clock size={15} /> },
+    { to: '/backups/snapshots', labelKey: 'app.backupTabs.snapshots', label: 'Snapshots', icon: <Archive size={15} /> },
+    { to: '/backups/storage', labelKey: 'app.backupTabs.storage', label: 'Storage', icon: <Cloud size={15} /> },
+    { to: '/backups/settings', labelKey: 'app.backupTabs.settings', label: 'Settings', icon: <Settings size={15} /> },
 ];

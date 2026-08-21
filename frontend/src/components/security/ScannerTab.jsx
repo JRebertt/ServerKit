@@ -14,6 +14,7 @@ import { Zap, Radar, FolderSearch, Download, Box, FileCode2, Trash2, Search } fr
 import EmptyState from '@/components/EmptyState';
 import { useConfirm } from '@/hooks/useConfirm';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Scan status cadence, and the faster cadence while a scan job runs.
 const SCAN_STATUS_POLL_MS = 5000;
@@ -123,6 +124,7 @@ const HISTORY_VIEWS = [
 ];
 
 const ScannerTab = () => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
     const [scanPath, setScanPath] = useState('/var/www');
@@ -331,9 +333,9 @@ const ScannerTab = () => {
 
     async function handleDeleteRule(name) {
         if (!await confirm({
-            title: 'Delete scanner rule',
-            message: `Delete custom rule file ${name}?`,
-            confirmText: 'Delete rule',
+            title: t('app.scannerTab.deleteScannerRule', 'Delete scanner rule'),
+            message: t('app.scannerTab.deleteCustomRuleFile', 'Delete custom rule file {{name}}?', { name: name }),
+            confirmText: t('app.scannerTab.deleteRule', 'Delete rule'),
         })) return;
         try {
             await api.deleteYaraRule(name);
@@ -350,7 +352,7 @@ const ScannerTab = () => {
     const findingColumns = [
         {
             key: 'rule',
-            header: 'Rule',
+            headerKey: 'app.scannerTab.rule', header: 'Rule',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -361,7 +363,7 @@ const ScannerTab = () => {
         },
         {
             key: 'severity',
-            header: 'Severity',
+            headerKey: 'app.scannerTab.severity', header: 'Severity',
             sortable: true,
             type: 'enum',
             // Both accessors spelled out: `value` is the word a rule matches,
@@ -379,7 +381,7 @@ const ScannerTab = () => {
         },
         {
             key: 'file',
-            header: 'File',
+            headerKey: 'app.scannerTab.file', header: 'File',
             sortable: true,
             type: 'text',
             value: (f) => f.file || '',
@@ -389,7 +391,7 @@ const ScannerTab = () => {
         },
         {
             key: 'match',
-            header: 'Match',
+            headerKey: 'app.scannerTab.match', header: 'Match',
             // The row field is `matched`, not `match`, so without an accessor
             // the column has nothing behind it: no filter, and an export column
             // of empty strings.
@@ -400,7 +402,7 @@ const ScannerTab = () => {
         },
         {
             key: 'source',
-            header: 'Source',
+            headerKey: 'app.scannerTab.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (f) => f.source || 'unknown',
@@ -430,7 +432,7 @@ const ScannerTab = () => {
     const historyColumns = [
         {
             key: 'date',
-            header: 'Date',
+            headerKey: 'app.scannerTab.date', header: 'Date',
             sortable: true,
             hideable: false,
             // Declared, not inferred: the sorter wants epoch ms, and letting
@@ -447,7 +449,7 @@ const ScannerTab = () => {
         },
         {
             key: 'directory',
-            header: 'Directory',
+            headerKey: 'app.scannerTab.directory', header: 'Directory',
             sortable: true,
             sortValue: (scan) => scan.directory || '',
             cellClassName: 'sk-cell-mono sec-path',
@@ -455,7 +457,7 @@ const ScannerTab = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.scannerTab.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: (scan) => scan.status || 'unknown',
@@ -469,7 +471,7 @@ const ScannerTab = () => {
         },
         {
             key: 'threats',
-            header: 'Threats',
+            headerKey: 'app.scannerTab.threats', header: 'Threats',
             sortable: true,
             type: 'num',
             // A scan with no infected list reads 0 rather than blank, so the
@@ -535,15 +537,15 @@ const ScannerTab = () => {
                     <div className="scan-card-icon">
                         <Zap size={20} />
                     </div>
-                    <h4>Quick Scan</h4>
-                    <span className="scan-desc">Scan common web directories</span>
+                    <h4>{t('app.scannerTab.quickScan', 'Quick Scan')}</h4>
+                    <span className="scan-desc">{t('app.scannerTab.scanCommonWebDirectories', 'Scan common web directories')}</span>
                     <Button
                         variant="default"
                         size="sm"
                         onClick={(e) => { e.stopPropagation(); handleStartScan('quick'); }}
                         disabled={isScanning || scanning}
                     >
-                        Start Scan
+                        {t('app.scannerTab.startScan', 'Start Scan')}
                     </Button>
                 </div>
 
@@ -551,15 +553,15 @@ const ScannerTab = () => {
                     <div className="scan-card-icon">
                         <Radar size={20} />
                     </div>
-                    <h4>Full Scan</h4>
-                    <span className="scan-desc">Scan entire system (slow)</span>
+                    <h4>{t('app.scannerTab.fullScan', 'Full Scan')}</h4>
+                    <span className="scan-desc">{t('app.scannerTab.scanEntireSystemSlow', 'Scan entire system (slow)')}</span>
                     <Button
                         variant="default"
                         size="sm"
                         onClick={(e) => { e.stopPropagation(); handleStartScan('full'); }}
                         disabled={isScanning || scanning}
                     >
-                        Start Scan
+                        {t('app.scannerTab.startScan2', 'Start Scan')}
                     </Button>
                 </div>
 
@@ -567,8 +569,8 @@ const ScannerTab = () => {
                     <div className="scan-card-icon">
                         <FolderSearch size={20} />
                     </div>
-                    <h4>Custom Path</h4>
-                    <span className="scan-desc">Scan a specific directory</span>
+                    <h4>{t('app.scannerTab.customPath', 'Custom Path')}</h4>
+                    <span className="scan-desc">{t('app.scannerTab.scanASpecificDirectory', 'Scan a specific directory')}</span>
                     <div className="scan-custom-input">
                         <Input
                             type="text"
@@ -584,7 +586,7 @@ const ScannerTab = () => {
                             onClick={() => handleStartScan('custom')}
                             disabled={isScanning || scanning || !scanPath}
                         >
-                            Scan
+                            {t('app.scannerTab.scan', 'Scan')}
                         </Button>
                     </div>
                 </div>
@@ -593,8 +595,8 @@ const ScannerTab = () => {
                     <div className="scan-card-icon">
                         <Box size={20} />
                     </div>
-                    <h4>Scan an App</h4>
-                    <span className="scan-desc">Web-shell + malware scan of a docroot</span>
+                    <h4>{t('app.scannerTab.scanAnApp', 'Scan an App')}</h4>
+                    <span className="scan-desc">{t('app.scannerTab.webShellMalwareScanOfA', 'Web-shell + malware scan of a docroot')}</span>
                     <div className="scan-custom-input">
                         <select
                             className="scan-app-select"
@@ -602,7 +604,7 @@ const ScannerTab = () => {
                             onChange={(e) => setSelectedApp(e.target.value)}
                             disabled={jobRunning}
                         >
-                            <option value="">Select an app…</option>
+                            <option value="">{t('app.scannerTab.selectAnApp', 'Select an app…')}</option>
                             {apps.map((a) => (
                                 <option key={a.id} value={a.id}>{a.name}</option>
                             ))}
@@ -622,7 +624,7 @@ const ScannerTab = () => {
             <div className="scan-toolbar">
                 <Button variant="outline" size="sm" onClick={handleToggleRules}>
                     <FileCode2 size={14} />
-                    Web-shell Rules
+                    {t('app.scannerTab.webShellRules', 'Web-shell Rules')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleUpdateDefinitions} disabled={updating}>
                     <Download size={14} />
@@ -633,7 +635,7 @@ const ScannerTab = () => {
             {showRules && (
                 <div className="card sec-flush yara-rules-card">
                     <div className="card-header">
-                        <h3>Web-shell Detection Rules{rules && <span className="sec-count"> · {rules.builtin_count} builtin</span>}</h3>
+                        <h3>{t('app.scannerTab.webShellDetectionRules', 'Web-shell Detection Rules')}{rules && <span className="sec-count"> · {rules.builtin_count} builtin</span>}</h3>
                         <div className="card-actions">
                             <input
                                 ref={ruleFileRef}
@@ -643,22 +645,21 @@ const ScannerTab = () => {
                                 onChange={handleRuleFileChosen}
                             />
                             <Button variant="outline" size="sm" onClick={() => ruleFileRef.current?.click()}>
-                                Upload .yar
+                                {t('app.scannerTab.uploadYar', 'Upload .yar')}
                             </Button>
                         </div>
                     </div>
                     <div className="card-body">
                         {!rules ? (
-                            <div className="loading-sm">Loading...</div>
+                            <div className="loading-sm">{t('app.scannerTab.loading', 'Loading...')}</div>
                         ) : (
                             <>
                                 <p className="sec-hint sec-hint--lead">
-                                    {rules.builtin_count} curated web-shell indicators run on every scan
-                                    (engine: <span className="sec-mono">{rules.engine}</span>).
+                                    {rules.builtin_count} {t('app.scannerTab.curatedWebShellIndicatorsRunOn', 'curated web-shell indicators run on every scan (engine:')} <span className="sec-mono">{rules.engine}</span>).
                                     {rules.engine === 'fallback' && ' Install yara to enable custom .yar rule files.'}
                                 </p>
                                 {rules.custom.length === 0 ? (
-                                    <p className="sec-hint">No custom rule files. Upload a .yar file (max 64 KB) to extend the rule set.</p>
+                                    <p className="sec-hint">{t('app.scannerTab.noCustomRuleFilesUploadA', 'No custom rule files. Upload a .yar file (max 64 KB) to extend the rule set.')}</p>
                                 ) : (
                                     <div className="yara-custom-list">
                                         {rules.custom.map((c) => (
@@ -666,7 +667,7 @@ const ScannerTab = () => {
                                                 <span className="sec-mono">{c.name}</span>
                                                 <span className="sec-faint sec-mono">{c.size} B</span>
                                                 {!rules.custom_rules_active && (
-                                                    <span className="sec-state sec-state--gray">inactive — yara not installed</span>
+                                                    <span className="sec-state sec-state--gray">{t('app.scannerTab.inactiveYaraNotInstalled', 'inactive — yara not installed')}</span>
                                                 )}
                                                 <Button variant="ghost" size="sm" onClick={() => handleDeleteRule(c.name)}>
                                                     <Trash2 size={14} />
@@ -684,10 +685,10 @@ const ScannerTab = () => {
             {(isScanning || jobRunning) && (
                 <div className="card scan-progress">
                     <div className="card-header">
-                        <h3>Scan in Progress</h3>
+                        <h3>{t('app.scannerTab.scanInProgress', 'Scan in Progress')}</h3>
                         {isScanning && (
                             <Button variant="destructive" size="sm" onClick={handleCancelScan}>
-                                Cancel
+                                {t('app.scannerTab.cancel', 'Cancel')}
                             </Button>
                         )}
                     </div>
@@ -696,16 +697,16 @@ const ScannerTab = () => {
                             <div className="spinner"></div>
                             <div>
                                 {scanStatus.directory && (
-                                    <p><strong>Scanning:</strong> <span className="sec-mono">{scanStatus.directory}</span></p>
+                                    <p><strong>{t('app.scannerTab.scanning', 'Scanning:')}</strong> <span className="sec-mono">{scanStatus.directory}</span></p>
                                 )}
                                 {scanStatus.started_at && (
-                                    <p><strong>Started:</strong> <span className="sec-mono">{new Date(scanStatus.started_at).toLocaleString()}</span></p>
+                                    <p><strong>{t('app.scannerTab.started', 'Started:')}</strong> <span className="sec-mono">{new Date(scanStatus.started_at).toLocaleString()}</span></p>
                                 )}
                                 {jobRunning && (
-                                    <p><strong>Job:</strong> <span className="sec-mono">{scanJob.id} · {scanJob.status}</span></p>
+                                    <p><strong>{t('app.scannerTab.job', 'Job:')}</strong> <span className="sec-mono">{scanJob.id} · {scanJob.status}</span></p>
                                 )}
                                 {scanStatus.files_scanned > 0 && (
-                                    <p><strong>Files scanned:</strong> <span className="sec-mono">{scanStatus.files_scanned}</span></p>
+                                    <p><strong>{t('app.scannerTab.filesScanned', 'Files scanned:')}</strong> <span className="sec-mono">{scanStatus.files_scanned}</span></p>
                                 )}
                             </div>
                         </div>
@@ -737,7 +738,7 @@ const ScannerTab = () => {
                         <div className="sec-tableactions">
                             {/* Dismiss throws the findings away rather than
                                 narrowing them, so it stays out of the chrome. */}
-                            <Button variant="outline" size="sm" onClick={() => setFindings([])}>Dismiss</Button>
+                            <Button variant="outline" size="sm" onClick={() => setFindings([])}>{t('app.scannerTab.dismiss', 'Dismiss')}</Button>
                         </div>
                     </div>
                     <GridChips {...findingsChrome.chipProps} />
@@ -784,8 +785,8 @@ const ScannerTab = () => {
                     <div className="card-body">
                         <EmptyState
                             icon={Search}
-                            title="No scans have been run yet."
-                            description="Start a scan above to check for threats."
+                            title={t('app.scannerTab.noScansHaveBeenRunYet', 'No scans have been run yet.')}
+                            description={t('app.scannerTab.startAScanAboveToCheck', 'Start a scan above to check for threats.')}
                         />
                     </div>
                 ) : (

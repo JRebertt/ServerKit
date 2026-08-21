@@ -2,6 +2,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Drawer } from './Drawer';
+import { useTranslation } from 'react-i18next';
 
 // Schema-driven advanced-filter slide-over, shared across tables/lists. A page
 // passes a `groups` schema plus a controlled `value`/`onChange`, and the drawer
@@ -87,6 +88,7 @@ export function FilterDrawer({
     children,
     onClear,
 }) {
+    const { t } = useTranslation();
     const isOn = (group, optValue) => (
         group.type === 'multi'
             ? (value[group.key] || []).includes(optValue)
@@ -114,7 +116,7 @@ export function FilterDrawer({
             open={open}
             onOpenChange={onOpenChange}
             title={title}
-            subtitle={active ? `${active} active` : 'no filters'}
+            subtitle={active ? `${active} active` : t('app.filterDrawer.noFilters', 'no filters')}
             icon={<SlidersHorizontal size={16} />}
             width={width}
         >
@@ -146,7 +148,7 @@ export function FilterDrawer({
                 {children && <div className="sk-filter__extra">{children}</div>}
                 <div className="sk-filter__footer">
                     <Button variant="ghost" size="sm" onClick={clearAll} disabled={!active}>
-                        Clear all
+                        {t('app.filterDrawer.clearAll', 'Clear all')}
                     </Button>
                     <Button size="sm" onClick={() => onOpenChange(false)}>
                         {resultCount == null

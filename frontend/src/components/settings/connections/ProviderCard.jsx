@@ -7,8 +7,10 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ProviderBrandIcon } from '../../icons/ProviderBrands';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 export default function ProviderCard({ provider, summary, onManage }) {
+    const { t } = useTranslation();
     const comingSoon = provider.comingSoon;
     const connected = !comingSoon && summary?.connected;
 
@@ -49,7 +51,7 @@ export default function ProviderCard({ provider, summary, onManage }) {
                 ) : <span />}
 
                 {comingSoon ? (
-                    <span className="conn-card__soon-tag">Coming soon</span>
+                    <span className="conn-card__soon-tag">{t('app.providerCard.comingSoon', 'Coming soon')}</span>
                 ) : (
                     <Button variant={connected ? 'outline' : 'default'} size="sm" onClick={() => onManage(provider)}>
                         {connected ? 'Manage' : 'Connect'}

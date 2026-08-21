@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 // Saved-view picker (CRM style: Twenty view switcher / Frappe view dropdown).
 // Lists built-in views plus the user's saved views for the page; clicking a
@@ -14,6 +15,7 @@ import { useToast } from '@/contexts/ToastContext';
 //   const views = useTableViews({ page, builtinViews, capture, apply });
 //   <ViewMenu views={views} />
 export function ViewMenu({ views, className }) {
+    const { t } = useTranslation();
     const {
         builtinViews, userViews, activeView, isDirty,
         applyView, saveView, updateActiveView, toggleDefault, removeView, resetView,
@@ -30,9 +32,9 @@ export function ViewMenu({ views, className }) {
         try {
             await saveView(trimmed);
             setName('');
-            toast.success(`View "${trimmed}" saved`);
+            toast.success(t('app.viewMenu.viewSaved', 'View "{{trimmed}}" saved', { trimmed: trimmed }));
         } catch (err) {
-            toast.error(err?.data?.error || err?.message || 'Could not save the view');
+            toast.error(err?.data?.error || err?.message || t('app.viewMenu.couldNotSaveTheView', 'Could not save the view'));
         } finally {
             setSaving(false);
         }
@@ -41,18 +43,18 @@ export function ViewMenu({ views, className }) {
     const handleUpdate = async () => {
         try {
             await updateActiveView();
-            toast.success(`View "${activeView.name}" updated`);
+            toast.success(t('app.viewMenu.viewUpdated', 'View "{{name}}" updated', { name: activeView.name }));
         } catch (err) {
-            toast.error(err?.data?.error || err?.message || 'Could not update the view');
+            toast.error(err?.data?.error || err?.message || t('app.viewMenu.couldNotUpdateTheView', 'Could not update the view'));
         }
     };
 
     const handleDelete = async (view) => {
         try {
             await removeView(view);
-            toast.success(`View "${view.name}" deleted`);
+            toast.success(t('app.viewMenu.viewDeleted', 'View "{{name}}" deleted', { name: view.name }));
         } catch (err) {
-            toast.error(err?.data?.error || err?.message || 'Could not delete the view');
+            toast.error(err?.data?.error || err?.message || t('app.viewMenu.couldNotDeleteTheView', 'Could not delete the view'));
         }
     };
 
@@ -78,8 +80,8 @@ export function ViewMenu({ views, className }) {
                         type="button"
                         className={cn('sk-viewmenu__star', view.is_default && 'is-on')}
                         onClick={() => toggleDefault(view)}
-                        title={view.is_default ? 'Remove as default' : 'Set as default view'}
-                        aria-label={view.is_default ? 'Remove as default' : 'Set as default view'}
+                        title={view.is_default ? t('app.viewMenu.removeAsDefault', 'Remove as default') : t('app.viewMenu.setAsDefaultView', 'Set as default view')}
+                        aria-label={view.is_default ? t('app.viewMenu.removeAsDefault2', 'Remove as default') : t('app.viewMenu.setAsDefaultView2', 'Set as default view')}
                         aria-pressed={view.is_default}
                     >
                         <Star size={13} />
@@ -88,8 +90,8 @@ export function ViewMenu({ views, className }) {
                         type="button"
                         className="sk-viewmenu__delete"
                         onClick={() => handleDelete(view)}
-                        title={`Delete "${view.name}"`}
-                        aria-label={`Delete view ${view.name}`}
+                        title={t('app.viewMenu.delete', 'Delete "{{name}}"', { name: view.name })}
+                        aria-label={t('app.viewMenu.deleteView', 'Delete view {{name}}', { name: view.name })}
                     >
                         <Trash2 size={13} />
                     </button>
@@ -108,20 +110,20 @@ export function ViewMenu({ views, className }) {
                 >
                     <LayoutList aria-hidden="true" />
                     {activeView ? activeView.name : 'Views'}
-                    {isDirty && <span className="sk-viewmenu__dot" title="Modified — not saved to this view" />}
+                    {isDirty && <span className="sk-viewmenu__dot" title={t('app.viewMenu.modifiedNotSavedToThisView', 'Modified — not saved to this view')} />}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="sk-tablemenu sk-viewmenu">
                 {builtinViews.length > 0 && (
                     <>
-                        <div className="sk-tablemenu__title">Built in</div>
+                        <div className="sk-tablemenu__title">{t('app.viewMenu.builtIn', 'Built in')}</div>
                         <div className="sk-tablemenu__list">{builtinViews.map(row)}</div>
                     </>
                 )}
-                <div className="sk-tablemenu__title">Saved views</div>
+                <div className="sk-tablemenu__title">{t('app.viewMenu.savedViews', 'Saved views')}</div>
                 {userViews.length === 0 ? (
                     <div className="sk-tablemenu__empty">
-                        No saved views yet — tune the table, then save it below.
+                        {t('app.viewMenu.noSavedViewsYetTuneThe', 'No saved views yet — tune the table, then save it below.')}
                     </div>
                 ) : (
                     <div className="sk-tablemenu__list">{userViews.map(row)}</div>
@@ -130,11 +132,11 @@ export function ViewMenu({ views, className }) {
                     <div className="sk-viewmenu__update">
                         {!activeView.builtin && (
                             <Button variant="ghost" size="sm" onClick={handleUpdate}>
-                                Update &ldquo;{activeView.name}&rdquo; with changes
+                                {t('app.viewMenu.update', 'Update “')}{activeView.name}{t('app.viewMenu.withChanges', '” with changes')}
                             </Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={resetView}>
-                            Reset to saved
+                            {t('app.viewMenu.resetToSaved', 'Reset to saved')}
                         </Button>
                     </div>
                 )}
@@ -144,12 +146,12 @@ export function ViewMenu({ views, className }) {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-                        placeholder="Save current as…"
-                        aria-label="New view name"
+                        placeholder={t('app.viewMenu.saveCurrentAs', 'Save current as…')}
+                        aria-label={t('app.viewMenu.newViewName', 'New view name')}
                         maxLength={120}
                     />
                     <Button size="sm" onClick={handleSave} disabled={!name.trim() || saving}>
-                        Save
+                        {t('app.viewMenu.save', 'Save')}
                     </Button>
                 </div>
             </PopoverContent>

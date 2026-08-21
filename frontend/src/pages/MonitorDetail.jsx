@@ -32,14 +32,15 @@ import { Button } from '@/components/ui/button';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const POLL_MS = 15000;
 
 const SECTIONS = [
-    { value: 'performance', label: 'Performance', icon: <Activity size={14} /> },
-    { value: 'uptime', label: 'Uptime', icon: <BarChart3 size={14} /> },
-    { value: 'checks', label: 'Check log', icon: <Rows3 size={14} /> },
-    { value: 'config', label: 'Configuration', icon: <SlidersHorizontal size={14} /> },
+    { value: 'performance', labelKey: 'app.monitorDetail.performance', label: 'Performance', icon: <Activity size={14} /> },
+    { value: 'uptime', labelKey: 'app.monitorDetail.uptime', label: 'Uptime', icon: <BarChart3 size={14} /> },
+    { value: 'checks', labelKey: 'app.monitorDetail.checkLog', label: 'Check log', icon: <Rows3 size={14} /> },
+    { value: 'config', labelKey: 'app.monitorDetail.configuration', label: 'Configuration', icon: <SlidersHorizontal size={14} /> },
 ];
 
 const RANGES = [
@@ -128,6 +129,7 @@ function certDaysLeft(iso) {
 }
 
 export default function MonitorDetail() {
+    const { t } = useTranslation();
     const { monitorId } = useParams();
     const navigate = useNavigate();
     const toast = useToast();
@@ -206,7 +208,7 @@ export default function MonitorDetail() {
     const checkColumns = useMemo(() => [
         {
             key: 'checked_at',
-            header: 'Time',
+            headerKey: 'app.monitorDetail.time', header: 'Time',
             sortable: true,
             hideable: false,
             type: 'date',
@@ -220,7 +222,7 @@ export default function MonitorDetail() {
             // sharing one column — so one of the two was always filtering on
             // something the row did not show.
             key: 'status',
-            header: 'Result',
+            headerKey: 'app.monitorDetail.result', header: 'Result',
             sortable: true,
             type: 'enum',
             // No `enumOrder`: the pick-list is built from the statuses this
@@ -240,7 +242,7 @@ export default function MonitorDetail() {
             // pick-list. A probe that never answered has no code and reads
             // '—', which is a value you can filter on rather than a blank.
             key: 'status_code',
-            header: 'Code',
+            headerKey: 'app.monitorDetail.code', header: 'Code',
             sortable: true,
             type: 'enum',
             value: (c) => (c.status_code == null ? '—' : String(c.status_code)),
@@ -250,7 +252,7 @@ export default function MonitorDetail() {
         },
         {
             key: 'response_time',
-            header: 'Latency',
+            headerKey: 'app.monitorDetail.latency', header: 'Latency',
             sortable: true,
             type: 'num',
             unit: ' ms',
@@ -265,7 +267,7 @@ export default function MonitorDetail() {
             // which is identical on every row of one monitor's log, so a rule
             // reading what the cell renders would match all rows or none.
             key: 'error',
-            header: 'Detail',
+            headerKey: 'app.monitorDetail.detail', header: 'Detail',
             type: 'text',
             value: (c) => c.error || '',
             cellClassName: 'mon-checkdetail',
@@ -293,20 +295,20 @@ export default function MonitorDetail() {
     // first paint rather than appearing once the monitor resolves.
     if (loading && !monitor) {
         return (
-            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title="Monitor">
-                <EmptyState loading loadingVariant="detail" title="Loading monitor" />
+            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title={t('app.monitorDetail.monitor', 'Monitor')}>
+                <EmptyState loading loadingVariant="detail" title={t('app.monitorDetail.loadingMonitor', 'Loading monitor')} />
             </PageLayout>
         );
     }
 
     if (notFound || !monitor) {
         return (
-            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title="Monitor">
+            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title={t('app.monitorDetail.monitor2', 'Monitor')}>
                 <EmptyState
                     icon={ShieldAlert}
-                    title="Monitor not found"
-                    description="It may have been deleted."
-                    action={<Button onClick={() => navigate('/monitoring/monitors')}>Back to monitors</Button>}
+                    title={t('app.monitorDetail.monitorNotFound', 'Monitor not found')}
+                    description={t('app.monitorDetail.itMayHaveBeenDeleted', 'It may have been deleted.')}
+                    action={<Button onClick={() => navigate('/monitoring/monitors')}>{t('app.monitorDetail.backToMonitors', 'Back to monitors')}</Button>}
                 />
             </PageLayout>
         );
@@ -331,7 +333,7 @@ export default function MonitorDetail() {
             if (successMessage) toast.success(successMessage);
             await load();
         } catch (err) {
-            toast.error(err.message || 'Action failed');
+            toast.error(err.message || t('app.monitorDetail.actionFailed', 'Action failed'));
         } finally {
             setBusy(false);
         }
@@ -340,7 +342,7 @@ export default function MonitorDetail() {
     const onCheckNow = () => act(async () => {
         const res = await api.runMonitorCheck(monitor.id);
         const check = res?.check;
-        if (check?.status === 'up') toast.success(`Up in ${check.response_time ?? '—'} ms`);
+        if (check?.status === 'up') toast.success(t('app.monitorDetail.upIn', 'Up in {{duration}} ms', { duration: check.response_time ?? '—' }));
         else toast.warning(`${check?.status || 'failed'}${check?.error ? ` — ${check.error}` : ''}`);
     });
 
@@ -351,18 +353,18 @@ export default function MonitorDetail() {
 
     const onDelete = async () => {
         const ok = await confirm({
-            title: 'Delete this monitor?',
-            message: `“${monitor.name}” and its check history will be removed. Any open incident is resolved first.`,
-            confirmText: 'Delete',
+            title: t('app.monitorDetail.deleteThisMonitor', 'Delete this monitor?'),
+            message: t('app.monitorDetail.andItsCheckHistoryWillBe', '“{{name}}” and its check history will be removed. Any open incident is resolved first.', { name: monitor.name }),
+            confirmText: t('app.monitorDetail.delete', 'Delete'),
             variant: 'danger',
         });
         if (!ok) return;
         try {
             await api.deleteMonitor(monitor.id);
-            toast.success('Monitor deleted');
+            toast.success(t('app.monitorDetail.monitorDeleted', 'Monitor deleted'));
             navigate('/monitoring/monitors');
         } catch (err) {
-            toast.error(err.message || 'Could not delete the monitor');
+            toast.error(err.message || t('app.monitorDetail.couldNotDeleteTheMonitor', 'Could not delete the monitor'));
         }
     };
 
@@ -377,10 +379,10 @@ export default function MonitorDetail() {
                     <FavoriteStar type="monitor" id={monitor.id} path={`/monitoring/monitors/${monitor.id}`} label={monitor.name} />
                     <Pill kind={state.tone}>{state.label}</Pill>
                     <Button variant="outline" size="sm" onClick={onCheckNow} disabled={busy}>
-                        <RefreshCw size={14} /> Check now
+                        <RefreshCw size={14} /> {t('app.monitorDetail.checkNow', 'Check now')}
                     </Button>
                     <Button variant="outline" size="sm" onClick={onTogglePause} disabled={busy}>
-                        {monitor.is_paused ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Pause</>}
+                        {monitor.is_paused ? <><Play size={14} /> {t('app.monitorDetail.resume', 'Resume')}</> : <><Pause size={14} /> {t('app.monitorDetail.pause', 'Pause')}</>}
                     </Button>
                     {isHttpish && monitor.check_target && (
                         <Button variant="outline" size="sm" asChild>
@@ -394,31 +396,31 @@ export default function MonitorDetail() {
         >
 
             <nav className="monitor-detail__crumb">
-                <Link to="/monitoring/monitors">Monitors</Link>
+                <Link to="/monitoring/monitors">{t('app.monitorDetail.monitors', 'Monitors')}</Link>
                 <span aria-hidden="true">/</span>
                 <span>{monitor.name}</span>
             </nav>
 
             <KpiBand>
                 <MetricCard
-                    label="Response now" tone="cyan" icon={<Zap size={17} />}
+                    label={t('app.monitorDetail.responseNow', 'Response now')} tone="cyan" icon={<Zap size={17} />}
                     value={monitor.last_response_time ?? '—'}
                     unit={monitor.last_response_time != null ? 'ms' : undefined}
                 >
                     <div className="mon-kpi-sub">
-                        avg {stats.avg ?? '—'} ms · p95 {stats.p95 ?? '—'} ms
+                        avg {stats.avg ?? '—'} {t('app.monitorDetail.msP95', 'ms · p95')} {stats.p95 ?? '—'} ms
                     </div>
                 </MetricCard>
                 <MetricCard
-                    label="Uptime (30d)" tone="accent" icon={<CheckCircle2 size={17} />}
+                    label={t('app.monitorDetail.uptime30d', 'Uptime (30d)')} tone="accent" icon={<CheckCircle2 size={17} />}
                     value={formatUptime(monitor.uptime_30d)}
                 >
                     <div className="mon-kpi-sub">
-                        24h {formatUptime(monitor.uptime_24h)} · 7d {formatUptime(monitor.uptime_7d)}
+                        24h {formatUptime(monitor.uptime_24h)} {t('app.monitorDetail.7d', '· 7d')} {formatUptime(monitor.uptime_7d)}
                     </div>
                 </MetricCard>
                 <MetricCard
-                    label="Downtime (90d)" tone="amber" icon={<Clock size={17} />}
+                    label={t('app.monitorDetail.downtime90d', 'Downtime (90d)')} tone="amber" icon={<Clock size={17} />}
                     value={downMinutes ?? '—'} unit={downMinutes != null ? 'min' : undefined}
                 >
                     <div className="mon-kpi-sub">
@@ -426,7 +428,7 @@ export default function MonitorDetail() {
                     </div>
                 </MetricCard>
                 <MetricCard
-                    label="Certificate"
+                    label={t('app.monitorDetail.certificate', 'Certificate')}
                     tone={certDays == null ? 'accent' : certDays < 0 ? 'red' : certDays < 21 ? 'amber' : 'green'}
                     icon={<Lock size={17} />}
                     value={certDays == null ? 'n/a' : certDays < 0 ? 'Expired' : certDays}
@@ -449,9 +451,9 @@ export default function MonitorDetail() {
                 <div className="mon-panel">
                     <div className="mon-panel__header">
                         <div>
-                            <h3>Response time</h3>
+                            <h3>{t('app.monitorDetail.responseTime', 'Response time')}</h3>
                             <span className="mon-panel-sub">
-                                {series.length} sample{series.length === 1 ? '' : 's'} in this window
+                                {series.length} sample{series.length === 1 ? '' : 's'} {t('app.monitorDetail.inThisWindow', 'in this window')}
                             </span>
                         </div>
                         <SegControl
@@ -462,7 +464,7 @@ export default function MonitorDetail() {
                     </div>
                     {series.length === 0 ? (
                         <p className="mon-panel-hint">
-                            No timed samples yet — the first check lands within {monitor.check_interval}s.
+                            {t('app.monitorDetail.noTimedSamplesYetTheFirst', 'No timed samples yet — the first check lands within')} {monitor.check_interval}s.
                         </p>
                     ) : (
                         <>
@@ -491,8 +493,8 @@ export default function MonitorDetail() {
                     <div className="mon-panel">
                         <div className="mon-panel__header">
                             <div>
-                                <h3>Uptime — last 90 days</h3>
-                                <span className="mon-panel-sub">Click a day for its detail</span>
+                                <h3>{t('app.monitorDetail.uptimeLast90Days', 'Uptime — last 90 days')}</h3>
+                                <span className="mon-panel-sub">{t('app.monitorDetail.clickADayForItsDetail', 'Click a day for its detail')}</span>
                             </div>
                             <div className="mon-uptime-summary">
                                 {[['24h', monitor.uptime_24h], ['7d', monitor.uptime_7d],
@@ -510,7 +512,7 @@ export default function MonitorDetail() {
                             onSelect={(day) => setSelectedDay(selectedDay?.date === day.date ? null : day)}
                         />
                         <div className="mon-uptime-axis">
-                            <span>90 days ago</span>
+                            <span>{t('app.monitorDetail.90DaysAgo', '90 days ago')}</span>
                             <span>today</span>
                         </div>
                     </div>
@@ -526,7 +528,7 @@ export default function MonitorDetail() {
                                             : `${selectedDay.checks} checks · ${selectedDay.down_checks} failed · ${formatUptime(selectedDay.uptime)} uptime`}
                                     </span>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedDay(null)}>Close</Button>
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedDay(null)}>{t('app.monitorDetail.close', 'Close')}</Button>
                             </div>
                         </div>
                     )}
@@ -534,8 +536,8 @@ export default function MonitorDetail() {
                     <div className="mon-panel">
                         <div className="mon-panel__header">
                             <div>
-                                <h3>Certificate</h3>
-                                <span className="mon-panel-sub">Read from the last https probe</span>
+                                <h3>{t('app.monitorDetail.certificate2', 'Certificate')}</h3>
+                                <span className="mon-panel-sub">{t('app.monitorDetail.readFromTheLastHttpsProbe', 'Read from the last https probe')}</span>
                             </div>
                             {certDays != null && (
                                 <Pill kind={certDays < 0 ? 'red' : certDays < 21 ? 'amber' : 'green'}>
@@ -545,10 +547,10 @@ export default function MonitorDetail() {
                         </div>
                         {monitor.cert_expires_at ? (
                             <dl className="mon-inforows">
-                                <div><dt>Issuer</dt><dd>{monitor.cert_issuer || '—'}</dd></div>
-                                <div><dt>Expires</dt><dd>{new Date(monitor.cert_expires_at).toLocaleDateString()}</dd></div>
+                                <div><dt>{t('app.monitorDetail.issuer', 'Issuer')}</dt><dd>{monitor.cert_issuer || '—'}</dd></div>
+                                <div><dt>{t('app.monitorDetail.expires', 'Expires')}</dt><dd>{new Date(monitor.cert_expires_at).toLocaleDateString()}</dd></div>
                                 <div>
-                                    <dt>Remaining</dt>
+                                    <dt>{t('app.monitorDetail.remaining', 'Remaining')}</dt>
                                     <dd>{certDays < 0 ? `${-certDays} days ago` : `${certDays} days`}</dd>
                                 </div>
                             </dl>
@@ -581,7 +583,7 @@ export default function MonitorDetail() {
                                     <Pill kind="cyan">{newSinceFreeze} new</Pill>
                                 )}
                                 <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
-                                    {frozen ? <><Play size={14} /> Resume</> : <><Pause size={14} /> Hold</>}
+                                    {frozen ? <><Play size={14} /> {t('app.monitorDetail.resume2', 'Resume')}</> : <><Pause size={14} /> {t('app.monitorDetail.hold', 'Hold')}</>}
                                 </Button>
                                 <GridFilterButton
                                     count={chrome.filterCount}
@@ -606,7 +608,7 @@ export default function MonitorDetail() {
                             emptyState={(
                                 <EmptyState
                                     icon={Activity}
-                                    title="No checks in this window yet."
+                                    title={t('app.monitorDetail.noChecksInThisWindowYet', 'No checks in this window yet.')}
                                 />
                             )}
                             columns={chrome.columns}
@@ -627,45 +629,45 @@ export default function MonitorDetail() {
             {section === 'config' && (
                 <div className="mon-grid-2">
                     <div className="mon-panel">
-                        <div className="mon-panel__header"><div><h3>Check</h3></div></div>
+                        <div className="mon-panel__header"><div><h3>{t('app.monitorDetail.check', 'Check')}</h3></div></div>
                         <dl className="mon-inforows">
-                            <div><dt>Type</dt><dd>{monitor.check_type}</dd></div>
-                            <div><dt>Target</dt><dd>{monitor.check_target || 'bound site'}</dd></div>
-                            <div><dt>Interval</dt><dd>{monitor.check_interval}s</dd></div>
-                            <div><dt>Timeout</dt><dd>{monitor.check_timeout}s</dd></div>
-                            {isHttpish && <div><dt>Method</dt><dd>{monitor.check_method}</dd></div>}
-                            {isHttpish && <div><dt>Expected</dt><dd>{monitor.expected_status}</dd></div>}
+                            <div><dt>{t('app.monitorDetail.type', 'Type')}</dt><dd>{monitor.check_type}</dd></div>
+                            <div><dt>{t('app.monitorDetail.target', 'Target')}</dt><dd>{monitor.check_target || 'bound site'}</dd></div>
+                            <div><dt>{t('app.monitorDetail.interval', 'Interval')}</dt><dd>{monitor.check_interval}s</dd></div>
+                            <div><dt>{t('app.monitorDetail.timeout', 'Timeout')}</dt><dd>{monitor.check_timeout}s</dd></div>
+                            {isHttpish && <div><dt>{t('app.monitorDetail.method', 'Method')}</dt><dd>{monitor.check_method}</dd></div>}
+                            {isHttpish && <div><dt>{t('app.monitorDetail.expected', 'Expected')}</dt><dd>{monitor.expected_status}</dd></div>}
                             {monitor.check_type === 'keyword' && (
-                                <div><dt>Keyword</dt><dd>{monitor.keyword || '—'}</dd></div>
+                                <div><dt>{t('app.monitorDetail.keyword', 'Keyword')}</dt><dd>{monitor.keyword || '—'}</dd></div>
                             )}
                             {isHttpish && (
-                                <div><dt>Follow redirects</dt><dd>{monitor.follow_redirects ? 'yes' : 'no'}</dd></div>
+                                <div><dt>{t('app.monitorDetail.followRedirects', 'Follow redirects')}</dt><dd>{monitor.follow_redirects ? 'yes' : 'no'}</dd></div>
                             )}
-                            {isHttpish && <div><dt>Verify TLS</dt><dd>{monitor.verify_tls ? 'yes' : 'no'}</dd></div>}
+                            {isHttpish && <div><dt>{t('app.monitorDetail.verifyTls', 'Verify TLS')}</dt><dd>{monitor.verify_tls ? 'yes' : 'no'}</dd></div>}
                         </dl>
                     </div>
 
                     <div className="mon-panel">
                         <div className="mon-panel__header">
                             <div>
-                                <h3>Alerting</h3>
-                                <span className="mon-panel-sub">Delivery is configured in Settings → Notifications</span>
+                                <h3>{t('app.monitorDetail.alerting', 'Alerting')}</h3>
+                                <span className="mon-panel-sub">{t('app.monitorDetail.deliveryIsConfiguredInSettingsNotifications', 'Delivery is configured in Settings → Notifications')}</span>
                             </div>
                         </div>
                         <dl className="mon-inforows">
                             <div>
-                                <dt>Open an incident after</dt>
-                                <dd>{(monitor.retries ?? 0) + 1} failed check{(monitor.retries ?? 0) + 1 === 1 ? '' : 's'}</dd>
+                                <dt>{t('app.monitorDetail.openAnIncidentAfter', 'Open an incident after')}</dt>
+                                <dd>{(monitor.retries ?? 0) + 1} {t('app.monitorDetail.failedCheck', 'failed check')}{(monitor.retries ?? 0) + 1 === 1 ? '' : 's'}</dd>
                             </div>
-                            <div><dt>Current failure streak</dt><dd>{monitor.consecutive_failures ?? 0}</dd></div>
+                            <div><dt>{t('app.monitorDetail.currentFailureStreak', 'Current failure streak')}</dt><dd>{monitor.consecutive_failures ?? 0}</dd></div>
                             <div>
-                                <dt>Published on a status page</dt>
+                                <dt>{t('app.monitorDetail.publishedOnAStatusPage', 'Published on a status page')}</dt>
                                 <dd>{monitor.page_id ? 'yes' : 'no'}</dd>
                             </div>
                         </dl>
                         <div className="mon-panel__footer">
                             <Button variant="ghost" size="sm" className="mon-danger" onClick={onDelete}>
-                                <Trash2 size={14} /> Delete monitor
+                                <Trash2 size={14} /> {t('app.monitorDetail.deleteMonitor', 'Delete monitor')}
                             </Button>
                         </div>
                     </div>

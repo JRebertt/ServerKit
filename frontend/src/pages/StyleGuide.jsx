@@ -38,28 +38,29 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useTranslation } from 'react-i18next';
 import {
     Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription, SheetClose,
 } from '@/components/ui/sheet';
 
 const SECTIONS = [
-    { id: 'colors', label: 'Colors', icon: Palette },
-    { id: 'typography', label: 'Typography', icon: Type },
-    { id: 'spacing', label: 'Spacing & Radius', icon: Box },
-    { id: 'buttons', label: 'Buttons', icon: Square },
-    { id: 'forms', label: 'Forms', icon: ToggleLeft },
-    { id: 'tables', label: 'Tables', icon: Table },
-    { id: 'cards', label: 'Cards & Stats', icon: Layout },
-    { id: 'badges', label: 'Badges & Status', icon: Shield },
-    { id: 'alerts', label: 'Alerts & Errors', icon: AlertCircle },
-    { id: 'modals', label: 'Modals & Dialogs', icon: Layers },
-    { id: 'tabs', label: 'Tabs', icon: ChevronRight },
-    { id: 'lists', label: 'Lists & Info', icon: Database },
-    { id: 'feedback', label: 'Feedback & Loading', icon: Activity },
-    { id: 'empty', label: 'States', icon: Inbox },
-    { id: 'pageheaders', label: 'Page Headers', icon: FileText },
-    { id: 'patterns', label: 'Page Patterns', icon: Monitor },
-    { id: 'utilities', label: 'Utilities', icon: Zap },
+    { id: 'colors', labelKey: 'app.styleGuide.colors', label: 'Colors', icon: Palette },
+    { id: 'typography', labelKey: 'app.styleGuide.typography', label: 'Typography', icon: Type },
+    { id: 'spacing', labelKey: 'app.styleGuide.spacingRadius', label: 'Spacing & Radius', icon: Box },
+    { id: 'buttons', labelKey: 'app.styleGuide.buttons', label: 'Buttons', icon: Square },
+    { id: 'forms', labelKey: 'app.styleGuide.forms', label: 'Forms', icon: ToggleLeft },
+    { id: 'tables', labelKey: 'app.styleGuide.tables', label: 'Tables', icon: Table },
+    { id: 'cards', labelKey: 'app.styleGuide.cardsStats', label: 'Cards & Stats', icon: Layout },
+    { id: 'badges', labelKey: 'app.styleGuide.badgesStatus', label: 'Badges & Status', icon: Shield },
+    { id: 'alerts', labelKey: 'app.styleGuide.alertsErrors', label: 'Alerts & Errors', icon: AlertCircle },
+    { id: 'modals', labelKey: 'app.styleGuide.modalsDialogs', label: 'Modals & Dialogs', icon: Layers },
+    { id: 'tabs', labelKey: 'app.styleGuide.tabs', label: 'Tabs', icon: ChevronRight },
+    { id: 'lists', labelKey: 'app.styleGuide.listsInfo', label: 'Lists & Info', icon: Database },
+    { id: 'feedback', labelKey: 'app.styleGuide.feedbackLoading', label: 'Feedback & Loading', icon: Activity },
+    { id: 'empty', labelKey: 'app.styleGuide.states', label: 'States', icon: Inbox },
+    { id: 'pageheaders', labelKey: 'app.styleGuide.pageHeaders', label: 'Page Headers', icon: FileText },
+    { id: 'patterns', labelKey: 'app.styleGuide.pagePatterns', label: 'Page Patterns', icon: Monitor },
+    { id: 'utilities', labelKey: 'app.styleGuide.utilities', label: 'Utilities', icon: Zap },
 ];
 
 const SECTION_IDS = SECTIONS.map(s => s.id);
@@ -79,6 +80,7 @@ const MANY_TAB_ITEMS = [
 ];
 
 export default function StyleGuide() {
+    const { t } = useTranslation();
     const [activeSection, setActiveSection] = useTabParam('/style-guide', SECTION_IDS, 'colors');
     const { openDrawer } = useLogsDrawer();
     const [modalOpen, setModalOpen] = useState(false);
@@ -98,7 +100,7 @@ export default function StyleGuide() {
         <div className="styleguide">
             <PageTopbar
                 icon={<Palette size={18} />}
-                title="Style Guide"
+                title={t('app.styleGuide.styleGuide', 'Style Guide')}
                 meta="Design system reference — dev only"
             />
 
@@ -118,59 +120,59 @@ export default function StyleGuide() {
                 {/* ── COLORS ── */}
                 {activeSection === 'colors' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Background Colors" />
+                        <SectionTitle title={t('app.styleGuide.backgroundColors', 'Background Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <Swatch name="--bg-body" label="Body" />
-                            <Swatch name="--bg-sidebar" label="Sidebar" />
-                            <Swatch name="--bg-card" label="Card" />
-                            <Swatch name="--bg-hover" label="Hover" />
-                            <Swatch name="--bg-elevated" label="Elevated" />
-                            <Swatch name="--bg-secondary" label="Secondary" />
-                            <Swatch name="--bg-tertiary" label="Tertiary" />
+                            <Swatch name="--bg-body" label={t('app.styleGuide.body', 'Body')} />
+                            <Swatch name="--bg-sidebar" label={t('app.styleGuide.sidebar', 'Sidebar')} />
+                            <Swatch name="--bg-card" label={t('app.styleGuide.card', 'Card')} />
+                            <Swatch name="--bg-hover" label={t('app.styleGuide.hover', 'Hover')} />
+                            <Swatch name="--bg-elevated" label={t('app.styleGuide.elevated', 'Elevated')} />
+                            <Swatch name="--bg-secondary" label={t('app.styleGuide.secondary', 'Secondary')} />
+                            <Swatch name="--bg-tertiary" label={t('app.styleGuide.tertiary', 'Tertiary')} />
                         </div>
 
-                        <SectionTitle title="Border Colors" />
+                        <SectionTitle title={t('app.styleGuide.borderColors', 'Border Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <Swatch name="--border-default" label="Default" />
-                            <Swatch name="--border-subtle" label="Subtle" />
-                            <Swatch name="--border-active" label="Active" />
-                            <Swatch name="--border-hover" label="Hover" />
+                            <Swatch name="--border-default" label={t('app.styleGuide.default', 'Default')} />
+                            <Swatch name="--border-subtle" label={t('app.styleGuide.subtle', 'Subtle')} />
+                            <Swatch name="--border-active" label={t('app.styleGuide.active', 'Active')} />
+                            <Swatch name="--border-hover" label={t('app.styleGuide.hover2', 'Hover')} />
                         </div>
 
-                        <SectionTitle title="Text Colors" />
+                        <SectionTitle title={t('app.styleGuide.textColors', 'Text Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <Swatch name="--text-primary" label="Primary" text />
-                            <Swatch name="--text-secondary" label="Secondary" text />
-                            <Swatch name="--text-tertiary" label="Tertiary" text />
+                            <Swatch name="--text-primary" label={t('app.styleGuide.primary', 'Primary')} text />
+                            <Swatch name="--text-secondary" label={t('app.styleGuide.secondary2', 'Secondary')} text />
+                            <Swatch name="--text-tertiary" label={t('app.styleGuide.tertiary2', 'Tertiary')} text />
                         </div>
 
-                        <SectionTitle title="Accent Colors" />
+                        <SectionTitle title={t('app.styleGuide.accentColors', 'Accent Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <Swatch name="--accent-primary" label="Primary" />
-                            <Swatch name="--accent-hover" label="Hover" />
-                            <Swatch name="--accent-glow" label="Glow" />
+                            <Swatch name="--accent-primary" label={t('app.styleGuide.primary2', 'Primary')} />
+                            <Swatch name="--accent-hover" label={t('app.styleGuide.hover3', 'Hover')} />
+                            <Swatch name="--accent-glow" label={t('app.styleGuide.glow', 'Glow')} />
                         </div>
 
-                        <SectionTitle title="Semantic Colors" />
+                        <SectionTitle title={t('app.styleGuide.semanticColors', 'Semantic Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <SwatchStatic color="#10b981" label="Success" token="$success" />
-                            <SwatchStatic color="rgba(16,185,129,0.1)" label="Success BG" token="$success-bg" />
-                            <SwatchStatic color="#f59e0b" label="Warning" token="$warning" />
-                            <SwatchStatic color="rgba(245,158,11,0.1)" label="Warning BG" token="$warning-bg" />
-                            <SwatchStatic color="#ef4444" label="Danger" token="$danger" />
-                            <SwatchStatic color="rgba(239,68,68,0.1)" label="Danger BG" token="$danger-bg" />
-                            <SwatchStatic color="#3b82f6" label="Info" token="$info" />
-                            <SwatchStatic color="rgba(59,130,246,0.1)" label="Info BG" token="$info-bg" />
+                            <SwatchStatic color="#10b981" label={t('app.styleGuide.success', 'Success')} token="$success" />
+                            <SwatchStatic color="rgba(16,185,129,0.1)" label={t('app.styleGuide.successBg', 'Success BG')} token="$success-bg" />
+                            <SwatchStatic color="#f59e0b" label={t('app.styleGuide.warning', 'Warning')} token="$warning" />
+                            <SwatchStatic color="rgba(245,158,11,0.1)" label={t('app.styleGuide.warningBg', 'Warning BG')} token="$warning-bg" />
+                            <SwatchStatic color="#ef4444" label={t('app.styleGuide.danger', 'Danger')} token="$danger" />
+                            <SwatchStatic color="rgba(239,68,68,0.1)" label={t('app.styleGuide.dangerBg', 'Danger BG')} token="$danger-bg" />
+                            <SwatchStatic color="#3b82f6" label={t('app.styleGuide.info', 'Info')} token="$info" />
+                            <SwatchStatic color="rgba(59,130,246,0.1)" label={t('app.styleGuide.infoBg', 'Info BG')} token="$info-bg" />
                         </div>
 
-                        <SectionTitle title="Brand Colors" />
+                        <SectionTitle title={t('app.styleGuide.brandColors', 'Brand Colors')} />
                         <div className="styleguide__swatch-grid">
-                            <SwatchStatic color="#f29111" label="MySQL" token="$color-mysql" />
-                            <SwatchStatic color="#336791" label="PostgreSQL" token="$color-postgresql" />
-                            <SwatchStatic color="#2496ed" label="Docker" token="$color-docker" />
+                            <SwatchStatic color="#f29111" label={t('app.styleGuide.mysql', 'MySQL')} token="$color-mysql" />
+                            <SwatchStatic color="#336791" label={t('app.styleGuide.postgresql', 'PostgreSQL')} token="$color-postgresql" />
+                            <SwatchStatic color="#2496ed" label={t('app.styleGuide.docker', 'Docker')} token="$color-docker" />
                             <SwatchStatic color="#777bb4" label="PHP" token="$color-php" />
-                            <SwatchStatic color="#3776ab" label="Python" token="$color-python" />
-                            <SwatchStatic color="#21759b" label="WordPress" token="$color-wordpress" />
+                            <SwatchStatic color="#3776ab" label={t('app.styleGuide.python', 'Python')} token="$color-python" />
+                            <SwatchStatic color="#21759b" label={t('app.styleGuide.wordpress', 'WordPress')} token="$color-wordpress" />
                         </div>
                     </div>
                 )}
@@ -178,11 +180,11 @@ export default function StyleGuide() {
                 {/* ── TYPOGRAPHY ── */}
                 {activeSection === 'typography' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Font Families" />
+                        <SectionTitle title={t('app.styleGuide.fontFamilies', 'Font Families')} />
                         <div className="card" style={{ padding: 24 }}>
                             <p style={{ fontFamily: "'Inter', sans-serif", marginBottom: 16 }}>
                                 <span className="text-tertiary text-sm">$font-main:</span><br />
-                                The quick brown fox jumps over the lazy dog &mdash; Inter
+                                {t('app.styleGuide.theQuickBrownFoxJumpsOver', 'The quick brown fox jumps over the lazy dog — Inter')}
                             </p>
                             <p className="mono" style={{ fontSize: 14 }}>
                                 <span className="text-tertiary text-sm">$font-mono:</span><br />
@@ -190,7 +192,7 @@ export default function StyleGuide() {
                             </p>
                         </div>
 
-                        <SectionTitle title="Font Sizes" />
+                        <SectionTitle title={t('app.styleGuide.fontSizes', 'Font Sizes')} />
                         <div className="card" style={{ padding: 24 }}>
                             {[
                                 ['$font-size-xs', '10px'], ['$font-size-sm', '12px'],
@@ -200,33 +202,33 @@ export default function StyleGuide() {
                             ].map(([token, size]) => (
                                 <div key={token} className="flex items-center gap-4 mb-2">
                                     <span className="mono text-tertiary" style={{ minWidth: 160 }}>{token}</span>
-                                    <span style={{ fontSize: size }}>{size} &mdash; The quick brown fox</span>
+                                    <span style={{ fontSize: size }}>{size} {t('app.styleGuide.theQuickBrownFox', '— The quick brown fox')}</span>
                                 </div>
                             ))}
                         </div>
 
-                        <SectionTitle title="Font Weights" />
+                        <SectionTitle title={t('app.styleGuide.fontWeights', 'Font Weights')} />
                         <div className="card" style={{ padding: 24 }}>
                             {[['Normal (400)', 400], ['Medium (500)', 500], ['Semibold (600)', 600], ['Bold (700)', 700]].map(([label, weight]) => (
                                 <p key={weight} style={{ fontWeight: weight, marginBottom: 8 }}>
-                                    {label} &mdash; The quick brown fox jumps over the lazy dog
+                                    {label} {t('app.styleGuide.theQuickBrownFoxJumpsOver2', '— The quick brown fox jumps over the lazy dog')}
                                 </p>
                             ))}
                         </div>
 
-                        <SectionTitle title="Heading Tags" />
+                        <SectionTitle title={t('app.styleGuide.headingTags', 'Heading Tags')} />
                         <div className="card" style={{ padding: 24 }}>
-                            <h1>h1 &mdash; Page Title</h1>
-                            <h2>h2 &mdash; Section Title</h2>
-                            <h3>h3 &mdash; Card Title</h3>
-                            <h4>h4 &mdash; Subsection</h4>
-                            <h5>h5 &mdash; Minor heading</h5>
-                            <p>p &mdash; Body text paragraph with normal weight and base font size.</p>
-                            <p className="text-secondary">p.text-secondary &mdash; Secondary paragraph text.</p>
-                            <p className="text-tertiary">p.text-tertiary &mdash; Tertiary/muted paragraph text.</p>
+                            <h1>{t('app.styleGuide.h1PageTitle', 'h1 — Page Title')}</h1>
+                            <h2>{t('app.styleGuide.h2SectionTitle', 'h2 — Section Title')}</h2>
+                            <h3>{t('app.styleGuide.h3CardTitle', 'h3 — Card Title')}</h3>
+                            <h4>{t('app.styleGuide.h4Subsection', 'h4 — Subsection')}</h4>
+                            <h5>{t('app.styleGuide.h5MinorHeading', 'h5 — Minor heading')}</h5>
+                            <p>{t('app.styleGuide.pBodyTextParagraphWithNormal', 'p — Body text paragraph with normal weight and base font size.')}</p>
+                            <p className="text-secondary">{t('app.styleGuide.pTextSecondarySecondaryParagraphText', 'p.text-secondary — Secondary paragraph text.')}</p>
+                            <p className="text-tertiary">{t('app.styleGuide.pTextTertiaryTertiaryMutedParagraph', 'p.text-tertiary — Tertiary/muted paragraph text.')}</p>
                         </div>
 
-                        <SectionTitle title="Text Utility Classes" />
+                        <SectionTitle title={t('app.styleGuide.textUtilityClasses', 'Text Utility Classes')} />
                         <div className="card" style={{ padding: 24 }}>
                             <p className="text-primary">.text-primary</p>
                             <p className="text-secondary">.text-secondary</p>
@@ -242,7 +244,7 @@ export default function StyleGuide() {
                 {/* ── SPACING & RADIUS ── */}
                 {activeSection === 'spacing' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Spacing Scale" />
+                        <SectionTitle title={t('app.styleGuide.spacingScale', 'Spacing Scale')} />
                         <div className="card" style={{ padding: 24 }}>
                             {[
                                 ['$space-1', 4], ['$space-2', 8], ['$space-3', 12], ['$space-4', 16],
@@ -257,7 +259,7 @@ export default function StyleGuide() {
                             ))}
                         </div>
 
-                        <SectionTitle title="Border Radius" />
+                        <SectionTitle title={t('app.styleGuide.borderRadius', 'Border Radius')} />
                         <div className="styleguide__swatch-grid">
                             {[
                                 ['$radius-sm', '4px'], ['$radius-md', '6px'], ['$radius-lg', '8px'],
@@ -271,7 +273,7 @@ export default function StyleGuide() {
                             ))}
                         </div>
 
-                        <SectionTitle title="Shadows" />
+                        <SectionTitle title={t('app.styleGuide.shadows', 'Shadows')} />
                         <div className="styleguide__swatch-grid">
                             {['sm', 'md', 'lg'].map(size => (
                                 <div key={size} className="card flex flex-col items-center gap-3" style={{ padding: 20 }}>
@@ -286,32 +288,32 @@ export default function StyleGuide() {
                 {/* ── BUTTONS ── */}
                 {activeSection === 'buttons' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Button Variants" />
+                        <SectionTitle title={t('app.styleGuide.buttonVariants', 'Button Variants')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3 mb-6">
-                                <Button><Plus size={16} /> Primary</Button>
-                                <Button variant="outline"><Edit3 size={16} /> Outline</Button>
-                                <Button variant="destructive"><Trash2 size={16} /> Destructive</Button>
-                                <Button variant="ghost"><Eye size={16} /> Ghost</Button>
-                                <Button variant="secondary"><Settings size={16} /> Secondary</Button>
+                                <Button><Plus size={16} /> {t('app.styleGuide.primary3', 'Primary')}</Button>
+                                <Button variant="outline"><Edit3 size={16} /> {t('app.styleGuide.outline', 'Outline')}</Button>
+                                <Button variant="destructive"><Trash2 size={16} /> {t('app.styleGuide.destructive', 'Destructive')}</Button>
+                                <Button variant="ghost"><Eye size={16} /> {t('app.styleGuide.ghost', 'Ghost')}</Button>
+                                <Button variant="secondary"><Settings size={16} /> {t('app.styleGuide.secondary3', 'Secondary')}</Button>
                             </div>
                             <div className="flex flex-wrap gap-3">
-                                <Button disabled>Disabled Primary</Button>
-                                <Button variant="outline" disabled>Disabled Outline</Button>
-                                <Button variant="destructive" disabled>Disabled Destructive</Button>
+                                <Button disabled>{t('app.styleGuide.disabledPrimary', 'Disabled Primary')}</Button>
+                                <Button variant="outline" disabled>{t('app.styleGuide.disabledOutline', 'Disabled Outline')}</Button>
+                                <Button variant="destructive" disabled>{t('app.styleGuide.disabledDestructive', 'Disabled Destructive')}</Button>
                             </div>
                         </div>
 
-                        <SectionTitle title="Button Sizes" />
+                        <SectionTitle title={t('app.styleGuide.buttonSizes', 'Button Sizes')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap items-center gap-3">
-                                <Button size="sm">Small</Button>
-                                <Button>Default</Button>
-                                <Button size="lg">Large</Button>
+                                <Button size="sm">{t('app.styleGuide.small', 'Small')}</Button>
+                                <Button>{t('app.styleGuide.default2', 'Default')}</Button>
+                                <Button size="lg">{t('app.styleGuide.large', 'Large')}</Button>
                             </div>
                         </div>
 
-                        <SectionTitle title="Icon Buttons" />
+                        <SectionTitle title={t('app.styleGuide.iconButtons', 'Icon Buttons')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
                                 <Button size="icon"><Plus size={16} /></Button>
@@ -323,17 +325,17 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Full Width & Loading" />
+                        <SectionTitle title={t('app.styleGuide.fullWidthLoading', 'Full Width & Loading')} />
                         <div className="card" style={{ padding: 24 }}>
-                            <Button className="w-full mb-4">Full Width Button</Button>
+                            <Button className="w-full mb-4">{t('app.styleGuide.fullWidthButton', 'Full Width Button')}</Button>
                             <div className="flex flex-wrap gap-3">
                                 <Button disabled>
                                     <Spinner size="sm" />
-                                    Saving...
+                                    {t('app.styleGuide.saving', 'Saving...')}
                                 </Button>
                                 <Button variant="outline" disabled>
                                     <Spinner size="sm" />
-                                    Loading...
+                                    {t('app.styleGuide.loading', 'Loading...')}
                                 </Button>
                             </div>
                         </div>
@@ -343,66 +345,66 @@ export default function StyleGuide() {
                 {/* ── FORMS ── */}
                 {activeSection === 'forms' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Text Inputs" />
+                        <SectionTitle title={t('app.styleGuide.textInputs', 'Text Inputs')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="form-group">
-                                <label>Default Input</label>
-                                <Input type="text" placeholder="Enter text..." value={inputValue} onChange={e => setInputValue(e.target.value)} />
-                                <span className="hint">This is a hint text below the input</span>
+                                <label>{t('app.styleGuide.defaultInput', 'Default Input')}</label>
+                                <Input type="text" placeholder={t('app.styleGuide.enterText', 'Enter text...')} value={inputValue} onChange={e => setInputValue(e.target.value)} />
+                                <span className="hint">{t('app.styleGuide.thisIsAHintTextBelow', 'This is a hint text below the input')}</span>
                             </div>
                             <div className="form-group">
-                                <label>Disabled Input</label>
-                                <Input type="text" placeholder="Disabled..." disabled />
+                                <label>{t('app.styleGuide.disabledInput', 'Disabled Input')}</label>
+                                <Input type="text" placeholder={t('app.styleGuide.disabled', 'Disabled...')} disabled />
                             </div>
                         </div>
 
-                        <SectionTitle title="Select & Textarea" />
+                        <SectionTitle title={t('app.styleGuide.selectTextarea', 'Select & Textarea')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="form-group">
-                                <label>Select Dropdown</label>
+                                <label>{t('app.styleGuide.selectDropdown', 'Select Dropdown')}</label>
                                 <select className="form-select" value={selectValue} onChange={e => setSelectValue(e.target.value)}>
-                                    <option value="">Choose an option...</option>
-                                    <option value="1">Option 1</option>
-                                    <option value="2">Option 2</option>
+                                    <option value="">{t('app.styleGuide.chooseAnOption', 'Choose an option...')}</option>
+                                    <option value="1">{t('app.styleGuide.option1', 'Option 1')}</option>
+                                    <option value="2">{t('app.styleGuide.option2', 'Option 2')}</option>
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Textarea</label>
-                                <Textarea rows={3} placeholder="Enter multiline text..." />
+                                <label>{t('app.styleGuide.textarea', 'Textarea')}</label>
+                                <Textarea rows={3} placeholder={t('app.styleGuide.enterMultilineText', 'Enter multiline text...')} />
                             </div>
                             <div className="form-group">
-                                <label>Code Editor</label>
-                                <Textarea className="code-editor" rows={3} placeholder="server { listen 80; }" />
+                                <label>{t('app.styleGuide.codeEditor', 'Code Editor')}</label>
+                                <Textarea className="code-editor" rows={3} placeholder={t('app.styleGuide.serverListen80', 'server { listen 80; }')} />
                             </div>
                         </div>
 
-                        <SectionTitle title="Form Row (2-column)" />
+                        <SectionTitle title={t('app.styleGuide.formRow2Column', 'Form Row (2-column)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>First Name</label>
-                                    <Input type="text" placeholder="John" />
+                                    <label>{t('app.styleGuide.firstName', 'First Name')}</label>
+                                    <Input type="text" placeholder={t('app.styleGuide.john', 'John')} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Last Name</label>
-                                    <Input type="text" placeholder="Doe" />
+                                    <label>{t('app.styleGuide.lastName', 'Last Name')}</label>
+                                    <Input type="text" placeholder={t('app.styleGuide.doe', 'Doe')} />
                                 </div>
                             </div>
                         </div>
 
-                        <SectionTitle title="Inline Form" />
+                        <SectionTitle title={t('app.styleGuide.inlineForm', 'Inline Form')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="install-form">
-                                <Input type="text" placeholder="Search packages..." />
-                                <Button><Search size={16} /> Search</Button>
+                                <Input type="text" placeholder={t('app.styleGuide.searchPackages', 'Search packages...')} />
+                                <Button><Search size={16} /> {t('app.styleGuide.search', 'Search')}</Button>
                             </div>
                         </div>
 
-                        <SectionTitle title="Checkbox Toggle" />
+                        <SectionTitle title={t('app.styleGuide.checkboxToggle', 'Checkbox Toggle')} />
                         <div className="card" style={{ padding: 24 }}>
                             <label className="filter-toggle">
                                 <input type="checkbox" checked={checkValue} onChange={e => setCheckValue(e.target.checked)} />
-                                <span>Enable feature</span>
+                                <span>{t('app.styleGuide.enableFeature', 'Enable feature')}</span>
                             </label>
                         </div>
                     </div>
@@ -411,63 +413,63 @@ export default function StyleGuide() {
                 {/* ── TABLES ── */}
                 {activeSection === 'tables' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Standard Table (.table)" />
+                        <SectionTitle title={t('app.styleGuide.standardTableTable', 'Standard Table (.table)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>SSH Authorized Keys</h3>
+                                <h3>{t('app.styleGuide.sshAuthorizedKeys', 'SSH Authorized Keys')}</h3>
                                 <div className="card-actions">
-                                    <Button size="sm">Add Key</Button>
-                                    <Button size="sm" variant="outline">Refresh</Button>
+                                    <Button size="sm">{t('app.styleGuide.addKey', 'Add Key')}</Button>
+                                    <Button size="sm" variant="outline">{t('app.styleGuide.refresh', 'Refresh')}</Button>
                                 </div>
                             </div>
                             <div className="card-body">
                                 <table className="table">
                                     <thead>
                                         <tr>
-                                            <th>Type</th>
-                                            <th>Fingerprint</th>
-                                            <th>Comment</th>
-                                            <th>Actions</th>
+                                            <th>{t('app.styleGuide.type', 'Type')}</th>
+                                            <th>{t('app.styleGuide.fingerprint', 'Fingerprint')}</th>
+                                            <th>{t('app.styleGuide.comment', 'Comment')}</th>
+                                            <th>{t('app.styleGuide.actions', 'Actions')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr>
                                             <td><code>ssh-ed25519</code></td>
-                                            <td><code>SHA256:abc123def456...</code></td>
+                                            <td><code>{t('app.styleGuide.sha256Abc123def456', 'SHA256:abc123def456...')}</code></td>
                                             <td>deploy@server</td>
-                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
+                                            <td><Button size="sm" variant="destructive">{t('app.styleGuide.remove', 'Remove')}</Button></td>
                                         </tr>
                                         <tr>
                                             <td><code>ssh-rsa</code></td>
-                                            <td><code>SHA256:xyz789ghi012...</code></td>
+                                            <td><code>{t('app.styleGuide.sha256Xyz789ghi012', 'SHA256:xyz789ghi012...')}</code></td>
                                             <td>admin@laptop</td>
-                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
+                                            <td><Button size="sm" variant="destructive">{t('app.styleGuide.remove2', 'Remove')}</Button></td>
                                         </tr>
                                         <tr>
                                             <td><code>ssh-ed25519</code></td>
-                                            <td><code>SHA256:mno345pqr678...</code></td>
+                                            <td><code>{t('app.styleGuide.sha256Mno345pqr678', 'SHA256:mno345pqr678...')}</code></td>
                                             <td>ci-pipeline</td>
-                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
+                                            <td><Button size="sm" variant="destructive">{t('app.styleGuide.remove3', 'Remove')}</Button></td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <SectionTitle title="Table with Badges" />
+                        <SectionTitle title={t('app.styleGuide.tableWithBadges', 'Table with Badges')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Scan History</h3>
-                                <Button size="sm" variant="outline">Refresh</Button>
+                                <h3>{t('app.styleGuide.scanHistory', 'Scan History')}</h3>
+                                <Button size="sm" variant="outline">{t('app.styleGuide.refresh2', 'Refresh')}</Button>
                             </div>
                             <div className="card-body">
                                 <table className="table">
                                     <thead>
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Directory</th>
-                                            <th>Status</th>
-                                            <th>Threats</th>
+                                            <th>{t('app.styleGuide.date', 'Date')}</th>
+                                            <th>{t('app.styleGuide.directory', 'Directory')}</th>
+                                            <th>{t('app.styleGuide.status', 'Status')}</th>
+                                            <th>{t('app.styleGuide.threats', 'Threats')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -475,13 +477,13 @@ export default function StyleGuide() {
                                             <td>2026-03-29 14:30</td>
                                             <td>/var/www</td>
                                             <td><Badge variant="success">completed</Badge></td>
-                                            <td><Badge variant="success">Clean</Badge></td>
+                                            <td><Badge variant="success">{t('app.styleGuide.clean', 'Clean')}</Badge></td>
                                         </tr>
                                         <tr>
                                             <td>2026-03-28 09:15</td>
                                             <td>/home/deploy</td>
                                             <td><Badge variant="success">completed</Badge></td>
-                                            <td><Badge variant="destructive">2 found</Badge></td>
+                                            <td><Badge variant="destructive">{t('app.styleGuide.2Found', '2 found')}</Badge></td>
                                         </tr>
                                         <tr>
                                             <td>2026-03-27 22:00</td>
@@ -494,42 +496,42 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Table with Status Badges" />
+                        <SectionTitle title={t('app.styleGuide.tableWithStatusBadges', 'Table with Status Badges')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Firewall Rules</h3>
+                                <h3>{t('app.styleGuide.firewallRules', 'Firewall Rules')}</h3>
                             </div>
                             <div className="card-body">
                                 <table className="table">
                                     <thead>
                                         <tr>
-                                            <th>Port</th>
-                                            <th>Protocol</th>
-                                            <th>Action</th>
-                                            <th>Source</th>
-                                            <th>Status</th>
+                                            <th>{t('app.styleGuide.port', 'Port')}</th>
+                                            <th>{t('app.styleGuide.protocol', 'Protocol')}</th>
+                                            <th>{t('app.styleGuide.action', 'Action')}</th>
+                                            <th>{t('app.styleGuide.source', 'Source')}</th>
+                                            <th>{t('app.styleGuide.status2', 'Status')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr>
                                             <td><code>22</code></td>
                                             <td>TCP</td>
-                                            <td><Badge variant="success">Allow</Badge></td>
-                                            <td>Anywhere</td>
+                                            <td><Badge variant="success">{t('app.styleGuide.allow', 'Allow')}</Badge></td>
+                                            <td>{t('app.styleGuide.anywhere', 'Anywhere')}</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
                                         <tr>
                                             <td><code>80</code></td>
                                             <td>TCP</td>
-                                            <td><Badge variant="success">Allow</Badge></td>
-                                            <td>Anywhere</td>
+                                            <td><Badge variant="success">{t('app.styleGuide.allow2', 'Allow')}</Badge></td>
+                                            <td>{t('app.styleGuide.anywhere2', 'Anywhere')}</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
                                         <tr>
                                             <td><code>3306</code></td>
                                             <td>TCP</td>
-                                            <td><Badge variant="destructive">Deny</Badge></td>
-                                            <td>External</td>
+                                            <td><Badge variant="destructive">{t('app.styleGuide.deny', 'Deny')}</Badge></td>
+                                            <td>{t('app.styleGuide.external', 'External')}</td>
                                             <td><StatusBadge status="active" /></td>
                                         </tr>
                                     </tbody>
@@ -542,39 +544,39 @@ export default function StyleGuide() {
                 {/* ── CARDS & STATS ── */}
                 {activeSection === 'cards' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Basic Card" />
+                        <SectionTitle title={t('app.styleGuide.basicCard', 'Basic Card')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Card Title</h3>
+                                <h3>{t('app.styleGuide.cardTitle', 'Card Title')}</h3>
                                 <div className="card-actions">
-                                    <Button size="sm" variant="outline">Refresh</Button>
-                                    <Button size="sm">Action</Button>
+                                    <Button size="sm" variant="outline">{t('app.styleGuide.refresh3', 'Refresh')}</Button>
+                                    <Button size="sm">{t('app.styleGuide.action2', 'Action')}</Button>
                                 </div>
                             </div>
                             <div className="card-body">
-                                <p className="text-secondary">Card body content with card-header and card-actions in the header.</p>
+                                <p className="text-secondary">{t('app.styleGuide.cardBodyContentWithCardHeader', 'Card body content with card-header and card-actions in the header.')}</p>
                             </div>
                         </div>
 
-                        <SectionTitle title="Stats Grid (StatCard / StatsGrid)" />
+                        <SectionTitle title={t('app.styleGuide.statsGridStatcardStatsgrid', 'Stats Grid (StatCard / StatsGrid)')} />
                         <StatsGrid>
-                            <StatCard icon={Server} iconVariant="apps" label="Applications" value={12} />
-                            <StatCard icon={Database} iconVariant="databases" label="Databases" value={5} />
-                            <StatCard icon={Cloud} iconVariant="backups" label="Backups" value={24} />
-                            <StatCard icon={BarChart3} iconVariant="size" label="Disk Used" value={48} suffix="GB" />
+                            <StatCard icon={Server} iconVariant="apps" label={t('app.styleGuide.applications', 'Applications')} value={12} />
+                            <StatCard icon={Database} iconVariant="databases" label={t('app.styleGuide.databases', 'Databases')} value={5} />
+                            <StatCard icon={Cloud} iconVariant="backups" label={t('app.styleGuide.backups', 'Backups')} value={24} />
+                            <StatCard icon={BarChart3} iconVariant="size" label={t('app.styleGuide.diskUsed', 'Disk Used')} value={48} suffix="GB" />
                         </StatsGrid>
 
-                        <SectionTitle title="Metric Row (MetricRow / MetricItem)" />
+                        <SectionTitle title={t('app.styleGuide.metricRowMetricrowMetricitem', 'Metric Row (MetricRow / MetricItem)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <MetricRow>
                                 <MetricItem label="CPU" value="23%" />
-                                <MetricItem label="Memory" value="1.2 GB" />
-                                <MetricItem label="Disk" value="48 GB" />
-                                <MetricItem label="Network" value="2.4 Mbps" />
+                                <MetricItem label={t('app.styleGuide.memory', 'Memory')} value="1.2 GB" />
+                                <MetricItem label={t('app.styleGuide.disk', 'Disk')} value="48 GB" />
+                                <MetricItem label={t('app.styleGuide.network', 'Network')} value="2.4 Mbps" />
                             </MetricRow>
                         </div>
 
-                        <SectionTitle title="Progress Bar (ProgressBar)" />
+                        <SectionTitle title={t('app.styleGuide.progressBarProgressbar', 'Progress Bar (ProgressBar)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="space-y-4">
                                 {[
@@ -593,11 +595,11 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Danger Zone (DangerZone)" />
+                        <SectionTitle title={t('app.styleGuide.dangerZoneDangerzone', 'Danger Zone (DangerZone)')} />
                         <DangerZone
-                            title="Delete Application"
-                            description="Once deleted, this cannot be undone. All data will be permanently removed."
-                            action={<Button variant="destructive"><Trash2 size={16} /> Delete</Button>}
+                            title={t('app.styleGuide.deleteApplication', 'Delete Application')}
+                            description={t('app.styleGuide.onceDeletedThisCannotBeUndone', 'Once deleted, this cannot be undone. All data will be permanently removed.')}
+                            action={<Button variant="destructive"><Trash2 size={16} /> {t('app.styleGuide.delete', 'Delete')}</Button>}
                         />
                     </div>
                 )}
@@ -605,7 +607,7 @@ export default function StyleGuide() {
                 {/* ── BADGES & STATUS ── */}
                 {activeSection === 'badges' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Status Badges (Component)" />
+                        <SectionTitle title={t('app.styleGuide.statusBadgesComponent', 'Status Badges (Component)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3 mb-4">
                                 <StatusBadge status="online" />
@@ -634,43 +636,43 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="shadcn Badge Variants" />
+                        <SectionTitle title={t('app.styleGuide.shadcnBadgeVariants', 'shadcn Badge Variants')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
-                                <Badge>Default</Badge>
-                                <Badge variant="info">Info</Badge>
-                                <Badge variant="success">Success</Badge>
-                                <Badge variant="warning">Warning</Badge>
-                                <Badge variant="destructive">Destructive</Badge>
-                                <Badge variant="secondary">Secondary</Badge>
-                                <Badge variant="outline">Outline</Badge>
+                                <Badge>{t('app.styleGuide.default3', 'Default')}</Badge>
+                                <Badge variant="info">{t('app.styleGuide.info2', 'Info')}</Badge>
+                                <Badge variant="success">{t('app.styleGuide.success2', 'Success')}</Badge>
+                                <Badge variant="warning">{t('app.styleGuide.warning2', 'Warning')}</Badge>
+                                <Badge variant="destructive">{t('app.styleGuide.destructive2', 'Destructive')}</Badge>
+                                <Badge variant="secondary">{t('app.styleGuide.secondary4', 'Secondary')}</Badge>
+                                <Badge variant="outline">{t('app.styleGuide.outline2', 'Outline')}</Badge>
                             </div>
                         </div>
 
-                        <SectionTitle title="App Type / Env / DB Badges" />
+                        <SectionTitle title={t('app.styleGuide.appTypeEnvDbBadges', 'App Type / Env / DB Badges')} />
                         <div className="card" style={{ padding: 24 }}>
-                            <p className="text-sm text-tertiary mb-2">App Types</p>
+                            <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.appTypes', 'App Types')}</p>
                             <div className="flex flex-wrap gap-3 mb-4">
                                 <span className="app-type">PHP</span>
-                                <span className="app-type">Python</span>
-                                <span className="app-type">Node.js</span>
-                                <span className="app-type">WordPress</span>
-                                <span className="app-type">Static</span>
+                                <span className="app-type">{t('app.styleGuide.python2', 'Python')}</span>
+                                <span className="app-type">{t('app.styleGuide.nodeJs', 'Node.js')}</span>
+                                <span className="app-type">{t('app.styleGuide.wordpress2', 'WordPress')}</span>
+                                <span className="app-type">{t('app.styleGuide.static', 'Static')}</span>
                             </div>
-                            <p className="text-sm text-tertiary mb-2">Environments</p>
+                            <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.environments', 'Environments')}</p>
                             <div className="flex flex-wrap gap-3 mb-4">
-                                <span className="env-badge env-production">Production</span>
-                                <span className="env-badge env-staging">Staging</span>
-                                <span className="env-badge env-development">Development</span>
+                                <span className="env-badge env-production">{t('app.styleGuide.production', 'Production')}</span>
+                                <span className="env-badge env-staging">{t('app.styleGuide.staging', 'Staging')}</span>
+                                <span className="env-badge env-development">{t('app.styleGuide.development', 'Development')}</span>
                             </div>
-                            <p className="text-sm text-tertiary mb-2">Database Types</p>
+                            <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.databaseTypes', 'Database Types')}</p>
                             <div className="flex flex-wrap gap-3 mb-4">
-                                <span className="db-type-badge mysql">MySQL</span>
-                                <span className="db-type-badge postgresql">PostgreSQL</span>
+                                <span className="db-type-badge mysql">{t('app.styleGuide.mysql2', 'MySQL')}</span>
+                                <span className="db-type-badge postgresql">{t('app.styleGuide.postgresql2', 'PostgreSQL')}</span>
                             </div>
                             <p className="text-sm text-tertiary mb-2">SSL</p>
                             <div className="flex flex-wrap gap-3">
-                                <span className="ssl-badge"><Lock size={12} /> SSL Active</span>
+                                <span className="ssl-badge"><Lock size={12} /> {t('app.styleGuide.sslActive', 'SSL Active')}</span>
                             </div>
                         </div>
                     </div>
@@ -679,41 +681,41 @@ export default function StyleGuide() {
                 {/* ── ALERTS & ERRORS ── */}
                 {activeSection === 'alerts' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Alert Banners (.alert)" />
+                        <SectionTitle title={t('app.styleGuide.alertBannersAlert', 'Alert Banners (.alert)')} />
                         <div className="space-y-2">
                             <div className="alert alert-success">
-                                <CheckCircle size={16} /> Operation completed successfully.
+                                <CheckCircle size={16} /> {t('app.styleGuide.operationCompletedSuccessfully', 'Operation completed successfully.')}
                             </div>
                             <div className="alert alert-danger">
-                                <AlertTriangle size={16} /> Failed to connect to the server.
+                                <AlertTriangle size={16} /> {t('app.styleGuide.failedToConnectToTheServer', 'Failed to connect to the server.')}
                             </div>
                             <div className="alert alert-warning">
-                                <AlertCircle size={16} /> SSL certificate expires in 7 days.
+                                <AlertCircle size={16} /> {t('app.styleGuide.sslCertificateExpiresIn7Days', 'SSL certificate expires in 7 days.')}
                             </div>
                             <div className="alert alert-info">
-                                <Info size={16} /> A new version is available for update.
+                                <Info size={16} /> {t('app.styleGuide.aNewVersionIsAvailableFor', 'A new version is available for update.')}
                             </div>
                         </div>
 
-                        <SectionTitle title="Alert with Close Button" />
+                        <SectionTitle title={t('app.styleGuide.alertWithCloseButton', 'Alert with Close Button')} />
                         <div className="space-y-2">
                             <div className="alert alert-danger">
-                                Something went wrong while saving.
+                                {t('app.styleGuide.somethingWentWrongWhileSaving', 'Something went wrong while saving.')}
                                 <button className="alert-close">&times;</button>
                             </div>
                         </div>
 
-                        <SectionTitle title="Error Message (.error-message)" />
+                        <SectionTitle title={t('app.styleGuide.errorMessageErrorMessage', 'Error Message (.error-message)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="error-message">
-                                <AlertTriangle size={16} /> This is an inline error message.
+                                <AlertTriangle size={16} /> {t('app.styleGuide.thisIsAnInlineErrorMessage', 'This is an inline error message.')}
                             </div>
                         </div>
 
-                        <SectionTitle title="Error Banner (.error-banner)" />
+                        <SectionTitle title={t('app.styleGuide.errorBannerErrorBanner', 'Error Banner (.error-banner)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="error-banner">
-                                <AlertTriangle size={16} /> This is a full-width error banner.
+                                <AlertTriangle size={16} /> {t('app.styleGuide.thisIsAFullWidthError', 'This is a full-width error banner.')}
                             </div>
                         </div>
                     </div>
@@ -722,88 +724,88 @@ export default function StyleGuide() {
                 {/* ── MODALS ── */}
                 {activeSection === 'modals' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Modal Dialog" />
+                        <SectionTitle title={t('app.styleGuide.modalDialog', 'Modal Dialog')} />
                         <div className="card" style={{ padding: 24 }}>
                             <Button onClick={() => setModalOpen(true)}>
-                                Open Modal
+                                {t('app.styleGuide.openModal', 'Open Modal')}
                             </Button>
                             <Modal
                                 open={modalOpen}
                                 onClose={() => setModalOpen(false)}
-                                title="Example Modal"
+                                title={t('app.styleGuide.exampleModal', 'Example Modal')}
                                 footer={<>
-                                    <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-                                    <Button onClick={() => setModalOpen(false)}>Save Changes</Button>
+                                    <Button variant="outline" onClick={() => setModalOpen(false)}>{t('app.styleGuide.cancel', 'Cancel')}</Button>
+                                    <Button onClick={() => setModalOpen(false)}>{t('app.styleGuide.saveChanges', 'Save Changes')}</Button>
                                 </>}
                             >
-                                <p className="text-secondary">Modal body content with a form field.</p>
+                                <p className="text-secondary">{t('app.styleGuide.modalBodyContentWithAForm', 'Modal body content with a form field.')}</p>
                                 <div className="form-group mt-4">
-                                    <label>Example Field</label>
-                                    <Input type="text" placeholder="Type something..." />
+                                    <label>{t('app.styleGuide.exampleField', 'Example Field')}</label>
+                                    <Input type="text" placeholder={t('app.styleGuide.typeSomething', 'Type something...')} />
                                 </div>
                             </Modal>
                         </div>
 
-                        <SectionTitle title="Side Drawer (Sheet)" />
-                        <p className="text-sm text-secondary mb-2">Right/left-anchored panel built on Radix Dialog. Used for forms like &ldquo;Add Server&rdquo; or &ldquo;Add Service&rdquo; where a slide-in panel is preferred over a centered modal.</p>
+                        <SectionTitle title={t('app.styleGuide.sideDrawerSheet', 'Side Drawer (Sheet)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.rightLeftAnchoredPanelBuiltOn', 'Right/left-anchored panel built on Radix Dialog. Used for forms like “Add Server” or “Add Service” where a slide-in panel is preferred over a centered modal.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
                                 <Button onClick={() => { setSheetSide('right'); setSheetOpen(true); }}>
-                                    <Plus size={16} /> Open Right Drawer
+                                    <Plus size={16} /> {t('app.styleGuide.openRightDrawer', 'Open Right Drawer')}
                                 </Button>
                                 <Button variant="outline" onClick={() => { setSheetSide('left'); setSheetOpen(true); }}>
-                                    <Plus size={16} /> Open Left Drawer
+                                    <Plus size={16} /> {t('app.styleGuide.openLeftDrawer', 'Open Left Drawer')}
                                 </Button>
                             </div>
                             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                                 <SheetContent side={sheetSide}>
                                     <SheetHeader>
-                                        <SheetTitle>Add Service</SheetTitle>
+                                        <SheetTitle>{t('app.styleGuide.addService', 'Add Service')}</SheetTitle>
                                         <SheetDescription>
-                                            Configure a new service. This drawer pattern is the panel-style alternative to a centered modal.
+                                            {t('app.styleGuide.configureANewServiceThisDrawer', 'Configure a new service. This drawer pattern is the panel-style alternative to a centered modal.')}
                                         </SheetDescription>
                                     </SheetHeader>
                                     <div className="space-y-4" style={{ padding: '16px 0' }}>
                                         <div className="form-group">
-                                            <label>Service name</label>
+                                            <label>{t('app.styleGuide.serviceName', 'Service name')}</label>
                                             <Input type="text" placeholder="my-service" />
                                         </div>
                                         <div className="form-group">
-                                            <label>Description</label>
-                                            <Textarea placeholder="What does this service do?" rows={3} />
+                                            <label>{t('app.styleGuide.description', 'Description')}</label>
+                                            <Textarea placeholder={t('app.styleGuide.whatDoesThisServiceDo', 'What does this service do?')} rows={3} />
                                         </div>
                                     </div>
                                     <SheetFooter>
                                         <SheetClose asChild>
-                                            <Button variant="outline">Cancel</Button>
+                                            <Button variant="outline">{t('app.styleGuide.cancel2', 'Cancel')}</Button>
                                         </SheetClose>
-                                        <Button onClick={() => setSheetOpen(false)}>Create Service</Button>
+                                        <Button onClick={() => setSheetOpen(false)}>{t('app.styleGuide.createService', 'Create Service')}</Button>
                                     </SheetFooter>
                                 </SheetContent>
                             </Sheet>
                         </div>
 
-                        <SectionTitle title="Logs Drawer (LogsDrawer)" />
-                        <p className="text-sm text-secondary mb-2">Global bottom-pinned drawer for streaming logs. Opens via the LogsDrawer context.</p>
+                        <SectionTitle title={t('app.styleGuide.logsDrawerLogsdrawer', 'Logs Drawer (LogsDrawer)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.globalBottomPinnedDrawerForStreaming', 'Global bottom-pinned drawer for streaming logs. Opens via the LogsDrawer context.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <Button onClick={() => openDrawer({ name: 'sample-service', logPath: '/var/log/syslog', appType: 'logfile' })}>
-                                <FileText size={16} /> Open Logs Drawer
+                                <FileText size={16} /> {t('app.styleGuide.openLogsDrawer', 'Open Logs Drawer')}
                             </Button>
                         </div>
 
-                        <SectionTitle title="Confirm Dialogs" />
+                        <SectionTitle title={t('app.styleGuide.confirmDialogs', 'Confirm Dialogs')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex flex-wrap gap-3">
-                                <Button variant="destructive" onClick={() => { setConfirmVariant('danger'); setConfirmOpen(true); }}>Danger</Button>
-                                <Button variant="outline" onClick={() => { setConfirmVariant('warning'); setConfirmOpen(true); }}>Warning</Button>
-                                <Button variant="outline" onClick={() => { setConfirmVariant('info'); setConfirmOpen(true); }}>Info</Button>
+                                <Button variant="destructive" onClick={() => { setConfirmVariant('danger'); setConfirmOpen(true); }}>{t('app.styleGuide.danger2', 'Danger')}</Button>
+                                <Button variant="outline" onClick={() => { setConfirmVariant('warning'); setConfirmOpen(true); }}>{t('app.styleGuide.warning3', 'Warning')}</Button>
+                                <Button variant="outline" onClick={() => { setConfirmVariant('info'); setConfirmOpen(true); }}>{t('app.styleGuide.info3', 'Info')}</Button>
                             </div>
                             <ConfirmDialog
                                 isOpen={confirmOpen}
-                                title={`${confirmVariant.charAt(0).toUpperCase() + confirmVariant.slice(1)} Action`}
-                                message="Are you sure you want to proceed? This action may have consequences."
+                                title={t('app.styleGuide.action3', '{{value}} Action', { value: confirmVariant.charAt(0).toUpperCase() + confirmVariant.slice(1) })}
+                                message={t('app.styleGuide.areYouSureYouWantTo', 'Are you sure you want to proceed? This action may have consequences.')}
                                 variant={confirmVariant}
-                                confirmText="Proceed"
+                                confirmText={t('app.styleGuide.proceed', 'Proceed')}
                                 onConfirm={() => setConfirmOpen(false)}
                                 onCancel={() => setConfirmOpen(false)}
                             />
@@ -814,50 +816,50 @@ export default function StyleGuide() {
                 {/* ── TABS ── */}
                 {activeSection === 'tabs' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Tabs (Basic)" />
+                        <SectionTitle title={t('app.styleGuide.tabsBasic', 'Tabs (Basic)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <Tabs defaultValue="tab1">
                                 <TabsList>
-                                    <TabsTrigger value="tab1"><Server size={14} /> General</TabsTrigger>
-                                    <TabsTrigger value="tab2"><Shield size={14} /> Security</TabsTrigger>
-                                    <TabsTrigger value="tab3"><Activity size={14} /> Monitoring</TabsTrigger>
+                                    <TabsTrigger value="tab1"><Server size={14} /> {t('app.styleGuide.general', 'General')}</TabsTrigger>
+                                    <TabsTrigger value="tab2"><Shield size={14} /> {t('app.styleGuide.security', 'Security')}</TabsTrigger>
+                                    <TabsTrigger value="tab3"><Activity size={14} /> {t('app.styleGuide.monitoring', 'Monitoring')}</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="tab1">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>General tab content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.generalTabContent', 'General tab content.')}</p>
                                 </TabsContent>
                                 <TabsContent value="tab2">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Security tab content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.securityTabContent', 'Security tab content.')}</p>
                                 </TabsContent>
                                 <TabsContent value="tab3">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Monitoring tab content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.monitoringTabContent', 'Monitoring tab content.')}</p>
                                 </TabsContent>
                             </Tabs>
                         </div>
 
-                        <SectionTitle title="Tabs (Controlled)" />
-                        <p className="text-sm text-secondary mb-2">Controlled value/onValueChange usage. This should match URL-backed pages behaviorally.</p>
+                        <SectionTitle title={t('app.styleGuide.tabsControlled', 'Tabs (Controlled)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.controlledValueOnvaluechangeUsageThisShould', 'Controlled value/onValueChange usage. This should match URL-backed pages behaviorally.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <Tabs value={controlledDemoTab} onValueChange={setControlledDemoTab}>
                                 <TabsList>
-                                    <TabsTrigger value="general"><Server size={14} /> General</TabsTrigger>
-                                    <TabsTrigger value="security"><Shield size={14} /> Security</TabsTrigger>
-                                    <TabsTrigger value="monitoring"><Activity size={14} /> Monitoring</TabsTrigger>
-                                    <TabsTrigger value="disabled" disabled><Lock size={14} /> Disabled</TabsTrigger>
+                                    <TabsTrigger value="general"><Server size={14} /> {t('app.styleGuide.general2', 'General')}</TabsTrigger>
+                                    <TabsTrigger value="security"><Shield size={14} /> {t('app.styleGuide.security2', 'Security')}</TabsTrigger>
+                                    <TabsTrigger value="monitoring"><Activity size={14} /> {t('app.styleGuide.monitoring2', 'Monitoring')}</TabsTrigger>
+                                    <TabsTrigger value="disabled" disabled><Lock size={14} /> {t('app.styleGuide.disabled2', 'Disabled')}</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="general">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Controlled general content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.controlledGeneralContent', 'Controlled general content.')}</p>
                                 </TabsContent>
                                 <TabsContent value="security">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Controlled security content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.controlledSecurityContent', 'Controlled security content.')}</p>
                                 </TabsContent>
                                 <TabsContent value="monitoring">
-                                    <p className="text-secondary" style={{ paddingTop: 16 }}>Controlled monitoring content.</p>
+                                    <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.controlledMonitoringContent', 'Controlled monitoring content.')}</p>
                                 </TabsContent>
                             </Tabs>
                         </div>
 
-                        <SectionTitle title="Tabs (Overflow Menu)" />
-                        <p className="text-sm text-secondary mb-2">Many tabs force the overflow menu. Selecting an item from the ellipsis must activate the tab and close the popover.</p>
+                        <SectionTitle title={t('app.styleGuide.tabsOverflowMenu', 'Tabs (Overflow Menu)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.manyTabsForceTheOverflowMenu', 'Many tabs force the overflow menu. Selecting an item from the ellipsis must activate the tab and close the popover.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <Tabs defaultValue="overview">
                                 <TabsList>
@@ -867,26 +869,26 @@ export default function StyleGuide() {
                                 </TabsList>
                                 {MANY_TAB_ITEMS.map(([value, label]) => (
                                     <TabsContent key={value} value={value}>
-                                        <p className="text-secondary" style={{ paddingTop: 16 }}>{label} tab content.</p>
+                                        <p className="text-secondary" style={{ paddingTop: 16 }}>{label} {t('app.styleGuide.tabContent', 'tab content.')}</p>
                                     </TabsContent>
                                 ))}
                             </Tabs>
                         </div>
 
-                        <SectionTitle title="Tabs (Half + Half Layout)" />
-                        <p className="text-sm text-secondary mb-2">Constrained cards catch layout bugs that full-width tabs hide.</p>
+                        <SectionTitle title={t('app.styleGuide.tabsHalfHalfLayout', 'Tabs (Half + Half Layout)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.constrainedCardsCatchLayoutBugsThat', 'Constrained cards catch layout bugs that full-width tabs hide.')}</p>
                         <div className="styleguide__split-demo">
                             <div className="card" style={{ padding: 24 }}>
                                 <Tabs value={halfDemoTab} onValueChange={setHalfDemoTab}>
                                     <TabsList>
-                                        <TabsTrigger value="summary">Summary</TabsTrigger>
-                                        <TabsTrigger value="activity">Activity</TabsTrigger>
+                                        <TabsTrigger value="summary">{t('app.styleGuide.summary', 'Summary')}</TabsTrigger>
+                                        <TabsTrigger value="activity">{t('app.styleGuide.activity', 'Activity')}</TabsTrigger>
                                     </TabsList>
                                     <TabsContent value="summary">
-                                        <p className="text-secondary" style={{ paddingTop: 16 }}>Short two-tab card content.</p>
+                                        <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.shortTwoTabCardContent', 'Short two-tab card content.')}</p>
                                     </TabsContent>
                                     <TabsContent value="activity">
-                                        <p className="text-secondary" style={{ paddingTop: 16 }}>Recent activity content.</p>
+                                        <p className="text-secondary" style={{ paddingTop: 16 }}>{t('app.styleGuide.recentActivityContent', 'Recent activity content.')}</p>
                                     </TabsContent>
                                 </Tabs>
                             </div>
@@ -900,7 +902,7 @@ export default function StyleGuide() {
                                     </TabsList>
                                     {MANY_TAB_ITEMS.map(([value, label]) => (
                                         <TabsContent key={value} value={value}>
-                                            <p className="text-secondary" style={{ paddingTop: 16 }}>{label} content inside a half-width card.</p>
+                                            <p className="text-secondary" style={{ paddingTop: 16 }}>{label} {t('app.styleGuide.contentInsideAHalfWidthCard', 'content inside a half-width card.')}</p>
                                         </TabsContent>
                                     ))}
                                 </Tabs>
@@ -912,20 +914,20 @@ export default function StyleGuide() {
                 {/* ── LISTS & INFO ── */}
                 {activeSection === 'lists' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Info List (InfoList / InfoItem)" />
+                        <SectionTitle title={t('app.styleGuide.infoListInfolistInfoitem', 'Info List (InfoList / InfoItem)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <InfoList>
-                                <InfoItem label="Hostname" value="srv-01.example.com" mono />
-                                <InfoItem label="IP Address" value="192.168.1.100" mono />
+                                <InfoItem label={t('app.styleGuide.hostname', 'Hostname')} value="srv-01.example.com" mono />
+                                <InfoItem label={t('app.styleGuide.ipAddress', 'IP Address')} value="192.168.1.100" mono />
                                 <InfoItem label="OS" value="Ubuntu 22.04 LTS" />
-                                <InfoItem label="Uptime" value="42 days, 7 hours" />
-                                <InfoItem label="Status">
+                                <InfoItem label={t('app.styleGuide.uptime', 'Uptime')} value="42 days, 7 hours" />
+                                <InfoItem label={t('app.styleGuide.status3', 'Status')}>
                                     <StatusBadge status="online" />
                                 </InfoItem>
                             </InfoList>
                         </div>
 
-                        <SectionTitle title="Environment Variables" />
+                        <SectionTitle title={t('app.styleGuide.environmentVariables', 'Environment Variables')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="env-list">
                                 {[
@@ -941,7 +943,7 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Package List" />
+                        <SectionTitle title={t('app.styleGuide.packageList', 'Package List')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="packages-list">
                                 {[['nginx', '1.24.0'], ['postgresql-15', '15.4'], ['redis-server', '7.2.1']].map(([name, ver]) => (
@@ -958,7 +960,7 @@ export default function StyleGuide() {
                 {/* ── FEEDBACK & LOADING ── */}
                 {activeSection === 'feedback' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Spinners" />
+                        <SectionTitle title={t('app.styleGuide.spinners', 'Spinners')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="flex items-center gap-6">
                                 {['sm', 'md', 'lg'].map(size => (
@@ -970,16 +972,14 @@ export default function StyleGuide() {
                             </div>
                         </div>
 
-                        <SectionTitle title="Spinner Sizes (standalone)" />
-                        <p className="text-sm text-tertiary mb-2">Use Spinner directly only inside buttons or inline indicators.</p>
+                        <SectionTitle title={t('app.styleGuide.spinnerSizesStandalone', 'Spinner Sizes (standalone)')} />
+                        <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.useSpinnerDirectlyOnlyInsideButtons', 'Use Spinner directly only inside buttons or inline indicators.')}</p>
 
-                        <SectionTitle title="Loading skeleton archetypes" />
+                        <SectionTitle title={t('app.styleGuide.loadingSkeletonArchetypes', 'Loading skeleton archetypes')} />
                         <p className="text-sm text-tertiary mb-2">
-                            A skeleton should predict the layout that is about to arrive. Pick the
-                            archetype matching the page shape via
-                            {' '}<code>&lt;EmptyState loading loadingVariant=&quot;table&quot; /&gt;</code>, or render
-                            {' '}<code>&lt;PageSkeleton /&gt;</code> directly. For a pixel-exact skeleton of one
-                            region, capture bones instead (<code>npm run capture:skeletons</code>).
+                            {t('app.styleGuide.aSkeletonShouldPredictTheLayout', 'A skeleton should predict the layout that is about to arrive. Pick the archetype matching the page shape via')}
+                            {' '}<code>{t('app.styleGuide.emptystateLoadingLoadingvariantTable', '<EmptyState loading loadingVariant="table" />')}</code>{t('app.styleGuide.orRender', ', or render')}
+                            {' '}<code>{t('app.styleGuide.pageskeleton', '<PageSkeleton />')}</code> {t('app.styleGuide.directlyForAPixelExactSkeleton', 'directly. For a pixel-exact skeleton of one region, capture bones instead (')}<code>{t('app.styleGuide.npmRunCaptureSkeletons', 'npm run capture:skeletons')}</code>).
                         </p>
                         {PAGE_SKELETON_VARIANTS.map(variant => (
                             <div key={variant} className="sk-gallery">
@@ -993,73 +993,73 @@ export default function StyleGuide() {
                 {/* ── EMPTY, LOADING & UNAVAILABLE STATES ── */}
                 {activeSection === 'empty' && (
                     <div className="space-y-6">
-                        <p className="text-secondary text-sm">One component for everything: empty, loading, not-installed, unavailable. Import EmptyState from components/EmptyState.</p>
+                        <p className="text-secondary text-sm">{t('app.styleGuide.oneComponentForEverythingEmptyLoading', 'One component for everything: empty, loading, not-installed, unavailable. Import EmptyState from components/EmptyState.')}</p>
 
-                        <SectionTitle title="Default (No Data)" />
+                        <SectionTitle title={t('app.styleGuide.defaultNoData', 'Default (No Data)')} />
                         <EmptyState />
 
-                        <SectionTitle title="With Icon, Title, Description, Action" />
+                        <SectionTitle title={t('app.styleGuide.withIconTitleDescriptionAction', 'With Icon, Title, Description, Action')} />
                         <EmptyState
                             icon={Server}
-                            title="No servers connected"
-                            description="Connect your first server to start managing it from the dashboard."
-                            action={<Button><Plus size={16} /> Add Server</Button>}
+                            title={t('app.styleGuide.noServersConnected', 'No servers connected')}
+                            description={t('app.styleGuide.connectYourFirstServerToStart', 'Connect your first server to start managing it from the dashboard.')}
+                            action={<Button><Plus size={16} /> {t('app.styleGuide.addServer', 'Add Server')}</Button>}
                         />
 
-                        <SectionTitle title="Loading State" />
-                        <p className="text-sm text-tertiary mb-2">Pass loading=true. Same component, spinner instead of icon.</p>
-                        <EmptyState loading title="Loading services..." />
+                        <SectionTitle title={t('app.styleGuide.loadingState', 'Loading State')} />
+                        <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.passLoadingTrueSameComponentSpinner', 'Pass loading=true. Same component, spinner instead of icon.')}</p>
+                        <EmptyState loading title={t('app.styleGuide.loadingServices', 'Loading services...')} />
 
-                        <SectionTitle title="Search Empty" />
+                        <SectionTitle title={t('app.styleGuide.searchEmpty', 'Search Empty')} />
                         <EmptyState
                             icon={Search}
-                            title="No results found"
-                            description="Try adjusting your search or filter criteria."
+                            title={t('app.styleGuide.noResultsFound', 'No results found')}
+                            description={t('app.styleGuide.tryAdjustingYourSearchOrFilter', 'Try adjusting your search or filter criteria.')}
                         />
 
-                        <SectionTitle title='Large — Not Installed (size="lg")' />
-                        <p className="text-sm text-tertiary mb-2">Full-page state for Git, Docker, FTP when not installed.</p>
+                        <SectionTitle title={t('app.styleGuide.largeNotInstalledSizeLg', 'Large — Not Installed (size="lg")')} />
+                        <p className="text-sm text-tertiary mb-2">{t('app.styleGuide.fullPageStateForGitDocker', 'Full-page state for Git, Docker, FTP when not installed.')}</p>
                         <EmptyState
                             size="lg"
                             icon={GitBranch}
-                            title="No Git Server Installed"
-                            description="Install Gitea to host and manage your Git repositories locally."
-                            action={<Button size="lg"><Download size={16} /> Install Git Server</Button>}
+                            title={t('app.styleGuide.noGitServerInstalled', 'No Git Server Installed')}
+                            description={t('app.styleGuide.installGiteaToHostAndManage', 'Install Gitea to host and manage your Git repositories locally.')}
+                            action={<Button size="lg"><Download size={16} /> {t('app.styleGuide.installGitServer', 'Install Git Server')}</Button>}
                         />
 
-                        <SectionTitle title='Large — Unavailable (size="lg")' />
+                        <SectionTitle title={t('app.styleGuide.largeUnavailableSizeLg', 'Large — Unavailable (size="lg")')} />
                         <EmptyState
                             size="lg"
                             icon={WifiOff}
-                            title="Docker Not Available"
-                            description="Docker is not installed or not running on this system."
-                            action={<Button><RefreshCw size={16} /> Retry Connection</Button>}
+                            title={t('app.styleGuide.dockerNotAvailable', 'Docker Not Available')}
+                            description={t('app.styleGuide.dockerIsNotInstalledOrNot', 'Docker is not installed or not running on this system.')}
+                            action={<Button><RefreshCw size={16} /> {t('app.styleGuide.retryConnection', 'Retry Connection')}</Button>}
                         />
 
-                        <SectionTitle title="Large — Loading" />
-                        <EmptyState size="lg" loading title="Loading services..." />
+                        <SectionTitle title={t('app.styleGuide.largeLoading', 'Large — Loading')} />
+                        <EmptyState size="lg" loading title={t('app.styleGuide.loadingServices2', 'Loading services...')} />
 
-                        <SectionTitle title="Inside a Card (e.g. empty table)" />
+                        <SectionTitle title={t('app.styleGuide.insideACardEGEmpty', 'Inside a Card (e.g. empty table)')} />
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Scan History</h3>
-                                <Button size="sm" variant="outline">Refresh</Button>
+                                <h3>{t('app.styleGuide.scanHistory2', 'Scan History')}</h3>
+                                <Button size="sm" variant="outline">{t('app.styleGuide.refresh4', 'Refresh')}</Button>
                             </div>
                             <div className="card-body">
                                 <EmptyState
                                     icon={Search}
-                                    title="No scans yet"
-                                    description="Start a scan above to check for threats."
+                                    title={t('app.styleGuide.noScansYet', 'No scans yet')}
+                                    description={t('app.styleGuide.startAScanAboveToCheck', 'Start a scan above to check for threats.')}
                                 />
                             </div>
                         </div>
 
-                        <SectionTitle title="Context Grid" />
+                        <SectionTitle title={t('app.styleGuide.contextGrid', 'Context Grid')} />
                         <div className="grid grid-cols-2 gap-4">
-                            <EmptyState icon={Database} title="No databases" description="Create your first database." action={<Button size="sm"><Plus size={14} /> Create</Button>} />
-                            <EmptyState icon={Globe} title="No domains configured" description="Add a domain to get started." action={<Button size="sm"><Plus size={14} /> Add Domain</Button>} />
-                            <EmptyState icon={Key} title="No SSH keys" description="Add an SSH key for secure access." action={<Button size="sm"><Plus size={14} /> Add Key</Button>} />
-                            <EmptyState icon={Shield} title="No scan history" description="Run a scan to check for threats." action={<Button size="sm"><Activity size={14} /> Scan</Button>} />
+                            <EmptyState icon={Database} title={t('app.styleGuide.noDatabases', 'No databases')} description={t('app.styleGuide.createYourFirstDatabase', 'Create your first database.')} action={<Button size="sm"><Plus size={14} /> {t('app.styleGuide.create', 'Create')}</Button>} />
+                            <EmptyState icon={Globe} title={t('app.styleGuide.noDomainsConfigured', 'No domains configured')} description={t('app.styleGuide.addADomainToGetStarted', 'Add a domain to get started.')} action={<Button size="sm"><Plus size={14} /> {t('app.styleGuide.addDomain', 'Add Domain')}</Button>} />
+                            <EmptyState icon={Key} title={t('app.styleGuide.noSshKeys', 'No SSH keys')} description={t('app.styleGuide.addAnSshKeyForSecure', 'Add an SSH key for secure access.')} action={<Button size="sm"><Plus size={14} /> {t('app.styleGuide.addKey2', 'Add Key')}</Button>} />
+                            <EmptyState icon={Shield} title={t('app.styleGuide.noScanHistory', 'No scan history')} description={t('app.styleGuide.runAScanToCheckFor', 'Run a scan to check for threats.')} action={<Button size="sm"><Activity size={14} /> {t('app.styleGuide.scan', 'Scan')}</Button>} />
                         </div>
                     </div>
                 )}
@@ -1067,72 +1067,63 @@ export default function StyleGuide() {
                 {/* ── PAGE HEADERS ── */}
                 {activeSection === 'pageheaders' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Tab group — the default (no title)" />
+                        <SectionTitle title={t('app.styleGuide.tabGroupTheDefaultNoTitle', 'Tab group — the default (no title)')} />
                         <p className="text-sm text-secondary mb-2">
-                            How most pages get their bar: a parent <code>TabGroupLayout</code> renders
-                            one titleless <code>PageTopbar</code> for the whole group and swaps only the
-                            content below. Child pages render <strong>no bar of their own</strong> —
-                            they publish actions through <code>useTopbarActions()</code>, search
-                            right-most. The tab strip is the heading, so there is no title to repeat.
+                            {t('app.styleGuide.howMostPagesGetTheirBar', 'How most pages get their bar: a parent')} <code>{t('app.styleGuide.tabgrouplayout', 'TabGroupLayout')}</code> {t('app.styleGuide.rendersOneTitleless', 'renders one titleless')} <code>{t('app.styleGuide.pagetopbar', 'PageTopbar')}</code> {t('app.styleGuide.forTheWholeGroupAndSwaps', 'for the whole group and swaps only the content below. Child pages render')} <strong>{t('app.styleGuide.noBarOfTheirOwn', 'no bar of their own')}</strong> {t('app.styleGuide.theyPublishActionsThrough', '— they publish actions through')} <code>useTopbarActions()</code>{t('app.styleGuide.searchRightMostTheTabStrip', ', search right-most. The tab strip is the heading, so there is no title to repeat.')}
                         </p>
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <PageTopbar
                                 navLabel="Domains"
                                 tabs={[
-                                    { to: '#sg-domains', label: 'Domains' },
-                                    { to: '#sg-ssl', label: 'SSL Certificates' },
+                                    { to: '#sg-domains', labelKey: 'app.styleGuide.domains', label: 'Domains' },
+                                    { to: '#sg-ssl', labelKey: 'app.styleGuide.sslCertificates', label: 'SSL Certificates' },
                                 ]}
                                 actions={(
                                     <>
-                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> Check DNS</Button>
-                                        <Button size="sm"><Plus size={15} /> Add domain</Button>
-                                        <SearchField placeholder="Search domains…" />
+                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> {t('app.styleGuide.checkDns', 'Check DNS')}</Button>
+                                        <Button size="sm"><Plus size={15} /> {t('app.styleGuide.addDomain2', 'Add domain')}</Button>
+                                        <SearchField placeholder={t('app.styleGuide.searchDomains', 'Search domains…')} />
                                     </>
                                 )}
                             />
                         </div>
 
-                        <SectionTitle title="Standalone page — titled bar" />
+                        <SectionTitle title={t('app.styleGuide.standalonePageTitledBar', 'Standalone page — titled bar')} />
                         <p className="text-sm text-secondary mb-2">
-                            Only for pages with no tab group, and for entity pages where the title
-                            names <em>which</em> record you are on (Service Detail, Workspace…).
-                            Everything else should join a group.
+                            {t('app.styleGuide.onlyForPagesWithNoTab', 'Only for pages with no tab group, and for entity pages where the title names')} <em>which</em> {t('app.styleGuide.recordYouAreOnServiceDetail', 'record you are on (Service Detail, Workspace…). Everything else should join a group.')}
                         </p>
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <PageTopbar
                                 icon={<Clock size={18} />}
-                                title="Cron Jobs"
+                                title={t('app.styleGuide.cronJobs', 'Cron Jobs')}
                                 actions={(
                                     <>
-                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> Refresh</Button>
-                                        <Button size="sm"><Plus size={15} /> Create job</Button>
-                                        <SearchField placeholder="Search jobs or commands…" />
+                                        <Button variant="outline" size="sm"><RefreshCw size={15} /> {t('app.styleGuide.refresh5', 'Refresh')}</Button>
+                                        <Button size="sm"><Plus size={15} /> {t('app.styleGuide.createJob', 'Create job')}</Button>
+                                        <SearchField placeholder={t('app.styleGuide.searchJobsOrCommands', 'Search jobs or commands…')} />
                                     </>
                                 )}
                             />
                         </div>
 
-                        <SectionTitle title="Retired: .page-header" />
+                        <SectionTitle title={t('app.styleGuide.retiredPageHeader', 'Retired: .page-header')} />
                         <p className="text-sm text-secondary mb-2">
-                            The old <code>&lt;div className=&quot;page-header&quot;&gt;</code> +{' '}
-                            <code>&lt;h1&gt;</code> block has been removed from the codebase and its
-                            styles deleted. Don&apos;t reintroduce it — use one of the two bars above.
-                            Bespoke workspace pages (Docker, Database Explorer) intentionally carry no
-                            page bar at all; that is not a licence to invent a third header.
+                            {t('app.styleGuide.theOld', 'The old')} <code>{t('app.styleGuide.divClassnamePageHeader', '<div className="page-header">')}</code> +{' '}
+                            <code>&lt;h1&gt;</code> {t('app.styleGuide.blockHasBeenRemovedFromThe', 'block has been removed from the codebase and its styles deleted. Don\'t reintroduce it — use one of the two bars above. Bespoke workspace pages (Docker, Database Explorer) intentionally carry no page bar at all; that is not a licence to invent a third header.')}
                         </p>
 
-                        <SectionTitle title="Card with Header + Actions" />
-                        <p className="text-sm text-secondary mb-2">For cards inside pages that need their own header row.</p>
+                        <SectionTitle title={t('app.styleGuide.cardWithHeaderActions', 'Card with Header + Actions')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.forCardsInsidePagesThatNeed', 'For cards inside pages that need their own header row.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Card Section Title</h3>
+                                <h3>{t('app.styleGuide.cardSectionTitle', 'Card Section Title')}</h3>
                                 <div className="card-actions">
-                                    <Button size="sm">Add</Button>
-                                    <Button size="sm" variant="outline">Refresh</Button>
+                                    <Button size="sm">{t('app.styleGuide.add', 'Add')}</Button>
+                                    <Button size="sm" variant="outline">{t('app.styleGuide.refresh6', 'Refresh')}</Button>
                                 </div>
                             </div>
                             <div className="card-body">
-                                <p className="text-secondary">Content below the card header.</p>
+                                <p className="text-secondary">{t('app.styleGuide.contentBelowTheCardHeader', 'Content below the card header.')}</p>
                             </div>
                         </div>
                     </div>
@@ -1141,56 +1132,56 @@ export default function StyleGuide() {
                 {/* ── PAGE PATTERNS ── */}
                 {activeSection === 'patterns' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Card + Table Pattern" />
-                        <p className="text-sm text-secondary mb-2">Standard layout for tabular data inside a card.</p>
+                        <SectionTitle title={t('app.styleGuide.cardTablePattern', 'Card + Table Pattern')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.standardLayoutForTabularDataInside', 'Standard layout for tabular data inside a card.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Authorized Keys</h3>
+                                <h3>{t('app.styleGuide.authorizedKeys', 'Authorized Keys')}</h3>
                                 <div className="card-actions">
-                                    <Button size="sm"><Plus size={14} /> Add Key</Button>
+                                    <Button size="sm"><Plus size={14} /> {t('app.styleGuide.addKey3', 'Add Key')}</Button>
                                     <Button size="sm" variant="outline"><RefreshCw size={14} /></Button>
                                 </div>
                             </div>
                             <div className="card-body">
                                 <table className="table">
                                     <thead>
-                                        <tr><th>Type</th><th>Fingerprint</th><th>Comment</th><th>Actions</th></tr>
+                                        <tr><th>{t('app.styleGuide.type2', 'Type')}</th><th>{t('app.styleGuide.fingerprint2', 'Fingerprint')}</th><th>{t('app.styleGuide.comment2', 'Comment')}</th><th>{t('app.styleGuide.actions2', 'Actions')}</th></tr>
                                     </thead>
                                     <tbody>
                                         <tr>
                                             <td><code>ssh-ed25519</code></td>
-                                            <td><code>SHA256:abc123...</code></td>
+                                            <td><code>{t('app.styleGuide.sha256Abc123', 'SHA256:abc123...')}</code></td>
                                             <td>deploy@server</td>
-                                            <td><Button size="sm" variant="destructive">Remove</Button></td>
+                                            <td><Button size="sm" variant="destructive">{t('app.styleGuide.remove4', 'Remove')}</Button></td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <SectionTitle title="Card + Empty State Pattern" />
-                        <p className="text-sm text-secondary mb-2">When the card table has no data.</p>
+                        <SectionTitle title={t('app.styleGuide.cardEmptyStatePattern', 'Card + Empty State Pattern')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.whenTheCardTableHasNo', 'When the card table has no data.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <div className="card-header">
-                                <h3>Scan History</h3>
-                                <Button size="sm" variant="outline">Refresh</Button>
+                                <h3>{t('app.styleGuide.scanHistory3', 'Scan History')}</h3>
+                                <Button size="sm" variant="outline">{t('app.styleGuide.refresh7', 'Refresh')}</Button>
                             </div>
                             <div className="card-body">
                                 <EmptyState
                                     icon={Search}
-                                    title="No scans yet"
-                                    description="Start a scan above to check for threats."
+                                    title={t('app.styleGuide.noScansYet2', 'No scans yet')}
+                                    description={t('app.styleGuide.startAScanAboveToCheck2', 'Start a scan above to check for threats.')}
                                 />
                             </div>
                         </div>
 
-                        <SectionTitle title="Card Grid (Scan Options)" />
-                        <p className="text-sm text-secondary mb-2">Action cards in a grid for scan/setup type selections.</p>
+                        <SectionTitle title={t('app.styleGuide.cardGridScanOptions', 'Card Grid (Scan Options)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.actionCardsInAGridFor', 'Action cards in a grid for scan/setup type selections.')}</p>
                         <div className="grid grid-cols-3 gap-4">
                             {[
-                                { icon: Zap, title: 'Quick Scan', desc: 'Scan common web directories' },
-                                { icon: Globe, title: 'Full Scan', desc: 'Scan entire system (slow)' },
-                                { icon: FolderOpen, title: 'Custom Path', desc: 'Scan a specific directory' },
+                                { icon: Zap, titleKey: 'app.styleGuide.quickScan', title: 'Quick Scan', desc: 'Scan common web directories' },
+                                { icon: Globe, titleKey: 'app.styleGuide.fullScan', title: 'Full Scan', desc: 'Scan entire system (slow)' },
+                                { icon: FolderOpen, titleKey: 'app.styleGuide.customPath', title: 'Custom Path', desc: 'Scan a specific directory' },
                             ].map(item => (
                                 <div key={item.title} className="card" style={{ padding: 24, textAlign: 'center', cursor: 'pointer' }}>
                                     <div className="flex justify-center mb-3">
@@ -1198,20 +1189,20 @@ export default function StyleGuide() {
                                     </div>
                                     <h4 style={{ marginBottom: 4 }}>{item.title}</h4>
                                     <p className="text-sm text-tertiary mb-4">{item.desc}</p>
-                                    <Button size="sm">Start Scan</Button>
+                                    <Button size="sm">{t('app.styleGuide.startScan', 'Start Scan')}</Button>
                                 </div>
                             ))}
                         </div>
 
-                        <SectionTitle title="Error Banner at Page Level" />
-                        <p className="text-sm text-secondary mb-2">Shown below page header when an API call fails.</p>
+                        <SectionTitle title={t('app.styleGuide.errorBannerAtPageLevel', 'Error Banner at Page Level')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.shownBelowPageHeaderWhenAn', 'Shown below page header when an API call fails.')}</p>
                         <div className="alert alert-danger">
-                            Failed to load services. Please try again.
+                            {t('app.styleGuide.failedToLoadServicesPleaseTry', 'Failed to load services. Please try again.')}
                             <button className="alert-close">&times;</button>
                         </div>
 
-                        <SectionTitle title="Log Viewer (LogViewer)" />
-                        <p className="text-sm text-secondary mb-2">Split layout: file list sidebar + log content viewer with toolbar.</p>
+                        <SectionTitle title={t('app.styleGuide.logViewerLogviewer', 'Log Viewer (LogViewer)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.splitLayoutFileListSidebarLog', 'Split layout: file list sidebar + log content viewer with toolbar.')}</p>
                         <div style={{ height: 360 }}>
                             <LogViewer
                                 files={[
@@ -1234,8 +1225,8 @@ export default function StyleGuide() {
                             />
                         </div>
 
-                        <SectionTitle title="Journal Controls (JournalControls)" />
-                        <p className="text-sm text-secondary mb-2">Journal tab with service unit chips and priority filter.</p>
+                        <SectionTitle title={t('app.styleGuide.journalControlsJournalcontrols', 'Journal Controls (JournalControls)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.journalTabWithServiceUnitChips', 'Journal tab with service unit chips and priority filter.')}</p>
                         <div className="card" style={{ padding: 24 }}>
                             <JournalControls
                                 unit="nginx"
@@ -1249,14 +1240,14 @@ export default function StyleGuide() {
                             />
                         </div>
 
-                        <SectionTitle title="Code/Log Viewer Block" />
-                        <p className="text-sm text-secondary mb-2">Monospace preformatted content with dark background.</p>
+                        <SectionTitle title={t('app.styleGuide.codeLogViewerBlock', 'Code/Log Viewer Block')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.monospacePreformattedContentWithDarkBackground', 'Monospace preformatted content with dark background.')}</p>
                         <div className="journal-viewer" style={{ height: 160 }}>
                             <pre>{`Mar 29 14:23:01 srv-01 nginx[1234]: worker process started\nMar 29 14:23:02 srv-01 systemd[1]: Started Nginx HTTP Server\nMar 29 14:23:05 srv-01 sshd[5678]: Accepted publickey for deploy\nMar 29 14:23:12 srv-01 cron[91011]: (root) CMD (/usr/local/bin/backup.sh)`}</pre>
                         </div>
 
-                        <SectionTitle title="Process Table (ProcessTable)" />
-                        <p className="text-sm text-secondary mb-2">Table with inline usage bars and action buttons.</p>
+                        <SectionTitle title={t('app.styleGuide.processTableProcesstable', 'Process Table (ProcessTable)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.tableWithInlineUsageBarsAnd', 'Table with inline usage bars and action buttons.')}</p>
                         <ProcessTable
                             processes={[
                                 { pid: 1234, name: 'nginx', user: 'www-data', cpu_percent: 12.5, memory_percent: 3.2, memory_info: { rss: 134543872 }, status: 'running' },
@@ -1267,8 +1258,8 @@ export default function StyleGuide() {
                             onForceKill={() => {}}
                         />
 
-                        <SectionTitle title="Detail Panel (ProcessDetailsPanel)" />
-                        <p className="text-sm text-secondary mb-2">Expandable detail panel below a list/table selection.</p>
+                        <SectionTitle title={t('app.styleGuide.detailPanelProcessdetailspanel', 'Detail Panel (ProcessDetailsPanel)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.expandableDetailPanelBelowAList', 'Expandable detail panel below a list/table selection.')}</p>
                         <ProcessDetailsPanel
                             process={{
                                 pid: 1234,
@@ -1284,8 +1275,8 @@ export default function StyleGuide() {
                             onClose={() => {}}
                         />
 
-                        <SectionTitle title="Service Cards Grid (ServiceCard / ServicesGrid)" />
-                        <p className="text-sm text-secondary mb-2">Grid of service cards with status dot, metadata, and action buttons.</p>
+                        <SectionTitle title={t('app.styleGuide.serviceCardsGridServicecardServicesgrid', 'Service Cards Grid (ServiceCard / ServicesGrid)')} />
+                        <p className="text-sm text-secondary mb-2">{t('app.styleGuide.gridOfServiceCardsWithStatus', 'Grid of service cards with status dot, metadata, and action buttons.')}</p>
                         <ServicesGrid>
                             {[
                                 { name: 'nginx', status: 'running', desc: 'HTTP and reverse proxy server', pid: 1234, mem: '48.2 MB' },
@@ -1295,7 +1286,7 @@ export default function StyleGuide() {
                             ].map(s => {
                                 const meta = [
                                     s.pid && { label: 'PID', value: s.pid },
-                                    s.mem && { label: 'Memory', value: s.mem },
+                                    s.mem && { labelKey: 'app.styleGuide.memory2', label: 'Memory', value: s.mem },
                                 ].filter(Boolean);
                                 return (
                                     <ServiceCard
@@ -1308,13 +1299,13 @@ export default function StyleGuide() {
                                             <>
                                                 {s.status === 'running' ? (
                                                     <>
-                                                        <Button size="sm" variant="outline">Restart</Button>
-                                                        <Button size="sm" variant="outline">Stop</Button>
+                                                        <Button size="sm" variant="outline">{t('app.styleGuide.restart', 'Restart')}</Button>
+                                                        <Button size="sm" variant="outline">{t('app.styleGuide.stop', 'Stop')}</Button>
                                                     </>
                                                 ) : (
-                                                    <Button size="sm">Start</Button>
+                                                    <Button size="sm">{t('app.styleGuide.start', 'Start')}</Button>
                                                 )}
-                                                <Button size="sm" variant="outline">Logs</Button>
+                                                <Button size="sm" variant="outline">{t('app.styleGuide.logs', 'Logs')}</Button>
                                             </>
                                         }
                                     />
@@ -1327,7 +1318,7 @@ export default function StyleGuide() {
                 {/* ── UTILITIES ── */}
                 {activeSection === 'utilities' && (
                     <div className="space-y-6">
-                        <SectionTitle title="Flex Utilities" />
+                        <SectionTitle title={t('app.styleGuide.flexUtilities', 'Flex Utilities')} />
                         <div className="card" style={{ padding: 24 }}>
                             <p className="text-sm text-tertiary mb-2">.flex .items-center .gap-3</p>
                             <div className="flex items-center gap-3 mb-4" style={{ padding: 8, border: '1px dashed var(--border-active)' }}>
@@ -1337,27 +1328,27 @@ export default function StyleGuide() {
                             </div>
                             <p className="text-sm text-tertiary mb-2">.flex .justify-between</p>
                             <div className="flex justify-between mb-4" style={{ padding: 8, border: '1px dashed var(--border-active)' }}>
-                                <div className="styleguide__util-box">Left</div>
-                                <div className="styleguide__util-box">Right</div>
+                                <div className="styleguide__util-box">{t('app.styleGuide.left', 'Left')}</div>
+                                <div className="styleguide__util-box">{t('app.styleGuide.right', 'Right')}</div>
                             </div>
                             <p className="text-sm text-tertiary mb-2">.flex .flex-col .gap-2</p>
                             <div className="flex flex-col gap-2" style={{ padding: 8, border: '1px dashed var(--border-active)', maxWidth: 200 }}>
-                                <div className="styleguide__util-box">Row 1</div>
-                                <div className="styleguide__util-box">Row 2</div>
+                                <div className="styleguide__util-box">{t('app.styleGuide.row1', 'Row 1')}</div>
+                                <div className="styleguide__util-box">{t('app.styleGuide.row2', 'Row 2')}</div>
                             </div>
                         </div>
 
-                        <SectionTitle title="Grid Utilities" />
+                        <SectionTitle title={t('app.styleGuide.gridUtilities', 'Grid Utilities')} />
                         <div className="card" style={{ padding: 24 }}>
                             <p className="text-sm text-tertiary mb-2">.grid .grid-cols-4 .gap-3</p>
                             <div className="grid grid-cols-4 gap-3">
                                 {[1,2,3,4,5,6,7,8].map(i => (
-                                    <div key={i} className="styleguide__util-box">Cell {i}</div>
+                                    <div key={i} className="styleguide__util-box">{t('app.styleGuide.cell', 'Cell')} {i}</div>
                                 ))}
                             </div>
                         </div>
 
-                        <SectionTitle title="Z-Index Scale" />
+                        <SectionTitle title={t('app.styleGuide.zIndexScale', 'Z-Index Scale')} />
                         <div className="card" style={{ padding: 24 }}>
                             {[
                                 ['$z-dropdown', 10], ['$z-sticky', 20], ['$z-fixed', 30],
@@ -1370,7 +1361,7 @@ export default function StyleGuide() {
                             ))}
                         </div>
 
-                        <SectionTitle title="Breakpoints" />
+                        <SectionTitle title={t('app.styleGuide.breakpoints', 'Breakpoints')} />
                         <div className="card" style={{ padding: 24 }}>
                             {[
                                 ['$breakpoint-sm', '640px'], ['$breakpoint-md', '768px'],

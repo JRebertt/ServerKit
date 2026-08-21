@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Globe, RefreshCw, AlertTriangle } from 'lucide-react';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 function expiryTone(days) {
     if (days == null) return 'neutral';
@@ -16,6 +17,7 @@ function expiryTone(days) {
 }
 
 export default function RegistrarPortfolio() {
+    const { t } = useTranslation();
     const [domains, setDomains] = useState(null); // null = loading
     const [syncing, setSyncing] = useState(false);
 
@@ -45,10 +47,10 @@ export default function RegistrarPortfolio() {
             <header className="reg-portfolio__head">
                 <div className="reg-portfolio__title">
                     <Globe size={16} />
-                    <h2>Registered domains</h2>
+                    <h2>{t('app.registrarPortfolio.registeredDomains', 'Registered domains')}</h2>
                     <span className="reg-portfolio__count">{domains.length}</span>
                     {expiringSoon > 0 && (
-                        <span className="reg-portfolio__warn"><AlertTriangle size={13} /> {expiringSoon} expiring ≤30d</span>
+                        <span className="reg-portfolio__warn"><AlertTriangle size={13} /> {expiringSoon} {t('app.registrarPortfolio.expiring30d', 'expiring ≤30d')}</span>
                     )}
                 </div>
                 <button type="button" className="reg-portfolio__refresh" onClick={refresh} disabled={syncing}>

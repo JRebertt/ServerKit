@@ -11,6 +11,7 @@ import DataTable from '@/components/ds/DataTable';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarChrome } from '@/hooks/useTopbarActions';
+import { useTranslation } from 'react-i18next';
 
 // Shared chrome for resource list pages (Services, Servers, …): the status
 // filter + search toolbar, sort & column menus, the DataTable with a standard
@@ -130,6 +131,7 @@ export default function ResourceListPage({
     keyboardNav = true,
     children,
 }) {
+    const { t } = useTranslation();
     const resolvedTotal = totalCount ?? items.length;
     const [view, setView] = useState(() => {
         if (!renderCard) return 'list';
@@ -257,7 +259,7 @@ export default function ResourceListPage({
                 </>
             )}
             {renderCard && (
-                <div className="wp-list__viewswitch" role="group" aria-label="Layout">
+                <div className="wp-list__viewswitch" role="group" aria-label={t('app.resourceListPage.layout', 'Layout')}>
                     {[['list', Rows3, 'List'], ['cards', LayoutGrid, 'Cards']].map(([key, Icon, label]) => (
                         <button
                             type="button"

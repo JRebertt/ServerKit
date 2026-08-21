@@ -5,6 +5,7 @@ import useAutoScroll from '../../hooks/ai/useAutoScroll';
 import Message from './Message';
 import TypingIndicator from './TypingIndicator';
 import ConfirmActionCard from './ConfirmActionCard';
+import { useTranslation } from 'react-i18next';
 
 const routeMatches = (pattern, route) => {
     if (!pattern || pattern === '*') return true;
@@ -13,6 +14,7 @@ const routeMatches = (pattern, route) => {
 };
 
 const MessageList = () => {
+    const { t } = useTranslation();
     const {
         messages, isStreaming, pageContext, mode, ask, providerConfigured, pendingConfirm,
     } = useServerkitAI();
@@ -39,12 +41,12 @@ const MessageList = () => {
             {isEmpty ? (
                 <div className="sk-ai-empty">
                     <div className="sk-ai-empty__icon"><Sparkles size={22} /></div>
-                    <h3 className="sk-ai-empty__title">ServerKit AI</h3>
-                    <p className="sk-ai-empty__sub">powered by Prompture</p>
+                    <h3 className="sk-ai-empty__title">{t('app.messageList.serverkitAi', 'ServerKit AI')}</h3>
+                    <p className="sk-ai-empty__sub">{t('app.messageList.poweredByPrompture', 'powered by Prompture')}</p>
                     {!providerConfigured ? (
                         <p className="sk-ai-empty__hint">
-                            The assistant isn&apos;t configured yet. An admin can set a provider in
-                            {' '}Settings → AI Assistant.
+                            {t('app.messageList.theAssistantIsnTConfiguredYet', 'The assistant isn\'t configured yet. An admin can set a provider in')}
+                            {' '}{t('app.messageList.settingsAiAssistant', 'Settings → AI Assistant.')}
                         </p>
                     ) : (
                         <div className="sk-ai-empty__prompts">
@@ -64,13 +66,13 @@ const MessageList = () => {
             ) : (
                 <>
                     {messages.map((m) => <Message key={m.id} message={m} />)}
-                    {showTyping ? <TypingIndicator label={lastAssistant?.thinking ? 'Thinking…' : null} /> : null}
+                    {showTyping ? <TypingIndicator label={lastAssistant?.thinking ? t('app.messageList.thinking', 'Thinking…') : null} /> : null}
                     <ConfirmActionCard />
                 </>
             )}
 
             {!isPinned && !isEmpty ? (
-                <button type="button" className="sk-ai-jump" onClick={scrollToBottom} aria-label="Jump to latest">
+                <button type="button" className="sk-ai-jump" onClick={scrollToBottom} aria-label={t('app.messageList.jumpToLatest', 'Jump to latest')}>
                     <ArrowDown size={16} />
                 </button>
             ) : null}

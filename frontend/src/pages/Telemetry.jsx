@@ -41,6 +41,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import { statusKind } from '@/components/ds/status';
+import { useTranslation } from 'react-i18next';
 
 const SEVERITY_ORDER = ['critical', 'error', 'warning', 'info', 'debug'];
 
@@ -107,6 +108,7 @@ const BUILTIN_VIEWS = [
 ];
 
 export default function Telemetry() {
+    const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const { showToast } = useToast();
     const { confirm } = useConfirm();
@@ -164,7 +166,7 @@ export default function Telemetry() {
             setHasMore(fresh.length === PAGE_SIZE);
             setPage(nextPage);
         } catch (err) {
-            showToast(`Failed to load telemetry: ${err.message}`, 'error');
+            showToast(t('app.telemetry.failedToLoadTelemetry', 'Failed to load telemetry: {{message}}', { message: err.message }), 'error');
             setHasMore(false);
         } finally {
             setLoading(false);
@@ -181,22 +183,22 @@ export default function Telemetry() {
             await api.emitTestTelemetryEvent({
                 source: 'system',
                 event_type: 'telemetry.test',
-                message: 'Test event from UI',
+                messageKey: 'app.telemetry.testEventFromUi', message: 'Test event from UI',
                 severity: 'info',
                 payload: { from_ui: true },
             });
-            showToast('Test event emitted', 'success');
+            showToast(t('app.telemetry.testEventEmitted', 'Test event emitted'), 'success');
             fetchEvents(1, true);
         } catch (err) {
-            showToast(`Failed to emit test event: ${err.message}`, 'error');
+            showToast(t('app.telemetry.failedToEmitTestEvent', 'Failed to emit test event: {{message}}', { message: err.message }), 'error');
         }
     };
 
     const cleanupOldEvents = async () => {
         const confirmed = await confirm({
-            title: 'Clean Up Old Events',
-            message: 'Delete telemetry events older than 90 days? This cannot be undone.',
-            confirmText: 'Delete',
+            title: t('app.telemetry.cleanUpOldEvents', 'Clean Up Old Events'),
+            message: t('app.telemetry.deleteTelemetryEventsOlderThan90', 'Delete telemetry events older than 90 days? This cannot be undone.'),
+            confirmText: t('app.telemetry.delete', 'Delete'),
             variant: 'danger',
         });
         if (!confirmed) {
@@ -204,10 +206,10 @@ export default function Telemetry() {
         }
         try {
             const data = await api.cleanupTelemetryEvents(90);
-            showToast(`Deleted ${data.deleted} old events`, 'success');
+            showToast(t('app.telemetry.deletedOldEvents', 'Deleted {{deleted}} old events', { deleted: data.deleted }), 'success');
             fetchEvents(1, true);
         } catch (err) {
-            showToast(`Cleanup failed: ${err.message}`, 'error');
+            showToast(t('app.telemetry.cleanupFailed', 'Cleanup failed: {{message}}', { message: err.message }), 'error');
         }
     };
 
@@ -217,20 +219,20 @@ export default function Telemetry() {
     // the way every other list page in the panel does it.
     useTopbarActions(() => (
         <>
-            <SearchField value={q} onSearch={(value) => setQ(value.trim())} placeholder="Search messages…" />
+            <SearchField value={q} onSearch={(value) => setQ(value.trim())} placeholder={t('app.telemetry.searchMessages', 'Search messages…')} />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
             {isAdmin && (
                 <Button variant="outline" size="sm" onClick={emitTestEvent}>
-                    <Activity size={14} /> Test event
+                    <Activity size={14} /> {t('app.telemetry.testEvent', 'Test event')}
                 </Button>
             )}
             {isAdmin && (
                 <Button variant="outline" size="sm" onClick={cleanupOldEvents}>
-                    <Trash2 size={14} /> Cleanup
+                    <Trash2 size={14} /> {t('app.telemetry.cleanup', 'Cleanup')}
                 </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => fetchEvents(1, true)} disabled={loading}>
-                <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+                <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('app.telemetry.refresh', 'Refresh')}
             </Button>
         </>
     ), [q, activeFilterCount, isAdmin, loading, fetchEvents]);
@@ -238,19 +240,19 @@ export default function Telemetry() {
     const filterGroups = useMemo(() => ([
         {
             key: 'source',
-            label: 'Source',
+            labelKey: 'app.telemetry.source', label: 'Source',
             type: 'single',
             options: sources.map((s) => ({ value: s, label: s })),
         },
         {
             key: 'event_type',
-            label: 'Event type',
+            labelKey: 'app.telemetry.eventType', label: 'Event type',
             type: 'single',
             options: eventTypes.map((t) => ({ value: t, label: t })),
         },
         {
             key: 'severity',
-            label: 'Severity',
+            labelKey: 'app.telemetry.severity', label: 'Severity',
             type: 'single',
             options: SEVERITY_ORDER.map((s) => ({ value: s, label: SEVERITY_LABEL[s] })),
         },
@@ -259,7 +261,7 @@ export default function Telemetry() {
     const columns = [
         {
             key: 'severity',
-            header: 'Severity',
+            headerKey: 'app.telemetry.severity2', header: 'Severity',
             sortable: true,
             type: 'enum',
             // Sorting and filtering want DIFFERENT values here, so both are
@@ -285,7 +287,7 @@ export default function Telemetry() {
         },
         {
             key: 'message',
-            header: 'Event',
+            headerKey: 'app.telemetry.event', header: 'Event',
             sortable: true,
             sortValue: (event) => event.message || event.event_type || null,
             render: (event) => (
@@ -308,7 +310,7 @@ export default function Telemetry() {
         },
         {
             key: 'correlation_id',
-            header: 'Related',
+            headerKey: 'app.telemetry.related', header: 'Related',
             render: (event) => (event.correlation_id ? (
                 <Button
                     variant="ghost"
@@ -317,7 +319,7 @@ export default function Telemetry() {
                         e.stopPropagation();
                         setFilters((f) => ({ ...f, correlation_id: event.correlation_id }));
                     }}
-                    title="Show every event in this trace"
+                    title={t('app.telemetry.showEveryEventInThisTrace', 'Show every event in this trace')}
                 >
                     trace <ChevronRight size={12} />
                 </Button>
@@ -325,7 +327,7 @@ export default function Telemetry() {
         },
         {
             key: 'timestamp',
-            header: 'When',
+            headerKey: 'app.telemetry.when', header: 'When',
             sortable: true,
             sortValue: (event) => (event.timestamp ? new Date(event.timestamp).getTime() : null),
             cellClassName: 'telemetry-cell__when',
@@ -381,14 +383,14 @@ export default function Telemetry() {
             {filters.correlation_id && (
                 <div className="telemetry-trace">
                     <span>
-                        Showing one trace: <code>{filters.correlation_id}</code>
+                        {t('app.telemetry.showingOneTrace', 'Showing one trace:')} <code>{filters.correlation_id}</code>
                     </span>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setFilters((f) => ({ ...f, correlation_id: '' }))}
                     >
-                        Clear
+                        {t('app.telemetry.clear', 'Clear')}
                     </Button>
                 </div>
             )}
@@ -396,10 +398,10 @@ export default function Telemetry() {
             {events.length === 0 && !loading ? (
                 <EmptyState
                     icon={Info}
-                    title={hasFilters ? 'No events match' : 'No events recorded yet'}
+                    title={hasFilters ? t('app.telemetry.noEventsMatch', 'No events match') : t('app.telemetry.noEventsRecordedYet', 'No events recorded yet')}
                     description={hasFilters
-                        ? 'Try a different search or clear the filters.'
-                        : 'System activity shows up here as it happens.'}
+                        ? t('app.telemetry.tryADifferentSearchOrClear', 'Try a different search or clear the filters.')
+                        : t('app.telemetry.systemActivityShowsUpHereAs', 'System activity shows up here as it happens.')}
                     action={hasFilters
                         ? (
                             <Button
@@ -413,7 +415,7 @@ export default function Telemetry() {
                                     chrome.api.resetToView();
                                 }}
                             >
-                                Clear filters
+                                {t('app.telemetry.clearFilters', 'Clear filters')}
                             </Button>
                         )
                         : undefined}
@@ -461,12 +463,12 @@ export default function Telemetry() {
                 onChange={setFilters}
                 onClear={() => setFilters(EMPTY_FILTERS)}
                 activeCount={activeFilterCount}
-                title="Filter events"
+                title={t('app.telemetry.filterEvents', 'Filter events')}
             >
                 {/* Free-text and date bounds don't fit the option-list shape the
                     drawer's groups use, so they ride along as extra fields. */}
                 <div className="form-group">
-                    <Label htmlFor="tel-resource-type">Resource type</Label>
+                    <Label htmlFor="tel-resource-type">{t('app.telemetry.resourceType', 'Resource type')}</Label>
                     <Input
                         id="tel-resource-type"
                         value={filters.resource_type}
@@ -475,7 +477,7 @@ export default function Telemetry() {
                     />
                 </div>
                 <div className="form-group">
-                    <Label htmlFor="tel-resource-id">Resource ID</Label>
+                    <Label htmlFor="tel-resource-id">{t('app.telemetry.resourceId', 'Resource ID')}</Label>
                     <Input
                         id="tel-resource-id"
                         value={filters.resource_id}
@@ -483,7 +485,7 @@ export default function Telemetry() {
                     />
                 </div>
                 <div className="form-group">
-                    <Label htmlFor="tel-start">From</Label>
+                    <Label htmlFor="tel-start">{t('app.telemetry.from', 'From')}</Label>
                     <Input
                         id="tel-start"
                         type="datetime-local"
@@ -505,7 +507,7 @@ export default function Telemetry() {
             <Drawer
                 open={Boolean(selectedEvent)}
                 onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}
-                title={selectedEvent?.message || selectedEvent?.event_type || 'Event'}
+                title={selectedEvent?.message || selectedEvent?.event_type || t('app.telemetry.event2', 'Event')}
                 subtitle={selectedEvent
                     ? `${selectedEvent.source} · ${new Date(selectedEvent.timestamp).toLocaleString()}`
                     : ''}
@@ -515,9 +517,9 @@ export default function Telemetry() {
                     <div className="telemetry-detail">
                         <dl className="mon-inforows">
                             <div><dt>ID</dt><dd><code>{selectedEvent.id}</code></dd></div>
-                            <div><dt>Type</dt><dd>{selectedEvent.event_type}</dd></div>
+                            <div><dt>{t('app.telemetry.type', 'Type')}</dt><dd>{selectedEvent.event_type}</dd></div>
                             <div>
-                                <dt>Severity</dt>
+                                <dt>{t('app.telemetry.severity3', 'Severity')}</dt>
                                 <dd>
                                     <Pill kind={statusKind(selectedEvent.severity in SEVERITY_LABEL ? selectedEvent.severity : 'info')}>
                                         {selectedEvent.severity}
@@ -526,16 +528,16 @@ export default function Telemetry() {
                             </div>
                             {selectedEvent.resource_type && (
                                 <div>
-                                    <dt>Resource</dt>
+                                    <dt>{t('app.telemetry.resource', 'Resource')}</dt>
                                     <dd>{selectedEvent.resource_type}:{selectedEvent.resource_id}</dd>
                                 </div>
                             )}
                             {selectedEvent.actor_username && (
-                                <div><dt>Actor</dt><dd>{selectedEvent.actor_username}</dd></div>
+                                <div><dt>{t('app.telemetry.actor', 'Actor')}</dt><dd>{selectedEvent.actor_username}</dd></div>
                             )}
                             {selectedEvent.correlation_id && (
                                 <div>
-                                    <dt>Correlation</dt>
+                                    <dt>{t('app.telemetry.correlation', 'Correlation')}</dt>
                                     <dd>
                                         <Button
                                             variant="ghost"
@@ -551,7 +553,7 @@ export default function Telemetry() {
                                 </div>
                             )}
                         </dl>
-                        <h4 className="telemetry-detail__heading">Payload</h4>
+                        <h4 className="telemetry-detail__heading">{t('app.telemetry.payload', 'Payload')}</h4>
                         <pre className="telemetry-detail__payload">
                             {JSON.stringify(selectedEvent.payload || {}, null, 2)}
                         </pre>

@@ -21,6 +21,8 @@ import {
 } from '@/components/ds/grid';
 import useFocusParam from '@/hooks/useFocusParam';
 import LinkPanelForm from '../components/servers/LinkPanelForm';
+import { useTranslation } from 'react-i18next';
+import { t } from '../i18n/t';
 
 // Status -> Pill tone. `connecting` and `pending` both mean "not reporting
 // yet" but for different reasons (handshake in flight vs agent never
@@ -153,7 +155,7 @@ const meterColumn = (key, header, metricKey) => ({
 const SERVER_COLUMNS = [
     {
         key: 'name',
-        header: 'Server',
+        headerKey: 'app.servers.server', header: 'Server',
         sortable: true,
         hideable: false,
         sortValue: (server) => server.name || '',
@@ -174,19 +176,19 @@ const SERVER_COLUMNS = [
     },
     {
         key: 'host',
-        header: 'Host',
+        headerKey: 'app.servers.host', header: 'Host',
         cellClassName: 'sk-cell-mono',
         render: (server) => server.hostname || server.ip_address || '\u2014',
     },
     {
         key: 'agent',
-        header: 'Agent',
+        headerKey: 'app.servers.agent', header: 'Agent',
         cellClassName: 'sk-cell-mono servers-row__agent',
         render: (server) => server.agent_version || 'not installed',
     },
     {
         key: 'group',
-        header: 'Group',
+        headerKey: 'app.servers.group', header: 'Group',
         sortable: true,
         type: 'enum',
         // An ungrouped server needs a real LABEL, not null: the enum engine
@@ -196,12 +198,12 @@ const SERVER_COLUMNS = [
         value: (server) => server.group_name || 'Ungrouped',
         groupable: true,
         render: (server) => (
-            server.group_name || <span className="servers-row__nodata">Ungrouped</span>
+            server.group_name || <span className="servers-row__nodata">{t('app.servers.ungrouped', 'Ungrouped')}</span>
         ),
     },
     {
         key: 'status',
-        header: 'Status',
+        headerKey: 'app.servers.status', header: 'Status',
         sortable: true,
         type: 'enum',
         // Explicit, rather than leaning on the sortValue fallback: this pins
@@ -221,7 +223,7 @@ const SERVER_COLUMNS = [
     meterColumn('disk', 'Disk', 'disk_percent'),
     {
         key: 'lastSeen',
-        header: 'Last seen',
+        headerKey: 'app.servers.lastSeen', header: 'Last seen',
         sortable: true,
         sortValue: (server) => (server.last_seen ? new Date(server.last_seen).getTime() : null),
         cellClassName: 'sk-cell-mono servers-row__seen',
@@ -242,6 +244,7 @@ const SERVER_COLUMNS = [
 // filter, and per-row actions moved to the server's own page, which is where
 // rebooting or deleting a machine belongs.
 const Servers = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [servers, setServers] = useState([]);
     const [groups, setGroups] = useState([]);
@@ -296,7 +299,7 @@ const Servers = () => {
             setGroups(Array.isArray(groupsData) ? groupsData : []);
         } catch (err) {
             console.error('Failed to load servers:', err);
-            toast.error('Failed to load servers');
+            toast.error(t('app.servers.failedToLoadServers', 'Failed to load servers'));
         } finally {
             setLoading(false);
         }
@@ -319,18 +322,18 @@ const Servers = () => {
     useTopbarActions(() => (
         <>
             <Button variant="outline" size="sm" onClick={() => setShowGroupModal(true)}>
-                <Folder size={16} /> Groups
+                <Folder size={16} /> {t('app.servers.groups', 'Groups')}
             </Button>
             <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-                <RefreshCw size={16} className={loading ? 'spin' : ''} /> Sync
+                <RefreshCw size={16} className={loading ? 'spin' : ''} /> {t('app.servers.sync', 'Sync')}
             </Button>
             <Button size="sm" onClick={() => setShowAddModal(true)}>
-                <Plus size={16} /> Add server
+                <Plus size={16} /> {t('app.servers.addServer', 'Add server')}
             </Button>
             <SearchField
                 value={searchTerm}
                 onSearch={setSearchTerm}
-                placeholder="Search servers..."
+                placeholder={t('app.servers.searchServers', 'Search servers...')}
             />
         </>
     ), [searchTerm, loading]);
@@ -368,7 +371,7 @@ const Servers = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner servers-page">
-                <EmptyState loading loadingVariant="table" title="Scanning fleet..." />
+                <EmptyState loading loadingVariant="table" title={t('app.servers.scanningFleet', 'Scanning fleet...')} />
             </div>
         );
     }
@@ -389,13 +392,13 @@ const Servers = () => {
             {filteredServers.length === 0 ? (
                 <EmptyState
                     icon={ServerLucideIcon}
-                    title={servers.length === 0 ? 'No servers yet' : 'No servers match these filters'}
+                    title={servers.length === 0 ? t('app.servers.noServersYet', 'No servers yet') : t('app.servers.noServersMatchTheseFilters', 'No servers match these filters')}
                     description={servers.length === 0
-                        ? 'Pair an agent and the machine shows up here with its CPU, memory and disk alongside every other box you run.'
-                        : 'Adjust the search or clear the column filters to see your servers.'}
+                        ? t('app.servers.pairAnAgentAndTheMachine', 'Pair an agent and the machine shows up here with its CPU, memory and disk alongside every other box you run.')
+                        : t('app.servers.adjustTheSearchOrClearThe', 'Adjust the search or clear the column filters to see your servers.')}
                     action={servers.length === 0 ? (
                         <Button onClick={() => setShowAddModal(true)}>
-                            <Plus size={16} /> Add your first server
+                            <Plus size={16} /> {t('app.servers.addYourFirstServer', 'Add your first server')}
                         </Button>
                     ) : (
                         <Button
@@ -405,7 +408,7 @@ const Servers = () => {
                                 chrome.api.resetToView();
                             }}
                         >
-                            Clear filters
+                            {t('app.servers.clearFilters', 'Clear filters')}
                         </Button>
                     )}
                 />
@@ -456,7 +459,7 @@ const Servers = () => {
                             className="sk-listhead__select"
                             defaultValue=""
                             disabled={bulkBusy}
-                            aria-label="Set group for selected servers"
+                            aria-label={t('app.servers.setGroupForSelectedServers', 'Set group for selected servers')}
                             onChange={async (e) => {
                                 const groupId = e.target.value;
                                 if (!groupId) return;
@@ -468,27 +471,27 @@ const Servers = () => {
                                     const groupName = groupId === 'none'
                                         ? 'Ungrouped'
                                         : groups.find((g) => String(g.id) === groupId)?.name;
-                                    toast.success(`Moved ${selectedIds.size} server(s) to ${groupName}`);
+                                    toast.success(t('app.servers.movedServerSTo', 'Moved {{size}} server(s) to {{groupName}}', { size: selectedIds.size, groupName: groupName }));
                                     setSelectedIds(new Set());
                                     loadData();
                                 } catch (err) {
-                                    toast.error(err.message || 'Could not set the group');
+                                    toast.error(err.message || t('app.servers.couldNotSetTheGroup', 'Could not set the group'));
                                 } finally {
                                     setBulkBusy(false);
                                     e.target.value = '';
                                 }
                             }}
                         >
-                            <option value="" disabled>Set group…</option>
+                            <option value="" disabled>{t('app.servers.setGroup', 'Set group…')}</option>
                             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                            <option value="none">Ungrouped</option>
+                            <option value="none">{t('app.servers.ungrouped2', 'Ungrouped')}</option>
                         </select>
                     </div>
                     <button
                         type="button"
                         className="sk-bulkbar__clear"
                         onClick={() => setSelectedIds(new Set())}
-                        aria-label="Clear selection"
+                        aria-label={t('app.servers.clearSelection', 'Clear selection')}
                     >
                         <X size={14} />
                     </button>
@@ -518,6 +521,7 @@ const Servers = () => {
 };
 
 const PairAgentForm = ({ groups, onClose, onClaimed }) => {
+    const { t } = useTranslation();
     const [pairCode, setPairCode] = useState('');
     const [passphrase, setPassphrase] = useState('');
     const [name, setName] = useState('');
@@ -583,7 +587,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                 group_id: groupId || undefined,
                 trust_fingerprint: true
             });
-            toast.success('Agent paired successfully');
+            toast.success(t('app.servers.agentPairedSuccessfully', 'Agent paired successfully'));
             onClaimed();
         } catch (err) {
             const status = err.status || err.response?.status;
@@ -609,12 +613,12 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
             <div className="server-setup-form__body">
                 <div className="pair-instructions">
                     <p>
-                        On the target machine, start the agent. It will display a&nbsp;6-character pair code and a passphrase — enter both below.
+                        {t('app.servers.onTheTargetMachineStartThe', 'On the target machine, start the agent. It will display a 6-character pair code and a passphrase — enter both below.')}
                     </p>
                 </div>
 
                 <div className="form-group">
-                    <label>Pair code</label>
+                    <label>{t('app.servers.pairCode', 'Pair code')}</label>
                     <Input
                         type="text"
                         value={formatDisplay(formattedCode)}
@@ -623,42 +627,42 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                             setLookupResult(null);
                             setLookupError('');
                         }}
-                        placeholder="ABC-123"
+                        placeholder={t('app.servers.abc123', 'ABC-123')}
                         autoFocus
                         autoComplete="off"
                         spellCheck={false}
                         style={{ fontFamily: 'monospace', fontSize: '1.25rem', letterSpacing: '0.15em', textAlign: 'center' }}
                         required
                     />
-                    <span className="form-hint">The code is shown in the terminal output or system tray.</span>
+                    <span className="form-hint">{t('app.servers.theCodeIsShownInThe', 'The code is shown in the terminal output or system tray.')}</span>
                     {lookupError && <div className="error-message" style={{ marginTop: '0.5rem' }}>{lookupError}</div>}
                 </div>
 
                 {lookupResult && (
                     <div className="success-banner" style={{ marginTop: '0.5rem' }}>
                         <div>
-                            <strong>Agent found</strong>
+                            <strong>{t('app.servers.agentFound', 'Agent found')}</strong>
                             <p className="success-subtitle">
                                 {lookupResult.system_info?.display_name && (
-                                    <>Server: <code>{lookupResult.system_info.display_name}</code><br /></>
+                                    <>{t('app.servers.server2', 'Server:')} <code>{lookupResult.system_info.display_name}</code><br /></>
                                 )}
-                                Hostname: <code>{lookupResult.system_info?.hostname || 'unknown'}</code><br />
-                                Fingerprint: <code style={{ fontFamily: 'monospace' }}>{lookupResult.pubkey_fpr}</code>
+                                {t('app.servers.hostname', 'Hostname:')} <code>{lookupResult.system_info?.hostname || 'unknown'}</code><br />
+                                {t('app.servers.fingerprint', 'Fingerprint:')} <code style={{ fontFamily: 'monospace' }}>{lookupResult.pubkey_fpr}</code>
                             </p>
                             <p className="text-muted" style={{ marginTop: '0.25rem', fontSize: '0.85em' }}>
-                                Confirm this fingerprint matches the one shown by the agent before continuing.
+                                {t('app.servers.confirmThisFingerprintMatchesTheOne', 'Confirm this fingerprint matches the one shown by the agent before continuing.')}
                             </p>
                         </div>
                     </div>
                 )}
 
                 <div className="form-group">
-                    <label>Passphrase *</label>
+                    <label>{t('app.servers.passphrase', 'Passphrase *')}</label>
                     <Input
                         type="text"
                         value={passphrase}
                         onChange={(e) => setPassphrase(e.target.value)}
-                        placeholder="Shown on the agent's pairing screen"
+                        placeholder={t('app.servers.shownOnTheAgentSPairing', 'Shown on the agent\'s pairing screen')}
                         autoComplete="off"
                         spellCheck={false}
                         style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '0.08em' }}
@@ -668,19 +672,19 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label>Server name</label>
+                        <label>{t('app.servers.serverName', 'Server name')}</label>
                         <Input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder={lookupResult?.system_info?.hostname || 'Auto-detected from agent (optional)'}
+                            placeholder={lookupResult?.system_info?.hostname || t('app.servers.autoDetectedFromAgentOptional', 'Auto-detected from agent (optional)')}
                         />
-                        <span className="form-hint">Leave blank to use the agent&apos;s hostname.</span>
+                        <span className="form-hint">{t('app.servers.leaveBlankToUseTheAgent', 'Leave blank to use the agent\'s hostname.')}</span>
                     </div>
                     <div className="form-group">
-                        <label>Group</label>
+                        <label>{t('app.servers.group2', 'Group')}</label>
                         <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                            <option value="">No Group</option>
+                            <option value="">{t('app.servers.noGroup', 'No Group')}</option>
                             {groups.map(g => (
                                 <option key={g.id} value={g.id}>{g.name}</option>
                             ))}
@@ -693,7 +697,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 
             <div className="modal-actions">
                 <Button type="button" variant="outline" onClick={onClose}>
-                    Cancel
+                    {t('app.servers.cancel', 'Cancel')}
                 </Button>
                 <Button type="submit" disabled={loading || formattedCode.length !== 6}>
                     {loading ? 'Pairing…' : 'Pair Agent'}
@@ -709,15 +713,16 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 // evening, short enough that an abandoned string doesn't linger forever as a
 // usable bearer credential.
 const EXPIRY_OPTIONS = [
-    { label: '1 hour',  value: 60 * 60 },
-    { label: '24 hours', value: 24 * 60 * 60 },
-    { label: '7 days',  value: 7 * 24 * 60 * 60 },
-    { label: '30 days', value: 30 * 24 * 60 * 60 },
-    { label: 'Never',   value: -1 },
+    { labelKey: 'app.servers.1Hour', label: '1 hour',  value: 60 * 60 },
+    { labelKey: 'app.servers.24Hours', label: '24 hours', value: 24 * 60 * 60 },
+    { labelKey: 'app.servers.7Days', label: '7 days',  value: 7 * 24 * 60 * 60 },
+    { labelKey: 'app.servers.30Days', label: '30 days', value: 30 * 24 * 60 * 60 },
+    { labelKey: 'app.servers.never', label: 'Never',   value: -1 },
 ];
 const DEFAULT_EXPIRY = 7 * 24 * 60 * 60;
 
 const AddServerModal = ({ groups, onClose, onCreated }) => {
+    const { t } = useTranslation();
     const [mode, setMode] = useState('install');
     const [step, setStep] = useState(1);
     const [groupId, setGroupId] = useState('');
@@ -799,21 +804,21 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             className={`mode-switcher__tab${mode === 'install' ? ' is-active' : ''}`}
                             onClick={() => setMode('install')}
                         >
-                            Connection string
+                            {t('app.servers.connectionString', 'Connection string')}
                         </button>
                         <button
                             type="button"
                             className={`mode-switcher__tab${mode === 'pair' ? ' is-active' : ''}`}
                             onClick={() => setMode('pair')}
                         >
-                            Pair code
+                            {t('app.servers.pairCode2', 'Pair code')}
                         </button>
                         <button
                             type="button"
                             className={`mode-switcher__tab${mode === 'link' ? ' is-active' : ''}`}
                             onClick={() => setMode('link')}
                         >
-                            Link panel
+                            {t('app.servers.linkPanel', 'Link panel')}
                         </button>
                     </div>
                 )}
@@ -832,24 +837,21 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             {error && <div className="error-message">{error}</div>}
 
                             <p className="section-description">
-                                Generate a single connection string. Paste it into the agent&apos;s
-                                pairing wizard, or use it with the one-liner installer. The
-                                agent&apos;s hostname becomes the server name on first connect — you
-                                can rename it later from the server&apos;s Settings tab.
+                                {t('app.servers.generateASingleConnectionStringPaste', 'Generate a single connection string. Paste it into the agent\'s pairing wizard, or use it with the one-liner installer. The agent\'s hostname becomes the server name on first connect — you can rename it later from the server\'s Settings tab.')}
                             </p>
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Group</label>
+                                    <label>{t('app.servers.group3', 'Group')}</label>
                                     <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                                        <option value="">No Group</option>
+                                        <option value="">{t('app.servers.noGroup2', 'No Group')}</option>
                                         {groups.map(group => (
                                             <option key={group.id} value={group.id}>{group.name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Token expires</label>
+                                    <label>{t('app.servers.tokenExpires', 'Token expires')}</label>
                                     <select
                                         value={expiresIn}
                                         onChange={(e) => setExpiresIn(Number(e.target.value))}
@@ -858,14 +860,14 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                                         ))}
                                     </select>
-                                    <span className="form-hint">Single-use. Burned the moment an agent registers with it.</span>
+                                    <span className="form-hint">{t('app.servers.singleUseBurnedTheMomentAn', 'Single-use. Burned the moment an agent registers with it.')}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={onClose}>
-                                Cancel
+                                {t('app.servers.cancel2', 'Cancel')}
                             </Button>
                             <Button type="submit" disabled={loading}>
                                 {loading ? 'Generating…' : 'Generate Connection String'}
@@ -878,8 +880,8 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             <div className="success-banner">
                                 <CheckCircleIcon />
                                 <div>
-                                    <strong>Connection string ready</strong>
-                                    <p className="success-subtitle">Paste this into the agent, or run the installer.</p>
+                                    <strong>{t('app.servers.connectionStringReady', 'Connection string ready')}</strong>
+                                    <p className="success-subtitle">{t('app.servers.pasteThisIntoTheAgentOr', 'Paste this into the agent, or run the installer.')}</p>
                                 </div>
                             </div>
 
@@ -889,18 +891,18 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             />
 
                             <details className="install-fallback">
-                                <summary>Need to install the agent first? Use the one-liner installer.</summary>
+                                <summary>{t('app.servers.needToInstallTheAgentFirst', 'Need to install the agent first? Use the one-liner installer.')}</summary>
                                 <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
                                     <InstallTab
-                                        title="Linux"
-                                        description="curl, tar, sudo, and systemd"
+                                        title={t('app.servers.linux', 'Linux')}
+                                        description={t('app.servers.curlTarSudoAndSystemd', 'curl, tar, sudo, and systemd')}
                                         icon={<TerminalIcon />}
                                         script={linuxInstallScript}
                                         onCopy={() => copy(linuxInstallScript)}
                                     />
                                     <InstallTab
-                                        title="Windows (PowerShell)"
-                                        description="Run as Administrator"
+                                        title={t('app.servers.windowsPowershell', 'Windows (PowerShell)')}
+                                        description={t('app.servers.runAsAdministrator', 'Run as Administrator')}
                                         icon={<WindowsIcon />}
                                         script={windowsInstallScript}
                                         onCopy={() => copy(windowsInstallScript)}
@@ -909,21 +911,21 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             </details>
 
                             <div className="install-info">
-                                <h4>What happens next?</h4>
+                                <h4>{t('app.servers.whatHappensNext', 'What happens next?')}</h4>
                                 <ol>
-                                    <li>Open the agent on your target machine and paste the connection string.</li>
-                                    <li>The agent registers automatically and reports its hostname back as the server name.</li>
-                                    <li>The row in this list will switch from <strong>Pending</strong> to <strong>Online</strong>.</li>
+                                    <li>{t('app.servers.openTheAgentOnYourTarget', 'Open the agent on your target machine and paste the connection string.')}</li>
+                                    <li>{t('app.servers.theAgentRegistersAutomaticallyAndReports', 'The agent registers automatically and reports its hostname back as the server name.')}</li>
+                                    <li>{t('app.servers.theRowInThisListWill', 'The row in this list will switch from')} <strong>{t('app.servers.pending', 'Pending')}</strong> to <strong>{t('app.servers.online', 'Online')}</strong>.</li>
                                 </ol>
                                 <p className="text-muted">
-                                    The token is single-use. If you reinstall the agent later, generate a new connection string from the server&apos;s Settings tab.
+                                    {t('app.servers.theTokenIsSingleUseIf', 'The token is single-use. If you reinstall the agent later, generate a new connection string from the server\'s Settings tab.')}
                                 </p>
                             </div>
                         </div>
 
                         <div className="modal-actions">
                             <Button onClick={onCreated}>
-                                Close
+                                {t('app.servers.close', 'Close')}
                             </Button>
                         </div>
                     </div>
@@ -933,13 +935,14 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 };
 
 const ConnectionStringField = ({ value, onCopy }) => {
+    const { t } = useTranslation();
     return (
         <div className="connection-string-field">
             <div className="connection-string-field__header">
                 <KeyIcon />
-                <span>Connection string</span>
+                <span>{t('app.servers.connectionString2', 'Connection string')}</span>
                 <Button variant="outline" size="sm" onClick={onCopy}>
-                    <CopyIcon /> Copy
+                    <CopyIcon /> {t('app.servers.copy', 'Copy')}
                 </Button>
             </div>
             <pre className="connection-string-field__value">{value}</pre>
@@ -948,6 +951,7 @@ const ConnectionStringField = ({ value, onCopy }) => {
 };
 
 const InstallTab = ({ title, description, icon, script, onCopy }) => {
+    const { t } = useTranslation();
     return (
         <div className="install-tab">
             <div className="install-tab-header">
@@ -957,7 +961,7 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
                     {description && <span className="install-tab-description">{description}</span>}
                 </div>
                 <Button variant="outline" size="sm" onClick={onCopy}>
-                    <CopyIcon /> Copy
+                    <CopyIcon /> {t('app.servers.copy2', 'Copy')}
                 </Button>
             </div>
             <pre className="install-script">{script}</pre>
@@ -966,6 +970,7 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
 };
 
 const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const [groupList, setGroupList] = useState(groups);
     const [newGroupName, setNewGroupName] = useState('');
@@ -981,12 +986,12 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
         try {
             await api.createServerGroup({ name: newGroupName.trim() });
             setNewGroupName('');
-            toast.success('Group created');
+            toast.success(t('app.servers.groupCreated', 'Group created'));
             onUpdated();
             const data = await api.getServerGroups();
             setGroupList(Array.isArray(data) ? data : []);
         } catch (err) {
-            toast.error(err.message || 'Failed to create group');
+            toast.error(err.message || t('app.servers.failedToCreateGroup', 'Failed to create group'));
         } finally {
             setLoading(false);
         }
@@ -995,52 +1000,52 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
     async function handleUpdateGroup(groupId, newName) {
         try {
             await api.updateServerGroup(groupId, { name: newName });
-            toast.success('Group updated');
+            toast.success(t('app.servers.groupUpdated', 'Group updated'));
             setEditingGroup(null);
             onUpdated();
             const data = await api.getServerGroups();
             setGroupList(Array.isArray(data) ? data : []);
         } catch (err) {
-            toast.error(err.message || 'Failed to update group');
+            toast.error(err.message || t('app.servers.failedToUpdateGroup', 'Failed to update group'));
         }
     }
 
     async function handleDeleteGroup(groupId) {
         if (!await confirm({
-            title: 'Delete server group',
-            message: 'Delete this group? Servers in it will become ungrouped.',
-            confirmText: 'Delete group',
+            title: t('app.servers.deleteServerGroup', 'Delete server group'),
+            message: t('app.servers.deleteThisGroupServersInIt', 'Delete this group? Servers in it will become ungrouped.'),
+            confirmText: t('app.servers.deleteGroup', 'Delete group'),
         })) return;
 
         try {
             await api.deleteServerGroup(groupId);
-            toast.success('Group deleted');
+            toast.success(t('app.servers.groupDeleted', 'Group deleted'));
             onUpdated();
             const data = await api.getServerGroups();
             setGroupList(Array.isArray(data) ? data : []);
         } catch (err) {
-            toast.error(err.message || 'Failed to delete group');
+            toast.error(err.message || t('app.servers.failedToDeleteGroup', 'Failed to delete group'));
         }
     }
 
     return (
-        <Modal open onClose={onClose} title="Manage Server Groups">
+        <Modal open onClose={onClose} title={t('app.servers.manageServerGroups', 'Manage Server Groups')}>
                 <form onSubmit={handleCreateGroup} className="group-form">
                     <Input
                         type="text"
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
-                        placeholder="New group name..."
+                        placeholder={t('app.servers.newGroupName', 'New group name...')}
                         disabled={loading}
                     />
                     <Button type="submit" disabled={loading || !newGroupName.trim()}>
-                        <PlusIcon /> Add
+                        <PlusIcon /> {t('app.servers.add', 'Add')}
                     </Button>
                 </form>
 
                 <div className="groups-list">
                     {groupList.length === 0 ? (
-                        <div className="empty-groups">No groups created yet</div>
+                        <div className="empty-groups">{t('app.servers.noGroupsCreatedYet', 'No groups created yet')}</div>
                     ) : (
                         groupList.map(group => (
                             <div key={group.id} className="group-item">
@@ -1066,14 +1071,14 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                                             <button type="button"
                                                 className="btn-icon"
                                                 onClick={() => setEditingGroup(group.id)}
-                                                title="Edit"
+                                                title={t('app.servers.edit', 'Edit')}
                                             >
                                                 <EditIcon />
                                             </button>
                                             <button type="button"
                                                 className="btn-icon danger"
                                                 onClick={() => handleDeleteGroup(group.id)}
-                                                title="Delete"
+                                                title={t('app.servers.delete', 'Delete')}
                                             >
                                                 <TrashIcon />
                                             </button>
@@ -1086,7 +1091,7 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                 </div>
 
                 <div className="modal-actions">
-                    <Button onClick={onClose}>Done</Button>
+                    <Button onClick={onClose}>{t('app.servers.done', 'Done')}</Button>
                 </div>
         </Modal>
     );

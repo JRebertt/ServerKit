@@ -16,11 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import DocsLink from '@/components/DocsLink';
+import { useTranslation } from 'react-i18next';
 
 const INSTALL_SOURCES = [
     { id: 'url', label: 'URL', icon: Globe2 },
-    { id: 'path', label: 'Folder', icon: FolderOpen },
-    { id: 'upload', label: 'Zip', icon: FileArchive },
+    { id: 'path', labelKey: 'app.manualInstallModal.folder', label: 'Folder', icon: FolderOpen },
+    { id: 'upload', labelKey: 'app.manualInstallModal.zip', label: 'Zip', icon: FileArchive },
 ];
 
 const SourceInput = ({
@@ -57,12 +58,13 @@ const SourceInput = ({
 // release zip's ed25519 signature checked out against a publisher key pinned
 // by this panel; everything else is an honest not-verified treatment.
 const SignatureBadge = ({ signature }) => {
+    const { t } = useTranslation();
     const status = signature?.status || 'unsigned';
     if (status === 'verified') {
         return (
             <Badge variant="success" className="plugin-install-consent__badge">
                 <ShieldCheck aria-hidden="true" />
-                Signed · {signature.publisher || signature.key_id}
+                {t('app.manualInstallModal.signed', 'Signed ·')} {signature.publisher || signature.key_id}
             </Badge>
         );
     }
@@ -70,7 +72,7 @@ const SignatureBadge = ({ signature }) => {
         return (
             <Badge variant="warning" className="plugin-install-consent__badge">
                 <ShieldAlert aria-hidden="true" />
-                Signed · unknown publisher
+                {t('app.manualInstallModal.signedUnknownPublisher', 'Signed · unknown publisher')}
             </Badge>
         );
     }
@@ -78,14 +80,14 @@ const SignatureBadge = ({ signature }) => {
         return (
             <Badge variant="destructive" className="plugin-install-consent__badge">
                 <ShieldAlert aria-hidden="true" />
-                Signature invalid
+                {t('app.manualInstallModal.signatureInvalid', 'Signature invalid')}
             </Badge>
         );
     }
     return (
         <Badge variant="warning" className="plugin-install-consent__badge">
             <ShieldAlert aria-hidden="true" />
-            Unsigned
+            {t('app.manualInstallModal.unsigned', 'Unsigned')}
         </Badge>
     );
 };
@@ -94,6 +96,7 @@ const SignatureBadge = ({ signature }) => {
 // Presents what will be installed and what it wants — the same permissions
 // presentation as the registry detail modal — so the install is never blind.
 const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
+    const { t } = useTranslation();
     const permissions = Array.isArray(preview.permissions) ? preview.permissions : [];
     const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
     const sigStatus = preview.signature?.status || 'unsigned';
@@ -123,24 +126,22 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
             {sigStatus === 'invalid' && (
                 <p className="plugin-install-consent__sig-note plugin-install-consent__sig-note--danger">
                     {preview.signature?.error || 'The signature does not match this archive.'}
-                    {' '}The download may have been tampered with — do not install it.
+                    {' '}{t('app.manualInstallModal.theDownloadMayHaveBeenTampered', 'The download may have been tampered with — do not install it.')}
                 </p>
             )}
             {sigStatus === 'untrusted_key' && (
                 <p className="plugin-install-consent__sig-note">
-                    This release is signed, but the publisher key is not pinned by this
-                    panel, so the signature cannot be verified. Treat it as unsigned.
+                    {t('app.manualInstallModal.thisReleaseIsSignedButThe', 'This release is signed, but the publisher key is not pinned by this panel, so the signature cannot be verified. Treat it as unsigned.')}
                 </p>
             )}
             {sigStatus === 'unsigned' && (
                 <p className="plugin-install-consent__sig-note">
-                    This release carries no publisher signature. It will run with full
-                    panel privileges — install only if you trust the source.
+                    {t('app.manualInstallModal.thisReleaseCarriesNoPublisherSignature', 'This release carries no publisher signature. It will run with full panel privileges — install only if you trust the source.')}
                 </p>
             )}
 
             <div className="plugin-install-consent__section">
-                <p className="plugin-install-consent__label">This extension requests:</p>
+                <p className="plugin-install-consent__label">{t('app.manualInstallModal.thisExtensionRequests', 'This extension requests:')}</p>
                 {permissions.length > 0 ? (
                     <div className="plugin-install-consent__chips">
                         {permissions.map((permission) => (
@@ -148,7 +149,7 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-muted">No host permissions declared.</p>
+                    <p className="text-muted">{t('app.manualInstallModal.noHostPermissionsDeclared', 'No host permissions declared.')}</p>
                 )}
             </div>
 
@@ -165,7 +166,7 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
 
             <div className="plugin-install-consent__actions">
                 <Button variant="secondary" onClick={onCancel} disabled={installing}>
-                    Back
+                    {t('app.manualInstallModal.back', 'Back')}
                 </Button>
                 <Button
                     onClick={onInstall}
@@ -186,6 +187,7 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
 // The URL path is two-step: resolve → consent card → install, so what lands is
 // previewed (and checksum-pinned) before it touches the panel.
 const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [installSource, setInstallSource] = useState(defaultSource);
     const [pluginUrl, setPluginUrl] = useState('');
@@ -212,7 +214,7 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
             const result = await api.previewPlugin(pluginUrl.trim());
             setPreview(result);
         } catch (err) {
-            toast.error(err.message || 'Could not resolve that extension');
+            toast.error(err.message || t('app.manualInstallModal.couldNotResolveThatExtension', 'Could not resolve that extension'));
         } finally {
             setPreviewing(false);
         }
@@ -225,10 +227,10 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
             // sha256) and re-verify the previewed signature against them.
             const result = await api.installPlugin(
                 preview.resolved_url, preview.sha256, preview.signature);
-            toast.success(`Extension "${result.display_name}" installed. Restart backend to activate routes.`);
+            toast.success(t('app.manualInstallModal.extensionInstalledRestartBackendToActivate', 'Extension "{{displayname}}" installed. Restart backend to activate routes.', { displayname: result.display_name }));
             onInstalled();
         } catch (err) {
-            toast.error(err.message || 'Extension installation failed');
+            toast.error(err.message || t('app.manualInstallModal.extensionInstallationFailed', 'Extension installation failed'));
         } finally {
             setInstalling(false);
         }
@@ -249,30 +251,30 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
         setInstalling(true);
         try {
             const result = await action();
-            toast.success(`Extension "${result.display_name}" installed. Restart backend to activate routes.`);
+            toast.success(t('app.manualInstallModal.extensionInstalledRestartBackendToActivate2', 'Extension "{{displayname}}" installed. Restart backend to activate routes.', { displayname: result.display_name }));
             onInstalled();
         } catch (err) {
-            toast.error(err.message || 'Extension installation failed');
+            toast.error(err.message || t('app.manualInstallModal.extensionInstallationFailed2', 'Extension installation failed'));
         } finally {
             setInstalling(false);
         }
     };
 
     return (
-        <Modal open onClose={onClose} title="Install extension manually" size="md">
+        <Modal open onClose={onClose} title={t('app.manualInstallModal.installExtensionManually', 'Install extension manually')} size="md">
             <div className="plugin-install-form">
                 <div className="plugin-install-form__heading">
                     <div className="plugin-install-form__icon">
                         <PlugZap aria-hidden="true" />
                     </div>
                     <div>
-                        <h3>Extension source</h3>
-                        <p className="text-muted">Load extension packages from a repository, host folder, or zip archive.</p>
+                        <h3>{t('app.manualInstallModal.extensionSource', 'Extension source')}</h3>
+                        <p className="text-muted">{t('app.manualInstallModal.loadExtensionPackagesFromARepository', 'Load extension packages from a repository, host folder, or zip archive.')}</p>
                     </div>
                     <DocsLink to="extensionsInstalling" className="plugin-install-form__docs" />
                 </div>
 
-                <div className="plugin-install-tabs" role="tablist" aria-label="Extension install source">
+                <div className="plugin-install-tabs" role="tablist" aria-label={t('app.manualInstallModal.extensionInstallSource', 'Extension install source')}>
                     {INSTALL_SOURCES.map((source) => {
                         const SourceIcon = source.icon;
                         return (
@@ -293,14 +295,14 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
 
                 {installSource === 'url' && !preview && (
                     <SourceInput
-                        description="Paste a GitHub repo (owner/repo or owner/repo@tag), a release URL, or a direct zip link. You'll preview what installs before it lands."
+                        description={t('app.manualInstallModal.pasteAGithubRepoOwnerRepo', 'Paste a GitHub repo (owner/repo or owner/repo@tag), a release URL, or a direct zip link. You\'ll preview what installs before it lands.')}
                         placeholder="owner/serverkit-plugin"
                         value={pluginUrl}
                         onChange={handleUrlChange}
                         onInstall={handlePreview}
                         disabled={previewing}
                         installDisabled={previewing || !pluginUrl.trim()}
-                        actionLabel="Preview"
+                        actionLabel={t('app.manualInstallModal.preview', 'Preview')}
                         ActionIcon={Search}
                         busyLabel="Resolving..."
                     />
@@ -317,7 +319,7 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
 
                 {installSource === 'path' && (
                     <SourceInput
-                        description="Use an absolute path that exists on the backend host or inside the backend container."
+                        description={t('app.manualInstallModal.useAnAbsolutePathThatExists', 'Use an absolute path that exists on the backend host or inside the backend container.')}
                         placeholder="/opt/serverkit/plugins/my-plugin"
                         value={pluginPath}
                         onChange={setPluginPath}
@@ -330,7 +332,7 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
                 {installSource === 'upload' && (
                     <div className="plugin-install-source">
                         <p className="text-muted">
-                            Upload an extension zip with <code>plugin.json</code> at the top level or one folder deep.
+                            {t('app.manualInstallModal.uploadAnExtensionZipWith', 'Upload an extension zip with')} <code>plugin.json</code> {t('app.manualInstallModal.atTheTopLevelOrOne', 'at the top level or one folder deep.')}
                         </p>
                         <div className="plugin-install-row">
                             <Input

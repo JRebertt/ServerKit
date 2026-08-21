@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Check, Download, Edit3, Lock, Trash2 } from 'lucide-react';
 import FileIcon from './FileIcon';
+import { useTranslation } from 'react-i18next';
 
 function FileRow({
     entry,
@@ -14,6 +15,7 @@ function FileRow({
     onPermissions,
     onDelete,
 }) {
+    const { t } = useTranslation();
     return (
         <div
             className={`file-item ${selected ? 'selected' : ''} ${selectMode ? 'select-mode' : ''}`}
@@ -34,7 +36,7 @@ function FileRow({
                 <button type="button"
                     className="checkbox-btn"
                     onClick={(e) => onToggleSelect(entry, { ...e, ctrlKey: true })}
-                    aria-label={selected ? 'Deselect' : 'Select'}
+                    aria-label={selected ? t('app.fileRow.deselect', 'Deselect') : t('app.fileRow.select', 'Select')}
                 >
                     <span className={`checkbox ${selected ? 'checked' : ''}`}>
                         {selected && <Check size={12} />}
@@ -54,17 +56,17 @@ function FileRow({
             <span className="col-owner">{entry.owner}</span>
             <span className="col-actions" onClick={(e) => e.stopPropagation()}>
                 {!entry.is_dir && (
-                    <button type="button" className="row-action" onClick={() => onDownload(entry)} title="Download">
+                    <button type="button" className="row-action" onClick={() => onDownload(entry)} title={t('app.fileRow.download', 'Download')}>
                         <Download size={14} />
                     </button>
                 )}
-                <button type="button" className="row-action" onClick={() => onRename(entry)} title="Rename">
+                <button type="button" className="row-action" onClick={() => onRename(entry)} title={t('app.fileRow.rename', 'Rename')}>
                     <Edit3 size={14} />
                 </button>
-                <button type="button" className="row-action" onClick={() => onPermissions(entry)} title="Permissions">
+                <button type="button" className="row-action" onClick={() => onPermissions(entry)} title={t('app.fileRow.permissions', 'Permissions')}>
                     <Lock size={14} />
                 </button>
-                <button type="button" className="row-action danger" onClick={() => onDelete(entry)} title="Delete">
+                <button type="button" className="row-action danger" onClick={() => onDelete(entry)} title={t('app.fileRow.delete', 'Delete')}>
                     <Trash2 size={14} />
                 </button>
             </span>

@@ -14,12 +14,14 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { HardDrive, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
     useServer,
     normalizeListResponse,
 } from './dockerHelpers';
 
 export const CreateVolumeButton = () => {
+    const { t } = useTranslation();
     const [showModal, setShowModal] = useState(false);
     const { isRemote } = useServer();
     return (
@@ -27,9 +29,9 @@ export const CreateVolumeButton = () => {
             <Button
                 onClick={() => setShowModal(true)}
                 disabled={isRemote}
-                title={isRemote ? 'Creating volumes is only available on the local Docker target right now' : 'Create volume'}
+                title={isRemote ? t('app.volumesTab.creatingVolumesIsOnlyAvailableOn', 'Creating volumes is only available on the local Docker target right now') : t('app.volumesTab.createVolume', 'Create volume')}
             >
-                <span>+</span> Create Volume
+                <span>+</span> {t('app.volumesTab.createVolume2', 'Create Volume')}
             </Button>
             {showModal && <CreateVolumeModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
@@ -99,6 +101,7 @@ const VOLUME_VIEWS = [
 
 // Volumes Tab
 const VolumesTab = ({ onStatsChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const { confirm: confirmVolume } = useConfirm();
@@ -137,7 +140,7 @@ const VolumesTab = ({ onStatsChange }) => {
     }
 
     async function handleRemove(volume) {
-        const confirmed = await confirmVolume({ title: 'Remove Volume', message: 'Remove this volume? All data will be lost.' });
+        const confirmed = await confirmVolume({ titleKey: 'app.volumesTab.removeVolume', title: 'Remove Volume', messageKey: 'app.volumesTab.removeThisVolumeAllDataWill', message: 'Remove this volume? All data will be lost.' });
         if (!confirmed) return;
 
         try {
@@ -146,12 +149,12 @@ const VolumesTab = ({ onStatsChange }) => {
             } else {
                 await api.removeVolume(volumeName(volume), true);
             }
-            toast.success('Volume removed successfully');
+            toast.success(t('app.volumesTab.volumeRemovedSuccessfully', 'Volume removed successfully'));
             loadVolumes();
             onStatsChange?.();
         } catch (err) {
             console.error('Failed to remove volume:', err);
-            toast.error('Failed to remove volume. It may be in use.');
+            toast.error(t('app.volumesTab.failedToRemoveVolumeItMay', 'Failed to remove volume. It may be in use.'));
         }
     }
 
@@ -169,7 +172,7 @@ const VolumesTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.volumesTab.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -183,7 +186,7 @@ const VolumesTab = ({ onStatsChange }) => {
         },
         {
             key: 'kind',
-            header: 'Kind',
+            headerKey: 'app.volumesTab.kind', header: 'Kind',
             sortable: true,
             // Declared: a host with only named volumes has a single distinct
             // value, which infers as text and turns the view above into a
@@ -201,7 +204,7 @@ const VolumesTab = ({ onStatsChange }) => {
         },
         {
             key: 'driver',
-            header: 'Driver',
+            headerKey: 'app.volumesTab.driver', header: 'Driver',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -215,7 +218,7 @@ const VolumesTab = ({ onStatsChange }) => {
         },
         {
             key: 'mountpoint',
-            header: 'Mountpoint',
+            headerKey: 'app.volumesTab.mountpoint', header: 'Mountpoint',
             sortable: true,
             type: 'text',
             value: (volume) => volume.mountpoint || volume.Mountpoint || '',
@@ -239,7 +242,7 @@ const VolumesTab = ({ onStatsChange }) => {
                         type="button"
                         className="dx-row-action is-danger"
                         onClick={() => handleRemove(volume)}
-                        title="Remove volume"
+                        title={t('app.volumesTab.removeVolume2', 'Remove volume')}
                     >
                         <Trash2 size={13} />
                     </button>
@@ -277,7 +280,7 @@ const VolumesTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">Loading volumes...</div>
+                <div className="docker-loading">{t('app.volumesTab.loadingVolumes', 'Loading volumes...')}</div>
             </div>
         );
     }
@@ -293,7 +296,7 @@ const VolumesTab = ({ onStatsChange }) => {
                         <SearchField
                             value={searchTerm}
                             onSearch={setSearchTerm}
-                            placeholder="Filter name or mountpoint…"
+                            placeholder={t('app.volumesTab.filterNameOrMountpoint', 'Filter name or mountpoint…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -309,10 +312,10 @@ const VolumesTab = ({ onStatsChange }) => {
             {filteredVolumes.length === 0 ? (
                 <EmptyState
                     icon={HardDrive}
-                    title={volumes.length === 0 ? 'No volumes' : 'No matching volumes'}
+                    title={volumes.length === 0 ? t('app.volumesTab.noVolumes', 'No volumes') : t('app.volumesTab.noMatchingVolumes', 'No matching volumes')}
                     description={volumes.length === 0
-                        ? 'Create a volume for persistent data storage.'
-                        : 'No volumes match the current search.'}
+                        ? t('app.volumesTab.createAVolumeForPersistentData', 'Create a volume for persistent data storage.')
+                        : t('app.volumesTab.noVolumesMatchTheCurrentSearch', 'No volumes match the current search.')}
                 />
             ) : (
                 <section className="dx-resource-list">
@@ -344,6 +347,7 @@ const VolumesTab = ({ onStatsChange }) => {
 };
 
 const CreateVolumeModal = ({ onClose, onCreated }) => {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -365,12 +369,12 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title="Create Volume" size="md">
+        <Modal open onClose={onClose} title={t('app.volumesTab.createVolume3', 'Create Volume')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Volume Name *</label>
+                    <label>{t('app.volumesTab.volumeName', 'Volume Name *')}</label>
                     <Input
                         type="text"
                         value={name}
@@ -382,7 +386,7 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('app.volumesTab.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Volume'}

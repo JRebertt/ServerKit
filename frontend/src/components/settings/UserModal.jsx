@@ -11,8 +11,10 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import FormField, { FormRow } from '../FormField';
 import useForm from '../../hooks/useForm';
 import { userPayload, validateUser, valuesForUser } from './userForm';
+import { useTranslation } from 'react-i18next';
 
 const UserModal = ({ user, onSave, onClose }) => {
+    const { t } = useTranslation();
     const [permissions, setPermissions] = useState({});
     const [showPermissions, setShowPermissions] = useState(false);
     const [templates, setTemplates] = useState({});
@@ -54,12 +56,12 @@ const UserModal = ({ user, onSave, onClose }) => {
     }
 
     return (
-        <Modal open={true} onClose={onClose} title={isEditing ? 'Edit User' : 'Add New User'} size="md">
+        <Modal open={true} onClose={onClose} title={isEditing ? t('app.userModal.editUser', 'Edit User') : t('app.userModal.addNewUser', 'Add New User')} size="md">
                 <form onSubmit={form.handleSubmit}>
                     <div className="modal-body">
                         {form.submitError && <div className="error-message" role="alert">{form.submitError}</div>}
 
-                        <FormField label="Email" htmlFor="email" required error={form.getFieldError('email')}>
+                        <FormField label={t('app.userModal.email', 'Email')} htmlFor="email" required error={form.getFieldError('email')}>
                             <Input
                                 {...form.getFieldProps('email')}
                                 type="email"
@@ -69,19 +71,19 @@ const UserModal = ({ user, onSave, onClose }) => {
                             />
                         </FormField>
 
-                        <FormField label="Username" htmlFor="username" required error={form.getFieldError('username')}>
+                        <FormField label={t('app.userModal.username', 'Username')} htmlFor="username" required error={form.getFieldError('username')}>
                             <Input
                                 {...form.getFieldProps('username')}
                                 type="text"
                                 id="username"
-                                placeholder="Enter username"
+                                placeholder={t('app.userModal.enterUsername', 'Enter username')}
                                 required
                             />
                         </FormField>
 
                         <FormRow>
                             <FormField
-                                label={isEditing ? 'New Password (leave blank to keep current)' : 'Password'}
+                                label={isEditing ? t('app.userModal.newPasswordLeaveBlankToKeep', 'New Password (leave blank to keep current)') : t('app.userModal.password', 'Password')}
                                 htmlFor="password"
                                 required={!isEditing}
                                 error={form.getFieldError('password')}
@@ -90,13 +92,13 @@ const UserModal = ({ user, onSave, onClose }) => {
                                     {...form.getFieldProps('password')}
                                     type="password"
                                     id="password"
-                                    placeholder={isEditing ? 'Leave blank to keep current' : 'At least 8 characters'}
+                                    placeholder={isEditing ? t('app.userModal.leaveBlankToKeepCurrent', 'Leave blank to keep current') : t('app.userModal.atLeast8Characters', 'At least 8 characters')}
                                     required={!isEditing}
                                 />
                             </FormField>
 
                             <FormField
-                                label="Confirm Password"
+                                label={t('app.userModal.confirmPassword', 'Confirm Password')}
                                 htmlFor="confirmPassword"
                                 required={Boolean(form.values.password)}
                                 error={form.getFieldError('confirmPassword')}
@@ -105,14 +107,14 @@ const UserModal = ({ user, onSave, onClose }) => {
                                     {...form.getFieldProps('confirmPassword')}
                                     type="password"
                                     id="confirmPassword"
-                                    placeholder="Confirm password"
+                                    placeholder={t('app.userModal.confirmPassword2', 'Confirm password')}
                                     required={Boolean(form.values.password)}
                                 />
                             </FormField>
                         </FormRow>
 
                         <div className="form-group">
-                            <Label htmlFor="role">Role</Label>
+                            <Label htmlFor="role">{t('app.userModal.role', 'Role')}</Label>
                             <Select
                                 value={form.values.role}
                                 onValueChange={handleRoleChange}
@@ -122,13 +124,13 @@ const UserModal = ({ user, onSave, onClose }) => {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="admin">Admin - Full access</SelectItem>
-                                    <SelectItem value="developer">Developer - Manage apps and deployments</SelectItem>
-                                    <SelectItem value="viewer">Viewer - Read-only access</SelectItem>
+                                    <SelectItem value="admin">{t('app.userModal.adminFullAccess', 'Admin - Full access')}</SelectItem>
+                                    <SelectItem value="developer">{t('app.userModal.developerManageAppsAndDeployments', 'Developer - Manage apps and deployments')}</SelectItem>
+                                    <SelectItem value="viewer">{t('app.userModal.viewerReadOnlyAccess', 'Viewer - Read-only access')}</SelectItem>
                                 </SelectContent>
                             </Select>
                             {isSelf && (
-                                <span className="form-help">You cannot change your own role</span>
+                                <span className="form-help">{t('app.userModal.youCannotChangeYourOwnRole', 'You cannot change your own role')}</span>
                             )}
                         </div>
 
@@ -140,26 +142,26 @@ const UserModal = ({ user, onSave, onClose }) => {
                                     onCheckedChange={(checked) => form.setValue('is_active', Boolean(checked))}
                                     disabled={isSelf}
                                 />
-                                <span className="checkbox-text">Account is active</span>
+                                <span className="checkbox-text">{t('app.userModal.accountIsActive', 'Account is active')}</span>
                             </label>
                             {isSelf && (
-                                <span className="form-help">You cannot deactivate your own account</span>
+                                <span className="form-help">{t('app.userModal.youCannotDeactivateYourOwnAccount', 'You cannot deactivate your own account')}</span>
                             )}
                         </div>
 
                         <div className="role-descriptions">
-                            <h4>Role Permissions</h4>
+                            <h4>{t('app.userModal.rolePermissions', 'Role Permissions')}</h4>
                             <div className="role-item">
-                                <span className="role-name">Admin</span>
-                                <span className="role-desc">Full system access including user management and settings</span>
+                                <span className="role-name">{t('app.userModal.admin', 'Admin')}</span>
+                                <span className="role-desc">{t('app.userModal.fullSystemAccessIncludingUserManagement', 'Full system access including user management and settings')}</span>
                             </div>
                             <div className="role-item">
-                                <span className="role-name">Developer</span>
-                                <span className="role-desc">Manage applications, deployments, databases, and domains</span>
+                                <span className="role-name">{t('app.userModal.developer', 'Developer')}</span>
+                                <span className="role-desc">{t('app.userModal.manageApplicationsDeploymentsDatabasesAndDomains', 'Manage applications, deployments, databases, and domains')}</span>
                             </div>
                             <div className="role-item">
-                                <span className="role-name">Viewer</span>
-                                <span className="role-desc">Read-only access to dashboards and logs</span>
+                                <span className="role-name">{t('app.userModal.viewer', 'Viewer')}</span>
+                                <span className="role-desc">{t('app.userModal.readOnlyAccessToDashboardsAnd', 'Read-only access to dashboards and logs')}</span>
                             </div>
                         </div>
 
@@ -176,7 +178,7 @@ const UserModal = ({ user, onSave, onClose }) => {
                                         setShowPermissions(!showPermissions);
                                     }}
                                 >
-                                    {showPermissions ? 'Hide' : 'Customize'} Permissions
+                                    {showPermissions ? 'Hide' : 'Customize'} {t('app.userModal.permissions', 'Permissions')}
                                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                         {showPermissions
                                             ? <polyline points="18 15 12 9 6 15"/>
@@ -196,7 +198,7 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                     <div className="modal-footer">
                         <Button type="button" variant="ghost" onClick={onClose}>
-                            Cancel
+                            {t('app.userModal.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" variant="default" disabled={form.isSubmitting}>
                             {form.isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create User')}

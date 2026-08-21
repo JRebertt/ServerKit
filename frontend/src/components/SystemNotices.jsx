@@ -4,6 +4,7 @@ import { AlertTriangle, Info, X, Settings, ExternalLink } from 'lucide-react';
 import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { getDismissedNotices, addDismissedNotice, isUrgentNotice } from '../utils/dismissedNotices';
+import { useTranslation } from 'react-i18next';
 
 const ICONS = {
     warning: AlertTriangle,
@@ -16,6 +17,7 @@ const ICONS = {
 // everything else lives in the notification center (see NotificationsContext). This
 // keeps the dashboard clear instead of stacking every setup hint at the top.
 export default function SystemNotices() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [notices, setNotices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function SystemNotices() {
 
     const Icon = ICONS[notice.level] || AlertTriangle;
     return (
-        <div className="system-notices" role="region" aria-label="System notices">
+        <div className="system-notices" role="region" aria-label={t('app.systemNotices.systemNotices', 'System notices')}>
             <div className={`system-notice system-notice--${notice.level}`} role="alert">
                 <span className="system-notice__icon" aria-hidden="true">
                     <Icon size={18} />
@@ -84,7 +86,7 @@ export default function SystemNotices() {
                         type="button"
                         className="system-notice__dismiss"
                         onClick={() => handleDismiss(notice.id)}
-                        aria-label={`Dismiss ${notice.title}`}
+                        aria-label={t('app.systemNotices.dismiss', 'Dismiss {{title}}', { title: notice.title })}
                     >
                         <X size={16} />
                     </button>

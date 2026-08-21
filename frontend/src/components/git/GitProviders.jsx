@@ -9,6 +9,7 @@
 // the color with no inline styles.
 import { SiGithub, SiGitlab, SiBitbucket, SiGitea } from 'react-icons/si';
 import { GitBranch } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Ordered list rendered in the provider strip. `match` recognizes a clone URL's
 // host; the trailing "other" entry is the catch-all (self-hosted, SSH, anything
@@ -16,11 +17,11 @@ import { GitBranch } from 'lucide-react';
 // `oauth` marks hosts that support a one-click connection (a backend OAuth app);
 // `placeholder` is the URL hint shown when that provider is chosen.
 export const GIT_PROVIDERS = [
-    { key: 'github', label: 'GitHub', Icon: SiGithub, hint: 'One-click or URL', match: /github\.com/i, oauth: true, placeholder: 'https://github.com/user/repo.git' },
-    { key: 'gitlab', label: 'GitLab', Icon: SiGitlab, hint: 'Cloud or self-managed', match: /gitlab\./i, oauth: true, placeholder: 'https://gitlab.com/group/project.git' },
-    { key: 'bitbucket', label: 'Bitbucket', Icon: SiBitbucket, hint: 'One-click or URL', match: /bitbucket\.org/i, oauth: true, placeholder: 'https://bitbucket.org/user/repo.git' },
-    { key: 'gitea', label: 'Gitea', Icon: SiGitea, hint: 'Self-hosted', match: /gitea/i, local: true, placeholder: 'https://gitea.example.com/user/repo.git' },
-    { key: 'other', label: 'SSH / Other', Icon: GitBranch, hint: 'Any Git remote', match: null, placeholder: 'git@host:user/repo.git' },
+    { key: 'github', labelKey: 'app.gitProviders.github', label: 'GitHub', Icon: SiGithub, hintKey: 'app.gitProviders.oneClickOrUrl', hint: 'One-click or URL', match: /github\.com/i, oauth: true, placeholder: 'https://github.com/user/repo.git' },
+    { key: 'gitlab', labelKey: 'app.gitProviders.gitlab', label: 'GitLab', Icon: SiGitlab, hintKey: 'app.gitProviders.cloudOrSelfManaged', hint: 'Cloud or self-managed', match: /gitlab\./i, oauth: true, placeholder: 'https://gitlab.com/group/project.git' },
+    { key: 'bitbucket', labelKey: 'app.gitProviders.bitbucket', label: 'Bitbucket', Icon: SiBitbucket, hintKey: 'app.gitProviders.oneClickOrUrl2', hint: 'One-click or URL', match: /bitbucket\.org/i, oauth: true, placeholder: 'https://bitbucket.org/user/repo.git' },
+    { key: 'gitea', labelKey: 'app.gitProviders.gitea', label: 'Gitea', Icon: SiGitea, hintKey: 'app.gitProviders.selfHosted', hint: 'Self-hosted', match: /gitea/i, local: true, placeholder: 'https://gitea.example.com/user/repo.git' },
+    { key: 'other', labelKey: 'app.gitProviders.sshOther', label: 'SSH / Other', Icon: GitBranch, hintKey: 'app.gitProviders.anyGitRemote', hint: 'Any Git remote', match: null, placeholder: 'git@host:user/repo.git' },
 ];
 
 const OTHER_PROVIDER = GIT_PROVIDERS[GIT_PROVIDERS.length - 1];
@@ -38,6 +39,7 @@ export function detectProvider(url) {
 // and one-liner. Static by default (just "explains the others"); pass `onSelect`
 // to make the chips REAL radio buttons that pick the connection method.
 export function RepoProviderStrip({ detected, selected, onSelect, giteaStatus }) {
+    const { t } = useTranslation();
     const interactive = typeof onSelect === 'function';
     const activeKey = selected ?? detected;
     const giteaRunning = giteaStatus?.installed && giteaStatus?.running;
@@ -45,7 +47,7 @@ export function RepoProviderStrip({ detected, selected, onSelect, giteaStatus })
         <div
             className="git-connect__providers"
             role={interactive ? 'radiogroup' : 'list'}
-            aria-label="Git providers"
+            aria-label={t('app.gitProviders.gitProviders', 'Git providers')}
         >
             {GIT_PROVIDERS.map(({ key, label, Icon, hint, local }) => {
                 const active = activeKey === key;
@@ -86,12 +88,13 @@ export function RepoProviderStrip({ detected, selected, onSelect, giteaStatus })
 // Inline brand mark + name — the live "detected provider" indicator beside a URL
 // field. Renders nothing until a provider is resolved.
 export function ProviderBadge({ provider }) {
+    const { t } = useTranslation();
     if (!provider) return null;
     const { Icon, label } = provider;
     return (
         <span className="git-connect__detected">
             <Icon size={13} aria-hidden="true" />
-            Detected: {label}
+            {t('app.gitProviders.detected', 'Detected:')} {label}
         </span>
     );
 }

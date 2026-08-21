@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { Pill } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import ConfigDiffModal from './ConfigDiffModal';
+import { useTranslation } from 'react-i18next';
 
 // Vertical timeline of an app's config snapshots. Each node shows the image /
 // build method, a "config changed" badge (derived from the per-snapshot
@@ -28,6 +29,7 @@ function snapshotChanged(summary) {
 }
 
 const DeploymentTimeline = ({ appId }) => {
+    const { t } = useTranslation();
     const [snapshots, setSnapshots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -51,7 +53,7 @@ const DeploymentTimeline = ({ appId }) => {
     }, [loadSnapshots]);
 
     if (loading) {
-        return <div className="deploy-timeline__loading">Loading deployment timeline…</div>;
+        return <div className="deploy-timeline__loading">{t('app.deploymentTimeline.loadingDeploymentTimeline', 'Loading deployment timeline…')}</div>;
     }
 
     if (error) {
@@ -62,7 +64,7 @@ const DeploymentTimeline = ({ appId }) => {
         return (
             <div className="deploy-timeline deploy-timeline--empty">
                 <Clock size={20} />
-                <p>No config checkpoints yet. One is captured before each deployment.</p>
+                <p>{t('app.deploymentTimeline.noConfigCheckpointsYetOneIs', 'No config checkpoints yet. One is captured before each deployment.')}</p>
             </div>
         );
     }
@@ -86,10 +88,10 @@ const DeploymentTimeline = ({ appId }) => {
                             <div className="deploy-timeline__card">
                                 <div className="deploy-timeline__row">
                                     <div className="deploy-timeline__meta">
-                                        {isLatest && <Pill kind="green">Current</Pill>}
+                                        {isLatest && <Pill kind="green">{t('app.deploymentTimeline.current', 'Current')}</Pill>}
                                         {changed && (
                                             <Pill kind="amber" dot={false}>
-                                                Config changed
+                                                {t('app.deploymentTimeline.configChanged', 'Config changed')}
                                             </Pill>
                                         )}
                                         <span className="deploy-timeline__time">
@@ -101,7 +103,7 @@ const DeploymentTimeline = ({ appId }) => {
                                         size="sm"
                                         onClick={() => setActiveDiff({ snapId: snap.id })}
                                     >
-                                        <FileDiff size={14} /> View diff
+                                        <FileDiff size={14} /> {t('app.deploymentTimeline.viewDiff', 'View diff')}
                                     </Button>
                                 </div>
 
@@ -118,7 +120,7 @@ const DeploymentTimeline = ({ appId }) => {
                                     )}
                                     {cfg.env_keys && (
                                         <span className="deploy-timeline__chip">
-                                            {cfg.env_keys.length} env var
+                                            {cfg.env_keys.length} {t('app.deploymentTimeline.envVar', 'env var')}
                                             {cfg.env_keys.length === 1 ? '' : 's'}
                                         </span>
                                     )}

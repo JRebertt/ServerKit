@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Server } from 'lucide-react';
 import { api } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // TargetPicker — a small reusable selector for "local panel host vs.
 // connected agent." Used by the Cron, Cloudflared, and File Manager
@@ -18,6 +19,7 @@ import { api } from '../services/api';
 // for any caller-supplied `extraOptions` (e.g. an "S3 bucket" target in the
 // File Manager).
 export default function TargetPicker({ feature, value, onChange, includeLocal = true, extraOptions = [] }) {
+    const { t } = useTranslation();
     const [servers, setServers] = useState([]);
 
     useEffect(() => {
@@ -82,7 +84,7 @@ export default function TargetPicker({ feature, value, onChange, includeLocal = 
                 <span className="target-picker__single">{singleLabel}</span>
             ) : (
                 <select value={selectValue} onChange={handleChange} className="target-picker__select">
-                    {includeLocal && <option value="local">Local (this server)</option>}
+                    {includeLocal && <option value="local">{t('app.targetPicker.localThisServer', 'Local (this server)')}</option>}
                     {eligible.map(s => (
                         <option key={s.id} value={s.id}>
                             {s.name || s.hostname || s.id}

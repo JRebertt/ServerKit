@@ -9,10 +9,13 @@
  * `getRuntimeLoadState`, with the error string in a popover (plan 32 #5).
  */
 import { Component } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { t } from '../../i18n/t';
 
 // Plain (dependency-free) card so it renders even if the SDK/design-system is
 // itself the thing that failed. Styled by _extensions.scss (.sk-ext-failcard).
 export function ExtensionFailureCard({ slug, title, message }) {
+    const { t } = useTranslation();
     return (
         <div className="sk-ext-failcard" role="alert">
             <div className="sk-ext-failcard__icon" aria-hidden="true">⚠</div>
@@ -21,13 +24,20 @@ export function ExtensionFailureCard({ slug, title, message }) {
                     {title || 'Extension failed to load'}
                 </h2>
                 <p className="sk-ext-failcard__desc">
-                    The extension <code>{slug}</code> could not be loaded
+                    {/* One key with a component slot, not prefix/suffix
+                        fragments: split sentences cannot be reordered by a
+                        translator. */}
+                    <Trans
+                        i18nKey="app.extensionBoundary.theExtensionCouldNotBeLoaded"
+                        defaults="The extension <0>{{slug}}</0> could not be loaded"
+                        values={{ slug }}
+                        components={[<code key="slug" />]}
+                    />
                     {message ? ': ' : '.'}
                     {message && <span className="sk-ext-failcard__reason">{message}</span>}
                 </p>
                 <p className="sk-ext-failcard__hint">
-                    Its other pages and the rest of the panel are unaffected. Try
-                    reinstalling or updating it from the Marketplace.
+                    {t('app.extensionBoundary.itsOtherPagesAndTheRest', 'Its other pages and the rest of the panel are unaffected. Try reinstalling or updating it from the Marketplace.')}
                 </p>
             </div>
         </div>
@@ -53,7 +63,7 @@ export class ExtensionErrorBoundary extends Component {
             return (
                 <ExtensionFailureCard
                     slug={this.props.slug}
-                    title="Extension crashed"
+                    title={t('app.extensionBoundary.extensionCrashed', 'Extension crashed')}
                     message={this.state.error?.message || String(this.state.error)}
                 />
             );

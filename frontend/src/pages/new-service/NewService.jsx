@@ -7,16 +7,18 @@ import { useNewServiceForm } from './useNewServiceForm';
 import SourceStep from './SourceStep';
 import ConnectStep from './ConnectStep';
 import ReviewStep from './ReviewStep';
+import { useTranslation } from 'react-i18next';
 
 const STEPS = [
-    { n: 1, label: 'Source' },
-    { n: 2, label: 'Connect' },
-    { n: 3, label: 'Review' },
+    { n: 1, labelKey: 'app.newService.source', label: 'Source' },
+    { n: 2, labelKey: 'app.newService.connect', label: 'Connect' },
+    { n: 3, labelKey: 'app.newService.review', label: 'Review' },
 ];
 
 // New Service — a real three-step wizard (plan 43 Phase 3). Step state and
 // submit live in the form hook; each step is a presentational component.
 const NewService = () => {
+    const { t } = useTranslation();
     const form = useNewServiceForm();
     const { step, setStep, submitting, canSubmit, canProceedFromConnect, handleSubmit } = form;
 
@@ -26,7 +28,7 @@ const NewService = () => {
             <Button type="button" variant="outline" size="sm" asChild>
                 <Link to="/settings/connections">
                     <Link2 size={16} />
-                    Connections
+                    {t('app.newService.connections', 'Connections')}
                 </Link>
             </Button>
         </>,
@@ -36,7 +38,7 @@ const NewService = () => {
     return (
         <div className="sk-tabgroup__inner new-service-page">
             {/* Slim stepper header */}
-            <nav className="new-service-page__stepper" aria-label="Progress">
+            <nav className="new-service-page__stepper" aria-label={t('app.newService.progress', 'Progress')}>
                 {STEPS.map(({ n, label }) => {
                     const state = step === n ? 'current' : step > n ? 'done' : 'todo';
                     return (
@@ -66,11 +68,11 @@ const NewService = () => {
                 <div className="new-service-page__footer">
                     {step === 1 ? (
                         <Button type="button" variant="outline" asChild>
-                            <Link to="/services">Cancel</Link>
+                            <Link to="/services">{t('app.newService.cancel', 'Cancel')}</Link>
                         </Button>
                     ) : (
                         <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
-                            Back
+                            {t('app.newService.back', 'Back')}
                         </Button>
                     )}
 
@@ -80,7 +82,7 @@ const NewService = () => {
                             onClick={() => setStep(3)}
                             disabled={!canProceedFromConnect}
                         >
-                            Continue
+                            {t('app.newService.continue', 'Continue')}
                         </Button>
                     )}
                     {step === 3 && (

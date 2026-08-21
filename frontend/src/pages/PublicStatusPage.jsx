@@ -4,13 +4,14 @@ import api from '../services/api';
 import EmptyState from '../components/EmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Activity, AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const STATUS_META = {
-    operational: { label: 'Operational', badge: 'success', icon: CheckCircle2 },
-    degraded: { label: 'Degraded', badge: 'warning', icon: AlertTriangle },
-    partial_outage: { label: 'Partial outage', badge: 'warning', icon: AlertTriangle },
-    major_outage: { label: 'Major outage', badge: 'destructive', icon: XCircle },
-    maintenance: { label: 'Maintenance', badge: 'info', icon: Clock },
+    operational: { labelKey: 'app.publicStatusPage.operational', label: 'Operational', badge: 'success', icon: CheckCircle2 },
+    degraded: { labelKey: 'app.publicStatusPage.degraded', label: 'Degraded', badge: 'warning', icon: AlertTriangle },
+    partial_outage: { labelKey: 'app.publicStatusPage.partialOutage', label: 'Partial outage', badge: 'warning', icon: AlertTriangle },
+    major_outage: { labelKey: 'app.publicStatusPage.majorOutage', label: 'Major outage', badge: 'destructive', icon: XCircle },
+    maintenance: { labelKey: 'app.publicStatusPage.maintenance', label: 'Maintenance', badge: 'info', icon: Clock },
 };
 
 const IMPACT_META = {
@@ -31,6 +32,7 @@ function formatUptime(value) {
 }
 
 function PublicStatusPage() {
+    const { t } = useTranslation();
     const { slug } = useParams();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ function PublicStatusPage() {
     if (loading) {
         return (
             <main className="public-status-page">
-                <EmptyState loading loadingVariant="detail" title="Loading status" />
+                <EmptyState loading loadingVariant="detail" title={t('app.publicStatusPage.loadingStatus', 'Loading status')} />
             </main>
         );
     }
@@ -71,7 +73,7 @@ function PublicStatusPage() {
             <main className="public-status-page">
                 <section className="public-status-shell public-status-shell--empty">
                     <XCircle size={32} />
-                    <h1>Status page unavailable</h1>
+                    <h1>{t('app.publicStatusPage.statusPageUnavailable', 'Status page unavailable')}</h1>
                     <p>{error || 'Status page not found'}</p>
                 </section>
             </main>
@@ -97,15 +99,15 @@ function PublicStatusPage() {
 
             <section className="public-status-summary">
                 <div>
-                    <span>Components</span>
+                    <span>{t('app.publicStatusPage.components', 'Components')}</span>
                     <strong>{components.length}</strong>
                 </div>
                 <div>
-                    <span>Active incidents</span>
+                    <span>{t('app.publicStatusPage.activeIncidents', 'Active incidents')}</span>
                     <strong>{activeIncidents.length}</strong>
                 </div>
                 <div>
-                    <span>30 day uptime</span>
+                    <span>{t('app.publicStatusPage.30DayUptime', '30 day uptime')}</span>
                     <strong>{formatUptime(
                         components.length
                             ? components.reduce((total, component) => total + (component.uptime_30d || 100), 0) / components.length
@@ -117,7 +119,7 @@ function PublicStatusPage() {
             {activeIncidents.length > 0 && (
                 <section className="public-status-section">
                     <header>
-                        <h2>Active Incidents</h2>
+                        <h2>{t('app.publicStatusPage.activeIncidents2', 'Active Incidents')}</h2>
                     </header>
                     <div className="public-incident-list">
                         {activeIncidents.map((incident) => (
@@ -136,7 +138,7 @@ function PublicStatusPage() {
 
             <section className="public-status-section">
                 <header>
-                    <h2>Components</h2>
+                    <h2>{t('app.publicStatusPage.components2', 'Components')}</h2>
                 </header>
                 <div className="public-component-groups">
                     {Object.entries(data.groups || {}).map(([groupName, groupComponents]) => (
@@ -166,7 +168,7 @@ function PublicStatusPage() {
                     {components.length === 0 && (
                         <div className="public-status-empty">
                             <Activity size={24} />
-                            <span>No components published.</span>
+                            <span>{t('app.publicStatusPage.noComponentsPublished', 'No components published.')}</span>
                         </div>
                     )}
                 </div>
@@ -175,7 +177,7 @@ function PublicStatusPage() {
             {recentIncidents.length > 0 && (
                 <section className="public-status-section">
                     <header>
-                        <h2>Recent Incidents</h2>
+                        <h2>{t('app.publicStatusPage.recentIncidents', 'Recent Incidents')}</h2>
                     </header>
                     <div className="public-incident-list">
                         {recentIncidents.map((incident) => (
@@ -184,7 +186,7 @@ function PublicStatusPage() {
                                     <h3>{incident.title}</h3>
                                     <span>{formatDate(incident.resolved_at || incident.created_at)}</span>
                                 </div>
-                                <Badge variant="success">Resolved</Badge>
+                                <Badge variant="success">{t('app.publicStatusPage.resolved', 'Resolved')}</Badge>
                             </article>
                         ))}
                     </div>

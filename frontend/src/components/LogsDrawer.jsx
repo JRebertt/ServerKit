@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import socketService from '../services/socket';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 const MAX_LINES = 1000;
 const MIN_HEIGHT = 120;
 const DEFAULT_HEIGHT = 300;
 
 const LogsDrawer = () => {
+    const { t } = useTranslation();
     const { drawerState, service, closeDrawer, collapseDrawer, expandDrawer } = useLogsDrawer();
     const [lines, setLines] = useState([]);
     const [autoScroll, setAutoScroll] = useState(true);
@@ -120,7 +122,7 @@ const LogsDrawer = () => {
                             variant="ghost"
                             size="icon"
                             onClick={(e) => { e.stopPropagation(); closeDrawer(); }}
-                            title="Close"
+                            title={t('app.logsDrawer.close', 'Close')}
                         >
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -157,20 +159,20 @@ const LogsDrawer = () => {
                     </span>
                     <label className="logs-drawer__toggle">
                         <Switch checked={autoScroll} onCheckedChange={setAutoScroll} />
-                        <span>Auto-scroll</span>
+                        <span>{t('app.logsDrawer.autoScroll', 'Auto-scroll')}</span>
                     </label>
-                    <Button variant="ghost" size="icon" onClick={() => setLines([])} title="Clear">
+                    <Button variant="ghost" size="icon" onClick={() => setLines([])} title={t('app.logsDrawer.clear', 'Clear')}>
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6"/>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                         </svg>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={collapseDrawer} title="Collapse">
+                    <Button variant="ghost" size="icon" onClick={collapseDrawer} title={t('app.logsDrawer.collapse', 'Collapse')}>
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={closeDrawer} title="Close">
+                    <Button variant="ghost" size="icon" onClick={closeDrawer} title={t('app.logsDrawer.close2', 'Close')}>
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
@@ -181,7 +183,7 @@ const LogsDrawer = () => {
             {/* Log content */}
             <div className="logs-drawer__content" ref={logRef}>
                 {lines.length === 0 ? (
-                    <div className="logs-drawer__empty">Waiting for logs...</div>
+                    <div className="logs-drawer__empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs...')}</div>
                 ) : (
                     lines.map((line, i) => (
                         <div key={i} className={`logs-drawer__line ${getLineClass(line)}`}>{line}</div>

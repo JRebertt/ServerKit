@@ -3,8 +3,10 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { useClipboard } from '../hooks/useClipboard';
+import { useTranslation } from 'react-i18next';
 
 const PrivateURLSection = ({ app, onUpdate }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const { copy } = useClipboard({ successMessage: 'URL copied to clipboard' });
@@ -20,11 +22,11 @@ const PrivateURLSection = ({ app, onUpdate }) => {
         setLoading(true);
         try {
             await api.enablePrivateUrl(app.id, customSlug || undefined);
-            toast.success('Private URL enabled');
+            toast.success(t('app.privateURLSection.privateUrlEnabled', 'Private URL enabled'));
             onUpdate();
             setCustomSlug('');
         } catch (error) {
-            toast.error(error.message || 'Failed to enable private URL');
+            toast.error(error.message || t('app.privateURLSection.failedToEnablePrivateUrl', 'Failed to enable private URL'));
         } finally {
             setLoading(false);
         }
@@ -32,18 +34,18 @@ const PrivateURLSection = ({ app, onUpdate }) => {
 
     async function handleDisable() {
         if (!await confirm({
-            title: 'Disable private URL',
-            message: 'Disable the private URL? The current slug will be released.',
-            confirmText: 'Disable URL',
+            title: t('app.privateURLSection.disablePrivateUrl', 'Disable private URL'),
+            message: t('app.privateURLSection.disableThePrivateUrlTheCurrent', 'Disable the private URL? The current slug will be released.'),
+            confirmText: t('app.privateURLSection.disableUrl', 'Disable URL'),
         })) return;
 
         setLoading(true);
         try {
             await api.disablePrivateUrl(app.id);
-            toast.success('Private URL disabled');
+            toast.success(t('app.privateURLSection.privateUrlDisabled', 'Private URL disabled'));
             onUpdate();
         } catch (error) {
-            toast.error(error.message || 'Failed to disable private URL');
+            toast.error(error.message || t('app.privateURLSection.failedToDisablePrivateUrl', 'Failed to disable private URL'));
         } finally {
             setLoading(false);
         }
@@ -51,18 +53,18 @@ const PrivateURLSection = ({ app, onUpdate }) => {
 
     async function handleRegenerate() {
         if (!await confirm({
-            title: 'Regenerate private URL',
-            message: 'Generate a new random slug? The old URL will stop working.',
-            confirmText: 'Regenerate URL',
+            title: t('app.privateURLSection.regeneratePrivateUrl', 'Regenerate private URL'),
+            message: t('app.privateURLSection.generateANewRandomSlugThe', 'Generate a new random slug? The old URL will stop working.'),
+            confirmText: t('app.privateURLSection.regenerateUrl', 'Regenerate URL'),
         })) return;
 
         setLoading(true);
         try {
             await api.regeneratePrivateUrl(app.id);
-            toast.success('Private URL regenerated');
+            toast.success(t('app.privateURLSection.privateUrlRegenerated', 'Private URL regenerated'));
             onUpdate();
         } catch (error) {
-            toast.error(error.message || 'Failed to regenerate');
+            toast.error(error.message || t('app.privateURLSection.failedToRegenerate', 'Failed to regenerate'));
         } finally {
             setLoading(false);
         }
@@ -75,12 +77,12 @@ const PrivateURLSection = ({ app, onUpdate }) => {
         setLoading(true);
         try {
             await api.updatePrivateUrl(app.id, customSlug);
-            toast.success('Slug updated');
+            toast.success(t('app.privateURLSection.slugUpdated', 'Slug updated'));
             onUpdate();
             setEditMode(false);
             setCustomSlug('');
         } catch (error) {
-            toast.error(error.message || 'Failed to update slug');
+            toast.error(error.message || t('app.privateURLSection.failedToUpdateSlug', 'Failed to update slug'));
         } finally {
             setLoading(false);
         }
@@ -104,15 +106,14 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                     </svg>
-                    Private URL
+                    {t('app.privateURLSection.privateUrl', 'Private URL')}
                 </h3>
             </div>
 
             {!app.private_url_enabled ? (
                 <div className="private-url-disabled">
                     <p className="hint">
-                        Enable a private, shareable URL for this application.
-                        Private URLs are not publicly indexed and can be shared with specific people.
+                        {t('app.privateURLSection.enableAPrivateShareableUrlFor', 'Enable a private, shareable URL for this application. Private URLs are not publicly indexed and can be shared with specific people.')}
                     </p>
                     <form onSubmit={handleEnable} className="private-url-form">
                         <div className="input-group">
@@ -121,7 +122,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                 type="text"
                                 value={customSlug}
                                 onChange={handleSlugInput}
-                                placeholder="custom-slug (optional)"
+                                placeholder={t('app.privateURLSection.customSlugOptional', 'custom-slug (optional)')}
                                 className="slug-input"
                                 minLength={3}
                                 maxLength={50}
@@ -136,40 +137,40 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                         </button>
                     </form>
                     <p className="slug-hint">
-                        Leave empty to auto-generate a random slug, or enter your own custom slug.
+                        {t('app.privateURLSection.leaveEmptyToAutoGenerateA', 'Leave empty to auto-generate a random slug, or enter your own custom slug.')}
                     </p>
                 </div>
             ) : (
                 <div className="private-url-enabled">
                     <div className="private-url-display">
                         <div className="url-box">
-                            <span className="url-label">Your private URL:</span>
+                            <span className="url-label">{t('app.privateURLSection.yourPrivateUrl', 'Your private URL:')}</span>
                             <code className="url-value">{privateUrl}</code>
                         </div>
                         <div className="url-actions">
                             <button type="button"
                                 className="btn btn-secondary btn-sm"
                                 onClick={copyToClipboard}
-                                title="Copy to clipboard"
+                                title={t('app.privateURLSection.copyToClipboard', 'Copy to clipboard')}
                             >
                                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                 </svg>
-                                Copy
+                                {t('app.privateURLSection.copy', 'Copy')}
                             </button>
                             <button type="button"
                                 className="btn btn-secondary btn-sm"
                                 onClick={handleRegenerate}
                                 disabled={loading}
-                                title="Generate new random slug"
+                                title={t('app.privateURLSection.generateNewRandomSlug', 'Generate new random slug')}
                             >
                                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                     <polyline points="23 4 23 10 17 10" />
                                     <polyline points="1 20 1 14 7 14" />
                                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                                 </svg>
-                                Regenerate
+                                {t('app.privateURLSection.regenerate', 'Regenerate')}
                             </button>
                         </div>
                     </div>
@@ -194,7 +195,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                 className="btn btn-primary btn-sm"
                                 disabled={loading || !customSlug}
                             >
-                                Save
+                                {t('app.privateURLSection.save', 'Save')}
                             </button>
                             <button
                                 type="button"
@@ -204,7 +205,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                     setCustomSlug('');
                                 }}
                             >
-                                Cancel
+                                {t('app.privateURLSection.cancel', 'Cancel')}
                             </button>
                         </form>
                     ) : (
@@ -212,7 +213,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                             className="btn-link"
                             onClick={() => setEditMode(true)}
                         >
-                            Change slug
+                            {t('app.privateURLSection.changeSlug', 'Change slug')}
                         </button>
                     )}
 
@@ -222,7 +223,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                             onClick={handleDisable}
                             disabled={loading}
                         >
-                            Disable Private URL
+                            {t('app.privateURLSection.disablePrivateUrl3', 'Disable Private URL')}
                         </button>
                     </div>
                 </div>

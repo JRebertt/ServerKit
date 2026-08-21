@@ -22,6 +22,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useTranslation } from 'react-i18next';
 
 const ApiSettingsTab = () => {
     const { isAdmin } = useAuth();
@@ -92,6 +93,7 @@ const API_KEY_VIEWS = [
 ];
 
 const ApiKeysSection = () => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const register = useSettingFocus();
     const [keys, setKeys] = useState([]);
@@ -126,9 +128,9 @@ const ApiKeysSection = () => {
 
     const handleRevoke = async (keyId) => {
         if (!await confirm({
-            title: 'Revoke API key',
-            message: 'Revoke this API key? This cannot be undone.',
-            confirmText: 'Revoke key',
+            title: t('app.apiSettingsTab.revokeApiKey', 'Revoke API key'),
+            message: t('app.apiSettingsTab.revokeThisApiKeyThisCannot', 'Revoke this API key? This cannot be undone.'),
+            confirmText: t('app.apiSettingsTab.revokeKey', 'Revoke key'),
         })) return;
         await api.revokeApiKey(keyId);
         loadKeys();
@@ -136,9 +138,9 @@ const ApiKeysSection = () => {
 
     const handleRotate = async (keyId) => {
         if (!await confirm({
-            title: 'Rotate API key',
-            message: 'Rotate this key? The old key will stop working immediately.',
-            confirmText: 'Rotate key',
+            title: t('app.apiSettingsTab.rotateApiKey', 'Rotate API key'),
+            message: t('app.apiSettingsTab.rotateThisKeyTheOldKey', 'Rotate this key? The old key will stop working immediately.'),
+            confirmText: t('app.apiSettingsTab.rotateKey', 'Rotate key'),
             variant: 'warning',
         })) return;
         const result = await api.rotateApiKey(keyId);
@@ -165,7 +167,7 @@ const ApiKeysSection = () => {
     const keyColumns = [
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.apiSettingsTab.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -176,7 +178,7 @@ const ApiKeysSection = () => {
         },
         {
             key: 'key',
-            header: 'Key',
+            headerKey: 'app.apiSettingsTab.key', header: 'Key',
             // Searchable by prefix: that is the only part of a key that ever
             // appears again after creation, so it is how a log line gets
             // matched back to a row here.
@@ -186,7 +188,7 @@ const ApiKeysSection = () => {
         },
         {
             key: 'scopes',
-            header: 'Scopes',
+            headerKey: 'app.apiSettingsTab.scopes', header: 'Scopes',
             // The joined list, so "contains domains" finds every key that can
             // touch domains and "is *" finds exactly the full-access ones.
             type: 'text',
@@ -194,9 +196,9 @@ const ApiKeysSection = () => {
             render: (key) => (
                 <div className="api-settings__scopes">
                     {(!key.scopes || key.scopes.length === 0) ? (
-                        <span className="api-settings__muted">None</span>
+                        <span className="api-settings__muted">{t('app.apiSettingsTab.none', 'None')}</span>
                     ) : key.scopes.includes('*') ? (
-                        <Pill kind="violet">Full access</Pill>
+                        <Pill kind="violet">{t('app.apiSettingsTab.fullAccess', 'Full access')}</Pill>
                     ) : (
                         <>
                             {key.scopes.slice(0, 3).map(s => (
@@ -212,14 +214,14 @@ const ApiKeysSection = () => {
         },
         {
             key: 'tier',
-            header: 'Tier',
+            headerKey: 'app.apiSettingsTab.tier', header: 'Tier',
             type: 'enum',
             value: (key) => key.tier || '',
             render: (key) => <Badge variant="outline">{key.tier}</Badge>,
         },
         {
             key: 'lastUsed',
-            header: 'Last Used',
+            headerKey: 'app.apiSettingsTab.lastUsed', header: 'Last Used',
             sortable: true,
             type: 'date',
             value: (key) => key.last_used_at || null,
@@ -233,22 +235,22 @@ const ApiKeysSection = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.apiSettingsTab.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: keyStatus,
             sortValue: keyStatus,
             render: (key) => (
                 keyStatus(key) === 'Active' ? (
-                    <Badge variant="success">Active</Badge>
+                    <Badge variant="success">{t('app.apiSettingsTab.active', 'Active')}</Badge>
                 ) : (
-                    <Badge variant="destructive">Revoked</Badge>
+                    <Badge variant="destructive">{t('app.apiSettingsTab.revoked', 'Revoked')}</Badge>
                 )
             ),
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.apiSettingsTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'api-settings__actions',
@@ -259,7 +261,7 @@ const ApiKeysSection = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRotate(key.id)}
-                            title="Rotate"
+                            title={t('app.apiSettingsTab.rotate', 'Rotate')}
                         >
                             <RotateCcw size={14} />
                         </Button>
@@ -267,7 +269,7 @@ const ApiKeysSection = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRevoke(key.id)}
-                            title="Revoke"
+                            title={t('app.apiSettingsTab.revoke', 'Revoke')}
                             className="text-destructive hover:text-destructive"
                         >
                             <Trash2 size={14} />
@@ -320,19 +322,19 @@ const ApiKeysSection = () => {
                 rides the view line above. */}
             <ListToolbar>
                 <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
-                    <Plus size={14} /> Create Key
+                    <Plus size={14} /> {t('app.apiSettingsTab.createKey', 'Create Key')}
                 </Button>
             </ListToolbar>
 
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <div className="settings-card__loading">Loading...</div>
+                <div className="settings-card__loading">{t('app.apiSettingsTab.loading', 'Loading...')}</div>
             ) : keys.length === 0 ? (
                 <EmptyState
                     icon={Key}
-                    title="No API keys yet."
-                    description="Create one to get started."
+                    title={t('app.apiSettingsTab.noApiKeysYet', 'No API keys yet.')}
+                    description={t('app.apiSettingsTab.createOneToGetStarted', 'Create one to get started.')}
                 />
             ) : (
                 <div className="api-settings__table-wrap">
@@ -363,6 +365,7 @@ const ApiKeysSection = () => {
 
 // ─── Rate Limits Section ───────────────────────────────
 const RateLimitsSection = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const [limits, setLimits] = useState({
         rate_limit_standard: '100 per minute',
@@ -412,8 +415,8 @@ const RateLimitsSection = () => {
                 <div className="settings-card__header-left">
                     <Activity size={20} />
                     <div>
-                        <h3>Rate Limits</h3>
-                        <p>Configure request rate limits by tier</p>
+                        <h3>{t('app.apiSettingsTab.rateLimits', 'Rate Limits')}</h3>
+                        <p>{t('app.apiSettingsTab.configureRequestRateLimitsByTier', 'Configure request rate limits by tier')}</p>
                     </div>
                 </div>
             </div>
@@ -433,7 +436,7 @@ const RateLimitsSection = () => {
                             type="text"
                             value={value}
                             onChange={e => setLimits(prev => ({ ...prev, [key]: e.target.value }))}
-                            placeholder="e.g. 100 per minute"
+                            placeholder={t('app.apiSettingsTab.eG100PerMinute', 'e.g. 100 per minute')}
                         />
                     </div>
                 ))}
@@ -455,7 +458,7 @@ const RateLimitsSection = () => {
 const DELIVERY_COLUMNS = [
     {
         key: 'event',
-        header: 'Event',
+        headerKey: 'app.apiSettingsTab.event', header: 'Event',
         sortable: true,
         hideable: false,
         sortValue: (d) => d.event_type || '',
@@ -463,7 +466,7 @@ const DELIVERY_COLUMNS = [
     },
     {
         key: 'status',
-        header: 'Status',
+        headerKey: 'app.apiSettingsTab.status2', header: 'Status',
         sortable: true,
         sortValue: (d) => d.status || '',
         render: (d) => (
@@ -481,14 +484,14 @@ const DELIVERY_COLUMNS = [
     },
     {
         key: 'duration',
-        header: 'Duration',
+        headerKey: 'app.apiSettingsTab.duration', header: 'Duration',
         sortable: true,
         sortValue: (d) => d.duration_ms ?? null,
         render: (d) => (d.duration_ms ? `${d.duration_ms}ms` : '-'),
     },
     {
         key: 'time',
-        header: 'Time',
+        headerKey: 'app.apiSettingsTab.time', header: 'Time',
         sortable: true,
         sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
         cellClassName: 'api-settings__muted',
@@ -497,6 +500,7 @@ const DELIVERY_COLUMNS = [
 ];
 
 const WebhookSection = () => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const register = useSettingFocus();
     const [subscriptions, setSubscriptions] = useState([]);
@@ -529,9 +533,9 @@ const WebhookSection = () => {
 
     const handleDelete = async (id) => {
         if (!await confirm({
-            title: 'Delete webhook subscription',
-            message: 'Delete this subscription?',
-            confirmText: 'Delete subscription',
+            title: t('app.apiSettingsTab.deleteWebhookSubscription', 'Delete webhook subscription'),
+            message: t('app.apiSettingsTab.deleteThisSubscription', 'Delete this subscription?'),
+            confirmText: t('app.apiSettingsTab.deleteSubscription', 'Delete subscription'),
         })) return;
         await api.deleteEventSubscription(id);
         loadSubscriptions();
@@ -566,22 +570,22 @@ const WebhookSection = () => {
                 <div className="settings-card__header-left">
                     <Zap size={20} />
                     <div>
-                        <h3>Webhook Subscriptions</h3>
-                        <p>Receive HTTP notifications when events occur</p>
+                        <h3>{t('app.apiSettingsTab.webhookSubscriptions', 'Webhook Subscriptions')}</h3>
+                        <p>{t('app.apiSettingsTab.receiveHttpNotificationsWhenEventsOccur', 'Receive HTTP notifications when events occur')}</p>
                     </div>
                 </div>
                 <Button variant="default" size="sm" onClick={() => setShowModal(true)}>
-                    <Plus size={14} /> Add Webhook
+                    <Plus size={14} /> {t('app.apiSettingsTab.addWebhook', 'Add Webhook')}
                 </Button>
             </div>
 
             {loading ? (
-                <div className="settings-card__loading">Loading...</div>
+                <div className="settings-card__loading">{t('app.apiSettingsTab.loading2', 'Loading...')}</div>
             ) : subscriptions.length === 0 ? (
                 <EmptyState
                     icon={Zap}
-                    title="No webhook subscriptions."
-                    description="Create one to get notified of events."
+                    title={t('app.apiSettingsTab.noWebhookSubscriptions', 'No webhook subscriptions.')}
+                    description={t('app.apiSettingsTab.createOneToGetNotifiedOf', 'Create one to get notified of events.')}
                 />
             ) : (
                 <div className="api-settings__webhooks">
@@ -611,10 +615,10 @@ const WebhookSection = () => {
                                 <div className="api-settings__webhook-details">
                                     <div className="api-settings__webhook-actions">
                                         <Button variant="outline" size="sm" onClick={() => handleTest(sub.id)}>
-                                            <Send size={14} /> Test
+                                            <Send size={14} /> {t('app.apiSettingsTab.test', 'Test')}
                                         </Button>
                                         <Button variant="outline" size="sm" onClick={() => setEditingSub(sub)}>
-                                            Edit
+                                            {t('app.apiSettingsTab.edit', 'Edit')}
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -622,7 +626,7 @@ const WebhookSection = () => {
                                             onClick={() => handleDelete(sub.id)}
                                             className="text-destructive hover:text-destructive"
                                         >
-                                            <Trash2 size={14} /> Delete
+                                            <Trash2 size={14} /> {t('app.apiSettingsTab.delete', 'Delete')}
                                         </Button>
                                         <Button variant="ghost" size="sm" onClick={() => loadDeliveries(sub.id)}>
                                             <RefreshCw size={14} />
@@ -630,9 +634,9 @@ const WebhookSection = () => {
                                     </div>
                                     {deliveries[sub.id] && (
                                         <div className="api-settings__deliveries">
-                                            <h4>Recent Deliveries</h4>
+                                            <h4>{t('app.apiSettingsTab.recentDeliveries', 'Recent Deliveries')}</h4>
                                             {deliveries[sub.id].length === 0 ? (
-                                                <p className="api-settings__muted">No deliveries yet</p>
+                                                <p className="api-settings__muted">{t('app.apiSettingsTab.noDeliveriesYet', 'No deliveries yet')}</p>
                                             ) : (
                                                 <DataTable
                                                     columns={DELIVERY_COLUMNS}
@@ -675,7 +679,7 @@ const WebhookSection = () => {
 const ENDPOINT_COLUMNS = [
     {
         key: 'method',
-        header: 'Method',
+        headerKey: 'app.apiSettingsTab.method', header: 'Method',
         sortable: true,
         hideable: false,
         sortValue: (ep) => ep.method || '',
@@ -683,28 +687,28 @@ const ENDPOINT_COLUMNS = [
     },
     {
         key: 'endpoint',
-        header: 'Endpoint',
+        headerKey: 'app.apiSettingsTab.endpoint', header: 'Endpoint',
         sortable: true,
         sortValue: (ep) => ep.endpoint || '',
         render: (ep) => <code>{ep.endpoint}</code>,
     },
     {
         key: 'requests',
-        header: 'Requests',
+        headerKey: 'app.apiSettingsTab.requests', header: 'Requests',
         sortable: true,
         sortValue: (ep) => ep.count ?? null,
         render: (ep) => ep.count.toLocaleString(),
     },
     {
         key: 'avgTime',
-        header: 'Avg Time',
+        headerKey: 'app.apiSettingsTab.avgTime', header: 'Avg Time',
         sortable: true,
         sortValue: (ep) => ep.avg_response_time_ms ?? null,
         render: (ep) => `${ep.avg_response_time_ms}ms`,
     },
     {
         key: 'errors',
-        header: 'Errors',
+        headerKey: 'app.apiSettingsTab.errors', header: 'Errors',
         sortable: true,
         sortValue: (ep) => ep.error_count ?? null,
         render: (ep) => (ep.error_count > 0 ? <span className="api-settings__error-count">{ep.error_count}</span> : '-'),
@@ -712,6 +716,7 @@ const ENDPOINT_COLUMNS = [
 ];
 
 const AnalyticsSection = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const [overview, setOverview] = useState(null);
     const [endpoints, setEndpoints] = useState([]);
@@ -742,8 +747,8 @@ const AnalyticsSection = () => {
                 <div className="settings-card__header-left">
                     <BarChart3 size={20} />
                     <div>
-                        <h3>API Usage Analytics</h3>
-                        <p>Monitor API traffic, response times, and errors</p>
+                        <h3>{t('app.apiSettingsTab.apiUsageAnalytics', 'API Usage Analytics')}</h3>
+                        <p>{t('app.apiSettingsTab.monitorApiTrafficResponseTimesAnd', 'Monitor API traffic, response times, and errors')}</p>
                     </div>
                 </div>
                 <div className="api-settings__period-select">
@@ -761,36 +766,36 @@ const AnalyticsSection = () => {
             </div>
 
             {loading ? (
-                <div className="settings-card__loading">Loading...</div>
+                <div className="settings-card__loading">{t('app.apiSettingsTab.loading3', 'Loading...')}</div>
             ) : (
                 <>
                     {overview && (
                         <div className="api-settings__stats-grid">
                             <div className="api-settings__stat-card">
                                 <span className="api-settings__stat-value">{overview.total_requests.toLocaleString()}</span>
-                                <span className="api-settings__stat-label">Total Requests</span>
+                                <span className="api-settings__stat-label">{t('app.apiSettingsTab.totalRequests', 'Total Requests')}</span>
                             </div>
                             <div className="api-settings__stat-card">
                                 <span className="api-settings__stat-value">{overview.avg_response_time_ms}ms</span>
-                                <span className="api-settings__stat-label">Avg Response Time</span>
+                                <span className="api-settings__stat-label">{t('app.apiSettingsTab.avgResponseTime', 'Avg Response Time')}</span>
                             </div>
                             <div className="api-settings__stat-card">
                                 <span className="api-settings__stat-value">{overview.error_rate}%</span>
-                                <span className="api-settings__stat-label">Error Rate</span>
+                                <span className="api-settings__stat-label">{t('app.apiSettingsTab.errorRate', 'Error Rate')}</span>
                             </div>
                             <div className="api-settings__stat-card">
                                 <span className="api-settings__stat-value">{overview.success_count.toLocaleString()}</span>
-                                <span className="api-settings__stat-label">Successful</span>
+                                <span className="api-settings__stat-label">{t('app.apiSettingsTab.successful', 'Successful')}</span>
                             </div>
                         </div>
                     )}
 
                     {timeseries.length > 0 && (
                         <div className="api-settings__chart">
-                            <h4>Request Volume</h4>
+                            <h4>{t('app.apiSettingsTab.requestVolume', 'Request Volume')}</h4>
                             <div className="api-settings__bar-chart">
                                 {timeseries.map((d, i) => (
-                                    <div key={i} className="api-settings__bar-col" title={`${d.period}: ${d.count} requests`}>
+                                    <div key={i} className="api-settings__bar-col" title={t('app.apiSettingsTab.requests2', '{{period}}: {{count}} requests', { period: d.period, count: d.count })}>
                                         <div
                                             className="api-settings__bar"
                                             style={{ height: `${(d.count / maxCount) * 100}%` }}
@@ -809,7 +814,7 @@ const AnalyticsSection = () => {
 
                     {endpoints.length > 0 && (
                         <div className="api-settings__top-endpoints">
-                            <h4>Top Endpoints</h4>
+                            <h4>{t('app.apiSettingsTab.topEndpoints', 'Top Endpoints')}</h4>
                             <DataTable
                                 columns={ENDPOINT_COLUMNS}
                                 data={endpoints.slice(0, 10)}

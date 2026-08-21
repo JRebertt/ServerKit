@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { SegControl } from '@/components/ds';
 import PageLayout from '../layouts/PageLayout';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar', 'whitelabel', 'notifications', 'system', 'users', 'activity', 'site', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'recyclebin', 'developer', 'about'];
 
@@ -38,6 +39,7 @@ const VALID_TABS = ['profile', 'security', 'connections', 'appearance', 'sidebar
 const ADMIN_TABS = ['users', 'activity', 'site', 'connections', 'sso', 'api', 'webhooks', 'ai', 'modules', 'migrations', 'recyclebin', 'system', 'developer'];
 
 const Settings = () => {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useTabParam('/settings', VALID_TABS);
     const { isAdmin } = useAuth();
     const [devMode, setDevMode] = useState(false);
@@ -59,7 +61,7 @@ const Settings = () => {
     return (
         <PageLayout
             icon={<SettingsIcon size={18} />}
-            title="Settings"
+            title={t('app.settings.settings', 'Settings')}
             className="settings-page"
         >
             <div className="settings-layout">
@@ -67,10 +69,10 @@ const Settings = () => {
                     {isAdmin && (
                         <SegControl
                             className="settings-nav-groups"
-                            aria-label="Settings section"
+                            aria-label={t('app.settings.settingsSection', 'Settings section')}
                             options={[
-                                { value: 'account', label: 'My Account' },
-                                { value: 'admin', label: 'Admin' },
+                                { value: 'account', labelKey: 'app.settings.myAccount', label: 'My Account' },
+                                { value: 'admin', labelKey: 'app.settings.admin', label: 'Admin' },
                             ]}
                             value={activeGroup}
                             onChange={(group) => setActiveTab(group === 'admin' ? 'users' : 'profile')}
@@ -87,7 +89,7 @@ const Settings = () => {
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                             <circle cx="12" cy="7" r="4"/>
                         </svg>
-                        Profile
+                        {t('app.settings.profile', 'Profile')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -98,7 +100,7 @@ const Settings = () => {
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        Security
+                        {t('app.settings.security', 'Security')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -109,9 +111,9 @@ const Settings = () => {
                             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
-                        Notifications
+                        {t('app.settings.notifications', 'Notifications')}
                     </Button>
-                    <div className="settings-nav-divider">Preferences</div>
+                    <div className="settings-nav-divider">{t('app.settings.preferences', 'Preferences')}</div>
                     <Button
                         variant="ghost"
                         className={`settings-nav-item ${activeTab === 'appearance' ? 'active' : ''}`}
@@ -128,7 +130,7 @@ const Settings = () => {
                             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
                             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                         </svg>
-                        Appearance
+                        {t('app.settings.appearance', 'Appearance')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -139,7 +141,7 @@ const Settings = () => {
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                             <line x1="9" y1="3" x2="9" y2="21"/>
                         </svg>
-                        Sidebar
+                        {t('app.settings.sidebar', 'Sidebar')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -147,18 +149,18 @@ const Settings = () => {
                         onClick={() => setActiveTab('whitelabel')}
                     >
                         <Layers size={18} />
-                        White Label
+                        {t('app.settings.whiteLabel', 'White Label')}
                     </Button>
                             {import.meta.env.DEV && !devMode && !isAdmin && (
                                 <>
-                                    <div className="settings-nav-divider">Local Dev</div>
+                                    <div className="settings-nav-divider">{t('app.settings.localDev', 'Local Dev')}</div>
                                     <Button
                                         variant="ghost"
                                         className="settings-nav-item"
                                         onClick={() => navigate('/style-guide')}
                                     >
                                         <PaintBucket size={18} />
-                                        Style Guide
+                                        {t('app.settings.styleGuide', 'Style Guide')}
                                     </Button>
                                 </>
                             )}
@@ -172,7 +174,7 @@ const Settings = () => {
                                     <line x1="12" y1="16" x2="12" y2="12"/>
                                     <line x1="12" y1="8" x2="12.01" y2="8"/>
                                 </svg>
-                                About
+                                {t('app.settings.about', 'About')}
                             </Button>
                         </>
                     )}
@@ -189,7 +191,7 @@ const Settings = () => {
                                     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                                 </svg>
-                                Users
+                                {t('app.settings.users', 'Users')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -197,7 +199,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('activity')}
                             >
                                 <Activity size={18} />
-                                Activity
+                                {t('app.settings.activity', 'Activity')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -205,7 +207,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('recyclebin')}
                             >
                                 <Trash2 size={18} />
-                                Recycle bin
+                                {t('app.settings.recycleBin', 'Recycle bin')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -216,7 +218,7 @@ const Settings = () => {
                                     <circle cx="12" cy="12" r="3"/>
                                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                                 </svg>
-                                Site Settings
+                                {t('app.settings.siteSettings', 'Site Settings')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -224,7 +226,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('connections')}
                             >
                                 <Link2 size={18} />
-                                Connections
+                                {t('app.settings.connections', 'Connections')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -252,7 +254,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('webhooks')}
                             >
                                 <Webhook size={18} />
-                                Webhooks
+                                {t('app.settings.webhooks', 'Webhooks')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -260,7 +262,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('ai')}
                             >
                                 <Sparkles size={18} />
-                                AI Assistant
+                                {t('app.settings.aiAssistant', 'AI Assistant')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -268,7 +270,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('modules')}
                             >
                                 <Layers size={18} />
-                                Modules
+                                {t('app.settings.modules', 'Modules')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -276,7 +278,7 @@ const Settings = () => {
                                 onClick={() => setActiveTab('migrations')}
                             >
                                 <Database size={18} />
-                                Migrations
+                                {t('app.settings.migrations', 'Migrations')}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -288,7 +290,7 @@ const Settings = () => {
                                     <line x1="8" y1="21" x2="16" y2="21"/>
                                     <line x1="12" y1="17" x2="12" y2="21"/>
                                 </svg>
-                                System Info
+                                {t('app.settings.systemInfo', 'System Info')}
                             </Button>
                             {(devMode || import.meta.env.DEV) && (
                                 <>
@@ -300,7 +302,7 @@ const Settings = () => {
                                             onClick={() => setActiveTab('developer')}
                                         >
                                             <Code size={18} />
-                                            Icon Reference
+                                            {t('app.settings.iconReference', 'Icon Reference')}
                                         </Button>
                                     )}
                                     <Button
@@ -309,7 +311,7 @@ const Settings = () => {
                                         onClick={() => navigate('/style-guide')}
                                     >
                                         <PaintBucket size={18} />
-                                        Style Guide
+                                        {t('app.settings.styleGuide2', 'Style Guide')}
                                     </Button>
                                 </>
                             )}

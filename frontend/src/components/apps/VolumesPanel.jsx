@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useTranslation } from 'react-i18next';
 
 function formatBytes(bytes) {
     if (bytes == null) return '—';
@@ -20,6 +21,7 @@ function formatBytes(bytes) {
 // checkbox is off by default and disabled while the app is running, so a detach
 // can never nuke live data by accident).
 function VolumeRow({ volume, appRunning, onDetach }) {
+    const { t } = useTranslation();
     const [confirming, setConfirming] = useState(false);
     const [wipe, setWipe] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -57,16 +59,16 @@ function VolumeRow({ volume, appRunning, onDetach }) {
                                 onCheckedChange={(v) => setWipe(Boolean(v))}
                                 disabled={appRunning}
                             />
-                            <span>Also delete data{appRunning ? ' (stop the app first)' : ' — cannot be undone'}</span>
+                            <span>{t('app.volumesPanel.alsoDeleteData', 'Also delete data')}{appRunning ? ' (stop the app first)' : ' — cannot be undone'}</span>
                         </label>
-                        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>Cancel</Button>
+                        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>{t('app.volumesPanel.cancel', 'Cancel')}</Button>
                         <Button type="button" size="sm" variant={wipe ? 'destructive' : 'default'} disabled={busy} onClick={detach}>
                             {busy ? 'Detaching…' : (wipe ? 'Detach + wipe' : 'Detach')}
                         </Button>
                     </div>
                 ) : (
                     <Button type="button" size="sm" variant="outline" onClick={() => setConfirming(true)}>
-                        <Trash2 size={15} /> Detach
+                        <Trash2 size={15} /> {t('app.volumesPanel.detach', 'Detach')}
                     </Button>
                 )}
             </div>
@@ -75,6 +77,7 @@ function VolumeRow({ volume, appRunning, onDetach }) {
 }
 
 const VolumesPanel = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [volumes, setVolumes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -89,7 +92,7 @@ const VolumesPanel = ({ app, onChanged }) => {
             const data = await api.getAppVolumes(app.id);
             setVolumes(data?.volumes || []);
         } catch (err) {
-            toast.error(err.message || 'Failed to load volumes');
+            toast.error(err.message || t('app.volumesPanel.failedToLoadVolumes', 'Failed to load volumes'));
         } finally {
             setLoading(false);
         }
@@ -106,12 +109,12 @@ const VolumesPanel = ({ app, onChanged }) => {
                 mount_path: form.mount_path.trim(),
                 read_only: form.read_only,
             });
-            toast.success('Volume attached. It mounts on the next deploy.');
+            toast.success(t('app.volumesPanel.volumeAttachedItMountsOnThe', 'Volume attached. It mounts on the next deploy.'));
             setForm({ name: '', mount_path: '', read_only: false });
             await load();
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to attach volume');
+            toast.error(err.message || t('app.volumesPanel.failedToAttachVolume', 'Failed to attach volume'));
         } finally {
             setAttaching(false);
         }
@@ -120,11 +123,11 @@ const VolumesPanel = ({ app, onChanged }) => {
     async function detach(volume, wipe) {
         try {
             await api.detachAppVolume(app.id, volume.id, { wipe });
-            toast.success(wipe ? 'Volume detached and data wiped.' : 'Volume detached (data preserved).');
+            toast.success(wipe ? t('app.volumesPanel.volumeDetachedAndDataWiped', 'Volume detached and data wiped.') : t('app.volumesPanel.volumeDetachedDataPreserved', 'Volume detached (data preserved).'));
             await load();
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to detach volume');
+            toast.error(err.message || t('app.volumesPanel.failedToDetachVolume', 'Failed to detach volume'));
         }
     }
 
@@ -135,25 +138,23 @@ const VolumesPanel = ({ app, onChanged }) => {
             <div className="app-panel">
                 <div className="app-panel-header">
                     <HardDrive />
-                    <span>Managed Volumes</span>
+                    <span>{t('app.volumesPanel.managedVolumes', 'Managed Volumes')}</span>
                 </div>
                 <div className="app-panel-body">
                     <p className="app-panel-hint">
-                        First-class persistent storage that survives redeploys. Each volume is a
-                        named Docker volume mounted into the container at the path you choose —
-                        safer than a relative bind mount. Changes apply on the next deploy.
+                        {t('app.volumesPanel.firstClassPersistentStorageThatSurvives', 'First-class persistent storage that survives redeploys. Each volume is a named Docker volume mounted into the container at the path you choose — safer than a relative bind mount. Changes apply on the next deploy.')}
                     </p>
 
                     {loading ? (
-                        <p className="app-panel-hint">Loading volumes…</p>
+                        <p className="app-panel-hint">{t('app.volumesPanel.loadingVolumes', 'Loading volumes…')}</p>
                     ) : volumes.length === 0 ? (
-                        <p className="app-volumes__empty">No managed volumes yet. Attach one below.</p>
+                        <p className="app-volumes__empty">{t('app.volumesPanel.noManagedVolumesYetAttachOne', 'No managed volumes yet. Attach one below.')}</p>
                     ) : (
                         <div className="app-volumes__table">
                             <div className="app-volumes__row app-volumes__row--head">
-                                <div className="app-volumes__cell">Name &amp; mount path</div>
-                                <div className="app-volumes__cell">Size</div>
-                                <div className="app-volumes__cell">Status</div>
+                                <div className="app-volumes__cell">{t('app.volumesPanel.nameMountPath', 'Name & mount path')}</div>
+                                <div className="app-volumes__cell">{t('app.volumesPanel.size', 'Size')}</div>
+                                <div className="app-volumes__cell">{t('app.volumesPanel.status', 'Status')}</div>
                                 <div className="app-volumes__cell" />
                             </div>
                             {volumes.map((v) => (
@@ -165,7 +166,7 @@ const VolumesPanel = ({ app, onChanged }) => {
                     <form className="app-volumes__attach" onSubmit={attach}>
                         <div className="app-volumes__attach-fields">
                             <div className="container-ops__input">
-                                <Label htmlFor={`vol-name-${app.id}`}>Name</Label>
+                                <Label htmlFor={`vol-name-${app.id}`}>{t('app.volumesPanel.name', 'Name')}</Label>
                                 <Input
                                     id={`vol-name-${app.id}`}
                                     value={form.name}
@@ -174,7 +175,7 @@ const VolumesPanel = ({ app, onChanged }) => {
                                 />
                             </div>
                             <div className="container-ops__input">
-                                <Label htmlFor={`vol-path-${app.id}`}>Container mount path</Label>
+                                <Label htmlFor={`vol-path-${app.id}`}>{t('app.volumesPanel.containerMountPath', 'Container mount path')}</Label>
                                 <Input
                                     id={`vol-path-${app.id}`}
                                     value={form.mount_path}
@@ -187,7 +188,7 @@ const VolumesPanel = ({ app, onChanged }) => {
                                     checked={form.read_only}
                                     onCheckedChange={(v) => setForm((f) => ({ ...f, read_only: Boolean(v) }))}
                                 />
-                                <span>Read-only</span>
+                                <span>{t('app.volumesPanel.readOnly', 'Read-only')}</span>
                             </label>
                         </div>
                         <div className="app-detail-actions">
@@ -198,8 +199,7 @@ const VolumesPanel = ({ app, onChanged }) => {
                     </form>
 
                     <p className="app-volumes__note">
-                        <AlertTriangle size={14} /> Detaching keeps the data by default. Wiping is
-                        only allowed while the app is stopped.
+                        <AlertTriangle size={14} /> {t('app.volumesPanel.detachingKeepsTheDataByDefault', 'Detaching keeps the data by default. Wiping is only allowed while the app is stopped.')}
                     </p>
                 </div>
             </div>

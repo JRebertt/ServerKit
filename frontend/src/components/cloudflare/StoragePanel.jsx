@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 function StorageSection({
     title,
@@ -18,6 +19,7 @@ function StorageSection({
     isAdmin,
     busy,
 }) {
+    const { t } = useTranslation();
     const [value, setValue] = useState('');
 
     const writeDisabled = !isAdmin || busy;
@@ -54,7 +56,7 @@ function StorageSection({
                             onClick={handleCreate}
                             disabled={writeDisabled || !value.trim()}
                         >
-                            Add
+                            {t('app.storagePanel.add', 'Add')}
                         </Button>
                     </div>
 
@@ -73,7 +75,7 @@ function StorageSection({
                                             onClick={() => onDelete(item)}
                                             disabled={writeDisabled}
                                         >
-                                            Delete
+                                            {t('app.storagePanel.delete', 'Delete')}
                                         </Button>
                                     </li>
                                 );
@@ -87,6 +89,7 @@ function StorageSection({
 }
 
 export default function StoragePanel({ zoneId, isAdmin }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [loading, setLoading] = useState(true);
@@ -130,7 +133,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.createCloudflareR2Bucket(zoneId, name);
-            toast.success(`Created bucket "${name}"`);
+            toast.success(t('app.storagePanel.createdBucket', 'Created bucket "{{name}}"', { name: name }));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -144,7 +147,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.deleteCloudflareR2Bucket(zoneId, bucket.name);
-            toast.success('Deleted');
+            toast.success(t('app.storagePanel.deleted', 'Deleted'));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -157,7 +160,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.createCloudflareKvNamespace(zoneId, title);
-            toast.success(`Created namespace "${title}"`);
+            toast.success(t('app.storagePanel.createdNamespace', 'Created namespace "{{title}}"', { title: title }));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -171,7 +174,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.deleteCloudflareKvNamespace(zoneId, namespace.id);
-            toast.success('Deleted');
+            toast.success(t('app.storagePanel.deleted2', 'Deleted'));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -184,7 +187,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.createCloudflareD1Database(zoneId, name);
-            toast.success(`Created database "${name}"`);
+            toast.success(t('app.storagePanel.createdDatabase', 'Created database "{{name}}"', { name: name }));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -198,7 +201,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.deleteCloudflareD1Database(zoneId, database.uuid);
-            toast.success('Deleted');
+            toast.success(t('app.storagePanel.deleted3', 'Deleted'));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -208,14 +211,14 @@ export default function StoragePanel({ zoneId, isAdmin }) {
     };
 
     if (loading) {
-        return <div className="cf-storage__loading">Loading storage…</div>;
+        return <div className="cf-storage__loading">{t('app.storagePanel.loadingStorage', 'Loading storage…')}</div>;
     }
 
     if (error) {
         return (
             <EmptyState
                 icon={HardDrive}
-                title="Storage unavailable"
+                title={t('app.storagePanel.storageUnavailable', 'Storage unavailable')}
                 description={error}
             />
         );
@@ -226,11 +229,11 @@ export default function StoragePanel({ zoneId, isAdmin }) {
     return (
         <div className="cf-storage">
             <StorageSection
-                title="R2 buckets"
+                title={t('app.storagePanel.r2Buckets', 'R2 buckets')}
                 items={data.r2 || []}
                 error={errors.r2}
                 placeholder="my-bucket"
-                hint="R2 is S3-compatible, so a bucket here can back ServerKit backups later."
+                hint={t('app.storagePanel.r2IsS3CompatibleSoA', 'R2 is S3-compatible, so a bucket here can back ServerKit backups later.')}
                 renderItem={(b) => ({ key: b.name, label: b.name })}
                 onCreate={handleCreateR2}
                 onDelete={handleDeleteR2}
@@ -239,7 +242,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
             />
 
             <StorageSection
-                title="KV namespaces"
+                title={t('app.storagePanel.kvNamespaces', 'KV namespaces')}
                 items={data.kv || []}
                 error={errors.kv}
                 placeholder="my-namespace"
@@ -251,7 +254,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
             />
 
             <StorageSection
-                title="D1 databases"
+                title={t('app.storagePanel.d1Databases', 'D1 databases')}
                 items={data.d1 || []}
                 error={errors.d1}
                 placeholder="my-database"

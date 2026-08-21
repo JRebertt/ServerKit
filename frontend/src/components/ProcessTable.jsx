@@ -10,6 +10,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 
 // Built-in saved views. These are the five chips that used to sit in a second
 // toolbar row on Terminal › Processes (All / Running / Sleeping / Stopped /
@@ -111,6 +112,7 @@ export function ProcessTable({
     sorts: controlledSorts,
     onSortsChange,
 }) {
+    const { t } = useTranslation();
     const [search, setSearch] = useState('');
     const internalSort = useTableSort({ storageKey: `${storageKey}-sort`, defaultSorts: BY_CPU });
     const sorts = controlledSorts ?? internalSort.sorts;
@@ -149,7 +151,7 @@ export function ProcessTable({
         },
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.processTable.name', header: 'Name',
             sortable: true,
             hideable: false,
             // Hundreds of distinct executables on a real host — a fragment you
@@ -162,7 +164,7 @@ export function ProcessTable({
         },
         {
             key: 'user',
-            header: 'User',
+            headerKey: 'app.processTable.user', header: 'User',
             sortable: true,
             value: procUser,
             sortValue: procUser,
@@ -170,7 +172,7 @@ export function ProcessTable({
         },
         {
             key: 'cpu',
-            header: 'CPU %',
+            headerKey: 'app.processTable.cpu', header: 'CPU %',
             sortable: true,
             type: 'num',
             value: (p) => Number(p.cpu_percent) || 0,
@@ -179,7 +181,7 @@ export function ProcessTable({
         },
         {
             key: 'memory',
-            header: 'Memory',
+            headerKey: 'app.processTable.memory', header: 'Memory',
             sortable: true,
             type: 'num',
             value: (p) => Number(p.memory_percent) || 0,
@@ -199,7 +201,7 @@ export function ProcessTable({
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.processTable.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a box where everything sleeps offers ONE
             // distinct value, the column would fall back to text, and every view
@@ -214,7 +216,7 @@ export function ProcessTable({
         },
         {
             key: '__actions',
-            header: 'Actions',
+            headerKey: 'app.processTable.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (p) => (
@@ -225,8 +227,8 @@ export function ProcessTable({
                             size="icon"
                             className="process-action-button"
                             onClick={(e) => { e.stopPropagation(); onKill(p); }}
-                            title="Kill"
-                            aria-label={`Kill ${p.name}`}
+                            title={t('app.processTable.kill', 'Kill')}
+                            aria-label={t('app.processTable.kill2', 'Kill {{name}}', { name: p.name })}
                         >
                             <X size={12} />
                         </Button>
@@ -237,8 +239,8 @@ export function ProcessTable({
                             size="icon"
                             className="process-action-button"
                             onClick={(e) => { e.stopPropagation(); onForceKill(p); }}
-                            title="Force Kill"
-                            aria-label={`Force kill ${p.name}`}
+                            title={t('app.processTable.forceKill', 'Force Kill')}
+                            aria-label={t('app.processTable.forceKill2', 'Force kill {{name}}', { name: p.name })}
                         >
                             <AlertTriangle size={12} />
                         </Button>
@@ -304,7 +306,7 @@ export function ProcessTable({
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Filter PID, name, command…"
+                            placeholder={t('app.processTable.filterPidNameCommand', 'Filter PID, name, command…')}
                         />
                         {actions}
                         <GridFilterButton
@@ -326,30 +328,31 @@ export function ProcessTable({
 }
 
 export function ProcessDetailsPanel({ process, onClose, formatMemory = defaultFormatMemory }) {
+    const { t } = useTranslation();
     if (!process) return null;
     return (
         <div className="process-details-panel">
             <div className="panel-header">
-                <h3>Process Details</h3>
-                <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+                <h3>{t('app.processTable.processDetails', 'Process Details')}</h3>
+                <Button variant="outline" size="sm" onClick={onClose}>{t('app.processTable.close', 'Close')}</Button>
             </div>
             <div className="panel-body">
                 <div className="details-grid">
                     <DetailItem label="PID" value={process.pid} mono />
-                    <DetailItem label="Name" value={process.name} />
-                    <DetailItem label="User" value={procUser(process)} />
-                    <DetailItem label="Status" value={process.status} />
+                    <DetailItem label={t('app.processTable.name2', 'Name')} value={process.name} />
+                    <DetailItem label={t('app.processTable.user2', 'User')} value={procUser(process)} />
+                    <DetailItem label={t('app.processTable.status2', 'Status')} value={process.status} />
                     <DetailItem label="CPU" value={`${(process.cpu_percent || 0).toFixed(2)}%`} />
-                    <DetailItem label="Memory" value={formatMemory(process.memory_info?.rss)} />
-                    <DetailItem label="Threads" value={process.num_threads} />
+                    <DetailItem label={t('app.processTable.memory2', 'Memory')} value={formatMemory(process.memory_info?.rss)} />
+                    <DetailItem label={t('app.processTable.threads', 'Threads')} value={process.num_threads} />
                     <DetailItem
-                        label="Created"
+                        label={t('app.processTable.created', 'Created')}
                         value={process.create_time ? new Date(process.create_time * 1000).toLocaleString() : '-'}
                     />
                 </div>
                 {process.command && (
                     <div className="command-line">
-                        <span className="detail-label">Command</span>
+                        <span className="detail-label">{t('app.processTable.command', 'Command')}</span>
                         <code>{process.command}</code>
                     </div>
                 )}

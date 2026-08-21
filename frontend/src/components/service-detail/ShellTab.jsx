@@ -3,8 +3,10 @@ import api from '../../services/api';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 const ShellTab = ({ appId, appName }) => {
+    const { t } = useTranslation();
     const [containers, setContainers] = useState([]);
     const [selectedContainer, setSelectedContainer] = useState(null);
     const [history, setHistory] = useState([]);
@@ -66,14 +68,14 @@ const ShellTab = ({ appId, appName }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading containers..." />;
+        return <EmptyState loading title={t('app.shellTab.loadingContainers', 'Loading containers...')} />;
     }
 
     if (containers.length === 0) {
         return (
             <div className="events-tab__empty">
-                <h3>No running containers</h3>
-                <p>Start the service to access the shell.</p>
+                <h3>{t('app.shellTab.noRunningContainers', 'No running containers')}</h3>
+                <p>{t('app.shellTab.startTheServiceToAccessThe', 'Start the service to access the shell.')}</p>
             </div>
         );
     }
@@ -82,7 +84,7 @@ const ShellTab = ({ appId, appName }) => {
         <div className="shell-tab">
             <div className="shell-tab__container">
                 <div className="shell-tab__header">
-                    <span className="shell-tab__title">Container Shell</span>
+                    <span className="shell-tab__title">{t('app.shellTab.containerShell', 'Container Shell')}</span>
                     {containers.length > 1 && (
                         <Select
                             value={selectedContainer || ''}
@@ -105,7 +107,7 @@ const ShellTab = ({ appId, appName }) => {
                 <div className="shell-tab__terminal" ref={terminalRef}>
                     {history.length === 0 && (
                         <div className="shell-tab__hint">
-                            Type a command below to execute it in the container.
+                            {t('app.shellTab.typeACommandBelowToExecute', 'Type a command below to execute it in the container.')}
                         </div>
                     )}
                     {history.map((line, i) => (
@@ -114,7 +116,7 @@ const ShellTab = ({ appId, appName }) => {
                             {line.text}
                         </div>
                     ))}
-                    {running && <div className="shell-tab__hint">Running...</div>}
+                    {running && <div className="shell-tab__hint">{t('app.shellTab.running', 'Running...')}</div>}
                 </div>
 
                 <form className="shell-tab__input-row" onSubmit={handleExec}>
@@ -124,7 +126,7 @@ const ShellTab = ({ appId, appName }) => {
                         type="text"
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
-                        placeholder="Enter command..."
+                        placeholder={t('app.shellTab.enterCommand', 'Enter command...')}
                         disabled={running}
                         autoFocus
                     />

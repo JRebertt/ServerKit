@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { statusKind } from './format';
+import { useTranslation } from 'react-i18next';
 
 // Card of the backup "Protection" panel: a Monday-first month grid of backup
 // runs. Pairs with the .backup-calendar styles. Uses native Date math (no libs).
@@ -43,6 +44,7 @@ function dayStatus(status) {
 }
 
 export default function BackupCalendar({ runs, onDayClick }) {
+    const { t } = useTranslation();
     const [cursor, setCursor] = useState(() => new Date());
 
     // Map of dayKey -> { count, worst } built from all runs (month-independent).
@@ -101,10 +103,10 @@ export default function BackupCalendar({ runs, onDayClick }) {
     return (
         <div className="backup-calendar">
             <div className="backup-calendar__head">
-                <button type="button" className="backup-calendar__nav" onClick={prevMonth} aria-label="Previous month"><ChevronLeft size={16} /></button>
+                <button type="button" className="backup-calendar__nav" onClick={prevMonth} aria-label={t('app.backupCalendar.previousMonth', 'Previous month')}><ChevronLeft size={16} /></button>
                 <span className="backup-calendar__month">{monthLabel}</span>
-                <button type="button" className="backup-calendar__nav" onClick={nextMonth} aria-label="Next month"><ChevronRight size={16} /></button>
-                <button type="button" className="backup-calendar__today" onClick={goToday}>Today</button>
+                <button type="button" className="backup-calendar__nav" onClick={nextMonth} aria-label={t('app.backupCalendar.nextMonth', 'Next month')}><ChevronRight size={16} /></button>
+                <button type="button" className="backup-calendar__today" onClick={goToday}>{t('app.backupCalendar.today', 'Today')}</button>
             </div>
             <div className="backup-calendar__grid">
                 {WEEKDAYS.map((d) => <div key={d} className="backup-calendar__dow">{d}</div>)}

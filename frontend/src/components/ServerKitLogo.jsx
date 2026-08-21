@@ -1,6 +1,8 @@
 import { useId } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const ServerKitLogo = ({ width = 64, height = 64, className = '' }) => {
+    const { t } = useTranslation();
     // Unique per instance: multiple logos render at once (sidebar + mobile top
     // bar + auth screens). A shared gradient id collides in the DOM, and
     // url(#id) resolves to the first match — which can be a hidden 0x0 instance
@@ -21,7 +23,7 @@ const ServerKitLogo = ({ width = 64, height = 64, className = '' }) => {
             height={height}
             className={className}
             role="img"
-            aria-label="ServerKit Logo"
+            aria-label={t('app.serverKitLogo.serverkitLogo', 'ServerKit Logo')}
             fill="none"
         >
             <defs>

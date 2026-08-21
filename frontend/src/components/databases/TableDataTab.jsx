@@ -9,6 +9,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 100;
 
@@ -64,6 +65,7 @@ const STRUCTURE_VIEWS = [
 // hood) plus a Structure view. `rowsEstimate` comes from the tree's table list
 // so we can show a range without a COUNT(*) round-trip.
 export default function TableDataTab({ conn, tabId, table, rowsEstimate, active, onStatus, onOpenConsole }) {
+    const { t } = useTranslation();
     const [view, setView] = useState('data');
     const [page, setPage] = useState(0);
     const [data, setData] = useState(null);
@@ -136,7 +138,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
     const structureColumns = [
         {
             key: 'name',
-            header: 'Column',
+            headerKey: 'app.tableDataTab.column', header: 'Column',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -145,7 +147,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
             render: (col) => (
                 <>
                     {(col.key === 'PRI' || col.primary_key) && (
-                        <KeyRound size={12} className="dbx-pk" aria-label="Primary key" />
+                        <KeyRound size={12} className="dbx-pk" aria-label={t('app.tableDataTab.primaryKey', 'Primary key')} />
                     )}
                     {col.name}
                 </>
@@ -153,7 +155,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'type',
-            header: 'Type',
+            headerKey: 'app.tableDataTab.type', header: 'Type',
             sortable: true,
             // Declared: a table of ten VARCHARs and two INTs would infer as an
             // enum on one table and as text on the next, so the control the
@@ -165,7 +167,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'nullable',
-            header: 'Nullable',
+            headerKey: 'app.tableDataTab.nullable', header: 'Nullable',
             sortable: true,
             type: 'bool',
             value: (col) => !!col.nullable,
@@ -174,7 +176,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'key',
-            header: 'Key',
+            headerKey: 'app.tableDataTab.key', header: 'Key',
             sortable: true,
             type: 'enum',
             value: (col) => ((col.key === 'PRI' || col.primary_key) ? PRIMARY : (col.key || NO_KEY)),
@@ -184,7 +186,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'default',
-            header: 'Default',
+            headerKey: 'app.tableDataTab.default', header: 'Default',
             sortable: true,
             type: 'text',
             value: (col) => (col.default == null ? 'NULL' : String(col.default)),
@@ -239,7 +241,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
     return (
         <div className="dbx-table-tab">
             <div className="dbx-table-toolbar">
-                <div className="dbx-segmented" role="tablist" aria-label="Table view">
+                <div className="dbx-segmented" role="tablist" aria-label={t('app.tableDataTab.tableView', 'Table view')}>
                     <button
                         type="button"
                         role="tab"
@@ -247,7 +249,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                         className={view === 'data' ? 'is-active' : ''}
                         onClick={() => setView('data')}
                     >
-                        <Table2 size={14} aria-hidden="true" /> Data
+                        <Table2 size={14} aria-hidden="true" /> {t('app.tableDataTab.data', 'Data')}
                     </button>
                     <button
                         type="button"
@@ -256,7 +258,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                         className={view === 'structure' ? 'is-active' : ''}
                         onClick={() => setView('structure')}
                     >
-                        <Columns3 size={14} aria-hidden="true" /> Structure
+                        <Columns3 size={14} aria-hidden="true" /> {t('app.tableDataTab.structure', 'Structure')}
                     </button>
                 </div>
 
@@ -267,7 +269,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                             className="dbx-icon-btn"
                             onClick={() => setPage((p) => Math.max(0, p - 1))}
                             disabled={page === 0 || dataLoading}
-                            aria-label="Previous page"
+                            aria-label={t('app.tableDataTab.previousPage', 'Previous page')}
                         >
                             <ChevronLeft size={15} aria-hidden="true" />
                         </button>
@@ -275,14 +277,14 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                             {rowsEstimate === 0
                                 ? '0 rows'
                                 : `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + (data?.row_count || 0)}`}
-                            {rowsEstimate != null && rowsEstimate > 0 && <span className="dbx-pager-total"> of ≈{rowsEstimate.toLocaleString()}</span>}
+                            {rowsEstimate != null && rowsEstimate > 0 && <span className="dbx-pager-total"> {t('app.tableDataTab.of', 'of ≈')}{rowsEstimate.toLocaleString()}</span>}
                         </span>
                         <button
                             type="button"
                             className="dbx-icon-btn"
                             onClick={() => setPage((p) => p + 1)}
                             disabled={!hasMore || dataLoading}
-                            aria-label="Next page"
+                            aria-label={t('app.tableDataTab.nextPage', 'Next page')}
                         >
                             <ChevronRight size={15} aria-hidden="true" />
                         </button>
@@ -292,7 +294,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                 <div className="dbx-table-toolbar-spacer" />
 
                 <button type="button" className="dbx-chip" onClick={() => onOpenConsole?.(`SELECT * FROM ${table} LIMIT 100;`)}>
-                    <Terminal size={14} aria-hidden="true" /> Query
+                    <Terminal size={14} aria-hidden="true" /> {t('app.tableDataTab.query', 'Query')}
                 </button>
                 {/* Data only. The structure table's refresh lives in its own
                     "⋮" with the rest of its table-wide actions, so the schema
@@ -303,7 +305,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                         className="dbx-icon-btn"
                         onClick={() => loadData(page)}
                         disabled={dataLoading}
-                        aria-label="Refresh"
+                        aria-label={t('app.tableDataTab.refresh', 'Refresh')}
                     >
                         <RefreshCw size={14} className={dataLoading ? 'dbx-spin' : ''} aria-hidden="true" />
                     </button>
@@ -322,10 +324,10 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                     />
                 ) : structureUnsupported ? (
                     <div className="dbx-structure-fallback">
-                        Column metadata isn&apos;t available for databases inside Docker containers. Use the Data view or a SQL console.
+                        {t('app.tableDataTab.columnMetadataIsnTAvailableFor', 'Column metadata isn\'t available for databases inside Docker containers. Use the Data view or a SQL console.')}
                     </div>
                 ) : structureLoading ? (
-                    <div className="dbx-structure-fallback">Loading structure…</div>
+                    <div className="dbx-structure-fallback">{t('app.tableDataTab.loadingStructure', 'Loading structure…')}</div>
                 ) : (
                     <div className="dbx-structure-pane">
                         {/* One row of chrome for the schema table. This tab sits
@@ -340,7 +342,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                                     <SearchField
                                         value={search}
                                         onSearch={setSearch}
-                                        placeholder="Filter column or type…"
+                                        placeholder={t('app.tableDataTab.filterColumnOrType', 'Filter column or type…')}
                                     />
                                     <GridFilterButton
                                         count={chrome.filterCount}
@@ -365,7 +367,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                             onSortsChange={setSorts}
                             className="dbx-pane-scroll"
                             emptyTitle={structure ? 'No matching columns' : 'No columns reported.'}
-                            emptyMessage={structure ? 'No column matches the current search.' : ''}
+                            emptyMessage={structure ? t('app.tableDataTab.noColumnMatchesTheCurrentSearch', 'No column matches the current search.') : ''}
                             footer={(
                                 <DataTableFooter
                                     shown={chrome.shownCount}

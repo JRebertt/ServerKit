@@ -11,6 +11,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 
 // The backend reports the engine as the bare wire name it derived from the
 // filename prefix; these are what the row (and therefore every rule) says.
@@ -57,6 +58,7 @@ const BACKUP_VIEWS = [
 ];
 
 export default function BackupsTab() {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const [backups, setBackups] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -84,7 +86,7 @@ export default function BackupsTab() {
     useEffect(() => { load(); }, [load]);
 
     async function remove(filename) {
-        const ok = await confirm({ title: 'Delete backup', message: `Delete backup "${filename}"? This cannot be undone.`, confirmText: 'Delete backup', variant: 'danger' });
+        const ok = await confirm({ title: t('app.backupsTab.deleteBackup', 'Delete backup'), message: t('app.backupsTab.deleteBackupThisCannotBeUndone', 'Delete backup "{{filename}}"? This cannot be undone.', { filename: filename }), confirmText: t('app.backupsTab.deleteBackup2', 'Delete backup'), variant: 'danger' });
         if (!ok) return;
         try {
             await api.deleteDatabaseBackup(filename);
@@ -101,7 +103,7 @@ export default function BackupsTab() {
     const columns = [
         {
             key: 'database',
-            header: 'Database',
+            headerKey: 'app.backupsTab.database', header: 'Database',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -110,7 +112,7 @@ export default function BackupsTab() {
         },
         {
             key: 'engine',
-            header: 'Engine',
+            headerKey: 'app.backupsTab.engine', header: 'Engine',
             sortable: true,
             // Declared, not inferred: a directory holding two MySQL dumps and
             // nothing else fails the enum cardinality test, which would turn the
@@ -125,7 +127,7 @@ export default function BackupsTab() {
         },
         {
             key: 'filename',
-            header: 'File',
+            headerKey: 'app.backupsTab.file', header: 'File',
             sortable: true,
             type: 'text',
             value: (b) => b.filename || '',
@@ -133,7 +135,7 @@ export default function BackupsTab() {
         },
         {
             key: 'size',
-            header: 'Size',
+            headerKey: 'app.backupsTab.size', header: 'Size',
             sortable: true,
             type: 'num',
             value: (b) => (typeof b.size === 'number' ? b.size : null),
@@ -143,7 +145,7 @@ export default function BackupsTab() {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.backupsTab.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type the
             // column would offer "is under 1754…" instead of a date picker.
@@ -167,7 +169,7 @@ export default function BackupsTab() {
             className: 'text-right',
             cellClassName: 'dbx-grid-actions',
             render: (b) => (
-                <button type="button" className="dbx-icon-btn is-danger" onClick={() => remove(b.filename)} aria-label={`Delete ${b.filename}`}>
+                <button type="button" className="dbx-icon-btn is-danger" onClick={() => remove(b.filename)} aria-label={t('app.backupsTab.delete', 'Delete {{filename}}', { filename: b.filename })}>
                     <Trash2 size={14} aria-hidden="true" />
                 </button>
             ),
@@ -207,7 +209,7 @@ export default function BackupsTab() {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading backups…" />;
+        return <EmptyState loading loadingVariant="table" title={t('app.backupsTab.loadingBackups', 'Loading backups…')} />;
     }
 
     // An empty pane still needs a way to re-check. Returning the EmptyState on
@@ -225,8 +227,8 @@ export default function BackupsTab() {
                 />
                 <EmptyState
                     icon={Archive}
-                    title="No backups yet"
-                    description="Back up a database from its tree menu and it will appear here."
+                    title={t('app.backupsTab.noBackupsYet', 'No backups yet')}
+                    description={t('app.backupsTab.backUpADatabaseFromIts', 'Back up a database from its tree menu and it will appear here.')}
                 />
             </div>
         );
@@ -246,7 +248,7 @@ export default function BackupsTab() {
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Filter database or file…"
+                            placeholder={t('app.backupsTab.filterDatabaseOrFile', 'Filter database or file…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -265,8 +267,8 @@ export default function BackupsTab() {
             {shown.length === 0 ? (
                 <EmptyState
                     icon={Archive}
-                    title="No matching backups"
-                    description="No backup matches the current search."
+                    title={t('app.backupsTab.noMatchingBackups', 'No matching backups')}
+                    description={t('app.backupsTab.noBackupMatchesTheCurrentSearch', 'No backup matches the current search.')}
                 />
             ) : (
                 <DataTable

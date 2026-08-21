@@ -5,6 +5,6 @@
 // a managed proxy stack reads as the accent (cyan) choice. NULL/undefined
 // reads as host Nginx, matching the backend.
 export const INGRESS_META = {
-    proxy_stack: { label: 'Proxy stack', kind: 'cyan' },
-    nginx: { label: 'Nginx', kind: 'gray' },
+    proxy_stack: { labelKey: 'app.appDetailShared.proxyStack', label: 'Proxy stack', kind: 'cyan' },
+    nginx: { labelKey: 'app.appDetailShared.nginx', label: 'Nginx', kind: 'gray' },
 };

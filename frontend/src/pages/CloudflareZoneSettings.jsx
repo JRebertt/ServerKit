@@ -20,16 +20,17 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // HSTS max-age presets (seconds). 0 disables the max-age while keeping HSTS off.
 const HSTS_MAX_AGE = [
-    { value: 0, label: 'Off' },
-    { value: 86400, label: '1 day' },
-    { value: 604800, label: '1 week' },
-    { value: 2592000, label: '1 month' },
-    { value: 15552000, label: '6 months' },
-    { value: 31536000, label: '1 year' },
-    { value: 63072000, label: '2 years' },
+    { value: 0, labelKey: 'app.cloudflareZoneSettings.off', label: 'Off' },
+    { value: 86400, labelKey: 'app.cloudflareZoneSettings.1Day', label: '1 day' },
+    { value: 604800, labelKey: 'app.cloudflareZoneSettings.1Week', label: '1 week' },
+    { value: 2592000, labelKey: 'app.cloudflareZoneSettings.1Month', label: '1 month' },
+    { value: 15552000, labelKey: 'app.cloudflareZoneSettings.6Months', label: '6 months' },
+    { value: 31536000, labelKey: 'app.cloudflareZoneSettings.1Year', label: '1 year' },
+    { value: 63072000, labelKey: 'app.cloudflareZoneSettings.2Years', label: '2 years' },
 ];
 
 const TAB_ICONS = {
@@ -40,6 +41,7 @@ const TAB_ICONS = {
 };
 
 const CloudflareZoneSettings = () => {
+    const { t } = useTranslation();
     const { zoneId } = useParams();
     const toast = useToast();
     const { user } = useAuth();
@@ -80,9 +82,9 @@ const CloudflareZoneSettings = () => {
         setSettings(prev => ({ ...prev, [settingId]: { ...(prev[settingId] || {}), value } }));
         try {
             await api.updateCloudflareZoneSetting(zoneId, settingId, value);
-            toast.success('Setting saved');
+            toast.success(t('app.cloudflareZoneSettings.settingSaved', 'Setting saved'));
         } catch (err) {
-            toast.error(err.message || 'Failed to save setting');
+            toast.error(err.message || t('app.cloudflareZoneSettings.failedToSaveSetting', 'Failed to save setting'));
             loadSettings();
         } finally {
             setSaving(null);
@@ -95,13 +97,13 @@ const CloudflareZoneSettings = () => {
             const res = await api.applyCloudflareSettingsPreset(zoneId);
             const failed = (res.results || []).filter(r => !r.success);
             if (failed.length === 0) {
-                toast.success(`Applied recommended hardening (${res.applied} settings)`);
+                toast.success(t('app.cloudflareZoneSettings.appliedRecommendedHardeningSettings', 'Applied recommended hardening ({{applied}} settings)', { applied: res.applied }));
             } else {
-                toast.info(`Applied ${res.applied}/${res.total}. ${failed.length} need a higher Cloudflare plan.`);
+                toast.info(t('app.cloudflareZoneSettings.appliedNeedAHigherCloudflarePlan', 'Applied {{applied}}/{{total}}. {{length}} need a higher Cloudflare plan.', { applied: res.applied, total: res.total, length: failed.length }));
             }
             loadSettings();
         } catch (err) {
-            toast.error(err.message || 'Failed to apply preset');
+            toast.error(err.message || t('app.cloudflareZoneSettings.failedToApplyPreset', 'Failed to apply preset'));
         } finally {
             setApplying(false);
         }
@@ -112,9 +114,9 @@ const CloudflareZoneSettings = () => {
         setPurging(true);
         try {
             await api.purgeCloudflareCache(zoneId, { purge_everything: true });
-            toast.success('Purged the entire cache');
+            toast.success(t('app.cloudflareZoneSettings.purgedTheEntireCache', 'Purged the entire cache'));
         } catch (err) {
-            toast.error(err.message || 'Failed to purge cache');
+            toast.error(err.message || t('app.cloudflareZoneSettings.failedToPurgeCache', 'Failed to purge cache'));
         } finally {
             setPurging(false);
         }
@@ -123,17 +125,17 @@ const CloudflareZoneSettings = () => {
     const handlePurgeFiles = async () => {
         const files = purgeUrls.split('\n').map(u => u.trim()).filter(Boolean);
         if (files.length === 0) {
-            toast.error('Enter at least one URL to purge');
+            toast.error(t('app.cloudflareZoneSettings.enterAtLeastOneUrlTo', 'Enter at least one URL to purge'));
             return;
         }
         setPurging(true);
         try {
             const res = await api.purgeCloudflareCache(zoneId, { files });
             const n = res.purged?.files?.length ?? files.length;
-            toast.success(`Purged ${n} URL${n === 1 ? '' : 's'} from cache`);
+            toast.success(t('app.cloudflareZoneSettings.purgedUrlFromCache', 'Purged {{n}} URL{{value}} from cache', { n: n, value: n === 1 ? '' : 's' }));
             setPurgeUrls('');
         } catch (err) {
-            toast.error(err.message || 'Failed to purge URLs');
+            toast.error(err.message || t('app.cloudflareZoneSettings.failedToPurgeUrls', 'Failed to purge URLs'));
         } finally {
             setPurging(false);
         }
@@ -143,11 +145,11 @@ const CloudflareZoneSettings = () => {
 
     const crumbs = (
         <span className="cf-crumbs">
-            <Link to="/dns">DNS Zones</Link>
+            <Link to="/dns">{t('app.cloudflareZoneSettings.dnsZones', 'DNS Zones')}</Link>
             <span className="cf-crumbs__sep">/</span>
             <span className="cf-crumbs__cur">{zone?.domain || `Zone ${zoneId}`}</span>
             <span className="cf-crumbs__sep">/</span>
-            <span className="cf-crumbs__cur">Cloudflare</span>
+            <span className="cf-crumbs__cur">{t('app.cloudflareZoneSettings.cloudflare', 'Cloudflare')}</span>
         </span>
     );
 
@@ -162,12 +164,12 @@ const CloudflareZoneSettings = () => {
                 <div className="cf-zone__body">
                     <EmptyState
                         icon={Cloud}
-                        title="Cloudflare settings unavailable"
+                        title={t('app.cloudflareZoneSettings.cloudflareSettingsUnavailable', 'Cloudflare settings unavailable')}
                         description={error}
                     />
                     <div className="cf-zone__error-actions">
-                        <Button variant="outline" onClick={loadSettings}>Retry</Button>
-                        <Link to="/dns"><Button variant="ghost">Back to DNS Zones</Button></Link>
+                        <Button variant="outline" onClick={loadSettings}>{t('app.cloudflareZoneSettings.retry', 'Retry')}</Button>
+                        <Link to="/dns"><Button variant="ghost">{t('app.cloudflareZoneSettings.backToDnsZones', 'Back to DNS Zones')}</Button></Link>
                     </div>
                 </div>
             </PageLayout>
@@ -194,10 +196,10 @@ const CloudflareZoneSettings = () => {
                             </TabsTrigger>
                         ))}
                         <TabsTrigger value="waf"><Flame size={15} />WAF</TabsTrigger>
-                        <TabsTrigger value="workers"><Zap size={15} />Workers</TabsTrigger>
-                        <TabsTrigger value="tunnels"><Network size={15} />Tunnels</TabsTrigger>
-                        <TabsTrigger value="storage"><HardDrive size={15} />Storage</TabsTrigger>
-                        <TabsTrigger value="actions"><Wand2 size={15} />Actions</TabsTrigger>
+                        <TabsTrigger value="workers"><Zap size={15} />{t('app.cloudflareZoneSettings.workers', 'Workers')}</TabsTrigger>
+                        <TabsTrigger value="tunnels"><Network size={15} />{t('app.cloudflareZoneSettings.tunnels', 'Tunnels')}</TabsTrigger>
+                        <TabsTrigger value="storage"><HardDrive size={15} />{t('app.cloudflareZoneSettings.storage', 'Storage')}</TabsTrigger>
+                        <TabsTrigger value="actions"><Wand2 size={15} />{t('app.cloudflareZoneSettings.actions', 'Actions')}</TabsTrigger>
                     </TabsList>
 
                     {tabGroups.map(g => (
@@ -245,11 +247,9 @@ const CloudflareZoneSettings = () => {
                         <div className="cf-panel cf-actions">
                             <div className="cf-action">
                                 <div className="cf-action__text">
-                                    <h3>Apply recommended hardening</h3>
+                                    <h3>{t('app.cloudflareZoneSettings.applyRecommendedHardening', 'Apply recommended hardening')}</h3>
                                     <p>
-                                        Sets Full (strict) SSL, Always Use HTTPS, HSTS (6 months),
-                                        a TLS 1.2 floor with TLS 1.3, Brotli, HTTP/3, and a 4-hour
-                                        browser cache. Settings your plan doesn&apos;t allow are skipped.
+                                        {t('app.cloudflareZoneSettings.setsFullStrictSslAlwaysUse', 'Sets Full (strict) SSL, Always Use HTTPS, HSTS (6 months), a TLS 1.2 floor with TLS 1.3, Brotli, HTTP/3, and a 4-hour browser cache. Settings your plan doesn\'t allow are skipped.')}
                                     </p>
                                 </div>
                                 <Button onClick={handleApplyPreset} disabled={applying || !isAdmin}>
@@ -258,7 +258,7 @@ const CloudflareZoneSettings = () => {
                             </div>
                             {!isAdmin && (
                                 <p className="cf-actions__note">
-                                    Changing Cloudflare settings requires an admin account.
+                                    {t('app.cloudflareZoneSettings.changingCloudflareSettingsRequiresAnAdmin', 'Changing Cloudflare settings requires an admin account.')}
                                 </p>
                             )}
                         </div>
@@ -266,10 +266,9 @@ const CloudflareZoneSettings = () => {
                         <div className="cf-panel cf-actions">
                             <div className="cf-action">
                                 <div className="cf-action__text">
-                                    <h3><Eraser size={15} /> Purge cache</h3>
+                                    <h3><Eraser size={15} /> {t('app.cloudflareZoneSettings.purgeCache', 'Purge cache')}</h3>
                                     <p>
-                                        Clear Cloudflare&apos;s cached copy of your site so visitors get
-                                        fresh content. Purge everything, or list specific URLs below.
+                                        {t('app.cloudflareZoneSettings.clearCloudflareSCachedCopyOf', 'Clear Cloudflare\'s cached copy of your site so visitors get fresh content. Purge everything, or list specific URLs below.')}
                                     </p>
                                 </div>
                                 <Button
@@ -282,7 +281,7 @@ const CloudflareZoneSettings = () => {
                             </div>
                             <div className="cf-purge-files">
                                 <label htmlFor="cf-purge-urls" className="cf-purge-files__label">
-                                    Purge specific URLs (one per line, up to 30)
+                                    {t('app.cloudflareZoneSettings.purgeSpecificUrlsOnePerLine', 'Purge specific URLs (one per line, up to 30)')}
                                 </label>
                                 <Textarea
                                     id="cf-purge-urls"
@@ -298,7 +297,7 @@ const CloudflareZoneSettings = () => {
                                         onClick={handlePurgeFiles}
                                         disabled={purging || !isAdmin || !purgeUrls.trim()}
                                     >
-                                        Purge URLs
+                                        {t('app.cloudflareZoneSettings.purgeUrls', 'Purge URLs')}
                                     </Button>
                                 </div>
                             </div>
@@ -310,11 +309,11 @@ const CloudflareZoneSettings = () => {
             {confirmPurgeAll && (
                 <ConfirmDialog
                     isOpen
-                    title="Purge entire cache"
-                    message={`Clear Cloudflare's entire cache for ${zone?.domain || 'this zone'}? `
-                        + 'The next visit to each page will be served from your origin until '
-                        + 'it re-caches. This is safe but can briefly increase origin load.'}
-                    confirmText="Purge everything"
+                    title={t('app.cloudflareZoneSettings.purgeEntireCache', 'Purge entire cache')}
+                    message={t('app.cloudflareZoneSettings.clearCloudflareSEntireCacheFor', 'Clear Cloudflare\'s entire cache for {{value}}?', { value: zone?.domain || 'this zone' })
+                        + t('app.cloudflareZoneSettings.theNextVisitToEachPage', 'The next visit to each page will be served from your origin until ')
+                        + t('app.cloudflareZoneSettings.itReCachesThisIsSafe', 'it re-caches. This is safe but can briefly increase origin load.')}
+                    confirmText={t('app.cloudflareZoneSettings.purgeEverything', 'Purge everything')}
                     onConfirm={handlePurgeEverything}
                     onCancel={() => setConfirmPurgeAll(false)}
                     variant="danger"
@@ -328,6 +327,7 @@ const CloudflareZoneSettings = () => {
 // Reads the current value/editability from the live settings state; renders the
 // control declaratively from the setting's `type`.
 function SettingRow({ setting, state, saving, disabled, onSave }) {
+    const { t } = useTranslation();
     const present = state !== undefined && state !== null;
     const editable = present ? state.editable !== false : false;
     const locked = disabled || !editable || saving;
@@ -339,12 +339,12 @@ function SettingRow({ setting, state, saving, disabled, onSave }) {
                 {setting.help && <span className="cf-setting__help">{setting.help}</span>}
                 {!present && (
                     <Badge variant="secondary" className="cf-setting__badge">
-                        Not available on this zone
+                        {t('app.cloudflareZoneSettings.notAvailableOnThisZone', 'Not available on this zone')}
                     </Badge>
                 )}
                 {present && !editable && (
                     <Badge variant="secondary" className="cf-setting__badge">
-                        Locked by your Cloudflare plan
+                        {t('app.cloudflareZoneSettings.lockedByYourCloudflarePlan', 'Locked by your Cloudflare plan')}
                     </Badge>
                 )}
             </div>
@@ -402,6 +402,7 @@ function SettingControl({ setting, value, locked, onSave }) {
 // HSTS is a compound object setting; editing any field re-sends the whole
 // strict_transport_security object so the others are preserved.
 function HstsControl({ value, locked, onSave, settingId }) {
+    const { t } = useTranslation();
     const sts = (value && value.strict_transport_security) || {};
     const enabled = !!sts.enabled;
 
@@ -420,7 +421,7 @@ function HstsControl({ value, locked, onSave, settingId }) {
     return (
         <div className="cf-hsts">
             <div className="cf-hsts__row">
-                <span>Enabled</span>
+                <span>{t('app.cloudflareZoneSettings.enabled', 'Enabled')}</span>
                 <Switch
                     checked={enabled}
                     disabled={locked}
@@ -434,7 +435,7 @@ function HstsControl({ value, locked, onSave, settingId }) {
             {enabled && (
                 <>
                     <div className="cf-hsts__row">
-                        <span>Max age</span>
+                        <span>{t('app.cloudflareZoneSettings.maxAge', 'Max age')}</span>
                         <Select
                             value={String(sts.max_age || 0)}
                             disabled={locked}
@@ -449,7 +450,7 @@ function HstsControl({ value, locked, onSave, settingId }) {
                         </Select>
                     </div>
                     <div className="cf-hsts__row">
-                        <span>Include subdomains</span>
+                        <span>{t('app.cloudflareZoneSettings.includeSubdomains', 'Include subdomains')}</span>
                         <Switch
                             checked={!!sts.include_subdomains}
                             disabled={locked}
@@ -457,7 +458,7 @@ function HstsControl({ value, locked, onSave, settingId }) {
                         />
                     </div>
                     <div className="cf-hsts__row">
-                        <span>Preload</span>
+                        <span>{t('app.cloudflareZoneSettings.preload', 'Preload')}</span>
                         <Switch
                             checked={!!sts.preload}
                             disabled={locked}
