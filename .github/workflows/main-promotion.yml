@@ -1,0 +1,29 @@
+name: Main Promotion
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  source-branch:
+    name: Require dev source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject non-dev promotions
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$BASE_BRANCH" != "main" ] \
+             || [ "$HEAD_BRANCH" != "dev" ] \
+             || [ "$HEAD_REPOSITORY" != "$REPOSITORY" ]; then
+            echo "::error::main only accepts pull requests from this repository's dev branch. Open feature work against dev first, then promote dev to main."
+            exit 1
+          fi
+          echo "Verified $HEAD_REPOSITORY:$HEAD_BRANCH → $BASE_BRANCH"
