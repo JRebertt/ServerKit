@@ -20,8 +20,22 @@ expect_text() {
     fi
 }
 
+expect_absent() {
+    file="$1"
+    text="$2"
+    label="$3"
+    if grep -Fq -- "$text" "$file"; then
+        printf 'FAIL %s\n' "$label" >&2
+        failures=$((failures + 1))
+    else
+        printf 'ok   %s\n' "$label"
+    fi
+}
+
 expect_text "$PROMOTION" 'branches: [main]' \
     'main promotion runs on pull requests targeting main'
+expect_text "$PROMOTION" 'ready_for_review, edited]' \
+    'main promotion reruns when a pull request is retargeted'
 expect_text "$PROMOTION" 'HEAD_BRANCH: ${{ github.head_ref }}' \
     'main promotion reads the pull request head branch safely'
 expect_text "$PROMOTION" '[ "$HEAD_BRANCH" != "dev" ]' \
@@ -31,6 +45,10 @@ expect_text "$PROMOTION" '[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]' \
 
 expect_text "$RELEASE" 'name: Verify dev promotion' \
     'release verifies the merged promotion'
+expect_absent "$RELEASE" 'workflow_dispatch:' \
+    'manual dispatch cannot bypass the dev promotion path'
+expect_absent "$RELEASE" "      - 'v*'" \
+    'tag pushes cannot bypass the dev promotion path'
 expect_text "$RELEASE" 'listPullRequestsAssociatedWithCommit' \
     'release resolves the pull request associated with the main commit'
 expect_text "$RELEASE" "pull.head.ref === 'dev'" \

@@ -4,18 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release (e.g., 1.6.24)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Mark as pre-release'
-        type: boolean
-        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -37,11 +25,6 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            if (context.eventName !== 'push' || context.ref !== 'refs/heads/main') {
-              core.info('Manual and tag-triggered releases do not use the branch promotion gate.');
-              return;
-            }
-
             const { owner, repo } = context.repo;
             const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner,
@@ -85,20 +68,13 @@ jobs:
       - name: Get version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "tag" ]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            VERSION=$(cat VERSION | tr -d '[:space:]')
-          fi
+          VERSION=$(tr -d '[:space:]' < VERSION)
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Releasing ServerKit version: $VERSION"
 
       - name: Require an unused release version
-        if: github.event_name != 'push' || github.ref_type != 'tag'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
@@ -113,7 +89,6 @@ jobs:
           fi
 
       - name: Create and push tag
-        if: github.event_name == 'push' && github.ref_type != 'tag'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
           git config user.name "github-actions[bot]"
@@ -264,7 +239,7 @@ jobs:
           tag_name: ${{ needs.version.outputs.tag }}
           name: ServerKit ${{ needs.version.outputs.tag }}
           draft: false
-          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          prerelease: false
           overwrite_files: false
           files: |
             release/*
