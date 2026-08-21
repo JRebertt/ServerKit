@@ -92,6 +92,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
             <div className="tabs-overflow-list">
               {hiddenIndices.map((idx) => {
                 const child = childArray[idx];
+                if (!child) return null;
                 const triggerEl = itemRefs.current[idx];
                 const isActive = triggerEl?.dataset?.state === 'active';
                 return (

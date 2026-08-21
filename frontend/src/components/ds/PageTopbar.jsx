@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -60,16 +60,22 @@ function matchTab(tab, path) {
 function TopbarTabs({ tabs, label }) {
     const location = useLocation();
     const [popoverOpen, setPopoverOpen] = useState(false);
+    const safeTabs = useMemo(
+        () => (Array.isArray(tabs) ? tabs : []).filter(
+            (tab) => tab && typeof tab.to === 'string' && tab.to.length > 0
+        ),
+        [tabs]
+    );
 
     const activeIndex = useMemo(
-        () => tabs.findIndex((t) => matchTab(t, location.pathname)),
-        [tabs, location.pathname]
+        () => safeTabs.findIndex((tab) => matchTab(tab, location.pathname)),
+        [safeTabs, location.pathname]
     );
 
     const getActiveIndex = useCallback(() => activeIndex, [activeIndex]);
 
     const { containerRef, itemRefs, moreBtnRef, hiddenIndices, hiddenSet } = useOverflowItems({
-        count: tabs.length,
+        count: safeTabs.length,
         gap: 2,
         moreWidth: 56,
         getActiveIndex,
@@ -82,20 +88,20 @@ function TopbarTabs({ tabs, label }) {
         // the visible segmented control that actually holds the tabs.
         <nav ref={containerRef} className="sk-topbar__tabs" aria-label={`${label} sections`}>
             <div className="sk-topbar__tabs-inner">
-                {tabs.map((t, i) => {
+                {safeTabs.map((tab, i) => {
                     const isHidden = hiddenSet.has(i);
                     return (
                         <NavLink
-                            key={t.to}
-                            to={t.to}
-                            end={t.end}
+                            key={tab.to}
+                            to={tab.to}
+                            end={tab.end}
                             ref={(el) => { itemRefs.current[i] = el; }}
                             className={({ isActive }) => cn('sk-topbar__tab', isActive && 'is-active')}
                             style={{ display: isHidden ? 'none' : undefined }}
                             data-overflow={isHidden ? 'hidden' : undefined}
                         >
-                            {t.icon}
-                            {t.label}
+                            {tab.icon}
+                            {tab.label}
                         </NavLink>
                     );
                 })}
@@ -115,18 +121,19 @@ function TopbarTabs({ tabs, label }) {
                         <PopoverContent align="end" sideOffset={6} className="ui-popover-content">
                             <div className="tabs-overflow-list">
                                 {hiddenIndices.map((idx) => {
-                                    const t = tabs[idx];
+                                    const tab = safeTabs[idx];
+                                    if (!tab) return null;
                                     return (
                                         <NavLink
-                                            key={t.to}
-                                            to={t.to}
-                                            end={t.end}
+                                            key={tab.to}
+                                            to={tab.to}
+                                            end={tab.end}
                                             className="tabs-overflow-item"
                                             data-state={idx === activeIndex ? 'active' : 'inactive'}
                                             onClick={() => setPopoverOpen(false)}
                                         >
-                                            {t.icon}
-                                            {t.label}
+                                            {tab.icon}
+                                            {tab.label}
                                         </NavLink>
                                     );
                                 })}
