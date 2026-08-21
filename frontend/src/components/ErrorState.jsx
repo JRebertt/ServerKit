@@ -12,14 +12,38 @@ import { t } from '@/i18n/t';
  *     onRetry={loadData}
  *   />
  */
-export function ErrorState({ title = 'Something went wrong', message, onRetry, className = '' }) {
+export function ErrorState({
+    title = t('common.error.failedToLoad', 'Failed to load'),
+    message,
+    error,
+    onRetry,
+    compact = false,
+    className = '',
+}) {
+    const errorMessage = message || error?.message
+        || t('common.error.loadingData', 'An error occurred while loading data');
+
+    if (compact) {
+        return (
+            <div className={`error-state-compact ${className}`.trim()} role="alert">
+                <AlertTriangle size={16} />
+                <span>{errorMessage}</span>
+                {onRetry && (
+                    <Button variant="ghost" size="sm" onClick={onRetry}>
+                        <RefreshCw size={14} /> {t('common.actions.retry', 'Retry')}
+                    </Button>
+                )}
+            </div>
+        );
+    }
+
     return (
-        <div className={`sk-error-state ${className}`.trim()}>
+        <div className={`sk-error-state ${className}`.trim()} role="alert">
             <div className="sk-error-state__icon">
                 <AlertTriangle size={32} />
             </div>
             <h3 className="sk-error-state__title">{title}</h3>
-            {message && <p className="sk-error-state__message">{message}</p>}
+            {errorMessage && <p className="sk-error-state__message">{errorMessage}</p>}
             {onRetry && (
                 <Button variant="outline" size="sm" onClick={onRetry}>
                     <RefreshCw size={14} /> {t('common.actions.tryAgain', 'Try again')}
