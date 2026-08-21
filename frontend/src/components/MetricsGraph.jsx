@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Cpu, MemoryStick, HardDrive, TrendingUp } from 'lucide-react';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // Chart series colors — redesign "infra console" palette (see
 // docs/REDESIGN_MAP.md). Kept as hex (not CSS var()) on purpose: var() does not
@@ -32,6 +33,7 @@ function safeTimeZone(tz) {
 }
 
 const MetricsGraph = ({ compact = false, timezone, serverId }) => {
+    const { t } = useTranslation();
     const [data, setData] = useState(null);
     const [period, setPeriod] = useState('1h');
     const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
     if (error) {
         return (
             <div className="metrics-graph-card error">
-                <span>Failed to load metrics history</span>
+                <span>{t('app.metricsGraph.failedToLoadMetricsHistory', 'Failed to load metrics history')}</span>
             </div>
         );
     }
@@ -135,8 +137,8 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
         return (
             <div className="metrics-graph-card empty">
                 <TrendingUp size={24} />
-                <span>No historical data yet</span>
-                <span className="muted">Metrics are collected every minute</span>
+                <span>{t('app.metricsGraph.noHistoricalDataYet', 'No historical data yet')}</span>
+                <span className="muted">{t('app.metricsGraph.metricsAreCollectedEveryMinute', 'Metrics are collected every minute')}</span>
             </div>
         );
     }
@@ -165,7 +167,7 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
                 <div className="metrics-graph-header">
                     <div className="graph-title">
                         <TrendingUp size={16} />
-                        <span>System Metrics</span>
+                        <span>{t('app.metricsGraph.systemMetrics', 'System Metrics')}</span>
                     </div>
                     <div className="period-selector">
                         {periods.map(p => (
@@ -224,7 +226,7 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
         <div className="metrics-graph-card">
             <div className="metrics-graph-header">
                 <div className="graph-title">
-                    <span>Real-time Performance</span>
+                    <span>{t('app.metricsGraph.realTimePerformance', 'Real-time Performance')}</span>
                 </div>
                 <div className="metrics-filter-legend">
                     <button type="button"
@@ -243,7 +245,7 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
                         className={`filter-btn disk ${visibleMetrics.disk ? 'active' : ''}`}
                         onClick={() => toggleMetric('disk')}
                     >
-                        Disk
+                        {t('app.metricsGraph.disk', 'Disk')}
                     </button>
                 </div>
                 <div className="period-selector">

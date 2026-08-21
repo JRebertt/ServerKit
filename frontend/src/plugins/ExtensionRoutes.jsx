@@ -34,6 +34,7 @@ import {
 } from './contributions';
 import { getRuntimeLoadState, isRuntimeFrontend } from './runtime/loader';
 import { ExtensionErrorBoundary, ExtensionFailureCard } from './runtime/ExtensionBoundary';
+import { t } from '../i18n/t';
 
 function devWarn(msg) {
     if (import.meta.env.DEV) {
@@ -57,7 +58,7 @@ function buildRoute(contrib, key, frontends) {
                     element={(
                         <ExtensionFailureCard
                             slug={contrib.plugin}
-                            message={state?.error || `component "${contrib.component}" not found in bundle`}
+                            message={state?.error || t('app.extensionRoutes.componentNotFoundInBundle', 'component "{{name}}" not found in bundle', { name: contrib.component })}
                         />
                     )}
                 />

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { useTranslation } from 'react-i18next';
 
 const PROVIDERS = [
     { id: 'google', name: 'Google', fields: ['client_id', 'client_secret'] },
@@ -40,6 +41,7 @@ const FIELD_LABELS = {
 };
 
 const SSOConfigTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const [config, setConfig] = useState({});
     const [loading, setLoading] = useState(true);
@@ -144,15 +146,15 @@ const SSOConfigTab = () => {
     }
 
     if (loading) {
-        return <div className="settings-section"><p>Loading SSO configuration...</p></div>;
+        return <div className="settings-section"><p>{t('app.sSOConfigTab.loadingSsoConfiguration', 'Loading SSO configuration...')}</p></div>;
     }
 
     return (
         <div className="sso-config">
             <div className="settings-section">
-                <h2><Shield size={20} /> SSO / OAuth Configuration</h2>
+                <h2><Shield size={20} /> {t('app.sSOConfigTab.ssoOauthConfiguration', 'SSO / OAuth Configuration')}</h2>
                 <p className="text-secondary">
-                    Configure external identity providers for single sign-on.
+                    {t('app.sSOConfigTab.configureExternalIdentityProvidersForSingle', 'Configure external identity providers for single sign-on.')}
                 </p>
             </div>
 
@@ -169,7 +171,7 @@ const SSOConfigTab = () => {
                     <div className="settings-card__header-left">
                         <Globe size={20} />
                         <div>
-                            <h3>General Settings</h3>
+                            <h3>{t('app.sSOConfigTab.generalSettings', 'General Settings')}</h3>
                         </div>
                     </div>
                 </div>
@@ -177,8 +179,8 @@ const SSOConfigTab = () => {
                 <div className="sso-general-form">
                     <div className="settings-row">
                         <div className="settings-label">
-                            <Label>Auto-provision users</Label>
-                            <span className="settings-hint">Automatically create accounts for new SSO users</span>
+                            <Label>{t('app.sSOConfigTab.autoProvisionUsers', 'Auto-provision users')}</Label>
+                            <span className="settings-hint">{t('app.sSOConfigTab.automaticallyCreateAccountsForNewSso', 'Automatically create accounts for new SSO users')}</span>
                         </div>
                         <div className="settings-control">
                             <Switch
@@ -189,26 +191,26 @@ const SSOConfigTab = () => {
                     </div>
 
                     <div className="form-group">
-                        <Label>Default role for new SSO users</Label>
+                        <Label>{t('app.sSOConfigTab.defaultRoleForNewSsoUsers', 'Default role for new SSO users')}</Label>
                         <Select value={defaultRole} onValueChange={setDefaultRole}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="viewer">Viewer</SelectItem>
-                                <SelectItem value="developer">Developer</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="viewer">{t('app.sSOConfigTab.viewer', 'Viewer')}</SelectItem>
+                                <SelectItem value="developer">{t('app.sSOConfigTab.developer', 'Developer')}</SelectItem>
+                                <SelectItem value="admin">{t('app.sSOConfigTab.admin', 'Admin')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="settings-row">
                         <div className="settings-label">
-                            <Label>SSO-only mode</Label>
+                            <Label>{t('app.sSOConfigTab.ssoOnlyMode', 'SSO-only mode')}</Label>
                             <span className="settings-hint">
                                 {forceSso ? (
                                     <span className="text-warning">
-                                        <AlertTriangle size={14} /> Password login will be disabled for all users.
+                                        <AlertTriangle size={14} /> {t('app.sSOConfigTab.passwordLoginWillBeDisabledFor', 'Password login will be disabled for all users.')}
                                     </span>
                                 ) : (
                                     'Disable password login and require SSO for all users'
@@ -224,14 +226,14 @@ const SSOConfigTab = () => {
                     </div>
 
                     <div className="form-group">
-                        <Label>Allowed email domains</Label>
+                        <Label>{t('app.sSOConfigTab.allowedEmailDomains', 'Allowed email domains')}</Label>
                         <Input
                             type="text"
                             value={allowedDomains}
                             onChange={e => setAllowedDomains(e.target.value)}
-                            placeholder="company.com, example.org"
+                            placeholder={t('app.sSOConfigTab.companyComExampleOrg', 'company.com, example.org')}
                         />
-                        <span className="form-help">Comma-separated. Leave empty to allow all domains.</span>
+                        <span className="form-help">{t('app.sSOConfigTab.commaSeparatedLeaveEmptyToAllow', 'Comma-separated. Leave empty to allow all domains.')}</span>
                     </div>
 
                     <Button
@@ -262,7 +264,7 @@ const SSOConfigTab = () => {
                                 <h3>{provider.name}</h3>
                                 {enabled && (
                                     <span className="sso-provider-config__status sso-provider-config__status--active">
-                                        Active
+                                        {t('app.sSOConfigTab.active', 'Active')}
                                     </span>
                                 )}
                             </div>
@@ -273,7 +275,7 @@ const SSOConfigTab = () => {
                             <div className="sso-provider-config__body">
                                 <div className="settings-row">
                                     <div className="settings-label">
-                                        <Label>Enable {provider.name}</Label>
+                                        <Label>{t('app.sSOConfigTab.enable', 'Enable')} {provider.name}</Label>
                                     </div>
                                     <div className="settings-control">
                                         <Switch
@@ -291,14 +293,14 @@ const SSOConfigTab = () => {
                                                 rows={4}
                                                 value={getFieldValue(provider.id, field)}
                                                 onChange={e => setFieldValue(provider.id, field, e.target.value)}
-                                                placeholder={`Enter ${FIELD_LABELS[field]}`}
+                                                placeholder={t('app.sSOConfigTab.enter', 'Enter {{value}}', { value: FIELD_LABELS[field] })}
                                             />
                                         ) : (
                                             <Input
                                                 type={field.includes('secret') ? 'password' : 'text'}
                                                 value={getFieldValue(provider.id, field)}
                                                 onChange={e => setFieldValue(provider.id, field, e.target.value)}
-                                                placeholder={`Enter ${FIELD_LABELS[field]}`}
+                                                placeholder={t('app.sSOConfigTab.enter2', 'Enter {{value}}', { value: FIELD_LABELS[field] })}
                                             />
                                         )}
                                     </div>

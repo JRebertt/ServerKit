@@ -2,6 +2,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 // Toolbar popover for user-controllable multi-column sorting (Frappe CRM
 // style). Each active sort is a row: field label, asc/desc toggle, remove.
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils';
 //   const { sorts, setSorts } = useTableSort();
 //   <SortMenu columns={columns} sorts={sorts} onChange={setSorts} />
 export function SortMenu({ columns = [], sorts = [], onChange, className }) {
+    const { t } = useTranslation();
     const sortableColumns = columns.filter((c) => c.sortable);
     const labelFor = (key) => {
         const column = sortableColumns.find((c) => c.key === key);
@@ -39,14 +41,14 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                     className={cn('sk-filter-btn', sorts.length > 0 && 'sk-filter-btn--active', className)}
                 >
                     <ArrowDownUp aria-hidden="true" />
-                    Sort
+                    {t('app.sortMenu.sort', 'Sort')}
                     {sorts.length > 0 && <span className="sk-filter-btn__badge">{sorts.length}</span>}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="sk-tablemenu">
-                <div className="sk-tablemenu__title">Sort by</div>
+                <div className="sk-tablemenu__title">{t('app.sortMenu.sortBy', 'Sort by')}</div>
                 {sorts.length === 0 && (
-                    <div className="sk-tablemenu__empty">No sorting applied</div>
+                    <div className="sk-tablemenu__empty">{t('app.sortMenu.noSortingApplied', 'No sorting applied')}</div>
                 )}
                 {sorts.map((sort, index) => (
                     <div key={sort.key} className="sk-tablemenu__row">
@@ -58,8 +60,8 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                             type="button"
                             className="sk-tablemenu__dir"
                             onClick={() => flip(sort.key)}
-                            aria-label={`Sort ${labelFor(sort.key)} ${sort.direction === 'asc' ? 'descending' : 'ascending'}`}
-                            title={sort.direction === 'asc' ? 'Ascending' : 'Descending'}
+                            aria-label={t('app.sortMenu.sort2', 'Sort {{value}} {{value2}}', { value: labelFor(sort.key), value2: sort.direction === 'asc' ? 'descending' : 'ascending' })}
+                            title={sort.direction === 'asc' ? t('app.sortMenu.ascending', 'Ascending') : t('app.sortMenu.descending', 'Descending')}
                         >
                             {sort.direction === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
                         </button>
@@ -67,7 +69,7 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                             type="button"
                             className="sk-tablemenu__remove"
                             onClick={() => remove(sort.key)}
-                            aria-label={`Remove sort on ${labelFor(sort.key)}`}
+                            aria-label={t('app.sortMenu.removeSortOn', 'Remove sort on {{value}}', { value: labelFor(sort.key) })}
                         >
                             <X size={13} />
                         </button>
@@ -75,7 +77,7 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                 ))}
                 {available.length > 0 && (
                     <>
-                        <div className="sk-tablemenu__section">Add sort level</div>
+                        <div className="sk-tablemenu__section">{t('app.sortMenu.addSortLevel', 'Add sort level')}</div>
                         <div className="sk-tablemenu__list">
                             {available.map((c) => (
                                 <button
@@ -92,7 +94,7 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                 )}
                 <div className="sk-tablemenu__footer">
                     <Button variant="ghost" size="sm" onClick={clear} disabled={sorts.length === 0}>
-                        Clear
+                        {t('app.sortMenu.clear', 'Clear')}
                     </Button>
                 </div>
             </PopoverContent>

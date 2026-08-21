@@ -28,6 +28,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { METRIC_LABELS } from '../components/monitoring/fleetMetrics';
 import { impactTone, INCIDENT_STATES } from '../components/monitoring/monitorShared';
+import { useTranslation } from 'react-i18next';
 
 // Built-in views. This page used to carry THREE old affordances at once — a KPI
 // band whose tiles set a filter, an Active/Resolved/All segment row, and the
@@ -125,6 +126,7 @@ function formatValue(value) {
 }
 
 export default function Incidents() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [incidents, setIncidents] = useState([]);
@@ -177,7 +179,7 @@ export default function Incidents() {
             toast[count > 0 ? 'warning' : 'success'](`${count} host alert${count === 1 ? '' : 's'} firing`);
             await load();
         } catch (err) {
-            toast.error(err.message || 'Alert check failed');
+            toast.error(err.message || t('app.incidents.alertCheckFailed', 'Alert check failed'));
         } finally {
             setChecking(false);
         }
@@ -189,12 +191,12 @@ export default function Incidents() {
                 <Siren size={14} /> {checking ? 'Checking…' : 'Check hosts'}
             </Button>
             <Button variant="outline" size="sm" onClick={load}>
-                <RefreshCw size={14} /> Refresh
+                <RefreshCw size={14} /> {t('app.incidents.refresh', 'Refresh')}
             </Button>
             <SearchField
                 value={search}
                 onSearch={setSearch}
-                placeholder="Search incidents and alerts…"
+                placeholder={t('app.incidents.searchIncidentsAndAlerts', 'Search incidents and alerts…')}
             />
         </>
     ), [checking, load, search]);
@@ -318,7 +320,7 @@ export default function Incidents() {
                 : api.resolveFleetAlert(item.alertId));
             await load();
         } catch {
-            toast.error(`Failed to ${action === 'ack' ? 'acknowledge' : 'resolve'} alert`);
+            toast.error(t('app.incidents.failedToAlert', 'Failed to {{value}} alert', { value: action === 'ack' ? 'acknowledge' : 'resolve' }));
         }
     }, [load, toast]);
 
@@ -329,12 +331,12 @@ export default function Incidents() {
                 status: state,
                 update_body: note.trim() || `Status moved to ${state}.`,
             });
-            toast.success(`Incident ${state}`);
+            toast.success(t('app.incidents.incident', 'Incident {{state}}', { state: state }));
             setNote('');
             setSelected(null);
             await load();
         } catch (err) {
-            toast.error(err.message || 'Could not post the update');
+            toast.error(err.message || t('app.incidents.couldNotPostTheUpdate', 'Could not post the update'));
         }
     };
 
@@ -343,7 +345,7 @@ export default function Incidents() {
     const columns = useMemo(() => [
         {
             key: 'title',
-            header: 'What happened',
+            headerKey: 'app.incidents.whatHappened', header: 'What happened',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -360,7 +362,7 @@ export default function Incidents() {
         },
         {
             key: 'state',
-            header: 'State',
+            headerKey: 'app.incidents.state', header: 'State',
             sortable: true,
             type: 'enum',
             value: (item) => item.state || '',
@@ -368,7 +370,7 @@ export default function Incidents() {
         },
         {
             key: 'subject',
-            header: 'Subject',
+            headerKey: 'app.incidents.subject', header: 'Subject',
             sortable: true,
             type: 'enum',
             value: (item) => item.subject || '',
@@ -376,7 +378,7 @@ export default function Incidents() {
         {
             // The axis every source shares, and what Active/Resolved filter on.
             key: 'resolved',
-            header: 'Resolved',
+            headerKey: 'app.incidents.resolved', header: 'Resolved',
             sortable: true,
             type: 'bool',
             value: (item) => !!item.resolved,
@@ -386,7 +388,7 @@ export default function Incidents() {
             // Monitor outage vs host threshold alert — the distinction the
             // "Open incidents" tile silently relied on.
             key: 'kind',
-            header: 'Source',
+            headerKey: 'app.incidents.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (item) => item.kind || '',
@@ -394,14 +396,14 @@ export default function Incidents() {
         },
         {
             key: 'impact',
-            header: 'Impact',
+            headerKey: 'app.incidents.impact', header: 'Impact',
             sortable: true,
             type: 'enum',
             value: (item) => item.impact || '—',
         },
         {
             key: 'when',
-            header: 'When',
+            headerKey: 'app.incidents.when', header: 'When',
             sortable: true,
             type: 'date',
             value: (item) => item.when || null,
@@ -432,7 +434,7 @@ export default function Incidents() {
                                     size="sm"
                                     onClick={() => onAlertAction(item, 'ack')}
                                 >
-                                    <Eye size={14} /> Ack
+                                    <Eye size={14} /> {t('app.incidents.ack', 'Ack')}
                                 </Button>
                             )}
                             <Button
@@ -440,7 +442,7 @@ export default function Incidents() {
                                 size="sm"
                                 onClick={() => onAlertAction(item, 'resolve')}
                             >
-                                <CheckCircle2 size={14} /> Resolve
+                                <CheckCircle2 size={14} /> {t('app.incidents.resolve', 'Resolve')}
                             </Button>
                         </span>
                     )}
@@ -483,7 +485,7 @@ export default function Incidents() {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner incidents-page">
-                <EmptyState loading loadingVariant="feed" title="Loading incidents" />
+                <EmptyState loading loadingVariant="feed" title={t('app.incidents.loadingIncidents', 'Loading incidents')} />
             </div>
         );
     }
@@ -507,8 +509,8 @@ export default function Incidents() {
             {items.length === 0 ? (
                 <EmptyState
                     icon={CheckCircle2}
-                    title="Nothing is wrong right now"
-                    description="No monitor is down and no host is over its limit."
+                    title={t('app.incidents.nothingIsWrongRightNow', 'Nothing is wrong right now')}
+                    description={t('app.incidents.noMonitorIsDownAndNo', 'No monitor is down and no host is over its limit.')}
                 />
             ) : (
                 <div className="mon-card">
@@ -552,11 +554,11 @@ export default function Incidents() {
 
                         {selectedMonitor && (
                             <Link className="incident-detail__link" to={`/monitoring/monitors/${selectedMonitor.id}`}>
-                                <Radar size={14} /> Open {selectedMonitor.name}
+                                <Radar size={14} /> {t('app.incidents.open', 'Open')} {selectedMonitor.name}
                             </Link>
                         )}
 
-                        <h4 className="incident-detail__heading">Timeline</h4>
+                        <h4 className="incident-detail__heading">{t('app.incidents.timeline', 'Timeline')}</h4>
                         {selected.raw.updates?.length ? (
                             <ol className="incident-timeline">
                                 {selected.raw.updates.map((update) => (
@@ -573,16 +575,16 @@ export default function Incidents() {
                                 ))}
                             </ol>
                         ) : (
-                            <p className="mon-panel-hint">No updates posted yet.</p>
+                            <p className="mon-panel-hint">{t('app.incidents.noUpdatesPostedYet', 'No updates posted yet.')}</p>
                         )}
 
                         {selected.raw.status !== 'resolved' && (
                             <div className="incident-detail__post">
-                                <h4 className="incident-detail__heading">Post an update</h4>
+                                <h4 className="incident-detail__heading">{t('app.incidents.postAnUpdate', 'Post an update')}</h4>
                                 <Input
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    placeholder="What changed?"
+                                    placeholder={t('app.incidents.whatChanged', 'What changed?')}
                                 />
                                 <div className="incident-detail__states">
                                     {INCIDENT_STATES.map((state) => (
@@ -610,13 +612,13 @@ export default function Incidents() {
                             </Pill>
                         </div>
                         <dl className="mon-inforows">
-                            <div><dt>Metric</dt><dd>{selected.metric || '—'}</dd></div>
-                            <div><dt>Reading</dt><dd>{formatValue(selected.value)}</dd></div>
-                            <div><dt>Limit</dt><dd>{selected.threshold ?? '—'}</dd></div>
-                            <div><dt>When</dt><dd>{formatWhen(selected.when)}</dd></div>
+                            <div><dt>{t('app.incidents.metric', 'Metric')}</dt><dd>{selected.metric || '—'}</dd></div>
+                            <div><dt>{t('app.incidents.reading', 'Reading')}</dt><dd>{formatValue(selected.value)}</dd></div>
+                            <div><dt>{t('app.incidents.limit', 'Limit')}</dt><dd>{selected.threshold ?? '—'}</dd></div>
+                            <div><dt>{t('app.incidents.when2', 'When')}</dt><dd>{formatWhen(selected.when)}</dd></div>
                         </dl>
                         <p className="mon-panel-hint">
-                            Host limits live on the <Link to="/monitoring/rules">Rules</Link> tab.
+                            {t('app.incidents.hostLimitsLiveOnThe', 'Host limits live on the')} <Link to="/monitoring/rules">{t('app.incidents.rules', 'Rules')}</Link> tab.
                         </p>
                     </div>
                 )}

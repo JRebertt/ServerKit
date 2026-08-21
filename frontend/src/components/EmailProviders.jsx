@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '../contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 const FIELD_LABELS = {
     host: 'Host', port: 'Port', username: 'Username', password: 'Password', use_tls: 'Use TLS',
@@ -22,6 +23,7 @@ function Field({ label, children }) {
 }
 
 export default function EmailProviders() {
+    const { t } = useTranslation();
     const toast = useToast();
     const [providers, setProviders] = useState([]);
     const [supported, setSupported] = useState({});
@@ -64,14 +66,14 @@ export default function EmailProviders() {
             (spec.fields || []).forEach((f) => { if (form[f] !== undefined) payload[f] = form[f]; });
             const res = await api.addEmailProvider(payload);
             if (res?.test && res.test.success === false) {
-                toast.warning(`Added, but test failed: ${res.test.error || 'check credentials'}`);
+                toast.warning(t('app.emailProviders.addedButTestFailed', 'Added, but test failed: {{value}}', { value: res.test.error || 'check credentials' }));
             } else {
-                toast.success('Email provider added');
+                toast.success(t('app.emailProviders.emailProviderAdded', 'Email provider added'));
             }
             cancel();
             load();
         } catch (e) {
-            toast.error(e?.message || 'Failed to add provider');
+            toast.error(e?.message || t('app.emailProviders.failedToAddProvider', 'Failed to add provider'));
         } finally {
             setBusy(false);
         }
@@ -81,39 +83,39 @@ export default function EmailProviders() {
         setBusy(true);
         try {
             const r = await api.testEmailProvider(id);
-            if (r.success) toast.success('Credentials OK'); else toast.error(r.error || 'Test failed');
+            if (r.success) toast.success(t('app.emailProviders.credentialsOk', 'Credentials OK')); else toast.error(r.error || t('app.emailProviders.testFailed', 'Test failed'));
             load();
         } catch {
-            toast.error('Test failed');
+            toast.error(t('app.emailProviders.testFailed2', 'Test failed'));
         } finally {
             setBusy(false);
         }
     };
 
     const onDefault = async (id) => {
-        try { await api.setDefaultEmailProvider(id); toast.success('Default transport updated'); load(); }
-        catch { toast.error('Failed to set default'); }
+        try { await api.setDefaultEmailProvider(id); toast.success(t('app.emailProviders.defaultTransportUpdated', 'Default transport updated')); load(); }
+        catch { toast.error(t('app.emailProviders.failedToSetDefault', 'Failed to set default')); }
     };
 
     const onDelete = async (id) => {
-        try { await api.deleteEmailProvider(id); toast.success('Provider removed'); setConfirmId(null); load(); }
-        catch { toast.error('Failed to remove'); }
+        try { await api.deleteEmailProvider(id); toast.success(t('app.emailProviders.providerRemoved', 'Provider removed')); setConfirmId(null); load(); }
+        catch { toast.error(t('app.emailProviders.failedToRemove', 'Failed to remove')); }
     };
 
     return (
         <section className="sk-eprov">
             <header className="sk-eprov__head">
-                <span className="sk-eprov__title"><Mail size={16} /> Email transport</span>
-                <span className="sk-eprov__sub">How notification emails are sent</span>
+                <span className="sk-eprov__title"><Mail size={16} /> {t('app.emailProviders.emailTransport', 'Email transport')}</span>
+                <span className="sk-eprov__sub">{t('app.emailProviders.howNotificationEmailsAreSent', 'How notification emails are sent')}</span>
             </header>
 
             {loading ? (
-                <div className="sk-eprov__empty">Loading…</div>
+                <div className="sk-eprov__empty">{t('app.emailProviders.loading', 'Loading…')}</div>
             ) : (
                 <>
                     {providers.length === 0 ? (
                         <div className="sk-eprov__empty">
-                            No provider configured — emails fall back to the SMTP channel settings.
+                            {t('app.emailProviders.noProviderConfiguredEmailsFallBack', 'No provider configured — emails fall back to the SMTP channel settings.')}
                         </div>
                     ) : (
                         <ul className="sk-eprov__list">
@@ -122,7 +124,7 @@ export default function EmailProviders() {
                                     <div className="sk-eprov__meta">
                                         <span className="sk-eprov__name">
                                             {p.name}
-                                            {p.is_default && <span className="sk-eprov__badge">Default</span>}
+                                            {p.is_default && <span className="sk-eprov__badge">{t('app.emailProviders.default', 'Default')}</span>}
                                         </span>
                                         <span className="sk-eprov__type">
                                             {p.provider}
@@ -134,16 +136,16 @@ export default function EmailProviders() {
                                     <div className="sk-eprov__actions">
                                         {!p.is_default && (
                                             <Button variant="ghost" size="sm" onClick={() => onDefault(p.id)}>
-                                                <Star size={14} /> Default
+                                                <Star size={14} /> {t('app.emailProviders.default2', 'Default')}
                                             </Button>
                                         )}
                                         <Button variant="ghost" size="sm" disabled={busy} onClick={() => onTest(p.id)}>
-                                            <Check size={14} /> Test
+                                            <Check size={14} /> {t('app.emailProviders.test', 'Test')}
                                         </Button>
                                         {confirmId === p.id ? (
-                                            <Button variant="destructive" size="sm" onClick={() => onDelete(p.id)}>Confirm</Button>
+                                            <Button variant="destructive" size="sm" onClick={() => onDelete(p.id)}>{t('app.emailProviders.confirm', 'Confirm')}</Button>
                                         ) : (
-                                            <Button variant="ghost" size="sm" onClick={() => setConfirmId(p.id)} aria-label="Remove">
+                                            <Button variant="ghost" size="sm" onClick={() => setConfirmId(p.id)} aria-label={t('app.emailProviders.remove', 'Remove')}>
                                                 <Trash2 size={14} />
                                             </Button>
                                         )}
@@ -163,15 +165,15 @@ export default function EmailProviders() {
                         </div>
                     ) : (
                         <div className="sk-eprov__form">
-                            <div className="sk-eprov__form-title">Add {spec?.name}</div>
+                            <div className="sk-eprov__form-title">{t('app.emailProviders.add', 'Add')} {spec?.name}</div>
                             <div className="sk-eprov__grid">
-                                <Field label="Display name">
+                                <Field label={t('app.emailProviders.displayName', 'Display name')}>
                                     <Input value={form.name || ''} onChange={(e) => onField('name', e.target.value)} placeholder={spec?.name} />
                                 </Field>
-                                <Field label="From address">
+                                <Field label={t('app.emailProviders.fromAddress', 'From address')}>
                                     <Input value={form.from_address || ''} onChange={(e) => onField('from_address', e.target.value)} placeholder="no-reply@yourdomain.com" />
                                 </Field>
-                                <Field label="From name">
+                                <Field label={t('app.emailProviders.fromName', 'From name')}>
                                     <Input value={form.from_name || ''} onChange={(e) => onField('from_name', e.target.value)} />
                                 </Field>
                                 {(spec?.fields || []).map((f) => (
@@ -198,7 +200,7 @@ export default function EmailProviders() {
                                 ))}
                             </div>
                             <div className="sk-eprov__form-actions">
-                                <Button variant="outline" size="sm" onClick={cancel} disabled={busy}>Cancel</Button>
+                                <Button variant="outline" size="sm" onClick={cancel} disabled={busy}>{t('app.emailProviders.cancel', 'Cancel')}</Button>
                                 <Button size="sm" onClick={submit} disabled={busy}>{busy ? 'Adding…' : 'Add & test'}</Button>
                             </div>
                         </div>

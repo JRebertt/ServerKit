@@ -5,8 +5,10 @@ import { useConfirm } from '../../hooks/useConfirm';
 import { DangerZone } from '../DangerZone';
 import { Button } from '@/components/ui/button';
 import { EnvTag } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 const SettingsTab = ({ app, onUpdate }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { confirm: confirmAppSettings } = useConfirm();
     const [deleting, setDeleting] = useState(false);
@@ -33,9 +35,9 @@ const SettingsTab = ({ app, onUpdate }) => {
             }
         } catch { /* cron visibility is best-effort — never block the delete */ }
 
-        const firstConfirm = await confirmAppSettings({ title: 'Delete Application', message: `Delete ${app.name}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.${cronNote}` });
+        const firstConfirm = await confirmAppSettings({ titleKey: 'app.settingsTab.deleteApplication', title: 'Delete Application', message: `Delete ${app.name}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.${cronNote}` });
         if (!firstConfirm) return;
-        const secondConfirm = await confirmAppSettings({ title: 'Confirm Deletion', message: 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.' });
+        const secondConfirm = await confirmAppSettings({ titleKey: 'app.settingsTab.confirmDeletion', title: 'Confirm Deletion', messageKey: 'app.settingsTab.areYouSureItsContainersStop', message: 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.' });
         if (!secondConfirm) return;
 
         setDeleting(true);
@@ -65,7 +67,7 @@ const SettingsTab = ({ app, onUpdate }) => {
     }
 
     async function handleUnlink() {
-        const confirmed = await confirmAppSettings({ title: 'Unlink Application', message: `Unlink ${app.name} from its linked application? Both apps will become standalone.`, variant: 'warning' });
+        const confirmed = await confirmAppSettings({ titleKey: 'app.settingsTab.unlinkApplication', title: 'Unlink Application', message: `Unlink ${app.name} from its linked application? Both apps will become standalone.`, variant: 'warning' });
         if (!confirmed) return;
 
         setUnlinking(true);
@@ -81,13 +83,13 @@ const SettingsTab = ({ app, onUpdate }) => {
 
     return (
         <div>
-            <h3 className="app-eyebrow">Application Settings</h3>
+            <h3 className="app-eyebrow">{t('app.settingsTab.applicationSettings', 'Application Settings')}</h3>
 
             <div className="card settings-section">
-                <h4>Environment Configuration</h4>
+                <h4>{t('app.settingsTab.environmentConfiguration', 'Environment Configuration')}</h4>
                 <div className="settings-row">
                     <div className="settings-label">
-                        <span>Environment Type</span>
+                        <span>{t('app.settingsTab.environmentType', 'Environment Type')}</span>
                         <span className="settings-hint">
                             {app.has_linked_app
                                 ? 'This app is linked. Unlink to change environment type.'
@@ -106,22 +108,22 @@ const SettingsTab = ({ app, onUpdate }) => {
                                 disabled={savingEnvironment}
                                 className="settings-select"
                             >
-                                <option value="standalone">Standalone</option>
-                                <option value="development">Development</option>
-                                <option value="staging">Staging</option>
-                                <option value="production">Production</option>
+                                <option value="standalone">{t('app.settingsTab.standalone', 'Standalone')}</option>
+                                <option value="development">{t('app.settingsTab.development', 'Development')}</option>
+                                <option value="staging">{t('app.settingsTab.staging', 'Staging')}</option>
+                                <option value="production">{t('app.settingsTab.production', 'Production')}</option>
                             </select>
                         )}
-                        {savingEnvironment && <span className="settings-saving">Saving...</span>}
+                        {savingEnvironment && <span className="settings-saving">{t('app.settingsTab.saving', 'Saving...')}</span>}
                     </div>
                 </div>
 
                 {app.has_linked_app && (
                     <div className="settings-row settings-linked-warning">
                         <div className="settings-label">
-                            <span>Linked Application</span>
+                            <span>{t('app.settingsTab.linkedApplication', 'Linked Application')}</span>
                             <span className="settings-hint">
-                                This app is linked to another application. Unlinking will reset both apps to standalone mode.
+                                {t('app.settingsTab.thisAppIsLinkedToAnother', 'This app is linked to another application. Unlinking will reset both apps to standalone mode.')}
                             </span>
                         </div>
                         <div className="settings-control">
@@ -138,8 +140,8 @@ const SettingsTab = ({ app, onUpdate }) => {
             </div>
 
             <DangerZone
-                title="Danger Zone"
-                description="Once you delete an application, there is no going back."
+                title={t('app.settingsTab.dangerZone', 'Danger Zone')}
+                description={t('app.settingsTab.onceYouDeleteAnApplicationThere', 'Once you delete an application, there is no going back.')}
                 action={
                     <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
                         {deleting ? 'Deleting...' : 'Delete Application'}

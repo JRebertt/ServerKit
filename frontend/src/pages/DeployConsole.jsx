@@ -12,13 +12,14 @@ import SuccessBanner from '../components/deploy-console/SuccessBanner';
 import { sourceRef } from '../utils/deployActivity';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 const STATUS_META = {
-    pending: { label: 'Queued', icon: Clock, cls: 'pending' },
-    running: { label: 'Running', icon: Loader2, cls: 'running' },
-    succeeded: { label: 'Succeeded', icon: CheckCircle2, cls: 'succeeded' },
-    failed: { label: 'Failed', icon: XCircle, cls: 'failed' },
-    cancelled: { label: 'Cancelled', icon: XCircle, cls: 'failed' },
+    pending: { labelKey: 'app.deployConsole.queued', label: 'Queued', icon: Clock, cls: 'pending' },
+    running: { labelKey: 'app.deployConsole.running', label: 'Running', icon: Loader2, cls: 'running' },
+    succeeded: { labelKey: 'app.deployConsole.succeeded', label: 'Succeeded', icon: CheckCircle2, cls: 'succeeded' },
+    failed: { labelKey: 'app.deployConsole.failed', label: 'Failed', icon: XCircle, cls: 'failed' },
+    cancelled: { labelKey: 'app.deployConsole.cancelled', label: 'Cancelled', icon: XCircle, cls: 'failed' },
 };
 
 const fmtStarted = (iso) => {
@@ -60,6 +61,7 @@ function humanizeTitle(job) {
 }
 
 export default function DeployConsole() {
+    const { t } = useTranslation();
     const { jobId } = useParams();
     const navigate = useNavigate();
     const { job, lines, isLive, transport, error, loading } = useDeployJobStream(jobId, { includePlan: true });
@@ -233,7 +235,7 @@ export default function DeployConsole() {
         return (
             <div className="sk-tabgroup__inner deploy-console deploy-console--loading">
                 <Loader2 size={22} className="deploy-console__spin" />
-                <span>Loading deployment…</span>
+                <span>{t('app.deployConsole.loadingDeployment', 'Loading deployment…')}</span>
             </div>
         );
     }
@@ -242,10 +244,10 @@ export default function DeployConsole() {
         return (
             <div className="sk-tabgroup__inner deploy-console deploy-console--error-page">
                 <XCircle size={22} />
-                <strong>Deployment not found</strong>
+                <strong>{t('app.deployConsole.deploymentNotFound', 'Deployment not found')}</strong>
                 <p>{error}</p>
                 <Link to="/deployments" className="deploy-console__btn">
-                    <ArrowLeft size={14} /> Back to deployments
+                    <ArrowLeft size={14} /> {t('app.deployConsole.backToDeployments', 'Back to deployments')}
                 </Link>
             </div>
         );
@@ -258,14 +260,14 @@ export default function DeployConsole() {
         // Without it the console ran edge-to-edge with no gutters at all.
         <div className={`sk-tabgroup__inner deploy-console${logFocus ? ' deploy-console--focus' : ''}`}>
             <header className="deploy-console__header">
-                <Link to="/deployments" className="deploy-console__back" title="Back to deployments">
+                <Link to="/deployments" className="deploy-console__back" title={t('app.deployConsole.backToDeployments2', 'Back to deployments')}>
                     <ArrowLeft size={18} />
                 </Link>
                 <h1 className="deploy-console__title">{humanizeTitle(job)}</h1>
                 <div className="deploy-console__meta">
                     {job?.kind === 'demo_deploy' && (
-                        <span className="deploy-console__pill deploy-console__pill--demo" title="Scripted test deployment — no real resources were touched">
-                            Simulated
+                        <span className="deploy-console__pill deploy-console__pill--demo" title={t('app.deployConsole.scriptedTestDeploymentNoRealResources', 'Scripted test deployment — no real resources were touched')}>
+                            {t('app.deployConsole.simulated', 'Simulated')}
                         </span>
                     )}
                     <span className={`deploy-console__pill deploy-console__pill--${meta.cls}`}>
@@ -283,13 +285,13 @@ export default function DeployConsole() {
 
             {degraded && (
                 <div className="deploy-console__degraded">
-                    <WifiOff size={14} /> Live updates unavailable — refreshing every 2s.
+                    <WifiOff size={14} /> {t('app.deployConsole.liveUpdatesUnavailableRefreshingEvery2s', 'Live updates unavailable — refreshing every 2s.')}
                 </div>
             )}
 
             {status === 'pending' && (
                 <div className="deploy-console__queued">
-                    <Loader2 size={16} className="deploy-console__spin" /> Waiting for a worker to pick up this deployment…
+                    <Loader2 size={16} className="deploy-console__spin" /> {t('app.deployConsole.waitingForAWorkerToPick', 'Waiting for a worker to pick up this deployment…')}
                 </div>
             )}
 

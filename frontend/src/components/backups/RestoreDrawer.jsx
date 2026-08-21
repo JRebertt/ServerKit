@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RotateCcw, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Right-side slide-over for the backup "Protection" panel: configure and confirm
 // a restore. The restore scope can be the whole site, just files, just the
@@ -30,8 +31,8 @@ const DRAWER_WIDTH = 520;
 // Base scope choices, always available. Database/Selected-tables are appended
 // only for WordPress targets (applications are files-only).
 const BASE_SCOPE_OPTIONS = [
-    { value: 'full', label: 'Full site' },
-    { value: 'files', label: 'Files only' },
+    { value: 'full', labelKey: 'app.restoreDrawer.fullSite', label: 'Full site' },
+    { value: 'files', labelKey: 'app.restoreDrawer.filesOnly', label: 'Files only' },
 ];
 
 // Labels for provider-declared restore scopes (plan 52 D4): extension backup
@@ -55,6 +56,7 @@ const RestoreDrawer = ({
     siteTables,
     showMaintenanceModeOption,
 }) => {
+    const { t } = useTranslation();
     const [scope, setScope] = useState('full');
     const [tables, setTables] = useState([]);
     const [safetyBackup, setSafetyBackup] = useState(true);
@@ -85,8 +87,8 @@ const RestoreDrawer = ({
             .map((s) => ({ value: s, label: SCOPE_LABELS[s] || s }))
         : [
             ...BASE_SCOPE_OPTIONS,
-            ...(isWordPress ? [{ value: 'database', label: 'Database only' }] : []),
-            ...(hasTables ? [{ value: 'tables', label: 'Selected tables' }] : []),
+            ...(isWordPress ? [{ value: 'database', labelKey: 'app.restoreDrawer.databaseOnly', label: 'Database only' }] : []),
+            ...(hasTables ? [{ value: 'tables', labelKey: 'app.restoreDrawer.selectedTables', label: 'Selected tables' }] : []),
         ];
 
     const toggleTable = (t) => {
@@ -114,14 +116,14 @@ const RestoreDrawer = ({
         <Drawer
             open={open}
             onOpenChange={(v) => !v && onClose()}
-            title="Restore backup"
+            title={t('app.restoreDrawer.restoreBackup', 'Restore backup')}
             subtitle={subtitle}
             icon={<RotateCcw size={HEAD_ICON_SIZE} />}
             width={DRAWER_WIDTH}
         >
             <div className="restore-drawer">
                 <div className="restore-drawer__section">
-                    <label className="restore-drawer__label">Scope</label>
+                    <label className="restore-drawer__label">{t('app.restoreDrawer.scope', 'Scope')}</label>
                     <div className="restore-drawer__scope">
                         <SegControl options={scopeOptions} value={scope} onChange={setScope} />
                     </div>
@@ -143,7 +145,7 @@ const RestoreDrawer = ({
                 )}
 
                 <div className="restore-drawer__section">
-                    <label className="restore-drawer__label">Safety options</label>
+                    <label className="restore-drawer__label">{t('app.restoreDrawer.safetyOptions', 'Safety options')}</label>
                     <div className="restore-drawer__options">
                         <div className="restore-drawer__option">
                             <Switch
@@ -151,7 +153,7 @@ const RestoreDrawer = ({
                                 checked={safetyBackup}
                                 onCheckedChange={setSafetyBackup}
                             />
-                            <label htmlFor="safety-backup">Create a safety backup first</label>
+                            <label htmlFor="safety-backup">{t('app.restoreDrawer.createASafetyBackupFirst', 'Create a safety backup first')}</label>
                         </div>
                         <div className="restore-drawer__option">
                             <Switch
@@ -159,7 +161,7 @@ const RestoreDrawer = ({
                                 checked={copyPermissions}
                                 onCheckedChange={setCopyPermissions}
                             />
-                            <label htmlFor="copy-perms">Copy original file permissions</label>
+                            <label htmlFor="copy-perms">{t('app.restoreDrawer.copyOriginalFilePermissions', 'Copy original file permissions')}</label>
                         </div>
                         {showMaintenanceModeOption && (
                             <div className="restore-drawer__option">
@@ -169,7 +171,7 @@ const RestoreDrawer = ({
                                     onCheckedChange={setMaintenanceMode}
                                 />
                                 <label htmlFor="maint">
-                                    Put site in maintenance mode during restore
+                                    {t('app.restoreDrawer.putSiteInMaintenanceModeDuring', 'Put site in maintenance mode during restore')}
                                 </label>
                             </div>
                         )}
@@ -178,8 +180,7 @@ const RestoreDrawer = ({
 
                 <p className="restore-drawer__warning">
                     <AlertTriangle size={WARNING_ICON_SIZE} />
-                    This will overwrite the current site with the selected backup. This action cannot
-                    be undone.
+                    {t('app.restoreDrawer.thisWillOverwriteTheCurrentSite', 'This will overwrite the current site with the selected backup. This action cannot be undone.')}
                 </p>
 
                 <Button
@@ -189,14 +190,14 @@ const RestoreDrawer = ({
                     onClick={() => setConfirmOpen(true)}
                 >
                     <RotateCcw size={ACTION_ICON_SIZE} />
-                    Restore
+                    {t('app.restoreDrawer.restore', 'Restore')}
                 </Button>
 
                 <ConfirmDialog
                     isOpen={confirmOpen}
-                    title="Confirm restore"
-                    message={`Type the name to confirm restoring ${targetName || 'this target'}. This overwrites current data.`}
-                    confirmText="Restore"
+                    title={t('app.restoreDrawer.confirmRestore', 'Confirm restore')}
+                    message={t('app.restoreDrawer.typeTheNameToConfirmRestoring', 'Type the name to confirm restoring {{value}}. This overwrites current data.', { value: targetName || 'this target' })}
+                    confirmText={t('app.restoreDrawer.restore2', 'Restore')}
                     variant="danger"
                     requireConfirmation={targetName || 'restore'}
                     confirmationPlaceholder={targetName}

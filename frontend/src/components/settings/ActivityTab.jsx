@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { DataTableFooter } from '@/components/ds';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 const ActivityTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const [summary, setSummary] = useState(null);
     const [logs, setLogs] = useState([]);
@@ -116,7 +118,7 @@ const ActivityTab = () => {
     }
 
     if (loading) {
-        return <div className="activity-tab"><div className="loading-state">Loading activity...</div></div>;
+        return <div className="activity-tab"><div className="loading-state">{t('app.activityTab.loadingActivity', 'Loading activity...')}</div></div>;
     }
 
     const maxCount = summary?.top_users?.length
@@ -127,8 +129,8 @@ const ActivityTab = () => {
         <div className="activity-tab">
             <div className="tab-header">
                 <div className="tab-header-content">
-                    <h3>Activity Dashboard</h3>
-                    <p>Monitor team activity, audit actions, and system events</p>
+                    <h3>{t('app.activityTab.activityDashboard', 'Activity Dashboard')}</h3>
+                    <p>{t('app.activityTab.monitorTeamActivityAuditActionsAnd', 'Monitor team activity, audit actions, and system events')}</p>
                 </div>
             </div>
 
@@ -137,27 +139,27 @@ const ActivityTab = () => {
                     <div {...register('activity-dashboard', 'activity-stats')}>
                         <span className="activity-stats__item">
                             <span className="activity-stats__value">{summary.active_users_today}</span>
-                            active today
+                            {t('app.activityTab.activeToday', 'active today')}
                         </span>
                         <span className="activity-stats__item">
                             <span className="activity-stats__value">{summary.actions_this_week}</span>
-                            actions this week
+                            {t('app.activityTab.actionsThisWeek', 'actions this week')}
                         </span>
                         <span className="activity-stats__item">
                             <span className="activity-stats__value">{summary.total_users}</span>
-                            total users
+                            {t('app.activityTab.totalUsers', 'total users')}
                         </span>
                     </div>
 
                     <div className="graphs-section">
                         <ContributionGraph
                             data={summary.daily_counts}
-                            title="Overall System Activity"
+                            title={t('app.activityTab.overallSystemActivity', 'Overall System Activity')}
                         />
                         {summary.top_user_daily && summary.top_user_daily.length > 0 && summary.top_users?.length > 1 && (
                             <ContributionGraph
                                 data={summary.top_user_daily}
-                                title="Most Active User Activity"
+                                title={t('app.activityTab.mostActiveUserActivity', 'Most Active User Activity')}
                                 username={summary.top_users[0]?.username}
                             />
                         )}
@@ -165,7 +167,7 @@ const ActivityTab = () => {
 
                     {summary.top_users && summary.top_users.length > 0 && (
                         <div className="most-active-users">
-                            <h4>Most Active Users (This Week)</h4>
+                            <h4>{t('app.activityTab.mostActiveUsersThisWeek', 'Most Active Users (This Week)')}</h4>
                             <div className="active-users-list">
                                 {summary.top_users.map((u, i) => (
                                     <div key={u.user_id} className="active-user-item">
@@ -190,21 +192,21 @@ const ActivityTab = () => {
 
             <div {...register('activity-audit-log', 'activity-feed-section')}>
                 <div className="section-header">
-                    <h4>Audit Log</h4>
+                    <h4>{t('app.activityTab.auditLog', 'Audit Log')}</h4>
                 </div>
 
                 <div className="filters-bar">
                     <div className="filter-group">
-                        <label><Filter size={12} /> Action Type</label>
+                        <label><Filter size={12} /> {t('app.activityTab.actionType', 'Action Type')}</label>
                         <Select
                             value={filters.action || '__all__'}
                             onValueChange={(val) => handleFilterChange('action', val === '__all__' ? '' : val)}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="All Actions" />
+                                <SelectValue placeholder={t('app.activityTab.allActions', 'All Actions')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__all__">All Actions</SelectItem>
+                                <SelectItem value="__all__">{t('app.activityTab.allActions2', 'All Actions')}</SelectItem>
                                 {actions.map(action => (
                                     <SelectItem key={action} value={action}>{formatActionName(action)}</SelectItem>
                                 ))}
@@ -212,16 +214,16 @@ const ActivityTab = () => {
                         </Select>
                     </div>
                     <div className="filter-group">
-                        <label><UserIcon size={12} /> User</label>
+                        <label><UserIcon size={12} /> {t('app.activityTab.user', 'User')}</label>
                         <Select
                             value={filters.user_id || '__all__'}
                             onValueChange={(val) => handleFilterChange('user_id', val === '__all__' ? '' : val)}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="All Users" />
+                                <SelectValue placeholder={t('app.activityTab.allUsers', 'All Users')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__all__">All Users</SelectItem>
+                                <SelectItem value="__all__">{t('app.activityTab.allUsers2', 'All Users')}</SelectItem>
                                 {users.map(u => (
                                     <SelectItem key={u.id} value={String(u.id)}>{u.username}</SelectItem>
                                 ))}
@@ -237,7 +239,7 @@ const ActivityTab = () => {
                                 setPagination(prev => ({ ...prev, page: 1 }));
                             }}
                         >
-                            <X size={14} /> Clear
+                            <X size={14} /> {t('app.activityTab.clear', 'Clear')}
                         </Button>
                     )}
                 </div>
@@ -245,10 +247,10 @@ const ActivityTab = () => {
                 {feedLoading ? (
                     <div className="loading-state">
                         <div className="spinner" />
-                        Loading logs...
+                        {t('app.activityTab.loadingLogs', 'Loading logs...')}
                     </div>
                 ) : logs.length === 0 ? (
-                    <EmptyState icon={Search} title="No audit logs found" />
+                    <EmptyState icon={Search} title={t('app.activityTab.noAuditLogsFound', 'No audit logs found')} />
                 ) : (
                     <div className="audit-log-list" role="list">
                         {logs.map(log => (

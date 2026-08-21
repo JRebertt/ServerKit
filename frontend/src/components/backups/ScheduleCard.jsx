@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar, Save, Loader2 } from 'lucide-react';
 import SchedulePicker from '../SchedulePicker';
+import { useTranslation } from 'react-i18next';
 
 // Card 2 of the backup "Protection" panel: the editable schedule form.
 // The saved policy carries a raw cron string; this card now mounts the shared
@@ -25,6 +26,7 @@ const toNum = (value) => {
 };
 
 const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
+    const { t } = useTranslation();
     // All hooks run unconditionally, before any early return (Rules of Hooks).
     // The form is only shown once a policy exists, so the seed values used when
     // `policy` is null are throwaway and get re-seeded by the effect on load.
@@ -67,10 +69,10 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
             <div className="app-panel schedule-card">
                 <div className="app-panel-header">
                     <Calendar size={16} />
-                    <span>Schedule</span>
+                    <span>{t('app.scheduleCard.schedule', 'Schedule')}</span>
                 </div>
                 <div className="app-panel-body">
-                    <p className="app-panel-hint">Loading backup schedule...</p>
+                    <p className="app-panel-hint">{t('app.scheduleCard.loadingBackupSchedule', 'Loading backup schedule...')}</p>
                 </div>
             </div>
         );
@@ -104,21 +106,21 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
         <div className="app-panel schedule-card">
             <div className="app-panel-header">
                 <Calendar size={16} />
-                <span>Schedule</span>
+                <span>{t('app.scheduleCard.schedule2', 'Schedule')}</span>
                 <span className="app-panel-header-actions app-panel-hint">
-                    Backups run quietly in the background.
+                    {t('app.scheduleCard.backupsRunQuietlyInTheBackground', 'Backups run quietly in the background.')}
                 </span>
             </div>
             <div className="app-panel-body">
                 <div className="schedule-card__field">
-                    <label>Frequency</label>
+                    <label>{t('app.scheduleCard.frequency', 'Frequency')}</label>
                     <SchedulePicker value={cron} onChange={setCron} compact />
                 </div>
 
                 <div className="schedule-card__field schedule-card__retention">
-                    <label>Retention</label>
+                    <label>{t('app.scheduleCard.retention', 'Retention')}</label>
                     <div className="schedule-card__retention-row">
-                        <span>Keep last</span>
+                        <span>{t('app.scheduleCard.keepLast', 'Keep last')}</span>
                         <Input
                             type="number"
                             min={MIN_COUNT}
@@ -128,7 +130,7 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                         <span>backups</span>
                     </div>
                     <div className="schedule-card__retention-row">
-                        <span>Delete older than</span>
+                        <span>{t('app.scheduleCard.deleteOlderThan', 'Delete older than')}</span>
                         <Input
                             type="number"
                             min={MIN_COUNT}
@@ -138,13 +140,12 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                         <span>days</span>
                     </div>
                     <p className="app-panel-hint">
-                        Both rules apply. A backup is kept only if it is within the last N backups AND
-                        within the last N days.
+                        {t('app.scheduleCard.bothRulesApplyABackupIs', 'Both rules apply. A backup is kept only if it is within the last N backups AND within the last N days.')}
                     </p>
                 </div>
 
                 <div className="schedule-card__field">
-                    <label>Full backup every</label>
+                    <label>{t('app.scheduleCard.fullBackupEvery', 'Full backup every')}</label>
                     <div className="schedule-card__retention-row">
                         <Input
                             type="number"
@@ -155,17 +156,17 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                         <span>days</span>
                     </div>
                     <p className="app-panel-hint">
-                        A full backup is taken every N days; the rest are incremental.
+                        {t('app.scheduleCard.aFullBackupIsTakenEvery', 'A full backup is taken every N days; the rest are incremental.')}
                     </p>
                 </div>
 
                 <div className="schedule-card__field">
-                    <label>Compression</label>
+                    <label>{t('app.scheduleCard.compression', 'Compression')}</label>
                     <SegControl
                         options={[
-                            { value: 'fast', label: 'Fast' },
-                            { value: 'balanced', label: 'Balanced' },
-                            { value: 'max', label: 'Max' },
+                            { value: 'fast', labelKey: 'app.scheduleCard.fast', label: 'Fast' },
+                            { value: 'balanced', labelKey: 'app.scheduleCard.balanced', label: 'Balanced' },
+                            { value: 'max', labelKey: 'app.scheduleCard.max', label: 'Max' },
                         ]}
                         value={compression}
                         onChange={setCompression}
@@ -173,21 +174,18 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                 </div>
 
                 <div className="schedule-card__field">
-                    <label>Restore drill cadence</label>
+                    <label>{t('app.scheduleCard.restoreDrillCadence', 'Restore drill cadence')}</label>
                     <SegControl
                         options={[
-                            { value: 'off', label: 'Off' },
-                            { value: 'weekly', label: 'Weekly' },
-                            { value: 'monthly', label: 'Monthly' },
+                            { value: 'off', labelKey: 'app.scheduleCard.off', label: 'Off' },
+                            { value: 'weekly', labelKey: 'app.scheduleCard.weekly', label: 'Weekly' },
+                            { value: 'monthly', labelKey: 'app.scheduleCard.monthly', label: 'Monthly' },
                         ]}
                         value={drillCadence}
                         onChange={setDrillCadence}
                     />
                     <p className="app-panel-hint">
-                        Periodically test-restore the latest backup to prove it can actually be
-                        recovered. Drills run into a throwaway location and never touch this site.
-                        Replaying an incremental backup chain during a drill needs GNU tar, so
-                        those drills run on Linux hosts only.
+                        {t('app.scheduleCard.periodicallyTestRestoreTheLatestBackup', 'Periodically test-restore the latest backup to prove it can actually be recovered. Drills run into a throwaway location and never touch this site. Replaying an incremental backup chain during a drill needs GNU tar, so those drills run on Linux hosts only.')}
                     </p>
                 </div>
 
@@ -199,7 +197,7 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                         disabled={!remoteConfigured}
                     />
                     <label htmlFor="remote-copy">
-                        <span>Copy backups to remote storage</span>
+                        <span>{t('app.scheduleCard.copyBackupsToRemoteStorage', 'Copy backups to remote storage')}</span>
                         <span className="app-panel-hint">
                             {remoteConfigured
                                 ? 'Uses the provider configured in Backups → Storage.'
@@ -216,7 +214,7 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
                         onClick={handleSave}
                     >
                         {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
-                        Save schedule
+                        {t('app.scheduleCard.saveSchedule', 'Save schedule')}
                     </Button>
                 </div>
             </div>

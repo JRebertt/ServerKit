@@ -11,6 +11,7 @@ import {
 } from '../sidebarItems';
 import { Button } from '@/components/ui/button';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 const PRESET_ICONS = {
     recommended: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
@@ -22,6 +23,7 @@ const PRESET_ICONS = {
 };
 
 const SidebarSettings = () => {
+    const { t } = useTranslation();
     const { user, updateUser } = useAuth();
     const currentConfig = user?.sidebar_config || { preset: 'recommended', hiddenItems: [] };
     const [preset, setPreset] = useState(currentConfig.preset || 'recommended');
@@ -97,9 +99,9 @@ const SidebarSettings = () => {
     return (
         <div className="sidebar-settings">
             <div {...register('sidebar-view-profiles', 'settings-section')}>
-                <h3>View Profiles</h3>
+                <h3>{t('app.sidebarSettings.viewProfiles', 'View Profiles')}</h3>
                 <p className="settings-section-desc">
-                    Choose a preset or build a custom view. Only visible items appear in your sidebar.
+                    {t('app.sidebarSettings.chooseAPresetOrBuildA', 'Choose a preset or build a custom view. Only visible items appear in your sidebar.')}
                 </p>
 
                 <div className="sidebar-presets">
@@ -133,8 +135,8 @@ const SidebarSettings = () => {
                             </svg>
                         </div>
                         <div className="preset-card-info">
-                            <span className="preset-card-label">Custom</span>
-                            <span className="preset-card-desc">Toggle individual items on/off</span>
+                            <span className="preset-card-label">{t('app.sidebarSettings.custom', 'Custom')}</span>
+                            <span className="preset-card-desc">{t('app.sidebarSettings.toggleIndividualItemsOnOff', 'Toggle individual items on/off')}</span>
                         </div>
                         {preset === 'custom' && (
                             <div className="preset-card-check">
@@ -147,7 +149,7 @@ const SidebarSettings = () => {
 
             <div {...register('sidebar-items', 'settings-section')}>
                 <div className="settings-section-header">
-                    <h3>Sidebar Items</h3>
+                    <h3>{t('app.sidebarSettings.sidebarItems', 'Sidebar Items')}</h3>
                     <span className="sidebar-item-count">{visibleCount} of {SIDEBAR_ITEMS.length} visible</span>
                 </div>
                 <p className="settings-section-desc">
@@ -201,7 +203,7 @@ const SidebarSettings = () => {
                     disabled={preset === 'recommended' && hiddenItems.length === 0}
                 >
                     <RotateCcw size={14} />
-                    Reset to Default
+                    {t('app.sidebarSettings.resetToDefault', 'Reset to Default')}
                 </Button>
                 <Button
                     variant="default"

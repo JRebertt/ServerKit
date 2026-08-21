@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { severityOf, splitOnMatch } from './logHelpers';
 
 const LogContent = forwardRef(function LogContent({
@@ -11,6 +12,7 @@ const LogContent = forwardRef(function LogContent({
     live = false,
     scrollKey,
 }, ref) {
+    const { t } = useTranslation();
     const innerRef = useRef(null);
     // Whether the viewer is parked at the bottom (following the tail). Starts
     // true so a freshly opened log lands on its newest line.
@@ -49,7 +51,7 @@ const LogContent = forwardRef(function LogContent({
     }, [content]);
 
     if (loading) {
-        return <div className="lv-content lv-content-loading">Loading log…</div>;
+        return <div className="lv-content lv-content-loading">{t('app.logContent.loadingLog', 'Loading log…')}</div>;
     }
 
     if (!content) {
@@ -63,7 +65,7 @@ const LogContent = forwardRef(function LogContent({
     return (
         <div className="lv-content-wrap">
             {live && (
-                <span className="lv-live-badge" title="Following the live tail">
+                <span className="lv-live-badge" title={t('app.logContent.followingTheLiveTail', 'Following the live tail')}>
                     <span className="lv-live-dot" />
                     LIVE
                 </span>

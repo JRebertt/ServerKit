@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from 'react-i18next';
 
 // Surfaces everything the agent's capability probe reports: detected
 // runtimes (python/node/php/go/ruby/java versions), runtime version
@@ -14,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 // agent_registry.update_capabilities. capabilities_stale flips true in
 // that case and we badge the card accordingly.
 export default function SystemStatusCard({ server, onRefresh }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [refreshing, setRefreshing] = useState(false);
 
@@ -31,10 +33,10 @@ export default function SystemStatusCard({ server, onRefresh }) {
         setRefreshing(true);
         try {
             await api.refreshRemoteCapabilities(server.id);
-            toast.success('Capabilities re-probed');
+            toast.success(t('app.systemStatusCard.capabilitiesReProbed', 'Capabilities re-probed'));
             if (onRefresh) await onRefresh();
         } catch (err) {
-            toast.error(err.message || 'Refresh failed');
+            toast.error(err.message || t('app.systemStatusCard.refreshFailed', 'Refresh failed'));
         } finally {
             setRefreshing(false);
         }
@@ -47,10 +49,10 @@ export default function SystemStatusCard({ server, onRefresh }) {
         <div className="info-card system-status-card">
             <div className="system-status-card__header">
                 <div className="system-status-card__title">
-                    <h3>System Status</h3>
+                    <h3>{t('app.systemStatusCard.systemStatus', 'System Status')}</h3>
                     {stale && (
-                        <Badge variant="outline" title="Agent offline — showing last cached snapshot">
-                            Stale
+                        <Badge variant="outline" title={t('app.systemStatusCard.agentOfflineShowingLastCachedSnapshot', 'Agent offline — showing last cached snapshot')}>
+                            {t('app.systemStatusCard.stale', 'Stale')}
                         </Badge>
                     )}
                 </div>
@@ -65,7 +67,7 @@ export default function SystemStatusCard({ server, onRefresh }) {
                         variant="outline"
                         onClick={handleRefresh}
                         disabled={refreshing || !server.is_connected}
-                        title={server.is_connected ? 'Re-run capability probe on the agent' : 'Agent must be online to refresh'}
+                        title={server.is_connected ? t('app.systemStatusCard.reRunCapabilityProbeOnThe', 'Re-run capability probe on the agent') : t('app.systemStatusCard.agentMustBeOnlineToRefresh', 'Agent must be online to refresh')}
                     >
                         {refreshing ? 'Refreshing…' : 'Refresh'}
                     </Button>
@@ -73,14 +75,14 @@ export default function SystemStatusCard({ server, onRefresh }) {
             </div>
 
             <div className="system-status-card__rows">
-                <Row label="Platform" value={[platform, distro].filter(Boolean).join(' · ') || 'Unknown'} />
-                <Row label="Sudo" value={<SudoBadge mode={sudo} />} />
+                <Row label={t('app.systemStatusCard.platform', 'Platform')} value={[platform, distro].filter(Boolean).join(' · ') || 'Unknown'} />
+                <Row label={t('app.systemStatusCard.sudo', 'Sudo')} value={<SudoBadge mode={sudo} />} />
                 <Row
-                    label="Package manager"
-                    value={detectedPackageManager(caps, server) || <Muted>not detected</Muted>}
+                    label={t('app.systemStatusCard.packageManager', 'Package manager')}
+                    value={detectedPackageManager(caps, server) || <Muted>{t('app.systemStatusCard.notDetected', 'not detected')}</Muted>}
                 />
                 <Row
-                    label="Runtime managers"
+                    label={t('app.systemStatusCard.runtimeManagers', 'Runtime managers')}
                     value={
                         Object.keys(managers).length === 0 ? (
                             <Muted>none</Muted>
@@ -92,8 +94,8 @@ export default function SystemStatusCard({ server, onRefresh }) {
                                             {rt}: {mgr}
                                         </Badge>
                                     ) : (
-                                        <Badge key={rt} variant="outline" title={`No ${rt} manager installed`}>
-                                            {rt}: none
+                                        <Badge key={rt} variant="outline" title={t('app.systemStatusCard.noManagerInstalled', 'No {{rt}} manager installed', { rt: rt })}>
+                                            {rt}{t('app.systemStatusCard.none', ': none')}
                                         </Badge>
                                     )
                                 )}
@@ -102,10 +104,10 @@ export default function SystemStatusCard({ server, onRefresh }) {
                     }
                 />
                 <Row
-                    label="Detected runtimes"
+                    label={t('app.systemStatusCard.detectedRuntimes', 'Detected runtimes')}
                     value={
                         runtimeKeys.length === 0 ? (
-                            <Muted>none reported</Muted>
+                            <Muted>{t('app.systemStatusCard.noneReported', 'none reported')}</Muted>
                         ) : (
                             <span className="system-status-card__chips">
                                 {runtimeKeys.map((rt) => (
@@ -118,17 +120,17 @@ export default function SystemStatusCard({ server, onRefresh }) {
                     }
                 />
                 <Row
-                    label="Capabilities"
+                    label={t('app.systemStatusCard.capabilities', 'Capabilities')}
                     value={
                         capabilityKeys.length === 0 ? (
-                            <Muted>none reported (older agent?)</Muted>
+                            <Muted>{t('app.systemStatusCard.noneReportedOlderAgent', 'none reported (older agent?)')}</Muted>
                         ) : (
                             <span className="system-status-card__chips">
                                 {capabilityKeys.map((k) => (
                                     <Badge
                                         key={k}
                                         variant={caps[k] ? 'default' : 'outline'}
-                                        title={caps[k] ? 'available' : 'not available on this host'}
+                                        title={caps[k] ? 'available' : t('app.systemStatusCard.notAvailableOnThisHost', 'not available on this host')}
                                     >
                                         {k}
                                     </Badge>
@@ -139,7 +141,7 @@ export default function SystemStatusCard({ server, onRefresh }) {
                 />
                 {allowedPaths.length > 0 && (
                     <Row
-                        label="File access roots"
+                        label={t('app.systemStatusCard.fileAccessRoots', 'File access roots')}
                         value={
                             <ul className="system-status-card__paths">
                                 {allowedPaths.map((p) => (
@@ -168,16 +170,17 @@ function Muted({ children }) {
 }
 
 function SudoBadge({ mode }) {
-    if (mode === 'root') return <Badge variant="default" title="Agent is running as root">root</Badge>;
-    if (mode === 'passwordless') return <Badge variant="default" title="sudo -n succeeded">passwordless sudo</Badge>;
+    const { t } = useTranslation();
+    if (mode === 'root') return <Badge variant="default" title={t('app.systemStatusCard.agentIsRunningAsRoot', 'Agent is running as root')}>root</Badge>;
+    if (mode === 'passwordless') return <Badge variant="default" title={t('app.systemStatusCard.sudoNSucceeded', 'sudo -n succeeded')}>{t('app.systemStatusCard.passwordlessSudo', 'passwordless sudo')}</Badge>;
     if (mode === 'unavailable') {
         return (
-            <Badge variant="destructive" title="Privileged actions (apt, systemd) will fail">
+            <Badge variant="destructive" title={t('app.systemStatusCard.privilegedActionsAptSystemdWillFail', 'Privileged actions (apt, systemd) will fail')}>
                 unavailable
             </Badge>
         );
     }
-    return <Muted>not reported</Muted>;
+    return <Muted>{t('app.systemStatusCard.notReported', 'not reported')}</Muted>;
 }
 
 // We don't have a dedicated package manager field, but the capability

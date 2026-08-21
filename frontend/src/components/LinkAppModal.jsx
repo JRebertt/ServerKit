@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { X, Link2, GitBranch, AlertCircle, Check } from 'lucide-react';
 import api from '../services/api';
 import Modal from './Modal';
+import { useTranslation } from 'react-i18next';
 
 const LinkAppModal = ({ app, onClose, onLinked }) => {
+    const { t } = useTranslation();
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [linking, setLinking] = useState(false);
@@ -69,7 +71,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
     };
 
     return (
-        <Modal open={true} onClose={onClose} title="Link Application" className="link-app-modal">
+        <Modal open={true} onClose={onClose} title={t('app.linkAppModal.linkApplication', 'Link Application')} className="link-app-modal">
                 {error && (
                     <div className="error-message">
                         <AlertCircle size={16} />
@@ -78,36 +80,34 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                 )}
 
                 {loading ? (
-                    <div className="modal-loading">Loading compatible apps...</div>
+                    <div className="modal-loading">{t('app.linkAppModal.loadingCompatibleApps', 'Loading compatible apps...')}</div>
                 ) : apps.length === 0 ? (
                     <div className="link-app-empty">
                         <GitBranch size={32} />
-                        <h3>No Compatible Apps</h3>
+                        <h3>{t('app.linkAppModal.noCompatibleApps', 'No Compatible Apps')}</h3>
                         <p>
-                            There are no other {app.app_type} applications available to link.
-                            Create another {app.app_type} app first, or ensure existing apps
-                            are not already linked.
+                            {t('app.linkAppModal.thereAreNoOther', 'There are no other')} {app.app_type} {t('app.linkAppModal.applicationsAvailableToLinkCreateAnother', 'applications available to link. Create another')} {app.app_type} {t('app.linkAppModal.appFirstOrEnsureExistingApps', 'app first, or ensure existing apps are not already linked.')}
                         </p>
                         <button type="button" className="btn btn-secondary" onClick={onClose}>
-                            Close
+                            {t('app.linkAppModal.close', 'Close')}
                         </button>
                     </div>
                 ) : (
                     <form onSubmit={handleLink}>
                         <div className="link-app-current">
-                            <span className="link-app-label">Current app:</span>
+                            <span className="link-app-label">{t('app.linkAppModal.currentApp', 'Current app:')}</span>
                             <span className="link-app-name">{app.name}</span>
                             <span className="app-type-badge">{app.app_type.toUpperCase()}</span>
                         </div>
 
                         <div className="form-group">
-                            <label>Link to Application</label>
+                            <label>{t('app.linkAppModal.linkToApplication', 'Link to Application')}</label>
                             <select
                                 value={selectedAppId}
                                 onChange={(e) => setSelectedAppId(e.target.value)}
                                 required
                             >
-                                <option value="">Select an application...</option>
+                                <option value="">{t('app.linkAppModal.selectAnApplication', 'Select an application...')}</option>
                                 {apps.map(a => (
                                     <option key={a.id} value={a.id}>
                                         {a.name} (Port: {a.port || 'N/A'})
@@ -117,7 +117,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>This app will be</label>
+                            <label>{t('app.linkAppModal.thisAppWillBe', 'This app will be')}</label>
                             <div className="env-radio-group">
                                 {['development', 'production', 'staging'].map(env => (
                                     <label key={env} className={`env-radio-option ${asEnvironment === env ? 'selected' : ''}`}>
@@ -139,7 +139,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
 
                         {selectedApp && (
                             <div className="link-preview">
-                                <div className="link-preview-title">Preview</div>
+                                <div className="link-preview-title">{t('app.linkAppModal.preview', 'Preview')}</div>
                                 <div className="link-preview-diagram">
                                     <div className="link-preview-app">
                                         <span className="link-preview-name">{app.name}</span>
@@ -170,24 +170,24 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                                             onChange={(e) => setPropagateCredentials(e.target.checked)}
                                         />
                                         <span className="checkbox-custom" />
-                                        <span>Propagate database credentials</span>
+                                        <span>{t('app.linkAppModal.propagateDatabaseCredentials', 'Propagate database credentials')}</span>
                                     </label>
                                     <span className="form-hint">
-                                        Copy database connection settings from production to development app
+                                        {t('app.linkAppModal.copyDatabaseConnectionSettingsFromProduction', 'Copy database connection settings from production to development app')}
                                     </span>
                                 </div>
 
                                 {propagateCredentials && (
                                     <div className="form-group">
-                                        <label>Table Prefix (optional)</label>
+                                        <label>{t('app.linkAppModal.tablePrefixOptional', 'Table Prefix (optional)')}</label>
                                         <input
                                             type="text"
                                             value={tablePrefix}
                                             onChange={(e) => setTablePrefix(e.target.value)}
-                                            placeholder="wp_dev_ (auto-generated if empty)"
+                                            placeholder={t('app.linkAppModal.wpDevAutoGeneratedIfEmpty', 'wp_dev_ (auto-generated if empty)')}
                                         />
                                         <span className="form-hint">
-                                            Different prefix allows both apps to share the same database
+                                            {t('app.linkAppModal.differentPrefixAllowsBothAppsTo', 'Different prefix allows both apps to share the same database')}
                                         </span>
                                     </div>
                                 )}
@@ -196,15 +196,15 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
 
                         <div className="modal-actions">
                             <button type="button" className="btn btn-secondary" onClick={onClose}>
-                                Cancel
+                                {t('app.linkAppModal.cancel', 'Cancel')}
                             </button>
                             <button type="submit" className="btn btn-primary" disabled={linking || !selectedAppId}>
                                 {linking ? (
-                                    <>Linking...</>
+                                    <>{t('app.linkAppModal.linking', 'Linking...')}</>
                                 ) : (
                                     <>
                                         <Check size={16} />
-                                        Link Apps
+                                        {t('app.linkAppModal.linkApps', 'Link Apps')}
                                     </>
                                 )}
                             </button>

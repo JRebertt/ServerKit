@@ -9,6 +9,7 @@ import PageLayout from '../layouts/PageLayout';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 // Coexistence — the honest "running ServerKit alongside another control panel"
 // surface (plan 27 #15, plan 31). Mirrors docs/COEXISTENCE.md: the three
@@ -23,7 +24,7 @@ const MODES = [
     {
         id: 'observe',
         icon: Eye,
-        title: 'Observe',
+        titleKey: 'app.coexistence.observe', title: 'Observe',
         tone: 'cyan',
         tagline: 'Read-only, safe to run anywhere',
         points: [
@@ -36,7 +37,7 @@ const MODES = [
     {
         id: 'migrate',
         icon: ArrowRightLeft,
-        title: 'Migrate',
+        titleKey: 'app.coexistence.migrate', title: 'Migrate',
         tone: 'violet',
         tagline: 'The guided path off the other panel',
         points: [
@@ -49,7 +50,7 @@ const MODES = [
     {
         id: 'manage',
         icon: ServerCog,
-        title: 'Manage',
+        titleKey: 'app.coexistence.manage', title: 'Manage',
         tone: 'green',
         tagline: 'Full takeover on a clean box',
         points: [
@@ -68,6 +69,7 @@ const GUARANTEES = [
 const isObserved = (s) => (s.management_mode || s.mode) === 'observed';
 
 export default function Coexistence() {
+    const { t } = useTranslation();
     const [servers, setServers] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -95,21 +97,17 @@ export default function Coexistence() {
         <PageLayout
             className="coexistence"
             icon={<RadioTower size={18} />}
-            title="Coexistence"
+            title={t('app.coexistence.coexistence', 'Coexistence')}
             meta="Running alongside another panel"
             actions={
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                     <RefreshCw size={15} />
-                    Refresh
+                    {t('app.coexistence.refresh', 'Refresh')}
                 </Button>
             }
         >
             <p className="coexistence__intro app-panel-hint">
-                ServerKit has three explicit adoption modes. Pick the one that matches where the
-                box is today — you can move between them as you migrate. The hard rule: keep exactly
-                one owner of nginx / Apache / PHP-FPM / TLS per box. Two panels writing the same
-                web-server config is never supported; Observe mode exists so you can adopt a box for
-                visibility without stepping on the panel that currently owns its config.
+                {t('app.coexistence.serverkitHasThreeExplicitAdoptionModes', 'ServerKit has three explicit adoption modes. Pick the one that matches where the box is today — you can move between them as you migrate. The hard rule: keep exactly one owner of nginx / Apache / PHP-FPM / TLS per box. Two panels writing the same web-server config is never supported; Observe mode exists so you can adopt a box for visibility without stepping on the panel that currently owns its config.')}
             </p>
 
             <div className="overview-grid coexistence__modes">
@@ -137,19 +135,19 @@ export default function Coexistence() {
             <section className="app-panel coexistence__observed">
                 <div className="app-panel-header">
                     <Eye size={16} />
-                    <span>Observed servers</span>
+                    <span>{t('app.coexistence.observedServers', 'Observed servers')}</span>
                     <span className="app-panel-header-actions app-panel-hint">
-                        {observed.length} paired in read-only mode
+                        {observed.length} {t('app.coexistence.pairedInReadOnlyMode', 'paired in read-only mode')}
                     </span>
                 </div>
                 <div className="app-panel-body">
                     {loading ? (
-                        <EmptyState loading loadingVariant="table" title="Loading servers" />
+                        <EmptyState loading loadingVariant="table" title={t('app.coexistence.loadingServers', 'Loading servers')} />
                     ) : observed.length === 0 ? (
                         <EmptyState
                             icon={Eye}
-                            title="No observed servers"
-                            description="Pair an agent and switch a server to Observed to survey a box another panel still runs — read-only and safe."
+                            title={t('app.coexistence.noObservedServers', 'No observed servers')}
+                            description={t('app.coexistence.pairAnAgentAndSwitchA', 'Pair an agent and switch a server to Observed to survey a box another panel still runs — read-only and safe.')}
                         />
                     ) : (
                         <ul className="coexistence__servers">
@@ -162,10 +160,10 @@ export default function Coexistence() {
                                         )}
                                     </div>
                                     <div className="coexistence__server-actions">
-                                        <Pill kind="cyan">Observed</Pill>
+                                        <Pill kind="cyan">{t('app.coexistence.observed', 'Observed')}</Pill>
                                         <Link to={`/servers/${s.id}`}>
                                             <Button variant="outline" size="sm">
-                                                Survey
+                                                {t('app.coexistence.survey', 'Survey')}
                                                 <ArrowRight size={14} />
                                             </Button>
                                         </Link>
@@ -181,7 +179,7 @@ export default function Coexistence() {
                 <section className="app-panel">
                     <div className="app-panel-header">
                         <ShieldCheck size={16} />
-                        <span>The survey&apos;s read-only guarantees</span>
+                        <span>{t('app.coexistence.theSurveySReadOnlyGuarantees', 'The survey\'s read-only guarantees')}</span>
                     </div>
                     <div className="app-panel-body">
                         <ul className="coexistence__list">
@@ -193,18 +191,16 @@ export default function Coexistence() {
                 <section className="app-panel">
                     <div className="app-panel-header">
                         <Upload size={16} />
-                        <span>Ready to migrate?</span>
+                        <span>{t('app.coexistence.readyToMigrate', 'Ready to migrate?')}</span>
                     </div>
                     <div className="app-panel-body">
                         <p className="app-panel-hint">
-                            When a site is ready to move onto ServerKit, the import wizard pulls its
-                            files, databases, and crontabs, then hands off to the reversible DNS
-                            cutover — snapshot, switch, verify, revert.
+                            {t('app.coexistence.whenASiteIsReadyTo', 'When a site is ready to move onto ServerKit, the import wizard pulls its files, databases, and crontabs, then hands off to the reversible DNS cutover — snapshot, switch, verify, revert.')}
                         </p>
                         <div className="coexistence__cta">
                             <Link to="/imports">
                                 <Button variant="primary" size="sm">
-                                    Open import wizard
+                                    {t('app.coexistence.openImportWizard', 'Open import wizard')}
                                     <ArrowRight size={14} />
                                 </Button>
                             </Link>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Building2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useTranslation } from 'react-i18next';
 import {
     Select,
     SelectContent,
@@ -15,6 +16,7 @@ import {
 // lists under the new scope. Always rendered when at least one workspace exists
 // so the scoping concept stays visible even on single-workspace installs.
 const WorkspaceSwitcher = () => {
+    const { t } = useTranslation();
     const [workspaces, setWorkspaces] = useState([]);
     const {
         activeWorkspaceId,
@@ -62,12 +64,12 @@ const WorkspaceSwitcher = () => {
 
     return (
         <Select value={activeWorkspaceId} onValueChange={handleChange}>
-            <SelectTrigger className="workspace-switcher__trigger" aria-label="Active workspace">
+            <SelectTrigger className="workspace-switcher__trigger" aria-label={t('app.workspaceSwitcher.activeWorkspace', 'Active workspace')}>
                 <Building2 size={14} className="workspace-switcher__icon" aria-hidden="true" />
-                <SelectValue placeholder="All workspaces" />
+                <SelectValue placeholder={t('app.workspaceSwitcher.allWorkspaces', 'All workspaces')} />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">All workspaces</SelectItem>
+                <SelectItem value="all">{t('app.workspaceSwitcher.allWorkspaces2', 'All workspaces')}</SelectItem>
                 {workspaces.map((w) => (
                     <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                 ))}

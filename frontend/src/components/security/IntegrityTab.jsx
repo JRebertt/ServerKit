@@ -9,6 +9,7 @@ import {
 } from '@/components/ds/grid';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useTranslation } from 'react-i18next';
 
 // Scoped file-integrity monitoring: baseline-and-diff over the paths
 // ServerKit manages (nginx configs, serverkit-owned systemd units, and
@@ -16,12 +17,12 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const SCOPE_META = {
     nginx: {
-        label: 'Nginx configuration',
-        hint: 'sites-enabled + conf.d',
+        labelKey: 'app.integrityTab.nginxConfiguration', label: 'Nginx configuration',
+        hintKey: 'app.integrityTab.sitesEnabledConfD', hint: 'sites-enabled + conf.d',
     },
     systemd: {
-        label: 'Systemd units',
-        hint: 'serverkit-* units in /etc/systemd/system',
+        labelKey: 'app.integrityTab.systemdUnits', label: 'Systemd units',
+        hintKey: 'app.integrityTab.serverkitUnitsInEtcSystemdSystem', hint: 'serverkit-* units in /etc/systemd/system',
     },
 };
 
@@ -66,7 +67,7 @@ function toChangeRows(check) {
 const CHANGE_COLUMNS = [
     {
         key: 'change',
-        header: 'Change',
+        headerKey: 'app.integrityTab.change', header: 'Change',
         sortable: true,
         // Declared, not inferred: a check that turned up a single change gives
         // the inferrer one sample, which fails its "values repeat" test and
@@ -80,7 +81,7 @@ const CHANGE_COLUMNS = [
     },
     {
         key: 'path',
-        header: 'Path',
+        headerKey: 'app.integrityTab.path', header: 'Path',
         sortable: true,
         type: 'text',
         value: (row) => row.path,
@@ -90,7 +91,7 @@ const CHANGE_COLUMNS = [
     },
     {
         key: 'what',
-        header: 'What changed',
+        headerKey: 'app.integrityTab.whatChanged', header: 'What changed',
         // The service reports exactly hash | size | mode, in that order, and
         // only for modified rows. Joined into one string so a rule can ask for
         // "the bytes moved" (contains hash) or "only the bits moved"
@@ -160,6 +161,7 @@ const INTEGRITY_VIEWS = [
 ];
 
 const IntegrityTab = () => {
+    const { t } = useTranslation();
     const [status, setStatus] = useState(null);
     const [apps, setApps] = useState([]);
     const [busy, setBusy] = useState(null); // `${scope}:${action}` while a call runs
@@ -288,8 +290,8 @@ const IntegrityTab = () => {
                             · {SCOPE_META[key]?.hint || (scope.roots[0] || 'no docroot')}
                         </span>
                     </h3>
-                    {!scope.available && <span className="sec-state sec-state--gray">not present</span>}
-                    {scope.available && !baseline && <span className="sec-state sec-state--gray">no baseline</span>}
+                    {!scope.available && <span className="sec-state sec-state--gray">{t('app.integrityTab.notPresent', 'not present')}</span>}
+                    {scope.available && !baseline && <span className="sec-state sec-state--gray">{t('app.integrityTab.noBaseline', 'no baseline')}</span>}
                     {baseline && !check && <span className="sec-state sec-state--cyan">baselined</span>}
                     {check && (changed
                         ? <span className="sec-state sec-state--amber">{check.total_changes} changes</span>
@@ -397,10 +399,7 @@ const IntegrityTab = () => {
             )}
 
             <p className="sec-hint sec-hint--lead">
-                Baseline-and-diff monitoring over the paths ServerKit manages. Baseline a
-                scope, then check it (or let the scheduled sweep do it) — any added,
-                removed or modified files are flagged and admins are notified. Accepting
-                changes re-baselines the scope.
+                {t('app.integrityTab.baselineAndDiffMonitoringOverThe', 'Baseline-and-diff monitoring over the paths ServerKit manages. Baseline a scope, then check it (or let the scheduled sweep do it) — any added, removed or modified files are flagged and admins are notified. Accepting changes re-baselines the scope.')}
             </p>
 
             {managedScopes.map(renderScopeCard)}
@@ -408,15 +407,14 @@ const IntegrityTab = () => {
 
             <div className="card">
                 <div className="card-header">
-                    <h3>Application docroots <span className="sec-count">· opt-in</span></h3>
+                    <h3>{t('app.integrityTab.applicationDocroots', 'Application docroots')} <span className="sec-count">{t('app.integrityTab.optIn', '· opt-in')}</span></h3>
                 </div>
                 <div className="card-body">
                     <p className="sec-hint sec-hint--lead">
-                        Watching a docroot hashes every file outside upload/cache
-                        directories, so it is opt-in per application.
+                        {t('app.integrityTab.watchingADocrootHashesEveryFile', 'Watching a docroot hashes every file outside upload/cache directories, so it is opt-in per application.')}
                     </p>
                     {apps.length === 0 ? (
-                        <p className="sec-faint">No applications found.</p>
+                        <p className="sec-faint">{t('app.integrityTab.noApplicationsFound', 'No applications found.')}</p>
                     ) : (
                         <div className="sec-finding-list">
                             {apps.map((appItem) => (

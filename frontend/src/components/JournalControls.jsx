@@ -1,16 +1,17 @@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const PRIORITY_OPTIONS = [
-    { value: '', label: 'All' },
-    { value: '0', label: 'Emergency' },
-    { value: '1', label: 'Alert' },
-    { value: '2', label: 'Critical' },
-    { value: '3', label: 'Error' },
-    { value: '4', label: 'Warning' },
-    { value: '5', label: 'Notice' },
-    { value: '6', label: 'Info' },
-    { value: '7', label: 'Debug' },
+    { value: '', labelKey: 'app.journalControls.all', label: 'All' },
+    { value: '0', labelKey: 'app.journalControls.emergency', label: 'Emergency' },
+    { value: '1', labelKey: 'app.journalControls.alert', label: 'Alert' },
+    { value: '2', labelKey: 'app.journalControls.critical', label: 'Critical' },
+    { value: '3', labelKey: 'app.journalControls.error', label: 'Error' },
+    { value: '4', labelKey: 'app.journalControls.warning', label: 'Warning' },
+    { value: '5', labelKey: 'app.journalControls.notice', label: 'Notice' },
+    { value: '6', labelKey: 'app.journalControls.info', label: 'Info' },
+    { value: '7', labelKey: 'app.journalControls.debug', label: 'Debug' },
 ];
 
 export function JournalControls({
@@ -30,6 +31,7 @@ export function JournalControls({
     onLoad,
     loadLabel = 'Load Logs',
 }) {
+    const { t } = useTranslation();
     return (
         <div className="journal-controls">
             <div className="control-group">
@@ -59,7 +61,7 @@ export function JournalControls({
 
             {onLineCountChange && (
                 <div className="control-group">
-                    <label>Lines</label>
+                    <label>{t('app.journalControls.lines', 'Lines')}</label>
                     <select value={lineCount} onChange={(e) => onLineCountChange(parseInt(e.target.value, 10))}>
                         {lineCountOptions.map(n => (
                             <option key={n} value={n}>{n}</option>
@@ -70,7 +72,7 @@ export function JournalControls({
 
             {showPriority && onPriorityChange && (
                 <div className="control-group">
-                    <label>Priority</label>
+                    <label>{t('app.journalControls.priority', 'Priority')}</label>
                     <select value={priority ?? ''} onChange={(e) => onPriorityChange(e.target.value)}>
                         {PRIORITY_OPTIONS.map(o => (
                             <option key={o.value} value={o.value}>{o.label}</option>

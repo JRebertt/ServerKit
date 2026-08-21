@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
 import { SegControl } from '@/components/ds';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 // SchedulePicker — one friendly cron schedule picker shared by CronJobs, the
 // Backups ScheduleCard, the server-detail Cron tab, and extensions (via the SDK).
@@ -16,13 +17,13 @@ import { Input } from '@/components/ui/input';
 // Props: value (cron string), onChange(cronString), compact?, presets?.
 
 const DEFAULT_PRESETS = [
-    { label: 'Every 15 minutes', desc: '*/15 * * * *', cron: '*/15 * * * *' },
-    { label: 'Hourly', desc: 'On the hour', cron: '0 * * * *' },
-    { label: 'Every 6 hours', desc: '00:00, 06:00 …', cron: '0 */6 * * *' },
-    { label: 'Daily', desc: 'Midnight', cron: '0 0 * * *' },
-    { label: 'Daily at 2 AM', desc: 'Quiet hours', cron: '0 2 * * *' },
-    { label: 'Weekly', desc: 'Sunday midnight', cron: '0 0 * * 0' },
-    { label: 'Monthly', desc: '1st, midnight', cron: '0 0 1 * *' },
+    { labelKey: 'app.schedulePicker.every15Minutes', label: 'Every 15 minutes', desc: '*/15 * * * *', cron: '*/15 * * * *' },
+    { labelKey: 'app.schedulePicker.hourly', label: 'Hourly', desc: 'On the hour', cron: '0 * * * *' },
+    { labelKey: 'app.schedulePicker.every6Hours', label: 'Every 6 hours', desc: '00:00, 06:00 …', cron: '0 */6 * * *' },
+    { labelKey: 'app.schedulePicker.daily', label: 'Daily', desc: 'Midnight', cron: '0 0 * * *' },
+    { labelKey: 'app.schedulePicker.dailyAt2Am', label: 'Daily at 2 AM', desc: 'Quiet hours', cron: '0 2 * * *' },
+    { labelKey: 'app.schedulePicker.weekly', label: 'Weekly', desc: 'Sunday midnight', cron: '0 0 * * 0' },
+    { labelKey: 'app.schedulePicker.monthly', label: 'Monthly', desc: '1st, midnight', cron: '0 0 1 * *' },
 ];
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -225,12 +226,13 @@ function builderToCron(b) {
 }
 
 const MODES = [
-    { value: 'presets', label: 'Presets' },
-    { value: 'builder', label: 'Builder' },
-    { value: 'advanced', label: 'Advanced' },
+    { value: 'presets', labelKey: 'app.schedulePicker.presets', label: 'Presets' },
+    { value: 'builder', labelKey: 'app.schedulePicker.builder', label: 'Builder' },
+    { value: 'advanced', labelKey: 'app.schedulePicker.advanced', label: 'Advanced' },
 ];
 
 export default function SchedulePicker({ value = '', onChange, compact = false, presets = DEFAULT_PRESETS }) {
+    const { t } = useTranslation();
     const [mode, setMode] = useState('presets');
     const builder = useMemo(() => cronToBuilder(value), [value]);
 
@@ -272,22 +274,22 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
             {mode === 'builder' && (
                 <div className="schedule-picker__builder">
                     <div className="schedule-picker__row">
-                        <label htmlFor="sp-frequency">Frequency</label>
+                        <label htmlFor="sp-frequency">{t('app.schedulePicker.frequency', 'Frequency')}</label>
                         <select
                             id="sp-frequency"
                             value={builder.frequency}
                             onChange={(e) => patchBuilder({ frequency: e.target.value })}
                         >
-                            <option value="hourly">Hourly</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
+                            <option value="hourly">{t('app.schedulePicker.hourly2', 'Hourly')}</option>
+                            <option value="daily">{t('app.schedulePicker.daily2', 'Daily')}</option>
+                            <option value="weekly">{t('app.schedulePicker.weekly2', 'Weekly')}</option>
+                            <option value="monthly">{t('app.schedulePicker.monthly2', 'Monthly')}</option>
                         </select>
                     </div>
 
                     {builder.frequency !== 'hourly' && (
                         <div className="schedule-picker__row">
-                            <label htmlFor="sp-hour">At hour</label>
+                            <label htmlFor="sp-hour">{t('app.schedulePicker.atHour', 'At hour')}</label>
                             <select
                                 id="sp-hour"
                                 value={builder.hour}
@@ -312,7 +314,7 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
 
                     {builder.frequency === 'hourly' && (
                         <div className="schedule-picker__row">
-                            <label htmlFor="sp-minute-h">At minute</label>
+                            <label htmlFor="sp-minute-h">{t('app.schedulePicker.atMinute', 'At minute')}</label>
                             <select
                                 id="sp-minute-h"
                                 value={builder.minute}
@@ -327,7 +329,7 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
 
                     {builder.frequency === 'weekly' && (
                         <div className="schedule-picker__row">
-                            <label>On days</label>
+                            <label>{t('app.schedulePicker.onDays', 'On days')}</label>
                             <div className="schedule-picker__days">
                                 {WEEKDAYS.map((name, d) => (
                                     <button
@@ -345,7 +347,7 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
 
                     {builder.frequency === 'monthly' && (
                         <div className="schedule-picker__row">
-                            <label htmlFor="sp-dom">On day</label>
+                            <label htmlFor="sp-dom">{t('app.schedulePicker.onDay', 'On day')}</label>
                             <Input
                                 id="sp-dom"
                                 type="number"
@@ -391,7 +393,7 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
                 </div>
                 {runs.length > 0 && (
                     <div className="schedule-picker__nextruns">
-                        <span className="schedule-picker__nextruns-label">Next</span>
+                        <span className="schedule-picker__nextruns-label">{t('app.schedulePicker.next', 'Next')}</span>
                         {runs.map((r, i) => (
                             <span key={i} className="schedule-picker__nextrun">{formatRun(r)}</span>
                         ))}

@@ -6,6 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import api from '../../services/api';
 import EngineGlyph from './EngineGlyph';
+import { useTranslation } from 'react-i18next';
 import {
     engineInitialDatabase, engineInstanceKey, engineLocation, engineMeta,
     engineTreeStatus, engineUnit, singular,
@@ -17,6 +18,7 @@ import {
 
 // An engine template whose deploy is still running.
 export function EngineInstallingPanel({ instance, onRefresh }) {
+    const { t } = useTranslation();
     const failed = engineTreeStatus(instance) === 'failed';
     const meta = engineMeta(instance);
     const initialDb = engineInitialDatabase(instance);
@@ -48,7 +50,7 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
             {failed ? (
                 <>
                     <h2 className="dbx-blank__title">
-                        <ShieldAlert size={17} aria-hidden="true" /> {instance.name} failed to install
+                        <ShieldAlert size={17} aria-hidden="true" /> {instance.name} {t('app.dbBlankStates.failedToInstall', 'failed to install')}
                     </h2>
                     <p className="dbx-blank__body">
                         {instance.error_message
@@ -57,10 +59,9 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
                 </>
             ) : (
                 <>
-                    <h2 className="dbx-blank__title">Installing {instance.name}</h2>
+                    <h2 className="dbx-blank__title">{t('app.dbBlankStates.installing', 'Installing')} {instance.name}</h2>
                     <p className="dbx-blank__body">
-                        Pulling the image, provisioning the volume and waiting for the first health
-                        check{meta.family ? ` on this ${meta.family.toLowerCase()} engine` : ''}.
+                        {t('app.dbBlankStates.pullingTheImageProvisioningTheVolume', 'Pulling the image, provisioning the volume and waiting for the first health check')}{meta.family ? ` on this ${meta.family.toLowerCase()} engine` : ''}.
                         This usually takes about a minute.
                     </p>
                 </>
@@ -70,16 +71,16 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
                 {jobId && (
                     <Button asChild size="sm">
                         <Link to={`/deployments/${jobId}`}>
-                            <Terminal size={14} aria-hidden="true" /> View install log
+                            <Terminal size={14} aria-hidden="true" /> {t('app.dbBlankStates.viewInstallLog', 'View install log')}
                         </Link>
                     </Button>
                 )}
                 <Button asChild size="sm" variant="outline">
-                    <Link to="/deployments"><Activity size={14} aria-hidden="true" /> Deploy activity</Link>
+                    <Link to="/deployments"><Activity size={14} aria-hidden="true" /> {t('app.dbBlankStates.deployActivity', 'Deploy activity')}</Link>
                 </Button>
                 {onRefresh && (
                     <Button type="button" size="sm" variant="outline" onClick={onRefresh}>
-                        <RefreshCw size={14} aria-hidden="true" /> Check again
+                        <RefreshCw size={14} aria-hidden="true" /> {t('app.dbBlankStates.checkAgain', 'Check again')}
                     </Button>
                 )}
             </div>
@@ -87,7 +88,7 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
             {initialDb && !failed && (
                 <p className="dbx-blank__note">
                     <Plus size={12} aria-hidden="true" />
-                    {initialDb} will be created once the engine reports healthy
+                    {initialDb} {t('app.dbBlankStates.willBeCreatedOnceTheEngine', 'will be created once the engine reports healthy')}
                 </p>
             )}
         </div>
@@ -97,6 +98,7 @@ export function EngineInstallingPanel({ instance, onRefresh }) {
 // An engine that is up but has nothing in it yet — either a host engine
 // (MySQL / PostgreSQL) with no databases, or a freshly installed one.
 export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole }) {
+    const { t } = useTranslation();
     const meta = engineMeta(instance);
     const address = engineLocation(instance);
     const unitOne = singular(engineUnit(instance));
@@ -107,33 +109,33 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
             <div className="dbx-blank__icon">
                 <EngineGlyph entry={instance} size={24} />
             </div>
-            <h2 className="dbx-blank__title">{label || instance?.name} is ready</h2>
+            <h2 className="dbx-blank__title">{label || instance?.name} {t('app.dbBlankStates.isReady', 'is ready')}</h2>
             <p className="dbx-blank__body">
-                {address ? <>Listening on <code>{address}</code>. </> : null}
+                {address ? <>{t('app.dbBlankStates.listeningOn', 'Listening on')} <code>{address}</code>. </> : null}
                 {onNewDatabase ? (
                     'Create a database to start writing to it.'
                 ) : (
                     <>
-                        Create a {unitOne} from {meta.client ? <code>{meta.client}</code> : 'its client'}
-                        {' '}— ServerKit lists it here as soon as it exists.
+                        {t('app.dbBlankStates.createA', 'Create a')} {unitOne} from {meta.client ? <code>{meta.client}</code> : 'its client'}
+                        {' '}{t('app.dbBlankStates.serverkitListsItHereAsSoon', '— ServerKit lists it here as soon as it exists.')}
                     </>
                 )}
             </p>
             <div className="dbx-blank__actions">
                 {onNewDatabase && (
                     <Button type="button" size="sm" onClick={onNewDatabase}>
-                        <Plus size={14} aria-hidden="true" /> New database
+                        <Plus size={14} aria-hidden="true" /> {t('app.dbBlankStates.newDatabase', 'New database')}
                     </Button>
                 )}
                 {onOpenConsole && (
                     <Button type="button" size="sm" variant="outline" onClick={onOpenConsole}>
-                        <Terminal size={14} aria-hidden="true" /> Open SQL console
+                        <Terminal size={14} aria-hidden="true" /> {t('app.dbBlankStates.openSqlConsole', 'Open SQL console')}
                     </Button>
                 )}
                 {instance?.app_id != null && (
                     <Button asChild size="sm" variant="outline">
                         <Link to={`/services/${instance.app_id}`}>
-                            <Layers size={14} aria-hidden="true" /> Manage service
+                            <Layers size={14} aria-hidden="true" /> {t('app.dbBlankStates.manageService', 'Manage service')}
                         </Link>
                     </Button>
                 )}
@@ -144,13 +146,12 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
             {initialDb && (
                 <p className="dbx-blank__note">
                     <Database size={12} aria-hidden="true" />
-                    {initialDb} was created on install
+                    {initialDb} {t('app.dbBlankStates.wasCreatedOnInstall', 'was created on install')}
                 </p>
             )}
             {meta.protocol === 'none' && (
                 <p className="dbx-blank__note">
-                    This engine has no browsable protocol — ServerKit runs it, but table browsing
-                    comes from its own client.
+                    {t('app.dbBlankStates.thisEngineHasNoBrowsableProtocol', 'This engine has no browsable protocol — ServerKit runs it, but table browsing comes from its own client.')}
                 </p>
             )}
         </div>
@@ -161,6 +162,7 @@ export function EngineReadyPanel({ instance, label, onNewDatabase, onOpenConsole
 // put something in it — build it column by column, or replay a dump — are the
 // primary actions; the console stays as the way to do anything else.
 export function DatabaseEmptyPanel({ node, unit = 'tables', onNewTable, onImport, onOpenConsole }) {
+    const { t } = useTranslation();
     const unitOne = singular(unit);
     return (
         <div className="dbx-blank">
@@ -169,23 +171,22 @@ export function DatabaseEmptyPanel({ node, unit = 'tables', onNewTable, onImport
             </div>
             <h2 className="dbx-blank__title">No {unit} in {node?.label}</h2>
             <p className="dbx-blank__body">
-                The database is connected and empty. Build your first {unitOne}, import a dump,
-                or write the statement yourself in the console.
+                {t('app.dbBlankStates.theDatabaseIsConnectedAndEmpty', 'The database is connected and empty. Build your first')} {unitOne}{t('app.dbBlankStates.importADumpOrWriteThe', ', import a dump, or write the statement yourself in the console.')}
             </p>
             <div className="dbx-blank__actions">
                 {onNewTable && (
                     <Button type="button" size="sm" onClick={onNewTable}>
-                        <Plus size={14} aria-hidden="true" /> New {unitOne}
+                        <Plus size={14} aria-hidden="true" /> {t('app.dbBlankStates.new', 'New')} {unitOne}
                     </Button>
                 )}
                 {onImport && (
                     <Button type="button" size="sm" variant="outline" onClick={onImport}>
-                        <Download size={14} aria-hidden="true" /> Import dump
+                        <Download size={14} aria-hidden="true" /> {t('app.dbBlankStates.importDump', 'Import dump')}
                     </Button>
                 )}
                 {onOpenConsole && (
                     <Button type="button" size="sm" variant="outline" onClick={onOpenConsole}>
-                        <Terminal size={14} aria-hidden="true" /> Open SQL console
+                        <Terminal size={14} aria-hidden="true" /> {t('app.dbBlankStates.openSqlConsole2', 'Open SQL console')}
                     </Button>
                 )}
             </div>

@@ -7,6 +7,7 @@ import DrawerHeader from './DrawerHeader';
 import ContextChip from './ContextChip';
 import MessageList from './MessageList';
 import Composer from './Composer';
+import { useTranslation } from 'react-i18next';
 
 const WIDTH_KEY = 'sk-ai:width';
 const MIN_W = 360;
@@ -17,6 +18,7 @@ const clampWidth = (w) => {
 };
 
 const ChatDrawer = () => {
+    const { t } = useTranslation();
     const { close } = useServerkitAI();
     const isMobile = useMediaQuery('(max-width: 768px)');
     const panelRef = useRef(null);
@@ -57,7 +59,7 @@ const ChatDrawer = () => {
                 className="sk-ai-drawer"
                 role="dialog"
                 aria-modal={isMobile ? 'true' : 'false'}
-                aria-label="ServerKit AI assistant"
+                aria-label={t('app.chatDrawer.serverkitAiAssistant', 'ServerKit AI assistant')}
                 style={style}
             >
                 {!isMobile ? (

@@ -11,10 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useTranslation } from 'react-i18next';
 
 const DEFAULT_TEMPLATE = 'pr-{pr_number}.{app_domain}';
 
 const PreviewList = ({ appId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
 
@@ -37,7 +39,7 @@ const PreviewList = ({ appId }) => {
             setTemplate(conf?.domain_template || DEFAULT_TEMPLATE);
         } catch (err) {
             console.error('Failed to load previews:', err);
-            toast?.error?.('Could not load PR previews');
+            toast?.error?.(t('app.previewList.couldNotLoadPrPreviews', 'Could not load PR previews'));
         } finally {
             setLoading(false);
         }
@@ -51,10 +53,10 @@ const PreviewList = ({ appId }) => {
             const updated = await api.updatePreviewSettings(appId, patch);
             setSettings(updated);
             setTemplate(updated?.domain_template || DEFAULT_TEMPLATE);
-            toast?.success?.('Preview settings saved');
+            toast?.success?.(t('app.previewList.previewSettingsSaved', 'Preview settings saved'));
         } catch (err) {
             console.error('Failed to save preview settings:', err);
-            toast?.error?.(err.message || 'Could not save settings');
+            toast?.error?.(err.message || t('app.previewList.couldNotSaveSettings', 'Could not save settings'));
         } finally {
             setSaving(false);
         }
@@ -72,10 +74,10 @@ const PreviewList = ({ appId }) => {
         setSyncing(true);
         try {
             await api.syncPreviews(appId);
-            toast?.success?.('Reconciled previews against open PRs');
+            toast?.success?.(t('app.previewList.reconciledPreviewsAgainstOpenPrs', 'Reconciled previews against open PRs'));
             await load();
         } catch (err) {
-            toast?.error?.(err.message || 'Sync failed');
+            toast?.error?.(err.message || t('app.previewList.syncFailed', 'Sync failed'));
         } finally {
             setSyncing(false);
         }
@@ -85,10 +87,10 @@ const PreviewList = ({ appId }) => {
         setBusyId(preview.id);
         try {
             await api.redeployPreview(appId, preview.id);
-            toast?.success?.(`Redeploying preview for PR #${preview.pr_number}`);
+            toast?.success?.(t('app.previewList.redeployingPreviewForPr', 'Redeploying preview for PR #{{prnumber}}', { prnumber: preview.pr_number }));
             await load();
         } catch (err) {
-            toast?.error?.(err.message || 'Redeploy failed');
+            toast?.error?.(err.message || t('app.previewList.redeployFailed', 'Redeploy failed'));
         } finally {
             setBusyId(null);
         }
@@ -96,26 +98,26 @@ const PreviewList = ({ appId }) => {
 
     async function handleDestroy(preview) {
         const ok = await confirm({
-            title: 'Destroy preview',
-            message: `Tear down the preview environment for PR #${preview.pr_number}? This removes its temporary domain and resources.`,
-            confirmText: 'Destroy',
+            title: t('app.previewList.destroyPreview', 'Destroy preview'),
+            message: t('app.previewList.tearDownThePreviewEnvironmentFor', 'Tear down the preview environment for PR #{{prnumber}}? This removes its temporary domain and resources.', { prnumber: preview.pr_number }),
+            confirmText: t('app.previewList.destroy', 'Destroy'),
             variant: 'danger',
         });
         if (!ok) return;
         setBusyId(preview.id);
         try {
             await api.destroyPreview(appId, preview.id);
-            toast?.success?.(`Preview for PR #${preview.pr_number} destroyed`);
+            toast?.success?.(t('app.previewList.previewForPrDestroyed', 'Preview for PR #{{prnumber}} destroyed', { prnumber: preview.pr_number }));
             await load();
         } catch (err) {
-            toast?.error?.(err.message || 'Destroy failed');
+            toast?.error?.(err.message || t('app.previewList.destroyFailed', 'Destroy failed'));
         } finally {
             setBusyId(null);
         }
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="cards" title="Loading previews..." />;
+        return <EmptyState loading loadingVariant="cards" title={t('app.previewList.loadingPreviews', 'Loading previews...')} />;
     }
 
     const enabled = !!settings?.enabled;
@@ -128,10 +130,9 @@ const PreviewList = ({ appId }) => {
                     <div className="preview-settings__title">
                         <GitPullRequest size={18} />
                         <div>
-                            <h3>PR preview environments</h3>
+                            <h3>{t('app.previewList.prPreviewEnvironments', 'PR preview environments')}</h3>
                             <p className="preview-settings__hint">
-                                Deploy an isolated preview of each open pull request to a
-                                temporary domain, and tear it down when the PR closes.
+                                {t('app.previewList.deployAnIsolatedPreviewOfEach', 'Deploy an isolated preview of each open pull request to a temporary domain, and tear it down when the PR closes.')}
                             </p>
                         </div>
                     </div>
@@ -148,7 +149,7 @@ const PreviewList = ({ appId }) => {
 
                 {enabled && (
                     <div className="preview-settings__template">
-                        <Label htmlFor="preview-template">Domain template</Label>
+                        <Label htmlFor="preview-template">{t('app.previewList.domainTemplate', 'Domain template')}</Label>
                         <div className="preview-settings__template-row">
                             <Input
                                 id="preview-template"
@@ -162,11 +163,11 @@ const PreviewList = ({ appId }) => {
                                 onClick={handleSaveTemplate}
                                 disabled={saving || template === settings?.domain_template}
                             >
-                                Save
+                                {t('app.previewList.save', 'Save')}
                             </Button>
                         </div>
                         <p className="preview-settings__hint">
-                            Placeholders: <code>{'{pr_number}'}</code>, <code>{'{branch}'}</code>,{' '}
+                            {t('app.previewList.placeholders', 'Placeholders:')} <code>{'{pr_number}'}</code>, <code>{'{branch}'}</code>,{' '}
                             <code>{'{app_domain}'}</code>.
                         </p>
                     </div>
@@ -175,21 +176,21 @@ const PreviewList = ({ appId }) => {
 
             {/* Active previews */}
             <div className="preview-list__toolbar">
-                <h4>Active previews</h4>
+                <h4>{t('app.previewList.activePreviews', 'Active previews')}</h4>
                 <Button variant="ghost" onClick={handleSync} disabled={syncing}>
                     <RefreshCw size={15} className={syncing ? 'spin' : undefined} />
-                    Sync with open PRs
+                    {t('app.previewList.syncWithOpenPrs', 'Sync with open PRs')}
                 </Button>
             </div>
 
             {previews.length === 0 ? (
                 <EmptyState
                     icon={GitPullRequest}
-                    title="No active previews"
+                    title={t('app.previewList.noActivePreviews', 'No active previews')}
                     description={
                         enabled
-                            ? 'Open a pull request to spin up a preview, or sync to reconcile now.'
-                            : 'Enable PR previews above to start deploying preview environments.'
+                            ? t('app.previewList.openAPullRequestToSpin', 'Open a pull request to spin up a preview, or sync to reconcile now.')
+                            : t('app.previewList.enablePrPreviewsAboveToStart', 'Enable PR previews above to start deploying preview environments.')
                     }
                 />
             ) : (
@@ -198,7 +199,7 @@ const PreviewList = ({ appId }) => {
                         <li key={p.id} className="preview-item">
                             <div className="preview-item__main">
                                 <div className="preview-item__title">
-                                    <span className="preview-item__pr">PR #{p.pr_number}</span>
+                                    <span className="preview-item__pr">{t('app.previewList.pr', 'PR #')}{p.pr_number}</span>
                                     <span className="preview-item__name">{p.pr_title || '(untitled)'}</span>
                                     <Pill kind={serviceStatusKind(p.status)}>{p.status}</Pill>
                                 </div>
@@ -222,7 +223,7 @@ const PreviewList = ({ appId }) => {
                                     <Button variant="ghost" size="sm" asChild>
                                         <a href={p.url} target="_blank" rel="noopener noreferrer">
                                             <ExternalLink size={15} />
-                                            Open
+                                            {t('app.previewList.open', 'Open')}
                                         </a>
                                     </Button>
                                 )}
@@ -233,7 +234,7 @@ const PreviewList = ({ appId }) => {
                                     disabled={busyId === p.id}
                                 >
                                     <RotateCcw size={15} />
-                                    Redeploy
+                                    {t('app.previewList.redeploy', 'Redeploy')}
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -242,7 +243,7 @@ const PreviewList = ({ appId }) => {
                                     disabled={busyId === p.id}
                                 >
                                     <Trash2 size={15} />
-                                    Destroy
+                                    {t('app.previewList.destroy3', 'Destroy')}
                                 </Button>
                             </div>
                         </li>

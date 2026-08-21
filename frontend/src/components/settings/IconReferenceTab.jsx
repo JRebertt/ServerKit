@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 const ICON_CATALOG = {
     'General': {
@@ -53,6 +54,7 @@ const ICON_CATALOG = {
 };
 
 const IconReferenceTab = () => {
+    const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const [copiedIcon, setCopiedIcon] = useState(null);
 
@@ -80,9 +82,9 @@ const IconReferenceTab = () => {
 
     return (
         <div className="settings-section">
-            <h2>Icon Reference</h2>
+            <h2>{t('app.iconReferenceTab.iconReference', 'Icon Reference')}</h2>
             <p className="section-description">
-                Lucide React icons available in the project ({totalIcons} icons). Click an icon name to copy it.
+                {t('app.iconReferenceTab.lucideReactIconsAvailableInThe', 'Lucide React icons available in the project (')}{totalIcons} {t('app.iconReferenceTab.iconsClickAnIconNameTo', 'icons). Click an icon name to copy it.')}
             </p>
 
             <div className="settings-card">
@@ -91,7 +93,7 @@ const IconReferenceTab = () => {
                         <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
                         <Input
                             type="text"
-                            placeholder="Search icons..."
+                            placeholder={t('app.iconReferenceTab.searchIcons', 'Search icons...')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{ paddingLeft: 36 }}
@@ -109,7 +111,7 @@ const IconReferenceTab = () => {
                                 key={name}
                                 className={`icon-reference-item ${copiedIcon === name ? 'copied' : ''}`}
                                 onClick={() => handleCopyImport(name)}
-                                title={`Click to copy "${name}"`}
+                                title={t('app.iconReferenceTab.clickToCopy', 'Click to copy "{{name}}"', { name: name })}
                             >
                                 <IconComp size={20} />
                                 <span className="icon-reference-name">
@@ -123,7 +125,7 @@ const IconReferenceTab = () => {
 
             {Object.keys(filteredCatalog).length === 0 && (
                 <div className="settings-card">
-                    <p style={{ textAlign: 'center', opacity: 0.5 }}>No icons match &quot;{searchQuery}&quot;</p>
+                    <p style={{ textAlign: 'center', opacity: 0.5 }}>{t('app.iconReferenceTab.noIconsMatch', 'No icons match "')}{searchQuery}&quot;</p>
                 </div>
             )}
         </div>

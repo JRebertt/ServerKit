@@ -16,17 +16,19 @@ import { Input } from '@/components/ui/input';
 import { Layers, Trash2 } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 import { formatRelativeTime } from '@/utils/time';
+import { useTranslation } from 'react-i18next';
 import {
     useServer,
     normalizeListResponse,
 } from './dockerHelpers';
 
 export const PullImageButton = () => {
+    const { t } = useTranslation();
     const [showModal, setShowModal] = useState(false);
     return (
         <>
             <Button onClick={() => setShowModal(true)}>
-                <span>+</span> Pull Image
+                <span>+</span> {t('app.imagesTab.pullImage', 'Pull Image')}
             </Button>
             {showModal && <PullImageModal onClose={() => setShowModal(false)} onPulled={() => window.location.reload()} />}
         </>
@@ -157,6 +159,7 @@ const IMAGE_VIEWS = [
 
 // Images Tab
 const ImagesTab = ({ onStatsChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const { confirm: confirmImage } = useConfirm();
@@ -195,7 +198,7 @@ const ImagesTab = ({ onStatsChange }) => {
     }
 
     async function handleRemove(image) {
-        const confirmed = await confirmImage({ title: 'Remove Image', message: 'Remove this image?' });
+        const confirmed = await confirmImage({ titleKey: 'app.imagesTab.removeImage', title: 'Remove Image', messageKey: 'app.imagesTab.removeThisImage', message: 'Remove this image?' });
         if (!confirmed) return;
 
         try {
@@ -205,12 +208,12 @@ const ImagesTab = ({ onStatsChange }) => {
             } else {
                 await api.removeImage(id, true);
             }
-            toast.success('Image removed successfully');
+            toast.success(t('app.imagesTab.imageRemovedSuccessfully', 'Image removed successfully'));
             loadImages();
             onStatsChange?.();
         } catch (err) {
             console.error('Failed to remove image:', err);
-            toast.error('Failed to remove image. It may be in use by a container.');
+            toast.error(t('app.imagesTab.failedToRemoveImageItMay', 'Failed to remove image. It may be in use by a container.'));
         }
     }
 
@@ -231,7 +234,7 @@ const ImagesTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'repository',
-            header: 'Repository',
+            headerKey: 'app.imagesTab.repository', header: 'Repository',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -253,7 +256,7 @@ const ImagesTab = ({ onStatsChange }) => {
         },
         {
             key: 'tag',
-            header: 'Tag',
+            headerKey: 'app.imagesTab.tag', header: 'Tag',
             sortable: true,
             // Declared: a host whose tags all read "8.0"/"20" would infer `num`
             // and offer "is under 20" instead of a text match.
@@ -264,7 +267,7 @@ const ImagesTab = ({ onStatsChange }) => {
         },
         {
             key: 'size',
-            header: 'Size',
+            headerKey: 'app.imagesTab.size', header: 'Size',
             sortable: true,
             type: 'num',
             unit: ' MB',
@@ -277,7 +280,7 @@ const ImagesTab = ({ onStatsChange }) => {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.imagesTab.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type the
             // column would offer "is under 1754…" instead of a date picker.
@@ -312,7 +315,7 @@ const ImagesTab = ({ onStatsChange }) => {
                         type="button"
                         className="dx-row-action is-danger"
                         onClick={() => handleRemove(image)}
-                        title="Remove image"
+                        title={t('app.imagesTab.removeImage2', 'Remove image')}
                     >
                         <Trash2 size={13} />
                     </button>
@@ -353,7 +356,7 @@ const ImagesTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">Loading images...</div>
+                <div className="docker-loading">{t('app.imagesTab.loadingImages', 'Loading images...')}</div>
             </div>
         );
     }
@@ -369,7 +372,7 @@ const ImagesTab = ({ onStatsChange }) => {
                         <SearchField
                             value={searchTerm}
                             onSearch={setSearchTerm}
-                            placeholder="Filter repository, tag, or ID…"
+                            placeholder={t('app.imagesTab.filterRepositoryTagOrId', 'Filter repository, tag, or ID…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -388,10 +391,10 @@ const ImagesTab = ({ onStatsChange }) => {
             {filteredImages.length === 0 ? (
                 <EmptyState
                     icon={Layers}
-                    title={images.length === 0 ? 'No images' : 'No matching images'}
+                    title={images.length === 0 ? t('app.imagesTab.noImages', 'No images') : t('app.imagesTab.noMatchingImages', 'No matching images')}
                     description={images.length === 0
-                        ? 'Pull an image to see it here.'
-                        : 'No images match the current search.'}
+                        ? t('app.imagesTab.pullAnImageToSeeIt', 'Pull an image to see it here.')
+                        : t('app.imagesTab.noImagesMatchTheCurrentSearch', 'No images match the current search.')}
                 />
             ) : (
                 <section className="dx-resource-list">
@@ -423,6 +426,7 @@ const ImagesTab = ({ onStatsChange }) => {
 };
 
 const PullImageModal = ({ onClose, onPulled }) => {
+    const { t } = useTranslation();
     const { serverId, isRemote } = useServer();
     const [image, setImage] = useState('');
     const [tag, setTag] = useState('latest');
@@ -451,23 +455,23 @@ const PullImageModal = ({ onClose, onPulled }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title="Pull Image" size="md">
+        <Modal open onClose={onClose} title={t('app.imagesTab.pullImage2', 'Pull Image')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Image Name *</label>
+                    <label>{t('app.imagesTab.imageName', 'Image Name *')}</label>
                     <Input
                         type="text"
                         value={image}
                         onChange={(e) => setImage(e.target.value)}
-                        placeholder="nginx, mysql, redis"
+                        placeholder={t('app.imagesTab.nginxMysqlRedis', 'nginx, mysql, redis')}
                         required
                     />
                 </div>
 
                 <div className="form-group">
-                    <label>Tag</label>
+                    <label>{t('app.imagesTab.tag2', 'Tag')}</label>
                     <Input
                         type="text"
                         value={tag}
@@ -478,7 +482,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('app.imagesTab.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Pulling...' : 'Pull Image'}

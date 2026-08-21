@@ -1,4 +1,5 @@
 import { GitBranch, Link2, Unlink, ExternalLink, Server } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const LinkedAppsSection = ({
     app,
@@ -8,6 +9,7 @@ const LinkedAppsSection = ({
     onNavigate,
     loading
 }) => {
+    const { t } = useTranslation();
     const envLabels = {
         production: 'Production',
         development: 'Development',
@@ -35,7 +37,7 @@ const LinkedAppsSection = ({
             <div className="linked-apps-header">
                 <h3>
                     <GitBranch size={18} />
-                    Environment Linking
+                    {t('app.linkedAppsSection.environmentLinking', 'Environment Linking')}
                 </h3>
                 {!app.has_linked_app && (
                     <button type="button"
@@ -44,7 +46,7 @@ const LinkedAppsSection = ({
                         disabled={loading}
                     >
                         <Link2 size={14} />
-                        Link App
+                        {t('app.linkedAppsSection.linkApp', 'Link App')}
                     </button>
                 )}
             </div>
@@ -52,7 +54,7 @@ const LinkedAppsSection = ({
             <div className="linked-apps-content">
                 {/* Current app environment */}
                 <div className="current-environment">
-                    <span className="env-label">This app is:</span>
+                    <span className="env-label">{t('app.linkedAppsSection.thisAppIs', 'This app is:')}</span>
                     <span className={`env-badge ${envColors[app.environment_type] || ''}`}>
                         {envLabels[app.environment_type] || 'Standalone'}
                     </span>
@@ -62,7 +64,7 @@ const LinkedAppsSection = ({
                 {linkedApps && linkedApps.length > 0 ? (
                     <div className="linked-apps-list">
                         <div className="linked-apps-divider">
-                            <span>Linked to</span>
+                            <span>{t('app.linkedAppsSection.linkedTo', 'Linked to')}</span>
                         </div>
                         {linkedApps.map(linkedApp => (
                             <div key={linkedApp.id} className="linked-app-item">
@@ -90,7 +92,7 @@ const LinkedAppsSection = ({
                                     <button type="button"
                                         className="btn btn-secondary btn-sm btn-icon"
                                         onClick={() => onNavigate(linkedApp.id)}
-                                        title="View app"
+                                        title={t('app.linkedAppsSection.viewApp', 'View app')}
                                     >
                                         <ExternalLink size={14} />
                                     </button>
@@ -98,7 +100,7 @@ const LinkedAppsSection = ({
                                         className="btn btn-secondary btn-sm btn-icon"
                                         onClick={onUnlink}
                                         disabled={loading}
-                                        title="Unlink apps"
+                                        title={t('app.linkedAppsSection.unlinkApps', 'Unlink apps')}
                                     >
                                         <Unlink size={14} />
                                     </button>
@@ -108,21 +110,20 @@ const LinkedAppsSection = ({
                     </div>
                 ) : app.environment_type !== 'standalone' ? (
                     <div className="linked-apps-empty">
-                        <p>No linked apps. Link another app to share database resources.</p>
+                        <p>{t('app.linkedAppsSection.noLinkedAppsLinkAnotherApp', 'No linked apps. Link another app to share database resources.')}</p>
                         <button type="button"
                             className="btn btn-secondary btn-sm"
                             onClick={onLink}
                             disabled={loading}
                         >
                             <Link2 size={14} />
-                            Link App
+                            {t('app.linkedAppsSection.linkApp2', 'Link App')}
                         </button>
                     </div>
                 ) : (
                     <div className="linked-apps-info">
                         <p>
-                            Link this app to another to create a production/development pair.
-                            Linked apps can share database credentials with different table prefixes.
+                            {t('app.linkedAppsSection.linkThisAppToAnotherTo', 'Link this app to another to create a production/development pair. Linked apps can share database credentials with different table prefixes.')}
                         </p>
                     </div>
                 )}
@@ -132,12 +133,12 @@ const LinkedAppsSection = ({
                     <div className="shared-config-info">
                         <div className="shared-config-badge">
                             <Server size={12} />
-                            Shared Database
+                            {t('app.linkedAppsSection.sharedDatabase', 'Shared Database')}
                         </div>
                         {app.shared_config.shared_db && (
                             <div className="shared-config-details">
-                                <span>Host: {app.shared_config.shared_db.db_host}</span>
-                                <span>Table prefix: {app.shared_config.shared_db.target_prefix || app.shared_config.shared_db.source_prefix}</span>
+                                <span>{t('app.linkedAppsSection.host', 'Host:')} {app.shared_config.shared_db.db_host}</span>
+                                <span>{t('app.linkedAppsSection.tablePrefix', 'Table prefix:')} {app.shared_config.shared_db.target_prefix || app.shared_config.shared_db.source_prefix}</span>
                             </div>
                         )}
                     </div>

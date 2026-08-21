@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 /**
  * STAGING banner — a full-width amber strip shown only on the plan-37 staging
@@ -8,6 +9,7 @@ import api from '../services/api';
  * nothing on a normal instance and never throws on fetch errors.
  */
 const StagingBanner = () => {
+    const { t } = useTranslation();
     const [isStaging, setIsStaging] = useState(false);
 
     useEffect(() => {
@@ -30,9 +32,9 @@ const StagingBanner = () => {
 
     return (
         <div className="staging-banner" role="status">
-            <span className="staging-banner__label">Staging</span>
+            <span className="staging-banner__label">{t('app.stagingBanner.staging', 'Staging')}</span>
             <span className="staging-banner__text">
-                Staging instance — not the live panel
+                {t('app.stagingBanner.stagingInstanceNotTheLivePanel', 'Staging instance — not the live panel')}
             </span>
         </div>
     );

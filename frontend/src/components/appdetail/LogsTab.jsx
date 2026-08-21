@@ -3,10 +3,12 @@ import { logsToText } from '@/utils/logText';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { usePolling } from '../../hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const LOG_REFRESH_MS = 5000;
 
 const LogsTab = ({ app }) => {
+    const { t } = useTranslation();
     const [logs, setLogs] = useState('');
     const [loading, setLoading] = useState(true);
     const [autoRefresh, setAutoRefresh] = useState(false);
@@ -44,13 +46,13 @@ const LogsTab = ({ app }) => {
     return (
         <div className="logs-tab">
             <div className="logs-header">
-                <h3>Application Logs</h3>
+                <h3>{t('app.logsTab.applicationLogs', 'Application Logs')}</h3>
                 <div className="logs-controls">
                     {isPythonApp && (
-                        <span className="hint">Gunicorn/systemd Logs</span>
+                        <span className="hint">{t('app.logsTab.gunicornSystemdLogs', 'Gunicorn/systemd Logs')}</span>
                     )}
                     {isDockerApp && (
-                        <span className="hint">Docker Compose Logs</span>
+                        <span className="hint">{t('app.logsTab.dockerComposeLogs', 'Docker Compose Logs')}</span>
                     )}
                     <label className="checkbox-inline">
                         <input
@@ -58,10 +60,10 @@ const LogsTab = ({ app }) => {
                             checked={autoRefresh}
                             onChange={(e) => setAutoRefresh(e.target.checked)}
                         />
-                        Auto-refresh
+                        {t('app.logsTab.autoRefresh', 'Auto-refresh')}
                     </label>
                     <Button variant="outline" size="sm" onClick={loadLogs}>
-                        Refresh
+                        {t('app.logsTab.refresh', 'Refresh')}
                     </Button>
                 </div>
             </div>

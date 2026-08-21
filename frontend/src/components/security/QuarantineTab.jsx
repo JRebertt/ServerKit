@@ -12,6 +12,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { formatBytes } from '@/utils/formatBytes';
 import { useConfirm } from '@/hooks/useConfirm';
+import { useTranslation } from 'react-i18next';
 
 // Built-in saved views. Three, because the quarantine list only ever answers
 // three questions: what did the last scan catch, what is filling the
@@ -61,6 +62,7 @@ const QUARANTINE_VIEWS = [
 ];
 
 const QuarantineTab = () => {
+    const { t } = useTranslation();
     const { confirm } = useConfirm();
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -87,9 +89,9 @@ const QuarantineTab = () => {
 
     async function handleDelete(filename) {
         if (!await confirm({
-            title: 'Delete quarantined file',
-            message: `Permanently delete ${filename}? This cannot be undone.`,
-            confirmText: 'Delete file',
+            title: t('app.quarantineTab.deleteQuarantinedFile', 'Delete quarantined file'),
+            message: t('app.quarantineTab.permanentlyDeleteThisCannotBeUndone', 'Permanently delete {{filename}}? This cannot be undone.', { filename: filename }),
+            confirmText: t('app.quarantineTab.deleteFile', 'Delete file'),
         })) return;
 
         try {
@@ -104,9 +106,9 @@ const QuarantineTab = () => {
     async function handleRestore(file) {
         const target = file.original_path || 'its original location';
         if (!await confirm({
-            title: 'Restore quarantined file',
-            message: `Restore ${file.name} to ${target}? Only do this for false positives.`,
-            confirmText: 'Restore file',
+            title: t('app.quarantineTab.restoreQuarantinedFile', 'Restore quarantined file'),
+            message: t('app.quarantineTab.restoreToOnlyDoThisFor', 'Restore {{name}} to {{target}}? Only do this for false positives.', { name: file.name, target: target }),
+            confirmText: t('app.quarantineTab.restoreFile', 'Restore file'),
             variant: 'warning',
         })) return;
 
@@ -126,7 +128,7 @@ const QuarantineTab = () => {
     const columns = [
         {
             key: 'filename',
-            header: 'Filename',
+            headerKey: 'app.quarantineTab.filename', header: 'Filename',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -137,7 +139,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'original',
-            header: 'Original Location',
+            headerKey: 'app.quarantineTab.originalLocation', header: 'Original Location',
             sortable: true,
             type: 'text',
             // '' rather than null when the sidecar is missing: the Restorable
@@ -154,7 +156,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'size',
-            header: 'Size',
+            headerKey: 'app.quarantineTab.size', header: 'Size',
             sortable: true,
             type: 'num',
             value: (file) => (file.size == null ? null : Number(file.size)),
@@ -164,7 +166,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'quarantined',
-            header: 'Quarantined',
+            headerKey: 'app.quarantineTab.quarantined', header: 'Quarantined',
             sortable: true,
             // Declared, not inferred: the sorter wants epoch ms, and letting
             // that number type the column would offer "is under 1754…" instead
@@ -180,7 +182,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.quarantineTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (file) => (
@@ -190,16 +192,16 @@ const QuarantineTab = () => {
                         size="sm"
                         onClick={() => handleRestore(file)}
                         disabled={!file.original_path}
-                        title={file.original_path ? 'Restore to original location' : 'Original location unknown'}
+                        title={file.original_path ? t('app.quarantineTab.restoreToOriginalLocation', 'Restore to original location') : t('app.quarantineTab.originalLocationUnknown', 'Original location unknown')}
                     >
-                        Restore
+                        {t('app.quarantineTab.restore', 'Restore')}
                     </Button>
                     <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(file.name)}
                     >
-                        Delete
+                        {t('app.quarantineTab.delete', 'Delete')}
                     </Button>
                 </div>
             ),
@@ -269,8 +271,8 @@ const QuarantineTab = () => {
                 emptyState={(
                     <EmptyState
                         icon={ShieldCheck}
-                        title="No files in quarantine"
-                        description="Infected files will appear here when detected"
+                        title={t('app.quarantineTab.noFilesInQuarantine', 'No files in quarantine')}
+                        description={t('app.quarantineTab.infectedFilesWillAppearHereWhen', 'Infected files will appear here when detected')}
                     />
                 )}
                 footer={(

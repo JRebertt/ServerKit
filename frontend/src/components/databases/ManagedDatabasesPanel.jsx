@@ -8,11 +8,13 @@ import { Pill } from '../ds';
 import AdminerSsoButton from './AdminerSsoButton';
 import DbUsersPanel from './DbUsersPanel';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // Durable list of the databases ServerKit tracks (provisioned or adopted),
 // beside the live explorer. Reveal/copy a real connection string (audited),
 // protect it with a backup policy (real FK), or untrack/drop it.
 export default function ManagedDatabasesPanel() {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [rows, setRows] = useState([]);
@@ -26,7 +28,7 @@ export default function ManagedDatabasesPanel() {
             const data = await api.getManagedDatabases();
             setRows(data?.databases || []);
         } catch (err) {
-            toast.error(err.message || 'Failed to load managed databases');
+            toast.error(err.message || t('app.managedDatabasesPanel.failedToLoadManagedDatabases', 'Failed to load managed databases'));
         } finally {
             setLoading(false);
         }
@@ -40,12 +42,12 @@ export default function ManagedDatabasesPanel() {
             const data = await api.revealManagedConnectionUri(row.id);
             const uri = data?.connection_uri;
             if (uri && await copyToClipboard(uri)) {
-                toast.success('Connection string copied (reveal was audited)');
+                toast.success(t('app.managedDatabasesPanel.connectionStringCopiedRevealWasAudited', 'Connection string copied (reveal was audited)'));
             } else if (uri) {
                 toast.info(uri);
             }
         } catch (err) {
-            toast.error(err.message || 'Failed to reveal connection string');
+            toast.error(err.message || t('app.managedDatabasesPanel.failedToRevealConnectionString', 'Failed to reveal connection string'));
         } finally {
             setBusyId(null);
         }
@@ -55,9 +57,9 @@ export default function ManagedDatabasesPanel() {
         setBusyId(row.id);
         try {
             await api.protectManagedDatabase(row.id);
-            toast.success('Backup policy created. Tune it under Backups.');
+            toast.success(t('app.managedDatabasesPanel.backupPolicyCreatedTuneItUnder', 'Backup policy created. Tune it under Backups.'));
         } catch (err) {
-            toast.error(err.message || 'Failed to protect database');
+            toast.error(err.message || t('app.managedDatabasesPanel.failedToProtectDatabase', 'Failed to protect database'));
         } finally {
             setBusyId(null);
         }
@@ -65,46 +67,44 @@ export default function ManagedDatabasesPanel() {
 
     async function untrack(row, drop) {
         const ok = await confirm({
-            title: drop ? `Drop “${row.name}”?` : `Untrack “${row.name}”?`,
+            title: drop ? t('app.managedDatabasesPanel.drop', 'Drop “{{name}}”?', { name: row.name }) : t('app.managedDatabasesPanel.untrack', 'Untrack “{{name}}”?', { name: row.name }),
             message: drop
-                ? 'This DROPs the database on the server and removes tracking. This cannot be undone.'
-                : 'This stops tracking the database. The database itself is left untouched.',
-            confirmText: drop ? 'Drop database' : 'Untrack',
+                ? t('app.managedDatabasesPanel.thisDropsTheDatabaseOnThe', 'This DROPs the database on the server and removes tracking. This cannot be undone.')
+                : t('app.managedDatabasesPanel.thisStopsTrackingTheDatabaseThe', 'This stops tracking the database. The database itself is left untouched.'),
+            confirmText: drop ? t('app.managedDatabasesPanel.dropDatabase', 'Drop database') : t('app.managedDatabasesPanel.untrack2', 'Untrack'),
             danger: drop,
         });
         if (!ok) return;
         setBusyId(row.id);
         try {
             await api.deleteManagedDatabase(row.id, { drop });
-            toast.success(drop ? 'Database dropped and untracked' : 'Database untracked');
+            toast.success(drop ? t('app.managedDatabasesPanel.databaseDroppedAndUntracked', 'Database dropped and untracked') : t('app.managedDatabasesPanel.databaseUntracked', 'Database untracked'));
             await load();
         } catch (err) {
-            toast.error(err.message || 'Failed to remove database');
+            toast.error(err.message || t('app.managedDatabasesPanel.failedToRemoveDatabase', 'Failed to remove database'));
         } finally {
             setBusyId(null);
         }
     }
 
     if (loading) {
-        return <p className="managed-db__hint">Loading managed databases…</p>;
+        return <p className="managed-db__hint">{t('app.managedDatabasesPanel.loadingManagedDatabases', 'Loading managed databases…')}</p>;
     }
 
     return (
         <div className="managed-db">
             <div className="managed-db__head">
                 <p className="managed-db__hint">
-                    Databases ServerKit tracks for backups and connection strings. The live
-                    explorer still shows everything on the server.
+                    {t('app.managedDatabasesPanel.databasesServerkitTracksForBackupsAnd', 'Databases ServerKit tracks for backups and connection strings. The live explorer still shows everything on the server.')}
                 </p>
-                <Button type="button" size="sm" variant="ghost" onClick={load} aria-label="Refresh">
-                    <RefreshCw size={14} /> Refresh
+                <Button type="button" size="sm" variant="ghost" onClick={load} aria-label={t('app.managedDatabasesPanel.refresh', 'Refresh')}>
+                    <RefreshCw size={14} /> {t('app.managedDatabasesPanel.refresh2', 'Refresh')}
                 </Button>
             </div>
 
             {rows.length === 0 ? (
                 <p className="managed-db__empty">
-                    <Link2 size={15} /> No tracked databases yet. Provisioning a database tracks it
-                    automatically; you can also adopt an existing one.
+                    <Link2 size={15} /> {t('app.managedDatabasesPanel.noTrackedDatabasesYetProvisioningA', 'No tracked databases yet. Provisioning a database tracks it automatically; you can also adopt an existing one.')}
                 </p>
             ) : (
                 <div className="managed-db__list">
@@ -125,22 +125,22 @@ export default function ManagedDatabasesPanel() {
                                     )}
                                     <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
                                         onClick={() => copyConnectionUri(row)}>
-                                        <Copy size={14} /> Connection string
+                                        <Copy size={14} /> {t('app.managedDatabasesPanel.connectionString', 'Connection string')}
                                     </Button>
                                     <Button type="button" size="sm" variant="outline" disabled={busyId === row.id}
                                         onClick={() => protect(row)}>
-                                        <ShieldCheck size={14} /> Protect
+                                        <ShieldCheck size={14} /> {t('app.managedDatabasesPanel.protect', 'Protect')}
                                     </Button>
                                     {(row.engine === 'mysql' || row.engine === 'postgresql') && (
                                         <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
                                             onClick={() => setUsersOpenId(usersOpenId === row.id ? null : row.id)}
                                             aria-expanded={usersOpenId === row.id}>
-                                            <Users size={14} /> Users
+                                            <Users size={14} /> {t('app.managedDatabasesPanel.users', 'Users')}
                                         </Button>
                                     )}
                                     <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
-                                        onClick={() => untrack(row, false)} aria-label={`Untrack ${row.name}`}>
-                                        <Trash2 size={14} /> Untrack
+                                        onClick={() => untrack(row, false)} aria-label={t('app.managedDatabasesPanel.untrack3', 'Untrack {{name}}', { name: row.name })}>
+                                        <Trash2 size={14} /> {t('app.managedDatabasesPanel.untrack4', 'Untrack')}
                                     </Button>
                                 </div>
                             </div>

@@ -6,12 +6,13 @@ import { Pill, SegControl } from '../ds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
 
 // WAF modes with one-line descriptions shown under the selector.
 const MODE_OPTIONS = [
-    { value: 'off', label: 'Off' },
-    { value: 'detect', label: 'Detect-only' },
-    { value: 'block', label: 'Block' },
+    { value: 'off', labelKey: 'app.appWafPanel.off', label: 'Off' },
+    { value: 'detect', labelKey: 'app.appWafPanel.detectOnly', label: 'Detect-only' },
+    { value: 'block', labelKey: 'app.appWafPanel.block', label: 'Block' },
 ];
 
 const MODE_HINTS = {
@@ -51,6 +52,7 @@ const DEFAULT_POLICY = {
 };
 
 const AppWafPanel = ({ app, onChanged }) => {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [policy, setPolicy] = useState(DEFAULT_POLICY);
@@ -122,13 +124,13 @@ const AppWafPanel = ({ app, onChanged }) => {
         try {
             const result = await api.installWaf();
             if (result?.success === false) {
-                toast.error(result.message || result.error || 'Failed to install ModSecurity');
+                toast.error(result.message || result.error || t('app.appWafPanel.failedToInstallModsecurity', 'Failed to install ModSecurity'));
             } else {
-                toast.success(result?.message || 'ModSecurity installed.');
+                toast.success(result?.message || t('app.appWafPanel.modsecurityInstalled', 'ModSecurity installed.'));
             }
             await loadStatus();
         } catch (err) {
-            toast.error(err.message || 'Failed to install ModSecurity');
+            toast.error(err.message || t('app.appWafPanel.failedToInstallModsecurity2', 'Failed to install ModSecurity'));
         } finally {
             setInstalling(false);
         }
@@ -179,10 +181,10 @@ const AppWafPanel = ({ app, onChanged }) => {
                     : payload.disabled_rule_ids;
                 setPolicy(merged);
             }
-            toast.success('WAF policy saved.');
+            toast.success(t('app.appWafPanel.wafPolicySaved', 'WAF policy saved.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || 'Failed to save WAF policy');
+            toast.error(err.message || t('app.appWafPanel.failedToSaveWafPolicy', 'Failed to save WAF policy'));
         } finally {
             setSaving(false);
         }
@@ -193,17 +195,17 @@ const AppWafPanel = ({ app, onChanged }) => {
         try {
             const result = await api.applyWaf(app.id);
             if (result?.success === false) {
-                toast.error(result.message || result.error || 'Failed to apply WAF rules');
+                toast.error(result.message || result.error || t('app.appWafPanel.failedToApplyWafRules', 'Failed to apply WAF rules'));
             } else if (result?.manual_include) {
                 toast.warning(
-                    `Rules written, but no vhost was found. Include it manually: ${result.manual_include}`,
+                    t('app.appWafPanel.rulesWrittenButNoVhostWas', 'Rules written, but no vhost was found. Include it manually: {{manualinclude}}', { manualinclude: result.manual_include }),
                     12000,
                 );
             } else {
-                toast.success(result?.message || 'WAF rules applied and nginx reloaded.');
+                toast.success(result?.message || t('app.appWafPanel.wafRulesAppliedAndNginxReloaded', 'WAF rules applied and nginx reloaded.'));
             }
         } catch (err) {
-            toast.error(err.message || 'Failed to apply WAF rules');
+            toast.error(err.message || t('app.appWafPanel.failedToApplyWafRules2', 'Failed to apply WAF rules'));
         } finally {
             setApplying(false);
         }
@@ -218,10 +220,9 @@ const AppWafPanel = ({ app, onChanged }) => {
             {status && !installed && (
                 <div className="waf-panel__banner">
                     <div className="waf-panel__banner-text">
-                        <strong>ModSecurity is not installed on this server</strong>
+                        <strong>{t('app.appWafPanel.modsecurityIsNotInstalledOnThis', 'ModSecurity is not installed on this server')}</strong>
                         <span>
-                            Install ModSecurity and the OWASP Core Rule Set to enable the web
-                            application firewall for this app.
+                            {t('app.appWafPanel.installModsecurityAndTheOwaspCore', 'Install ModSecurity and the OWASP Core Rule Set to enable the web application firewall for this app.')}
                         </span>
                     </div>
                     <Button size="sm" onClick={handleInstall} disabled={installing}>
@@ -234,7 +235,7 @@ const AppWafPanel = ({ app, onChanged }) => {
             <div className="app-panel waf-panel__section">
                 <div className="app-panel-header">
                     <ShieldCheck />
-                    <span>Firewall Policy</span>
+                    <span>{t('app.appWafPanel.firewallPolicy', 'Firewall Policy')}</span>
                     <span className="app-panel-header-actions">
                         {!loading && (
                             <Pill kind={MODE_PILL[policy.mode] || 'gray'}>
@@ -245,12 +246,11 @@ const AppWafPanel = ({ app, onChanged }) => {
                 </div>
                 <div className="app-panel-body">
                     <p className="app-panel-hint">
-                        ModSecurity with the OWASP Core Rule Set inspects incoming requests for
-                        common attacks (SQL injection, XSS, and more) before they reach this app.
+                        {t('app.appWafPanel.modsecurityWithTheOwaspCoreRule', 'ModSecurity with the OWASP Core Rule Set inspects incoming requests for common attacks (SQL injection, XSS, and more) before they reach this app.')}
                     </p>
 
                     <div className="waf-panel__mode">
-                        <Label>Mode</Label>
+                        <Label>{t('app.appWafPanel.mode', 'Mode')}</Label>
                         <SegControl
                             options={MODE_OPTIONS}
                             value={policy.mode}
@@ -261,7 +261,7 @@ const AppWafPanel = ({ app, onChanged }) => {
 
                     <div className="container-ops__grid">
                         <div className="container-ops__input">
-                            <Label htmlFor={`waf-paranoia-${app.id}`}>Paranoia level (1–4)</Label>
+                            <Label htmlFor={`waf-paranoia-${app.id}`}>{t('app.appWafPanel.paranoiaLevel14', 'Paranoia level (1–4)')}</Label>
                             <Input
                                 id={`waf-paranoia-${app.id}`}
                                 type="number"
@@ -273,7 +273,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                             />
                         </div>
                         <div className="container-ops__input">
-                            <Label htmlFor={`waf-threshold-${app.id}`}>Anomaly threshold</Label>
+                            <Label htmlFor={`waf-threshold-${app.id}`}>{t('app.appWafPanel.anomalyThreshold', 'Anomaly threshold')}</Label>
                             <Input
                                 id={`waf-threshold-${app.id}`}
                                 type="number"
@@ -286,10 +286,9 @@ const AppWafPanel = ({ app, onChanged }) => {
                     </div>
 
                     <div className="waf-panel__rules">
-                        <Label htmlFor={`waf-rule-${app.id}`}>Disabled CRS rule IDs</Label>
+                        <Label htmlFor={`waf-rule-${app.id}`}>{t('app.appWafPanel.disabledCrsRuleIds', 'Disabled CRS rule IDs')}</Label>
                         <span className="container-ops__field-hint">
-                            Suppress specific Core Rule Set rules that cause false positives for
-                            this app.
+                            {t('app.appWafPanel.suppressSpecificCoreRuleSetRules', 'Suppress specific Core Rule Set rules that cause false positives for this app.')}
                         </span>
                         <div className="waf-panel__rules-input">
                             <Input
@@ -298,7 +297,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                                 value={ruleInput}
                                 onChange={(e) => setRuleInput(e.target.value)}
                                 onKeyDown={handleRuleKeyDown}
-                                placeholder="e.g. 942100"
+                                placeholder={t('app.appWafPanel.eG942100', 'e.g. 942100')}
                                 disabled={loading}
                             />
                             <Button
@@ -307,7 +306,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                                 onClick={handleAddRule}
                                 disabled={loading || !ruleInput.trim()}
                             >
-                                Add
+                                {t('app.appWafPanel.add', 'Add')}
                             </Button>
                         </div>
                         {policy.disabled_rule_ids.length > 0 ? (
@@ -319,7 +318,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                                             type="button"
                                             className="waf-panel__chip-remove"
                                             onClick={() => handleRemoveRule(id)}
-                                            aria-label={`Remove rule ${id}`}
+                                            aria-label={t('app.appWafPanel.removeRule', 'Remove rule {{id}}', { id: id })}
                                         >
                                             <X size={13} />
                                         </button>
@@ -327,7 +326,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                                 ))}
                             </div>
                         ) : (
-                            <span className="container-ops__field-hint">No rules disabled.</span>
+                            <span className="container-ops__field-hint">{t('app.appWafPanel.noRulesDisabled', 'No rules disabled.')}</span>
                         )}
                     </div>
 
@@ -346,7 +345,7 @@ const AppWafPanel = ({ app, onChanged }) => {
             <div className="app-panel waf-panel__section">
                 <div className="app-panel-header">
                     <ListChecks />
-                    <span>Recent events</span>
+                    <span>{t('app.appWafPanel.recentEvents', 'Recent events')}</span>
                     <span className="app-panel-header-actions">
                         <Button variant="ghost" size="sm" onClick={loadEvents} disabled={eventsLoading}>
                             <RefreshCw size={14} />
@@ -360,12 +359,12 @@ const AppWafPanel = ({ app, onChanged }) => {
                             <table className="waf-panel__table">
                                 <thead>
                                     <tr>
-                                        <th>Rule ID</th>
-                                        <th>Severity</th>
-                                        <th>Message</th>
+                                        <th>{t('app.appWafPanel.ruleId', 'Rule ID')}</th>
+                                        <th>{t('app.appWafPanel.severity', 'Severity')}</th>
+                                        <th>{t('app.appWafPanel.message', 'Message')}</th>
                                         <th>URI</th>
-                                        <th>Client</th>
-                                        <th>Time</th>
+                                        <th>{t('app.appWafPanel.client', 'Client')}</th>
+                                        <th>{t('app.appWafPanel.time', 'Time')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>

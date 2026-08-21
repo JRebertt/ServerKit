@@ -7,11 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import EmptyState from '../EmptyState';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 // Admin-only card to enable/disable the optional feature verticals (Email,
 // WordPress). Toggling writes through the /modules API and then refreshes the
 // shared module state so the sidebar + route guards update immediately.
 const ModulesTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const { isAdmin } = useAuth();
     const { modules, refresh } = useModules();
@@ -37,8 +39,8 @@ const ModulesTab = () => {
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2><Layers size={20} /> Modules</h2>
-                <p>Enable or disable optional feature areas. Disabled modules are hidden from the sidebar and their pages become unreachable.</p>
+                <h2><Layers size={20} /> {t('app.modulesTab.modules', 'Modules')}</h2>
+                <p>{t('app.modulesTab.enableOrDisableOptionalFeatureAreas', 'Enable or disable optional feature areas. Disabled modules are hidden from the sidebar and their pages become unreachable.')}</p>
             </div>
 
             {message && (
@@ -49,7 +51,7 @@ const ModulesTab = () => {
             )}
 
             {!modules ? (
-                <EmptyState loading title="Loading modules..." />
+                <EmptyState loading title={t('app.modulesTab.loadingModules', 'Loading modules...')} />
             ) : (
                 <div {...register('modules-toggle', 'settings-card')}>
                     {modules.map((mod) => (

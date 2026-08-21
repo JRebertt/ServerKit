@@ -24,10 +24,11 @@ import {
 import { useWidgetTypes, getWidgetType } from '../components/dashboard/widgets/registry';
 import { RANGES } from '../components/dashboard/widgets/metrics';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Auto-refresh choices, in seconds. 0 means "don't".
 const REFRESH_OPTIONS = [
-    { label: 'Off', value: 0 },
+    { labelKey: 'app.dashboard.off', label: 'Off', value: 0 },
     { label: '5s', value: 5 },
     { label: '10s', value: 10 },
     { label: '30s', value: 30 },
@@ -35,6 +36,7 @@ const REFRESH_OPTIONS = [
 ];
 
 const Dashboard = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { isAdmin } = useAuth();
     const toast = useToast();
@@ -86,7 +88,7 @@ const Dashboard = () => {
     const selectedType = getWidgetType(widgetTypes, selectedWidget?.type);
 
     const resources = useMemo(() => ([
-        { id: 'local', label: 'Local (this server)', kind: 'panel host' },
+        { id: 'local', labelKey: 'app.dashboard.localThisServer', label: 'Local (this server)', kind: 'panel host' },
         ...servers
             .filter((s) => s && s.id && s.id !== 'local')
             .map((s) => ({ id: s.id, label: s.name || s.id, kind: 'server' })),
@@ -253,22 +255,22 @@ const Dashboard = () => {
             await saveActive();
             setEdit(false);
             setSelectedId(null);
-            toast.success('Dashboard saved', {
-                description: `${widgets.length} widget${widgets.length === 1 ? '' : 's'} · ${activeBoard?.name}`,
+            toast.success(t('app.dashboard.dashboardSaved', 'Dashboard saved'), {
+                description: t('app.dashboard.widget', '{{length}} widget{{value}} · {{value2}}', { length: widgets.length, value: widgets.length === 1 ? '' : 's', value2: activeBoard?.name }),
             });
         } catch {
             // useDashboardBoards keeps the edited layout on screen and surfaces
             // the reason; staying in edit mode means the work isn't lost.
-            toast.error('Could not save', { description: 'Your layout is still here — try again.' });
+            toast.error(t('app.dashboard.couldNotSave', 'Could not save'), { description: t('app.dashboard.yourLayoutIsStillHereTry', 'Your layout is still here — try again.') });
         }
     };
 
     const handleReset = async () => {
         try {
             await resetActiveBoard();
-            toast.info('Reset to the shipped layout', { description: activeBoard?.name });
+            toast.info(t('app.dashboard.resetToTheShippedLayout', 'Reset to the shipped layout'), { description: activeBoard?.name });
         } catch {
-            toast.error('Could not reset', { description: 'This board has no shipped default.' });
+            toast.error(t('app.dashboard.couldNotReset', 'Could not reset'), { description: t('app.dashboard.thisBoardHasNoShippedDefault', 'This board has no shipped default.') });
         }
     };
 
@@ -300,7 +302,7 @@ const Dashboard = () => {
         : metrics?.time?.current_time_formatted?.split(' ')[1] || '--:--:--';
 
     if (boardsLoading && metricsLoading) {
-        return <EmptyState loading loadingVariant="chart" title="Loading dashboard..." />;
+        return <EmptyState loading loadingVariant="chart" title={t('app.dashboard.loadingDashboard', 'Loading dashboard...')} />;
     }
 
     const grid = (
@@ -326,11 +328,11 @@ const Dashboard = () => {
                         {isConnected ? 'Live' : 'Reconnecting'}
                     </span>
                     <span className="skw-tv__meta mono">
-                        {selectedServer.name} · {range} · refresh {refreshInterval ? `${refreshInterval}s` : 'off'}
+                        {selectedServer.name} · {range} {t('app.dashboard.refresh', '· refresh')} {refreshInterval ? `${refreshInterval}s` : 'off'}
                     </span>
                     <span className="skw-tv__clock mono">{displayTime}</span>
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => setTvMode(false)}>
-                        <X size={14} /> Exit
+                        <X size={14} /> {t('app.dashboard.exit', 'Exit')}
                     </button>
                 </div>
                 <div className="skw-tv__body">{grid}</div>
@@ -388,7 +390,7 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     className="skw-iconbtn skw-iconbtn--bare"
-                                    aria-label={`Delete ${board.name}`}
+                                    aria-label={t('app.dashboard.delete', 'Delete {{name}}', { name: board.name })}
                                     onClick={(e) => { e.stopPropagation(); removeBoard(board.id); }}
                                 >
                                     <X size={12} />
@@ -400,8 +402,8 @@ const Dashboard = () => {
                         type="button"
                         className="skw-tab skw-tab--add"
                         onClick={() => createBoard().then((b) => setRenamingId(b.id))}
-                        aria-label="New dashboard"
-                        title="New dashboard"
+                        aria-label={t('app.dashboard.newDashboard', 'New dashboard')}
+                        title={t('app.dashboard.newDashboard2', 'New dashboard')}
                     >
                         <Plus size={14} />
                     </button>
@@ -422,7 +424,7 @@ const Dashboard = () => {
                                 <button
                                     type="button"
                                     className={`skw-varpick${serverMenuOpen ? ' is-open' : ''}`}
-                                    aria-label="Switch server"
+                                    aria-label={t('app.dashboard.switchServer', 'Switch server')}
                                 >
                                     <span className="skw-varpick__k mono">server</span>
                                     <span className="skw-varpick__v">{selectedServer.name || hostname}</span>
@@ -430,7 +432,7 @@ const Dashboard = () => {
                                 </button>
                             </PopoverTrigger>
                             <PopoverContent align="start" sideOffset={7} className="env-menu">
-                                <div className="env-menu__head">Dashboard variable · $server</div>
+                                <div className="env-menu__head">{t('app.dashboard.dashboardVariableServer', 'Dashboard variable · $server')}</div>
                                 {servers.map((server) => {
                                     const online = server.status === 'online';
                                     return (
@@ -465,14 +467,14 @@ const Dashboard = () => {
                         options={RANGES.map(([value, label]) => ({ value, label }))}
                         value={range}
                         onChange={setRange}
-                        aria-label="Time range"
+                        aria-label={t('app.dashboard.timeRange', 'Time range')}
                     />
                     <div className="skw-refresh">
                         <select
                             value={refreshInterval}
                             onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
-                            title="Auto-refresh interval"
-                            aria-label="Auto-refresh interval"
+                            title={t('app.dashboard.autoRefreshInterval', 'Auto-refresh interval')}
+                            aria-label={t('app.dashboard.autoRefreshInterval2', 'Auto-refresh interval')}
                         >
                             {REFRESH_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>↻ {opt.label}</option>
@@ -482,8 +484,8 @@ const Dashboard = () => {
                     <button
                         type="button"
                         className="skw-iconbtn"
-                        title="Refresh now"
-                        aria-label="Refresh now"
+                        title={t('app.dashboard.refreshNow', 'Refresh now')}
+                        aria-label={t('app.dashboard.refreshNow2', 'Refresh now')}
                         onClick={() => { setTick((k) => k + 1); if (isRemote) fetchRemote(); else refreshMetrics(); }}
                     >
                         <RefreshCw size={15} />
@@ -491,8 +493,8 @@ const Dashboard = () => {
                     <button
                         type="button"
                         className="skw-iconbtn"
-                        title="TV mode"
-                        aria-label="TV mode"
+                        title={t('app.dashboard.tvMode', 'TV mode')}
+                        aria-label={t('app.dashboard.tvMode2', 'TV mode')}
                         onClick={() => setTvMode(true)}
                     >
                         <Maximize2 size={15} />
@@ -500,25 +502,25 @@ const Dashboard = () => {
                     {edit ? (
                         <>
                             <button type="button" className="skw-barbtn" onClick={() => setLibraryOpen(true)}>
-                                <Plus size={14} /> Add widget
+                                <Plus size={14} /> {t('app.dashboard.addWidget', 'Add widget')}
                             </button>
                             <button
                                 type="button"
                                 className="skw-iconbtn"
                                 onClick={handleReset}
-                                title="Restore the shipped layout"
-                                aria-label="Restore the shipped layout"
+                                title={t('app.dashboard.restoreTheShippedLayout', 'Restore the shipped layout')}
+                                aria-label={t('app.dashboard.restoreTheShippedLayout2', 'Restore the shipped layout')}
                             >
                                 <History size={14} />
                             </button>
-                            <button type="button" className="skw-barbtn" onClick={discardEdit}>Discard</button>
+                            <button type="button" className="skw-barbtn" onClick={discardEdit}>{t('app.dashboard.discard', 'Discard')}</button>
                             <button type="button" className="skw-barbtn skw-barbtn--primary" onClick={finishEdit}>
-                                <Check size={14} /> Done
+                                <Check size={14} /> {t('app.dashboard.done', 'Done')}
                             </button>
                         </>
                     ) : (
                         <button type="button" className="skw-barbtn" onClick={startEdit}>
-                            <SlidersHorizontal size={14} /> Edit
+                            <SlidersHorizontal size={14} /> {t('app.dashboard.edit', 'Edit')}
                         </button>
                     )}
                 </div>
@@ -528,16 +530,15 @@ const Dashboard = () => {
 
             {edit && (
                 <div className="skw-hint mono">
-                    <Grid2x2 size={13} aria-hidden="true" /> Drag headers to move · drag the corner to resize ·
-                    click a widget to configure it{selectedId ? ' · Delete removes it' : ''}
+                    <Grid2x2 size={13} aria-hidden="true" /> {t('app.dashboard.dragHeadersToMoveDragThe', 'Drag headers to move · drag the corner to resize · click a widget to configure it')}{selectedId ? ' · Delete removes it' : ''}
                 </div>
             )}
 
             {widgets.length === 0 ? (
                 <div className="skw-empty-board">
-                    <div className="skw-empty-board__title">Build “{activeBoard?.name || 'this dashboard'}”</div>
+                    <div className="skw-empty-board__title">{t('app.dashboard.build', 'Build “')}{activeBoard?.name || 'this dashboard'}”</div>
                     <div className="skw-empty-board__desc">
-                        This board has no widgets yet. Add one to get started, or restore the layout it shipped with.
+                        {t('app.dashboard.thisBoardHasNoWidgetsYet', 'This board has no widgets yet. Add one to get started, or restore the layout it shipped with.')}
                     </div>
                     <div className="skw-empty-board__acts">
                         <button
@@ -545,11 +546,11 @@ const Dashboard = () => {
                             className="btn btn-primary btn-sm"
                             onClick={() => { setEdit(true); setLibraryOpen(true); }}
                         >
-                            <Plus size={14} /> Add a widget
+                            <Plus size={14} /> {t('app.dashboard.addAWidget', 'Add a widget')}
                         </button>
                         {activeBoard?.slug && (
                             <button type="button" className="btn btn-outline btn-sm" onClick={handleReset}>
-                                <History size={14} /> Restore default layout
+                                <History size={14} /> {t('app.dashboard.restoreDefaultLayout', 'Restore default layout')}
                             </button>
                         )}
                     </div>

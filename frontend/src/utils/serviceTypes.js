@@ -10,7 +10,7 @@ const SERVICE_TYPES = {
     // those sections is handled in SettingsTab (ops = Docker only; waf = Docker +
     // Python). `previews` stays a top-level tab.
     docker: {
-        label: 'Docker',
+        labelKey: 'app.serviceTypes.docker', label: 'Docker',
         color: '#49c7f0',
         bgColor: 'rgba(73, 199, 240, 0.1)',
         borderColor: 'rgba(73, 199, 240, 0.2)',
@@ -18,7 +18,7 @@ const SERVICE_TYPES = {
         tabs: ['overview', 'events', 'logs', 'environment', 'shell', 'metrics', 'previews', 'settings'],
     },
     flask: {
-        label: 'Flask',
+        labelKey: 'app.serviceTypes.flask', label: 'Flask',
         color: '#f5b945',
         bgColor: 'rgba(245, 185, 69, 0.1)',
         borderColor: 'rgba(245, 185, 69, 0.2)',
@@ -26,7 +26,7 @@ const SERVICE_TYPES = {
         tabs: ['overview', 'events', 'logs', 'environment', 'packages', 'gunicorn', 'commands', 'metrics', 'previews', 'settings'],
     },
     django: {
-        label: 'Django',
+        labelKey: 'app.serviceTypes.django', label: 'Django',
         color: '#3ddc97',
         bgColor: 'rgba(61, 220, 151, 0.1)',
         borderColor: 'rgba(61, 220, 151, 0.2)',
@@ -42,7 +42,7 @@ const SERVICE_TYPES = {
         tabs: ['overview', 'events', 'logs', 'environment', 'previews', 'settings'],
     },
     static: {
-        label: 'Static',
+        labelKey: 'app.serviceTypes.static', label: 'Static',
         color: '#6d7cff',
         bgColor: 'rgba(109, 124, 255, 0.1)',
         borderColor: 'rgba(109, 124, 255, 0.2)',
@@ -50,7 +50,7 @@ const SERVICE_TYPES = {
         tabs: ['overview', 'events', 'environment', 'previews', 'settings'],
     },
     wordpress: {
-        label: 'WordPress',
+        labelKey: 'app.serviceTypes.wordpress', label: 'WordPress',
         color: '#49c7f0',
         bgColor: 'rgba(73, 199, 240, 0.1)',
         borderColor: 'rgba(73, 199, 240, 0.2)',
@@ -60,19 +60,19 @@ const SERVICE_TYPES = {
 };
 
 const STATUS_CONFIG = {
-    running: { label: 'Live', color: '#3ddc97', dotClass: 'live' },
-    stopped: { label: 'Stopped', color: '#646b7a', dotClass: 'stopped' },
-    deploying: { label: 'Deploying', color: '#f5b945', dotClass: 'deploying' },
-    failed: { label: 'Failed', color: '#fb6f6f', dotClass: 'failed' },
-    building: { label: 'Building', color: '#49c7f0', dotClass: 'building' },
+    running: { labelKey: 'app.serviceTypes.live', label: 'Live', color: '#3ddc97', dotClass: 'live' },
+    stopped: { labelKey: 'app.serviceTypes.stopped', label: 'Stopped', color: '#646b7a', dotClass: 'stopped' },
+    deploying: { labelKey: 'app.serviceTypes.deploying', label: 'Deploying', color: '#f5b945', dotClass: 'deploying' },
+    failed: { labelKey: 'app.serviceTypes.failed', label: 'Failed', color: '#fb6f6f', dotClass: 'failed' },
+    building: { labelKey: 'app.serviceTypes.building', label: 'Building', color: '#49c7f0', dotClass: 'building' },
 };
 
 const DEPLOY_STATUS = {
-    success: { label: 'Live', color: '#3ddc97' },
-    failed: { label: 'Failed', color: '#fb6f6f' },
-    in_progress: { label: 'In Progress', color: '#f5b945' },
-    rolled_back: { label: 'Rolled Back', color: '#646b7a' },
-    pending: { label: 'Pending', color: '#49c7f0' },
+    success: { labelKey: 'app.serviceTypes.live2', label: 'Live', color: '#3ddc97' },
+    failed: { labelKey: 'app.serviceTypes.failed2', label: 'Failed', color: '#fb6f6f' },
+    in_progress: { labelKey: 'app.serviceTypes.inProgress', label: 'In Progress', color: '#f5b945' },
+    rolled_back: { labelKey: 'app.serviceTypes.rolledBack', label: 'Rolled Back', color: '#646b7a' },
+    pending: { labelKey: 'app.serviceTypes.pending', label: 'Pending', color: '#49c7f0' },
 };
 
 export function getServiceType(appType) {

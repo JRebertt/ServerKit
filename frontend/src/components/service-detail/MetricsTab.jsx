@@ -3,12 +3,14 @@ import api from '../../services/api';
 import { Gauge } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Live metrics cadence.
 const METRICS_REFRESH_MS = 10000;
 
 
 const MetricsTab = ({ app }) => {
+    const { t } = useTranslation();
     const [stats, setStats] = useState(null);
     const [processInfo, setProcessInfo] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ const MetricsTab = ({ app }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading metrics..." />;
+        return <EmptyState loading title={t('app.metricsTab.loadingMetrics', 'Loading metrics...')} />;
     }
 
     if (isDocker && stats) {
@@ -61,7 +63,7 @@ const MetricsTab = ({ app }) => {
                 <div className="metrics-tab__grid">
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>CPU Usage</h4>
+                            <h4>{t('app.metricsTab.cpuUsage', 'CPU Usage')}</h4>
                             <span>{cpuPercent.toFixed(1)}%</span>
                         </div>
                         <Gauge value={cpuPercent} />
@@ -69,7 +71,7 @@ const MetricsTab = ({ app }) => {
 
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>Memory Usage</h4>
+                            <h4>{t('app.metricsTab.memoryUsage', 'Memory Usage')}</h4>
                             <span>{memPercent.toFixed(1)}%</span>
                         </div>
                         <Gauge value={memPercent} />
@@ -78,21 +80,21 @@ const MetricsTab = ({ app }) => {
 
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>Network I/O</h4>
+                            <h4>{t('app.metricsTab.networkIO', 'Network I/O')}</h4>
                         </div>
                         <div className="metrics-tab__info">{netIO}</div>
                     </div>
 
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>Block I/O</h4>
+                            <h4>{t('app.metricsTab.blockIO', 'Block I/O')}</h4>
                         </div>
                         <div className="metrics-tab__info">{blockIO}</div>
                     </div>
 
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>Processes</h4>
+                            <h4>{t('app.metricsTab.processes', 'Processes')}</h4>
                             <span>{pids}</span>
                         </div>
                     </div>
@@ -107,7 +109,7 @@ const MetricsTab = ({ app }) => {
                 <div className="metrics-tab__grid">
                     <div className="metrics-tab__card">
                         <div className="metrics-tab__card-header">
-                            <h4>Service Status</h4>
+                            <h4>{t('app.metricsTab.serviceStatus', 'Service Status')}</h4>
                         </div>
                         <div className="metrics-tab__info">
                             {processInfo.active ? 'Active (running)' : 'Inactive'}
@@ -117,7 +119,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.pid && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>Process ID</h4>
+                                <h4>{t('app.metricsTab.processId', 'Process ID')}</h4>
                                 <span>{processInfo.pid}</span>
                             </div>
                         </div>
@@ -126,7 +128,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.memory && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>Memory</h4>
+                                <h4>{t('app.metricsTab.memory', 'Memory')}</h4>
                                 <span>{processInfo.memory}</span>
                             </div>
                         </div>
@@ -135,7 +137,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.uptime && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>Uptime</h4>
+                                <h4>{t('app.metricsTab.uptime', 'Uptime')}</h4>
                             </div>
                             <div className="metrics-tab__info">{processInfo.uptime}</div>
                         </div>
@@ -144,7 +146,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.workers && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>Workers</h4>
+                                <h4>{t('app.metricsTab.workers', 'Workers')}</h4>
                                 <span>{processInfo.workers}</span>
                             </div>
                         </div>
@@ -156,8 +158,8 @@ const MetricsTab = ({ app }) => {
 
     return (
         <div className="events-tab__empty">
-            <h3>No metrics available</h3>
-            <p>Start the service to view resource metrics.</p>
+            <h3>{t('app.metricsTab.noMetricsAvailable', 'No metrics available')}</h3>
+            <p>{t('app.metricsTab.startTheServiceToViewResource', 'Start the service to view resource metrics.')}</p>
         </div>
     );
 };

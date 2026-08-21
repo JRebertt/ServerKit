@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import api from '../services/api';
 import socketService from '../services/socket';
+import { useTranslation } from 'react-i18next';
 
 /**
  * RemoteTerminal - Interactive terminal component for remote server access
@@ -14,6 +15,7 @@ import socketService from '../services/socket';
  *   onClose: function - Called when terminal is closed
  */
 export default function RemoteTerminal({ serverId, onClose }) {
+    const { t } = useTranslation();
     const terminalRef = useRef(null);
     const terminalInstance = useRef(null);
     const fitAddon = useRef(null);
@@ -262,7 +264,7 @@ export default function RemoteTerminal({ serverId, onClose }) {
                     <button type="button"
                         className="terminal-close-btn"
                         onClick={handleClose}
-                        title="Close terminal"
+                        title={t('app.remoteTerminal.closeTerminal', 'Close terminal')}
                     >
                         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

@@ -8,121 +8,129 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SIDEBAR_ITEMS } from '../sidebarItems';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 const SETTINGS_GROUPS = [
     {
-        label: 'General',
+        labelKey: 'app.workspaceSettingsTab.general', label: 'General',
         items: [
-            { id: 'general', label: 'General', icon: Settings },
+            { id: 'general', labelKey: 'app.workspaceSettingsTab.general2', label: 'General', icon: Settings },
         ],
     },
     {
-        label: 'Permissions',
+        labelKey: 'app.workspaceSettingsTab.permissions', label: 'Permissions',
         items: [
-            { id: 'navigation', label: 'Navigation Permissions', icon: PanelLeft },
+            { id: 'navigation', labelKey: 'app.workspaceSettingsTab.navigationPermissions', label: 'Navigation Permissions', icon: PanelLeft },
         ],
     },
     {
-        label: 'Management',
+        labelKey: 'app.workspaceSettingsTab.management', label: 'Management',
         items: [
-            { id: 'management', label: 'Workspace actions', icon: Archive },
+            { id: 'management', labelKey: 'app.workspaceSettingsTab.workspaceActions', label: 'Workspace actions', icon: Archive },
         ],
     },
 ];
 
 const SETTINGS_ITEMS = SETTINGS_GROUPS.flatMap((g) => g.items);
 
-const GeneralSection = ({ form, setForm }) => (
-    <div className="ws-settings__section">
-        <h3 className="ws-settings__section-title">General</h3>
-        <div className="card settings-section">
-            <div className="form-group">
-                <label>Name</label>
-                <Input
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="My Team"
-                />
-            </div>
-            <div className="form-group">
-                <label>Description</label>
-                <Textarea
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    rows={2}
-                />
-            </div>
-            <div className="form-row">
+const GeneralSection = ({ form, setForm }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="ws-settings__section">
+            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.general3', 'General')}</h3>
+            <div className="card settings-section">
                 <div className="form-group">
-                    <label>Max Servers (0 = unlimited)</label>
+                    <label>{t('app.workspaceSettingsTab.name', 'Name')}</label>
                     <Input
-                        type="number"
-                        value={form.max_servers}
-                        onChange={(e) => setForm((f) => ({ ...f, max_servers: parseInt(e.target.value) || 0 }))}
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder={t('app.workspaceSettingsTab.myTeam', 'My Team')}
                     />
                 </div>
                 <div className="form-group">
-                    <label>Max Users (0 = unlimited)</label>
-                    <Input
-                        type="number"
-                        value={form.max_users}
-                        onChange={(e) => setForm((f) => ({ ...f, max_users: parseInt(e.target.value) || 0 }))}
+                    <label>{t('app.workspaceSettingsTab.description', 'Description')}</label>
+                    <Textarea
+                        value={form.description}
+                        onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                        rows={2}
                     />
                 </div>
-            </div>
-            <div className="form-group">
-                <label>Brand Color</label>
-                <input
-                    type="color"
-                    className="workspace-color-input"
-                    value={form.primary_color}
-                    onChange={(e) => setForm((f) => ({ ...f, primary_color: e.target.value }))}
-                    aria-label="Workspace brand color"
-                />
-                <span className="form-hint">Recolors the panel for anyone viewing this workspace.</span>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label>{t('app.workspaceSettingsTab.maxServers0Unlimited', 'Max Servers (0 = unlimited)')}</label>
+                        <Input
+                            type="number"
+                            value={form.max_servers}
+                            onChange={(e) => setForm((f) => ({ ...f, max_servers: parseInt(e.target.value) || 0 }))}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>{t('app.workspaceSettingsTab.maxUsers0Unlimited', 'Max Users (0 = unlimited)')}</label>
+                        <Input
+                            type="number"
+                            value={form.max_users}
+                            onChange={(e) => setForm((f) => ({ ...f, max_users: parseInt(e.target.value) || 0 }))}
+                        />
+                    </div>
+                </div>
+                <div className="form-group">
+                    <label>{t('app.workspaceSettingsTab.brandColor', 'Brand Color')}</label>
+                    <input
+                        type="color"
+                        className="workspace-color-input"
+                        value={form.primary_color}
+                        onChange={(e) => setForm((f) => ({ ...f, primary_color: e.target.value }))}
+                        aria-label={t('app.workspaceSettingsTab.workspaceBrandColor', 'Workspace brand color')}
+                    />
+                    <span className="form-hint">{t('app.workspaceSettingsTab.recolorsThePanelForAnyoneViewing', 'Recolors the panel for anyone viewing this workspace.')}</span>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
-const ManagementSection = ({ ws, isCurrent, onSetActive, onArchive, onRestore, onDeleteClick, user }) => (
-    <div className="ws-settings__section">
-        <h3 className="ws-settings__section-title">Workspace management</h3>
-        <div className="card settings-section ws-settings__management">
-            <p className="form-hint">These actions take effect immediately and cannot be undone from this screen.</p>
-            <div className="ws-settings__actions-grid">
-                {!isCurrent && ws.status === 'active' && (
-                    <Button variant="outline" onClick={onSetActive}>
-                        <Check size={15} /> Set active workspace
-                    </Button>
-                )}
-                {ws.status === 'active'
-                    ? (
-                        <Button variant="outline" onClick={onArchive}>
-                            <Archive size={15} /> Archive workspace
-                        </Button>
-                    ) : (
-                        <Button variant="outline" onClick={onRestore}>
-                            <ArchiveRestore size={15} /> Restore workspace
+const ManagementSection = ({ ws, isCurrent, onSetActive, onArchive, onRestore, onDeleteClick, user }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="ws-settings__section">
+            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.workspaceManagement', 'Workspace management')}</h3>
+            <div className="card settings-section ws-settings__management">
+                <p className="form-hint">{t('app.workspaceSettingsTab.theseActionsTakeEffectImmediatelyAnd', 'These actions take effect immediately and cannot be undone from this screen.')}</p>
+                <div className="ws-settings__actions-grid">
+                    {!isCurrent && ws.status === 'active' && (
+                        <Button variant="outline" onClick={onSetActive}>
+                            <Check size={15} /> {t('app.workspaceSettingsTab.setActiveWorkspace', 'Set active workspace')}
                         </Button>
                     )}
-                {user?.is_admin && (
-                    <Button variant="destructive" onClick={onDeleteClick}>
-                        <Trash2 size={15} /> Delete workspace
-                    </Button>
-                )}
+                    {ws.status === 'active'
+                        ? (
+                            <Button variant="outline" onClick={onArchive}>
+                                <Archive size={15} /> {t('app.workspaceSettingsTab.archiveWorkspace', 'Archive workspace')}
+                            </Button>
+                        ) : (
+                            <Button variant="outline" onClick={onRestore}>
+                                <ArchiveRestore size={15} /> {t('app.workspaceSettingsTab.restoreWorkspace', 'Restore workspace')}
+                            </Button>
+                        )}
+                    {user?.is_admin && (
+                        <Button variant="destructive" onClick={onDeleteClick}>
+                            <Trash2 size={15} /> {t('app.workspaceSettingsTab.deleteWorkspace', 'Delete workspace')}
+                        </Button>
+                    )}
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 const NavigationPermissionsSection = ({ form, setForm }) => {
+    const { t } = useTranslation();
     const roles = ['owner', 'admin', 'member', 'viewer'];
     return (
         <div className="ws-settings__section">
-            <h3 className="ws-settings__section-title">Navigation Permissions</h3>
+            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.navigationPermissions2', 'Navigation Permissions')}</h3>
             <div className="card settings-section">
-                <p className="form-hint">Limit which sidebar items each workspace role can see. Empty = no restrictions.</p>
+                <p className="form-hint">{t('app.workspaceSettingsTab.limitWhichSidebarItemsEachWorkspace', 'Limit which sidebar items each workspace role can see. Empty = no restrictions.')}</p>
                 {roles.map((role) => (
                     <div key={role} className="ws-nav-role">
                         <div className="ws-nav-role__label">{role}</div>
@@ -153,6 +161,7 @@ const NavigationPermissionsSection = ({ form, setForm }) => {
 };
 
 const WorkspaceSettingsTab = ({ wsId, ws, onUpdate, user, isCurrent, onSetActive, onArchive, onRestore, onDeleteClick }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const toast = useToast();
     const { id, section: sectionParam } = useParams();
@@ -188,10 +197,10 @@ const WorkspaceSettingsTab = ({ wsId, ws, onUpdate, user, isCurrent, onSetActive
                 settings: { nav: form.nav },
             };
             await api.updateWorkspace(wsId, payload);
-            toast.success('Workspace updated');
+            toast.success(t('app.workspaceSettingsTab.workspaceUpdated', 'Workspace updated'));
             onUpdate();
         } catch (err) {
-            toast.error(err.message || 'Failed to update workspace');
+            toast.error(err.message || t('app.workspaceSettingsTab.failedToUpdateWorkspace', 'Failed to update workspace'));
         } finally {
             setSaving(false);
         }
@@ -199,7 +208,7 @@ const WorkspaceSettingsTab = ({ wsId, ws, onUpdate, user, isCurrent, onSetActive
 
     return (
         <div className="ws-settings">
-            <nav className="ws-settings__nav" aria-label="Workspace settings sections">
+            <nav className="ws-settings__nav" aria-label={t('app.workspaceSettingsTab.workspaceSettingsSections', 'Workspace settings sections')}>
                 {SETTINGS_GROUPS.map((g) => (
                     <div className="ws-settings__group" key={g.label}>
                         <div className="ws-settings__grouplabel">{g.label}</div>
@@ -233,7 +242,7 @@ const WorkspaceSettingsTab = ({ wsId, ws, onUpdate, user, isCurrent, onSetActive
                 )}
                 {active.id !== 'management' && (
                     <div className="ws-settings__actions">
-                        <Button variant="outline" onClick={() => navigate(`/workspaces/${id}`)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => navigate(`/workspaces/${id}`)}>{t('app.workspaceSettingsTab.cancel', 'Cancel')}</Button>
                         <Button onClick={handleSave} disabled={saving || !form.name}>
                             {saving ? 'Saving…' : 'Save'}
                         </Button>

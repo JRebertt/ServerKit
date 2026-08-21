@@ -16,6 +16,7 @@ import EmptyState from '../EmptyState';
 import { Clock3 } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from 'react-i18next';
 import {
     Select,
     SelectContent,
@@ -78,6 +79,7 @@ const CRON_VIEWS = [
 ];
 
 const CronTab = ({ serverId, serverStatus }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm: confirmCron } = useConfirm();
     const [status, setStatus] = useState(null);
@@ -134,37 +136,37 @@ const CronTab = ({ serverId, serverStatus }) => {
     async function handleToggle(job) {
         try {
             await api.toggleRemoteCronJob(serverId, job.id, !job.enabled);
-            toast.success(`Job ${!job.enabled ? 'enabled' : 'disabled'}`);
+            toast.success(t('app.cronTab.job', 'Job {{value}}', { value: !job.enabled ? 'enabled' : 'disabled' }));
             loadJobs();
         } catch (err) {
-            toast.error(err.message || 'Failed to toggle job');
+            toast.error(err.message || t('app.cronTab.failedToToggleJob', 'Failed to toggle job'));
         }
     }
 
     async function handleRemove(job) {
         const ok = await confirmCron({
-            title: 'Remove Cron Job',
+            titleKey: 'app.cronTab.removeCronJob', title: 'Remove Cron Job',
             message: `Remove this entry from the host crontab?\n\n${job.schedule} ${job.command}`,
             variant: 'danger',
         });
         if (!ok) return;
         try {
             await api.removeRemoteCronJob(serverId, job.id);
-            toast.success('Cron job removed');
+            toast.success(t('app.cronTab.cronJobRemoved', 'Cron job removed'));
             loadJobs();
         } catch (err) {
-            toast.error(err.message || 'Failed to remove job');
+            toast.error(err.message || t('app.cronTab.failedToRemoveJob', 'Failed to remove job'));
         }
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
         if (!form.command.trim()) {
-            toast.error('Command is required');
+            toast.error(t('app.cronTab.commandIsRequired', 'Command is required'));
             return;
         }
         if (!form.schedule.trim()) {
-            toast.error('Schedule is required');
+            toast.error(t('app.cronTab.scheduleIsRequired', 'Schedule is required'));
             return;
         }
         setSubmitting(true);
@@ -174,12 +176,12 @@ const CronTab = ({ serverId, serverStatus }) => {
                 schedule: form.schedule.trim(),
                 command: form.command.trim(),
             });
-            toast.success('Cron job added');
+            toast.success(t('app.cronTab.cronJobAdded', 'Cron job added'));
             setShowAddModal(false);
             setForm({ name: '', schedule: '0 * * * *', command: '' });
             loadJobs();
         } catch (err) {
-            toast.error(err.message || 'Failed to add cron job');
+            toast.error(err.message || t('app.cronTab.failedToAddCronJob', 'Failed to add cron job'));
         } finally {
             setSubmitting(false);
         }
@@ -194,7 +196,7 @@ const CronTab = ({ serverId, serverStatus }) => {
     const cronColumns = [
         {
             key: 'schedule',
-            header: 'Schedule',
+            headerKey: 'app.cronTab.schedule', header: 'Schedule',
             sortable: true,
             hideable: false,
             // A cron expression is a fragment you type ('0 3'), not a value you
@@ -213,7 +215,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'command',
-            header: 'Command',
+            headerKey: 'app.cronTab.command', header: 'Command',
             sortable: true,
             // Paths and flags: high cardinality, so contains/starts-with is the
             // useful control here too.
@@ -229,7 +231,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.cronTab.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a crontab with two entries fails the enum
             // cardinality test and would fall back to text, which turns the
@@ -247,7 +249,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.cronTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             className: 'actions-cell',
@@ -257,14 +259,14 @@ const CronTab = ({ serverId, serverStatus }) => {
                     <button type="button"
                         className="btn-icon"
                         onClick={() => handleToggle(job)}
-                        title={job.enabled ? 'Disable' : 'Enable'}
+                        title={job.enabled ? t('app.cronTab.disable', 'Disable') : t('app.cronTab.enable', 'Enable')}
                     >
                         {job.enabled ? <StopIcon /> : <PlayIcon />}
                     </button>
                     <button type="button"
                         className="btn-icon danger"
                         onClick={() => handleRemove(job)}
-                        title="Remove"
+                        title={t('app.cronTab.remove', 'Remove')}
                     >
                         <TrashIcon />
                     </button>
@@ -293,14 +295,14 @@ const CronTab = ({ serverId, serverStatus }) => {
         return (
             <div className="offline-notice">
                 <OfflineIcon />
-                <h4>Server Offline</h4>
-                <p>Cron management requires the server to be online.</p>
+                <h4>{t('app.cronTab.serverOffline', 'Server Offline')}</h4>
+                <p>{t('app.cronTab.cronManagementRequiresTheServerTo', 'Cron management requires the server to be online.')}</p>
             </div>
         );
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading cron jobs" />;
+        return <EmptyState loading title={t('app.cronTab.loadingCronJobs', 'Loading cron jobs')} />;
     }
 
     return (
@@ -308,19 +310,19 @@ const CronTab = ({ serverId, serverStatus }) => {
             <div className="cron-tab__header">
                 <div className="cron-tab__status">
                     {status?.available === false ? (
-                        <Pill kind="amber">cron not available: {status.reason || 'unknown'}</Pill>
+                        <Pill kind="amber">{t('app.cronTab.cronNotAvailable', 'cron not available:')} {status.reason || 'unknown'}</Pill>
                     ) : status?.running === false ? (
-                        <Pill kind="amber">cron daemon not running</Pill>
+                        <Pill kind="amber">{t('app.cronTab.cronDaemonNotRunning', 'cron daemon not running')}</Pill>
                     ) : (
-                        <Pill kind="green">cron daemon active{status?.daemon ? ` (${status.daemon})` : ''}</Pill>
+                        <Pill kind="green">{t('app.cronTab.cronDaemonActive', 'cron daemon active')}{status?.daemon ? ` (${status.daemon})` : ''}</Pill>
                     )}
                     {/* No job count here — the table footer reports it, under
                         the rows it is counting. */}
                 </div>
                 <div className="cron-tab__actions">
-                    <Button variant="outline" onClick={loadJobs}>Refresh</Button>
+                    <Button variant="outline" onClick={loadJobs}>{t('app.cronTab.refresh', 'Refresh')}</Button>
                     <Button onClick={() => setShowAddModal(true)} disabled={status?.available === false}>
-                        Add Job
+                        {t('app.cronTab.addJob', 'Add Job')}
                     </Button>
                 </div>
             </div>
@@ -332,8 +334,8 @@ const CronTab = ({ serverId, serverStatus }) => {
             {jobs.length === 0 ? (
                 <EmptyState
                     icon={Clock3}
-                    title="No cron jobs"
-                    description="No scheduled jobs on this server. Use Add Job to schedule one."
+                    title={t('app.cronTab.noCronJobs', 'No cron jobs')}
+                    description={t('app.cronTab.noScheduledJobsOnThisServer', 'No scheduled jobs on this server. Use Add Job to schedule one.')}
                 />
             ) : (
                 <>
@@ -387,23 +389,23 @@ const CronTab = ({ serverId, serverStatus }) => {
             <Modal
                 open={showAddModal}
                 onClose={() => { if (!submitting) setShowAddModal(false); }}
-                title="Add Cron Job"
+                title={t('app.cronTab.addCronJob', 'Add Cron Job')}
             >
                 <p className="sk-modal__subtitle">
-                    Schedule a command on the host crontab. Runs as the agent user.
+                    {t('app.cronTab.scheduleACommandOnTheHost', 'Schedule a command on the host crontab. Runs as the agent user.')}
                 </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1.5">
-                            <Label htmlFor="cron-name">Name (optional)</Label>
+                            <Label htmlFor="cron-name">{t('app.cronTab.nameOptional', 'Name (optional)')}</Label>
                             <Input
                                 id="cron-name"
                                 value={form.name}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                placeholder="Backup database"
+                                placeholder={t('app.cronTab.backupDatabase', 'Backup database')}
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="cron-schedule">Schedule</Label>
+                            <Label htmlFor="cron-schedule">{t('app.cronTab.schedule2', 'Schedule')}</Label>
                             <Select
                                 value={Object.keys(PRESET_LABELS).includes(form.schedule) ? form.schedule : 'custom'}
                                 onValueChange={(value) => {
@@ -418,7 +420,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                                     {Object.entries(PRESET_LABELS).map(([cron, label]) => (
                                         <SelectItem key={cron} value={cron}>{label} — {cron}</SelectItem>
                                     ))}
-                                    <SelectItem value="custom">Custom…</SelectItem>
+                                    <SelectItem value="custom">{t('app.cronTab.custom', 'Custom…')}</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Input
@@ -428,10 +430,10 @@ const CronTab = ({ serverId, serverStatus }) => {
                                 placeholder="* * * * *"
                                 className="font-mono"
                             />
-                            <p className="text-xs text-muted-foreground">5 fields: minute, hour, day, month, weekday.</p>
+                            <p className="text-xs text-muted-foreground">{t('app.cronTab.5FieldsMinuteHourDayMonth', '5 fields: minute, hour, day, month, weekday.')}</p>
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="cron-command">Command</Label>
+                            <Label htmlFor="cron-command">{t('app.cronTab.command2', 'Command')}</Label>
                             <Textarea
                                 id="cron-command"
                                 rows={3}
@@ -440,10 +442,10 @@ const CronTab = ({ serverId, serverStatus }) => {
                                 placeholder="/usr/local/bin/my-script.sh"
                                 required
                             />
-                            <p className="text-xs text-muted-foreground">Absolute path. Shell operators (;, &amp;&amp;, |, $(), &gt;, &lt;) are not allowed.</p>
+                            <p className="text-xs text-muted-foreground">{t('app.cronTab.absolutePathShellOperatorsAreNot', 'Absolute path. Shell operators (;, &&, |, $(), >, <) are not allowed.')}</p>
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={submitting}>{t('app.cronTab.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={submitting}>{submitting ? 'Adding…' : 'Add Job'}</Button>
                         </div>
                     </form>

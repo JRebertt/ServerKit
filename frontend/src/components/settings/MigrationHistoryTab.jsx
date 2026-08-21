@@ -13,6 +13,7 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 // Revisions in this project are short descriptive slugs (e.g. 016_resource_grants),
 // so show them in full rather than truncating mid-word.
@@ -49,6 +50,7 @@ const MIGRATION_VIEWS = [
 ];
 
 const MigrationHistoryTab = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const register = useSettingFocus();
@@ -119,7 +121,7 @@ const MigrationHistoryTab = () => {
     const columns = [
         {
             key: 'revision',
-            header: 'Revision',
+            headerKey: 'app.migrationHistoryTab.revision', header: 'Revision',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -129,7 +131,7 @@ const MigrationHistoryTab = () => {
         },
         {
             key: 'description',
-            header: 'Description',
+            headerKey: 'app.migrationHistoryTab.description', header: 'Description',
             sortable: true,
             type: 'text',
             value: (rev) => rev.description || 'Schema update',
@@ -138,7 +140,7 @@ const MigrationHistoryTab = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.migrationHistoryTab.status', header: 'Status',
             sortable: true,
             // Typed explicitly: `sortValue` is a rank, and letting that number
             // infer the type would make Status numeric — "Pending" would then
@@ -150,14 +152,14 @@ const MigrationHistoryTab = () => {
             render: (rev) => (
                 rev.is_current ? (
                     <Badge variant="success">
-                        <CheckCircle size={12} /> Current
+                        <CheckCircle size={12} /> {t('app.migrationHistoryTab.current', 'Current')}
                     </Badge>
                 ) : pendingIds.has(rev.revision) ? (
                     <Badge variant="warning">
-                        <ArrowUpCircle size={12} /> Pending
+                        <ArrowUpCircle size={12} /> {t('app.migrationHistoryTab.pending', 'Pending')}
                     </Badge>
                 ) : (
-                    <Badge variant="secondary">Applied</Badge>
+                    <Badge variant="secondary">{t('app.migrationHistoryTab.applied', 'Applied')}</Badge>
                 )
             ),
         },
@@ -180,14 +182,14 @@ const MigrationHistoryTab = () => {
 
     async function runMigrations() {
         const ok = await confirm({
-            title: orphaned ? 'Re-sync database version?' : `Apply ${count} migration${plural}?`,
+            title: orphaned ? t('app.migrationHistoryTab.reSyncDatabaseVersion', 'Re-sync database version?') : t('app.migrationHistoryTab.applyMigration', 'Apply {{count}} migration{{plural}}?', { count: count, plural: plural }),
             message: orphaned
-                ? `Your schema already matches ${short(headRev) || 'head'}; this repairs the version pointer${backupFirst ? ' after creating a backup' : ' (no backup will be created)'}.`
+                ? t('app.migrationHistoryTab.yourSchemaAlreadyMatchesThisRepairs', 'Your schema already matches {{value}}; this repairs the version pointer{{value2}}.', { value: short(headRev) || 'head', value2: backupFirst ? ' after creating a backup' : ' (no backup will be created)' })
                 : backupFirst
-                    ? `A database backup is created first, then the schema is upgraded from ${short(currentRev) || 'none'} to ${short(headRev) || 'head'}.`
-                    : `The schema is upgraded from ${short(currentRev) || 'none'} to ${short(headRev) || 'head'}. No backup will be created.`,
-            confirmText: orphaned ? 'Re-sync database' : `Apply migration${plural}`,
-            cancelText: 'Cancel',
+                    ? t('app.migrationHistoryTab.aDatabaseBackupIsCreatedFirst', 'A database backup is created first, then the schema is upgraded from {{value}} to {{value2}}.', { value: short(currentRev) || 'none', value2: short(headRev) || 'head' })
+                    : t('app.migrationHistoryTab.theSchemaIsUpgradedFromTo', 'The schema is upgraded from {{value}} to {{value2}}. No backup will be created.', { value: short(currentRev) || 'none', value2: short(headRev) || 'head' }),
+            confirmText: orphaned ? t('app.migrationHistoryTab.reSyncDatabase', 'Re-sync database') : t('app.migrationHistoryTab.applyMigration2', 'Apply migration{{plural}}', { plural: plural }),
+            cancelText: t('app.migrationHistoryTab.cancel', 'Cancel'),
             variant: 'warning',
         });
         if (!ok) return;
@@ -198,17 +200,17 @@ const MigrationHistoryTab = () => {
                 try {
                     const b = await api.createMigrationBackup();
                     const name = b?.path ? b.path.split(/[\\/]/).pop() : null;
-                    toast.success(name ? `Database backed up (${name})` : 'Database backed up');
+                    toast.success(name ? t('app.migrationHistoryTab.databaseBackedUp', 'Database backed up ({{name}})', { name: name }) : t('app.migrationHistoryTab.databaseBackedUp2', 'Database backed up'));
                 } catch (err) {
-                    toast.error(`Backup failed: ${err.message || 'unknown error'} — migrations not applied`);
+                    toast.error(t('app.migrationHistoryTab.backupFailedMigrationsNotApplied', 'Backup failed: {{value}} — migrations not applied', { value: err.message || 'unknown error' }));
                     return;
                 }
             }
             const res = await api.applyMigrations();
-            toast.success(`Migrations applied — now at ${short(res?.revision || headRev)}`);
+            toast.success(t('app.migrationHistoryTab.migrationsAppliedNowAt', 'Migrations applied — now at {{value}}', { value: short(res?.revision || headRev) }));
             await load();
         } catch (err) {
-            toast.error(`Migration failed: ${err.message || 'unknown error'}`);
+            toast.error(t('app.migrationHistoryTab.migrationFailed', 'Migration failed: {{value}}', { value: err.message || 'unknown error' }));
         } finally {
             setApplying(false);
         }
@@ -219,7 +221,7 @@ const MigrationHistoryTab = () => {
             <div className="settings-section">
                 <div className="loading-state">
                     <Loader size={20} className="spin" />
-                    <span>Loading migration history...</span>
+                    <span>{t('app.migrationHistoryTab.loadingMigrationHistory', 'Loading migration history...')}</span>
                 </div>
             </div>
         );
@@ -236,9 +238,9 @@ const MigrationHistoryTab = () => {
     return (
         <div className="settings-section">
             <div className="settings-section-header">
-                <h2>Database Migrations</h2>
+                <h2>{t('app.migrationHistoryTab.databaseMigrations', 'Database Migrations')}</h2>
                 <p className="settings-section-description">
-                    Schema versions applied to this instance. Apply pending updates after upgrading ServerKit.
+                    {t('app.migrationHistoryTab.schemaVersionsAppliedToThisInstance', 'Schema versions applied to this instance. Apply pending updates after upgrading ServerKit.')}
                 </p>
             </div>
 
@@ -252,13 +254,12 @@ const MigrationHistoryTab = () => {
                         <p className="migration-pending-desc">
                             {orphaned ? (
                                 <>
-                                    Recorded version <code>{short(currentRev)}</code> isn’t in the migration
-                                    history (it was renamed). Your schema already matches{' '}
-                                    <code>{short(headRev) || 'head'}</code> — re-sync to repair the version pointer.
+                                    {t('app.migrationHistoryTab.recordedVersion', 'Recorded version')} <code>{short(currentRev)}</code> {t('app.migrationHistoryTab.isnTInTheMigrationHistory', 'isn’t in the migration history (it was renamed). Your schema already matches')}{' '}
+                                    <code>{short(headRev) || 'head'}</code> {t('app.migrationHistoryTab.reSyncToRepairTheVersion', '— re-sync to repair the version pointer.')}
                                 </>
                             ) : (
                                 <>
-                                    Your database is at <code>{short(currentRev) || 'none'}</code>, latest is{' '}
+                                    {t('app.migrationHistoryTab.yourDatabaseIsAt', 'Your database is at')} <code>{short(currentRev) || 'none'}</code>{t('app.migrationHistoryTab.latestIs', ', latest is')}{' '}
                                     <code>{short(headRev) || 'unknown'}</code>. Apply to bring the schema up to date.
                                 </>
                             )}
@@ -273,9 +274,9 @@ const MigrationHistoryTab = () => {
                                 {applying ? (
                                     <><Loader size={14} className="spin" /> {orphaned ? 'Repairing…' : 'Applying…'}</>
                                 ) : orphaned ? (
-                                    <><Database size={14} /> Re-sync database</>
+                                    <><Database size={14} /> {t('app.migrationHistoryTab.reSyncDatabase2', 'Re-sync database')}</>
                                 ) : (
-                                    <><Database size={14} /> Apply {count} migration{plural}</>
+                                    <><Database size={14} /> {t('app.migrationHistoryTab.apply', 'Apply')} {count} migration{plural}</>
                                 )}
                             </button>
                             <label className="migration-backup-toggle">
@@ -285,7 +286,7 @@ const MigrationHistoryTab = () => {
                                     onChange={(e) => setBackupFirst(e.target.checked)}
                                     disabled={applying}
                                 />
-                                Back up database first
+                                {t('app.migrationHistoryTab.backUpDatabaseFirst', 'Back up database first')}
                             </label>
                         </div>
                     </div>
@@ -294,13 +295,13 @@ const MigrationHistoryTab = () => {
                 revisions.length > 0 && (
                     <div className="migration-uptodate">
                         <ShieldCheck size={16} aria-hidden="true" />
-                        Schema is up to date{currentRev && <> — revision <code>{short(currentRev)}</code></>}.
+                        {t('app.migrationHistoryTab.schemaIsUpToDate', 'Schema is up to date')}{currentRev && <> {t('app.migrationHistoryTab.revision2', '— revision')} <code>{short(currentRev)}</code></>}.
                     </div>
                 )
             )}
 
             {revisions.length === 0 ? (
-                <EmptyState icon={Database} title="No migration history found." />
+                <EmptyState icon={Database} title={t('app.migrationHistoryTab.noMigrationHistoryFound', 'No migration history found.')} />
             ) : (
                 <>
                     {/* The section's h2 above stays put — it heads the apply

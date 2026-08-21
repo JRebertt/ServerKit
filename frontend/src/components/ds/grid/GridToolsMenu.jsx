@@ -3,6 +3,7 @@ import { MoreVertical, Download, RefreshCw, History, Check, Link2, Rows2, Rows3 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { byKey, exportRows } from './fields';
+import { useTranslation } from 'react-i18next';
 
 // The toolbar's "⋮" — everything that is neither a filter nor a per-column
 // action: export, refresh, row density, and discarding unsaved view changes.
@@ -15,6 +16,7 @@ export function GridToolsMenu({
     // density toggle that changes nothing is worse than not showing one.
     showDensity = true,
 }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [pane, setPane] = useState('root');   // root | export
     const [scope, setScope] = useState('view');
@@ -44,7 +46,7 @@ export function GridToolsMenu({
             onOpenChange={(o) => { setOpen(o); if (!o) setPane('root'); }}
         >
             <PopoverTrigger asChild>
-                <button type="button" className="sk-gridicon" aria-label="More table options">
+                <button type="button" className="sk-gridicon" aria-label={t('app.gridToolsMenu.moreTableOptions', 'More table options')}>
                     <MoreVertical size={16} />
                 </button>
             </PopoverTrigger>
@@ -68,7 +70,7 @@ export function GridToolsMenu({
                             </button>
                         )}
                         <button type="button" className="sk-gridmenu__opt" onClick={() => setPane('export')}>
-                            <Download size={13} />Export…
+                            <Download size={13} />{t('app.gridToolsMenu.export', 'Export…')}
                         </button>
                         {onRefresh && (
                             <button
@@ -76,13 +78,13 @@ export function GridToolsMenu({
                                 className="sk-gridmenu__opt"
                                 onClick={() => { onRefresh(); close(); }}
                             >
-                                <RefreshCw size={13} />Refresh data
+                                <RefreshCw size={13} />{t('app.gridToolsMenu.refreshData', 'Refresh data')}
                             </button>
                         )}
                         {showDensity && (
                             <>
                                 <div className="sk-gridmenu__sep" />
-                                <div className="sk-gridmenu__head">Row density</div>
+                                <div className="sk-gridmenu__head">{t('app.gridToolsMenu.rowDensity', 'Row density')}</div>
                                 {[['cozy', 'Cozy', Rows2], ['compact', 'Compact', Rows3]].map(([value, text, Icon]) => (
                                     <button
                                         key={value}
@@ -102,19 +104,19 @@ export function GridToolsMenu({
                             className="sk-gridmenu__opt"
                             onClick={() => { onReset(); close(); }}
                         >
-                            <History size={13} />Reset view changes
+                            <History size={13} />{t('app.gridToolsMenu.resetViewChanges', 'Reset view changes')}
                         </button>
                     </>
                 ) : (
                     <>
-                        <div className="sk-gridmenu__head">Export</div>
+                        <div className="sk-gridmenu__head">{t('app.gridToolsMenu.export2', 'Export')}</div>
                         <button
                             type="button"
                             className={cn('sk-gridmenu__opt', scope === 'view' && 'is-on')}
                             onClick={() => setScope('view')}
                         >
                             <span className="sk-gridmenu__box"><Check size={11} /></span>
-                            Rows in this view
+                            {t('app.gridToolsMenu.rowsInThisView', 'Rows in this view')}
                             <span className="sk-gridmenu__rest">{rows.length}</span>
                         </button>
                         <button
@@ -124,7 +126,7 @@ export function GridToolsMenu({
                             onClick={() => setScope('picked')}
                         >
                             <span className="sk-gridmenu__box"><Check size={11} /></span>
-                            Selected rows
+                            {t('app.gridToolsMenu.selectedRows', 'Selected rows')}
                             <span className="sk-gridmenu__rest">{selectedRows.length}</span>
                         </button>
                         <div className="sk-gridmenu__sep" />
@@ -134,12 +136,12 @@ export function GridToolsMenu({
                             onClick={() => setAllCols((v) => !v)}
                         >
                             <span className="sk-gridmenu__box"><Check size={11} /></span>
-                            Include hidden fields
+                            {t('app.gridToolsMenu.includeHiddenFields', 'Include hidden fields')}
                             <span className="sk-gridmenu__rest">{exportCols.length}</span>
                         </button>
                         <div className="sk-gridmenu__foot">
                             <button type="button" onClick={() => go('json')}>JSON</button>
-                            <button type="button" className="is-primary" onClick={() => go('csv')}>Download CSV</button>
+                            <button type="button" className="is-primary" onClick={() => go('csv')}>{t('app.gridToolsMenu.downloadCsv', 'Download CSV')}</button>
                         </div>
                     </>
                 )}

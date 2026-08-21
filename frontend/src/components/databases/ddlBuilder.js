@@ -35,7 +35,7 @@ export function identError(value, what = 'Name') {
 // dialect's own generated-key form.
 export const SQL_DIALECTS = {
     mysql: {
-        label: 'MySQL',
+        labelKey: 'app.ddlBuilder.mysql', label: 'MySQL',
         types: ['BIGINT', 'INT', 'SMALLINT', 'DECIMAL(10,2)', 'DOUBLE', 'VARCHAR(255)', 'VARCHAR(64)', 'TEXT', 'BOOLEAN', 'DATE', 'DATETIME', 'TIMESTAMP', 'JSON'],
         integers: ['BIGINT', 'INT', 'SMALLINT'],
         keyType: 'BIGINT',
@@ -44,7 +44,7 @@ export const SQL_DIALECTS = {
         keyNote: 'AUTO_INCREMENT',
     },
     postgresql: {
-        label: 'PostgreSQL',
+        labelKey: 'app.ddlBuilder.postgresql', label: 'PostgreSQL',
         types: ['BIGINT', 'INTEGER', 'SMALLINT', 'NUMERIC(10,2)', 'DOUBLE PRECISION', 'VARCHAR(255)', 'TEXT', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'JSONB', 'UUID'],
         integers: ['BIGINT', 'INTEGER', 'SMALLINT'],
         keyType: 'BIGINT',
@@ -53,7 +53,7 @@ export const SQL_DIALECTS = {
         keyNote: 'BIGSERIAL',
     },
     sqlite: {
-        label: 'SQLite',
+        labelKey: 'app.ddlBuilder.sqlite', label: 'SQLite',
         types: ['INTEGER', 'TEXT', 'REAL', 'NUMERIC', 'BLOB'],
         integers: ['INTEGER'],
         keyType: 'INTEGER',

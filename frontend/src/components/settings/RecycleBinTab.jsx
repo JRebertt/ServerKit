@@ -13,6 +13,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useTranslation } from 'react-i18next';
 
 // Built-in saved views. Neither one names a `kind`: the registry decides what
 // lands here, so a preset that spelled out 'domain' would be a list this file
@@ -51,6 +52,7 @@ const RECYCLEBIN_VIEWS = [
 // purpose: `kind` comes from the server's registry, so a newly restorable model
 // shows up here with no change to this file.
 export default function RecycleBinTab() {
+    const { t } = useTranslation();
     const toast = useToast();
     const { isAdmin } = useAuth();
     const [items, setItems] = useState([]);
@@ -79,7 +81,7 @@ export default function RecycleBinTab() {
             setItems(data.items || []);
             setRetentionDays(data.retention_days ?? 30);
         } catch (err) {
-            toast.error(err.message || 'Could not load the recycle bin');
+            toast.error(err.message || t('app.recycleBinTab.couldNotLoadTheRecycleBin', 'Could not load the recycle bin'));
         } finally {
             setLoading(false);
         }
@@ -98,10 +100,10 @@ export default function RecycleBinTab() {
             // domain that came back without its certificate), or it just worked.
             if (res?.warning) toast.error(res.warning);
             else if (res?.item?.notice) toast.warning(res.item.notice);
-            else toast.success(`Restored ${row.noun} “${row.label}”`);
+            else toast.success(t('app.recycleBinTab.restored', 'Restored {{noun}} “{{label}}”', { noun: row.noun, label: row.label }));
             await load();
         } catch (err) {
-            toast.error(err.message || 'Restore failed');
+            toast.error(err.message || t('app.recycleBinTab.restoreFailed', 'Restore failed'));
         } finally {
             setBusyId(null);
         }
@@ -111,10 +113,10 @@ export default function RecycleBinTab() {
         setBusyId(rowKey(row));
         try {
             await api.purgeRecord(row.kind, row.id);
-            toast.success(`Permanently deleted “${row.label}”`);
+            toast.success(t('app.recycleBinTab.permanentlyDeleted', 'Permanently deleted “{{label}}”', { label: row.label }));
             await load();
         } catch (err) {
-            toast.error(err.message || 'Delete failed');
+            toast.error(err.message || t('app.recycleBinTab.deleteFailed', 'Delete failed'));
         } finally {
             setBusyId(null);
             setPurgeTarget(null);
@@ -124,7 +126,7 @@ export default function RecycleBinTab() {
     const columns = useMemo(() => [
         {
             key: 'label',
-            header: 'Record',
+            headerKey: 'app.recycleBinTab.record', header: 'Record',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -140,7 +142,7 @@ export default function RecycleBinTab() {
         },
         {
             key: 'kind',
-            header: 'Type',
+            headerKey: 'app.recycleBinTab.type', header: 'Type',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -153,7 +155,7 @@ export default function RecycleBinTab() {
         },
         {
             key: 'deleted_at',
-            header: 'Deleted',
+            headerKey: 'app.recycleBinTab.deleted', header: 'Deleted',
             sortable: true,
             type: 'date',
             value: (r) => r.deleted_at,
@@ -186,7 +188,7 @@ export default function RecycleBinTab() {
                         disabled={busyId === rowKey(r)}
                         onClick={() => restore(r)}
                     >
-                        <Undo2 size={14} /> Restore
+                        <Undo2 size={14} /> {t('app.recycleBinTab.restore', 'Restore')}
                     </Button>
                     {isAdmin && (
                         <Button
@@ -195,8 +197,8 @@ export default function RecycleBinTab() {
                             className="recyclebin__purge"
                             disabled={busyId === rowKey(r)}
                             onClick={() => setPurgeTarget(r)}
-                            title="Delete permanently"
-                            aria-label={`Delete ${r.label} permanently`}
+                            title={t('app.recycleBinTab.deletePermanently', 'Delete permanently')}
+                            aria-label={t('app.recycleBinTab.deletePermanently2', 'Delete {{label}} permanently', { label: r.label })}
                         >
                             <Trash2 size={14} />
                         </Button>
@@ -228,25 +230,23 @@ export default function RecycleBinTab() {
         <div className="settings-section recyclebin">
             <div className="settings-section__head">
                 <div>
-                    <h2>Recycle bin</h2>
+                    <h2>{t('app.recycleBinTab.recycleBin', 'Recycle bin')}</h2>
                     <p className="settings-section__hint">
-                        Deleted records are kept for {retentionDays} days so they can be put back.
-                        Restoring returns the record itself — it does not re-apply configuration
-                        that was torn down at delete time (a domain’s vhost, for example).
+                        {t('app.recycleBinTab.deletedRecordsAreKeptFor', 'Deleted records are kept for')} {retentionDays} {t('app.recycleBinTab.daysSoTheyCanBePut', 'days so they can be put back. Restoring returns the record itself — it does not re-apply configuration that was torn down at delete time (a domain’s vhost, for example).')}
                     </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                    <RefreshCw size={15} /> Refresh
+                    <RefreshCw size={15} /> {t('app.recycleBinTab.refresh', 'Refresh')}
                 </Button>
             </div>
 
             {loading ? (
-                <EmptyState loading loadingVariant="table" title="Loading deleted records…" />
+                <EmptyState loading loadingVariant="table" title={t('app.recycleBinTab.loadingDeletedRecords', 'Loading deleted records…')} />
             ) : items.length === 0 ? (
                 <EmptyState
                     icon={Trash2}
-                    title="Nothing deleted"
-                    description="Records you delete land here first, so a mistake is a click away from being undone."
+                    title={t('app.recycleBinTab.nothingDeleted', 'Nothing deleted')}
+                    description={t('app.recycleBinTab.recordsYouDeleteLandHereFirst', 'Records you delete land here first, so a mistake is a click away from being undone.')}
                 />
             ) : (
                 <>
@@ -295,10 +295,10 @@ export default function RecycleBinTab() {
             <ConfirmDialog
                 isOpen={!!purgeTarget}
                 variant="danger"
-                title={`Permanently delete “${purgeTarget?.label ?? ''}”?`}
-                message="This cannot be undone. The record is removed from the database for good."
+                title={t('app.recycleBinTab.permanentlyDelete', 'Permanently delete “{{value}}”?', { value: purgeTarget?.label ?? '' })}
+                message={t('app.recycleBinTab.thisCannotBeUndoneTheRecord', 'This cannot be undone. The record is removed from the database for good.')}
                 details={purgeTarget ? `${purgeTarget.noun} · deleted ${purgeTarget.deleted_at?.slice(0, 10) || ''}` : ''}
-                confirmText="Delete permanently"
+                confirmText={t('app.recycleBinTab.deletePermanently3', 'Delete permanently')}
                 onConfirm={() => purgeTarget && purge(purgeTarget)}
                 onCancel={() => setPurgeTarget(null)}
             />

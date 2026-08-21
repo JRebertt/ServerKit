@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import api from '../../services/api';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 // Enrolment is a three-beat flow. Offer is the default so someone who just
 // wants a dashboard is one click from moving on — 2FA is offered here because
@@ -18,6 +19,7 @@ const STAGE_ALREADY = 'already';
 const CODE_LENGTH = 6;
 
 const SetupStepSecurity = ({ onComplete }) => {
+    const { t } = useTranslation();
     const [stage, setStage] = useState(STAGE_OFFER);
     const [setupData, setSetupData] = useState(null);
     const [code, setCode] = useState('');
@@ -96,10 +98,9 @@ const SetupStepSecurity = ({ onComplete }) => {
     if (stage === STAGE_ALREADY) {
         return (
             <div className="wizard-step">
-                <h2 className="wizard-step-title">Two-factor is on</h2>
+                <h2 className="wizard-step-title">{t('app.setupStepSecurity.twoFactorIsOn', 'Two-factor is on')}</h2>
                 <p className="wizard-step-description">
-                    This account already has two-factor authentication enabled. You
-                    can regenerate backup codes or turn it off from Settings.
+                    {t('app.setupStepSecurity.thisAccountAlreadyHasTwoFactor', 'This account already has two-factor authentication enabled. You can regenerate backup codes or turn it off from Settings.')}
                 </p>
 
                 <div className="security-offer">
@@ -108,11 +109,10 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                     <div className="security-offer__body">
                         <div className="security-offer__title">
-                            Two-factor authentication active
+                            {t('app.setupStepSecurity.twoFactorAuthenticationActive', 'Two-factor authentication active')}
                         </div>
                         <p className="security-offer__desc">
-                            You&apos;ll be asked for a code from your authenticator
-                            app the next time you sign in.
+                            {t('app.setupStepSecurity.youLlBeAskedForA', 'You\'ll be asked for a code from your authenticator app the next time you sign in.')}
                         </p>
                     </div>
                 </div>
@@ -123,7 +123,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                         className="btn-wizard-next"
                         onClick={() => onComplete(true)}
                     >
-                        Continue
+                        {t('app.setupStepSecurity.continue', 'Continue')}
                     </button>
                 </div>
             </div>
@@ -133,11 +133,9 @@ const SetupStepSecurity = ({ onComplete }) => {
     if (stage === STAGE_OFFER) {
         return (
             <div className="wizard-step">
-                <h2 className="wizard-step-title">Protect this account</h2>
+                <h2 className="wizard-step-title">{t('app.setupStepSecurity.protectThisAccount', 'Protect this account')}</h2>
                 <p className="wizard-step-description">
-                    This panel can restart services, open firewall ports and read your
-                    databases. Two-factor authentication means a stolen password alone
-                    is not enough to do any of that.
+                    {t('app.setupStepSecurity.thisPanelCanRestartServicesOpen', 'This panel can restart services, open firewall ports and read your databases. Two-factor authentication means a stolen password alone is not enough to do any of that.')}
                 </p>
 
                 <div className="security-offer">
@@ -146,12 +144,10 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                     <div className="security-offer__body">
                         <div className="security-offer__title">
-                            Two-factor authentication
+                            {t('app.setupStepSecurity.twoFactorAuthentication', 'Two-factor authentication')}
                         </div>
                         <p className="security-offer__desc">
-                            Takes about thirty seconds with any authenticator app —
-                            1Password, Aegis, Google Authenticator. You&apos;ll get
-                            backup codes in case you lose the device.
+                            {t('app.setupStepSecurity.takesAboutThirtySecondsWithAny', 'Takes about thirty seconds with any authenticator app — 1Password, Aegis, Google Authenticator. You\'ll get backup codes in case you lose the device.')}
                         </p>
                     </div>
                 </div>
@@ -165,7 +161,7 @@ const SetupStepSecurity = ({ onComplete }) => {
 
                 <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
-                        Skip for now
+                        {t('app.setupStepSecurity.skipForNow', 'Skip for now')}
                     </Button>
                     <button
                         type="button"
@@ -183,17 +179,16 @@ const SetupStepSecurity = ({ onComplete }) => {
     if (stage === STAGE_ENROLL) {
         return (
             <div className="wizard-step">
-                <h2 className="wizard-step-title">Scan this code</h2>
+                <h2 className="wizard-step-title">{t('app.setupStepSecurity.scanThisCode', 'Scan this code')}</h2>
                 <p className="wizard-step-description">
-                    Open your authenticator app, scan the QR code, then enter the
-                    six-digit code it shows.
+                    {t('app.setupStepSecurity.openYourAuthenticatorAppScanThe', 'Open your authenticator app, scan the QR code, then enter the six-digit code it shows.')}
                 </p>
 
                 <div className="security-enroll">
                     {setupData?.qr_code ? (
                         <img
                             src={setupData.qr_code}
-                            alt="Two-factor QR code"
+                            alt={t('app.setupStepSecurity.twoFactorQrCode', 'Two-factor QR code')}
                             className="security-enroll__qr"
                         />
                     ) : (
@@ -204,7 +199,7 @@ const SetupStepSecurity = ({ onComplete }) => {
 
                     <div className="security-enroll__manual">
                         <div className="security-enroll__manual-label">
-                            Can&apos;t scan? Enter this key instead:
+                            {t('app.setupStepSecurity.canTScanEnterThisKey', 'Can\'t scan? Enter this key instead:')}
                         </div>
                         <code className="security-enroll__secret">{setupData?.secret}</code>
                     </div>
@@ -223,7 +218,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                         inputMode="numeric"
                         autoComplete="one-time-code"
                         className="security-enroll__input"
-                        aria-label="Six-digit verification code"
+                        aria-label={t('app.setupStepSecurity.sixDigitVerificationCode', 'Six-digit verification code')}
                     />
                 </div>
 
@@ -236,7 +231,7 @@ const SetupStepSecurity = ({ onComplete }) => {
 
                 <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
-                        Skip for now
+                        {t('app.setupStepSecurity.skipForNow2', 'Skip for now')}
                     </Button>
                     <button
                         type="button"
@@ -254,11 +249,9 @@ const SetupStepSecurity = ({ onComplete }) => {
     // STAGE_CODES — shown exactly once. The backend will not reissue these.
     return (
         <div className="wizard-step">
-            <h2 className="wizard-step-title">Save your backup codes</h2>
+            <h2 className="wizard-step-title">{t('app.setupStepSecurity.saveYourBackupCodes', 'Save your backup codes')}</h2>
             <p className="wizard-step-description">
-                These are shown once and never again. Each works a single time if you
-                lose your authenticator — keep them somewhere that does not depend on
-                this server being reachable.
+                {t('app.setupStepSecurity.theseAreShownOnceAndNever', 'These are shown once and never again. Each works a single time if you lose your authenticator — keep them somewhere that does not depend on this server being reachable.')}
             </p>
 
             <div className="security-codes">
@@ -272,16 +265,16 @@ const SetupStepSecurity = ({ onComplete }) => {
             <div className="security-codes__actions">
                 <Button variant="outline" onClick={copyCodes}>
                     <Copy size={15} />
-                    Copy
+                    {t('app.setupStepSecurity.copy', 'Copy')}
                 </Button>
                 <Button variant="outline" onClick={downloadCodes}>
                     <Download size={15} />
-                    Download
+                    {t('app.setupStepSecurity.download', 'Download')}
                 </Button>
                 {savedCodes && (
                     <span className="security-codes__saved">
                         <Check size={15} />
-                        Saved
+                        {t('app.setupStepSecurity.saved', 'Saved')}
                     </span>
                 )}
             </div>

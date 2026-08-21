@@ -28,11 +28,13 @@ import ProxyStackPanel from '../components/proxy/ProxyStackPanel';
 import RemoteAccess from '../pages/RemoteAccess';
 import EmptyState from '../components/EmptyState';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Live host metrics cadence while the server is online.
 const METRICS_POLL_MS = 10000;
 
 const ServerDetail = () => {
+    const { t } = useTranslation();
     const { id, tab } = useParams();
     const navigate = useNavigate();
     const { confirm } = useConfirm();
@@ -108,7 +110,7 @@ const ServerDetail = () => {
                 a.id === alertId ? { ...a, status: 'acknowledged' } : a
             ));
         } catch {
-            toast.error('Failed to acknowledge alert');
+            toast.error(t('app.serverDetail.failedToAcknowledgeAlert', 'Failed to acknowledge alert'));
         }
     }
 
@@ -117,7 +119,7 @@ const ServerDetail = () => {
             await api.resolveAlert(alertId);
             setSecurityAlerts(prev => prev.filter(a => a.id !== alertId));
         } catch {
-            toast.error('Failed to resolve alert');
+            toast.error(t('app.serverDetail.failedToResolveAlert', 'Failed to resolve alert'));
         }
     }
 
@@ -133,15 +135,15 @@ const ServerDetail = () => {
     });
 
     async function handleDeleteServer() {
-        const confirmed = await confirm({ title: 'Remove Server', message: 'Are you sure you want to remove this server? This action cannot be undone.' });
+        const confirmed = await confirm({ title: t('app.serverDetail.removeServer', 'Remove Server'), message: t('app.serverDetail.areYouSureYouWantTo', 'Are you sure you want to remove this server? This action cannot be undone.') });
         if (!confirmed) return;
 
         try {
             await api.deleteServer(id);
-            toast.success('Server removed successfully');
+            toast.success(t('app.serverDetail.serverRemovedSuccessfully', 'Server removed successfully'));
             navigate('/servers');
         } catch (err) {
-            toast.error(err.message || 'Failed to remove server');
+            toast.error(err.message || t('app.serverDetail.failedToRemoveServer', 'Failed to remove server'));
         }
     }
 
@@ -149,13 +151,13 @@ const ServerDetail = () => {
         try {
             const result = await api.pingServer(id);
             if (result.success) {
-                toast.success(`Server responded in ${result.latency}ms`);
+                toast.success(t('app.serverDetail.serverRespondedInMs', 'Server responded in {{latency}}ms', { latency: result.latency }));
                 loadServer();
             } else {
-                toast.error('Server did not respond');
+                toast.error(t('app.serverDetail.serverDidNotRespond', 'Server did not respond'));
             }
         } catch (err) {
-            toast.error('Failed to ping server');
+            toast.error(t('app.serverDetail.failedToPingServer', 'Failed to ping server'));
         }
     }
 
@@ -182,15 +184,15 @@ const ServerDetail = () => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="detail" title="Loading server details" />;
+        return <EmptyState loading loadingVariant="detail" title={t('app.serverDetail.loadingServerDetails', 'Loading server details')} />;
     }
 
     if (error) {
         return (
             <div className="error-page">
-                <h2>Error Loading Server</h2>
+                <h2>{t('app.serverDetail.errorLoadingServer', 'Error Loading Server')}</h2>
                 <p>{error}</p>
-                <Button asChild><Link to="/servers">Back to Servers</Link></Button>
+                <Button asChild><Link to="/servers">{t('app.serverDetail.backToServers', 'Back to Servers')}</Link></Button>
             </div>
         );
     }
@@ -198,9 +200,9 @@ const ServerDetail = () => {
     if (!server) {
         return (
             <div className="error-page">
-                <h2>Server Not Found</h2>
-                <p>The requested server could not be found.</p>
-                <Button asChild><Link to="/servers">Back to Servers</Link></Button>
+                <h2>{t('app.serverDetail.serverNotFound', 'Server Not Found')}</h2>
+                <p>{t('app.serverDetail.theRequestedServerCouldNotBe', 'The requested server could not be found.')}</p>
+                <Button asChild><Link to="/servers">{t('app.serverDetail.backToServers2', 'Back to Servers')}</Link></Button>
             </div>
         );
     }
@@ -216,9 +218,8 @@ const ServerDetail = () => {
         systemNotifications.push({
             id: 'limited-mode',
             severity: 'warning',
-            title: 'Limited mode',
-            message:
-                'This agent connected via the REST polling fallback because the WebSocket link could not be established cleanly. Heartbeats and one-shot commands work; live logs, real-time metrics, and terminal sessions are unavailable until the WS link is restored.',
+            titleKey: 'app.serverDetail.limitedMode', title: 'Limited mode',
+            messageKey: 'app.serverDetail.thisAgentConnectedViaTheRest', message: 'This agent connected via the REST polling fallback because the WebSocket link could not be established cleanly. Heartbeats and one-shot commands work; live logs, real-time metrics, and terminal sessions are unavailable until the WS link is restored.',
         });
     }
     const openSecurityAlerts = securityAlerts.filter(a => a.status === 'open');
@@ -229,26 +230,26 @@ const ServerDetail = () => {
     // hiding the tab matches the rest of the panel's "don't expose what
     // the host can't do" behaviour.
     const tabs = [
-        { id: 'overview', label: 'Overview' },
-        { id: 'docker', label: 'Docker' },
-        { id: 'proxy', label: 'Proxy' },
-        ...(server.capabilities?.cron ? [{ id: 'cron', label: 'Cron' }] : []),
-        ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', label: 'Tunnels' }] : []),
-        ...(server.capabilities?.packages ? [{ id: 'packages', label: 'Packages' }] : []),
-        ...(server.capabilities?.systemd ? [{ id: 'services', label: 'Services' }] : []),
-        ...(server.capabilities?.survey ? [{ id: 'survey', label: 'Survey' }] : []),
-        { id: 'metrics', label: 'Metrics' },
+        { id: 'overview', labelKey: 'app.serverDetail.overview', label: 'Overview' },
+        { id: 'docker', labelKey: 'app.serverDetail.docker', label: 'Docker' },
+        { id: 'proxy', labelKey: 'app.serverDetail.proxy', label: 'Proxy' },
+        ...(server.capabilities?.cron ? [{ id: 'cron', labelKey: 'app.serverDetail.cron', label: 'Cron' }] : []),
+        ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', labelKey: 'app.serverDetail.tunnels', label: 'Tunnels' }] : []),
+        ...(server.capabilities?.packages ? [{ id: 'packages', labelKey: 'app.serverDetail.packages', label: 'Packages' }] : []),
+        ...(server.capabilities?.systemd ? [{ id: 'services', labelKey: 'app.serverDetail.services', label: 'Services' }] : []),
+        ...(server.capabilities?.survey ? [{ id: 'survey', labelKey: 'app.serverDetail.survey', label: 'Survey' }] : []),
+        { id: 'metrics', labelKey: 'app.serverDetail.metrics', label: 'Metrics' },
         ...(totalAlertCount > 0
-            ? [{ id: 'alerts', label: 'Alerts', badge: totalAlertCount }]
-            : [{ id: 'alerts', label: 'Alerts' }]),
-        ...(server.capabilities?.wireguard ? [{ id: 'remote-access', label: 'Remote Access' }] : []),
-        { id: 'settings', label: 'Settings' }
+            ? [{ id: 'alerts', labelKey: 'app.serverDetail.alerts', label: 'Alerts', badge: totalAlertCount }]
+            : [{ id: 'alerts', labelKey: 'app.serverDetail.alerts2', label: 'Alerts' }]),
+        ...(server.capabilities?.wireguard ? [{ id: 'remote-access', labelKey: 'app.serverDetail.remoteAccess', label: 'Remote Access' }] : []),
+        { id: 'settings', labelKey: 'app.serverDetail.settings', label: 'Settings' }
     ];
 
     return (
         <div className="page-container server-detail-page">
             <div className="page-breadcrumb">
-                <Link to="/servers">Servers</Link>
+                <Link to="/servers">{t('app.serverDetail.servers', 'Servers')}</Link>
                 <span className="breadcrumb-separator">/</span>
                 <span>{server.name}</span>
             </div>
@@ -268,7 +269,7 @@ const ServerDetail = () => {
                             <CopyChip
                                 label="id"
                                 value={server.id}
-                                title="Copy server ID"
+                                title={t('app.serverDetail.copyServerId', 'Copy server ID')}
                                 mono
                             />
                         </div>
@@ -298,7 +299,7 @@ const ServerDetail = () => {
                                 <>
                                     <span className="dotsep">·</span>
                                     <span className="server-detail-header__meta-item">
-                                        last seen {new Date(server.last_seen).toLocaleString()}
+                                        {t('app.serverDetail.lastSeen', 'last seen')} {new Date(server.last_seen).toLocaleString()}
                                     </span>
                                 </>
                             )}
@@ -310,7 +311,7 @@ const ServerDetail = () => {
                 </div>
                 <div className="server-detail-header__actions">
                     <Button variant="outline" size="sm" onClick={handlePingServer}>
-                        <RefreshIcon /> Ping
+                        <RefreshIcon /> {t('app.serverDetail.ping', 'Ping')}
                     </Button>
                 </div>
             </header>

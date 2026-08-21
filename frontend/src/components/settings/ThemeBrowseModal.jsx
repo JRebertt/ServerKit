@@ -6,11 +6,13 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 // Browse & install community themes from the registry (plan 60, Phase 3).
 // Offline-tolerant: if the registry is unreachable the panel falls back to the
 // bundled index, so this never hard-fails — it just shows fewer (or no) cards.
 const ThemeBrowseModal = ({ open, onOpenChange }) => {
+    const { t } = useTranslation();
     const { refreshInstalledThemes } = useTheme();
     const toast = useToast();
     const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
             setThemes(Array.isArray(data?.themes) ? data.themes : []);
             setSource(data?.source || null);
         } catch (e) {
-            toast.error(e?.message || 'Could not load the theme registry');
+            toast.error(e?.message || t('app.themeBrowseModal.couldNotLoadTheThemeRegistry', 'Could not load the theme registry'));
             setThemes([]);
         } finally {
             setLoading(false);
@@ -43,9 +45,9 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
             await api.installRegistryTheme(slug);
             await refreshInstalledThemes();
             setThemes((prev) => prev.map((t) => (t.slug === slug ? { ...t, installed: true } : t)));
-            toast.success('Theme installed — find it in the gallery');
+            toast.success(t('app.themeBrowseModal.themeInstalledFindItInThe', 'Theme installed — find it in the gallery'));
         } catch (e) {
-            toast.error(e?.message || 'Could not install that theme');
+            toast.error(e?.message || t('app.themeBrowseModal.couldNotInstallThatTheme', 'Could not install that theme'));
         } finally {
             setInstalling(null);
         }
@@ -55,19 +57,19 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="theme-browse-modal">
                 <DialogHeader>
-                    <DialogTitle>Browse themes</DialogTitle>
+                    <DialogTitle>{t('app.themeBrowseModal.browseThemes', 'Browse themes')}</DialogTitle>
                     <DialogDescription>
-                        Community themes from the registry. Installing one adds it to your gallery.
+                        {t('app.themeBrowseModal.communityThemesFromTheRegistryInstalling', 'Community themes from the registry. Installing one adds it to your gallery.')}
                     </DialogDescription>
                 </DialogHeader>
 
                 {loading ? (
                     <div className="theme-browse__state">
-                        <Loader2 className="spin" size={18} /> Loading registry…
+                        <Loader2 className="spin" size={18} /> {t('app.themeBrowseModal.loadingRegistry', 'Loading registry…')}
                     </div>
                 ) : themes.length === 0 ? (
                     <div className="theme-browse__state">
-                        No community themes available right now.
+                        {t('app.themeBrowseModal.noCommunityThemesAvailableRightNow', 'No community themes available right now.')}
                         {source === 'bundled' && ' (registry offline — showing bundled only)'}
                     </div>
                 ) : (
@@ -87,7 +89,7 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
                                     </div>
                                     {t.description && <p className="theme-browse__desc">{t.description}</p>}
                                     {t.installed ? (
-                                        <span className="theme-browse__installed"><Check size={13} /> Installed</span>
+                                        <span className="theme-browse__installed"><Check size={13} /> {t('app.themeBrowseModal.installed', 'Installed')}</span>
                                     ) : (
                                         <button
                                             type="button"
@@ -98,7 +100,7 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
                                             {installing === t.slug
                                                 ? <Loader2 className="spin" size={13} />
                                                 : <Download size={13} />}
-                                            Install
+                                            {t('app.themeBrowseModal.install', 'Install')}
                                         </button>
                                     )}
                                 </div>

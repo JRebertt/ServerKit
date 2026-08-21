@@ -1,10 +1,12 @@
 import { X } from 'lucide-react';
 import { byKey, columnLabel, opLabel, ruleText } from './fields';
+import { useTranslation } from 'react-i18next';
 
 // Active filter rules, spelled out above the grid. A filter you cannot see is
 // a filter you will blame the data for — every rule gets a chip, and every chip
 // can be removed on its own.
 export function GridChips({ cfg, columns, onRemove, onClear, onMatchChange }) {
+    const { t } = useTranslation();
     const rules = cfg.filters.rules;
     if (!rules.length) return null;
     const map = byKey(columns);
@@ -16,7 +18,7 @@ export function GridChips({ cfg, columns, onRemove, onClear, onMatchChange }) {
                     type="button"
                     className="sk-gridchip sk-gridchip--match"
                     onClick={() => onMatchChange(cfg.filters.match === 'all' ? 'any' : 'all')}
-                    title="Toggle whether rows must match every condition or any one"
+                    title={t('app.gridChips.toggleWhetherRowsMustMatchEvery', 'Toggle whether rows must match every condition or any one')}
                 >
                     match {cfg.filters.match}
                 </button>
@@ -33,14 +35,14 @@ export function GridChips({ cfg, columns, onRemove, onClear, onMatchChange }) {
                             type="button"
                             className="sk-gridchip__x"
                             onClick={() => onRemove(rule.id)}
-                            aria-label={`Remove ${columnLabel(column)} filter`}
+                            aria-label={t('app.gridChips.removeFilter', 'Remove {{value}} filter', { value: columnLabel(column) })}
                         >
                             <X size={12} />
                         </button>
                     </span>
                 );
             })}
-            <button type="button" className="sk-gridchips__clear" onClick={onClear}>Clear all</button>
+            <button type="button" className="sk-gridchips__clear" onClick={onClear}>{t('app.gridChips.clearAll', 'Clear all')}</button>
         </div>
     );
 }

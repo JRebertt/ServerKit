@@ -4,8 +4,10 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 const PackagesTab = ({ appId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -46,23 +48,23 @@ const PackagesTab = ({ appId }) => {
     async function handleFreeze() {
         try {
             await api.freezePythonRequirements(appId);
-            toast.success('requirements.txt updated');
+            toast.success(t('app.packagesTab.requirementsTxtUpdated', 'requirements.txt updated'));
         } catch (err) {
-            toast.error('Failed to freeze requirements');
+            toast.error(t('app.packagesTab.failedToFreezeRequirements', 'Failed to freeze requirements'));
             console.error('Failed to freeze requirements:', err);
         }
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading packages..." />;
+        return <EmptyState loading loadingVariant="table" title={t('app.packagesTab.loadingPackages', 'Loading packages...')} />;
     }
 
     return (
         <div>
             <div className="section-header">
-                <h3>Installed Packages</h3>
+                <h3>{t('app.packagesTab.installedPackages', 'Installed Packages')}</h3>
                 <Button variant="outline" size="sm" onClick={handleFreeze}>
-                    Freeze to requirements.txt
+                    {t('app.packagesTab.freezeToRequirementsTxt', 'Freeze to requirements.txt')}
                 </Button>
             </div>
 
@@ -71,7 +73,7 @@ const PackagesTab = ({ appId }) => {
                     type="text"
                     value={newPackage}
                     onChange={(e) => setNewPackage(e.target.value)}
-                    placeholder="Package name (e.g., requests, flask==2.0.0)"
+                    placeholder={t('app.packagesTab.packageNameEGRequestsFlask', 'Package name (e.g., requests, flask==2.0.0)')}
                 />
                 <Button type="submit" disabled={installing}>
                     {installing ? 'Installing...' : 'Install'}

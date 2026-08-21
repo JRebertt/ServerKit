@@ -1,6 +1,7 @@
 import { ChevronRight, ChevronDown, Table2, Loader2, MoreHorizontal, Plus, Download } from 'lucide-react';
 import { EngineIcon } from '../icons/DatabaseBrands';
 import EngineGlyph from './EngineGlyph';
+import { useTranslation } from 'react-i18next';
 
 // Icon per node kind / engine. Brand glyphs come from DatabaseBrands; tint comes
 // from `.is-<engine>` in SCSS (the brand icons use currentColor). An engine
@@ -47,6 +48,7 @@ function emptyLabel(node) {
 }
 
 function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, selectedId, filter, handlers }) {
+    const { t } = useTranslation();
     const isOpen = expanded.has(node.id);
     const isLoading = loading.has(node.id);
     const kids = childrenCache.get(node.id);
@@ -88,7 +90,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                         type="button"
                         className="dbx-tree-chevron"
                         onClick={(e) => { e.stopPropagation(); handlers.onToggle(node); }}
-                        aria-label={isOpen ? 'Collapse' : 'Expand'}
+                        aria-label={isOpen ? t('app.sourceTree.collapse', 'Collapse') : t('app.sourceTree.expand', 'Expand')}
                         tabIndex={-1}
                     >
                         {isLoading
@@ -105,7 +107,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                 <span className="dbx-tree-label" title={node.label}>{node.label}</span>
 
                 {node.kind === 'database' && node.source === 'docker' && (
-                    <span className="dbx-tree-source" title={node.appName ? `Docker container · ${node.appName}` : 'Docker container'}>
+                    <span className="dbx-tree-source" title={node.appName ? t('app.sourceTree.dockerContainer', 'Docker container · {{appName}}', { appName: node.appName }) : t('app.sourceTree.dockerContainer2', 'Docker container')}>
                         <EngineIcon engine="docker" size={11} />
                         {node.appName || 'docker'}
                     </span>
@@ -132,10 +134,10 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                         type="button"
                         className="dbx-tree-install-btn"
                         onClick={(e) => { e.stopPropagation(); handlers.onInstall(node); }}
-                        aria-label={`${node.label} is not installed — install it`}
-                        title={`Install ${node.label}`}
+                        aria-label={t('app.sourceTree.isNotInstalledInstallIt', '{{label}} is not installed — install it', { label: node.label })}
+                        title={t('app.sourceTree.install', 'Install {{label}}', { label: node.label })}
                     >
-                        <Download size={11} aria-hidden="true" /> Install
+                        <Download size={11} aria-hidden="true" /> {t('app.sourceTree.install2', 'Install')}
                     </button>
                 )}
                 {!canInstall && node.installHint && (
@@ -159,8 +161,8 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                         type="button"
                         className="dbx-tree-add"
                         onClick={(e) => { e.stopPropagation(); handlers.onCreateChild(node); }}
-                        aria-label={`Create a database in ${node.label}`}
-                        title="Create a database"
+                        aria-label={t('app.sourceTree.createADatabaseIn', 'Create a database in {{label}}', { label: node.label })}
+                        title={t('app.sourceTree.createADatabase', 'Create a database')}
                         tabIndex={-1}
                     >
                         <Plus size={12} aria-hidden="true" />
@@ -171,7 +173,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                     type="button"
                     className="dbx-tree-more"
                     onClick={(e) => { e.stopPropagation(); handlers.onContext(e, node); }}
-                    aria-label="Actions"
+                    aria-label={t('app.sourceTree.actions', 'Actions')}
                     tabIndex={-1}
                 >
                     <MoreHorizontal size={14} aria-hidden="true" />
@@ -181,7 +183,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
             {node.expandable && isOpen && (
                 <ul className="dbx-tree-children" role="group">
                     {isLoading && childNodes.length === 0 && (
-                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>Loading…</li>
+                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>{t('app.sourceTree.loading', 'Loading…')}</li>
                     )}
                     {hadError && (
                         <li className="dbx-tree-leaf-msg is-error" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>
@@ -196,7 +198,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                                     className="dbx-tree-leaf-link"
                                     onClick={() => handlers.onInstall(node)}
                                 >
-                                    Not installed — install {node.label}
+                                    {t('app.sourceTree.notInstalledInstall', 'Not installed — install')} {node.label}
                                 </button>
                             ) : emptyLabel(node)}
                         </li>
@@ -216,7 +218,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                         />
                     ))}
                     {!isLoading && !hadError && childNodes.length > 0 && visibleChildren.length === 0 && (
-                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>No match</li>
+                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>{t('app.sourceTree.noMatch', 'No match')}</li>
                     )}
                 </ul>
             )}
@@ -225,8 +227,9 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
 }
 
 export default function SourceTree({ roots, expanded, childrenCache, loading, activeKey, selectedId, filter, handlers }) {
+    const { t } = useTranslation();
     return (
-        <ul className="dbx-tree" role="tree" aria-label="Database sources">
+        <ul className="dbx-tree" role="tree" aria-label={t('app.sourceTree.databaseSources', 'Database sources')}>
             {roots.map((node) => (
                 <TreeRow
                     key={node.id}

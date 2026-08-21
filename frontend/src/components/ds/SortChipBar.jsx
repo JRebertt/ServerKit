@@ -1,5 +1,6 @@
 import { ArrowUp, ArrowDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 // Active-sort chip bar (Twenty's EditableSortChip pattern). Renders one chip
 // per sort level above the table: click the chip body to flip direction, ✕ to
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils';
 //   const { sorts, setSorts } = useTableSort();
 //   <SortChipBar columns={columns} sorts={sorts} onChange={setSorts} />
 export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
+    const { t } = useTranslation();
     if (!sorts.length) return null;
 
     const labelFor = (key) => {
@@ -25,7 +27,7 @@ export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
     const remove = (key) => onChange?.(sorts.filter((s) => s.key !== key));
 
     return (
-        <div className={cn('sk-sortchips', className)} role="list" aria-label="Active sorting">
+        <div className={cn('sk-sortchips', className)} role="list" aria-label={t('app.sortChipBar.activeSorting', 'Active sorting')}>
             {sorts.map((sort, index) => (
                 <span key={sort.key} className="sk-sortchips__chip" role="listitem">
                     {sorts.length > 1 && (
@@ -35,7 +37,7 @@ export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
                         type="button"
                         className="sk-sortchips__body"
                         onClick={() => flip(sort.key)}
-                        title="Click to flip direction"
+                        title={t('app.sortChipBar.clickToFlipDirection', 'Click to flip direction')}
                     >
                         <span className="sk-sortchips__label">{labelFor(sort.key)}</span>
                         {sort.direction === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
@@ -44,7 +46,7 @@ export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
                         type="button"
                         className="sk-sortchips__remove"
                         onClick={() => remove(sort.key)}
-                        aria-label={`Remove sort on ${labelFor(sort.key)}`}
+                        aria-label={t('app.sortChipBar.removeSortOn', 'Remove sort on {{value}}', { value: labelFor(sort.key) })}
                     >
                         <X size={12} />
                     </button>
@@ -55,7 +57,7 @@ export function SortChipBar({ columns = [], sorts = [], onChange, className }) {
                 className="sk-sortchips__reset"
                 onClick={() => onChange?.([])}
             >
-                Reset
+                {t('app.sortChipBar.reset', 'Reset')}
             </button>
         </div>
     );

@@ -11,6 +11,7 @@ import { TOKEN_GROUPS, GROUP_LABELS, TOKEN_TYPE, sanitizeTokens } from '../../da
 import { DEFAULT_THEME_SLUG, BUNDLED_THEME_MAP } from '../../data/bundledThemes';
 import api from '../../services/api';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 const REGISTRY_REPO = 'https://github.com/jhd3197/serverkit-themes';
 
@@ -32,6 +33,7 @@ function seedTokens(theme, mode) {
 // the skin preview), start from any installed theme, then Export a valid
 // theme.json, Save it into this panel, or Submit it to the registry.
 const ThemeStudioModal = ({ open, onOpenChange }) => {
+    const { t } = useTranslation();
     const { availableThemes, previewSkin, clearPreview, refreshInstalledThemes, setSkin } = useTheme();
     const { user } = useAuth();
     const toast = useToast();
@@ -92,12 +94,12 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
 
     const download = () => {
         downloadBlob(JSON.stringify(workingTheme, null, 2), `${workingTheme.slug || 'theme'}.json`, { type: 'application/json' });
-        toast.success('theme.json downloaded');
+        toast.success(t('app.themeStudioModal.themeJsonDownloaded', 'theme.json downloaded'));
     };
 
     const saveToPanel = async () => {
         if (workingTheme.slug === DEFAULT_THEME_SLUG) {
-            toast.error("'default' is reserved — choose another slug");
+            toast.error(t('app.themeStudioModal.defaultIsReservedChooseAnotherSlug', '\'default\' is reserved — choose another slug'));
             return;
         }
         setSaving(true);
@@ -105,10 +107,10 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
             const saved = await api.importTheme(workingTheme, { source: 'studio' });
             await refreshInstalledThemes();
             if (saved?.slug) setSkin(saved.slug);
-            toast.success(`Saved "${saved?.name}" to this panel`);
+            toast.success(t('app.themeStudioModal.savedToThisPanel', 'Saved "{{value}}" to this panel', { value: saved?.name }));
             onOpenChange(false);
         } catch (e) {
-            toast.error(e?.message || 'Could not save the theme');
+            toast.error(e?.message || t('app.themeStudioModal.couldNotSaveTheTheme', 'Could not save the theme'));
         } finally {
             setSaving(false);
         }
@@ -126,35 +128,35 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="theme-studio">
                 <DialogHeader>
-                    <DialogTitle>Theme Studio</DialogTitle>
+                    <DialogTitle>{t('app.themeStudioModal.themeStudio', 'Theme Studio')}</DialogTitle>
                     <DialogDescription>
-                        Edit colors over the live panel. Export a shareable theme.json, save it here, or submit it to the registry.
+                        {t('app.themeStudioModal.editColorsOverTheLivePanel', 'Edit colors over the live panel. Export a shareable theme.json, save it here, or submit it to the registry.')}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="theme-studio__top">
                     <label className="theme-studio__field">
-                        <span>Name</span>
+                        <span>{t('app.themeStudioModal.name', 'Name')}</span>
                         <input value={name} onChange={(e) => onNameChange(e.target.value)} />
                     </label>
                     <label className="theme-studio__field">
-                        <span>Slug</span>
+                        <span>{t('app.themeStudioModal.slug', 'Slug')}</span>
                         <input
                             value={slug}
                             onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }}
                         />
                     </label>
                     <label className="theme-studio__field">
-                        <span>Base</span>
+                        <span>{t('app.themeStudioModal.base', 'Base')}</span>
                         <select value={base} onChange={(e) => setBase(e.target.value)}>
                             <option value="dark">dark</option>
                             <option value="light">light</option>
                         </select>
                     </label>
                     <label className="theme-studio__field">
-                        <span>Start from</span>
+                        <span>{t('app.themeStudioModal.startFrom', 'Start from')}</span>
                         <select defaultValue="" onChange={(e) => { startFrom(e.target.value); e.target.value = ''; }}>
-                            <option value="" disabled>Choose…</option>
+                            <option value="" disabled>{t('app.themeStudioModal.choose', 'Choose…')}</option>
                             {availableThemes.map((t) => (
                                 <option key={t.slug} value={t.slug}>{t.name || t.slug}</option>
                             ))}
@@ -164,7 +166,7 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
 
                 <div className="theme-studio__modebar">
                     <div className="theme-studio__accent">
-                        <span>Accent</span>
+                        <span>{t('app.themeStudioModal.accent', 'Accent')}</span>
                         <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} />
                     </div>
                     <div className="theme-studio__modes">
@@ -172,12 +174,12 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
                             type="button"
                             className={editMode === 'dark' ? 'active' : ''}
                             onClick={() => setEditMode('dark')}
-                        >Dark tokens</button>
+                        >{t('app.themeStudioModal.darkTokens', 'Dark tokens')}</button>
                         <button
                             type="button"
                             className={editMode === 'light' ? 'active' : ''}
                             onClick={() => setEditMode('light')}
-                        >Light tokens</button>
+                        >{t('app.themeStudioModal.lightTokens', 'Light tokens')}</button>
                     </div>
                 </div>
 
@@ -217,10 +219,10 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
 
                 <div className="theme-studio__footer">
                     <Button variant="outline" size="sm" onClick={download}>
-                        <Download size={14} /> Export theme.json
+                        <Download size={14} /> {t('app.themeStudioModal.exportThemeJson', 'Export theme.json')}
                     </Button>
                     <Button variant="outline" size="sm" onClick={submitToRegistry}>
-                        <Github size={14} /> Submit to registry
+                        <Github size={14} /> {t('app.themeStudioModal.submitToRegistry', 'Submit to registry')}
                     </Button>
                     {isAdmin && (
                         <Button size="sm" onClick={saveToPanel} disabled={saving}>

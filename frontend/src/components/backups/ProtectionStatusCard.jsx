@@ -3,6 +3,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Archive, Clock, DollarSign, HardDrive, Play, ExternalLink, Loader2 } from 'lucide-react';
 import { humanSize, formatMoney, formatWhen, formatDateTime } from './format';
+import { useTranslation } from 'react-i18next';
 
 // Card 1 of the backup "Protection" panel: a presentational status summary.
 // Derives a single status (Protected / Pending / Failed / Running / Off) from
@@ -33,12 +34,13 @@ const ProtectionStatusCard = ({
     busy,
     backingUp,
 }) => {
+    const { t } = useTranslation();
     if (!policyView) {
         return (
             <div className="app-panel protection-status-card">
                 <div className="app-panel-header">
                     <Archive size={16} />
-                    <span>Protection</span>
+                    <span>{t('app.protectionStatusCard.protection', 'Protection')}</span>
                 </div>
                 <div className="app-panel-body" />
             </div>
@@ -64,7 +66,7 @@ const ProtectionStatusCard = ({
         statusLine = `Last backup failed at ${formatWhen(policy.last_run_at)}`;
         statusAction = (
             <Button variant="ghost" size="sm" onClick={onViewJobs}>
-                View in Jobs
+                {t('app.protectionStatusCard.viewInJobs', 'View in Jobs')}
             </Button>
         );
     } else if (statusKey === 'running') {
@@ -86,7 +88,7 @@ const ProtectionStatusCard = ({
         <div className="app-panel protection-status-card">
             <div className="app-panel-header">
                 <Archive size={16} />
-                <span>Protection</span>
+                <span>{t('app.protectionStatusCard.protection2', 'Protection')}</span>
                 <span className="app-panel-header-actions">{statusPill}</span>
             </div>
             <div className="app-panel-body">
@@ -98,7 +100,7 @@ const ProtectionStatusCard = ({
                         disabled={busy}
                     />
                     <label htmlFor="auto-backups">
-                        <span className="protection-status-card__toggle-title">Automatic backups</span>
+                        <span className="protection-status-card__toggle-title">{t('app.protectionStatusCard.automaticBackups', 'Automatic backups')}</span>
                         <span className="protection-status-card__toggle-sub">{subtitle}</span>
                     </label>
                 </div>
@@ -114,30 +116,30 @@ const ProtectionStatusCard = ({
                         tone="accent"
                         icon={<Clock size={16} />}
                         value={nextBackupValue}
-                        label="Next backup"
+                        label={t('app.protectionStatusCard.nextBackup', 'Next backup')}
                     />
                     <MetricCard
                         tone="green"
                         icon={<DollarSign size={16} />}
                         value={policyView.monthly_cost_display}
-                        label="Monthly cost"
+                        label={t('app.protectionStatusCard.monthlyCost', 'Monthly cost')}
                     />
                     <MetricCard
                         tone="cyan"
                         icon={<HardDrive size={16} />}
                         value={policyView.storage_used_human}
-                        label="Storage used"
+                        label={t('app.protectionStatusCard.storageUsed', 'Storage used')}
                     />
                 </KpiBand>
 
                 <div className="protection-status-card__actions">
                     <Button variant="primary" size="sm" onClick={onBackupNow} disabled={backingUp}>
                         {backingUp ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
-                        Back up now
+                        {t('app.protectionStatusCard.backUpNow', 'Back up now')}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={onViewGlobal}>
                         <ExternalLink size={14} />
-                        View in global backups
+                        {t('app.protectionStatusCard.viewInGlobalBackups', 'View in global backups')}
                     </Button>
                 </div>
             </div>

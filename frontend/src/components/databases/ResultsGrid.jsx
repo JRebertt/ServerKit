@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronUp, ChevronDown, Database } from 'lucide-react';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 // Semantic cell tints (prototype `cellEl`): emails/URLs read as string values,
 // positive/negative status words get green/amber.
@@ -20,6 +21,7 @@ function cellClass(cell) {
 // Renders a query/data result set: columns + row arrays. Sorting is client-side
 // over the rows already returned (a page), matching the old QueryRunner.
 export default function ResultsGrid({ columns, rows, loading, error, emptyTitle = 'No rows', emptyDescription }) {
+    const { t } = useTranslation();
     const [sort, setSort] = useState({ col: null, dir: 'asc' });
 
     const sortedRows = useMemo(() => {
@@ -50,7 +52,7 @@ export default function ResultsGrid({ columns, rows, loading, error, emptyTitle 
     if (loading) {
         return (
             <div className="dbx-grid-status">
-                <EmptyState loading loadingVariant="table" title="Running query…" />
+                <EmptyState loading loadingVariant="table" title={t('app.resultsGrid.runningQuery', 'Running query…')} />
             </div>
         );
     }

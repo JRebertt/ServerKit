@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 const STARTER_SCRIPT = `export default {
   async fetch(request, env, ctx) {
@@ -17,6 +18,7 @@ const STARTER_SCRIPT = `export default {
 };`;
 
 export default function WorkersPanel({ zoneId, isAdmin }) {
+    const { t } = useTranslation();
     const toast = useToast();
 
     const [loading, setLoading] = useState(true);
@@ -73,9 +75,9 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                 code,
                 route_pattern: routePattern || undefined,
             });
-            toast.success(`Deployed worker "${name}"`);
+            toast.success(t('app.workersPanel.deployedWorker', 'Deployed worker "{{name}}"', { name: name }));
             if (res.route && !res.route.success) {
-                toast.error('Worker deployed, but the route failed: ' + res.route.error);
+                toast.error(t('app.workersPanel.workerDeployedButTheRouteFailed', 'Worker deployed, but the route failed: ') + res.route.error);
             }
             setName('');
             setRoutePattern('');
@@ -92,7 +94,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
         try {
             await api.deleteCloudflareWorker(zoneId, worker.name);
             await loadData();
-            toast.success(`Deleted worker "${worker.name}"`);
+            toast.success(t('app.workersPanel.deletedWorker', 'Deleted worker "{{name}}"', { name: worker.name }));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -105,7 +107,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
         try {
             await api.deleteCloudflareWorkerRoute(zoneId, route.id);
             await loadData();
-            toast.success('Route removed');
+            toast.success(t('app.workersPanel.routeRemoved', 'Route removed'));
         } catch (err) {
             toast.error(err.message);
         } finally {
@@ -114,14 +116,14 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
     };
 
     if (loading) {
-        return <div className="cf-workers__loading">Loading workers…</div>;
+        return <div className="cf-workers__loading">{t('app.workersPanel.loadingWorkers', 'Loading workers…')}</div>;
     }
 
     if (error) {
         return (
             <EmptyState
                 icon={Zap}
-                title="Workers unavailable"
+                title={t('app.workersPanel.workersUnavailable', 'Workers unavailable')}
                 description={error}
             />
         );
@@ -134,10 +136,10 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
         <div className="cf-workers">
             {/* Deploy a Worker */}
             <section className="cf-workers__section">
-                <h3 className="cf-workers__heading">Deploy a Worker</h3>
+                <h3 className="cf-workers__heading">{t('app.workersPanel.deployAWorker', 'Deploy a Worker')}</h3>
 
                 <div className="cf-workers__field">
-                    <label className="cf-workers__label">Name</label>
+                    <label className="cf-workers__label">{t('app.workersPanel.name', 'Name')}</label>
                     <Input
                         value={name}
                         placeholder="my-worker"
@@ -147,7 +149,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                 </div>
 
                 <div className="cf-workers__field">
-                    <label className="cf-workers__label">Code</label>
+                    <label className="cf-workers__label">{t('app.workersPanel.code', 'Code')}</label>
                     <Textarea
                         rows={8}
                         className="cf-workers__code"
@@ -158,7 +160,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                 </div>
 
                 <div className="cf-workers__field">
-                    <label className="cf-workers__label">Route pattern (optional)</label>
+                    <label className="cf-workers__label">{t('app.workersPanel.routePatternOptional', 'Route pattern (optional)')}</label>
                     <Input
                         value={routePattern}
                         placeholder="example.com/*"
@@ -166,26 +168,26 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                         disabled={!isAdmin || deploying}
                     />
                     <p className="cf-workers__hint">
-                        Attaches the worker to this domain so matching traffic runs the script.
+                        {t('app.workersPanel.attachesTheWorkerToThisDomain', 'Attaches the worker to this domain so matching traffic runs the script.')}
                     </p>
                 </div>
 
                 <div className="cf-workers__actions">
                     <Button onClick={handleDeploy} disabled={deployDisabled}>
-                        Deploy
+                        {t('app.workersPanel.deploy', 'Deploy')}
                     </Button>
                 </div>
             </section>
 
             {/* Deployed workers */}
             <section className="cf-workers__section">
-                <h3 className="cf-workers__heading">Workers ({workers.length})</h3>
+                <h3 className="cf-workers__heading">{t('app.workersPanel.workers', 'Workers (')}{workers.length})</h3>
 
                 {workers.length === 0 ? (
                     <EmptyState
                         icon={Zap}
-                        title="No Workers deployed"
-                        description="Deploy your first edge script above."
+                        title={t('app.workersPanel.noWorkersDeployed', 'No Workers deployed')}
+                        description={t('app.workersPanel.deployYourFirstEdgeScriptAbove', 'Deploy your first edge script above.')}
                     />
                 ) : (
                     <ul className="cf-workers__list">
@@ -194,7 +196,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                 <div className="cf-workers__name">
                                     <code>{worker.name}</code>
                                     {worker.managed && (
-                                        <Badge variant="secondary">ServerKit</Badge>
+                                        <Badge variant="secondary">{t('app.workersPanel.serverkit', 'ServerKit')}</Badge>
                                     )}
                                     {worker.modified_on && (
                                         <span className="cf-workers__meta">
@@ -210,7 +212,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteWorker(worker)}
                                         disabled={writeDisabled}
                                     >
-                                        Delete
+                                        {t('app.workersPanel.delete', 'Delete')}
                                     </Button>
                                 </div>
                             </li>
@@ -221,11 +223,11 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
 
             {/* Routes */}
             <section className="cf-workers__section">
-                <h3 className="cf-workers__heading">Routes ({routes.length})</h3>
+                <h3 className="cf-workers__heading">{t('app.workersPanel.routes', 'Routes (')}{routes.length})</h3>
 
                 {routes.length === 0 ? (
                     <p className="cf-workers__hint">
-                        No routes yet. Add a route pattern when deploying to send traffic to a worker.
+                        {t('app.workersPanel.noRoutesYetAddARoute', 'No routes yet. Add a route pattern when deploying to send traffic to a worker.')}
                     </p>
                 ) : (
                     <ul className="cf-workers__list">
@@ -243,7 +245,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteRoute(route)}
                                         disabled={writeDisabled}
                                     >
-                                        Remove
+                                        {t('app.workersPanel.remove', 'Remove')}
                                     </Button>
                                 </div>
                             </li>

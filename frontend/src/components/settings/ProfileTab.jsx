@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 const ProfileTab = () => {
+    const { t } = useTranslation();
     const { user, updateUser } = useAuth();
     const register = useSettingFocus();
     const [formData, setFormData] = useState({
@@ -42,8 +44,8 @@ const ProfileTab = () => {
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2>Profile Settings</h2>
-                <p>Update your personal information</p>
+                <h2>{t('app.profileTab.profileSettings', 'Profile Settings')}</h2>
+                <p>{t('app.profileTab.updateYourPersonalInformation', 'Update your personal information')}</p>
             </div>
 
             {message && (
@@ -54,7 +56,7 @@ const ProfileTab = () => {
 
             <form onSubmit={handleSubmit} {...register('profile-username', 'settings-form')}>
                 <div className="form-group">
-                    <Label>Username</Label>
+                    <Label>{t('app.profileTab.username', 'Username')}</Label>
                     <Input
                         type="text"
                         value={formData.username}
@@ -64,7 +66,7 @@ const ProfileTab = () => {
                 </div>
 
                 <div className="form-group">
-                    <Label>Email Address</Label>
+                    <Label>{t('app.profileTab.emailAddress', 'Email Address')}</Label>
                     <Input
                         type="email"
                         value={formData.email}
@@ -74,13 +76,13 @@ const ProfileTab = () => {
                 </div>
 
                 <div className="form-group">
-                    <Label>Role</Label>
+                    <Label>{t('app.profileTab.role', 'Role')}</Label>
                     <Input type="text" value={user?.role || 'user'} disabled className="input-disabled" />
-                    <span className="form-help">Contact an administrator to change your role</span>
+                    <span className="form-help">{t('app.profileTab.contactAnAdministratorToChangeYour', 'Contact an administrator to change your role')}</span>
                 </div>
 
                 <div className="form-group">
-                    <Label>Member Since</Label>
+                    <Label>{t('app.profileTab.memberSince', 'Member Since')}</Label>
                     <Input
                         type="text"
                         value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}

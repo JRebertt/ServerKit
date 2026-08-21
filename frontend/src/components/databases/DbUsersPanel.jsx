@@ -5,11 +5,13 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // Users ServerKit created on a managed database (tracked rows merged with the
 // live engine list). Create returns the password exactly once — it is shown
 // until dismissed and never retrievable again.
 export default function DbUsersPanel({ databaseId }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [users, setUsers] = useState([]);
@@ -25,7 +27,7 @@ export default function DbUsersPanel({ databaseId }) {
             const data = await api.getManagedDbUsers(databaseId);
             setUsers(data?.users || []);
         } catch (err) {
-            toast.error(err.message || 'Failed to load database users');
+            toast.error(err.message || t('app.dbUsersPanel.failedToLoadDatabaseUsers', 'Failed to load database users'));
         } finally {
             setLoading(false);
         }
@@ -47,7 +49,7 @@ export default function DbUsersPanel({ databaseId }) {
             setNewGrants('ALL');
             await load();
         } catch (err) {
-            toast.error(err.message || 'Failed to create user');
+            toast.error(err.message || t('app.dbUsersPanel.failedToCreateUser', 'Failed to create user'));
         } finally {
             setCreating(false);
         }
@@ -55,24 +57,24 @@ export default function DbUsersPanel({ databaseId }) {
 
     async function removeUser(user) {
         const ok = await confirm({
-            title: `Drop user “${user.username}”?`,
-            message: 'This drops the user on the database server and stops tracking it.',
-            confirmText: 'Drop user',
+            title: t('app.dbUsersPanel.dropUser', 'Drop user “{{username}}”?', { username: user.username }),
+            message: t('app.dbUsersPanel.thisDropsTheUserOnThe', 'This drops the user on the database server and stops tracking it.'),
+            confirmText: t('app.dbUsersPanel.dropUser2', 'Drop user'),
             danger: true,
         });
         if (!ok) return;
         try {
             await api.deleteManagedDbUser(databaseId, user.id);
-            toast.success('User dropped');
+            toast.success(t('app.dbUsersPanel.userDropped', 'User dropped'));
             await load();
         } catch (err) {
-            toast.error(err.message || 'Failed to drop user');
+            toast.error(err.message || t('app.dbUsersPanel.failedToDropUser', 'Failed to drop user'));
         }
     }
 
     async function copySecret() {
         if (oneTimeSecret && await copyToClipboard(oneTimeSecret.password)) {
-            toast.success('Password copied');
+            toast.success(t('app.dbUsersPanel.passwordCopied', 'Password copied'));
         }
     }
 
@@ -81,25 +83,25 @@ export default function DbUsersPanel({ databaseId }) {
             {oneTimeSecret && (
                 <div className="managed-db__secret">
                     <span className="managed-db__meta">
-                        Password for <strong>{oneTimeSecret.username}</strong>:{' '}
-                        <code>{oneTimeSecret.password}</code> — shown once, save it now.
+                        {t('app.dbUsersPanel.passwordFor', 'Password for')} <strong>{oneTimeSecret.username}</strong>:{' '}
+                        <code>{oneTimeSecret.password}</code> {t('app.dbUsersPanel.shownOnceSaveItNow', '— shown once, save it now.')}
                     </span>
                     <div className="managed-db__actions">
                         <Button type="button" size="sm" variant="outline" onClick={copySecret}>
-                            <Copy size={14} /> Copy
+                            <Copy size={14} /> {t('app.dbUsersPanel.copy', 'Copy')}
                         </Button>
                         <Button type="button" size="sm" variant="ghost"
                             onClick={() => setOneTimeSecret(null)}>
-                            Dismiss
+                            {t('app.dbUsersPanel.dismiss', 'Dismiss')}
                         </Button>
                     </div>
                 </div>
             )}
 
             {loading ? (
-                <p className="managed-db__hint">Loading users…</p>
+                <p className="managed-db__hint">{t('app.dbUsersPanel.loadingUsers', 'Loading users…')}</p>
             ) : users.length === 0 ? (
-                <p className="managed-db__hint">No users tracked for this database yet.</p>
+                <p className="managed-db__hint">{t('app.dbUsersPanel.noUsersTrackedForThisDatabase', 'No users tracked for this database yet.')}</p>
             ) : (
                 <div className="managed-db__list">
                     {users.map((user) => (
@@ -117,8 +119,8 @@ export default function DbUsersPanel({ databaseId }) {
                                 <div className="managed-db__actions">
                                     <Button type="button" size="sm" variant="ghost"
                                         onClick={() => removeUser(user)}
-                                        aria-label={`Drop user ${user.username}`}>
-                                        <Trash2 size={14} /> Drop
+                                        aria-label={t('app.dbUsersPanel.dropUser4', 'Drop user {{username}}', { username: user.username })}>
+                                        <Trash2 size={14} /> {t('app.dbUsersPanel.drop', 'Drop')}
                                     </Button>
                                 </div>
                             )}
@@ -132,15 +134,15 @@ export default function DbUsersPanel({ databaseId }) {
                     type="text"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="username (blank = generated)"
-                    aria-label="New user name"
+                    placeholder={t('app.dbUsersPanel.usernameBlankGenerated', 'username (blank = generated)')}
+                    aria-label={t('app.dbUsersPanel.newUserName', 'New user name')}
                 />
                 <input
                     type="text"
                     value={newGrants}
                     onChange={(e) => setNewGrants(e.target.value)}
-                    placeholder="grants, e.g. ALL or SELECT, INSERT"
-                    aria-label="Grants"
+                    placeholder={t('app.dbUsersPanel.grantsEGAllOrSelect', 'grants, e.g. ALL or SELECT, INSERT')}
+                    aria-label={t('app.dbUsersPanel.grants', 'Grants')}
                 />
                 <Button type="submit" size="sm" variant="outline" disabled={creating}>
                     <Plus size={14} /> {creating ? 'Creating…' : 'Create user'}

@@ -2,6 +2,7 @@ import { Search, RefreshCw, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { useTranslation } from 'react-i18next';
 
 export function LogViewer({
     files = [],
@@ -25,11 +26,12 @@ export function LogViewer({
     formatFileSize = defaultFormatFileSize,
     getLogIconType = () => 'default',
 }) {
+    const { t } = useTranslation();
     return (
         <div className="logs-layout">
             <div className="logs-sidebar">
                 <div className="sidebar-header">
-                    <h3>Log Files</h3>
+                    <h3>{t('app.logViewer.logFiles', 'Log Files')}</h3>
                     {onRefreshFiles && (
                         <Button variant="outline" size="sm" onClick={onRefreshFiles}>
                             <RefreshCw size={14} />
@@ -38,7 +40,7 @@ export function LogViewer({
                 </div>
                 <div className="log-files-list">
                     {files.length === 0 ? (
-                        <div className="empty-hint">No log files found</div>
+                        <div className="empty-hint">{t('app.logViewer.noLogFilesFound', 'No log files found')}</div>
                     ) : (
                         files.map((log) => (
                             <div
@@ -70,7 +72,7 @@ export function LogViewer({
                                 value={searchPattern}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && onSearchSubmit?.()}
-                                placeholder="Search pattern..."
+                                placeholder={t('app.logViewer.searchPattern', 'Search pattern...')}
                             />
                         </div>
                         {onLineCountChange && (
@@ -92,7 +94,7 @@ export function LogViewer({
                                     checked={autoRefresh}
                                     onCheckedChange={onAutoRefreshChange}
                                 />
-                                <span>Auto-refresh</span>
+                                <span>{t('app.logViewer.autoRefresh', 'Auto-refresh')}</span>
                             </label>
                         )}
                         {onRefreshContent && (
@@ -102,24 +104,24 @@ export function LogViewer({
                                 onClick={onRefreshContent}
                                 disabled={!selectedPath || contentLoading}
                             >
-                                Refresh
+                                {t('app.logViewer.refresh', 'Refresh')}
                             </Button>
                         )}
                         {onDownload && (
                             <Button variant="outline" size="sm" onClick={onDownload} disabled={!content}>
-                                Download
+                                {t('app.logViewer.download', 'Download')}
                             </Button>
                         )}
                         {onClear && (
                             <Button variant="destructive" size="sm" onClick={onClear} disabled={!selectedPath}>
-                                Clear
+                                {t('app.logViewer.clear', 'Clear')}
                             </Button>
                         )}
                     </div>
                 </div>
                 <div className="log-content">
                     {contentLoading ? (
-                        <div className="logs-viewer__loading">Loading...</div>
+                        <div className="logs-viewer__loading">{t('app.logViewer.loading', 'Loading...')}</div>
                     ) : !content ? (
                         <div className="logs-viewer__empty">
                             {contentEmpty ?? 'Select a log file to view its contents.'}

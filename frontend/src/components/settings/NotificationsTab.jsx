@@ -9,8 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import EmptyState from '../EmptyState';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 const NotificationsTab = () => {
+    const { t } = useTranslation();
     const { isAdmin, user } = useAuth();
     const register = useSettingFocus();
     const [loading, setLoading] = useState(true);
@@ -140,7 +142,7 @@ const NotificationsTab = () => {
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading notification settings..." />;
+        return <EmptyState loading title={t('app.notificationsTab.loadingNotificationSettings', 'Loading notification settings...')} />;
     }
 
     const userPrefsUI = (
@@ -152,14 +154,14 @@ const NotificationsTab = () => {
                             checked={userPrefs.enabled}
                             onCheckedChange={(checked) => setUserPrefs({...userPrefs, enabled: checked})}
                         />
-                        <Label>Enable notifications for my account</Label>
+                        <Label>{t('app.notificationsTab.enableNotificationsForMyAccount', 'Enable notifications for my account')}</Label>
                     </div>
                 </div>
             </div>
 
             <div {...register('notifications-channels', 'settings-card')}>
-                <h3>Notification Channels</h3>
-                <p>Choose how you want to receive notifications</p>
+                <h3>{t('app.notificationsTab.notificationChannels', 'Notification Channels')}</h3>
+                <p>{t('app.notificationsTab.chooseHowYouWantToReceive', 'Choose how you want to receive notifications')}</p>
                 <div className="channel-toggles">
                     {['email', 'discord', 'slack', 'telegram'].map(ch => (
                         <label key={ch} className="channel-toggle">
@@ -180,55 +182,55 @@ const NotificationsTab = () => {
 
             {userPrefs.channels?.includes('email') && (
                 <div {...register('notifications-email', 'settings-card')}>
-                    <h3>Email Settings</h3>
+                    <h3>{t('app.notificationsTab.emailSettings', 'Email Settings')}</h3>
                     <div className="form-group">
-                        <Label>Notification Email (optional)</Label>
+                        <Label>{t('app.notificationsTab.notificationEmailOptional', 'Notification Email (optional)')}</Label>
                         <Input
                             type="email"
                             value={userPrefs.email || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, email: e.target.value})}
-                            placeholder={user?.email || 'Uses your account email'}
+                            placeholder={user?.email || t('app.notificationsTab.usesYourAccountEmail', 'Uses your account email')}
                         />
-                        <span className="form-help">Leave empty to use your account email</span>
+                        <span className="form-help">{t('app.notificationsTab.leaveEmptyToUseYourAccount', 'Leave empty to use your account email')}</span>
                     </div>
                 </div>
             )}
 
             {userPrefs.channels?.includes('discord') && (
                 <div {...register('notifications-discord-webhook', 'settings-card')}>
-                    <h3>Personal Discord Webhook</h3>
+                    <h3>{t('app.notificationsTab.personalDiscordWebhook', 'Personal Discord Webhook')}</h3>
                     <div className="form-group">
-                        <Label>Webhook URL</Label>
+                        <Label>{t('app.notificationsTab.webhookUrl', 'Webhook URL')}</Label>
                         <Input
                             type="text"
                             value={userPrefs.discord_webhook || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, discord_webhook: e.target.value})}
                             placeholder="https://discord.com/api/webhooks/..."
                         />
-                        <span className="form-help">Create a webhook in your personal server or DM channel</span>
+                        <span className="form-help">{t('app.notificationsTab.createAWebhookInYourPersonal', 'Create a webhook in your personal server or DM channel')}</span>
                     </div>
                 </div>
             )}
 
             {userPrefs.channels?.includes('telegram') && (
                 <div {...register('notifications-telegram', 'settings-card')}>
-                    <h3>Personal Telegram</h3>
+                    <h3>{t('app.notificationsTab.personalTelegram', 'Personal Telegram')}</h3>
                     <div className="form-group">
-                        <Label>Your Chat ID</Label>
+                        <Label>{t('app.notificationsTab.yourChatId', 'Your Chat ID')}</Label>
                         <Input
                             type="text"
                             value={userPrefs.telegram_chat_id || ''}
                             onChange={(e) => setUserPrefs({...userPrefs, telegram_chat_id: e.target.value})}
-                            placeholder="Your personal chat ID"
+                            placeholder={t('app.notificationsTab.yourPersonalChatId', 'Your personal chat ID')}
                         />
-                        <span className="form-help">Use @userinfobot to get your personal chat ID</span>
+                        <span className="form-help">{t('app.notificationsTab.useUserinfobotToGetYourPersonal', 'Use @userinfobot to get your personal chat ID')}</span>
                     </div>
                 </div>
             )}
 
             <div {...register('notifications-severity', 'settings-card')}>
-                <h3>Severity Levels</h3>
-                <p>Which alert types do you want to receive?</p>
+                <h3>{t('app.notificationsTab.severityLevels', 'Severity Levels')}</h3>
+                <p>{t('app.notificationsTab.whichAlertTypesDoYouWant', 'Which alert types do you want to receive?')}</p>
                 <div className="severity-toggles">
                     {severityOptions.map(severity => (
                         <label key={severity} className={`severity-toggle ${severity}`}>
@@ -248,8 +250,8 @@ const NotificationsTab = () => {
             </div>
 
             <div {...register('notifications-categories', 'settings-card')}>
-                <h3>Notification Categories</h3>
-                <p>What types of events should trigger notifications?</p>
+                <h3>{t('app.notificationsTab.notificationCategories', 'Notification Categories')}</h3>
+                <p>{t('app.notificationsTab.whatTypesOfEventsShouldTrigger', 'What types of events should trigger notifications?')}</p>
                 <div className="category-toggles">
                     {Object.entries({
                         system: 'System Alerts (CPU, Memory, Disk)',
@@ -272,8 +274,8 @@ const NotificationsTab = () => {
             </div>
 
             <div {...register('notifications-quiet-hours', 'settings-card')}>
-                <h3>Quiet Hours</h3>
-                <p>Pause non-critical notifications during these hours</p>
+                <h3>{t('app.notificationsTab.quietHours', 'Quiet Hours')}</h3>
+                <p>{t('app.notificationsTab.pauseNonCriticalNotificationsDuringThese', 'Pause non-critical notifications during these hours')}</p>
                 <div className="form-group">
                     <div className="flex items-center gap-3">
                         <Switch
@@ -283,13 +285,13 @@ const NotificationsTab = () => {
                                 quiet_hours: { ...userPrefs.quiet_hours, enabled: checked }
                             })}
                         />
-                        <Label>Enable quiet hours</Label>
+                        <Label>{t('app.notificationsTab.enableQuietHours', 'Enable quiet hours')}</Label>
                     </div>
                 </div>
                 {userPrefs.quiet_hours?.enabled && (
                     <div className="form-row">
                         <div className="form-group">
-                            <Label>Start Time</Label>
+                            <Label>{t('app.notificationsTab.startTime', 'Start Time')}</Label>
                             <Input
                                 type="time"
                                 value={userPrefs.quiet_hours?.start || '22:00'}
@@ -300,7 +302,7 @@ const NotificationsTab = () => {
                             />
                         </div>
                         <div className="form-group">
-                            <Label>End Time</Label>
+                            <Label>{t('app.notificationsTab.endTime', 'End Time')}</Label>
                             <Input
                                 type="time"
                                 value={userPrefs.quiet_hours?.end || '08:00'}
@@ -338,36 +340,36 @@ const NotificationsTab = () => {
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
             </svg>
-        ), description: 'Send rich notifications to Discord channels via webhooks' },
+        ), descriptionKey: 'app.notificationsTab.sendRichNotificationsToDiscordChannels', description: 'Send rich notifications to Discord channels via webhooks' },
         { id: 'slack', name: 'Slack', icon: (
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
             </svg>
-        ), description: 'Send notifications to Slack channels via incoming webhooks' },
+        ), descriptionKey: 'app.notificationsTab.sendNotificationsToSlackChannelsVia', description: 'Send notifications to Slack channels via incoming webhooks' },
         { id: 'telegram', name: 'Telegram', icon: (
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                 <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
             </svg>
-        ), description: 'Send notifications to Telegram chats via bot API' },
+        ), descriptionKey: 'app.notificationsTab.sendNotificationsToTelegramChatsVia', description: 'Send notifications to Telegram chats via bot API' },
         { id: 'email', name: 'Email', icon: (
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
             </svg>
-        ), description: 'Send email notifications with HTML templates via SMTP' },
+        ), descriptionKey: 'app.notificationsTab.sendEmailNotificationsWithHtmlTemplates', description: 'Send email notifications with HTML templates via SMTP' },
         { id: 'generic_webhook', name: 'Generic Webhook', icon: (
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
-        ), description: 'Send JSON payloads to any webhook endpoint' }
+        ), descriptionKey: 'app.notificationsTab.sendJsonPayloadsToAnyWebhook', description: 'Send JSON payloads to any webhook endpoint' }
     ];
 
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2>Notification Settings</h2>
-                <p>Configure how you receive alerts and notifications</p>
+                <h2>{t('app.notificationsTab.notificationSettings', 'Notification Settings')}</h2>
+                <p>{t('app.notificationsTab.configureHowYouReceiveAlertsAnd', 'Configure how you receive alerts and notifications')}</p>
             </div>
 
             {message && (
@@ -385,7 +387,7 @@ const NotificationsTab = () => {
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
                     </svg>
-                    My Preferences
+                    {t('app.notificationsTab.myPreferences', 'My Preferences')}
                 </button>
                 {isAdmin && (
                     <button type="button"
@@ -396,7 +398,7 @@ const NotificationsTab = () => {
                             <circle cx="12" cy="12" r="3"/>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                         </svg>
-                        System Webhooks
+                        {t('app.notificationsTab.systemWebhooks', 'System Webhooks')}
                     </button>
                 )}
             </div>
@@ -439,34 +441,34 @@ const NotificationsTab = () => {
                                             checked={config[channel.id]?.enabled || false}
                                             onCheckedChange={(checked) => updateChannelConfig(channel.id, 'enabled', checked)}
                                         />
-                                        <Label>Enable {channel.name}</Label>
+                                        <Label>{t('app.notificationsTab.enable', 'Enable')} {channel.name}</Label>
                                     </div>
                                 </div>
 
                                 {channel.id === 'discord' && (
                                     <>
                                         <div className="form-group">
-                                            <Label>Webhook URL</Label>
+                                            <Label>{t('app.notificationsTab.webhookUrl2', 'Webhook URL')}</Label>
                                             <Input
                                                 type="text"
                                                 value={config.discord.webhook_url || ''}
                                                 onChange={(e) => updateChannelConfig('discord', 'webhook_url', e.target.value)}
                                                 placeholder="https://discord.com/api/webhooks/..."
                                             />
-                                            <span className="form-help">Create a webhook in Discord: Server Settings → Integrations → Webhooks</span>
+                                            <span className="form-help">{t('app.notificationsTab.createAWebhookInDiscordServer', 'Create a webhook in Discord: Server Settings → Integrations → Webhooks')}</span>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <Label>Bot Username</Label>
+                                                <Label>{t('app.notificationsTab.botUsername', 'Bot Username')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.discord.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('discord', 'username', e.target.value)}
-                                                    placeholder="ServerKit"
+                                                    placeholder={t('app.notificationsTab.serverkit', 'ServerKit')}
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>Avatar URL (optional)</Label>
+                                                <Label>{t('app.notificationsTab.avatarUrlOptional', 'Avatar URL (optional)')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.discord.avatar_url || ''}
@@ -481,18 +483,18 @@ const NotificationsTab = () => {
                                 {channel.id === 'slack' && (
                                     <>
                                         <div className="form-group">
-                                            <Label>Webhook URL</Label>
+                                            <Label>{t('app.notificationsTab.webhookUrl3', 'Webhook URL')}</Label>
                                             <Input
                                                 type="text"
                                                 value={config.slack.webhook_url || ''}
                                                 onChange={(e) => updateChannelConfig('slack', 'webhook_url', e.target.value)}
                                                 placeholder="https://hooks.slack.com/services/..."
                                             />
-                                            <span className="form-help">Create an incoming webhook in Slack: Apps → Incoming Webhooks</span>
+                                            <span className="form-help">{t('app.notificationsTab.createAnIncomingWebhookInSlack', 'Create an incoming webhook in Slack: Apps → Incoming Webhooks')}</span>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <Label>Channel (optional)</Label>
+                                                <Label>{t('app.notificationsTab.channelOptional', 'Channel (optional)')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.slack.channel || ''}
@@ -501,12 +503,12 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>Username</Label>
+                                                <Label>{t('app.notificationsTab.username', 'Username')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.slack.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('slack', 'username', e.target.value)}
-                                                    placeholder="ServerKit"
+                                                    placeholder={t('app.notificationsTab.serverkit2', 'ServerKit')}
                                                 />
                                             </div>
                                         </div>
@@ -516,24 +518,24 @@ const NotificationsTab = () => {
                                 {channel.id === 'telegram' && (
                                     <>
                                         <div className="form-group">
-                                            <Label>Bot Token</Label>
+                                            <Label>{t('app.notificationsTab.botToken', 'Bot Token')}</Label>
                                             <Input
                                                 type="password"
                                                 value={config.telegram.bot_token || ''}
                                                 onChange={(e) => updateChannelConfig('telegram', 'bot_token', e.target.value)}
                                                 placeholder="123456:ABC-DEF..."
                                             />
-                                            <span className="form-help">Get a bot token from @BotFather on Telegram</span>
+                                            <span className="form-help">{t('app.notificationsTab.getABotTokenFromBotfather', 'Get a bot token from @BotFather on Telegram')}</span>
                                         </div>
                                         <div className="form-group">
-                                            <Label>Chat ID</Label>
+                                            <Label>{t('app.notificationsTab.chatId', 'Chat ID')}</Label>
                                             <Input
                                                 type="text"
                                                 value={config.telegram.chat_id || ''}
                                                 onChange={(e) => updateChannelConfig('telegram', 'chat_id', e.target.value)}
                                                 placeholder="-1001234567890"
                                             />
-                                            <span className="form-help">Use @userinfobot or @getidsbot to find your chat ID</span>
+                                            <span className="form-help">{t('app.notificationsTab.useUserinfobotOrGetidsbotToFind', 'Use @userinfobot or @getidsbot to find your chat ID')}</span>
                                         </div>
                                     </>
                                 )}
@@ -542,7 +544,7 @@ const NotificationsTab = () => {
                                     <>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <Label>SMTP Host</Label>
+                                                <Label>{t('app.notificationsTab.smtpHost', 'SMTP Host')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.email.smtp_host || ''}
@@ -551,7 +553,7 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>SMTP Port</Label>
+                                                <Label>{t('app.notificationsTab.smtpPort', 'SMTP Port')}</Label>
                                                 <Input
                                                     type="number"
                                                     value={config.email.smtp_port || 587}
@@ -562,7 +564,7 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <Label>SMTP Username</Label>
+                                                <Label>{t('app.notificationsTab.smtpUsername', 'SMTP Username')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.email.smtp_user || ''}
@@ -571,7 +573,7 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>SMTP Password</Label>
+                                                <Label>{t('app.notificationsTab.smtpPassword', 'SMTP Password')}</Label>
                                                 <Input
                                                     type="password"
                                                     value={config.email.smtp_password || ''}
@@ -582,7 +584,7 @@ const NotificationsTab = () => {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <Label>From Email</Label>
+                                                <Label>{t('app.notificationsTab.fromEmail', 'From Email')}</Label>
                                                 <Input
                                                     type="email"
                                                     value={config.email.from_email || ''}
@@ -591,22 +593,22 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>From Name</Label>
+                                                <Label>{t('app.notificationsTab.fromName', 'From Name')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.email.from_name || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('email', 'from_name', e.target.value)}
-                                                    placeholder="ServerKit"
+                                                    placeholder={t('app.notificationsTab.serverkit3', 'ServerKit')}
                                                 />
                                             </div>
                                         </div>
                                         <div className="form-group">
-                                            <Label>Recipient Emails (comma-separated)</Label>
+                                            <Label>{t('app.notificationsTab.recipientEmailsCommaSeparated', 'Recipient Emails (comma-separated)')}</Label>
                                             <Input
                                                 type="text"
                                                 value={(config.email.to_emails || []).join(', ')}
                                                 onChange={(e) => updateChannelConfig('email', 'to_emails', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                                                placeholder="admin@example.com, team@example.com"
+                                                placeholder={t('app.notificationsTab.adminExampleComTeamExampleCom', 'admin@example.com, team@example.com')}
                                             />
                                         </div>
                                         <div className="form-group">
@@ -615,7 +617,7 @@ const NotificationsTab = () => {
                                                     checked={config.email.smtp_tls !== false}
                                                     onCheckedChange={(checked) => updateChannelConfig('email', 'smtp_tls', checked)}
                                                 />
-                                                <Label>Use TLS</Label>
+                                                <Label>{t('app.notificationsTab.useTls', 'Use TLS')}</Label>
                                             </div>
                                         </div>
                                     </>
@@ -623,19 +625,19 @@ const NotificationsTab = () => {
 
                                 {channel.id === 'generic_webhook' && (
                                     <div className="form-group">
-                                        <Label>Webhook URL</Label>
+                                        <Label>{t('app.notificationsTab.webhookUrl4', 'Webhook URL')}</Label>
                                         <Input
                                             type="text"
                                             value={config.generic_webhook.url || ''}
                                             onChange={(e) => updateChannelConfig('generic_webhook', 'url', e.target.value)}
                                             placeholder="https://your-endpoint.com/webhook"
                                         />
-                                        <span className="form-help">Receives JSON payload with alert data</span>
+                                        <span className="form-help">{t('app.notificationsTab.receivesJsonPayloadWithAlertData', 'Receives JSON payload with alert data')}</span>
                                     </div>
                                 )}
 
                                 <div className="form-group">
-                                    <Label>Alert Severities</Label>
+                                    <Label>{t('app.notificationsTab.alertSeverities', 'Alert Severities')}</Label>
                                     <div className="severity-toggles">
                                         {severityOptions.map(severity => (
                                             <label key={severity} className={`severity-toggle ${severity}`}>

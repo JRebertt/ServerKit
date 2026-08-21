@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 const TTL_OPTIONS = [15, 30, 60];
 
@@ -10,6 +11,7 @@ const TTL_OPTIONS = [15, 30, 60];
  * sign-in URL (optionally IP-bound), reveal it once, list + revoke.
  */
 const LoginLinksSection = ({ users, currentUserId }) => {
+    const { t } = useTranslation();
     const [links, setLinks] = useState([]);
     const [error, setError] = useState('');
     const [minting, setMinting] = useState(false);
@@ -90,10 +92,9 @@ const LoginLinksSection = ({ users, currentUserId }) => {
         <div className="login-links">
             <div className="tab-header">
                 <div className="tab-header-content">
-                    <h3>One-Time Login Links</h3>
+                    <h3>{t('app.loginLinksSection.oneTimeLoginLinks', 'One-Time Login Links')}</h3>
                     <p>
-                        Mint a single-use sign-in URL for a user. The link is shown
-                        once, expires automatically, and can be bound to one IP.
+                        {t('app.loginLinksSection.mintASingleUseSignIn', 'Mint a single-use sign-in URL for a user. The link is shown once, expires automatically, and can be bound to one IP.')}
                     </p>
                 </div>
             </div>
@@ -102,7 +103,7 @@ const LoginLinksSection = ({ users, currentUserId }) => {
 
             <form className="login-links__form" onSubmit={handleMint}>
                 <label className="login-links__field">
-                    <span>User</span>
+                    <span>{t('app.loginLinksSection.user', 'User')}</span>
                     <select value={userId} onChange={(e) => setUserId(e.target.value)}>
                         {(users || []).map((u) => (
                             <option key={u.id} value={u.id}>
@@ -113,7 +114,7 @@ const LoginLinksSection = ({ users, currentUserId }) => {
                 </label>
 
                 <label className="login-links__field">
-                    <span>Expires in</span>
+                    <span>{t('app.loginLinksSection.expiresIn', 'Expires in')}</span>
                     <select value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>
                         {TTL_OPTIONS.map((minutes) => (
                             <option key={minutes} value={minutes}>{minutes} minutes</option>
@@ -127,17 +128,17 @@ const LoginLinksSection = ({ users, currentUserId }) => {
                         checked={bindIp}
                         onChange={(e) => setBindIp(e.target.checked)}
                     />
-                    <span>Bind to an IP</span>
+                    <span>{t('app.loginLinksSection.bindToAnIp', 'Bind to an IP')}</span>
                 </label>
 
                 {bindIp && (
                     <label className="login-links__field">
-                        <span>Allowed IP</span>
+                        <span>{t('app.loginLinksSection.allowedIp', 'Allowed IP')}</span>
                         <input
                             type="text"
                             value={boundIp}
                             onChange={(e) => setBoundIp(e.target.value)}
-                            placeholder="e.g. 203.0.113.7"
+                            placeholder={t('app.loginLinksSection.eG20301137', 'e.g. 203.0.113.7')}
                         />
                     </label>
                 )}
@@ -149,15 +150,14 @@ const LoginLinksSection = ({ users, currentUserId }) => {
 
             {bindIp && (
                 <p className="login-links__note">
-                    The link will only work from the IP entered above — use the
-                    recipient&apos;s public IP, not your own.
+                    {t('app.loginLinksSection.theLinkWillOnlyWorkFrom', 'The link will only work from the IP entered above — use the recipient\'s public IP, not your own.')}
                 </p>
             )}
 
             {minted && (
                 <div className="login-links__reveal">
                     <p className="login-links__reveal-title">
-                        Copy this URL now — it will not be shown again.
+                        {t('app.loginLinksSection.copyThisUrlNowItWill', 'Copy this URL now — it will not be shown again.')}
                     </p>
                     <div className="login-links__reveal-row">
                         <code>{minted.url}</code>
@@ -186,7 +186,7 @@ const LoginLinksSection = ({ users, currentUserId }) => {
                                 size="sm"
                                 onClick={() => handleRevoke(link.id)}
                             >
-                                Revoke
+                                {t('app.loginLinksSection.revoke', 'Revoke')}
                             </Button>
                         </li>
                     ))}

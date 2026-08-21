@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { WidgetBody } from '../widgets/renderers';
 import { deriveWidgetTitle } from '../widgets/registry';
+import { useTranslation } from 'react-i18next';
 
 // Chrome around one placed widget: a header (drag handle + title + actions),
 // the renderer body, and — in edit mode — the bottom-right resize grip.
@@ -20,6 +21,7 @@ export function WidgetFrame({
     onResizeStart,
     style,
 }) {
+    const { t } = useTranslation();
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef(null);
 
@@ -75,8 +77,8 @@ export function WidgetFrame({
                         <button
                             type="button"
                             className="skw-iconbtn skw-iconbtn--bare"
-                            title="Configure widget"
-                            aria-label="Configure widget"
+                            title={t('app.widgetFrame.configureWidget', 'Configure widget')}
+                            aria-label={t('app.widgetFrame.configureWidget2', 'Configure widget')}
                             onClick={(event) => { event.stopPropagation(); fire('config'); }}
                         >
                             <SlidersHorizontal size={13} />
@@ -85,8 +87,8 @@ export function WidgetFrame({
                     <button
                         type="button"
                         className="skw-iconbtn skw-iconbtn--bare"
-                        title="View fullscreen"
-                        aria-label="View fullscreen"
+                        title={t('app.widgetFrame.viewFullscreen', 'View fullscreen')}
+                        aria-label={t('app.widgetFrame.viewFullscreen2', 'View fullscreen')}
                         onClick={(event) => { event.stopPropagation(); fire('full'); }}
                     >
                         <Maximize2 size={13} />
@@ -95,8 +97,8 @@ export function WidgetFrame({
                         <button
                             type="button"
                             className="skw-iconbtn skw-iconbtn--bare"
-                            title="Widget menu"
-                            aria-label="Widget menu"
+                            title={t('app.widgetFrame.widgetMenu', 'Widget menu')}
+                            aria-label={t('app.widgetFrame.widgetMenu2', 'Widget menu')}
                             aria-haspopup="menu"
                             aria-expanded={menuOpen}
                             onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }}
@@ -107,15 +109,15 @@ export function WidgetFrame({
                             <div className="skw-menu" role="menu" onClick={(event) => event.stopPropagation()}>
                                 <button type="button" className="skw-menu__item" role="menuitem" onClick={() => fire('config')}>
                                     <span className="skw-menu__ic"><SlidersHorizontal size={14} /></span>
-                                    Configure
+                                    {t('app.widgetFrame.configure', 'Configure')}
                                 </button>
                                 <button type="button" className="skw-menu__item" role="menuitem" onClick={() => fire('dup')}>
                                     <span className="skw-menu__ic"><Copy size={14} /></span>
-                                    Duplicate
+                                    {t('app.widgetFrame.duplicate', 'Duplicate')}
                                 </button>
                                 <button type="button" className="skw-menu__item" role="menuitem" onClick={() => fire('full')}>
                                     <span className="skw-menu__ic"><Maximize2 size={14} /></span>
-                                    View fullscreen
+                                    {t('app.widgetFrame.viewFullscreen3', 'View fullscreen')}
                                 </button>
                                 <div className="skw-menu__sep" role="separator" />
                                 <button
@@ -125,7 +127,7 @@ export function WidgetFrame({
                                     onClick={() => fire('del')}
                                 >
                                     <span className="skw-menu__ic"><Trash2 size={14} /></span>
-                                    Remove
+                                    {t('app.widgetFrame.remove', 'Remove')}
                                 </button>
                             </div>
                         )}

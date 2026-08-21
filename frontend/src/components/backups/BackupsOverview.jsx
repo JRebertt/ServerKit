@@ -7,6 +7,7 @@ import api from '../../services/api';
 import { formatBytes } from '@/utils/formatBytes';
 import { KpiBand, MetricCard, Pill, DataTable, DataTableFooter } from '@/components/ds';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 // Daily activity cells: one column per week, one row per weekday. Half a year
 // rather than the mock's 18 weeks — the cells stretch to fill the card (see
@@ -101,7 +102,7 @@ function nextFire(schedule) {
 const LATEST_COLUMNS = [
     {
         key: 'name',
-        header: 'Snapshot',
+        headerKey: 'app.backupsOverview.snapshot', header: 'Snapshot',
         sortable: true,
         hideable: false,
         sortValue: (e) => e.name || '',
@@ -120,7 +121,7 @@ const LATEST_COLUMNS = [
     },
     {
         key: 'size',
-        header: 'Size',
+        headerKey: 'app.backupsOverview.size', header: 'Size',
         sortable: true,
         sortValue: (e) => e.size || 0,
         cellClassName: 'sk-cell-mono',
@@ -128,7 +129,7 @@ const LATEST_COLUMNS = [
     },
     {
         key: 'status',
-        header: 'Status',
+        headerKey: 'app.backupsOverview.status', header: 'Status',
         sortable: true,
         sortValue: (e) => e.status || '',
         render: (e) => (
@@ -146,6 +147,7 @@ const LATEST_COLUMNS = [
 export default function BackupsOverview({
     stats, storageConfig, costSummary, schedules = [], backups = [], onGo,
 }) {
+    const { t } = useTranslation();
     const [policies, setPolicies] = useState(null);
     const [runs, setRuns] = useState(null);
 
@@ -300,7 +302,7 @@ export default function BackupsOverview({
                     tone="green"
                     icon={<ShieldCheck size={16} />}
                     value={protection.total || stats?.total_backups || 0}
-                    label="Protected resources"
+                    label={t('app.backupsOverview.protectedResources', 'Protected resources')}
                 >
                     <div className="sk-kpi__sub">
                         <span>{protection.detail || 'from the backup archive'}</span>
@@ -310,7 +312,7 @@ export default function BackupsOverview({
                     tone="accent"
                     icon={<Database size={16} />}
                     value={formatBytes(totalBytes, { defaultValue: '0 B' })}
-                    label="Storage used"
+                    label={t('app.backupsOverview.storageUsed', 'Storage used')}
                 >
                     <div className="sk-kpi__sub">
                         <span>across {destinations.count} destination{destinations.count === 1 ? '' : 's'}</span>
@@ -321,7 +323,7 @@ export default function BackupsOverview({
                     icon={<History size={16} />}
                     value={successRate == null ? '—' : `${successRate.toFixed(1)}`}
                     unit={successRate == null ? undefined : '%'}
-                    label="Success rate"
+                    label={t('app.backupsOverview.successRate', 'Success rate')}
                 >
                     <div className="sk-kpi__sub">
                         <span>{finished30.length ? `${finished30.length} runs · last 30 days` : 'no runs recorded yet'}</span>
@@ -331,7 +333,7 @@ export default function BackupsOverview({
                     tone="violet"
                     icon={<Timer size={16} />}
                     value={nextScheduled ? untilLabel(nextScheduled.at) : 'Not set'}
-                    label="Next scheduled"
+                    label={t('app.backupsOverview.nextScheduled', 'Next scheduled')}
                 >
                     <div className="sk-kpi__sub">
                         <span>
@@ -347,8 +349,8 @@ export default function BackupsOverview({
                 <section className="bk-panel">
                     <div className="bk-panel__head">
                         <div>
-                            <h3>Backup activity</h3>
-                            <span className="bk-panel__sub">Last {HEATMAP_WEEKS} weeks · daily snapshots</span>
+                            <h3>{t('app.backupsOverview.backupActivity', 'Backup activity')}</h3>
+                            <span className="bk-panel__sub">{t('app.backupsOverview.last', 'Last')} {HEATMAP_WEEKS} {t('app.backupsOverview.weeksDailySnapshots', 'weeks · daily snapshots')}</span>
                         </div>
                         <div className="bk-heat__legend">
                             less
@@ -386,13 +388,13 @@ export default function BackupsOverview({
 
                 <section className="bk-panel">
                     <div className="bk-panel__head">
-                        <h3>Recent activity</h3>
+                        <h3>{t('app.backupsOverview.recentActivity', 'Recent activity')}</h3>
                         <button type="button" className="bk-link" onClick={() => onGo('snapshots')}>
-                            All snapshots <ChevronRight size={14} />
+                            {t('app.backupsOverview.allSnapshots', 'All snapshots')} <ChevronRight size={14} />
                         </button>
                     </div>
                     {events.length === 0 ? (
-                        <p className="bk-hint">Nothing has run yet — the first backup will show up here.</p>
+                        <p className="bk-hint">{t('app.backupsOverview.nothingHasRunYetTheFirst', 'Nothing has run yet — the first backup will show up here.')}</p>
                     ) : (
                         <div className="bk-feed">
                             {events.slice(0, 5).map((e) => (
@@ -407,10 +409,10 @@ export default function BackupsOverview({
                                     <div className="bk-feed__body">
                                         <div className="bk-feed__txt">
                                             {e.status === 'failed'
-                                                ? <>Backup failed · <b>{e.name}</b>{e.error ? ` — ${e.error}` : ''}</>
+                                                ? <>{t('app.backupsOverview.backupFailed', 'Backup failed ·')} <b>{e.name}</b>{e.error ? ` — ${e.error}` : ''}</>
                                                 : e.status === 'running'
-                                                    ? <>Backup running · <b>{e.name}</b></>
-                                                    : <>Backup completed · <b>{e.name}</b>{e.size ? ` (${formatBytes(e.size)})` : ''}</>}
+                                                    ? <>{t('app.backupsOverview.backupRunning', 'Backup running ·')} <b>{e.name}</b></>
+                                                    : <>{t('app.backupsOverview.backupCompleted', 'Backup completed ·')} <b>{e.name}</b>{e.size ? ` (${formatBytes(e.size)})` : ''}</>}
                                         </div>
                                         <div className="bk-feed__time">{relativeTime(e.at)}</div>
                                     </div>
@@ -424,9 +426,9 @@ export default function BackupsOverview({
             <div className="bk-grid2">
                 <section className="bk-panel">
                     <div className="bk-panel__head">
-                        <h3>Storage destinations</h3>
+                        <h3>{t('app.backupsOverview.storageDestinations', 'Storage destinations')}</h3>
                         <button type="button" className="bk-link" onClick={() => onGo('storage')}>
-                            Manage <ChevronRight size={14} />
+                            {t('app.backupsOverview.manage', 'Manage')} <ChevronRight size={14} />
                         </button>
                     </div>
                     {destinations.rows.map((row) => (
@@ -451,21 +453,20 @@ export default function BackupsOverview({
                     {destinations.count === 1 && (
                         <p className="bk-hint bk-hint--warn">
                             <AlertTriangle size={13} />
-                            Everything is on one disk. Add a remote destination so a dead
-                            server doesn&apos;t take the backups with it.
+                            {t('app.backupsOverview.everythingIsOnOneDiskAdd', 'Everything is on one disk. Add a remote destination so a dead server doesn\'t take the backups with it.')}
                         </p>
                     )}
                 </section>
 
                 <section className="bk-panel bk-panel--flush">
                     <div className="bk-panel__head">
-                        <h3>Latest snapshots</h3>
+                        <h3>{t('app.backupsOverview.latestSnapshots', 'Latest snapshots')}</h3>
                     </div>
                     {latest.length === 0 ? (
                         <EmptyState
                             icon={Archive}
-                            title="No snapshots yet"
-                            description="Run a backup or enable a schedule to start building an archive."
+                            title={t('app.backupsOverview.noSnapshotsYet', 'No snapshots yet')}
+                            description={t('app.backupsOverview.runABackupOrEnableA', 'Run a backup or enable a schedule to start building an archive.')}
                         />
                     ) : (
                         <DataTable

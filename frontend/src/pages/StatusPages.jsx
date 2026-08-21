@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Pill } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 import {
     Activity,
     CheckCircle2,
@@ -29,25 +30,25 @@ import {
 
 // pill → ds Pill kind · tone → .status-dot modifier · dot → .comp-dots square
 const STATUS_META = {
-    operational: { label: 'Operational', pill: 'green', tone: 'success', dot: '' },
-    degraded: { label: 'Degraded', pill: 'amber', tone: 'warning', dot: 'degraded' },
-    partial_outage: { label: 'Partial outage', pill: 'amber', tone: 'warning', dot: 'degraded' },
-    major_outage: { label: 'Major outage', pill: 'red', tone: 'danger', dot: 'down' },
-    maintenance: { label: 'Maintenance', pill: 'cyan', tone: 'info', dot: 'maintenance' },
+    operational: { labelKey: 'app.statusPages.operational', label: 'Operational', pill: 'green', tone: 'success', dot: '' },
+    degraded: { labelKey: 'app.statusPages.degraded', label: 'Degraded', pill: 'amber', tone: 'warning', dot: 'degraded' },
+    partial_outage: { labelKey: 'app.statusPages.partialOutage', label: 'Partial outage', pill: 'amber', tone: 'warning', dot: 'degraded' },
+    major_outage: { labelKey: 'app.statusPages.majorOutage', label: 'Major outage', pill: 'red', tone: 'danger', dot: 'down' },
+    maintenance: { labelKey: 'app.statusPages.maintenance', label: 'Maintenance', pill: 'cyan', tone: 'info', dot: 'maintenance' },
 };
 
 const INCIDENT_STATUS = [
-    { value: 'investigating', label: 'Investigating' },
-    { value: 'identified', label: 'Identified' },
-    { value: 'monitoring', label: 'Monitoring' },
-    { value: 'resolved', label: 'Resolved' },
+    { value: 'investigating', labelKey: 'app.statusPages.investigating', label: 'Investigating' },
+    { value: 'identified', labelKey: 'app.statusPages.identified', label: 'Identified' },
+    { value: 'monitoring', labelKey: 'app.statusPages.monitoring', label: 'Monitoring' },
+    { value: 'resolved', labelKey: 'app.statusPages.resolved', label: 'Resolved' },
 ];
 
 const IMPACT_OPTIONS = [
-    { value: 'none', label: 'None' },
-    { value: 'minor', label: 'Minor' },
-    { value: 'major', label: 'Major' },
-    { value: 'critical', label: 'Critical' },
+    { value: 'none', labelKey: 'app.statusPages.none', label: 'None' },
+    { value: 'minor', labelKey: 'app.statusPages.minor', label: 'Minor' },
+    { value: 'major', labelKey: 'app.statusPages.major', label: 'Major' },
+    { value: 'critical', labelKey: 'app.statusPages.critical', label: 'Critical' },
 ];
 
 const CHECK_TARGET_PLACEHOLDERS = {
@@ -102,6 +103,7 @@ function getOverallStatus(components) {
 }
 
 const StatusPages = () => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { user } = useAuth();
     const [pages, setPages] = useState([]);
@@ -156,7 +158,7 @@ const StatusPages = () => {
             setIncidents(iData.incidents || []);
             setUnattached((mData?.monitors || []).filter((m) => m.page_id == null));
         } catch (err) {
-            toast.error(err.message || 'Failed to load page details');
+            toast.error(err.message || t('app.statusPages.failedToLoadPageDetails', 'Failed to load page details'));
         }
     };
 
@@ -165,11 +167,11 @@ const StatusPages = () => {
     const handleAttachMonitor = async (monitor) => {
         try {
             await api.updateMonitor(monitor.id, { page_id: selectedPage.id });
-            toast.success(`${monitor.name} added to ${selectedPage.name}`);
+            toast.success(t('app.statusPages.addedTo', '{{name}} added to {{name2}}', { name: monitor.name, name2: selectedPage.name }));
             setShowAttach(false);
             await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Could not add the monitor');
+            toast.error(err.message || t('app.statusPages.couldNotAddTheMonitor', 'Could not add the monitor'));
         }
     };
 
@@ -178,10 +180,10 @@ const StatusPages = () => {
     const handleDetachMonitor = async (component) => {
         try {
             await api.updateMonitor(component.id, { page_id: null });
-            toast.success(`${component.name} removed from this page`);
+            toast.success(t('app.statusPages.removedFromThisPage', '{{name}} removed from this page', { name: component.name }));
             await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Could not remove the monitor');
+            toast.error(err.message || t('app.statusPages.couldNotRemoveTheMonitor', 'Could not remove the monitor'));
         }
     };
 
@@ -204,7 +206,7 @@ const StatusPages = () => {
                 setIncidents([]);
             }
         } catch (err) {
-            toast.error(err.message || 'Failed to load status pages');
+            toast.error(err.message || t('app.statusPages.failedToLoadStatusPages', 'Failed to load status pages'));
         } finally {
             setLoading(false);
         }
@@ -233,13 +235,13 @@ const StatusPages = () => {
                 ...pageForm,
                 slug: normalizeSlug(pageForm.slug),
             });
-            toast.success('Status page created');
+            toast.success(t('app.statusPages.statusPageCreated', 'Status page created'));
             setShowCreatePage(false);
             setPageForm(defaultPageForm);
             setPages((current) => [...current, page].sort((a, b) => a.name.localeCompare(b.name)));
             await loadPageDetails(page);
         } catch (err) {
-            toast.error(err.message || 'Failed to create status page');
+            toast.error(err.message || t('app.statusPages.failedToCreateStatusPage', 'Failed to create status page'));
         }
     };
 
@@ -247,23 +249,23 @@ const StatusPages = () => {
         if (!selectedPage) return;
         try {
             await api.createStatusComponent(selectedPage.id, compForm);
-            toast.success('Component added');
+            toast.success(t('app.statusPages.componentAdded', 'Component added'));
             setShowCreateComponent(false);
             setCompForm(defaultCompForm);
             await loadPageDetails(selectedPage);
             await loadPages();
         } catch (err) {
-            toast.error(err.message || 'Failed to add component');
+            toast.error(err.message || t('app.statusPages.failedToAddComponent', 'Failed to add component'));
         }
     };
 
     const handleRunCheck = async (component) => {
         try {
             const result = await api.runStatusCheck(component.id);
-            toast.success(`Check ${result.status}${result.response_time ? ` in ${result.response_time}ms` : ''}`);
+            toast.success(t('app.statusPages.check', 'Check {{status}}{{value}}', { status: result.status, value: result.response_time ? ` in ${result.response_time}ms` : '' }));
             if (selectedPage) await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Check failed');
+            toast.error(err.message || t('app.statusPages.checkFailed', 'Check failed'));
         }
     };
 
@@ -271,12 +273,12 @@ const StatusPages = () => {
         if (!selectedPage) return;
         try {
             await api.createStatusIncident(selectedPage.id, incidentForm);
-            toast.success('Incident created');
+            toast.success(t('app.statusPages.incidentCreated', 'Incident created'));
             setShowCreateIncident(false);
             setIncidentForm(defaultIncidentForm);
             await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Failed to create incident');
+            toast.error(err.message || t('app.statusPages.failedToCreateIncident', 'Failed to create incident'));
         }
     };
 
@@ -287,17 +289,17 @@ const StatusPages = () => {
                 status,
                 update_body: status === 'resolved' ? 'Issue has been resolved.' : `Status changed to ${statusLabel}.`,
             });
-            toast.success(`Incident set to ${statusLabel}`);
+            toast.success(t('app.statusPages.incidentSetTo', 'Incident set to {{statusLabel}}', { statusLabel: statusLabel }));
             if (selectedPage) await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Failed to update incident');
+            toast.error(err.message || t('app.statusPages.failedToUpdateIncident', 'Failed to update incident'));
         }
     };
 
     const handleCopyUrl = async () => {
         if (!selectedUrl) return;
-        if (await copyToClipboard(selectedUrl)) toast.success('Status page URL copied');
-        else toast.error('Could not copy URL');
+        if (await copyToClipboard(selectedUrl)) toast.success(t('app.statusPages.statusPageUrlCopied', 'Status page URL copied'));
+        else toast.error(t('app.statusPages.couldNotCopyUrl', 'Could not copy URL'));
     };
 
     const handleConfirmDelete = async () => {
@@ -305,7 +307,7 @@ const StatusPages = () => {
         try {
             if (deleteConfirm.type === 'page') {
                 await api.deleteStatusPage(deleteConfirm.item.id);
-                toast.success('Status page deleted');
+                toast.success(t('app.statusPages.statusPageDeleted', 'Status page deleted'));
                 setDeleteConfirm(null);
                 setSelectedPage(null);
                 setComponents([]);
@@ -316,18 +318,18 @@ const StatusPages = () => {
 
             if (deleteConfirm.type === 'component') {
                 await api.deleteStatusComponent(deleteConfirm.item.id);
-                toast.success('Component deleted');
+                toast.success(t('app.statusPages.componentDeleted', 'Component deleted'));
             }
 
             if (deleteConfirm.type === 'incident') {
                 await api.deleteStatusIncident(deleteConfirm.item.id);
-                toast.success('Incident deleted');
+                toast.success(t('app.statusPages.incidentDeleted', 'Incident deleted'));
             }
 
             setDeleteConfirm(null);
             if (selectedPage) await loadPageDetails(selectedPage);
         } catch (err) {
-            toast.error(err.message || 'Delete failed');
+            toast.error(err.message || t('app.statusPages.deleteFailed', 'Delete failed'));
         }
     };
 
@@ -336,12 +338,12 @@ const StatusPages = () => {
             <>
                 <Button size="sm" variant="outline" onClick={loadPages}>
                     <RefreshCw size={16} />
-                    Refresh
+                    {t('app.statusPages.refresh', 'Refresh')}
                 </Button>
                 {isAdmin && (
                     <Button size="sm" onClick={() => setShowCreatePage(true)}>
                         <Plus size={16} />
-                        Create Page
+                        {t('app.statusPages.createPage', 'Create Page')}
                     </Button>
                 )}
             </>
@@ -354,7 +356,7 @@ const StatusPages = () => {
     return (
         <div className="sk-tabgroup__inner status-pages-page">
             <div className="status-layout">
-                <aside className="status-pages-list" aria-label="Status pages">
+                <aside className="status-pages-list" aria-label={t('app.statusPages.statusPages', 'Status pages')}>
                     {pages.map((page) => (
                         <button
                             key={page.id}
@@ -376,7 +378,7 @@ const StatusPages = () => {
                         </button>
                     ))}
                     {pages.length === 0 && (
-                        <EmptyState icon={Activity} title="No status pages yet" />
+                        <EmptyState icon={Activity} title={t('app.statusPages.noStatusPagesYet', 'No status pages yet')} />
                     )}
                 </aside>
 
@@ -399,17 +401,17 @@ const StatusPages = () => {
                                 )}
                             </div>
                             <div className="status-url-card">
-                                <span>Public URL</span>
+                                <span>{t('app.statusPages.publicUrl', 'Public URL')}</span>
                                 <code>{selectedUrl}</code>
                                 <div>
                                     <Button size="sm" variant="outline" onClick={handleCopyUrl}>
                                         <Copy size={14} />
-                                        Copy
+                                        {t('app.statusPages.copy', 'Copy')}
                                     </Button>
                                     <Button size="sm" asChild>
                                         <a href={selectedUrl} target="_blank" rel="noreferrer">
                                             <ExternalLink size={14} />
-                                            Open
+                                            {t('app.statusPages.open', 'Open')}
                                         </a>
                                     </Button>
                                 </div>
@@ -418,15 +420,15 @@ const StatusPages = () => {
 
                         <div className="status-detail-metrics">
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">Components</div>
+                                <div className="sk-spec-card__label">{t('app.statusPages.components', 'Components')}</div>
                                 <div className="sk-spec-card__value">{components.length}</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">Active incidents</div>
+                                <div className="sk-spec-card__label">{t('app.statusPages.activeIncidents', 'Active incidents')}</div>
                                 <div className="sk-spec-card__value">{activeIncidents.length}</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">30 day uptime</div>
+                                <div className="sk-spec-card__label">{t('app.statusPages.30DayUptime', '30 day uptime')}</div>
                                 <div className="sk-spec-card__value">{formatUptime(
                                     components.length
                                         ? components.reduce((total, component) => total + (component.uptime_30d || 100), 0) / components.length
@@ -437,9 +439,9 @@ const StatusPages = () => {
 
                         <Tabs defaultValue="components">
                             <TabsList>
-                                <TabsTrigger value="components">Components</TabsTrigger>
-                                <TabsTrigger value="incidents">Incidents</TabsTrigger>
-                                <TabsTrigger value="settings">Page</TabsTrigger>
+                                <TabsTrigger value="components">{t('app.statusPages.components2', 'Components')}</TabsTrigger>
+                                <TabsTrigger value="incidents">{t('app.statusPages.incidents', 'Incidents')}</TabsTrigger>
+                                <TabsTrigger value="settings">{t('app.statusPages.page', 'Page')}</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="components">
@@ -452,15 +454,15 @@ const StatusPages = () => {
                                                 onClick={() => setShowAttach(true)}
                                                 disabled={unattached.length === 0}
                                                 title={unattached.length === 0
-                                                    ? 'Every monitor is already on a page'
+                                                    ? t('app.statusPages.everyMonitorIsAlreadyOnA', 'Every monitor is already on a page')
                                                     : undefined}
                                             >
                                                 <Link2 size={14} />
-                                                Add existing monitor
+                                                {t('app.statusPages.addExistingMonitor', 'Add existing monitor')}
                                             </Button>
                                             <Button size="sm" onClick={() => setShowCreateComponent(true)}>
                                                 <Plus size={14} />
-                                                New component
+                                                {t('app.statusPages.newComponent', 'New component')}
                                             </Button>
                                         </>
                                     )}
@@ -491,13 +493,13 @@ const StatusPages = () => {
                                                             <div className="component-row__actions">
                                                                 <Button size="sm" variant="outline" onClick={() => handleRunCheck(component)}>
                                                                     <PlayCircle size={14} />
-                                                                    Check
+                                                                    {t('app.statusPages.check2', 'Check')}
                                                                 </Button>
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
                                                                     onClick={() => handleDetachMonitor(component)}
-                                                                    title="Remove from this page — the monitor keeps running"
+                                                                    title={t('app.statusPages.removeFromThisPageTheMonitor', 'Remove from this page — the monitor keeps running')}
                                                                 >
                                                                     <Unlink size={14} />
                                                                 </Button>
@@ -505,7 +507,7 @@ const StatusPages = () => {
                                                                     size="sm"
                                                                     variant="ghost"
                                                                     onClick={() => setDeleteConfirm({ type: 'component', item: component })}
-                                                                    title="Delete the monitor and its history"
+                                                                    title={t('app.statusPages.deleteTheMonitorAndItsHistory', 'Delete the monitor and its history')}
                                                                 >
                                                                     <Trash2 size={14} />
                                                                 </Button>
@@ -517,7 +519,7 @@ const StatusPages = () => {
                                         </div>
                                     ))}
                                     {components.length === 0 && (
-                                        <EmptyState icon={Activity} title="No components yet" />
+                                        <EmptyState icon={Activity} title={t('app.statusPages.noComponentsYet', 'No components yet')} />
                                     )}
                                 </div>
                             </TabsContent>
@@ -527,7 +529,7 @@ const StatusPages = () => {
                                     {isAdmin && (
                                         <Button size="sm" onClick={() => setShowCreateIncident(true)}>
                                             <Plus size={14} />
-                                            Create Incident
+                                            {t('app.statusPages.createIncident', 'Create Incident')}
                                         </Button>
                                     )}
                                 </div>
@@ -584,7 +586,7 @@ const StatusPages = () => {
                                         </article>
                                     ))}
                                     {incidents.length === 0 && (
-                                        <EmptyState icon={CheckCircle2} title="No incidents" />
+                                        <EmptyState icon={CheckCircle2} title={t('app.statusPages.noIncidents', 'No incidents')} />
                                     )}
                                 </div>
                             </TabsContent>
@@ -592,23 +594,23 @@ const StatusPages = () => {
                             <TabsContent value="settings">
                                 <div className="status-page-settings">
                                     <div>
-                                        <span>Slug</span>
+                                        <span>{t('app.statusPages.slug', 'Slug')}</span>
                                         <strong>/{selectedPage.slug}</strong>
                                     </div>
                                     <div>
-                                        <span>Visibility</span>
+                                        <span>{t('app.statusPages.visibility', 'Visibility')}</span>
                                         <Pill kind={selectedPage.is_public ? 'green' : 'gray'}>
                                             {selectedPage.is_public ? 'Public' : 'Private'}
                                         </Pill>
                                     </div>
                                     <div>
-                                        <span>Created</span>
+                                        <span>{t('app.statusPages.created', 'Created')}</span>
                                         <strong>{formatDate(selectedPage.created_at)}</strong>
                                     </div>
                                     {isAdmin && (
                                         <Button variant="destructive" onClick={() => setDeleteConfirm({ type: 'page', item: selectedPage })}>
                                             <Trash2 size={16} />
-                                            Delete Page
+                                            {t('app.statusPages.deletePage', 'Delete Page')}
                                         </Button>
                                     )}
                                 </div>
@@ -617,7 +619,7 @@ const StatusPages = () => {
                     </section>
                 ) : (
                     <section className="status-detail-panel status-detail-panel--empty">
-                        <EmptyState icon={Globe2} title="Select a status page" />
+                        <EmptyState icon={Globe2} title={t('app.statusPages.selectAStatusPage', 'Select a status page')} />
                     </section>
                 )}
             </div>
@@ -625,24 +627,24 @@ const StatusPages = () => {
             <Modal
                 open={showCreatePage}
                 onClose={() => setShowCreatePage(false)}
-                title="Create Status Page"
+                title={t('app.statusPages.createStatusPage', 'Create Status Page')}
                 size="lg"
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreatePage(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setShowCreatePage(false)}>{t('app.statusPages.cancel', 'Cancel')}</Button>
                         <Button onClick={handleCreatePage} disabled={!pageForm.name.trim() || !pageForm.slug.trim()}>
-                            Create
+                            {t('app.statusPages.create', 'Create')}
                         </Button>
                     </>
                 )}
             >
                 <div className="form-group">
-                    <label>Name</label>
+                    <label>{t('app.statusPages.name', 'Name')}</label>
                     <Input value={pageForm.name} onChange={(e) => handlePageNameChange(e.target.value)} autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>Slug</label>
+                    <label>{t('app.statusPages.slug2', 'Slug')}</label>
                     <Input
                         value={pageForm.slug}
                         onChange={(e) => setPageForm({ ...pageForm, slug: normalizeSlug(e.target.value) })}
@@ -651,7 +653,7 @@ const StatusPages = () => {
                     <span className="form-help">/status/{pageForm.slug || 'my-services'}</span>
                 </div>
                 <div className="form-group">
-                    <label>Description</label>
+                    <label>{t('app.statusPages.description', 'Description')}</label>
                     <Textarea
                         value={pageForm.description}
                         onChange={(e) => setPageForm({ ...pageForm, description: e.target.value })}
@@ -663,14 +665,13 @@ const StatusPages = () => {
             <Modal
                 open={showAttach}
                 onClose={() => setShowAttach(false)}
-                title="Add an existing monitor"
+                title={t('app.statusPages.addAnExistingMonitor', 'Add an existing monitor')}
                 size="md"
                 className="status-modal"
-                footer={<Button variant="outline" onClick={() => setShowAttach(false)}>Close</Button>}
+                footer={<Button variant="outline" onClick={() => setShowAttach(false)}>{t('app.statusPages.close', 'Close')}</Button>}
             >
                 <p className="form-help">
-                    These monitors are already running and are not on any status page yet.
-                    Adding one publishes it here — it keeps the history it has already collected.
+                    {t('app.statusPages.theseMonitorsAreAlreadyRunningAnd', 'These monitors are already running and are not on any status page yet. Adding one publishes it here — it keeps the history it has already collected.')}
                 </p>
                 <div className="status-attach-list">
                     {unattached.map((monitor) => (
@@ -690,7 +691,7 @@ const StatusPages = () => {
                         </button>
                     ))}
                     {unattached.length === 0 && (
-                        <p className="form-help">Every monitor is already on a page.</p>
+                        <p className="form-help">{t('app.statusPages.everyMonitorIsAlreadyOnA2', 'Every monitor is already on a page.')}</p>
                     )}
                 </div>
             </Modal>
@@ -698,29 +699,29 @@ const StatusPages = () => {
             <Modal
                 open={showCreateComponent}
                 onClose={() => setShowCreateComponent(false)}
-                title="Add Component"
+                title={t('app.statusPages.addComponent', 'Add Component')}
                 size="lg"
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateComponent(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setShowCreateComponent(false)}>{t('app.statusPages.cancel2', 'Cancel')}</Button>
                         <Button onClick={handleCreateComponent} disabled={!compForm.name.trim() || !compForm.check_target.trim()}>
-                            Add Component
+                            {t('app.statusPages.addComponent2', 'Add Component')}
                         </Button>
                     </>
                 )}
             >
                 <div className="status-modal-grid">
                     <div className="form-group">
-                        <label>Name</label>
+                        <label>{t('app.statusPages.name2', 'Name')}</label>
                         <Input value={compForm.name} onChange={(e) => setCompForm({ ...compForm, name: e.target.value })} autoFocus />
                     </div>
                     <div className="form-group">
-                        <label>Group</label>
+                        <label>{t('app.statusPages.group', 'Group')}</label>
                         <Input value={compForm.group} onChange={(e) => setCompForm({ ...compForm, group: e.target.value })} />
                     </div>
                     <div className="form-group">
-                        <label>Check Type</label>
+                        <label>{t('app.statusPages.checkType', 'Check Type')}</label>
                         <select
                             className="form-select"
                             value={compForm.check_type}
@@ -729,11 +730,11 @@ const StatusPages = () => {
                             <option value="http">HTTP</option>
                             <option value="tcp">TCP</option>
                             <option value="dns">DNS</option>
-                            <option value="ping">Ping</option>
+                            <option value="ping">{t('app.statusPages.ping', 'Ping')}</option>
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Target</label>
+                        <label>{t('app.statusPages.target', 'Target')}</label>
                         <Input
                             value={compForm.check_target}
                             onChange={(e) => setCompForm({ ...compForm, check_target: e.target.value })}
@@ -741,7 +742,7 @@ const StatusPages = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Interval</label>
+                        <label>{t('app.statusPages.interval', 'Interval')}</label>
                         <Input
                             type="number"
                             min="30"
@@ -750,7 +751,7 @@ const StatusPages = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <label>Timeout</label>
+                        <label>{t('app.statusPages.timeout', 'Timeout')}</label>
                         <Input
                             type="number"
                             min="1"
@@ -764,25 +765,25 @@ const StatusPages = () => {
             <Modal
                 open={showCreateIncident}
                 onClose={() => setShowCreateIncident(false)}
-                title="Create Incident"
+                title={t('app.statusPages.createIncident2', 'Create Incident')}
                 size="lg"
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateIncident(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setShowCreateIncident(false)}>{t('app.statusPages.cancel3', 'Cancel')}</Button>
                         <Button onClick={handleCreateIncident} disabled={!incidentForm.title.trim()}>
-                            Create Incident
+                            {t('app.statusPages.createIncident3', 'Create Incident')}
                         </Button>
                     </>
                 )}
             >
                 <div className="form-group">
-                    <label>Title</label>
+                    <label>{t('app.statusPages.title', 'Title')}</label>
                     <Input value={incidentForm.title} onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })} autoFocus />
                 </div>
                 <div className="status-modal-grid">
                     <div className="form-group">
-                        <label>Status</label>
+                        <label>{t('app.statusPages.status', 'Status')}</label>
                         <select
                             className="form-select"
                             value={incidentForm.status}
@@ -794,7 +795,7 @@ const StatusPages = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>Impact</label>
+                        <label>{t('app.statusPages.impact', 'Impact')}</label>
                         <select
                             className="form-select"
                             value={incidentForm.impact}
@@ -807,7 +808,7 @@ const StatusPages = () => {
                     </div>
                 </div>
                 <div className="form-group">
-                    <label>Description</label>
+                    <label>{t('app.statusPages.description2', 'Description')}</label>
                     <Textarea
                         value={incidentForm.body}
                         onChange={(e) => setIncidentForm({ ...incidentForm, body: e.target.value })}
@@ -818,9 +819,9 @@ const StatusPages = () => {
 
             <ConfirmDialog
                 isOpen={Boolean(deleteConfirm)}
-                title={`Delete ${deleteConfirm?.type || 'item'}?`}
-                message="This removes the selected record and related status data."
-                confirmText="Delete"
+                title={t('app.statusPages.delete', 'Delete {{value}}?', { value: deleteConfirm?.type || 'item' })}
+                message={t('app.statusPages.thisRemovesTheSelectedRecordAnd', 'This removes the selected record and related status data.')}
+                confirmText={t('app.statusPages.delete2', 'Delete')}
                 requireConfirmation={deleteConfirm?.item?.name || deleteConfirm?.item?.title}
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeleteConfirm(null)}

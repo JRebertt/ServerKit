@@ -4,6 +4,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './popover';
 import { cn } from '@/lib/utils';
 import { useOverflowItems } from '@/hooks/useOverflowItems';
+import { t } from '../../i18n/t';
 
 const Tabs = TabsPrimitive.Root;
 
@@ -78,7 +79,7 @@ const TabsList = React.forwardRef(({ className, children, ...props }, ref) => {
               ref={moreBtnRef}
               type="button"
               className="tab tabs-overflow-trigger"
-              aria-label="More tabs"
+              aria-label={t('app.tabs.moreTabs', 'More tabs')}
             >
               <MoreHorizontal size={16} />
             </button>

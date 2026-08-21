@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '../../contexts/ToastContext';
 import EngineGlyph from './EngineGlyph';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 import {
     engineMeta, engineVersions, generatePassword, partitionVariables, seedVariables,
     singular, slugifyIdent, slugifyService,
@@ -34,13 +35,14 @@ import {
 // is not a matter of taste: it shows whenever the toggle is on.
 
 function SecretRow({ password, onRegenerate, disabled }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [revealed, setRevealed] = useState(false);
 
     const copy = () => {
         copyToClipboard(password).then((ok) => (ok
-            ? toast.success('Password copied')
-            : toast.error('Could not copy the password')));
+            ? toast.success(t('app.engineInstallDrawer.passwordCopied', 'Password copied'))
+            : toast.error(t('app.engineInstallDrawer.couldNotCopyThePassword', 'Could not copy the password'))));
     };
 
     return (
@@ -51,8 +53,8 @@ function SecretRow({ password, onRegenerate, disabled }) {
                     type="button"
                     className="dbx-icon-xs"
                     onClick={() => setRevealed((r) => !r)}
-                    aria-label={revealed ? 'Hide password' : 'Reveal password'}
-                    title={revealed ? 'Hide' : 'Reveal'}
+                    aria-label={revealed ? t('app.engineInstallDrawer.hidePassword', 'Hide password') : t('app.engineInstallDrawer.revealPassword', 'Reveal password')}
+                    title={revealed ? t('app.engineInstallDrawer.hide', 'Hide') : t('app.engineInstallDrawer.reveal', 'Reveal')}
                 >
                     {revealed ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
                 </button>
@@ -62,8 +64,8 @@ function SecretRow({ password, onRegenerate, disabled }) {
                         className="dbx-icon-xs"
                         onClick={() => { onRegenerate(); setRevealed(true); }}
                         disabled={disabled}
-                        aria-label="Generate a new password"
-                        title="Regenerate"
+                        aria-label={t('app.engineInstallDrawer.generateANewPassword', 'Generate a new password')}
+                        title={t('app.engineInstallDrawer.regenerate', 'Regenerate')}
                     >
                         <RefreshCw size={13} aria-hidden="true" />
                     </button>
@@ -72,8 +74,8 @@ function SecretRow({ password, onRegenerate, disabled }) {
                     type="button"
                     className="dbx-icon-xs"
                     onClick={copy}
-                    aria-label="Copy password to clipboard"
-                    title="Copy"
+                    aria-label={t('app.engineInstallDrawer.copyPasswordToClipboard', 'Copy password to clipboard')}
+                    title={t('app.engineInstallDrawer.copy', 'Copy')}
                 >
                     <Copy size={13} aria-hidden="true" />
                 </button>
@@ -84,6 +86,7 @@ function SecretRow({ password, onRegenerate, disabled }) {
 
 // One template variable, rendered from its own declaration.
 function VariableField({ variable, value, onChange }) {
+    const { t } = useTranslation();
     const id = `dbx-var-${variable.name}`;
     return (
         <div className="dbx-field">
@@ -98,7 +101,7 @@ function VariableField({ variable, value, onChange }) {
                     onChange={(e) => onChange(e.target.value)}
                     required={variable.required}
                 >
-                    <option value="">Select…</option>
+                    <option value="">{t('app.engineInstallDrawer.select', 'Select…')}</option>
                     {variable.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
             ) : (
@@ -118,6 +121,7 @@ function VariableField({ variable, value, onChange }) {
 }
 
 export default function EngineInstallDrawer({ entry, open, onOpenChange, onInstalled }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const navigate = useNavigate();
 
@@ -220,7 +224,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
             // refreshes either way, so a missing one is not an error.
             const app = res.app || res.application || null;
 
-            toast.success(`Installing ${template.name}`);
+            toast.success(t('app.engineInstallDrawer.installing', 'Installing {{name}}', { name: template.name }));
             onInstalled?.(app);
 
             // The admin password is shown once. Navigating straight to the deploy
@@ -252,7 +256,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
             flush
             open={open}
             onOpenChange={(next) => { if (!next) setResult(null); onOpenChange(next); }}
-            title={result ? `${template.name} is installing` : `Install ${template.name}`}
+            title={result ? t('app.engineInstallDrawer.isInstalling', '{{name}} is installing', { name: template.name }) : t('app.engineInstallDrawer.install', 'Install {{name}}', { name: template.name })}
             subtitle={[meta.family, template.id, template.version ? `v${template.version}` : null]
                 .filter(Boolean).join(' · ')}
             icon={<EngineGlyph entry={template} size={20} />}
@@ -265,30 +269,28 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                         <div className="dbx-result-lead">
                             <CheckCircle2 size={16} aria-hidden="true" />
                             <span>
-                                The deploy pipeline is pulling the image and provisioning the volume.
-                                The engine joins the tree once it reports healthy.
+                                {t('app.engineInstallDrawer.theDeployPipelineIsPullingThe', 'The deploy pipeline is pulling the image and provisioning the volume. The engine joins the tree once it reports healthy.')}
                             </span>
                         </div>
 
                         <dl className="dbx-kv">
                             <div className="dbx-kv__row">
-                                <dt>Service</dt>
+                                <dt>{t('app.engineInstallDrawer.service', 'Service')}</dt>
                                 <dd className="dbx-kv__mono">{result.app?.name || slugifyService(name)}</dd>
                             </div>
                             {meta.admin_user && (
                                 <div className="dbx-kv__row">
-                                    <dt>Admin user</dt>
+                                    <dt>{t('app.engineInstallDrawer.adminUser', 'Admin user')}</dt>
                                     <dd className="dbx-kv__mono">{meta.admin_user}</dd>
                                 </div>
                             )}
                             <div className="dbx-kv__row">
-                                <dt>Password</dt>
+                                <dt>{t('app.engineInstallDrawer.password', 'Password')}</dt>
                                 <dd><SecretRow password={result.secret} /></dd>
                             </div>
                         </dl>
                         <p className="dbx-field-hint">
-                            Copy the password now — it is stored in ServerKit&apos;s secret store and
-                            is not shown again.
+                            {t('app.engineInstallDrawer.copyThePasswordNowItIs', 'Copy the password now — it is stored in ServerKit\'s secret store and is not shown again.')}
                         </p>
                         {result.warning && (
                             <p className="dbx-warn-line">
@@ -300,7 +302,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                     <footer className="dbx-drawer__foot">
                         <Button type="button" onClick={finish}>
                             {result.jobId
-                                ? <><Terminal size={15} aria-hidden="true" /> Open install log</>
+                                ? <><Terminal size={15} aria-hidden="true" /> {t('app.engineInstallDrawer.openInstallLog', 'Open install log')}</>
                                 : 'Done'}
                         </Button>
                     </footer>
@@ -319,7 +321,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                             className="dbx-inline-link"
                                             onClick={() => { setPort(String(suggestedPort)); setError(''); }}
                                         >
-                                            Use port {suggestedPort}
+                                            {t('app.engineInstallDrawer.usePort', 'Use port')} {suggestedPort}
                                         </button>
                                     </>
                                 )}
@@ -332,13 +334,13 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                         {versionOptions.length > 1 && (
                             <div className="dbx-field">
-                                <span className="dbx-field__label">Version</span>
+                                <span className="dbx-field__label">{t('app.engineInstallDrawer.version', 'Version')}</span>
                                 <SegControl options={versionOptions} value={version} onChange={setVersion} />
                             </div>
                         )}
 
                         <div className="dbx-field">
-                            <label className="dbx-field__label" htmlFor="dbx-eng-name">Instance name</label>
+                            <label className="dbx-field__label" htmlFor="dbx-eng-name">{t('app.engineInstallDrawer.instanceName', 'Instance name')}</label>
                             <div className="dbx-input">
                                 <Box size={15} aria-hidden="true" />
                                 <input
@@ -351,13 +353,13 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                 />
                             </div>
                             <p className="dbx-field-hint">
-                                Names the service, its container and its data volume.
+                                {t('app.engineInstallDrawer.namesTheServiceItsContainerAnd', 'Names the service, its container and its data volume.')}
                             </p>
                         </div>
 
                         {(parts.portVar || meta.default_port != null) && (
                             <div className="dbx-field">
-                                <label className="dbx-field__label" htmlFor="dbx-eng-port">Port</label>
+                                <label className="dbx-field__label" htmlFor="dbx-eng-port">{t('app.engineInstallDrawer.port', 'Port')}</label>
                                 <div className="dbx-input">
                                     <Share2 size={15} aria-hidden="true" />
                                     <input
@@ -385,17 +387,17 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                         {(parts.passwordVar || meta.admin_user) && (
                             <div className="dbx-field">
-                                <span className="dbx-field__label">Admin credentials</span>
+                                <span className="dbx-field__label">{t('app.engineInstallDrawer.adminCredentials', 'Admin credentials')}</span>
                                 <dl className="dbx-kv">
                                     {meta.admin_user && (
                                         <div className="dbx-kv__row">
-                                            <dt>User</dt>
+                                            <dt>{t('app.engineInstallDrawer.user', 'User')}</dt>
                                             <dd className="dbx-kv__mono">{meta.admin_user}</dd>
                                         </div>
                                     )}
                                     {parts.passwordVar && (
                                         <div className="dbx-kv__row">
-                                            <dt>Password</dt>
+                                            <dt>{t('app.engineInstallDrawer.password2', 'Password')}</dt>
                                             <dd>
                                                 <SecretRow
                                                     password={password}
@@ -408,8 +410,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                 </dl>
                                 {parts.passwordVar && (
                                     <p className="dbx-field-hint">
-                                        Shown once. Stored in ServerKit&apos;s secret store — never in a log
-                                        or a second API response.
+                                        {t('app.engineInstallDrawer.shownOnceStoredInServerkitS', 'Shown once. Stored in ServerKit\'s secret store — never in a log or a second API response.')}
                                     </p>
                                 )}
                             </div>
@@ -421,8 +422,8 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                         {parts.databaseVar && (
                             <div className="dbx-field">
                                 <label className="dbx-field__label" htmlFor="dbx-eng-initdb">
-                                    Create a {dbNoun} now
-                                    <span className="dbx-field__optional"> · optional</span>
+                                    {t('app.engineInstallDrawer.createA', 'Create a')} {dbNoun} now
+                                    <span className="dbx-field__optional"> {t('app.engineInstallDrawer.optional', '· optional')}</span>
                                 </label>
                                 <div className="dbx-input">
                                     <Database size={15} aria-hidden="true" />
@@ -435,17 +436,17 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                     />
                                 </div>
                                 <p className="dbx-field-hint">
-                                    Created as soon as the engine passes its health check.
+                                    {t('app.engineInstallDrawer.createdAsSoonAsTheEngine', 'Created as soon as the engine passes its health check.')}
                                 </p>
                             </div>
                         )}
 
                         <div className="dbx-field">
-                            <span className="dbx-field__label">Options</span>
+                            <span className="dbx-field__label">{t('app.engineInstallDrawer.options', 'Options')}</span>
                             <div className="dbx-optlist">
                                 <div className="dbx-opt-row">
                                     <div className="dbx-opt-row__text">
-                                        <span className="dbx-opt-row__title">Expose on the public network</span>
+                                        <span className="dbx-opt-row__title">{t('app.engineInstallDrawer.exposeOnThePublicNetwork', 'Expose on the public network')}</span>
                                         <span className="dbx-opt-row__sub">
                                             {expose
                                                 ? 'The port will be reachable from the internet'
@@ -455,20 +456,20 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                     <Switch
                                         checked={expose}
                                         onCheckedChange={setExpose}
-                                        aria-label="Expose on the public network"
+                                        aria-label={t('app.engineInstallDrawer.exposeOnThePublicNetwork2', 'Expose on the public network')}
                                     />
                                 </div>
                                 {meta.data_path && (
                                     <div className="dbx-kv__row">
                                         <dt className="dbx-kv__key">
-                                            <HardDrive size={12} aria-hidden="true" /> Data path
+                                            <HardDrive size={12} aria-hidden="true" /> {t('app.engineInstallDrawer.dataPath', 'Data path')}
                                         </dt>
                                         <dd className="dbx-kv__mono">{meta.data_path}</dd>
                                     </div>
                                 )}
                                 <div className="dbx-kv__row">
                                     <dt className="dbx-kv__key">
-                                        <RotateCw size={12} aria-hidden="true" /> Restart policy
+                                        <RotateCw size={12} aria-hidden="true" /> {t('app.engineInstallDrawer.restartPolicy', 'Restart policy')}
                                     </dt>
                                     <dd className="dbx-kv__ok">unless-stopped</dd>
                                 </div>
@@ -476,9 +477,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                             {expose && (
                                 <p className="dbx-warn-line">
                                     <ShieldAlert size={14} aria-hidden="true" />
-                                    Public database ports are a common breach vector — prefer the private
-                                    network or an SSH tunnel, and make sure the firewall only admits the
-                                    hosts that need it.
+                                    {t('app.engineInstallDrawer.publicDatabasePortsAreACommon', 'Public database ports are a common breach vector — prefer the private network or an SSH tunnel, and make sure the firewall only admits the hosts that need it.')}
                                 </p>
                             )}
                         </div>
@@ -486,7 +485,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                     <footer className="dbx-drawer__foot">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancel
+                            {t('app.engineInstallDrawer.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={busy || !slugifyService(name)}>
                             <Rocket size={15} aria-hidden="true" />

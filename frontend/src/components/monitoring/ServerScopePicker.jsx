@@ -2,11 +2,13 @@ import { Check, ChevronDown, Server as ServerIcon, HardDrive } from 'lucide-reac
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useState } from 'react';
 import { HOST_SCOPE } from './useMonitorScope';
+import { useTranslation } from 'react-i18next';
 
 // Top-bar control that picks which host every Monitoring section describes.
 // Hidden entirely when nothing is paired — with one machine there is no choice
 // to make, and an inert dropdown is worse than no dropdown.
 export default function ServerScopePicker({ scope, servers, onChange, label }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     if (!servers.length) return null;
 
@@ -15,7 +17,7 @@ export default function ServerScopePicker({ scope, servers, onChange, label }) {
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <button type="button" className="mon-scope" aria-label="Choose which server to monitor">
+                <button type="button" className="mon-scope" aria-label={t('app.serverScopePicker.chooseWhichServerToMonitor', 'Choose which server to monitor')}>
                     <span className="mon-scope__ico">
                         {scope === HOST_SCOPE ? <HardDrive size={14} /> : <ServerIcon size={14} />}
                     </span>
@@ -31,8 +33,8 @@ export default function ServerScopePicker({ scope, servers, onChange, label }) {
                 >
                     <HardDrive size={14} />
                     <span>
-                        This server
-                        <small>The machine running the panel</small>
+                        {t('app.serverScopePicker.thisServer', 'This server')}
+                        <small>{t('app.serverScopePicker.theMachineRunningThePanel', 'The machine running the panel')}</small>
                     </span>
                     {scope === HOST_SCOPE && <Check size={14} />}
                 </button>

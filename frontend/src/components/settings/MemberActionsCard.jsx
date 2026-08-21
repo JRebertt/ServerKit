@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 // Admin control for the member-action escape hatch (plan 19 Phase 5 / plan 29 #13).
 // Curated, parameterized actions a workspace member may run for an app they can
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button';
 // stays ON.
 
 const MemberActionsCard = () => {
+    const { t } = useTranslation();
     const [enabled, setEnabled] = useState(true);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -44,13 +46,9 @@ const MemberActionsCard = () => {
 
     return (
         <div className="settings-card">
-            <h3>Member Actions</h3>
+            <h3>{t('app.memberActionsCard.memberActions', 'Member Actions')}</h3>
             <p className="form-help" style={{ marginTop: 0 }}>
-                Let workspace members run a small set of curated, parameterized
-                actions (like adjusting an app&apos;s backup frequency) for apps they
-                can reach. Every action is validated against a fixed schema and
-                audit-logged — no free text ever reaches the server shell. Turn this
-                off to disable the whole member-action surface.
+                {t('app.memberActionsCard.letWorkspaceMembersRunASmall', 'Let workspace members run a small set of curated, parameterized actions (like adjusting an app\'s backup frequency) for apps they can reach. Every action is validated against a fixed schema and audit-logged — no free text ever reaches the server shell. Turn this off to disable the whole member-action surface.')}
             </p>
 
             <div className="form-group">
@@ -60,7 +58,7 @@ const MemberActionsCard = () => {
                         checked={enabled}
                         onChange={(e) => setEnabled(e.target.checked)}
                     />
-                    <span>Allow members to run curated actions</span>
+                    <span>{t('app.memberActionsCard.allowMembersToRunCuratedActions', 'Allow members to run curated actions')}</span>
                 </label>
             </div>
 

@@ -5,8 +5,10 @@ import api from '../services/api';
 import { consumeRedirect } from '../utils/redirectAfterLogin';
 import { Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const SSOCallback = () => {
+    const { t } = useTranslation();
     const { provider } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -55,11 +57,11 @@ const SSOCallback = () => {
             <div className="auth-container">
                 <div className="auth-card">
                     <div className="auth-header">
-                        <h1>Authentication Failed</h1>
+                        <h1>{t('app.sSOCallback.authenticationFailed', 'Authentication Failed')}</h1>
                         <p className="error-message">{error}</p>
                     </div>
                     <Button asChild className="btn-full">
-                        <Link to="/login">Back to Login</Link>
+                        <Link to="/login">{t('app.sSOCallback.backToLogin', 'Back to Login')}</Link>
                     </Button>
                 </div>
             </div>
@@ -73,8 +75,8 @@ const SSOCallback = () => {
                     <div className="sso-loading">
                         <Loader size={32} className="spinning" />
                     </div>
-                    <h1>Signing you in...</h1>
-                    <p>Completing authentication with {provider}</p>
+                    <h1>{t('app.sSOCallback.signingYouIn', 'Signing you in...')}</h1>
+                    <p>{t('app.sSOCallback.completingAuthenticationWith', 'Completing authentication with')} {provider}</p>
                 </div>
             </div>
         </div>

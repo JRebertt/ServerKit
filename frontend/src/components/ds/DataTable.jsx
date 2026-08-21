@@ -15,6 +15,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import ColumnMenu from './grid/ColumnMenu';
 import { applyFilters, isDecorative, withInferredTypes } from './grid/fields';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Declarative data table built on top of the shadcn/ui Table primitives.
@@ -103,6 +104,7 @@ export function DataTable({
     rowClassName,
     tableClassName,
 }) {
+    const { t } = useTranslation();
     const internal = useTableSort({
         defaultSorts: defaultSorts ?? (defaultSort ? [defaultSort] : []),
         storageKey: storageKey ? `${storageKey}-sort` : undefined,
@@ -297,7 +299,7 @@ export function DataTable({
     };
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading" />;
+        return <EmptyState loading loadingVariant="table" title={t('app.dataTable.loading', 'Loading')} />;
     }
 
     if (!loading && data.length === 0) {
@@ -345,7 +347,7 @@ export function DataTable({
                         <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => onToggleRow?.(key, !!checked)}
-                            aria-label="Select row"
+                            aria-label={t('app.dataTable.selectRow', 'Select row')}
                         />
                     </TableCell>
                 )}
@@ -373,7 +375,7 @@ export function DataTable({
                                 <Checkbox
                                     checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                                     onCheckedChange={(checked) => onToggleAll?.(!!checked)}
-                                    aria-label="Select all rows"
+                                    aria-label={t('app.dataTable.selectAllRows', 'Select all rows')}
                                 />
                             </TableHead>
                         )}
@@ -395,7 +397,7 @@ export function DataTable({
                                     )}
                                     style={column.width ? { width: column.width } : undefined}
                                     onClick={(event) => handleHeaderClick(event, column)}
-                                    title={canSort ? 'Click to sort · Shift+click to add a sort level' : undefined}
+                                    title={canSort ? t('app.dataTable.clickToSortShiftClickTo', 'Click to sort · Shift+click to add a sort level') : undefined}
                                     aria-sort={
                                         isSorted
                                             ? sorts[sortIndex].direction === 'asc'
@@ -453,12 +455,12 @@ export function DataTable({
                     {sortedData.length === 0 && data.length > 0 ? (
                         <TableRow className="sk-dtable__nomatch">
                             <TableCell colSpan={columnCount}>
-                                <span>No rows match the active column filters.</span>
+                                <span>{t('app.dataTable.noRowsMatchTheActiveColumn', 'No rows match the active column filters.')}</span>
                                 <button
                                     type="button"
                                     onClick={() => setFilters({ match: filters.match, rules: [] })}
                                 >
-                                    Clear filters
+                                    {t('app.dataTable.clearFilters', 'Clear filters')}
                                 </button>
                             </TableCell>
                         </TableRow>

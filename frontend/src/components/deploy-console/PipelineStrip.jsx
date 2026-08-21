@@ -1,4 +1,5 @@
 import { Check, Loader2, X, Circle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Per-step duration formatter (seconds -> "3s" / "1m 4s").
 const fmtSeconds = (s) => {
@@ -21,12 +22,13 @@ const STATE_ICON = {
 // which cost the log pane ~250px of width for a list that never needed it.
 // Clicking a segment scrolls the log pane to that step's first line.
 export default function PipelineStrip({ steps, selected, onStepClick }) {
+    const { t } = useTranslation();
     if (!steps || steps.length === 0) return null;
 
     const total = steps.reduce((sum, s) => sum + (s.seconds || 0), 0) || 1;
 
     return (
-        <div className="deploy-console__pipeline" role="list" aria-label="Deployment steps">
+        <div className="deploy-console__pipeline" role="list" aria-label={t('app.pipelineStrip.deploymentSteps', 'Deployment steps')}>
             {steps.map((step) => {
                 const Icon = STATE_ICON[step.state] || Circle;
                 const pct = Math.round(((step.seconds || 0) / total) * 100);

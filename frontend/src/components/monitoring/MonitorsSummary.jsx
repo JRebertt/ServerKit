@@ -13,6 +13,7 @@ import { AreaChart, KpiBand, MetricCard, Pill } from '@/components/ds';
 import { Button } from '@/components/ui/button';
 import { monitorStateOf } from './monitorShared';
 import { usePolling } from '../../hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const POLL_MS = 15000;
 const FEED_LIMIT = 9;
@@ -28,6 +29,7 @@ function relativeTime(iso) {
 }
 
 export default function MonitorsSummary({ refreshKey = 0 }) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [monitors, setMonitors] = useState([]);
     const [stats, setStats] = useState(null);
@@ -75,17 +77,15 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
             <section className="monitoring-panel mon-nomonitors">
                 <div className="monitoring-panel__header">
                     <div>
-                        <h3>Monitors</h3>
-                        <span className="mon-panel-sub">Nothing is being watched yet</span>
+                        <h3>{t('app.monitorsSummary.monitors', 'Monitors')}</h3>
+                        <span className="mon-panel-sub">{t('app.monitorsSummary.nothingIsBeingWatchedYet', 'Nothing is being watched yet')}</span>
                     </div>
                     <Button size="sm" onClick={() => navigate('/monitoring/monitors')}>
-                        <Plus size={14} /> Add monitor
+                        <Plus size={14} /> {t('app.monitorsSummary.addMonitor', 'Add monitor')}
                     </Button>
                 </div>
                 <p className="mon-panel-hint">
-                    Everything below describes the machines ServerKit runs on. Add a monitor to
-                    watch a website, an API endpoint, a database port or a WordPress site and get
-                    an incident when it stops answering.
+                    {t('app.monitorsSummary.everythingBelowDescribesTheMachinesServerkit', 'Everything below describes the machines ServerKit runs on. Add a monitor to watch a website, an API endpoint, a database port or a WordPress site and get an incident when it stops answering.')}
                 </p>
             </section>
         );
@@ -108,24 +108,24 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
         <div className="mon-monitors-summary">
             <KpiBand max={4}>
                 <MetricCard
-                    label="Availability (30d)" tone="green" icon={<Activity size={17} />}
+                    label={t('app.monitorsSummary.availability30d', 'Availability (30d)')} tone="green" icon={<Activity size={17} />}
                     value={stats?.overall_uptime_30d != null ? `${stats.overall_uptime_30d}%` : '—'}
                     onClick={() => navigate('/monitoring/monitors')}
                 />
                 <MetricCard
-                    label="Avg response" tone="cyan" icon={<Zap size={17} />}
+                    label={t('app.monitorsSummary.avgResponse', 'Avg response')} tone="cyan" icon={<Zap size={17} />}
                     value={avgResponse ?? '—'} unit={avgResponse != null ? 'ms' : undefined}
                     spark={leadSpark?.spark?.length > 1 ? (
                         <AreaChart series={[leadSpark.spark]} colors={['var(--cyan)']} height={34} grid={false} />
                     ) : undefined}
                 />
                 <MetricCard
-                    label="Monitors down" tone={stats?.down ? 'red' : 'green'} icon={<ShieldAlert size={17} />}
+                    label={t('app.monitorsSummary.monitorsDown', 'Monitors down')} tone={stats?.down ? 'red' : 'green'} icon={<ShieldAlert size={17} />}
                     value={stats?.down ?? 0}
                     onClick={() => navigate('/monitoring/monitors')}
                 />
                 <MetricCard
-                    label="Degraded" tone="amber" icon={<Timer size={17} />}
+                    label={t('app.monitorsSummary.degraded', 'Degraded')} tone="amber" icon={<Timer size={17} />}
                     value={stats?.degraded ?? 0}
                     onClick={() => navigate('/monitoring/monitors')}
                 />
@@ -135,11 +135,11 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
                         <div>
-                            <h3>Monitors</h3>
+                            <h3>{t('app.monitorsSummary.monitors2', 'Monitors')}</h3>
                             <span className="mon-panel-sub">{monitors.length} watched</span>
                         </div>
                         <Button variant="outline" size="sm" asChild>
-                            <Link to="/monitoring/monitors"><Radar size={14} /> Manage</Link>
+                            <Link to="/monitoring/monitors"><Radar size={14} /> {t('app.monitorsSummary.manage', 'Manage')}</Link>
                         </Button>
                     </div>
                     <div className="mon-monitor-list">
@@ -170,13 +170,13 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
                         <div>
-                            <h3>Live checks</h3>
-                            <span className="mon-panel-sub">Most recent results</span>
+                            <h3>{t('app.monitorsSummary.liveChecks', 'Live checks')}</h3>
+                            <span className="mon-panel-sub">{t('app.monitorsSummary.mostRecentResults', 'Most recent results')}</span>
                         </div>
                     </div>
                     {feed.length === 0 ? (
                         <p className="mon-panel-hint">
-                            No checks recorded yet — the scheduler polls on each monitor&apos;s interval.
+                            {t('app.monitorsSummary.noChecksRecordedYetTheScheduler', 'No checks recorded yet — the scheduler polls on each monitor\'s interval.')}
                         </p>
                     ) : (
                         <div className="mon-feed">

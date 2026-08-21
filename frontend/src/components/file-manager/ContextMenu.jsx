@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
     Folder, Eye, Download, Edit3, Lock, Copy, Trash2,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ export default function ContextMenu({
     onCopyPath,
     onDelete,
 }) {
+    const { t } = useTranslation();
     if (!menu) return null;
     const { x, y, entry } = menu;
     const multi = selectionCount > 1;
@@ -29,21 +31,21 @@ export default function ContextMenu({
             </button>
             {!entry.is_dir && (
                 <button type="button" onClick={() => { onDownload(entry); onClose(); }}>
-                    <Download size={14} /> Download
+                    <Download size={14} /> {t('app.contextMenu.download', 'Download')}
                 </button>
             )}
             <button type="button" onClick={() => { onRename(entry); onClose(); }}>
-                <Edit3 size={14} /> Rename
+                <Edit3 size={14} /> {t('app.contextMenu.rename', 'Rename')}
             </button>
             <button type="button" onClick={() => { onPermissions(entry); onClose(); }}>
-                <Lock size={14} /> Permissions
+                <Lock size={14} /> {t('app.contextMenu.permissions', 'Permissions')}
             </button>
             <button type="button" onClick={() => { onCopyPath(entry.path); onClose(); }}>
-                <Copy size={14} /> Copy path
+                <Copy size={14} /> {t('app.contextMenu.copyPath', 'Copy path')}
             </button>
             <div className="context-menu-divider" />
             <button type="button" className="danger" onClick={() => { onDelete(entry); onClose(); }}>
-                <Trash2 size={14} /> Delete{multi ? ` ${selectionCount} items` : ''}
+                <Trash2 size={14} /> {t('app.contextMenu.delete', 'Delete')}{multi ? ` ${selectionCount} items` : ''}
             </button>
         </div>
     );

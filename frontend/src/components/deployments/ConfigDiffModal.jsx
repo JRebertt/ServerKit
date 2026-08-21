@@ -4,6 +4,7 @@ import api from '../../services/api';
 import Modal from '@/components/Modal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '../../contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 // Modal showing a structured config diff between a snapshot and another
 // (default: the previous snapshot). Env vars are compared by KEY only — values
@@ -12,12 +13,13 @@ import { useToast } from '../../contexts/ToastContext';
 // the snapshot's config and triggers a redeploy.
 
 function DiffList({ title, added = [], removed = [], changed = [] }) {
+    const { t } = useTranslation();
     const hasAny = added.length || removed.length || changed.length;
     if (!hasAny) {
         return (
             <div className="config-diff__section">
                 <h4 className="config-diff__section-title">{title}</h4>
-                <p className="config-diff__none">No changes</p>
+                <p className="config-diff__none">{t('app.configDiffModal.noChanges', 'No changes')}</p>
             </div>
         );
     }
@@ -46,6 +48,7 @@ function DiffList({ title, added = [], removed = [], changed = [] }) {
 }
 
 function ScalarDiff({ title, oldVal, newVal, changed }) {
+    const { t } = useTranslation();
     return (
         <div className="config-diff__section">
             <h4 className="config-diff__section-title">{title}</h4>
@@ -56,13 +59,14 @@ function ScalarDiff({ title, oldVal, newVal, changed }) {
                     <span className="config-diff__new">{newVal || '—'}</span>
                 </div>
             ) : (
-                <p className="config-diff__none">No change ({newVal || '—'})</p>
+                <p className="config-diff__none">{t('app.configDiffModal.noChange', 'No change (')}{newVal || '—'})</p>
             )}
         </div>
     );
 }
 
 const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onRestored }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [diff, setDiff] = useState(null);
     const [meta, setMeta] = useState(null);
@@ -101,10 +105,10 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
         try {
             const res = await api.restoreSnapshot(appId, snapId);
             if (res.success) {
-                toast.success('Configuration restored. Redeploy triggered.');
+                toast.success(t('app.configDiffModal.configurationRestoredRedeployTriggered', 'Configuration restored. Redeploy triggered.'));
                 if (onRestored) onRestored(res);
             } else {
-                toast.error(res.error || 'Restore failed');
+                toast.error(res.error || t('app.configDiffModal.restoreFailed', 'Restore failed'));
             }
         } catch (err) {
             toast.error(err.message);
@@ -115,9 +119,9 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
     }
 
     return (
-        <Modal open onClose={onClose} title="Configuration diff" size="xl" className="config-diff">
+        <Modal open onClose={onClose} title={t('app.configDiffModal.configurationDiff', 'Configuration diff')} size="xl" className="config-diff">
             <div className="config-diff__body">
-                    {loading && <p className="config-diff__loading">Loading diff…</p>}
+                    {loading && <p className="config-diff__loading">{t('app.configDiffModal.loadingDiff', 'Loading diff…')}</p>}
                     {error && <div className="alert alert-danger">{error}</div>}
 
                     {!loading && !error && diff && (
@@ -127,7 +131,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                                     <Info size={16} className="config-diff__summary-icon" />
                                     <div className="config-diff__summary-text">
                                         <span className="config-diff__summary-label">
-                                            In plain language
+                                            {t('app.configDiffModal.inPlainLanguage', 'In plain language')}
                                         </span>
                                         <p className="config-diff__summary">
                                             {meta.hasChanges && meta.summary
@@ -139,29 +143,29 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                             )}
 
                             <DiffList
-                                title="Environment variables"
+                                title={t('app.configDiffModal.environmentVariables', 'Environment variables')}
                                 added={diff.env?.added}
                                 removed={diff.env?.removed}
                                 changed={diff.env?.changed}
                             />
                             <DiffList
-                                title="Domains"
+                                title={t('app.configDiffModal.domains', 'Domains')}
                                 added={diff.domains?.added}
                                 removed={diff.domains?.removed}
                             />
                             <DiffList
-                                title="Volumes"
+                                title={t('app.configDiffModal.volumes', 'Volumes')}
                                 added={diff.volumes?.added}
                                 removed={diff.volumes?.removed}
                             />
                             <ScalarDiff
-                                title="Image / tag"
+                                title={t('app.configDiffModal.imageTag', 'Image / tag')}
                                 oldVal={diff.image?.old}
                                 newVal={diff.image?.new}
                                 changed={diff.image?.changed}
                             />
                             <ScalarDiff
-                                title="Build method"
+                                title={t('app.configDiffModal.buildMethod', 'Build method')}
                                 oldVal={diff.build_method?.old}
                                 newVal={diff.build_method?.new}
                                 changed={diff.build_method?.changed}
@@ -183,7 +187,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                                 onClick={() => setConfirmRestore(false)}
                                 disabled={restoring}
                             >
-                                Cancel
+                                {t('app.configDiffModal.cancel', 'Cancel')}
                             </Button>
                             <Button onClick={handleRestore} disabled={restoring}>
                                 {restoring ? 'Restoring…' : 'Confirm restore'}
@@ -192,10 +196,10 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                     ) : (
                         <>
                             <Button variant="outline" onClick={onClose}>
-                                Close
+                                {t('app.configDiffModal.close', 'Close')}
                             </Button>
                             <Button onClick={() => setConfirmRestore(true)} disabled={loading || !!error}>
-                                <RotateCcw size={14} /> Restore this config
+                                <RotateCcw size={14} /> {t('app.configDiffModal.restoreThisConfig', 'Restore this config')}
                             </Button>
                         </>
                     )}

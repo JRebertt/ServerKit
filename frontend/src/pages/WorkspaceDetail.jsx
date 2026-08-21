@@ -23,16 +23,17 @@ import WorkspaceSitesTab from '../components/workspaces/WorkspaceSitesTab';
 import WorkspaceMembersTab from '../components/workspaces/WorkspaceMembersTab';
 import WorkspaceSettingsTab from '../components/workspaces/WorkspaceSettingsTab';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useTranslation } from 'react-i18next';
 
 const VALID_TABS = ['overview', 'servers', 'services', 'sites', 'members', 'settings'];
 
 const TAB_META = {
-    overview: { label: 'Overview', icon: LayoutGrid },
-    servers: { label: 'Servers', icon: Server },
-    services: { label: 'Services', icon: Box },
-    sites: { label: 'Sites', icon: Globe },
-    members: { label: 'Members', icon: Users },
-    settings: { label: 'Settings', icon: Settings2 },
+    overview: { labelKey: 'app.workspaceDetail.overview', label: 'Overview', icon: LayoutGrid },
+    servers: { labelKey: 'app.workspaceDetail.servers', label: 'Servers', icon: Server },
+    services: { labelKey: 'app.workspaceDetail.services', label: 'Services', icon: Box },
+    sites: { labelKey: 'app.workspaceDetail.sites', label: 'Sites', icon: Globe },
+    members: { labelKey: 'app.workspaceDetail.members', label: 'Members', icon: Users },
+    settings: { labelKey: 'app.workspaceDetail.settings', label: 'Settings', icon: Settings2 },
 };
 
 const formatSince = (iso) => {
@@ -46,6 +47,7 @@ const formatSince = (iso) => {
 const asServerList = (data) => (Array.isArray(data) ? data : (data?.servers || []));
 
 const WorkspaceDetail = () => {
+    const { t } = useTranslation();
     const { id } = useParams();
     const wsId = Number(id);
     const navigate = useNavigate();
@@ -89,7 +91,7 @@ const WorkspaceDetail = () => {
             setServers(asServerList(srvData));
             setAllUsers(uData.users || []);
         } catch (err) {
-            toast.error('Failed to load workspace');
+            toast.error(t('app.workspaceDetail.failedToLoadWorkspace', 'Failed to load workspace'));
             setWs(null);
         } finally {
             setLoading(false);
@@ -108,7 +110,7 @@ const WorkspaceDetail = () => {
     const handleArchive = async () => {
         try {
             await api.archiveWorkspace(wsId);
-            toast.success('Workspace archived');
+            toast.success(t('app.workspaceDetail.workspaceArchived', 'Workspace archived'));
             load();
         } catch (err) { toast.error(err.message); }
     };
@@ -116,7 +118,7 @@ const WorkspaceDetail = () => {
     const handleRestore = async () => {
         try {
             await api.restoreWorkspace(wsId);
-            toast.success('Workspace restored');
+            toast.success(t('app.workspaceDetail.workspaceRestored', 'Workspace restored'));
             load();
         } catch (err) { toast.error(err.message); }
     };
@@ -125,7 +127,7 @@ const WorkspaceDetail = () => {
         try {
             await api.deleteWorkspace(wsId);
             if (isCurrent) clearActiveWorkspace();
-            toast.success('Workspace deleted');
+            toast.success(t('app.workspaceDetail.workspaceDeleted', 'Workspace deleted'));
             navigate('/workspaces');
         } catch (err) { toast.error(err.message); }
     };
@@ -133,7 +135,7 @@ const WorkspaceDetail = () => {
     const handleAddMember = async (userId) => {
         try {
             await api.addWorkspaceMember(wsId, userId);
-            toast.success('Member added');
+            toast.success(t('app.workspaceDetail.memberAdded', 'Member added'));
             load();
         } catch (err) { toast.error(err.message); }
     };
@@ -141,7 +143,7 @@ const WorkspaceDetail = () => {
     const handleRemoveMember = async (memberId) => {
         try {
             await api.removeWorkspaceMember(memberId);
-            toast.success('Member removed');
+            toast.success(t('app.workspaceDetail.memberRemoved', 'Member removed'));
             load();
         } catch (err) { toast.error(err.message); }
     };
@@ -149,7 +151,7 @@ const WorkspaceDetail = () => {
     const handleMoveApp = async (appId, workspaceId) => {
         try {
             await api.setAppWorkspace(appId, workspaceId);
-            toast.success(workspaceId ? 'Application moved in' : 'Application removed');
+            toast.success(workspaceId ? t('app.workspaceDetail.applicationMovedIn', 'Application moved in') : t('app.workspaceDetail.applicationRemoved', 'Application removed'));
             const data = await api.getApps({ allWorkspaces: true });
             setApps(data.apps || []);
         } catch (err) { toast.error(err.message); }
@@ -158,7 +160,7 @@ const WorkspaceDetail = () => {
     const handleMoveServer = async (serverId, workspaceId) => {
         try {
             await api.setServerWorkspace(serverId, workspaceId);
-            toast.success(workspaceId ? 'Server moved in' : 'Server removed');
+            toast.success(workspaceId ? t('app.workspaceDetail.serverMovedIn', 'Server moved in') : t('app.workspaceDetail.serverRemoved', 'Server removed'));
             setServers(asServerList(await api.getServers({ allWorkspaces: true })));
         } catch (err) { toast.error(err.message); }
     };
@@ -168,13 +170,13 @@ const WorkspaceDetail = () => {
             const gData = await api.getAppGrants(appObj.id);
             setGrants(gData.grants || []);
             setSharingApp(appObj);
-        } catch (err) { toast.error('Failed to load sharing'); }
+        } catch (err) { toast.error(t('app.workspaceDetail.failedToLoadSharing', 'Failed to load sharing')); }
     };
 
     const handleGrant = async (userId) => {
         try {
             await api.grantAppAccess(sharingApp.id, userId, grantRole);
-            toast.success('Access granted');
+            toast.success(t('app.workspaceDetail.accessGranted', 'Access granted'));
             const gData = await api.getAppGrants(sharingApp.id);
             setGrants(gData.grants || []);
         } catch (err) { toast.error(err.message); }
@@ -183,7 +185,7 @@ const WorkspaceDetail = () => {
     const handleRevoke = async (grantId) => {
         try {
             await api.revokeAppAccess(sharingApp.id, grantId);
-            toast.success('Access revoked');
+            toast.success(t('app.workspaceDetail.accessRevoked', 'Access revoked'));
             const gData = await api.getAppGrants(sharingApp.id);
             setGrants(gData.grants || []);
         } catch (err) { toast.error(err.message); }
@@ -192,17 +194,17 @@ const WorkspaceDetail = () => {
     // Pre-load states take the same shell as the loaded page.
     if (loading) {
         return (
-            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title="Workspace">
-                <EmptyState loading loadingVariant="detail" title="Loading workspace" />
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('app.workspaceDetail.workspace', 'Workspace')}>
+                <EmptyState loading loadingVariant="detail" title={t('app.workspaceDetail.loadingWorkspace', 'Loading workspace')} />
             </PageLayout>
         );
     }
 
     if (!ws) {
         return (
-            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title="Workspace">
-                <Link className="ws-detail__back" to="/workspaces"><ChevronLeft size={14} /> All workspaces</Link>
-                <EmptyState icon={LayoutGrid} title="Workspace not found" description="It may have been deleted, or you may not have access." />
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('app.workspaceDetail.workspace2', 'Workspace')}>
+                <Link className="ws-detail__back" to="/workspaces"><ChevronLeft size={14} /> {t('app.workspaceDetail.allWorkspaces', 'All workspaces')}</Link>
+                <EmptyState icon={LayoutGrid} title={t('app.workspaceDetail.workspaceNotFound', 'Workspace not found')} description={t('app.workspaceDetail.itMayHaveBeenDeletedOr', 'It may have been deleted, or you may not have access.')} />
             </PageLayout>
         );
     }
@@ -223,7 +225,7 @@ const WorkspaceDetail = () => {
             icon={<LayoutGrid size={18} />}
             title={(
                 <span className="ws-crumbs">
-                    <Link to="/workspaces">Workspaces</Link>
+                    <Link to="/workspaces">{t('app.workspaceDetail.workspaces', 'Workspaces')}</Link>
                     <span className="ws-crumbs__sep">/</span>
                     <span className="ws-crumbs__cur">{ws.name}</span>
                 </span>
@@ -238,7 +240,7 @@ const WorkspaceDetail = () => {
                             {ws.name}
                             <FavoriteStar type="workspace" id={ws.id} path={`/workspaces/${ws.id}`} label={ws.name} />
                             {isCurrent
-                                ? <Pill kind="green">active workspace</Pill>
+                                ? <Pill kind="green">{t('app.workspaceDetail.activeWorkspace', 'active workspace')}</Pill>
                                 : <Pill kind={ws.status === 'active' ? 'green' : 'amber'}>{ws.status}</Pill>}
                         </h1>
                         <div className="app-detail-subtitle">
@@ -333,13 +335,13 @@ const WorkspaceDetail = () => {
             <Modal
                 open={Boolean(sharingApp)}
                 onClose={() => setSharingApp(null)}
-                title={sharingApp ? `Sharing: ${sharingApp.name}` : 'Sharing'}
+                title={sharingApp ? t('app.workspaceDetail.sharing', 'Sharing: {{name}}', { name: sharingApp.name }) : t('app.workspaceDetail.sharing2', 'Sharing')}
             >
                 {sharingApp && (
                     <>
-                        <p className="form-hint">Grant a user access to this application without transferring ownership.</p>
+                        <p className="form-hint">{t('app.workspaceDetail.grantAUserAccessToThis', 'Grant a user access to this application without transferring ownership.')}</p>
                         <div className="ws-rows">
-                            {grants.length === 0 && <p className="form-hint">Not shared with anyone yet.</p>}
+                            {grants.length === 0 && <p className="form-hint">{t('app.workspaceDetail.notSharedWithAnyoneYet', 'Not shared with anyone yet.')}</p>}
                             {grants.map(g => (
                                 <div key={g.id} className="ws-row">
                                     <ServiceTile name={g.username || g.email || '?'} size={28} className="ws-row__av" />
@@ -347,17 +349,17 @@ const WorkspaceDetail = () => {
                                         <strong>{g.username || g.email}</strong>
                                         <span className="sk-tag">{g.role}</span>
                                     </div>
-                                    <Button size="sm" variant="destructive" onClick={() => handleRevoke(g.id)}>Revoke</Button>
+                                    <Button size="sm" variant="destructive" onClick={() => handleRevoke(g.id)}>{t('app.workspaceDetail.revoke', 'Revoke')}</Button>
                                 </div>
                             ))}
                         </div>
                         <hr />
-                        <h4>Grant Access</h4>
+                        <h4>{t('app.workspaceDetail.grantAccess', 'Grant Access')}</h4>
                         <div className="form-group">
-                            <label>Role for new grants</label>
+                            <label>{t('app.workspaceDetail.roleForNewGrants', 'Role for new grants')}</label>
                             <select value={grantRole} onChange={e => setGrantRole(e.target.value)}>
-                                <option value="editor">Editor · view + operate</option>
-                                <option value="viewer">Viewer · read-only</option>
+                                <option value="editor">{t('app.workspaceDetail.editorViewOperate', 'Editor · view + operate')}</option>
+                                <option value="viewer">{t('app.workspaceDetail.viewerReadOnly', 'Viewer · read-only')}</option>
                             </select>
                         </div>
                         <div className="ws-pick">
@@ -375,8 +377,8 @@ const WorkspaceDetail = () => {
 
             {deleteConfirm && (
                 <ConfirmDialog
-                    title="Delete Workspace"
-                    message={`Delete "${ws.name}"? All data will be lost.`}
+                    title={t('app.workspaceDetail.deleteWorkspace', 'Delete Workspace')}
+                    message={t('app.workspaceDetail.deleteAllDataWillBeLost', 'Delete "{{name}}"? All data will be lost.', { name: ws.name })}
                     onConfirm={handleDelete}
                     onCancel={() => setDeleteConfirm(false)}
                     variant="danger"

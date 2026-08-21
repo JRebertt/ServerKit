@@ -3,6 +3,7 @@ import { useState } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Pill, ScoreGauge, KpiBand, MetricCard } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 import {
     ShieldCheck,
     RefreshCw,
@@ -21,6 +22,7 @@ const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const STATE_ICON = { pass: CheckCircle2, warn: AlertTriangle, unknown: Circle };
 
 const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigateTab }) => {
+    const { t } = useTranslation();
     // One action runs at a time; `busyKey` names it so only that row spins and
     // the rest disable (no double-submits against the same daemon).
     const [busyKey, setBusyKey] = useState(null);
@@ -51,16 +53,16 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
     const checks = [
         {
             key: 'clamav-install',
-            label: 'ClamAV antivirus installed',
+            labelKey: 'app.overviewTab.clamavAntivirusInstalled', label: 'ClamAV antivirus installed',
             state: clamavLoading ? 'unknown' : (clamavStatus?.installed ? 'pass' : 'warn'),
             detail: clamavLoading ? 'checking…' : (clamavStatus?.installed ? 'installed' : 'not installed'),
             fix: !clamavLoading && !clamavStatus?.installed
-                ? { label: 'Install ClamAV', run: () => api.installClamAV() }
+                ? { labelKey: 'app.overviewTab.installClamav', label: 'Install ClamAV', run: () => api.installClamAV() }
                 : null,
         },
         {
             key: 'clamav-service',
-            label: 'ClamAV service running',
+            labelKey: 'app.overviewTab.clamavServiceRunning', label: 'ClamAV service running',
             state: clamavLoading || !clamavStatus?.installed
                 ? 'unknown'
                 : (clamavStatus?.service_running ? 'pass' : 'warn'),
@@ -68,45 +70,45 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                 ? 'checking…'
                 : (!clamavStatus?.installed ? 'n/a' : (clamavStatus?.service_running ? 'running' : 'stopped')),
             fix: !clamavLoading && clamavStatus?.installed && !clamavStatus?.service_running
-                ? { label: 'Start service', run: () => api.startClamAV() }
+                ? { labelKey: 'app.overviewTab.startService', label: 'Start service', run: () => api.startClamAV() }
                 : null,
         },
         {
             key: 'integrity-enabled',
-            label: 'File integrity monitoring enabled',
+            labelKey: 'app.overviewTab.fileIntegrityMonitoringEnabled', label: 'File integrity monitoring enabled',
             state: integrity.enabled ? 'pass' : 'warn',
             detail: integrity.enabled ? 'enabled' : 'disabled',
             fix: integrity.enabled
                 ? null
-                : { label: 'Enable monitoring', run: () => api.updateSecurityConfig({ file_integrity: { enabled: true } }) },
+                : { labelKey: 'app.overviewTab.enableMonitoring', label: 'Enable monitoring', run: () => api.updateSecurityConfig({ file_integrity: { enabled: true } }) },
         },
         {
             key: 'integrity-baseline',
-            label: 'Integrity baseline initialized',
+            labelKey: 'app.overviewTab.integrityBaselineInitialized', label: 'Integrity baseline initialized',
             state: integrity.database_exists ? 'pass' : 'warn',
             detail: integrity.database_exists ? 'initialized' : 'not initialized',
             fix: integrity.database_exists
                 ? null
-                : { label: 'Initialize baseline', run: () => api.initializeIntegrityDatabase() },
+                : { labelKey: 'app.overviewTab.initializeBaseline', label: 'Initialize baseline', run: () => api.initializeIntegrityDatabase() },
         },
         {
             key: 'integrity-clean',
-            label: 'No integrity changes (24h)',
+            labelKey: 'app.overviewTab.noIntegrityChanges24h', label: 'No integrity changes (24h)',
             state: integrityChanges > 0 ? 'warn' : 'pass',
             detail: integrityChanges > 0 ? `${integrityChanges} detected` : 'clean',
             fix: integrityChanges > 0
-                ? { label: 'Review changes', run: () => onNavigateTab?.('integrity'), nav: true }
+                ? { labelKey: 'app.overviewTab.reviewChanges', label: 'Review changes', run: () => onNavigateTab?.('integrity'), nav: true }
                 : null,
         },
         {
             key: 'alerts',
-            label: 'Security alerts configured',
+            labelKey: 'app.overviewTab.securityAlertsConfigured', label: 'Security alerts configured',
             state: status?.notifications_enabled ? 'pass' : 'warn',
             detail: status?.notifications_enabled ? 'enabled' : 'disabled',
             fix: status?.notifications_enabled
                 ? null
                 : {
-                    label: 'Enable alerts',
+                    labelKey: 'app.overviewTab.enableAlerts', label: 'Enable alerts',
                     run: () => api.updateSecurityConfig({
                         notifications: { on_malware_found: true, on_integrity_change: true, on_suspicious_activity: true },
                     }),
@@ -124,9 +126,9 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
     // Live event counts — the at-a-glance readouts that used to be a page-wide
     // KPI strip on every tab. They live here now, where they're relevant.
     const kpis = [
-        { key: 'alerts', icon: Siren, value: alerts.total || 0, label: 'Alerts · 24h', tone: alerts.total > 0 ? 'amber' : 'green' },
-        { key: 'malware', icon: Bug, value: alerts.malware_detections || 0, label: 'Malware', tone: alerts.malware_detections > 0 ? 'red' : 'green' },
-        { key: 'scan', icon: Radar, value: capitalize(status?.scan_status) || 'Idle', label: 'Scan', tone: scanRunning ? 'cyan' : 'accent' },
+        { key: 'alerts', icon: Siren, value: alerts.total || 0, labelKey: 'app.overviewTab.alerts24h', label: 'Alerts · 24h', tone: alerts.total > 0 ? 'amber' : 'green' },
+        { key: 'malware', icon: Bug, value: alerts.malware_detections || 0, labelKey: 'app.overviewTab.malware', label: 'Malware', tone: alerts.malware_detections > 0 ? 'red' : 'green' },
+        { key: 'scan', icon: Radar, value: capitalize(status?.scan_status) || 'Idle', labelKey: 'app.overviewTab.scan', label: 'Scan', tone: scanRunning ? 'cyan' : 'accent' },
     ];
 
     const defsUpdated = clamavStatus?.last_update ? new Date(clamavStatus.last_update).toLocaleDateString() : null;
@@ -138,9 +140,9 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
 
             <div className="card sec-posture-card">
                 <div className="card-header">
-                    <h3><ShieldCheck size={13} /> Security posture</h3>
+                    <h3><ShieldCheck size={13} /> {t('app.overviewTab.securityPosture', 'Security posture')}</h3>
                     <Button variant="outline" size="sm" onClick={() => runFix('recheck', async () => {})} disabled={busy}>
-                        <RefreshCw size={13} className={busyKey === 'recheck' ? 'sec-spin' : undefined} /> Re-check
+                        <RefreshCw size={13} className={busyKey === 'recheck' ? 'sec-spin' : undefined} /> {t('app.overviewTab.reCheck', 'Re-check')}
                     </Button>
                 </div>
                 <div className="card-body">
@@ -150,7 +152,7 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                         ) : (
                             <div className="sec-posture__pending">
                                 <RefreshCw size={18} className="sec-spin" />
-                                <span>Computing…</span>
+                                <span>{t('app.overviewTab.computing', 'Computing…')}</span>
                             </div>
                         )}
 
@@ -209,7 +211,7 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                     <p className="sec-hint sec-posture__foot">
                         {clamavStatus?.installed && (
                             <>
-                                Virus definitions {defsUpdated ? `updated ${defsUpdated}` : 'status unknown'}
+                                {t('app.overviewTab.virusDefinitions', 'Virus definitions')} {defsUpdated ? `updated ${defsUpdated}` : 'status unknown'}
                                 {' · '}
                                 <Button
                                     variant="link"
@@ -223,7 +225,7 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                                 {'. '}
                             </>
                         )}
-                        Add alert delivery channels (Discord, Slack, Telegram) in Settings → Notifications.
+                        {t('app.overviewTab.addAlertDeliveryChannelsDiscordSlack', 'Add alert delivery channels (Discord, Slack, Telegram) in Settings → Notifications.')}
                     </p>
                 </div>
             </div>

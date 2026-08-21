@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../hooks/useConfirm';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 // Curated config tuner: a small set of vetted engine settings with RAM-aware
 // suggested values. Shows current vs suggested; the operator picks which
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 //   user     — DB admin user (optional)
 //   password — DB admin password, sent via X-DB-Password (optional)
 export default function ConfigTunerPanel({ target, engine, user, password }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const [data, setData] = useState(null);
@@ -71,10 +73,10 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
     async function applySelected() {
         if (!selectedKeys.length) return;
         const ok = await confirm({
-            title: `Apply ${selectedKeys.length} setting${selectedKeys.length === 1 ? '' : 's'}?`,
-            message: 'Applying restarts the database engine — connected apps will see a short '
-                + 'interruption. The previous configuration is backed up and can be rolled back.',
-            confirmText: 'Apply and restart',
+            title: t('app.configTunerPanel.applySetting', 'Apply {{length}} setting{{value}}?', { length: selectedKeys.length, value: selectedKeys.length === 1 ? '' : 's' }),
+            message: t('app.configTunerPanel.applyingRestartsTheDatabaseEngineConnected', 'Applying restarts the database engine — connected apps will see a short ')
+                + t('app.configTunerPanel.interruptionThePreviousConfigurationIsBacked', 'interruption. The previous configuration is backed up and can be rolled back.'),
+            confirmText: t('app.configTunerPanel.applyAndRestart', 'Apply and restart'),
             danger: true,
         });
         if (!ok) return;
@@ -86,10 +88,10 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                 settings[k] = clampValue(setting, values[k]);
             });
             await api.applyDbTunerSettings(target, settings, { engine, user, password });
-            toast.success('Settings applied and engine restarted');
+            toast.success(t('app.configTunerPanel.settingsAppliedAndEngineRestarted', 'Settings applied and engine restarted'));
             await load(dedicated);
         } catch (err) {
-            toast.error(err.message || 'Failed to apply settings');
+            toast.error(err.message || t('app.configTunerPanel.failedToApplySettings', 'Failed to apply settings'));
         } finally {
             setBusy(false);
         }
@@ -97,26 +99,26 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
 
     async function rollback() {
         const ok = await confirm({
-            title: 'Roll back to the previous configuration?',
-            message: 'The last backed-up configuration is restored and the database engine '
-                + 'is restarted.',
-            confirmText: 'Roll back and restart',
+            title: t('app.configTunerPanel.rollBackToThePreviousConfiguration', 'Roll back to the previous configuration?'),
+            message: t('app.configTunerPanel.theLastBackedUpConfigurationIs', 'The last backed-up configuration is restored and the database engine ')
+                + t('app.configTunerPanel.isRestarted', 'is restarted.'),
+            confirmText: t('app.configTunerPanel.rollBackAndRestart', 'Roll back and restart'),
             danger: true,
         });
         if (!ok) return;
         setBusy(true);
         try {
             await api.rollbackDbTuner(target, { engine, user, password });
-            toast.success('Previous configuration restored');
+            toast.success(t('app.configTunerPanel.previousConfigurationRestored', 'Previous configuration restored'));
             await load(dedicated);
         } catch (err) {
-            toast.error(err.message || 'Rollback failed');
+            toast.error(err.message || t('app.configTunerPanel.rollbackFailed', 'Rollback failed'));
         } finally {
             setBusy(false);
         }
     }
 
-    if (loading) return <p className="db-tuner__hint">Reading engine configuration…</p>;
+    if (loading) return <p className="db-tuner__hint">{t('app.configTunerPanel.readingEngineConfiguration', 'Reading engine configuration…')}</p>;
     if (error) return <p className="db-tuner__error">{error}</p>;
     if (!data) return null;
 
@@ -124,9 +126,7 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
         <div className="db-tuner">
             <div className="db-tuner__head">
                 <p className="db-tuner__hint">
-                    Suggestions are based on {data.ram_mb} MB of RAM
-                    ({data.ram_source === 'container_limit' ? 'container memory limit' : 'host total'}).
-                    Nothing is applied until you choose to.
+                    {t('app.configTunerPanel.suggestionsAreBasedOn', 'Suggestions are based on')} {data.ram_mb} {t('app.configTunerPanel.mbOfRam', 'MB of RAM (')}{data.ram_source === 'container_limit' ? 'container memory limit' : 'host total'}{t('app.configTunerPanel.nothingIsAppliedUntilYouChoose', '). Nothing is applied until you choose to.')}
                 </p>
                 <label className="db-tuner__dedicated">
                     <input
@@ -134,10 +134,10 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                         checked={dedicated}
                         onChange={(e) => setDedicated(e.target.checked)}
                     />
-                    Dedicated DB server
+                    {t('app.configTunerPanel.dedicatedDbServer', 'Dedicated DB server')}
                 </label>
-                <Button type="button" size="sm" variant="ghost" onClick={() => load(dedicated)} aria-label="Refresh">
-                    <RefreshCw size={14} /> Refresh
+                <Button type="button" size="sm" variant="ghost" onClick={() => load(dedicated)} aria-label={t('app.configTunerPanel.refresh', 'Refresh')}>
+                    <RefreshCw size={14} /> {t('app.configTunerPanel.refresh2', 'Refresh')}
                 </Button>
             </div>
 
@@ -145,11 +145,11 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                 <table className="db-tuner__table">
                     <thead>
                         <tr>
-                            <th aria-label="Select" />
-                            <th>Setting</th>
-                            <th>Current</th>
-                            <th>Suggested</th>
-                            <th>Target value</th>
+                            <th aria-label={t('app.configTunerPanel.select', 'Select')} />
+                            <th>{t('app.configTunerPanel.setting', 'Setting')}</th>
+                            <th>{t('app.configTunerPanel.current', 'Current')}</th>
+                            <th>{t('app.configTunerPanel.suggested', 'Suggested')}</th>
+                            <th>{t('app.configTunerPanel.targetValue', 'Target value')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -160,7 +160,7 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                                         type="checkbox"
                                         checked={!!selected[s.key]}
                                         onChange={() => toggle(s.key)}
-                                        aria-label={`Select ${s.key}`}
+                                        aria-label={t('app.configTunerPanel.select2', 'Select {{key}}', { key: s.key })}
                                     />
                                 </td>
                                 <td>
@@ -183,7 +183,7 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                                         value={values[s.key] ?? ''}
                                         onChange={(e) => setValue(s.key, e.target.value)}
                                         onBlur={() => commitValue(s)}
-                                        aria-label={`Target value for ${s.key}`}
+                                        aria-label={t('app.configTunerPanel.targetValueFor', 'Target value for {{key}}', { key: s.key })}
                                     />
                                     <span className="db-tuner__range">{s.min}–{s.max} {s.unit}</span>
                                 </td>
@@ -199,11 +199,11 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                     disabled={busy || selectedKeys.length === 0}
                     onClick={applySelected}
                 >
-                    <Wand2 size={14} /> Apply selected ({selectedKeys.length})
+                    <Wand2 size={14} /> {t('app.configTunerPanel.applySelected', 'Apply selected (')}{selectedKeys.length})
                 </Button>
                 {data.can_rollback && (
                     <Button type="button" variant="outline" disabled={busy} onClick={rollback}>
-                        <Undo2 size={14} /> Roll back last apply
+                        <Undo2 size={14} /> {t('app.configTunerPanel.rollBackLastApply', 'Roll back last apply')}
                     </Button>
                 )}
             </div>

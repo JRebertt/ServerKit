@@ -5,12 +5,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_THEME_SLUG } from '../../data/bundledThemes';
 import api from '../../services/api';
+import { useTranslation } from 'react-i18next';
 
 // Theme Gallery — cards for every selectable skin (bundled seeds + installed).
 // Apply is instant (tokens are already local); hovering previews live and
 // leaving restores the selected skin. Admins can additionally set the panel
 // default (what login/setup and new users get) and remove installed themes.
 const ThemeGallery = () => {
+    const { t } = useTranslation();
     const {
         availableThemes, skin, setSkin, previewSkin, clearPreview,
         panelDefaultSlug, refreshInstalledThemes, refreshPanelDefault,
@@ -25,9 +27,9 @@ const ThemeGallery = () => {
         try {
             await api.setDefaultTheme(slug);
             await refreshPanelDefault();
-            toast.success('Panel default theme updated');
+            toast.success(t('app.themeGallery.panelDefaultThemeUpdated', 'Panel default theme updated'));
         } catch (e) {
-            toast.error(e?.message || 'Could not set the default theme');
+            toast.error(e?.message || t('app.themeGallery.couldNotSetTheDefaultTheme', 'Could not set the default theme'));
         } finally {
             setBusy(null);
         }
@@ -38,9 +40,9 @@ const ThemeGallery = () => {
         try {
             await api.deleteTheme(slug);
             await Promise.all([refreshInstalledThemes(), refreshPanelDefault()]);
-            toast.success('Theme removed');
+            toast.success(t('app.themeGallery.themeRemoved', 'Theme removed'));
         } catch (e) {
-            toast.error(e?.message || 'Could not remove the theme');
+            toast.error(e?.message || t('app.themeGallery.couldNotRemoveTheTheme', 'Could not remove the theme'));
         } finally {
             setBusy(null);
         }
@@ -90,12 +92,12 @@ const ThemeGallery = () => {
                         <div className="theme-card__footer">
                             {active && (
                                 <span className="theme-card__applied">
-                                    <Check size={13} /> Applied
+                                    <Check size={13} /> {t('app.themeGallery.applied', 'Applied')}
                                 </span>
                             )}
                             {isPanelDefault && (
-                                <span className="theme-card__default" title="Default for the whole panel">
-                                    <Star size={12} /> Panel default
+                                <span className="theme-card__default" title={t('app.themeGallery.defaultForTheWholePanel', 'Default for the whole panel')}>
+                                    <Star size={12} /> {t('app.themeGallery.panelDefault', 'Panel default')}
                                 </span>
                             )}
                         </div>
@@ -108,7 +110,7 @@ const ThemeGallery = () => {
                                         disabled={busy === t.slug}
                                         onClick={(e) => { e.stopPropagation(); setDefault(t.slug); }}
                                     >
-                                        <Star size={12} /> Set default
+                                        <Star size={12} /> {t('app.themeGallery.setDefault', 'Set default')}
                                     </button>
                                 )}
                                 {removable && (
@@ -118,7 +120,7 @@ const ThemeGallery = () => {
                                         disabled={busy === t.slug}
                                         onClick={(e) => { e.stopPropagation(); removeTheme(t.slug); }}
                                     >
-                                        <Trash2 size={12} /> Remove
+                                        <Trash2 size={12} /> {t('app.themeGallery.remove', 'Remove')}
                                     </button>
                                 )}
                             </div>

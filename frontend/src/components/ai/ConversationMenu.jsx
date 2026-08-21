@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { History, Plus, Trash2 } from 'lucide-react';
 import { useServerkitAI } from '../../contexts/AIContext';
+import { useTranslation } from 'react-i18next';
 
 const ConversationMenu = () => {
+    const { t } = useTranslation();
     const {
         conversations, activeId, newConversation, switchConversation, deleteConversation, loadConversations,
     } = useServerkitAI();
@@ -24,7 +26,7 @@ const ConversationMenu = () => {
             <button
                 type="button"
                 className="sk-ai-iconbtn"
-                aria-label="Conversations"
+                aria-label={t('app.conversationMenu.conversations', 'Conversations')}
                 aria-expanded={open}
                 onClick={() => setOpen((v) => !v)}
             >
@@ -37,11 +39,11 @@ const ConversationMenu = () => {
                         className="sk-ai-convo__new"
                         onClick={() => { newConversation(); setOpen(false); }}
                     >
-                        <Plus size={14} /> New chat
+                        <Plus size={14} /> {t('app.conversationMenu.newChat', 'New chat')}
                     </button>
                     <div className="sk-ai-convo__list">
                         {conversations.length === 0 ? (
-                            <div className="sk-ai-convo__empty">No past conversations</div>
+                            <div className="sk-ai-convo__empty">{t('app.conversationMenu.noPastConversations', 'No past conversations')}</div>
                         ) : conversations.map((c) => (
                             <div
                                 key={c.id}
@@ -58,7 +60,7 @@ const ConversationMenu = () => {
                                 <button
                                     type="button"
                                     className="sk-ai-convo__del"
-                                    aria-label="Delete conversation"
+                                    aria-label={t('app.conversationMenu.deleteConversation', 'Delete conversation')}
                                     onClick={() => deleteConversation(c.id)}
                                 >
                                     <Trash2 size={13} />

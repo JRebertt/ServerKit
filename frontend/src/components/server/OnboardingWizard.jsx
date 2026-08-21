@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Pill } from '../ds';
 import { CheckCircle2, Loader2, Circle, XCircle, RotateCw, Clock, ChevronDown } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Onboarding status cadence while non-terminal.
 const ONBOARDING_POLL_MS = 3000;
@@ -14,11 +15,11 @@ const ONBOARDING_POLL_MS = 3000;
 // `status.states`, but we keep a labeled copy so the wizard renders before the
 // first poll resolves.
 const STEPS = [
-    { id: 'validating', label: 'Validate', description: 'Check server details & compatibility' },
-    { id: 'installing_prerequisites', label: 'Prerequisites', description: 'Install base packages' },
-    { id: 'installing_docker', label: 'Docker', description: 'Ensure Docker is available' },
-    { id: 'pairing_agent', label: 'Pair Agent', description: 'Connect the management agent' },
-    { id: 'ready', label: 'Ready', description: 'Server is provisioned' },
+    { id: 'validating', labelKey: 'app.onboardingWizard.validate', label: 'Validate', descriptionKey: 'app.onboardingWizard.checkServerDetailsCompatibility', description: 'Check server details & compatibility' },
+    { id: 'installing_prerequisites', labelKey: 'app.onboardingWizard.prerequisites', label: 'Prerequisites', descriptionKey: 'app.onboardingWizard.installBasePackages', description: 'Install base packages' },
+    { id: 'installing_docker', labelKey: 'app.onboardingWizard.docker', label: 'Docker', descriptionKey: 'app.onboardingWizard.ensureDockerIsAvailable', description: 'Ensure Docker is available' },
+    { id: 'pairing_agent', labelKey: 'app.onboardingWizard.pairAgent', label: 'Pair Agent', descriptionKey: 'app.onboardingWizard.connectTheManagementAgent', description: 'Connect the management agent' },
+    { id: 'ready', labelKey: 'app.onboardingWizard.ready', label: 'Ready', descriptionKey: 'app.onboardingWizard.serverIsProvisioned', description: 'Server is provisioned' },
 ];
 
 // Active (non-terminal) states that mean "still working".
@@ -80,6 +81,7 @@ function formatLogTime(iso) {
  *   onStateChange   — optional callback(newState) when polling sees a change
  */
 const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -132,10 +134,10 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
             const data = await api.retryServerOnboarding(serverId);
             setStatus(data);
             lastStateRef.current = data?.state || lastStateRef.current;
-            toast.success('Retrying onboarding');
+            toast.success(t('app.onboardingWizard.retryingOnboarding', 'Retrying onboarding'));
             loadStatus();
         } catch (err) {
-            toast.error(err.message || 'Failed to retry onboarding');
+            toast.error(err.message || t('app.onboardingWizard.failedToRetryOnboarding', 'Failed to retry onboarding'));
         } finally {
             setRetrying(false);
         }
@@ -232,7 +234,7 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
         <div className="onboarding-wizard">
             <div className="onboarding-wizard__header">
                 <div className="onboarding-wizard__title">
-                    <h3>Server Onboarding</h3>
+                    <h3>{t('app.onboardingWizard.serverOnboarding', 'Server Onboarding')}</h3>
                     <Pill kind={headerPillKind}>{headerLabel}</Pill>
                     {elapsed != null && (
                         <span className="onboarding-wizard__elapsed">
@@ -269,7 +271,7 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={progressPct}
-                    aria-label="Onboarding progress"
+                    aria-label={t('app.onboardingWizard.onboardingProgress', 'Onboarding progress')}
                 >
                     <span
                         className={`onboarding-wizard__progress-fill${failed ? ' onboarding-wizard__progress-fill--failed' : ''}`}
@@ -331,7 +333,7 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
                             className={`onboarding-wizard__trail-chevron${trailExpanded ? ' onboarding-wizard__trail-chevron--open' : ''}`}
                             aria-hidden="true"
                         />
-                        <span>Step history</span>
+                        <span>{t('app.onboardingWizard.stepHistory', 'Step history')}</span>
                         <span className="onboarding-wizard__trail-count">{progress.length}</span>
                     </button>
                     {trailExpanded && (
@@ -359,7 +361,7 @@ const OnboardingWizard = ({ serverId, initialState, onStateChange }) => {
             )}
 
             {loading && !status && (
-                <p className="onboarding-wizard__loading">Loading onboarding status…</p>
+                <p className="onboarding-wizard__loading">{t('app.onboardingWizard.loadingOnboardingStatus', 'Loading onboarding status…')}</p>
             )}
         </div>
     );

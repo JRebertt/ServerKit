@@ -34,7 +34,7 @@ const BYTES_PER_MB = 1024 * 1024;
 export const METRICS = [
     {
         id: 'cpu',
-        label: 'CPU usage',
+        labelKey: 'app.metrics.cpuUsage', label: 'CPU usage',
         unit: '%',
         color: 'var(--accent-bright)',
         max: 100,
@@ -45,7 +45,7 @@ export const METRICS = [
     },
     {
         id: 'ram',
-        label: 'Memory usage',
+        labelKey: 'app.metrics.memoryUsage', label: 'Memory usage',
         unit: '%',
         color: 'var(--green)',
         max: 100,
@@ -56,7 +56,7 @@ export const METRICS = [
     },
     {
         id: 'disk',
-        label: 'Disk usage',
+        labelKey: 'app.metrics.diskUsage', label: 'Disk usage',
         unit: '%',
         color: 'var(--amber)',
         max: 100,
@@ -67,7 +67,7 @@ export const METRICS = [
     },
     {
         id: 'net_in',
-        label: 'Network in',
+        labelKey: 'app.metrics.networkIn', label: 'Network in',
         unit: 'MB/s',
         color: 'var(--cyan)',
         max: null,
@@ -83,7 +83,7 @@ export const METRICS = [
     },
     {
         id: 'net_out',
-        label: 'Network out',
+        labelKey: 'app.metrics.networkOut', label: 'Network out',
         unit: 'MB/s',
         color: 'var(--violet)',
         max: null,
@@ -95,7 +95,7 @@ export const METRICS = [
     },
     {
         id: 'load',
-        label: 'Load average',
+        labelKey: 'app.metrics.loadAverage', label: 'Load average',
         unit: '',
         // NOT --accent-bright: cpu already owns it, so a chart of CPU +
         // load drew two identical lines. The six metrics map 1:1 onto the

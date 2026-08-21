@@ -12,8 +12,8 @@ import { Server, Users, FileCog, Network } from 'lucide-react';
 // groupId="servers". Per-server tunnel management is also available on each
 // server's detail page under its "Remote Access" tab (core, unaffected).
 export const SERVER_TABS = [
-    { to: '/servers', label: 'Servers', end: true, icon: <Server size={15} /> },
-    { to: '/fleet', label: 'Agent Fleet', icon: <Users size={15} /> },
-    { to: '/fleet-proxy', label: 'Fleet Proxy', icon: <Network size={15} /> },
-    { to: '/server-templates', label: 'Config Templates', icon: <FileCog size={15} /> },
+    { to: '/servers', labelKey: 'app.serverTabs.servers', label: 'Servers', end: true, icon: <Server size={15} /> },
+    { to: '/fleet', labelKey: 'app.serverTabs.agentFleet', label: 'Agent Fleet', icon: <Users size={15} /> },
+    { to: '/fleet-proxy', labelKey: 'app.serverTabs.fleetProxy', label: 'Fleet Proxy', icon: <Network size={15} /> },
+    { to: '/server-templates', labelKey: 'app.serverTabs.configTemplates', label: 'Config Templates', icon: <FileCog size={15} /> },
 ];

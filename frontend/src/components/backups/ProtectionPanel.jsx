@@ -17,6 +17,7 @@ import BackupHistoryList from './BackupHistoryList';
 import BackupCalendar from './BackupCalendar';
 import BackupDetailDrawer from './BackupDetailDrawer';
 import RestoreDrawer from './RestoreDrawer';
+import { useTranslation } from 'react-i18next';
 
 function sameLocalDay(iso, date) {
     if (!iso) return false;
@@ -27,6 +28,7 @@ function sameLocalDay(iso, date) {
 }
 
 export default function ProtectionPanel({ targetType, targetId, targetName, showMaintenanceModeOption = false }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const navigate = useNavigate();
     const { confirm } = useConfirm();
@@ -72,7 +74,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
             setView(policyView);
             setRuns(runsResp?.runs || []);
         } catch (err) {
-            toast.error(err.message || 'Failed to load protection settings');
+            toast.error(err.message || t('app.protectionPanel.failedToLoadProtectionSettings', 'Failed to load protection settings'));
         } finally {
             setLoading(false);
         }
@@ -103,9 +105,9 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         try {
             const updated = await api.updateBackupPolicy(targetType, targetId, { enabled });
             setView(updated);
-            toast.success(enabled ? 'Automatic backups enabled' : 'Automatic backups disabled');
+            toast.success(enabled ? t('app.protectionPanel.automaticBackupsEnabled', 'Automatic backups enabled') : t('app.protectionPanel.automaticBackupsDisabled', 'Automatic backups disabled'));
         } catch (err) {
-            toast.error(err.message || 'Failed to update protection');
+            toast.error(err.message || t('app.protectionPanel.failedToUpdateProtection', 'Failed to update protection'));
         } finally {
             setSaving(false);
         }
@@ -116,9 +118,9 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         try {
             const updated = await api.updateBackupPolicy(targetType, targetId, fields);
             setView(updated);
-            toast.success('Schedule saved');
+            toast.success(t('app.protectionPanel.scheduleSaved', 'Schedule saved'));
         } catch (err) {
-            toast.error(err.message || 'Failed to save schedule');
+            toast.error(err.message || t('app.protectionPanel.failedToSaveSchedule', 'Failed to save schedule'));
         } finally {
             setSaving(false);
         }
@@ -128,10 +130,10 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         setBackingUp(true);
         try {
             await api.triggerBackup(targetType, targetId);
-            toast.success('Backup started');
+            toast.success(t('app.protectionPanel.backupStarted', 'Backup started'));
             scheduleReloads();
         } catch (err) {
-            toast.error(err.message || 'Failed to start backup');
+            toast.error(err.message || t('app.protectionPanel.failedToStartBackup', 'Failed to start backup'));
         } finally {
             setBackingUp(false);
         }
@@ -141,10 +143,10 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         setDrilling(true);
         try {
             await api.runBackupDrill(targetType, targetId);
-            toast.success('Restore drill started');
+            toast.success(t('app.protectionPanel.restoreDrillStarted', 'Restore drill started'));
             scheduleReloads();
         } catch (err) {
-            toast.error(err.message || 'Failed to start restore drill');
+            toast.error(err.message || t('app.protectionPanel.failedToStartRestoreDrill', 'Failed to start restore drill'));
         } finally {
             setDrilling(false);
         }
@@ -160,41 +162,41 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                 ...options,
                 maintenance_mode: showMaintenanceModeOption ? options.maintenance_mode : false,
             });
-            toast.success('Restore started');
+            toast.success(t('app.protectionPanel.restoreStarted', 'Restore started'));
             setRestoreRun(null);
             setDetailRun(null);
             scheduleReloads();
         } catch (err) {
-            toast.error(err.message || 'Failed to start restore');
+            toast.error(err.message || t('app.protectionPanel.failedToStartRestore', 'Failed to start restore'));
         }
     }, [restoreRun, targetType, targetId, showMaintenanceModeOption, toast, scheduleReloads]);
 
     const handleVerify = useCallback(async (run) => {
         try {
             const result = await api.verifyBackupRun(targetType, targetId, run.id);
-            if (result?.verified) toast.success('Remote copy verified');
-            else toast.warning('Remote copy could not be verified');
+            if (result?.verified) toast.success(t('app.protectionPanel.remoteCopyVerified', 'Remote copy verified'));
+            else toast.warning(t('app.protectionPanel.remoteCopyCouldNotBeVerified', 'Remote copy could not be verified'));
             load();
         } catch (err) {
-            toast.error(err.message || 'Verification failed');
+            toast.error(err.message || t('app.protectionPanel.verificationFailed', 'Verification failed'));
         }
     }, [targetType, targetId, toast, load]);
 
     const handleDelete = useCallback(async (run) => {
         const ok = await confirm({
-            title: 'Delete backup?',
-            message: 'This permanently deletes the backup, including any remote copy. This cannot be undone.',
-            confirmText: 'Delete',
+            title: t('app.protectionPanel.deleteBackup', 'Delete backup?'),
+            message: t('app.protectionPanel.thisPermanentlyDeletesTheBackupIncluding', 'This permanently deletes the backup, including any remote copy. This cannot be undone.'),
+            confirmText: t('app.protectionPanel.delete', 'Delete'),
             variant: 'danger',
         });
         if (!ok) return;
         try {
             await api.deleteBackupRun(targetType, targetId, run.id);
-            toast.success('Backup deleted');
+            toast.success(t('app.protectionPanel.backupDeleted', 'Backup deleted'));
             if (detailRun?.id === run.id) setDetailRun(null);
             load();
         } catch (err) {
-            toast.error(err.message || 'Failed to delete backup');
+            toast.error(err.message || t('app.protectionPanel.failedToDeleteBackup', 'Failed to delete backup'));
         }
     }, [confirm, targetType, targetId, toast, load, detailRun]);
 
@@ -228,7 +230,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                 <div className="app-panel backup-history-card">
                     <div className="app-panel-header">
                         <History size={16} />
-                        <span>Backup history</span>
+                        <span>{t('app.protectionPanel.backupHistory', 'Backup history')}</span>
                         <span className="app-panel-header-actions backup-history-card__tools">
                             {dayFilter && (
                                 <button
@@ -244,7 +246,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                                     type="button"
                                     className={historyView === 'list' ? 'is-active' : ''}
                                     onClick={() => setHistoryView('list')}
-                                    aria-label="List view"
+                                    aria-label={t('app.protectionPanel.listView', 'List view')}
                                 >
                                     <List size={14} />
                                 </button>
@@ -252,12 +254,12 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                                     type="button"
                                     className={historyView === 'calendar' ? 'is-active' : ''}
                                     onClick={() => setHistoryView('calendar')}
-                                    aria-label="Calendar view"
+                                    aria-label={t('app.protectionPanel.calendarView', 'Calendar view')}
                                 >
                                     <CalendarDays size={14} />
                                 </button>
                             </div>
-                            <Button size="sm" variant="outline" onClick={load} disabled={loading} title="Refresh">
+                            <Button size="sm" variant="outline" onClick={load} disabled={loading} title={t('app.protectionPanel.refresh', 'Refresh')}>
                                 {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                             </Button>
                         </span>

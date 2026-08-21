@@ -15,6 +15,7 @@ import {
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 // The label the Status cell shows, in one place: the built-in view below
 // filters on it, and a rule matches a column's `value`, not the row's
@@ -69,6 +70,7 @@ const USER_VIEWS = [
 ];
 
 const UsersTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -184,7 +186,7 @@ const UsersTab = () => {
     const columns = [
         {
             key: 'user',
-            header: 'User',
+            headerKey: 'app.usersTab.user', header: 'User',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -200,7 +202,7 @@ const UsersTab = () => {
                         <span className="username">
                             {user.username}
                             {user.id === currentUser?.id && (
-                                <span className="you-badge">You</span>
+                                <span className="you-badge">{t('app.usersTab.you', 'You')}</span>
                             )}
                         </span>
                         <span className="email">{user.email}</span>
@@ -210,7 +212,7 @@ const UsersTab = () => {
         },
         {
             key: 'role',
-            header: 'Role',
+            headerKey: 'app.usersTab.role', header: 'Role',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -228,7 +230,7 @@ const UsersTab = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.usersTab.status', header: 'Status',
             type: 'enum',
             value: statusLabel,
             render: (user) => (
@@ -242,7 +244,7 @@ const UsersTab = () => {
             // last sign in" is the access-review question, and without an
             // accessor the column had nothing behind it to sort or filter on.
             key: 'lastLogin',
-            header: 'Last Login',
+            headerKey: 'app.usersTab.lastLogin', header: 'Last Login',
             sortable: true,
             type: 'date',
             value: (user) => user.last_login_at || null,
@@ -252,7 +254,7 @@ const UsersTab = () => {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.usersTab.created', header: 'Created',
             sortable: true,
             // Declared, not inferred: the sorter wants epoch ms, and letting
             // that number type the column would offer "is under 1754…" instead
@@ -265,7 +267,7 @@ const UsersTab = () => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.usersTab.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -275,7 +277,7 @@ const UsersTab = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditUser(user)}
-                        title="Edit user"
+                        title={t('app.usersTab.editUser', 'Edit user')}
                     >
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -288,7 +290,7 @@ const UsersTab = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleToggleActive(user)}
-                                title={user.is_active ? 'Disable user' : 'Enable user'}
+                                title={user.is_active ? t('app.usersTab.disableUser', 'Disable user') : t('app.usersTab.enableUser', 'Enable user')}
                                 className={user.is_active ? 'text-warning' : 'text-success'}
                             >
                                 {user.is_active ? (
@@ -307,7 +309,7 @@ const UsersTab = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDeleteConfirm(user)}
-                                title="Delete user"
+                                title={t('app.usersTab.deleteUser', 'Delete user')}
                                 className="text-destructive hover:text-destructive"
                             >
                                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
@@ -347,7 +349,7 @@ const UsersTab = () => {
     if (loading) {
         return (
             <div className="users-tab">
-                <div className="loading-state">Loading users...</div>
+                <div className="loading-state">{t('app.usersTab.loadingUsers', 'Loading users...')}</div>
             </div>
         );
     }
@@ -372,7 +374,7 @@ const UsersTab = () => {
                                 <line x1="12" y1="5" x2="12" y2="19"/>
                                 <line x1="5" y1="12" x2="19" y2="12"/>
                             </svg>
-                            Add User
+                            {t('app.usersTab.addUser', 'Add User')}
                         </Button>
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -411,15 +413,15 @@ const UsersTab = () => {
             )}
 
             {deleteConfirm && (
-                <Modal open={true} onClose={() => setDeleteConfirm(null)} title="Delete User" size="sm">
-                            <p>Are you sure you want to delete <strong>{deleteConfirm.username}</strong>?</p>
-                            <p className="text-muted">This action cannot be undone.</p>
+                <Modal open={true} onClose={() => setDeleteConfirm(null)} title={t('app.usersTab.deleteUser2', 'Delete User')} size="sm">
+                            <p>{t('app.usersTab.areYouSureYouWantTo', 'Are you sure you want to delete')} <strong>{deleteConfirm.username}</strong>?</p>
+                            <p className="text-muted">{t('app.usersTab.thisActionCannotBeUndone', 'This action cannot be undone.')}</p>
                         <div className="modal-footer">
                             <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
-                                Cancel
+                                {t('app.usersTab.cancel', 'Cancel')}
                             </Button>
                             <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirm)}>
-                                Delete User
+                                {t('app.usersTab.deleteUser3', 'Delete User')}
                             </Button>
                         </div>
                 </Modal>

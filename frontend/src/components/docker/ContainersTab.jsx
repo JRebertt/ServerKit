@@ -43,6 +43,7 @@ import { ContainerResourceBars } from './dockerShared';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Container stats cadence.
 const STATS_REFRESH_MS = 10000;
@@ -52,6 +53,7 @@ const LOG_TAIL_MS = 3000;
 
 // Action Buttons
 export const RunContainerButton = () => {
+    const { t } = useTranslation();
     const [showModal, setShowModal] = useState(false);
     const { isRemote } = useServer();
     return (
@@ -59,9 +61,9 @@ export const RunContainerButton = () => {
             <Button
                 onClick={() => setShowModal(true)}
                 disabled={isRemote}
-                title={isRemote ? 'Running new containers is only available on the local Docker target right now' : 'Run container'}
+                title={isRemote ? t('app.containersTab.runningNewContainersIsOnlyAvailable', 'Running new containers is only available on the local Docker target right now') : t('app.containersTab.runContainer', 'Run container')}
             >
-                <span>+</span> Run Container
+                <span>+</span> {t('app.containersTab.runContainer2', 'Run Container')}
             </Button>
             {showModal && <RunContainerModal onClose={() => setShowModal(false)} onCreated={() => window.location.reload()} />}
         </>
@@ -184,6 +186,7 @@ const BUILTIN_VIEWS = [
 
 // Containers Tab
 const ContainersTab = ({ onStatsChange }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const { confirm: confirmContainer } = useConfirm();
@@ -331,36 +334,36 @@ const ContainersTab = ({ onStatsChange }) => {
                 } else {
                     await api.startContainer(containerId);
                 }
-                toast.success('Container started');
+                toast.success(t('app.containersTab.containerStarted', 'Container started'));
             } else if (action === 'stop') {
                 if (isRemote) {
                     await api.stopRemoteContainer(serverId, containerId);
                 } else {
                     await api.stopContainer(containerId);
                 }
-                toast.success('Container stopped');
+                toast.success(t('app.containersTab.containerStopped', 'Container stopped'));
             } else if (action === 'restart') {
                 if (isRemote) {
                     await api.restartRemoteContainer(serverId, containerId);
                 } else {
                     await api.restartContainer(containerId);
                 }
-                toast.success('Container restarted');
+                toast.success(t('app.containersTab.containerRestarted', 'Container restarted'));
             } else if (action === 'remove') {
-                const removeConfirmed = await confirmContainer({ title: 'Remove Container', message: 'Remove this container?' });
+                const removeConfirmed = await confirmContainer({ titleKey: 'app.containersTab.removeContainer', title: 'Remove Container', messageKey: 'app.containersTab.removeThisContainer', message: 'Remove this container?' });
                 if (!removeConfirmed) return;
                 if (isRemote) {
                     await api.removeRemoteContainer(serverId, containerId, true);
                 } else {
                     await api.removeContainer(containerId, true);
                 }
-                toast.success('Container removed');
+                toast.success(t('app.containersTab.containerRemoved', 'Container removed'));
             }
             loadContainers();
             onStatsChange?.();
         } catch (err) {
             console.error(`Failed to ${action} container:`, err);
-            toast.error(err.message || `Failed to ${action} container`);
+            toast.error(err.message || t('app.containersTab.failedToContainer', 'Failed to {{action}} container', { action: action }));
         }
     }
 
@@ -376,7 +379,7 @@ const ContainersTab = ({ onStatsChange }) => {
         const actionable = targets.filter((c) => !isProtectedContainer(c));
         const skipped = targets.length - actionable.length;
         if (!actionable.length) {
-            toast.error(skipped ? 'Only system containers were selected' : 'Nothing selected');
+            toast.error(skipped ? t('app.containersTab.onlySystemContainersWereSelected', 'Only system containers were selected') : t('app.containersTab.nothingSelected', 'Nothing selected'));
             return;
         }
 
@@ -403,7 +406,14 @@ const ContainersTab = ({ onStatsChange }) => {
         if (failed.length) {
             toast.error(`${failed.length} failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}`);
         } else {
-            toast.success(`${ok} container${ok === 1 ? '' : 's'} ${action}${action === 'stop' ? 'ped' : 'ed'}${skipped ? ` · ${skipped} system container${skipped === 1 ? '' : 's'} skipped` : ''}`);
+            const verb = action === 'start'
+                ? t('app.containersTab.started', 'started')
+                : action === 'stop'
+                    ? t('app.containersTab.stopped', 'stopped')
+                    : t('app.containersTab.restarted', 'restarted');
+            toast.success(skipped
+                ? t('app.containersTab.bulkActionDoneWithSkipped', '{{count}} containers {{verb}} · {{skipped}} system containers skipped', { count: ok, verb: verb, skipped: skipped })
+                : t('app.containersTab.bulkActionDone', '{{count}} containers {{verb}}', { count: ok, verb: verb }));
         }
         setPicked([]);
         loadContainers();
@@ -472,7 +482,7 @@ const ContainersTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            header: 'Name',
+            headerKey: 'app.containersTab.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -504,7 +514,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'image',
-            header: 'Image',
+            headerKey: 'app.containersTab.image', header: 'Image',
             sortable: true,
             type: 'text',
             // Grouping is the whole point of the "By image" view. `groupValue`
@@ -522,7 +532,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.containersTab.status', header: 'Status',
             sortable: true,
             // The pill's own text IS the filterable value, so a preset that
             // says 'Running' reads exactly the way the row does. No enumOrder:
@@ -544,7 +554,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'health',
-            header: 'Health',
+            headerKey: 'app.containersTab.health', header: 'Health',
             sortable: true,
             type: 'enum',
             // A closed set of four labels this file produces, so the pick-list
@@ -556,13 +566,13 @@ const ContainersTab = ({ onStatsChange }) => {
                 const health = containerHealth(container);
                 // Spelled out rather than shown as 'None': the absence of a
                 // healthcheck is a fact about the image, not a missing reading.
-                if (health === 'None') return <span className="dx-muted-line">No healthcheck</span>;
+                if (health === 'None') return <span className="dx-muted-line">{t('app.containersTab.noHealthcheck', 'No healthcheck')}</span>;
                 return <Pill kind={statusKind(health)} dot={false}>{health}</Pill>;
             },
         },
         {
             key: 'ports',
-            header: 'Ports',
+            headerKey: 'app.containersTab.ports', header: 'Ports',
             sortable: false,
             // Filterable even though it is not sortable: "which containers are
             // published to the host" is a `contains ->` away. The accessor has
@@ -584,7 +594,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'resources',
-            header: 'Resources',
+            headerKey: 'app.containersTab.resources', header: 'Resources',
             sortable: true,
             // Two labelled bars need a floor, or the column collapses to the
             // width of its truncated header on a narrow viewport.
@@ -606,7 +616,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'created',
-            header: 'Created',
+            headerKey: 'app.containersTab.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type
             // the column would offer "is under 1754…" instead of a date picker.
@@ -649,33 +659,33 @@ const ContainersTab = ({ onStatsChange }) => {
                 const isProtected = isProtectedContainer(container);
                 return (
                     <div className="dx-row-actions" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title="Logs">
+                        <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title={t('app.containersTab.logs', 'Logs')}>
                             <FileText size={13} />
                         </button>
                         {isRunning && !isRemote && (
-                            <button type="button" className="dx-row-action" onClick={() => setExecContainer(container)} title="Exec">
+                            <button type="button" className="dx-row-action" onClick={() => setExecContainer(container)} title={t('app.containersTab.exec', 'Exec')}>
                                 <TerminalLucide size={13} />
                             </button>
                         )}
                         {isProtected ? (
-                            <span className="dx-row-protected" title="ServerKit system container — managed by the panel, lifecycle controls are disabled">
-                                <Lock size={11} /> System
+                            <span className="dx-row-protected" title={t('app.containersTab.serverkitSystemContainerManagedByThe', 'ServerKit system container — managed by the panel, lifecycle controls are disabled')}>
+                                <Lock size={11} /> {t('app.containersTab.system', 'System')}
                             </span>
                         ) : isRunning ? (
                             <>
-                                <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title="Restart">
+                                <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title={t('app.containersTab.restart', 'Restart')}>
                                     <RotateCw size={13} />
                                 </button>
-                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title="Stop">
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title={t('app.containersTab.stop', 'Stop')}>
                                     <Square size={13} />
                                 </button>
                             </>
                         ) : (
                             <>
-                                <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title="Start">
+                                <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title={t('app.containersTab.start', 'Start')}>
                                     <Play size={13} />
                                 </button>
-                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title="Remove">
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title={t('app.containersTab.remove', 'Remove')}>
                                     <Trash2 size={13} />
                                 </button>
                             </>
@@ -717,7 +727,7 @@ const ContainersTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">Loading containers...</div>
+                <div className="docker-loading">{t('app.containersTab.loadingContainers', 'Loading containers...')}</div>
             </div>
         );
     }
@@ -743,12 +753,12 @@ const ContainersTab = ({ onStatsChange }) => {
                                 checked={showAll}
                                 onChange={(e) => setShowAll(e.target.checked)}
                             />
-                            <span>Include stopped</span>
+                            <span>{t('app.containersTab.includeStopped', 'Include stopped')}</span>
                         </label>
                         <SearchField
                             value={searchTerm}
                             onSearch={setSearchTerm}
-                            placeholder="Filter name, image, or ID…"
+                            placeholder={t('app.containersTab.filterNameImageOrId', 'Filter name, image, or ID…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -767,13 +777,13 @@ const ContainersTab = ({ onStatsChange }) => {
                 system containers are skipped, not silently failed. */}
             <GridBulkBar count={picked.length} noun="container" onClear={() => setPicked([])}>
                 <button type="button" onClick={() => handleBulkAction('restart')} disabled={bulkBusy}>
-                    <RotateCw size={13} /> Restart
+                    <RotateCw size={13} /> {t('app.containersTab.restart2', 'Restart')}
                 </button>
                 <button type="button" onClick={() => handleBulkAction('stop')} disabled={bulkBusy}>
-                    <Square size={13} /> Stop
+                    <Square size={13} /> {t('app.containersTab.stop2', 'Stop')}
                 </button>
                 <button type="button" onClick={() => handleBulkAction('start')} disabled={bulkBusy}>
-                    <Play size={13} /> Start
+                    <Play size={13} /> {t('app.containersTab.start2', 'Start')}
                 </button>
             </GridBulkBar>
 
@@ -783,10 +793,10 @@ const ContainersTab = ({ onStatsChange }) => {
             {filteredContainers.length === 0 ? (
                 <EmptyState
                     icon={Box}
-                    title={containers.length === 0 ? 'No containers' : 'No matching containers'}
+                    title={containers.length === 0 ? t('app.containersTab.noContainers', 'No containers') : t('app.containersTab.noMatchingContainers', 'No matching containers')}
                     description={containers.length === 0
-                        ? 'Run your first container to see it here.'
-                        : 'No containers match the current search.'}
+                        ? t('app.containersTab.runYourFirstContainerToSee', 'Run your first container to see it here.')
+                        : t('app.containersTab.noContainersMatchTheCurrentSearch', 'No containers match the current search.')}
                 />
             ) : (
                 <div className="dx-manager-layout">
@@ -865,6 +875,7 @@ const maskEnvValue = (entry) => {
 };
 
 const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec, onClose }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { serverId, isRemote } = useServer();
     const [details, setDetails] = useState(null);
@@ -928,8 +939,8 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
     const projectName = getContainerProjectName(container, details);
 
     async function copyContainerId() {
-        if (await copyToClipboard(containerId)) toast.success('Container ID copied');
-        else toast.error('Could not copy container ID');
+        if (await copyToClipboard(containerId)) toast.success(t('app.containersTab.containerIdCopied', 'Container ID copied'));
+        else toast.error(t('app.containersTab.couldNotCopyContainerId', 'Could not copy container ID'));
     }
 
     return (
@@ -944,10 +955,10 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
                     <h3 title={getContainerName(container)}>{getContainerName(container)}</h3>
                     <span>{shortId(containerId)}</span>
                 </div>
-                <button type="button" className="dx-row-action" onClick={copyContainerId} title="Copy container ID">
+                <button type="button" className="dx-row-action" onClick={copyContainerId} title={t('app.containersTab.copyContainerId', 'Copy container ID')}>
                     <Copy size={13} />
                 </button>
-                <button type="button" className="dx-row-action" onClick={onClose} title="Close details">
+                <button type="button" className="dx-row-action" onClick={onClose} title={t('app.containersTab.closeDetails', 'Close details')}>
                     <X size={13} />
                 </button>
             </div>
@@ -961,33 +972,33 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 
             <div className="dx-inspector-actions">
                 <button type="button" className="dx-action-btn" onClick={() => onOpenLogs(container)}>
-                    <FileText size={13} /> Logs
+                    <FileText size={13} /> {t('app.containersTab.logs2', 'Logs')}
                 </button>
                 {isRunning && !isRemote && (
                     <button type="button" className="dx-action-btn" onClick={() => onOpenExec(container)}>
-                        <TerminalLucide size={13} /> Exec
+                        <TerminalLucide size={13} /> {t('app.containersTab.exec2', 'Exec')}
                     </button>
                 )}
                 {isProtected ? (
-                    <span className="dx-action-protected" title="ServerKit system container — managed by the panel, lifecycle controls are disabled">
-                        <Lock size={13} /> System container
+                    <span className="dx-action-protected" title={t('app.containersTab.serverkitSystemContainerManagedByThe2', 'ServerKit system container — managed by the panel, lifecycle controls are disabled')}>
+                        <Lock size={13} /> {t('app.containersTab.systemContainer', 'System container')}
                     </span>
                 ) : isRunning ? (
                     <>
                         <button type="button" className="dx-action-btn" onClick={() => onAction(containerId, 'restart')}>
-                            <RotateCw size={13} /> Restart
+                            <RotateCw size={13} /> {t('app.containersTab.restart3', 'Restart')}
                         </button>
                         <button type="button" className="dx-action-btn is-danger" onClick={() => onAction(containerId, 'stop')}>
-                            <Square size={13} /> Stop
+                            <Square size={13} /> {t('app.containersTab.stop3', 'Stop')}
                         </button>
                     </>
                 ) : (
                     <>
                         <button type="button" className="dx-action-btn is-success" onClick={() => onAction(containerId, 'start')}>
-                            <Play size={13} /> Start
+                            <Play size={13} /> {t('app.containersTab.start3', 'Start')}
                         </button>
                         <button type="button" className="dx-action-btn is-danger" onClick={() => onAction(containerId, 'remove')}>
-                            <Trash2 size={13} /> Remove
+                            <Trash2 size={13} /> {t('app.containersTab.remove2', 'Remove')}
                         </button>
                     </>
                 )}
@@ -1006,40 +1017,40 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
             </div>
 
             <div className="dx-inspector-body">
-                {loading && <div className="dx-inspector-loading">Inspecting container...</div>}
+                {loading && <div className="dx-inspector-loading">{t('app.containersTab.inspectingContainer', 'Inspecting container...')}</div>}
 
                 {activeSection === 'overview' && (
                     <>
                         <ContainerResourceBars stats={stats} muted={!isRunning} />
                         <div className="dx-detail-grid">
-                            <div><span>Image</span><strong title={getContainerImage(container)}>{getContainerImage(container)}</strong></div>
-                            <div><span>Project</span><strong>{projectName}</strong></div>
-                            <div><span>Restart</span><strong>{restartPolicy}</strong></div>
-                            <div><span>Created</span><strong>{container.created || container.CreatedAt || '-'}</strong></div>
+                            <div><span>{t('app.containersTab.image2', 'Image')}</span><strong title={getContainerImage(container)}>{getContainerImage(container)}</strong></div>
+                            <div><span>{t('app.containersTab.project', 'Project')}</span><strong>{projectName}</strong></div>
+                            <div><span>{t('app.containersTab.restart4', 'Restart')}</span><strong>{restartPolicy}</strong></div>
+                            <div><span>{t('app.containersTab.created2', 'Created')}</span><strong>{container.created || container.CreatedAt || '-'}</strong></div>
                         </div>
-                        <div className="dx-section-title"><Gauge size={13} /> Runtime</div>
+                        <div className="dx-section-title"><Gauge size={13} /> {t('app.containersTab.runtime', 'Runtime')}</div>
                         <div className="dx-details-list">
-                            <span>Status</span><code>{getContainerStatus(container)}</code>
+                            <span>{t('app.containersTab.status2', 'Status')}</span><code>{getContainerStatus(container)}</code>
                             <span>PID</span><code>{details?.State?.Pid || '-'}</code>
-                            <span>Platform</span><code>{details?.Platform || details?.Os || '-'}</code>
-                            <span>Driver</span><code>{details?.Driver || '-'}</code>
+                            <span>{t('app.containersTab.platform', 'Platform')}</span><code>{details?.Platform || details?.Os || '-'}</code>
+                            <span>{t('app.containersTab.driver', 'Driver')}</span><code>{details?.Driver || '-'}</code>
                         </div>
                     </>
                 )}
 
                 {activeSection === 'ports' && (
                     <>
-                        <div className="dx-section-title"><Activity size={13} /> Published ports</div>
+                        <div className="dx-section-title"><Activity size={13} /> {t('app.containersTab.publishedPorts', 'Published ports')}</div>
                         <div className="dx-inspector-list">
                             {ports.map((port, index) => (
                                 <code key={index} className={port === '-' ? 'is-empty' : ''}>{port}</code>
                             ))}
                         </div>
-                        <div className="dx-section-title"><ServerIcon size={13} /> Networks</div>
+                        <div className="dx-section-title"><ServerIcon size={13} /> {t('app.containersTab.networks', 'Networks')}</div>
                         <div className="dx-details-list">
                             {networks.length === 0 ? (
                                 <>
-                                    <span>Networks</span><code>-</code>
+                                    <span>{t('app.containersTab.networks2', 'Networks')}</span><code>-</code>
                                 </>
                             ) : networks.map(([name, network]) => (
                                 <React.Fragment key={name}>
@@ -1053,10 +1064,10 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 
                 {activeSection === 'mounts' && (
                     <>
-                        <div className="dx-section-title"><Database size={13} /> Mounts and volumes</div>
+                        <div className="dx-section-title"><Database size={13} /> {t('app.containersTab.mountsAndVolumes', 'Mounts and volumes')}</div>
                         <div className="dx-inspector-list">
                             {mounts.length === 0 ? (
-                                <code className="is-empty">No mounts</code>
+                                <code className="is-empty">{t('app.containersTab.noMounts', 'No mounts')}</code>
                             ) : mounts.map((mount, index) => (
                                 <code key={index}>
                                     {mount.Name || mount.Source || '-'} -&gt; {mount.Destination || '-'}
@@ -1068,20 +1079,20 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 
                 {activeSection === 'env' && (
                     <>
-                        <div className="dx-section-title"><Package size={13} /> Environment</div>
+                        <div className="dx-section-title"><Package size={13} /> {t('app.containersTab.environment', 'Environment')}</div>
                         <div className="dx-inspector-list">
                             {envVars.length === 0 ? (
-                                <code className="is-empty">No environment variables</code>
+                                <code className="is-empty">{t('app.containersTab.noEnvironmentVariables', 'No environment variables')}</code>
                             ) : envVars.slice(0, 24).map((entry, index) => (
                                 <code key={index}>{maskEnvValue(entry)}</code>
                             ))}
-                            {envVars.length > 24 && <code>+{envVars.length - 24} more variables</code>}
+                            {envVars.length > 24 && <code>+{envVars.length - 24} {t('app.containersTab.moreVariables', 'more variables')}</code>}
                         </div>
-                        <div className="dx-section-title"><Clock3 size={13} /> Labels</div>
+                        <div className="dx-section-title"><Clock3 size={13} /> {t('app.containersTab.labels', 'Labels')}</div>
                         <div className="dx-details-list">
                             {Object.keys(labels).length === 0 ? (
                                 <>
-                                    <span>Labels</span><code>-</code>
+                                    <span>{t('app.containersTab.labels2', 'Labels')}</span><code>-</code>
                                 </>
                             ) : Object.entries(labels).slice(0, 12).map(([key, value]) => (
                                 <React.Fragment key={key}>
@@ -1099,6 +1110,7 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 };
 
 const RunContainerModal = ({ onClose, onCreated }) => {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({
         image: '',
         name: '',
@@ -1143,12 +1155,12 @@ const RunContainerModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title="Run Container" size="md">
+        <Modal open onClose={onClose} title={t('app.containersTab.runContainer3', 'Run Container')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Image *</label>
+                    <label>{t('app.containersTab.image3', 'Image *')}</label>
                     <Input
                         type="text"
                         name="image"
@@ -1160,7 +1172,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Container Name</label>
+                    <label>{t('app.containersTab.containerName', 'Container Name')}</label>
                     <Input
                         type="text"
                         name="name"
@@ -1171,7 +1183,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Ports (comma-separated)</label>
+                    <label>{t('app.containersTab.portsCommaSeparated', 'Ports (comma-separated)')}</label>
                     <Input
                         type="text"
                         name="ports"
@@ -1182,7 +1194,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Volumes (comma-separated)</label>
+                    <label>{t('app.containersTab.volumesCommaSeparated', 'Volumes (comma-separated)')}</label>
                     <Input
                         type="text"
                         name="volumes"
@@ -1193,19 +1205,19 @@ const RunContainerModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>Environment Variables (one per line, KEY=value)</label>
+                    <label>{t('app.containersTab.environmentVariablesOnePerLineKey', 'Environment Variables (one per line, KEY=value)')}</label>
                     <Textarea
                         name="env"
                         value={formData.env}
                         onChange={handleChange}
-                        placeholder="NODE_ENV=production&#10;API_KEY=xxx"
+                        placeholder={t('app.containersTab.nodeEnvProductionApiKeyXxx', 'NODE_ENV=production\nAPI_KEY=xxx')}
                         rows={4}
                     />
                 </div>
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        Cancel
+                        {t('app.containersTab.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Running...' : 'Run Container'}
@@ -1217,6 +1229,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 };
 
 const ContainerLogsModal = ({ container, onClose }) => {
+    const { t } = useTranslation();
     const { serverId, isRemote } = useServer();
     const containerId = getContainerId(container);
     const [logs, setLogs] = useState('');
@@ -1278,11 +1291,11 @@ const ContainerLogsModal = ({ container, onClose }) => {
         >
                 <div className="preview-drawer-meta">
                     <div className="meta-item">
-                        <span className="meta-label">Status</span>
+                        <span className="meta-label">{t('app.containersTab.status3', 'Status')}</span>
                         <span className="meta-value">{getContainerStatus(container)}</span>
                     </div>
                     <div className="meta-item">
-                        <span className="meta-label">Image</span>
+                        <span className="meta-label">{t('app.containersTab.image4', 'Image')}</span>
                         <span className="meta-value mono">{getContainerImage(container)}</span>
                     </div>
                     <div className="meta-item meta-item-wide">
@@ -1291,7 +1304,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
                     </div>
                     {container.ports && container.ports.length > 0 && (
                         <div className="meta-item meta-item-wide">
-                            <span className="meta-label">Ports</span>
+                            <span className="meta-label">{t('app.containersTab.ports2', 'Ports')}</span>
                             <span className="meta-value mono">{formatPorts(container.ports).join(', ')}</span>
                         </div>
                     )}
@@ -1326,7 +1339,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
                         ref={contentRef}
                         content={logs}
                         loading={loading}
-                        emptyMessage="No log output."
+                        emptyMessage={t('app.containersTab.noLogOutput', 'No log output.')}
                         showLineNumbers={showLineNumbers}
                         wrapLines={wrapLines}
                         searchPattern={appliedSearch}
@@ -1337,6 +1350,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
 };
 
 const ContainerExecModal = ({ container, onClose }) => {
+    const { t } = useTranslation();
     const containerId = getContainerId(container);
     const [command, setCommand] = useState('');
     const [output, setOutput] = useState([]);
@@ -1419,13 +1433,13 @@ const ContainerExecModal = ({ container, onClose }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={`Exec: ${getContainerName(container)}`} size="lg">
+        <Modal open onClose={onClose} title={t('app.containersTab.exec3', 'Exec: {{value}}', { value: getContainerName(container) })} size="lg">
             <div className="modal-body exec-modal-body">
                 <div className="exec-output" ref={outputRef}>
                     {output.length === 0 ? (
                         <div className="exec-welcome">
-                            <p>Execute commands in container <code>{getContainerName(container)}</code></p>
-                            <p className="text-muted">Type a command and press Enter</p>
+                            <p>{t('app.containersTab.executeCommandsInContainer', 'Execute commands in container')} <code>{getContainerName(container)}</code></p>
+                            <p className="text-muted">{t('app.containersTab.typeACommandAndPressEnter', 'Type a command and press Enter')}</p>
                         </div>
                     ) : (
                         output.map((line, idx) => (
@@ -1436,7 +1450,7 @@ const ContainerExecModal = ({ container, onClose }) => {
                     )}
                     {loading && (
                         <div className="exec-line exec-loading">
-                            <span className="spinner-inline"></span> Running...
+                            <span className="spinner-inline"></span> {t('app.containersTab.running', 'Running...')}
                         </div>
                     )}
                 </div>
@@ -1448,20 +1462,20 @@ const ContainerExecModal = ({ container, onClose }) => {
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Enter command..."
+                        placeholder={t('app.containersTab.enterCommand', 'Enter command...')}
                         className="exec-input"
                         disabled={loading}
                         autoComplete="off"
                         spellCheck="false"
                     />
                     <Button type="submit" size="sm" disabled={loading || !command.trim()}>
-                        Run
+                        {t('app.containersTab.run', 'Run')}
                     </Button>
                 </form>
             </div>
             <div className="modal-actions">
-                <Button variant="outline" onClick={clearOutput}>Clear</Button>
-                <Button onClick={onClose}>Close</Button>
+                <Button variant="outline" onClick={clearOutput}>{t('app.containersTab.clear', 'Clear')}</Button>
+                <Button onClick={onClose}>{t('app.containersTab.close', 'Close')}</Button>
             </div>
         </Modal>
     );

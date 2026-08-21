@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Read-mostly facade showing the *resolved* shared variables for a resource —
@@ -40,6 +41,7 @@ const SCOPE_LABELS = {
 };
 
 const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [variables, setVariables] = useState([]);
     const [groups, setGroups] = useState([]);
@@ -71,7 +73,7 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                 resolved = data.variables || [];
                 attachedGroups = data.groups || [];
             } catch (err) {
-                toast.error('Failed to load shared variables');
+                toast.error(t('app.environmentVariablesPanel.failedToLoadSharedVariables', 'Failed to load shared variables'));
                 console.error('Failed to load resolved variables:', err);
             }
         }
@@ -115,7 +117,7 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
         : variables;
 
     if (loading) {
-        return <div className="shared-vars-panel shared-vars-panel--loading">Loading shared variables…</div>;
+        return <div className="shared-vars-panel shared-vars-panel--loading">{t('app.environmentVariablesPanel.loadingSharedVariables', 'Loading shared variables…')}</div>;
     }
 
     const showProvenance = hierarchical && variables.some((v) => v.source_scope);
@@ -123,21 +125,19 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
     return (
         <div className="shared-vars-panel">
             <div className="shared-vars-panel__header">
-                <h3>Shared Variables</h3>
+                <h3>{t('app.environmentVariablesPanel.sharedVariables', 'Shared Variables')}</h3>
                 <span className="shared-vars-panel__count">
-                    {variables.length} resolved · {groups.length} group{groups.length !== 1 ? 's' : ''}
+                    {variables.length} {t('app.environmentVariablesPanel.resolved', 'resolved ·')} {groups.length} group{groups.length !== 1 ? 's' : ''}
                 </span>
             </div>
 
             <p className="shared-vars-panel__hint">
-                Effective variables merged from every shared group attached to this
-                resource. More specific scopes override broader ones on key
-                collisions. Secret values are masked.
+                {t('app.environmentVariablesPanel.effectiveVariablesMergedFromEveryShared', 'Effective variables merged from every shared group attached to this resource. More specific scopes override broader ones on key collisions. Secret values are masked.')}
             </p>
 
             {showProvenance && (
-                <div className="shared-vars-legend" aria-label="Precedence order">
-                    <span className="shared-vars-legend__label">Precedence</span>
+                <div className="shared-vars-legend" aria-label={t('app.environmentVariablesPanel.precedenceOrder', 'Precedence order')}>
+                    <span className="shared-vars-legend__label">{t('app.environmentVariablesPanel.precedence', 'Precedence')}</span>
                     {['workspace', 'project', 'environment', 'direct'].map((scope, i, arr) => (
                         <span key={scope} className="shared-vars-legend__item">
                             <span className={`scope-badge scope-badge--${scope}`}>
@@ -148,15 +148,13 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                             )}
                         </span>
                     ))}
-                    <span className="shared-vars-legend__note">(rightmost wins)</span>
+                    <span className="shared-vars-legend__note">{t('app.environmentVariablesPanel.rightmostWins', '(rightmost wins)')}</span>
                 </div>
             )}
 
             {resourceType === 'application' && localKeys && (
                 <p className="shared-vars-panel__hint shared-vars-panel__hint--note">
-                    Shared variables are injected into the container at deploy. The
-                    app&apos;s own Environment tab takes precedence, so where a key also
-                    exists locally the local value is what the container uses.
+                    {t('app.environmentVariablesPanel.sharedVariablesAreInjectedIntoThe', 'Shared variables are injected into the container at deploy. The app\'s own Environment tab takes precedence, so where a key also exists locally the local value is what the container uses.')}
                 </p>
             )}
 
@@ -166,7 +164,7 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                         type="text"
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        placeholder="Filter variables…"
+                        placeholder={t('app.environmentVariablesPanel.filterVariables', 'Filter variables…')}
                     />
                 </div>
             )}
@@ -181,9 +179,9 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                 <table className="shared-vars-table">
                     <thead>
                         <tr>
-                            <th>Key</th>
-                            <th>Value</th>
-                            <th>Source</th>
+                            <th>{t('app.environmentVariablesPanel.key', 'Key')}</th>
+                            <th>{t('app.environmentVariablesPanel.value', 'Value')}</th>
+                            <th>{t('app.environmentVariablesPanel.source', 'Source')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -200,9 +198,9 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                                         {conflict && (
                                             <span
                                                 className="conflict-badge"
-                                                title="This key is also set on the app's Environment tab. The local value is what the container uses; the shared value is overridden."
+                                                title={t('app.environmentVariablesPanel.thisKeyIsAlsoSetOn', 'This key is also set on the app\'s Environment tab. The local value is what the container uses; the shared value is overridden.')}
                                             >
-                                                Set locally — local value applies
+                                                {t('app.environmentVariablesPanel.setLocallyLocalValueApplies', 'Set locally — local value applies')}
                                             </span>
                                         )}
                                     </td>

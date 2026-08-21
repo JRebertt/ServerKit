@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 
 export const APP_TYPE_OPTIONS = [
-    { value: 'auto', label: 'Auto-detect' },
-    { value: 'docker', label: 'Docker / Compose' },
-    { value: 'flask', label: 'Python' },
-    { value: 'django', label: 'Django' },
+    { value: 'auto', labelKey: 'app.useNewServiceForm.autoDetect', label: 'Auto-detect' },
+    { value: 'docker', labelKey: 'app.useNewServiceForm.dockerCompose', label: 'Docker / Compose' },
+    { value: 'flask', labelKey: 'app.useNewServiceForm.python', label: 'Python' },
+    { value: 'django', labelKey: 'app.useNewServiceForm.django', label: 'Django' },
     { value: 'php', label: 'PHP' },
-    { value: 'static', label: 'Static site' },
+    { value: 'static', labelKey: 'app.useNewServiceForm.staticSite', label: 'Static site' },
 ];
 
 export const BUILD_METHOD_OPTIONS = [
-    { value: 'auto', label: 'Auto build' },
-    { value: 'nixpacks', label: 'Nixpacks' },
-    { value: 'dockerfile', label: 'Dockerfile' },
-    { value: 'custom', label: 'Custom command' },
+    { value: 'auto', labelKey: 'app.useNewServiceForm.autoBuild', label: 'Auto build' },
+    { value: 'nixpacks', labelKey: 'app.useNewServiceForm.nixpacks', label: 'Nixpacks' },
+    { value: 'dockerfile', labelKey: 'app.useNewServiceForm.dockerfile', label: 'Dockerfile' },
+    { value: 'custom', labelKey: 'app.useNewServiceForm.customCommand', label: 'Custom command' },
 ];
 
 const APP_TYPE_LABELS = Object.fromEntries(APP_TYPE_OPTIONS.map(o => [o.value, o.label]));
@@ -67,6 +68,7 @@ export function formatBuildMethod(value) {
 export function useNewServiceForm() {
     const navigate = useNavigate();
     const toast = useToast();
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
 
     const [step, setStep] = useState(1);
@@ -160,9 +162,9 @@ export function useNewServiceForm() {
             const data = await api.getGithubSourceStatus();
             setGithubStatus(data);
         } catch (err) {
-            toast.error(err.message || 'Failed to load GitHub connection');
+            toast.error(err.message || t('app.useNewServiceForm.failedToLoadGithubConnection', 'Failed to load GitHub connection'));
         }
-    }, [toast]);
+    }, [t, toast]);
 
     const loadGithubRepos = useCallback(async (search = '') => {
         setReposLoading(true);
@@ -170,11 +172,11 @@ export function useNewServiceForm() {
             const data = await api.listGithubRepositories({ search, perPage: 80 });
             setRepos(data.repos || []);
         } catch (err) {
-            toast.error(err.message || 'Failed to load GitHub repositories');
+            toast.error(err.message || t('app.useNewServiceForm.failedToLoadGithubRepositories', 'Failed to load GitHub repositories'));
         } finally {
             setReposLoading(false);
         }
-    }, [toast]);
+    }, [t, toast]);
 
     const loadBranches = useCallback(async (fullName) => {
         setBranchesLoading(true);
@@ -183,11 +185,11 @@ export function useNewServiceForm() {
             setBranches(data.branches || []);
         } catch (err) {
             setBranches([]);
-            toast.error(err.message || 'Failed to load branches');
+            toast.error(err.message || t('app.useNewServiceForm.failedToLoadBranches', 'Failed to load branches'));
         } finally {
             setBranchesLoading(false);
         }
-    }, [toast]);
+    }, [t, toast]);
 
     useEffect(() => { loadGithubStatus(); }, [loadGithubStatus]);
 
@@ -264,12 +266,12 @@ export function useNewServiceForm() {
             .catch((err) => {
                 if (!cancelled) {
                     setRepoManifest(null);
-                    toast.error(err.message || 'Failed to inspect repository manifests');
+                    toast.error(err.message || t('app.useNewServiceForm.failedToInspectManifests', 'Failed to inspect repository manifests'));
                 }
             })
             .finally(() => { if (!cancelled) setRepoManifestLoading(false); });
         return () => { cancelled = true; };
-    }, [branch, port, selectedRepo, sourceMode, toast]);
+    }, [branch, port, selectedRepo, sourceMode, t, toast]);
 
     useEffect(() => {
         if (selectedRepo && !nameTouched) {
@@ -313,7 +315,7 @@ export function useNewServiceForm() {
             const { auth_url } = await api.startSourceConnection('github', redirectUri);
             window.location.href = auth_url;
         } catch (err) {
-            toast.error(err.message || 'Failed to start GitHub connection');
+            toast.error(err.message || t('app.useNewServiceForm.failedToStartGithubConnection', 'Failed to start GitHub connection'));
         }
     }
 
@@ -395,7 +397,7 @@ export function useNewServiceForm() {
                     ...projectEnvPayload,
                 };
                 const result = await api.createManualApp(payload);
-                toast.success('Manual service registered');
+                toast.success(t('app.useNewServiceForm.manualServiceRegistered', 'Manual service registered'));
                 navigate(`/services/${result.app.id}`);
             } else if (sourceMode === 'upload') {
                 const formData = new FormData();
@@ -407,7 +409,7 @@ export function useNewServiceForm() {
                 if (projectEnvPayload.project_id) formData.append('project_id', projectEnvPayload.project_id);
                 if (projectEnvPayload.environment_id) formData.append('environment_id', projectEnvPayload.environment_id);
                 const result = await api.uploadAppZip(formData);
-                toast.success('Upload service created');
+                toast.success(t('app.useNewServiceForm.uploadServiceCreated', 'Upload service created'));
                 navigate(`/services/${result.app.id}`);
             } else {
                 const payload = {
@@ -442,16 +444,16 @@ export function useNewServiceForm() {
                 if (result.deploy_job_id) {
                     // A deploy job was queued — take the user straight to the
                     // full-page Deploy Console to watch the build/startup live.
-                    toast.success('Repository service created — deploying…');
+                    toast.success(t('app.useNewServiceForm.repositoryServiceCreatedDeploying', 'Repository service created — deploying…'));
                     navigate(`/deployments/${result.deploy_job_id}`);
                 } else {
-                    toast.success('Repository service created');
-                    toast.warning('Service was created without auto-deploy — start it manually from the service page.');
+                    toast.success(t('app.useNewServiceForm.repositoryServiceCreated', 'Repository service created'));
+                    toast.warning(t('app.useNewServiceForm.serviceCreatedWithoutAutoDeploy', 'Service was created without auto-deploy — start it manually from the service page.'));
                     navigate(`/services/${result.app.id}`);
                 }
             }
         } catch (err) {
-            toast.error(err.message || 'Failed to create service');
+            toast.error(err.message || t('app.useNewServiceForm.failedToCreateService', 'Failed to create service'));
         } finally {
             setSubmitting(false);
         }

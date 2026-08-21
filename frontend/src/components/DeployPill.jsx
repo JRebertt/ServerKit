@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import api from '../services/api';
 import socketService from '../services/socket';
 import { usePolling } from '../hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // A small global "deploy in progress" pill: while any deployment job is
 // pending/running it appears (bottom-left) so you can navigate away mid-deploy
@@ -19,6 +20,7 @@ import { usePolling } from '../hooks/usePolling';
 const POLL_MS = 6000;
 
 export default function DeployPill() {
+    const { t } = useTranslation();
     const { pathname } = useLocation();
     const [active, setActive] = useState([]);
     // Deploy Activity and the console are the surface this pill points at.
@@ -75,7 +77,7 @@ export default function DeployPill() {
     const label = count === 1 ? '1 deploy running' : `${count} deploys running`;
 
     return (
-        <Link to={to} className="deploy-pill" title="Open the Deploy Console">
+        <Link to={to} className="deploy-pill" title={t('app.deployPill.openTheDeployConsole', 'Open the Deploy Console')}>
             <Loader2 size={14} className="deploy-pill__spin" />
             <span>{label}</span>
         </Link>

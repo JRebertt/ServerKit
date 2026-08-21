@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import { timeAgo } from '../utils/time';
+import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 50;
 
@@ -57,6 +58,7 @@ function contextText(context) {
 }
 
 export default function Errors() {
+    const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -131,9 +133,9 @@ export default function Errors() {
         if (!isAdmin) return null;
         return (
             <>
-                <SearchField value={q} onSearch={onSearch} placeholder="Search messages or types…" />
+                <SearchField value={q} onSearch={onSearch} placeholder={t('app.errors.searchMessagesOrTypes', 'Search messages or types…')} />
                 <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-                    <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+                    <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('app.errors.refresh', 'Refresh')}
                 </Button>
             </>
         );
@@ -151,36 +153,36 @@ export default function Errors() {
     const onToggleResolve = async (entry) => {
         try {
             await api.resolveErrorLog(entry.id, !entry.resolved);
-            toast.success(entry.resolved ? 'Marked as unresolved' : 'Marked as resolved');
+            toast.success(entry.resolved ? t('app.errors.markedAsUnresolved', 'Marked as unresolved') : t('app.errors.markedAsResolved', 'Marked as resolved'));
             setSelected(null);
             refresh();
         } catch (err) {
-            toast.error(err.message || 'Update failed');
+            toast.error(err.message || t('app.errors.updateFailed', 'Update failed'));
         }
     };
 
     const onDelete = async (entry) => {
         const confirmed = await confirm({
-            title: 'Delete error',
-            message: `Delete "${entry.exception_type || 'this error'}" and its history? This cannot be undone.`,
-            confirmText: 'Delete',
+            title: t('app.errors.deleteError', 'Delete error'),
+            message: t('app.errors.deleteAndItsHistoryThisCannot', 'Delete "{{value}}" and its history? This cannot be undone.', { value: entry.exception_type || 'this error' }),
+            confirmText: t('app.errors.delete', 'Delete'),
             variant: 'danger',
         });
         if (!confirmed) return;
         try {
             await api.deleteErrorLog(entry.id);
-            toast.success('Error deleted');
+            toast.success(t('app.errors.errorDeleted', 'Error deleted'));
             setSelected(null);
             refresh();
         } catch (err) {
-            toast.error(err.message || 'Delete failed');
+            toast.error(err.message || t('app.errors.deleteFailed', 'Delete failed'));
         }
     };
 
     const columns = [
         {
             key: 'level',
-            header: 'Level',
+            headerKey: 'app.errors.level', header: 'Level',
             sortable: true,
             type: 'enum',
             value: (e) => e.level || '',
@@ -189,7 +191,7 @@ export default function Errors() {
         },
         {
             key: 'source',
-            header: 'Source',
+            headerKey: 'app.errors.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (e) => e.source || '',
@@ -200,7 +202,7 @@ export default function Errors() {
         },
         {
             key: 'error',
-            header: 'Error',
+            headerKey: 'app.errors.error', header: 'Error',
             sortable: true,
             sortValue: (e) => e.exception_type || e.message || '',
             render: (e) => (
@@ -212,7 +214,7 @@ export default function Errors() {
         },
         {
             key: 'endpoint',
-            header: 'Endpoint',
+            headerKey: 'app.errors.endpoint', header: 'Endpoint',
             sortable: true,
             sortValue: (e) => e.endpoint || null,
             cellClassName: 'sk-err__endpoint',
@@ -222,7 +224,7 @@ export default function Errors() {
         },
         {
             key: 'count',
-            header: 'Count',
+            headerKey: 'app.errors.count', header: 'Count',
             sortable: true,
             type: 'number',
             value: (e) => e.count ?? 1,
@@ -233,7 +235,7 @@ export default function Errors() {
         },
         {
             key: 'last_seen',
-            header: 'Last seen',
+            headerKey: 'app.errors.lastSeen', header: 'Last seen',
             sortable: true,
             type: 'date',
             value: (e) => e.last_seen || null,
@@ -243,7 +245,7 @@ export default function Errors() {
         },
         {
             key: 'resolved',
-            header: 'Status',
+            headerKey: 'app.errors.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: (e) => (e.resolved ? 'Resolved' : 'Unresolved'),
@@ -257,7 +259,7 @@ export default function Errors() {
     if (!isAdmin) {
         return (
             <div className="sk-tabgroup__inner errors-page">
-                <EmptyState title="Admins only." />
+                <EmptyState title={t('app.errors.adminsOnly', 'Admins only.')} />
             </div>
         );
     }
@@ -272,18 +274,18 @@ export default function Errors() {
             {stats && (
                 <div className="stat-strip">
                     <div className="stat-strip__item">
-                        <span className="stat-strip__label">Total</span>
+                        <span className="stat-strip__label">{t('app.errors.total', 'Total')}</span>
                         <span className="stat-strip__value">{stats.total ?? 0}</span>
                     </div>
                     <div className={`stat-strip__item${stats.unresolved ? ' is-danger' : ''}`}>
-                        <span className="stat-strip__label">Unresolved</span>
+                        <span className="stat-strip__label">{t('app.errors.unresolved', 'Unresolved')}</span>
                         <span className="stat-strip__value">
                             <span className="stat-strip__dot" />
                             {stats.unresolved ?? 0}
                         </span>
                     </div>
                     <div className="stat-strip__item">
-                        <span className="stat-strip__label">Last 24h</span>
+                        <span className="stat-strip__label">{t('app.errors.last24h', 'Last 24h')}</span>
                         <span className="stat-strip__value">{stats.last_24h ?? 0}</span>
                     </div>
                 </div>
@@ -298,18 +300,18 @@ export default function Errors() {
                             value={source}
                             onChange={onSourceChange}
                             options={[
-                                { value: 'all', label: 'All' },
-                                { value: 'backend', label: 'Backend', count: stats?.by_source?.backend },
-                                { value: 'frontend', label: 'Frontend', count: stats?.by_source?.frontend },
+                                { value: 'all', labelKey: 'app.errors.all', label: 'All' },
+                                { value: 'backend', labelKey: 'app.errors.backend', label: 'Backend', count: stats?.by_source?.backend },
+                                { value: 'frontend', labelKey: 'app.errors.frontend', label: 'Frontend', count: stats?.by_source?.frontend },
                             ]}
                         />
                         <SegControl
                             value={status}
                             onChange={onStatusChange}
                             options={[
-                                { value: 'all', label: 'All' },
-                                { value: 'unresolved', label: 'Unresolved' },
-                                { value: 'resolved', label: 'Resolved' },
+                                { value: 'all', labelKey: 'app.errors.all2', label: 'All' },
+                                { value: 'unresolved', labelKey: 'app.errors.unresolved2', label: 'Unresolved' },
+                                { value: 'resolved', labelKey: 'app.errors.resolved', label: 'Resolved' },
                             ]}
                         />
                     </>
@@ -327,8 +329,8 @@ export default function Errors() {
                 rowClassName={(e) => (e.resolved ? 'is-resolved' : undefined)}
                 emptyTitle={hasFilters ? 'No errors match these filters.' : 'No errors recorded yet.'}
                 emptyMessage={hasFilters
-                    ? 'Try a different search or clear the filters.'
-                    : 'Uncaught backend and frontend exceptions will show up here, grouped by fingerprint.'}
+                    ? t('app.errors.tryADifferentSearchOrClear', 'Try a different search or clear the filters.')
+                    : t('app.errors.uncaughtBackendAndFrontendExceptionsWill', 'Uncaught backend and frontend exceptions will show up here, grouped by fingerprint.')}
                 footer={(
                     <DataTableFooter
                         shown={entries.length}
@@ -344,35 +346,35 @@ export default function Errors() {
             <Drawer
                 open={Boolean(selected)}
                 onOpenChange={(open) => { if (!open) setSelected(null); }}
-                title={selected?.exception_type || 'Error'}
-                subtitle={selected ? `${selected.source} · ${selected.endpoint || 'no endpoint'}` : ''}
+                title={selected?.exception_type || t('app.errors.error2', 'Error')}
+                subtitle={selected ? `${selected.source} · ${selected.endpoint || t('app.errors.noEndpoint', 'no endpoint')}` : ''}
                 icon={<AlertOctagon size={18} />}
                 width={640}
             >
                 {selected && (
                     <div className="err-detail">
                         <dl className="err-detail__rows">
-                            <div><dt>Message</dt><dd>{selected.message}</dd></div>
+                            <div><dt>{t('app.errors.message', 'Message')}</dt><dd>{selected.message}</dd></div>
                             <div>
-                                <dt>Level</dt>
+                                <dt>{t('app.errors.level2', 'Level')}</dt>
                                 <dd><Pill kind={levelKind(selected.level)}>{selected.level || 'error'}</Pill></dd>
                             </div>
-                            <div><dt>Source</dt><dd>{selected.source}</dd></div>
+                            <div><dt>{t('app.errors.source2', 'Source')}</dt><dd>{selected.source}</dd></div>
                             {selected.endpoint && (
                                 <div>
-                                    <dt>Endpoint</dt>
+                                    <dt>{t('app.errors.endpoint2', 'Endpoint')}</dt>
                                     <dd>{selected.method ? `${selected.method} ` : ''}{selected.endpoint}</dd>
                                 </div>
                             )}
                             {selected.user_id != null && (
-                                <div><dt>User</dt><dd>#{selected.user_id}</dd></div>
+                                <div><dt>{t('app.errors.user', 'User')}</dt><dd>#{selected.user_id}</dd></div>
                             )}
-                            <div><dt>Fingerprint</dt><dd><code>{selected.fingerprint}</code></dd></div>
-                            <div><dt>Occurrences</dt><dd>{selected.count ?? 1}</dd></div>
-                            <div><dt>First seen</dt><dd>{formatStamp(selected.first_seen)}</dd></div>
-                            <div><dt>Last seen</dt><dd>{formatStamp(selected.last_seen)}</dd></div>
+                            <div><dt>{t('app.errors.fingerprint', 'Fingerprint')}</dt><dd><code>{selected.fingerprint}</code></dd></div>
+                            <div><dt>{t('app.errors.occurrences', 'Occurrences')}</dt><dd>{selected.count ?? 1}</dd></div>
+                            <div><dt>{t('app.errors.firstSeen', 'First seen')}</dt><dd>{formatStamp(selected.first_seen)}</dd></div>
+                            <div><dt>{t('app.errors.lastSeen2', 'Last seen')}</dt><dd>{formatStamp(selected.last_seen)}</dd></div>
                             <div>
-                                <dt>Status</dt>
+                                <dt>{t('app.errors.status2', 'Status')}</dt>
                                 <dd>
                                     <Pill kind={selected.resolved ? 'green' : 'red'}>
                                         {selected.resolved ? 'Resolved' : 'Unresolved'}
@@ -383,14 +385,14 @@ export default function Errors() {
 
                         {selected.traceback && (
                             <>
-                                <h4 className="err-detail__heading">Traceback</h4>
+                                <h4 className="err-detail__heading">{t('app.errors.traceback', 'Traceback')}</h4>
                                 <pre className="err-detail__traceback">{selected.traceback}</pre>
                             </>
                         )}
 
                         {selectedContext && (
                             <>
-                                <h4 className="err-detail__heading">Context</h4>
+                                <h4 className="err-detail__heading">{t('app.errors.context', 'Context')}</h4>
                                 <pre className="err-detail__context">{selectedContext}</pre>
                             </>
                         )}
@@ -398,11 +400,11 @@ export default function Errors() {
                         <div className="err-detail__actions">
                             <Button variant="outline" size="sm" onClick={() => onToggleResolve(selected)}>
                                 {selected.resolved
-                                    ? <><Undo2 size={14} /> Mark unresolved</>
-                                    : <><CheckCheck size={14} /> Mark resolved</>}
+                                    ? <><Undo2 size={14} /> {t('app.errors.markUnresolved', 'Mark unresolved')}</>
+                                    : <><CheckCheck size={14} /> {t('app.errors.markResolved', 'Mark resolved')}</>}
                             </Button>
                             <Button variant="destructive" size="sm" onClick={() => onDelete(selected)}>
-                                <Trash2 size={14} /> Delete
+                                <Trash2 size={14} /> {t('app.errors.delete3', 'Delete')}
                             </Button>
                         </div>
                     </div>

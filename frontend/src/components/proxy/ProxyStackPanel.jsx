@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Pill, SegControl, serviceStatusKind } from '../ds';
 import EmptyState from '../EmptyState';
 import { AlertTriangle, CheckCircle2, Network } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Human label for an ingress plane, used in the mismatch banner copy.
 const PLANE_LABEL = {
@@ -22,12 +23,13 @@ const PLANE_LABEL = {
 // config snippet, and (best-effort) regenerate / restart the stack.
 
 const PROXY_OPTIONS = [
-    { value: 'nginx', label: 'Nginx', sub: 'Host default' },
-    { value: 'traefik', label: 'Traefik', sub: 'Docker stack' },
-    { value: 'caddy', label: 'Caddy', sub: 'Docker stack' },
+    { value: 'nginx', labelKey: 'app.proxyStackPanel.nginx', label: 'Nginx', sub: 'Host default' },
+    { value: 'traefik', labelKey: 'app.proxyStackPanel.traefik', label: 'Traefik', sub: 'Docker stack' },
+    { value: 'caddy', labelKey: 'app.proxyStackPanel.caddy', label: 'Caddy', sub: 'Docker stack' },
 ];
 
 const ProxyStackPanel = ({ serverId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [stack, setStack] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -101,11 +103,11 @@ const ProxyStackPanel = ({ serverId }) => {
         setBusy(true);
         try {
             await api.switchServerProxy(serverId, selectedType);
-            toast.success(`Switched to ${selectedType}`);
+            toast.success(t('app.proxyStackPanel.switchedTo', 'Switched to {{selectedType}}', { selectedType: selectedType }));
             await load();
             await loadAudit();
         } catch (err) {
-            toast.error(err.message || 'Failed to switch proxy');
+            toast.error(err.message || t('app.proxyStackPanel.failedToSwitchProxy', 'Failed to switch proxy'));
         } finally {
             setBusy(false);
         }
@@ -115,10 +117,10 @@ const ProxyStackPanel = ({ serverId }) => {
         setBusy(true);
         try {
             await api.configureServerProxy(serverId, { custom_snippet: snippet });
-            toast.success('Custom snippet saved');
+            toast.success(t('app.proxyStackPanel.customSnippetSaved', 'Custom snippet saved'));
             await load();
         } catch (err) {
-            toast.error(err.message || 'Failed to save snippet');
+            toast.error(err.message || t('app.proxyStackPanel.failedToSaveSnippet', 'Failed to save snippet'));
         } finally {
             setBusy(false);
         }
@@ -129,14 +131,14 @@ const ProxyStackPanel = ({ serverId }) => {
         try {
             const res = await api.regenerateServerProxy(serverId);
             if (res.success) {
-                toast.success(res.reloaded ? 'Config regenerated and reloaded' : 'Config regenerated');
+                toast.success(res.reloaded ? t('app.proxyStackPanel.configRegeneratedAndReloaded', 'Config regenerated and reloaded') : t('app.proxyStackPanel.configRegenerated', 'Config regenerated'));
             } else {
-                toast.error(res.error || 'Regenerate failed');
+                toast.error(res.error || t('app.proxyStackPanel.regenerateFailed', 'Regenerate failed'));
             }
             await load();
             await loadAudit();
         } catch (err) {
-            toast.error(err.message || 'Failed to regenerate config');
+            toast.error(err.message || t('app.proxyStackPanel.failedToRegenerateConfig', 'Failed to regenerate config'));
         } finally {
             setBusy(false);
         }
@@ -151,28 +153,28 @@ const ProxyStackPanel = ({ serverId }) => {
             });
             const deploy = res.deploy;
             if (deploy && deploy.success === false) {
-                toast.error(deploy.error || 'Deploy failed (best-effort)');
+                toast.error(deploy.error || t('app.proxyStackPanel.deployFailedBestEffort', 'Deploy failed (best-effort)'));
             } else {
-                toast.success('Stack deployed');
+                toast.success(t('app.proxyStackPanel.stackDeployed', 'Stack deployed'));
             }
             await load();
             await loadAudit();
         } catch (err) {
-            toast.error(err.message || 'Failed to deploy stack');
+            toast.error(err.message || t('app.proxyStackPanel.failedToDeployStack', 'Failed to deploy stack'));
         } finally {
             setBusy(false);
         }
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title="Loading proxy configuration" />;
+        return <EmptyState loading loadingVariant="form" title={t('app.proxyStackPanel.loadingProxyConfiguration', 'Loading proxy configuration')} />;
     }
 
     if (error) {
         return (
             <div className="proxy-panel">
                 <div className="proxy-panel__error">{error}</div>
-                <Button variant="outline" onClick={load}>Retry</Button>
+                <Button variant="outline" onClick={load}>{t('app.proxyStackPanel.retry', 'Retry')}</Button>
             </div>
         );
     }
@@ -185,10 +187,10 @@ const ProxyStackPanel = ({ serverId }) => {
             <header className="proxy-panel__header">
                 <div className="proxy-panel__title">
                     <Network size={18} />
-                    <h3>Reverse Proxy</h3>
+                    <h3>{t('app.proxyStackPanel.reverseProxy', 'Reverse Proxy')}</h3>
                 </div>
                 <div className="proxy-panel__status">
-                    <span className="proxy-panel__status-label">Status</span>
+                    <span className="proxy-panel__status-label">{t('app.proxyStackPanel.status', 'Status')}</span>
                     <Pill kind={serviceStatusKind(stack?.status)}>
                         {savedIsNginx ? 'host nginx' : (stack?.status || 'unknown')}
                     </Pill>
@@ -196,8 +198,7 @@ const ProxyStackPanel = ({ serverId }) => {
             </header>
 
             <p className="proxy-panel__hint">
-                Host Nginx is the default and is recommended for PHP/WordPress. You can
-                opt into a Dockerized Traefik or Caddy proxy deployed as a Compose stack.
+                {t('app.proxyStackPanel.hostNginxIsTheDefaultAnd', 'Host Nginx is the default and is recommended for PHP/WordPress. You can opt into a Dockerized Traefik or Caddy proxy deployed as a Compose stack.')}
             </p>
 
             {audit && audit.mismatch_count > 0 && (
@@ -205,12 +206,11 @@ const ProxyStackPanel = ({ serverId }) => {
                     <div className="proxy-panel__ingress-warning-head">
                         <AlertTriangle size={16} />
                         <strong>
-                            {audit.mismatch_count} app{audit.mismatch_count === 1 ? '' : 's'} on the wrong ingress plane
+                            {audit.mismatch_count} app{audit.mismatch_count === 1 ? '' : 's'} {t('app.proxyStackPanel.onTheWrongIngressPlane', 'on the wrong ingress plane')}
                         </strong>
                     </div>
                     <p className="proxy-panel__ingress-warning-text">
-                        This server&apos;s active proxy is <strong>{audit.proxy_type}</strong>, which
-                        expects <strong>{PLANE_LABEL[audit.expected_plane] || audit.expected_plane}</strong>.
+                        {t('app.proxyStackPanel.thisServerSActiveProxyIs', 'This server\'s active proxy is')} <strong>{audit.proxy_type}</strong>{t('app.proxyStackPanel.whichExpects', ', which expects')} <strong>{PLANE_LABEL[audit.expected_plane] || audit.expected_plane}</strong>.
                         The apps below expect the other plane:
                     </p>
                     <ul className="proxy-panel__ingress-list">
@@ -229,12 +229,12 @@ const ProxyStackPanel = ({ serverId }) => {
             {audit && audit.mismatch_count === 0 && audit.app_count > 0 && (
                 <div className="proxy-panel__ingress-ok">
                     <CheckCircle2 size={14} />
-                    All {audit.app_count} app{audit.app_count === 1 ? '' : 's'} aligned with this server&apos;s ingress plane.
+                    {t('app.proxyStackPanel.all', 'All')} {audit.app_count} app{audit.app_count === 1 ? '' : 's'} {t('app.proxyStackPanel.alignedWithThisServerSIngress', 'aligned with this server\'s ingress plane.')}
                 </div>
             )}
 
             <section className="proxy-panel__section">
-                <label className="proxy-panel__label">Proxy type</label>
+                <label className="proxy-panel__label">{t('app.proxyStackPanel.proxyType', 'Proxy type')}</label>
                 <SegControl
                     options={PROXY_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
                     value={selectedType}
@@ -246,12 +246,12 @@ const ProxyStackPanel = ({ serverId }) => {
                     </Button>
                     {!isNginx && (
                         <Button variant="outline" onClick={handleDeploy} disabled={busy}>
-                            Deploy / Restart
+                            {t('app.proxyStackPanel.deployRestart', 'Deploy / Restart')}
                         </Button>
                     )}
                     {!savedIsNginx && (
                         <Button variant="outline" onClick={handleRegenerate} disabled={busy}>
-                            Regenerate config
+                            {t('app.proxyStackPanel.regenerateConfig', 'Regenerate config')}
                         </Button>
                     )}
                 </div>
@@ -259,25 +259,25 @@ const ProxyStackPanel = ({ serverId }) => {
 
             {!isNginx && (
                 <section className="proxy-panel__section">
-                    <label className="proxy-panel__label">Compose preview</label>
+                    <label className="proxy-panel__label">{t('app.proxyStackPanel.composePreview', 'Compose preview')}</label>
                     {preview?.compose ? (
-                        <pre className="proxy-panel__code" aria-label="docker-compose preview">
+                        <pre className="proxy-panel__code" aria-label={t('app.proxyStackPanel.dockerComposePreview', 'docker-compose preview')}>
                             {preview.compose}
                         </pre>
                     ) : (
-                        <div className="proxy-panel__empty">No compose generated for this type.</div>
+                        <div className="proxy-panel__empty">{t('app.proxyStackPanel.noComposeGeneratedForThisType', 'No compose generated for this type.')}</div>
                     )}
                 </section>
             )}
 
             {!isNginx && (
                 <section className="proxy-panel__section">
-                    <label className="proxy-panel__label">Custom config snippet</label>
+                    <label className="proxy-panel__label">{t('app.proxyStackPanel.customConfigSnippet', 'Custom config snippet')}</label>
                     <Textarea
                         rows={6}
                         value={snippet}
                         onChange={(e) => setSnippet(e.target.value)}
-                        placeholder="Appended to the generated proxy config (Caddyfile / Traefik dynamic)."
+                        placeholder={t('app.proxyStackPanel.appendedToTheGeneratedProxyConfig', 'Appended to the generated proxy config (Caddyfile / Traefik dynamic).')}
                         className="font-mono"
                     />
                     <div className="proxy-panel__actions">
@@ -286,7 +286,7 @@ const ProxyStackPanel = ({ serverId }) => {
                             onClick={handleSaveSnippet}
                             disabled={!isDirtySnippet || busy}
                         >
-                            Save snippet
+                            {t('app.proxyStackPanel.saveSnippet', 'Save snippet')}
                         </Button>
                     </div>
                 </section>
@@ -295,8 +295,8 @@ const ProxyStackPanel = ({ serverId }) => {
             {isNginx && (
                 <EmptyState
                     icon={Network}
-                    title="Host Nginx is active"
-                    description="The host's Nginx is handling reverse proxying. Switch to Traefik or Caddy above to run a managed Docker proxy stack instead."
+                    title={t('app.proxyStackPanel.hostNginxIsActive', 'Host Nginx is active')}
+                    description={t('app.proxyStackPanel.theHostSNginxIsHandling', 'The host\'s Nginx is handling reverse proxying. Switch to Traefik or Caddy above to run a managed Docker proxy stack instead.')}
                 />
             )}
         </div>

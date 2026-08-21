@@ -22,6 +22,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useConfirm } from '@/hooks/useConfirm';
 import { useClipboard } from '@/hooks/useClipboard';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { useTranslation } from 'react-i18next';
 
 // What a masked value renders as. Unchanged from the list this table replaces:
 // every env var is stored as a secret, so every value is dots until the row's
@@ -67,6 +68,7 @@ const ENV_VIEWS = [
 ];
 
 const EnvironmentVariables = ({ appId }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const { copy } = useClipboard();
@@ -129,7 +131,7 @@ const EnvironmentVariables = ({ appId }) => {
             const data = await api.getEnvVars(appId);
             setEnvVars(data.env_vars || []);
         } catch (err) {
-            toast.error('Failed to load environment variables');
+            toast.error(t('app.environmentVariables.failedToLoadEnvironmentVariables', 'Failed to load environment variables'));
             console.error('Failed to load env vars:', err);
         } finally {
             setLoading(false);
@@ -147,7 +149,7 @@ const EnvironmentVariables = ({ appId }) => {
     async function handleAdd(e) {
         e.preventDefault();
         if (!newKey.trim()) {
-            toast.error('Key is required');
+            toast.error(t('app.environmentVariables.keyIsRequired', 'Key is required'));
             return;
         }
 
@@ -156,7 +158,7 @@ const EnvironmentVariables = ({ appId }) => {
             // Always stored as a secret — env vars are treated as sensitive by
             // default, so we never ask the user to opt out of masking.
             await api.createEnvVar(appId, newKey.trim(), newValue, true, newDescription || null, newTargetService || null);
-            toast.success('Environment variable added');
+            toast.success(t('app.environmentVariables.environmentVariableAdded', 'Environment variable added'));
             setNewKey('');
             setNewValue('');
             setNewDescription('');
@@ -164,7 +166,7 @@ const EnvironmentVariables = ({ appId }) => {
             setShowAddModal(false);
             loadEnvVars();
         } catch (err) {
-            toast.error(err.message || 'Failed to add environment variable');
+            toast.error(err.message || t('app.environmentVariables.failedToAddEnvironmentVariable', 'Failed to add environment variable'));
         } finally {
             setSaving(false);
         }
@@ -182,13 +184,13 @@ const EnvironmentVariables = ({ appId }) => {
                 payload.target_service = editTargetService || '';
             }
             await api.updateEnvVar(appId, key, payload);
-            toast.success('Environment variable updated');
+            toast.success(t('app.environmentVariables.environmentVariableUpdated', 'Environment variable updated'));
             setEditingId(null);
             setEditValue('');
             setEditTargetService('');
             loadEnvVars();
         } catch (err) {
-            toast.error(err.message || 'Failed to update environment variable');
+            toast.error(err.message || t('app.environmentVariables.failedToUpdateEnvironmentVariable', 'Failed to update environment variable'));
         } finally {
             setSaving(false);
         }
@@ -196,17 +198,17 @@ const EnvironmentVariables = ({ appId }) => {
 
     async function handleDelete(key) {
         if (!await confirm({
-            title: 'Delete environment variable',
-            message: `Delete environment variable "${key}"?`,
-            confirmText: 'Delete variable',
+            title: t('app.environmentVariables.deleteEnvironmentVariable', 'Delete environment variable'),
+            message: t('app.environmentVariables.deleteEnvironmentVariable2', 'Delete environment variable "{{key}}"?', { key: key }),
+            confirmText: t('app.environmentVariables.deleteVariable', 'Delete variable'),
         })) return;
 
         try {
             await api.deleteEnvVar(appId, key);
-            toast.success('Environment variable deleted');
+            toast.success(t('app.environmentVariables.environmentVariableDeleted', 'Environment variable deleted'));
             loadEnvVars();
         } catch (err) {
-            toast.error(err.message || 'Failed to delete environment variable');
+            toast.error(err.message || t('app.environmentVariables.failedToDeleteEnvironmentVariable', 'Failed to delete environment variable'));
         }
     }
 
@@ -247,27 +249,27 @@ const EnvironmentVariables = ({ appId }) => {
         try {
             const data = await api.exportEnvFile(appId, includeSecrets);
             downloadBlob(data.content, data.filename || 'app.env');
-            toast.success('Environment file exported');
+            toast.success(t('app.environmentVariables.environmentFileExported', 'Environment file exported'));
         } catch (err) {
-            toast.error('Failed to export');
+            toast.error(t('app.environmentVariables.failedToExport', 'Failed to export'));
         }
     }
 
     async function handleImport() {
         if (!importContent.trim()) {
-            toast.error('Please paste .env content');
+            toast.error(t('app.environmentVariables.pleasePasteEnvContent', 'Please paste .env content'));
             return;
         }
 
         setSaving(true);
         try {
             const result = await api.importEnvFile(appId, importContent, importOverwrite);
-            toast.success(`${result.count} variables imported`);
+            toast.success(t('app.environmentVariables.variablesImported', '{{count}} variables imported', { count: result.count }));
             setShowImportModal(false);
             setImportContent('');
             loadEnvVars();
         } catch (err) {
-            toast.error(err.message || 'Failed to import');
+            toast.error(err.message || t('app.environmentVariables.failedToImport', 'Failed to import'));
         } finally {
             setSaving(false);
         }
@@ -290,28 +292,28 @@ const EnvironmentVariables = ({ appId }) => {
             setHistory(data.history || []);
             setShowHistoryModal(true);
         } catch (err) {
-            toast.error('Failed to load history');
+            toast.error(t('app.environmentVariables.failedToLoadHistory', 'Failed to load history'));
         }
     }
 
     async function handleClearAll() {
         if (!await confirm({
-            title: 'Clear environment variables',
-            message: 'Delete all environment variables? This cannot be undone.',
-            confirmText: 'Continue',
+            title: t('app.environmentVariables.clearEnvironmentVariables', 'Clear environment variables'),
+            message: t('app.environmentVariables.deleteAllEnvironmentVariablesThisCannot', 'Delete all environment variables? This cannot be undone.'),
+            confirmText: t('app.environmentVariables.continue', 'Continue'),
         })) return;
         if (!await confirm({
-            title: 'Confirm deletion',
-            message: 'Are you absolutely sure?',
-            confirmText: 'Delete all variables',
+            title: t('app.environmentVariables.confirmDeletion', 'Confirm deletion'),
+            message: t('app.environmentVariables.areYouAbsolutelySure', 'Are you absolutely sure?'),
+            confirmText: t('app.environmentVariables.deleteAllVariables', 'Delete all variables'),
         })) return;
 
         try {
             await api.clearEnvVars(appId);
-            toast.success('All environment variables cleared');
+            toast.success(t('app.environmentVariables.allEnvironmentVariablesCleared', 'All environment variables cleared'));
             loadEnvVars();
         } catch (err) {
-            toast.error('Failed to clear');
+            toast.error(t('app.environmentVariables.failedToClear', 'Failed to clear'));
         }
     }
 
@@ -332,7 +334,7 @@ const EnvironmentVariables = ({ appId }) => {
     const columns = [
         {
             key: 'key',
-            header: 'Key',
+            headerKey: 'app.environmentVariables.key', header: 'Key',
             sortable: true,
             hideable: false,
             // An identifier you type a fragment of, never pick from a list.
@@ -344,7 +346,7 @@ const EnvironmentVariables = ({ appId }) => {
         },
         {
             key: 'value',
-            header: 'Value',
+            headerKey: 'app.environmentVariables.value', header: 'Value',
             sortable: false,
             // Neither sortable nor filterable, and `value` answers with the
             // mask rather than the secret: those three accessors also feed the
@@ -371,16 +373,16 @@ const EnvironmentVariables = ({ appId }) => {
                             className="env-target-select__control"
                             value={editTargetService}
                             onChange={(e) => setEditTargetService(e.target.value)}
-                            title="Inject this variable into a single compose service"
+                            title={t('app.environmentVariables.injectThisVariableIntoASingle', 'Inject this variable into a single compose service')}
                         >
-                            <option value="">All services</option>
+                            <option value="">{t('app.environmentVariables.allServices', 'All services')}</option>
                             {composeServices.map((svc) => (
                                 <option key={svc} value={svc}>{svc}</option>
                             ))}
                         </select>
                     )}
-                    <Button size="sm" onClick={() => handleUpdate(ev.key)}>Save</Button>
-                    <Button variant="outline" size="sm" onClick={cancelEditing}>Cancel</Button>
+                    <Button size="sm" onClick={() => handleUpdate(ev.key)}>{t('app.environmentVariables.save', 'Save')}</Button>
+                    <Button variant="outline" size="sm" onClick={cancelEditing}>{t('app.environmentVariables.cancel', 'Cancel')}</Button>
                 </div>
             ) : (showValues[ev.id] ? ev.value : MASK)),
         },
@@ -394,7 +396,7 @@ const EnvironmentVariables = ({ appId }) => {
         // a distinction to draw.
         ...(composeServices.length > 0 || envVars.some((ev) => ev.target_service) ? [{
             key: 'scope',
-            header: 'Applies to',
+            headerKey: 'app.environmentVariables.appliesTo', header: 'Applies to',
             sortable: true,
             // Declared, not inferred: a compose app with two services and three
             // variables is over the enum cardinality ratio and would degrade to
@@ -406,7 +408,7 @@ const EnvironmentVariables = ({ appId }) => {
             render: (ev) => (ev.target_service ? (
                 <span
                     className="env-target-chip"
-                    title={`Applies only to the "${ev.target_service}" service`}
+                    title={t('app.environmentVariables.appliesOnlyToTheService', 'Applies only to the "{{targetservice}}" service', { targetservice: ev.target_service })}
                 >
                     &rarr; {ev.target_service}
                 </span>
@@ -414,7 +416,7 @@ const EnvironmentVariables = ({ appId }) => {
         }] : []),
         {
             key: 'description',
-            header: 'Description',
+            headerKey: 'app.environmentVariables.description', header: 'Description',
             sortable: true,
             // Text, never enum: on an app where nothing is documented the
             // inference would see one repeated dash and offer a checklist.
@@ -428,7 +430,7 @@ const EnvironmentVariables = ({ appId }) => {
         },
         {
             key: 'actions',
-            header: 'Actions',
+            headerKey: 'app.environmentVariables.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             className: 'actions-cell',
@@ -439,7 +441,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon"
                         onClick={() => toggleShowValue(ev.id)}
-                        title={showValues[ev.id] ? 'Hide value' : 'Show value'}
+                        title={showValues[ev.id] ? t('app.environmentVariables.hideValue', 'Hide value') : t('app.environmentVariables.showValue', 'Show value')}
                     >
                         {showValues[ev.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -447,7 +449,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon"
                         onClick={() => copy(ev.value)}
-                        title="Copy value"
+                        title={t('app.environmentVariables.copyValue', 'Copy value')}
                     >
                         <Copy size={16} />
                     </button>
@@ -455,7 +457,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon"
                         onClick={() => startEditing(ev)}
-                        title="Edit"
+                        title={t('app.environmentVariables.edit', 'Edit')}
                     >
                         <Pencil size={16} />
                     </button>
@@ -463,7 +465,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon btn-danger"
                         onClick={() => handleDelete(ev.key)}
-                        title="Delete"
+                        title={t('app.environmentVariables.delete', 'Delete')}
                     >
                         <Trash2 size={16} />
                     </button>
@@ -499,29 +501,29 @@ const EnvironmentVariables = ({ appId }) => {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading environment variables..." />;
+        return <EmptyState loading loadingVariant="table" title={t('app.environmentVariables.loadingEnvironmentVariables', 'Loading environment variables...')} />;
     }
 
     return (
         <div className="env-vars-container">
             <p className="hint">
-                Environment variables are encrypted at rest and masked by default. Changes require an app restart to take effect.
+                {t('app.environmentVariables.environmentVariablesAreEncryptedAtRest', 'Environment variables are encrypted at rest and masked by default. Changes require an app restart to take effect.')}
             </p>
 
             {envVars.length === 0 ? (
                 <EmptyState
                     icon={Variable}
-                    title="No environment variables"
-                    description="Add one here, or import an existing .env file."
+                    title={t('app.environmentVariables.noEnvironmentVariables', 'No environment variables')}
+                    description={t('app.environmentVariables.addOneHereOrImportAn', 'Add one here, or import an existing .env file.')}
                     action={(
                         <div className="env-empty-actions">
                             <Button onClick={openAddModal}>
                                 <Plus size={15} />
-                                Add Variable
+                                {t('app.environmentVariables.addVariable', 'Add Variable')}
                             </Button>
                             <Button variant="outline" onClick={() => setShowImportModal(true)}>
                                 <Upload size={14} />
-                                Import
+                                {t('app.environmentVariables.import', 'Import')}
                             </Button>
                         </div>
                     )}
@@ -543,7 +545,7 @@ const EnvironmentVariables = ({ appId }) => {
                                 <SearchField
                                     value={search}
                                     onSearch={setSearch}
-                                    placeholder="Search keys or descriptions…"
+                                    placeholder={t('app.environmentVariables.searchKeysOrDescriptions', 'Search keys or descriptions…')}
                                 />
                                 <GridFilterButton
                                     count={chrome.filterCount}
@@ -559,32 +561,32 @@ const EnvironmentVariables = ({ appId }) => {
                     <ListToolbar>
                         <Button size="sm" onClick={openAddModal}>
                             <Plus size={15} />
-                            Add Variable
+                            {t('app.environmentVariables.addVariable2', 'Add Variable')}
                         </Button>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={toggleShowAll}
-                            title={allVisible ? 'Hide all values' : 'Show all values'}
+                            title={allVisible ? t('app.environmentVariables.hideAllValues', 'Hide all values') : t('app.environmentVariables.showAllValues', 'Show all values')}
                         >
                             {allVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                             {allVisible ? 'Hide All' : 'Show All'}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
                             <Upload size={14} />
-                            Import
+                            {t('app.environmentVariables.import2', 'Import')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleExport(true)}>
                             <Download size={14} />
-                            Export
+                            {t('app.environmentVariables.export', 'Export')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={handleShowHistory}>
                             <History size={14} />
-                            History
+                            {t('app.environmentVariables.history', 'History')}
                         </Button>
                         <Button variant="outline" size="sm" className="env-clear-btn" onClick={handleClearAll}>
                             <Trash2 size={14} />
-                            Clear All
+                            {t('app.environmentVariables.clearAll', 'Clear All')}
                         </Button>
                     </ListToolbar>
 
@@ -617,10 +619,10 @@ const EnvironmentVariables = ({ appId }) => {
             <GridFilterDrawer {...chrome.drawerProps} />
 
             {/* Add Variable Modal */}
-            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Environment Variable">
+            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('app.environmentVariables.addEnvironmentVariable', 'Add Environment Variable')}>
                 <form onSubmit={handleAdd}>
                     <div className="form-group">
-                        <Label>Key</Label>
+                        <Label>{t('app.environmentVariables.key2', 'Key')}</Label>
                         <Input
                             type="text"
                             value={newKey}
@@ -631,7 +633,7 @@ const EnvironmentVariables = ({ appId }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label>Value</Label>
+                        <Label>{t('app.environmentVariables.value2', 'Value')}</Label>
                         <Input
                             type="text"
                             value={newValue}
@@ -640,23 +642,23 @@ const EnvironmentVariables = ({ appId }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label>Description <span className="env-optional">(optional)</span></Label>
+                        <Label>{t('app.environmentVariables.description2', 'Description')} <span className="env-optional">(optional)</span></Label>
                         <Input
                             type="text"
                             value={newDescription}
                             onChange={(e) => setNewDescription(e.target.value)}
-                            placeholder="What is this variable for?"
+                            placeholder={t('app.environmentVariables.whatIsThisVariableFor', 'What is this variable for?')}
                         />
                     </div>
                     {composeServices.length > 0 && (
                         <div className="form-group">
-                            <Label>Applies to</Label>
+                            <Label>{t('app.environmentVariables.appliesTo2', 'Applies to')}</Label>
                             <select
                                 className="env-target-select__control"
                                 value={newTargetService}
                                 onChange={(e) => setNewTargetService(e.target.value)}
                             >
-                                <option value="">All services</option>
+                                <option value="">{t('app.environmentVariables.allServices2', 'All services')}</option>
                                 {composeServices.map((svc) => (
                                     <option key={svc} value={svc}>{svc}</option>
                                 ))}
@@ -664,11 +666,11 @@ const EnvironmentVariables = ({ appId }) => {
                         </div>
                     )}
                     <p className="hint env-modal-hint">
-                        Stored encrypted and masked by default. Reveal it any time with the eye icon.
+                        {t('app.environmentVariables.storedEncryptedAndMaskedByDefault', 'Stored encrypted and masked by default. Reveal it any time with the eye icon.')}
                     </p>
                     <div className="modal-footer">
                         <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
-                            Cancel
+                            {t('app.environmentVariables.cancel2', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={saving}>
                             {saving ? 'Adding...' : 'Add Variable'}
@@ -678,8 +680,8 @@ const EnvironmentVariables = ({ appId }) => {
             </Modal>
 
             {/* Import Modal */}
-            <Modal open={showImportModal} onClose={() => setShowImportModal(false)} title="Import Environment Variables">
-                <p className="hint">Paste your .env file content below or upload a file.</p>
+            <Modal open={showImportModal} onClose={() => setShowImportModal(false)} title={t('app.environmentVariables.importEnvironmentVariables', 'Import Environment Variables')}>
+                <p className="hint">{t('app.environmentVariables.pasteYourEnvFileContentBelow', 'Paste your .env file content below or upload a file.')}</p>
 
                 <div className="import-file-upload">
                     <input
@@ -690,14 +692,14 @@ const EnvironmentVariables = ({ appId }) => {
                         style={{ display: 'none' }}
                     />
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        Choose File
+                        {t('app.environmentVariables.chooseFile', 'Choose File')}
                     </Button>
                 </div>
 
                 <Textarea
                     value={importContent}
                     onChange={(e) => setImportContent(e.target.value)}
-                    placeholder={"DATABASE_URL=postgres://...\nAPI_KEY=your-api-key\nDEBUG=false"}
+                    placeholder={t('app.environmentVariables.databaseUrlPostgresApiKeyYour', 'DATABASE_URL=postgres://...\nAPI_KEY=your-api-key\nDEBUG=false')}
                     rows={10}
                     className="import-textarea"
                 />
@@ -707,11 +709,11 @@ const EnvironmentVariables = ({ appId }) => {
                         checked={importOverwrite}
                         onCheckedChange={setImportOverwrite}
                     />
-                    <span>Overwrite existing variables with same keys</span>
+                    <span>{t('app.environmentVariables.overwriteExistingVariablesWithSameKeys', 'Overwrite existing variables with same keys')}</span>
                 </label>
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                        Cancel
+                        {t('app.environmentVariables.cancel3', 'Cancel')}
                     </Button>
                     <Button onClick={handleImport} disabled={saving}>
                         {saving ? 'Importing...' : 'Import'}
@@ -720,15 +722,15 @@ const EnvironmentVariables = ({ appId }) => {
             </Modal>
 
             {/* History Modal */}
-            <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Change History" size="lg">
+            <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title={t('app.environmentVariables.changeHistory', 'Change History')} size="lg">
                 {history.length === 0 ? (
-                    <p className="hint">No changes recorded yet.</p>
+                    <p className="hint">{t('app.environmentVariables.noChangesRecordedYet', 'No changes recorded yet.')}</p>
                 ) : (
                     <DataTable
                         columns={[
                             {
                                 key: 'key',
-                                header: 'Key',
+                                headerKey: 'app.environmentVariables.key3', header: 'Key',
                                 sortable: true,
                                 hideable: false,
                                 sortValue: (h) => h.key || '',
@@ -737,7 +739,7 @@ const EnvironmentVariables = ({ appId }) => {
                             },
                             {
                                 key: 'action',
-                                header: 'Action',
+                                headerKey: 'app.environmentVariables.action', header: 'Action',
                                 sortable: true,
                                 sortValue: (h) => h.action || '',
                                 render: (h) => (
@@ -748,7 +750,7 @@ const EnvironmentVariables = ({ appId }) => {
                             },
                             {
                                 key: 'changed_at',
-                                header: 'Changed At',
+                                headerKey: 'app.environmentVariables.changedAt', header: 'Changed At',
                                 sortable: true,
                                 sortValue: (h) => new Date(h.changed_at).getTime(),
                                 render: (h) => new Date(h.changed_at).toLocaleString(),
@@ -769,7 +771,7 @@ const EnvironmentVariables = ({ appId }) => {
                 )}
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowHistoryModal(false)}>
-                        Close
+                        {t('app.environmentVariables.close', 'Close')}
                     </Button>
                 </div>
             </Modal>

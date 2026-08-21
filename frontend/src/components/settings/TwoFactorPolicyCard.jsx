@@ -3,6 +3,7 @@ import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { useTranslation } from 'react-i18next';
 
 // Admin control for the require-2FA policy (plan 22 #14). A policy, never a
 // default: 'off' (nobody forced), 'admins', or 'all'. Within the grace window a
@@ -19,6 +20,7 @@ const POLICY_LABELS = {
 // `props` are spread onto the card root so a parent can attach a ref /
 // focus-highlight class (see useSettingFocus / command-palette deep links).
 const TwoFactorPolicyCard = (props) => {
+    const { t } = useTranslation();
     const [policy, setPolicy] = useState('off');
     const [graceDays, setGraceDays] = useState(7);
     const [loading, setLoading] = useState(true);
@@ -58,16 +60,13 @@ const TwoFactorPolicyCard = (props) => {
 
     return (
         <div className="settings-card" {...props}>
-            <h3>Two-Factor Authentication Policy</h3>
+            <h3>{t('app.twoFactorPolicyCard.twoFactorAuthenticationPolicy', 'Two-Factor Authentication Policy')}</h3>
             <p className="form-help" style={{ marginTop: 0 }}>
-                Require accounts to protect themselves with a passkey or authenticator
-                app. Passwords keep working until the grace window ends; after that,
-                sign-in only lets the user reach the enrolment screen until they add a
-                second factor. Single sign-on users are always exempt.
+                {t('app.twoFactorPolicyCard.requireAccountsToProtectThemselvesWith', 'Require accounts to protect themselves with a passkey or authenticator app. Passwords keep working until the grace window ends; after that, sign-in only lets the user reach the enrolment screen until they add a second factor. Single sign-on users are always exempt.')}
             </p>
 
             <div className="form-group">
-                <label>Who must enrol</label>
+                <label>{t('app.twoFactorPolicyCard.whoMustEnrol', 'Who must enrol')}</label>
                 <Select value={policy} onValueChange={setPolicy}>
                     <SelectTrigger>
                         <SelectValue />
@@ -82,7 +81,7 @@ const TwoFactorPolicyCard = (props) => {
 
             {policy !== 'off' && (
                 <div className="form-group">
-                    <label>Grace period (days)</label>
+                    <label>{t('app.twoFactorPolicyCard.gracePeriodDays', 'Grace period (days)')}</label>
                     <Input
                         type="number"
                         min="0"
@@ -91,8 +90,7 @@ const TwoFactorPolicyCard = (props) => {
                         style={{ maxWidth: '120px' }}
                     />
                     <span className="form-help">
-                        Days a newly-covered account may keep signing in with just a
-                        password before enrolment is enforced.
+                        {t('app.twoFactorPolicyCard.daysANewlyCoveredAccountMay', 'Days a newly-covered account may keep signing in with just a password before enrolment is enforced.')}
                     </span>
                 </div>
             )}

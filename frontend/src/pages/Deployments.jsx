@@ -15,6 +15,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import RequiresDocker from '../components/RequiresDocker';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Deploy activity cadence while auto-refresh is on.
 const DEPLOY_POLL_MS = 3000;
@@ -89,6 +90,7 @@ const BUILTIN_VIEWS = [
 ];
 
 const Deployments = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -177,7 +179,7 @@ const Deployments = () => {
     const columns = useMemo(() => [
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.deployments.status', header: 'Status',
             sortable: true,
             hideable: false,
             // Declared, not inferred: a panel with three deploys in it fails the
@@ -199,7 +201,7 @@ const Deployments = () => {
         },
         {
             key: 'deploy',
-            header: 'Deploy',
+            headerKey: 'app.deployments.deploy', header: 'Deploy',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -221,7 +223,7 @@ const Deployments = () => {
         },
         {
             key: 'kind',
-            header: 'Type',
+            headerKey: 'app.deployments.type', header: 'Type',
             sortable: true,
             type: 'enum',
             // Filter and sort on the word the chip prints, so a rule reads the
@@ -234,7 +236,7 @@ const Deployments = () => {
         },
         {
             key: 'pipeline',
-            header: 'Pipeline',
+            headerKey: 'app.deployments.pipeline', header: 'Pipeline',
             sortable: true,
             type: 'num',
             unit: '%',
@@ -255,7 +257,7 @@ const Deployments = () => {
         },
         {
             key: 'target',
-            header: 'Target',
+            headerKey: 'app.deployments.target', header: 'Target',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -269,7 +271,7 @@ const Deployments = () => {
         },
         {
             key: 'took',
-            header: 'Took',
+            headerKey: 'app.deployments.took', header: 'Took',
             sortable: true,
             type: 'num',
             unit: 's',
@@ -280,7 +282,7 @@ const Deployments = () => {
         },
         {
             key: 'started',
-            header: 'Started',
+            headerKey: 'app.deployments.started', header: 'Started',
             sortable: true,
             type: 'date',
             groupable: true,
@@ -318,7 +320,7 @@ const Deployments = () => {
             <SearchField
                 value={search}
                 onSearch={setSearch}
-                placeholder="Search deploys…"
+                placeholder={t('app.deployments.searchDeploys', 'Search deploys…')}
             />
             <GridFilterButton
                 count={chrome.filterCount}
@@ -337,14 +339,14 @@ const Deployments = () => {
             {simInfo?.enabled && (
                 <Button variant="outline" size="sm" onClick={() => setSimOpen(true)}>
                     <FlaskConical size={16} />
-                    Test deployment
+                    {t('app.deployments.testDeployment', 'Test deployment')}
                 </Button>
             )}
             <Button
                 variant={autoRefresh ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setAutoRefresh((v) => !v)}
-                title="Auto-refresh every 3s"
+                title={t('app.deployments.autoRefreshEvery3s', 'Auto-refresh every 3s')}
             >
                 <RefreshCw size={16} className={autoRefresh ? 'spin' : ''} />
                 {autoRefresh ? 'Live' : 'Paused'}
@@ -381,10 +383,10 @@ const Deployments = () => {
                 emptyState={(
                     <EmptyState
                         icon={PlayCircle}
-                        title={jobs.length === 0 ? 'No deployment jobs yet' : 'No deploys match this search'}
+                        title={jobs.length === 0 ? t('app.deployments.noDeploymentJobsYet', 'No deployment jobs yet') : t('app.deployments.noDeploysMatchThisSearch', 'No deploys match this search')}
                         description={jobs.length === 0
-                            ? 'Create a service from a repository or install a template to see activity here.'
-                            : 'Try a different search term, or pick another view.'}
+                            ? t('app.deployments.createAServiceFromARepository', 'Create a service from a repository or install a template to see activity here.')
+                            : t('app.deployments.tryADifferentSearchTermOr', 'Try a different search term, or pick another view.')}
                     />
                 )}
                 footer={(
@@ -409,18 +411,17 @@ const Deployments = () => {
             <Modal
                 open={simOpen}
                 onClose={() => setSimOpen(false)}
-                title="Run a test deployment"
+                title={t('app.deployments.runATestDeployment', 'Run a test deployment')}
                 size="md"
             >
                 <p className="deployments-page__sim-intro">
-                    Streams scripted output through the real deploy pipeline — no
-                    containers, files, or servers are touched. Development only.
+                    {t('app.deployments.streamsScriptedOutputThroughTheReal', 'Streams scripted output through the real deploy pipeline — no containers, files, or servers are touched. Development only.')}
                 </p>
                 <label className="deployments-page__sim-speed">
-                    Speed
+                    {t('app.deployments.speed', 'Speed')}
                     <select value={simSpeed} onChange={(e) => setSimSpeed(e.target.value)}>
-                        <option value="fast">Fast</option>
-                        <option value="realtime">Realtime</option>
+                        <option value="fast">{t('app.deployments.fast', 'Fast')}</option>
+                        <option value="realtime">{t('app.deployments.realtime', 'Realtime')}</option>
                     </select>
                 </label>
                 <div className="deployments-page__sim-list">

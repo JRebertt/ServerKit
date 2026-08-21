@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { formatBytes } from '@/utils/formatBytes';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 function formatUptime(seconds) {
     if (!seconds) return '-';
@@ -26,6 +27,7 @@ function formatUptime(seconds) {
 }
 
 const SystemTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const { isAdmin } = useAuth();
     const { whiteLabel } = useTheme();
@@ -143,78 +145,78 @@ const SystemTab = () => {
         return (
             <div className="settings-section">
                 <div className="section-header">
-                    <h2>System Information</h2>
-                    <p>View system details and server information</p>
+                    <h2>{t('app.systemTab.systemInformation', 'System Information')}</h2>
+                    <p>{t('app.systemTab.viewSystemDetailsAndServerInformation', 'View system details and server information')}</p>
                 </div>
                 <div className="alert alert-warning">
-                    Admin access required to view system information.
+                    {t('app.systemTab.adminAccessRequiredToViewSystem', 'Admin access required to view system information.')}
                 </div>
             </div>
         );
     }
 
     if (loading) {
-        return <EmptyState loading title="Loading system information..." />;
+        return <EmptyState loading title={t('app.systemTab.loadingSystemInformation', 'Loading system information...')} />;
     }
 
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2>System Information</h2>
-                <p>View system details and server information</p>
+                <h2>{t('app.systemTab.systemInformation2', 'System Information')}</h2>
+                <p>{t('app.systemTab.viewSystemDetailsAndServerInformation2', 'View system details and server information')}</p>
             </div>
 
             <div className="system-info-grid">
                 <div {...register('system-cpu', 'settings-card')}>
                     <h3>CPU</h3>
                     <InfoList>
-                        <InfoItem label="Usage" value={`${metrics?.cpu?.percent?.toFixed(1) || 0}%`} />
-                        <InfoItem label="Cores" value={metrics?.cpu?.count || '-'} />
+                        <InfoItem label={t('app.systemTab.usage', 'Usage')} value={`${metrics?.cpu?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label={t('app.systemTab.cores', 'Cores')} value={metrics?.cpu?.count || '-'} />
                         <InfoItem
-                            label="Load Average"
+                            label={t('app.systemTab.loadAverage', 'Load Average')}
                             value={metrics?.cpu?.load_avg ? metrics.cpu.load_avg.map(l => l.toFixed(2)).join(', ') : '-'}
                         />
                     </InfoList>
                 </div>
 
                 <div {...register('system-memory', 'settings-card')}>
-                    <h3>Memory</h3>
+                    <h3>{t('app.systemTab.memory', 'Memory')}</h3>
                     <InfoList>
-                        <InfoItem label="Usage" value={`${metrics?.memory?.percent?.toFixed(1) || 0}%`} />
-                        <InfoItem label="Used" value={formatBytes(metrics?.memory?.used)} />
-                        <InfoItem label="Total" value={formatBytes(metrics?.memory?.total)} />
+                        <InfoItem label={t('app.systemTab.usage2', 'Usage')} value={`${metrics?.memory?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label={t('app.systemTab.used', 'Used')} value={formatBytes(metrics?.memory?.used)} />
+                        <InfoItem label={t('app.systemTab.total', 'Total')} value={formatBytes(metrics?.memory?.total)} />
                     </InfoList>
                 </div>
 
                 <div {...register('system-disk', 'settings-card')}>
-                    <h3>Disk</h3>
+                    <h3>{t('app.systemTab.disk', 'Disk')}</h3>
                     <InfoList>
-                        <InfoItem label="Usage" value={`${metrics?.disk?.percent?.toFixed(1) || 0}%`} />
-                        <InfoItem label="Used" value={formatBytes(metrics?.disk?.used)} />
-                        <InfoItem label="Total" value={formatBytes(metrics?.disk?.total)} />
+                        <InfoItem label={t('app.systemTab.usage3', 'Usage')} value={`${metrics?.disk?.percent?.toFixed(1) || 0}%`} />
+                        <InfoItem label={t('app.systemTab.used2', 'Used')} value={formatBytes(metrics?.disk?.used)} />
+                        <InfoItem label={t('app.systemTab.total2', 'Total')} value={formatBytes(metrics?.disk?.total)} />
                     </InfoList>
                 </div>
 
                 <div {...register('system-network', 'settings-card')}>
-                    <h3>Network</h3>
+                    <h3>{t('app.systemTab.network', 'Network')}</h3>
                     <InfoList>
-                        <InfoItem label="Bytes Sent" value={formatBytes(metrics?.network?.bytes_sent)} />
-                        <InfoItem label="Bytes Received" value={formatBytes(metrics?.network?.bytes_recv)} />
+                        <InfoItem label={t('app.systemTab.bytesSent', 'Bytes Sent')} value={formatBytes(metrics?.network?.bytes_sent)} />
+                        <InfoItem label={t('app.systemTab.bytesReceived', 'Bytes Received')} value={formatBytes(metrics?.network?.bytes_recv)} />
                     </InfoList>
                 </div>
             </div>
 
             {(metrics?.system || version) && (
                 <div className="settings-card">
-                    <h3>System Details</h3>
+                    <h3>{t('app.systemTab.systemDetails', 'System Details')}</h3>
                     <InfoList>
-                        <InfoItem label={`${brand} Version`} value={version || '-'} />
+                        <InfoItem label={t('app.systemTab.version', '{{brand}} Version', { brand: brand })} value={version || '-'} />
                         {metrics?.system && (
                             <>
-                                <InfoItem label="Hostname" value={metrics.system.hostname || '-'} />
-                                <InfoItem label="Platform" value={metrics.system.platform || '-'} />
-                                <InfoItem label="OS Version" value={metrics.system.version || '-'} />
-                                <InfoItem label="Uptime" value={formatUptime(metrics.system.uptime)} />
+                                <InfoItem label={t('app.systemTab.hostname', 'Hostname')} value={metrics.system.hostname || '-'} />
+                                <InfoItem label={t('app.systemTab.platform', 'Platform')} value={metrics.system.platform || '-'} />
+                                <InfoItem label={t('app.systemTab.osVersion', 'OS Version')} value={metrics.system.version || '-'} />
+                                <InfoItem label={t('app.systemTab.uptime', 'Uptime')} value={formatUptime(metrics.system.uptime)} />
                             </>
                         )}
                     </InfoList>
@@ -223,26 +225,26 @@ const SystemTab = () => {
 
             {/* Server Time & Timezone */}
             <div {...register('system-timezone', 'settings-card')}>
-                <h3>Server Time & Timezone</h3>
+                <h3>{t('app.systemTab.serverTimeTimezone', 'Server Time & Timezone')}</h3>
                 {metrics?.time && (
                     <InfoList style={{ marginBottom: '1rem' }}>
-                        <InfoItem label="Current Time" value={metrics.time.current_time_formatted} />
-                        <InfoItem label="UTC Offset" value={metrics.time.utc_offset} />
-                        <InfoItem label="Current Timezone" value={metrics.time.timezone_id || metrics.time.timezone_name} />
+                        <InfoItem label={t('app.systemTab.currentTime', 'Current Time')} value={metrics.time.current_time_formatted} />
+                        <InfoItem label={t('app.systemTab.utcOffset', 'UTC Offset')} value={metrics.time.utc_offset} />
+                        <InfoItem label={t('app.systemTab.currentTimezone', 'Current Timezone')} value={metrics.time.timezone_id || metrics.time.timezone_name} />
                     </InfoList>
                 )}
                 <div className="form-group">
-                    <label>Change Timezone</label>
+                    <label>{t('app.systemTab.changeTimezone', 'Change Timezone')}</label>
                     <div className="timezone-selector">
                         <Select
                             value={selectedTimezone || '__none__'}
                             onValueChange={(val) => setSelectedTimezone(val === '__none__' ? '' : val)}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Select timezone..." />
+                                <SelectValue placeholder={t('app.systemTab.selectTimezone', 'Select timezone...')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__none__">Select timezone...</SelectItem>
+                                <SelectItem value="__none__">{t('app.systemTab.selectTimezone2', 'Select timezone...')}</SelectItem>
                                 {timezones.map((tz) => (
                                     <SelectItem key={tz} value={tz}>{tz}</SelectItem>
                                 ))}
@@ -262,27 +264,26 @@ const SystemTab = () => {
                         </div>
                     )}
                     <span className="form-help">
-                        Changing timezone requires server restart to take full effect
+                        {t('app.systemTab.changingTimezoneRequiresServerRestartTo', 'Changing timezone requires server restart to take full effect')}
                     </span>
                 </div>
             </div>
 
             {/* Panel Domain */}
             <div {...register('system-canonical-domain', 'settings-card')}>
-                <h3>Panel Domain</h3>
+                <h3>{t('app.systemTab.panelDomain', 'Panel Domain')}</h3>
                 {!encryptionConfigured && (
                     <div className="alert alert-warning" style={{ marginBottom: '1rem' }}>
-                        <strong>Encryption key not configured.</strong> Agent pairing and secret encryption
-                        will fail until SERVERKIT_ENCRYPTION_KEY is set in your .env file.
+                        <strong>{t('app.systemTab.encryptionKeyNotConfigured', 'Encryption key not configured.')}</strong> {t('app.systemTab.agentPairingAndSecretEncryptionWill', 'Agent pairing and secret encryption will fail until SERVERKIT_ENCRYPTION_KEY is set in your .env file.')}
                     </div>
                 )}
                 {domainLoading ? (
-                    <EmptyState loading title="Loading domain settings..." />
+                    <EmptyState loading title={t('app.systemTab.loadingDomainSettings', 'Loading domain settings...')} />
                 ) : (
                     <>
                         {detectedDomain?.detected_domain && (
                             <div className="form-group">
-                                <label>Detected Domain</label>
+                                <label>{t('app.systemTab.detectedDomain', 'Detected Domain')}</label>
                                 <div className="form-row" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                     <code style={{ flex: 1 }}>
                                         {detectedDomain.is_https ? 'https' : 'http'}://{detectedDomain.detected_domain}
@@ -293,33 +294,33 @@ const SystemTab = () => {
                                         onClick={handleUseDetectedDomain}
                                         disabled={savingDomain}
                                     >
-                                        Use this domain
+                                        {t('app.systemTab.useThisDomain', 'Use this domain')}
                                     </Button>
                                 </div>
                                 <span className="form-help">
-                                    Detected from the Host header of your current request
+                                    {t('app.systemTab.detectedFromTheHostHeaderOf', 'Detected from the Host header of your current request')}
                                 </span>
                             </div>
                         )}
                         {detectedDomain?.current_canonical_domain && (
                             <div className="form-group">
-                                <label>Current Canonical Domain</label>
+                                <label>{t('app.systemTab.currentCanonicalDomain', 'Current Canonical Domain')}</label>
                                 <div>
                                     <code>{detectedDomain.current_canonical_origin || '-'}</code>
                                 </div>
                             </div>
                         )}
                         <div className="form-group">
-                            <label htmlFor="canonical-domain">Canonical Domain</label>
+                            <label htmlFor="canonical-domain">{t('app.systemTab.canonicalDomain', 'Canonical Domain')}</label>
                             <Input
                                 id="canonical-domain"
                                 value={canonicalDomain}
                                 onChange={(e) => setCanonicalDomain(e.target.value)}
-                                placeholder="e.g. serverkit.example.com"
+                                placeholder={t('app.systemTab.eGServerkitExampleCom', 'e.g. serverkit.example.com')}
                                 disabled={savingDomain}
                             />
                             <span className="form-help">
-                                The domain you point at this ServerKit panel. Used for CORS and agent install commands.
+                                {t('app.systemTab.theDomainYouPointAtThis', 'The domain you point at this ServerKit panel. Used for CORS and agent install commands.')}
                             </span>
                         </div>
                         <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -330,7 +331,7 @@ const SystemTab = () => {
                                 disabled={savingDomain}
                             />
                             <label htmlFor="canonical-https" style={{ margin: 0 }}>
-                                HTTPS enabled for canonical domain
+                                {t('app.systemTab.httpsEnabledForCanonicalDomain', 'HTTPS enabled for canonical domain')}
                             </label>
                         </div>
                         <Button

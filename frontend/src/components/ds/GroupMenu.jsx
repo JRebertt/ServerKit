@@ -2,6 +2,7 @@ import { Group } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 // Toolbar popover for row grouping (Huly/Frappe "Group by"). Lists the
 // table's groupable columns plus "No grouping"; the trigger shows the active
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils';
 //
 //   <GroupMenu columns={columns} groupBy={groupBy} onChange={setGroupBy} />
 export function GroupMenu({ columns = [], groupBy = null, onChange, className }) {
+    const { t } = useTranslation();
     const groupable = columns.filter((c) => c.groupable);
     if (!groupable.length) return null;
 
@@ -30,14 +32,14 @@ export function GroupMenu({ columns = [], groupBy = null, onChange, className })
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="sk-tablemenu">
-                <div className="sk-tablemenu__title">Group by</div>
+                <div className="sk-tablemenu__title">{t('app.groupMenu.groupBy', 'Group by')}</div>
                 <div className="sk-tablemenu__list">
                     <button
                         type="button"
                         className={cn('sk-tablemenu__item', !active && 'is-on')}
                         onClick={() => onChange?.(null)}
                     >
-                        No grouping
+                        {t('app.groupMenu.noGrouping', 'No grouping')}
                     </button>
                     {groupable.map((column) => (
                         <button

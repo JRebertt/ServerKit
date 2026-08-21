@@ -10,14 +10,14 @@
 // surfaced as a quiet cross-link on the card.
 
 export const CONNECTION_CATEGORIES = [
-    { key: 'source', label: 'Source code', blurb: 'Create services straight from a repository instead of pasting clone URLs.' },
-    { key: 'infra', label: 'Infrastructure', blurb: 'Cloud accounts ServerKit can provision and manage servers in.' },
-    { key: 'registry', label: 'Container registries', blurb: 'Store a login once so ServerKit can pull private images (GHCR, Docker Hub, GitLab, ECR).' },
-    { key: 'dns', label: 'DNS & domains', blurb: 'Let ServerKit manage DNS records and issue wildcard certificates automatically.' },
-    { key: 'registrar', label: 'Registrars & ownership', blurb: 'Track the domains you own and when their registration expires.' },
-    { key: 'email', label: 'Email & delivery', blurb: 'Outbound relays and deliverability for the mail server.' },
-    { key: 'chat', label: 'Chat & webhooks', blurb: 'Send notifications to a shared chat room or webhook, filtered by category.' },
-    { key: 'storage', label: 'Storage & backups', blurb: 'Off-site destinations for backups and large assets.' },
+    { key: 'source', labelKey: 'app.providerCatalog.sourceCode', label: 'Source code', blurb: 'Create services straight from a repository instead of pasting clone URLs.' },
+    { key: 'infra', labelKey: 'app.providerCatalog.infrastructure', label: 'Infrastructure', blurb: 'Cloud accounts ServerKit can provision and manage servers in.' },
+    { key: 'registry', labelKey: 'app.providerCatalog.containerRegistries', label: 'Container registries', blurb: 'Store a login once so ServerKit can pull private images (GHCR, Docker Hub, GitLab, ECR).' },
+    { key: 'dns', labelKey: 'app.providerCatalog.dnsDomains', label: 'DNS & domains', blurb: 'Let ServerKit manage DNS records and issue wildcard certificates automatically.' },
+    { key: 'registrar', labelKey: 'app.providerCatalog.registrarsOwnership', label: 'Registrars & ownership', blurb: 'Track the domains you own and when their registration expires.' },
+    { key: 'email', labelKey: 'app.providerCatalog.emailDelivery', label: 'Email & delivery', blurb: 'Outbound relays and deliverability for the mail server.' },
+    { key: 'chat', labelKey: 'app.providerCatalog.chatWebhooks', label: 'Chat & webhooks', blurb: 'Send notifications to a shared chat room or webhook, filtered by category.' },
+    { key: 'storage', labelKey: 'app.providerCatalog.storageBackups', label: 'Storage & backups', blurb: 'Off-site destinations for backups and large assets.' },
 ];
 
 export const CONNECTION_PROVIDERS = [
@@ -171,17 +171,17 @@ export function deriveScope(record) {
     if (!record) return null;
     if (record.provider === 'cloudflare') {
         return record.api_email
-            ? { label: 'Global key', tone: 'warn', hint: 'Full account access' }
-            : { label: 'Scoped token', tone: 'ok', hint: 'Least privilege' };
+            ? { labelKey: 'app.providerCatalog.globalKey', label: 'Global key', tone: 'warn', hintKey: 'app.providerCatalog.fullAccountAccess', hint: 'Full account access' }
+            : { labelKey: 'app.providerCatalog.scopedToken', label: 'Scoped token', tone: 'ok', hintKey: 'app.providerCatalog.leastPrivilege', hint: 'Least privilege' };
     }
     if (record.provider === 'route53') {
-        return { label: 'Access key', tone: 'neutral', hint: 'Scope set by IAM policy' };
+        return { labelKey: 'app.providerCatalog.accessKey', label: 'Access key', tone: 'neutral', hintKey: 'app.providerCatalog.scopeSetByIamPolicy', hint: 'Scope set by IAM policy' };
     }
     if (record.provider === 'digitalocean') {
-        return { label: 'API token', tone: 'ok', hint: 'DigitalOcean personal access token' };
+        return { labelKey: 'app.providerCatalog.apiToken', label: 'API token', tone: 'ok', hintKey: 'app.providerCatalog.digitaloceanPersonalAccessToken', hint: 'DigitalOcean personal access token' };
     }
     if (record.provider === 'godaddy') {
-        return { label: 'API key', tone: 'neutral', hint: 'GoDaddy account API key' };
+        return { labelKey: 'app.providerCatalog.apiKey', label: 'API key', tone: 'neutral', hintKey: 'app.providerCatalog.godaddyAccountApiKey', hint: 'GoDaddy account API key' };
     }
     return null;
 }

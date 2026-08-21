@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 import { Send, Square } from 'lucide-react';
 import { useServerkitAI } from '../../contexts/AIContext';
+import { useTranslation } from 'react-i18next';
 
 const Composer = () => {
+    const { t } = useTranslation();
     const { send, stop, isStreaming, providerConfigured } = useServerkitAI();
     const [value, setValue] = useState('');
     const textareaRef = useRef(null);
@@ -35,15 +37,15 @@ const Composer = () => {
                 ref={textareaRef}
                 className="sk-ai-composer__input"
                 rows={1}
-                placeholder={providerConfigured ? 'Ask about your servers…' : 'Assistant not configured'}
+                placeholder={providerConfigured ? t('app.composer.askAboutYourServers', 'Ask about your servers…') : t('app.composer.assistantNotConfigured', 'Assistant not configured')}
                 value={value}
                 disabled={!providerConfigured}
                 onChange={onInput}
                 onKeyDown={onKeyDown}
-                aria-label="Message the assistant"
+                aria-label={t('app.composer.messageTheAssistant', 'Message the assistant')}
             />
             {isStreaming ? (
-                <button type="button" className="sk-ai-composer__btn sk-ai-composer__btn--stop" onClick={stop} aria-label="Stop">
+                <button type="button" className="sk-ai-composer__btn sk-ai-composer__btn--stop" onClick={stop} aria-label={t('app.composer.stop', 'Stop')}>
                     <Square size={16} />
                 </button>
             ) : (
@@ -52,7 +54,7 @@ const Composer = () => {
                     className="sk-ai-composer__btn"
                     onClick={submit}
                     disabled={!providerConfigured || !value.trim()}
-                    aria-label="Send"
+                    aria-label={t('app.composer.send', 'Send')}
                 >
                     <Send size={16} />
                 </button>

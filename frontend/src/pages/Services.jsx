@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import Modal from '@/components/Modal';
 import RequiresDocker from '../components/RequiresDocker';
+import { useTranslation } from 'react-i18next';
 
 // Severity order for status sorting — also the page's default row order.
 const STATUS_SORT_ORDER = { running: 0, deploying: 1, building: 2, stopped: 3, failed: 4 };
@@ -102,6 +103,7 @@ const SERVICE_VIEWS = [
 ];
 
 const Services = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const toast = useToast();
     const [apps, setApps] = useState([]);
@@ -126,7 +128,7 @@ const Services = () => {
             const data = await api.getApps();
             setApps(data.apps || []);
         } catch (err) {
-            toast.error('Failed to load services');
+            toast.error(t('app.services.failedToLoadServices', 'Failed to load services'));
         } finally {
             setLoading(false);
         }
@@ -141,7 +143,7 @@ const Services = () => {
             else if (action === 'restart') await api.restartApp(appId);
             await loadApps();
         } catch (err) {
-            toast.error(`Failed to ${action} service`);
+            toast.error(t('app.services.failedToService', 'Failed to {{action}} service', { action: action }));
         } finally {
             setActionLoading(null);
         }
@@ -158,11 +160,11 @@ const Services = () => {
                 return Promise.resolve();
             });
             await Promise.allSettled(promises);
-            toast.success(`${action} sent to ${selectedIds.size} service(s)`);
+            toast.success(t('app.services.sentToServiceS', '{{action}} sent to {{size}} service(s)', { action: action, size: selectedIds.size }));
             setSelectedIds(new Set());
             await loadApps();
         } catch (err) {
-            toast.error(`Bulk ${action} failed`);
+            toast.error(t('app.services.bulkFailed', 'Bulk {{action}} failed', { action: action }));
         } finally {
             setBulkLoading(false);
         }
@@ -182,19 +184,19 @@ const Services = () => {
             <Button variant="outline" size="sm" asChild>
                 <Link to="/imports">
                     <ArrowDownToLine size={16} />
-                    Import a site
+                    {t('app.services.importASite', 'Import a site')}
                 </Link>
             </Button>
             <Button size="sm" asChild>
                 <Link to="/services/new">
                     <Plus size={16} />
-                    New Service
+                    {t('app.services.newService', 'New Service')}
                 </Link>
             </Button>
             <SearchField
                 value={searchTerm}
                 onSearch={setSearchTerm}
-                placeholder="Search services…"
+                placeholder={t('app.services.searchServices', 'Search services…')}
             />
         </>,
         [searchTerm]
@@ -214,7 +216,7 @@ const Services = () => {
     const columns = [
         {
             key: 'name',
-            header: 'Service',
+            headerKey: 'app.services.service', header: 'Service',
             sortable: true,
             hideable: false,
             render: (app) => {
@@ -232,7 +234,7 @@ const Services = () => {
         },
         {
             key: 'project',
-            header: 'Project',
+            headerKey: 'app.services.project', header: 'Project',
             sortable: true,
             // Unassigned services (no project) sort last.
             sortValue: (app) => app.project_name || null,
@@ -251,13 +253,13 @@ const Services = () => {
                         )}
                     </span>
                 ) : (
-                    <span className="services-page__unassigned">Unassigned</span>
+                    <span className="services-page__unassigned">{t('app.services.unassigned', 'Unassigned')}</span>
                 )
             ),
         },
         {
             key: 'source',
-            header: 'Source',
+            headerKey: 'app.services.source', header: 'Source',
             render: (app) => {
                 const isGithub = (app.deploy_repo_url || '').includes('github.com');
                 if (app.deploy_repo_url) {
@@ -272,7 +274,7 @@ const Services = () => {
                     return (
                         <span className="services-page__src-badge services-page__src-badge--manual" title={app.root_path || ''}>
                             <FolderOpen size={12} />
-                            Local
+                            {t('app.services.local', 'Local')}
                         </span>
                     );
                 }
@@ -280,7 +282,7 @@ const Services = () => {
                     return (
                         <span className="services-page__src-badge services-page__src-badge--upload" title={app.upload_path || ''}>
                             <FileArchive size={12} />
-                            Upload v{app.version || 1}
+                            {t('app.services.uploadV', 'Upload v')}{app.version || 1}
                         </span>
                     );
                 }
@@ -289,7 +291,7 @@ const Services = () => {
         },
         {
             key: 'domain',
-            header: 'Domain',
+            headerKey: 'app.services.domain', header: 'Domain',
             sortable: true,
             sortValue: (app) => (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || null,
             cellClassName: 'sk-cell-mono',
@@ -300,14 +302,14 @@ const Services = () => {
         },
         {
             key: 'bandwidth',
-            header: 'Transfer',
+            headerKey: 'app.services.transfer', header: 'Transfer',
             render: (app) => {
                 const bw = bandwidth[String(app.id)];
                 if (!bw || !bw.series30?.some(v => v > 0)) {
                     return <span className="wp-list__dash">—</span>;
                 }
                 return (
-                    <span className="bw-cell" title="Transfer — last 30 days">
+                    <span className="bw-cell" title={t('app.services.transferLast30Days', 'Transfer — last 30 days')}>
                         <BandwidthSparkline data={bw.series30} width={72} height={20} />
                         <span className="bw-cell__month">{formatBytes(bw.month_bytes)}/mo</span>
                     </span>
@@ -316,7 +318,7 @@ const Services = () => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.services.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // `value` is the FILTER/GROUP value, `sortValue` is the ORDERING key —
@@ -334,7 +336,7 @@ const Services = () => {
         },
         {
             key: 'last_deploy',
-            header: 'Last Deploy',
+            headerKey: 'app.services.lastDeploy', header: 'Last Deploy',
             sortable: true,
             // Numeric timestamp sort; never-deployed services sort last.
             sortValue: (app) => (app.last_deploy_at ? new Date(app.last_deploy_at).getTime() : null),
@@ -355,15 +357,15 @@ const Services = () => {
                     <div className="services-page__actions" onClick={(e) => e.stopPropagation()}>
                         {isRunning ? (
                             <>
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title="Restart">
+                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title={t('app.services.restart', 'Restart')}>
                                     <RotateCw size={14} />
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title="Stop">
+                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title={t('app.services.stop', 'Stop')}>
                                     <Square size={14} />
                                 </Button>
                             </>
                         ) : (
-                            <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title="Start">
+                            <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title={t('app.services.start', 'Start')}>
                                 <Play size={14} />
                             </Button>
                         )}
@@ -398,11 +400,11 @@ const Services = () => {
                 <>
                     <Button variant="outline" size="sm" onClick={() => setShowMoveDialog(true)} disabled={bulkLoading}>
                         <FolderKanban size={14} />
-                        Move to project
+                        {t('app.services.moveToProject', 'Move to project')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('restart')} disabled={bulkLoading}>Restart All</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('stop')} disabled={bulkLoading}>Stop All</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('start')} disabled={bulkLoading}>Start All</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('restart')} disabled={bulkLoading}>{t('app.services.restartAll', 'Restart All')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('stop')} disabled={bulkLoading}>{t('app.services.stopAll', 'Stop All')}</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleBulkAction('start')} disabled={bulkLoading}>{t('app.services.startAll', 'Start All')}</Button>
                 </>
             }
             emptyIcon={Layers}
@@ -410,7 +412,7 @@ const Services = () => {
             emptyDescription="Connect a repository or install a template to get started"
             emptyAction={
                 <Button asChild>
-                    <Link to="/services/new">Create Service</Link>
+                    <Link to="/services/new">{t('app.services.createService', 'Create Service')}</Link>
                 </Button>
             }
             filteredEmptyIcon={Layers}
@@ -427,14 +429,14 @@ const Services = () => {
                         await api.moveAppsToProject([...selectedIds], projectId, environmentId);
                         toast.success(
                             projectId === null
-                                ? `Unassigned ${selectedIds.size} service(s)`
-                                : `Moved ${selectedIds.size} service(s)`
+                                ? t('app.services.unassignedServiceS', 'Unassigned {{size}} service(s)', { size: selectedIds.size })
+                                : t('app.services.movedServiceS', 'Moved {{size}} service(s)', { size: selectedIds.size })
                         );
                         setShowMoveDialog(false);
                         setSelectedIds(new Set());
                         await loadApps();
                     } catch (err) {
-                        toast.error(err.message || 'Failed to move services');
+                        toast.error(err.message || t('app.services.failedToMoveServices', 'Failed to move services'));
                     } finally {
                         setBulkLoading(false);
                     }
@@ -449,6 +451,7 @@ const Services = () => {
 // (or leave unassigned). Loads the project list lazily on open; fetches the
 // chosen project's environments on selection.
 const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const [projects, setProjects] = useState([]);
     const [environments, setEnvironments] = useState([]);
@@ -467,7 +470,7 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
         setLoadingProjects(true);
         api.getProjects()
             .then((data) => setProjects(Array.isArray(data?.projects) ? data.projects : []))
-            .catch(() => toast.error('Failed to load projects'))
+            .catch(() => toast.error(t('app.services.failedToLoadProjects', 'Failed to load projects')))
             .finally(() => setLoadingProjects(false));
     }, [open, toast]);
 
@@ -482,7 +485,7 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
             const envs = Array.isArray(data?.project?.environments) ? data.project.environments : [];
             setEnvironments(envs);
         } catch {
-            toast.error('Failed to load environments');
+            toast.error(t('app.services.failedToLoadEnvironments', 'Failed to load environments'));
         } finally {
             setLoadingEnvs(false);
         }
@@ -503,11 +506,11 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
         <Modal
             open={open}
             onClose={() => onOpenChange(false)}
-            title="Move to project"
+            title={t('app.services.moveToProject2', 'Move to project')}
             footer={(
                 <>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
+                        {t('app.services.cancel', 'Cancel')}
                     </Button>
                     <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
                         {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
@@ -516,19 +519,18 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
             )}
         >
             <p className="sk-modal__subtitle">
-                Assign {count} selected service{count === 1 ? '' : 's'} to a project and
-                environment, or leave them unassigned.
+                {t('app.services.assign', 'Assign')} {count} {t('app.services.selectedService', 'selected service')}{count === 1 ? '' : 's'} {t('app.services.toAProjectAndEnvironmentOr', 'to a project and environment, or leave them unassigned.')}
             </p>
 
             <div className="services-move">
                     <div className="services-move__field">
-                        <Label htmlFor="move-project">Project</Label>
+                        <Label htmlFor="move-project">{t('app.services.project2', 'Project')}</Label>
                         <Select value={projectValue} onValueChange={handleProjectChange} disabled={loadingProjects}>
                             <SelectTrigger id="move-project">
-                                <SelectValue placeholder={loadingProjects ? 'Loading…' : 'Select a project'} />
+                                <SelectValue placeholder={loadingProjects ? t('app.services.loading', 'Loading…') : t('app.services.selectAProject', 'Select a project')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={UNASSIGN}>Unassigned</SelectItem>
+                                <SelectItem value={UNASSIGN}>{t('app.services.unassigned2', 'Unassigned')}</SelectItem>
                                 {projects.map((p) => (
                                     <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                                 ))}
@@ -538,13 +540,13 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
 
                     {projectValue !== UNASSIGN && (
                         <div className="services-move__field">
-                            <Label htmlFor="move-env">Environment</Label>
+                            <Label htmlFor="move-env">{t('app.services.environment', 'Environment')}</Label>
                             <Select value={envValue} onValueChange={setEnvValue} disabled={loadingEnvs}>
                                 <SelectTrigger id="move-env">
-                                    <SelectValue placeholder={loadingEnvs ? 'Loading…' : 'No specific environment'} />
+                                    <SelectValue placeholder={loadingEnvs ? t('app.services.loading2', 'Loading…') : t('app.services.noSpecificEnvironment', 'No specific environment')} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={NO_ENV}>No specific environment</SelectItem>
+                                    <SelectItem value={NO_ENV}>{t('app.services.noSpecificEnvironment2', 'No specific environment')}</SelectItem>
                                     {environments.map((e) => (
                                         <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
                                     ))}

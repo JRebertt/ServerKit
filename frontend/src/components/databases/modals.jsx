@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EngineIcon } from '../icons/DatabaseBrands';
 import { ENGINE_META } from './dbAdapter';
+import { useTranslation } from 'react-i18next';
 
 // Create / credentials modals for the explorer. Logic is unchanged from the
 // original Databases page; the explorer wires them to its toolbar and tree.
@@ -14,10 +15,11 @@ import { ENGINE_META } from './dbAdapter';
 // Modal footer slot).
 
 function CredentialsResult({ title, rows, onDone }) {
+    const { t } = useTranslation();
     return (
         <Modal open onClose={onDone} title={title}>
             <div className="credentials-box">
-                <p>Save these credentials — the password won&apos;t be shown again.</p>
+                <p>{t('app.modals.saveTheseCredentialsThePasswordWon', 'Save these credentials — the password won\'t be shown again.')}</p>
                 {rows.map(([label, value]) => (
                     <div className="credential-item" key={label}>
                         <label>{label}:</label>
@@ -26,7 +28,7 @@ function CredentialsResult({ title, rows, onDone }) {
                 ))}
             </div>
             <div className="modal-actions">
-                <Button onClick={onDone}>Done</Button>
+                <Button onClick={onDone}>{t('app.modals.done', 'Done')}</Button>
             </div>
         </Modal>
     );
@@ -47,6 +49,7 @@ function CredentialsResult({ title, rows, onDone }) {
 const CREATABLE_ENGINES = ['mysql', 'postgresql'];
 
 function EnginePicker({ value, onChange, status, onInstallEngine }) {
+    const { t } = useTranslation();
     return (
         <div className="dbx-eng-pick">
             {CREATABLE_ENGINES.map((engine) => {
@@ -58,7 +61,7 @@ function EnginePicker({ value, onChange, status, onInstallEngine }) {
                         className={`dbx-eng-opt${value === engine ? ' is-on' : ''}`}
                         onClick={() => onChange(engine)}
                         disabled={!running}
-                        title={running ? undefined : `${ENGINE_META[engine].label} is not running`}
+                        title={running ? undefined : t('app.modals.isNotRunning', '{{label}} is not running', { label: ENGINE_META[engine].label })}
                     >
                         <span className={`dbx-eng-opt__ico is-${engine}`}>
                             <EngineIcon engine={engine} size={16} />
@@ -78,8 +81,8 @@ function EnginePicker({ value, onChange, status, onInstallEngine }) {
                 >
                     <span className="dbx-eng-opt__ico"><Plus size={16} aria-hidden="true" /></span>
                     <span className="dbx-eng-opt__text">
-                        <span className="dbx-eng-opt__name">Install an engine</span>
-                        <span className="dbx-eng-opt__sub">from the template catalog</span>
+                        <span className="dbx-eng-opt__name">{t('app.modals.installAnEngine', 'Install an engine')}</span>
+                        <span className="dbx-eng-opt__sub">{t('app.modals.fromTheTemplateCatalog', 'from the template catalog')}</span>
                     </span>
                 </button>
             )}
@@ -88,6 +91,7 @@ function EnginePicker({ value, onChange, status, onInstallEngine }) {
 }
 
 export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, onClose, onCreated, onInstallEngine }) {
+    const { t } = useTranslation();
     const [engine, setEngine] = useState(initialEngine);
     const [formData, setFormData] = useState({
         name: '', charset: 'utf8mb4', collation: 'utf8mb4_unicode_ci', encoding: 'UTF8', create_user: true,
@@ -141,7 +145,7 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
         const attached = apps.find((a) => String(a.id) === String(applicationId));
         return (
             <CredentialsResult
-                title="Database created"
+                title={t('app.modals.databaseCreated', 'Database created')}
                 rows={[
                     ['Database', createdInfo.database],
                     ['Username', createdInfo.user],
@@ -154,11 +158,11 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
     }
 
     return (
-        <Modal open onClose={onClose} title="New database">
+        <Modal open onClose={onClose} title={t('app.modals.newDatabase', 'New database')}>
             {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Engine</label>
+                    <label>{t('app.modals.engine', 'Engine')}</label>
                     <EnginePicker
                         value={engine}
                         onChange={setEngine}
@@ -168,14 +172,14 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                 </div>
 
                 <div className="form-group">
-                    <label>Database name *</label>
+                    <label>{t('app.modals.databaseName', 'Database name *')}</label>
                     <Input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="my_database" required pattern="[a-zA-Z0-9_]+" autoFocus />
                 </div>
 
                 {isMySQL ? (
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Character set</label>
+                            <label>{t('app.modals.characterSet', 'Character set')}</label>
                             <select value={formData.charset} onChange={(e) => setFormData({ ...formData, charset: e.target.value })}>
                                 <option value="utf8mb4">utf8mb4</option>
                                 <option value="utf8">utf8</option>
@@ -183,7 +187,7 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                             </select>
                         </div>
                         <div className="form-group">
-                            <label>Collation</label>
+                            <label>{t('app.modals.collation', 'Collation')}</label>
                             <select value={formData.collation} onChange={(e) => setFormData({ ...formData, collation: e.target.value })}>
                                 <option value="utf8mb4_unicode_ci">utf8mb4_unicode_ci</option>
                                 <option value="utf8mb4_general_ci">utf8mb4_general_ci</option>
@@ -193,7 +197,7 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                     </div>
                 ) : (
                     <div className="form-group">
-                        <label>Encoding</label>
+                        <label>{t('app.modals.encoding', 'Encoding')}</label>
                         <select value={formData.encoding} onChange={(e) => setFormData({ ...formData, encoding: e.target.value })}>
                             <option value="UTF8">UTF8</option>
                             <option value="LATIN1">LATIN1</option>
@@ -203,14 +207,14 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                 )}
 
                 <div className="form-group">
-                    <label htmlFor="dbx-attach-app">Attach to application</label>
+                    <label htmlFor="dbx-attach-app">{t('app.modals.attachToApplication', 'Attach to application')}</label>
                     <select
                         id="dbx-attach-app"
                         value={applicationId}
                         onChange={(e) => setApplicationId(e.target.value)}
                         disabled={appsLoading}
                     >
-                        <option value="">— None —</option>
+                        <option value="">{t('app.modals.none', '— None —')}</option>
                         {apps.map((app) => <option key={app.id} value={app.id}>{app.name}</option>)}
                     </select>
                     <span className="form-help">
@@ -223,11 +227,11 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                 <div className="form-group">
                     <label className="checkbox-label">
                         <input type="checkbox" checked={formData.create_user} onChange={(e) => setFormData({ ...formData, create_user: e.target.checked })} />
-                        Create user with same name and full privileges
+                        {t('app.modals.createUserWithSameNameAnd', 'Create user with same name and full privileges')}
                     </label>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create database'}</Button>
                 </div>
             </form>
@@ -236,6 +240,7 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
 }
 
 export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({ username: '', password: '', host: 'localhost', database: '', privileges: 'ALL' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -267,7 +272,7 @@ export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
     if (createdInfo) {
         return (
             <CredentialsResult
-                title="User created"
+                title={t('app.modals.userCreated', 'User created')}
                 rows={[['Username', createdInfo.username], ['Password', createdInfo.password], ['Host', createdInfo.host]]}
                 onDone={() => { onCreated(); onClose(); }}
             />
@@ -275,37 +280,37 @@ export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
     }
 
     return (
-        <Modal open onClose={onClose} title="Create MySQL user">
+        <Modal open onClose={onClose} title={t('app.modals.createMysqlUser', 'Create MySQL user')}>
             {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Username *</label>
+                    <label>{t('app.modals.username', 'Username *')}</label>
                     <Input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="db_user" required autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>Password</label>
+                    <label>{t('app.modals.password', 'Password')}</label>
                     <div className="input-with-button">
-                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave empty to auto-generate" />
-                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>Generate</Button>
+                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={t('app.modals.leaveEmptyToAutoGenerate', 'Leave empty to auto-generate')} />
+                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>{t('app.modals.generate', 'Generate')}</Button>
                     </div>
                 </div>
                 <div className="form-group">
-                    <label>Host</label>
+                    <label>{t('app.modals.host', 'Host')}</label>
                     <select value={formData.host} onChange={(e) => setFormData({ ...formData, host: e.target.value })}>
                         <option value="localhost">localhost</option>
-                        <option value="%">% (any host)</option>
+                        <option value="%">{t('app.modals.anyHost', '% (any host)')}</option>
                         <option value="127.0.0.1">127.0.0.1</option>
                     </select>
                 </div>
                 <div className="form-group">
-                    <label>Grant privileges on database</label>
+                    <label>{t('app.modals.grantPrivilegesOnDatabase', 'Grant privileges on database')}</label>
                     <select value={formData.database} onChange={(e) => setFormData({ ...formData, database: e.target.value })}>
-                        <option value="">— None —</option>
+                        <option value="">{t('app.modals.none2', '— None —')}</option>
                         {databases.map((db) => <option key={db.name} value={db.name}>{db.name}</option>)}
                     </select>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel2', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create user'}</Button>
                 </div>
             </form>
@@ -314,6 +319,7 @@ export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
 }
 
 export function CreatePostgreSQLUserModal({ databases, onClose, onCreated }) {
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({ username: '', password: '', database: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -345,7 +351,7 @@ export function CreatePostgreSQLUserModal({ databases, onClose, onCreated }) {
     if (createdInfo) {
         return (
             <CredentialsResult
-                title="User created"
+                title={t('app.modals.userCreated2', 'User created')}
                 rows={[['Username', createdInfo.username], ['Password', createdInfo.password]]}
                 onDone={() => { onCreated(); onClose(); }}
             />
@@ -353,29 +359,29 @@ export function CreatePostgreSQLUserModal({ databases, onClose, onCreated }) {
     }
 
     return (
-        <Modal open onClose={onClose} title="Create PostgreSQL user">
+        <Modal open onClose={onClose} title={t('app.modals.createPostgresqlUser', 'Create PostgreSQL user')}>
             {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>Username *</label>
+                    <label>{t('app.modals.username2', 'Username *')}</label>
                     <Input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="db_user" required autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>Password</label>
+                    <label>{t('app.modals.password2', 'Password')}</label>
                     <div className="input-with-button">
-                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave empty to auto-generate" />
-                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>Generate</Button>
+                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={t('app.modals.leaveEmptyToAutoGenerate2', 'Leave empty to auto-generate')} />
+                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>{t('app.modals.generate2', 'Generate')}</Button>
                     </div>
                 </div>
                 <div className="form-group">
-                    <label>Grant privileges on database</label>
+                    <label>{t('app.modals.grantPrivilegesOnDatabase2', 'Grant privileges on database')}</label>
                     <select value={formData.database} onChange={(e) => setFormData({ ...formData, database: e.target.value })}>
-                        <option value="">— None —</option>
+                        <option value="">{t('app.modals.none3', '— None —')}</option>
                         {databases.map((db) => <option key={db.name} value={db.name}>{db.name}</option>)}
                     </select>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel3', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create user'}</Button>
                 </div>
             </form>

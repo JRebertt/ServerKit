@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // How many slices the severity map is divided into. Enough to resolve a single
 // error in a long log without rendering a node per line.
@@ -24,6 +25,7 @@ export default function LogPane({
     lines, wrap, timestamps, follow, onFollowChange, scrollToStep,
     scrollTarget, stepNames = [],
 }) {
+    const { t } = useTranslation();
     const paneRef = useRef(null);
     const endRef = useRef(null);
     const [showJump, setShowJump] = useState(false);
@@ -171,7 +173,7 @@ export default function LogPane({
                 aria-live="polite"
             >
                 {lines.length === 0 ? (
-                    <div className="deploy-console__log-empty">Waiting for output…</div>
+                    <div className="deploy-console__log-empty">{t('app.logPane.waitingForOutput', 'Waiting for output…')}</div>
                 ) : (
                     sections.map((section) => {
                         const isShut = collapsed.has(section.key);
@@ -221,7 +223,7 @@ export default function LogPane({
                 <div
                     className="deploy-console__map"
                     onMouseDown={onMapDown}
-                    title="Log severity — click or drag to jump"
+                    title={t('app.logPane.logSeverityClickOrDragTo', 'Log severity — click or drag to jump')}
                 >
                     {buckets.map((level, i) => (
                         <i
@@ -238,7 +240,7 @@ export default function LogPane({
             )}
             {showJump && (
                 <button type="button" className="deploy-console__jump" onClick={jumpToLive}>
-                    <ArrowDown size={14} /> Jump to live
+                    <ArrowDown size={14} /> {t('app.logPane.jumpToLive', 'Jump to live')}
                 </button>
             )}
         </div>

@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next';
 // Tiny dependency-free SVG sparkline for daily bandwidth series.
 // Plain <polyline> — deliberately no chart library.
 
 const BandwidthSparkline = ({ data, width = 96, height = 24, className = '' }) => {
+    const { t } = useTranslation();
     if (!Array.isArray(data) || data.length === 0) return null;
 
     const max = Math.max(...data, 1);
@@ -24,7 +26,7 @@ const BandwidthSparkline = ({ data, width = 96, height = 24, className = '' }) =
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label="Daily transfer sparkline"
+            aria-label={t('app.bandwidthSparkline.dailyTransferSparkline', 'Daily transfer sparkline')}
         >
             <polyline
                 points={points}

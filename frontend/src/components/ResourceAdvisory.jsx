@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { useResourceTier } from '../contexts/ResourceTierContext';
+import { useTranslation } from 'react-i18next';
 
 // Approximate steady-state RSS per workload, mirroring WORKLOAD_FOOTPRINTS_MB
 // in backend/app/services/resource_tier_service.py. Only used for the copy —
@@ -20,6 +21,7 @@ const WORKLOAD_LABELS = {
  * is resized. Renders nothing when the workload comfortably fits.
  */
 const ResourceAdvisory = ({ workload = 'wordpress' }) => {
+    const { t } = useTranslation();
     const { headroom, loading } = useResourceTier();
 
     if (loading || !headroom) return null;
@@ -38,13 +40,10 @@ const ResourceAdvisory = ({ workload = 'wordpress' }) => {
             <AlertTriangle size={18} className="resource-advisory__icon" />
             <div className="resource-advisory__body">
                 <div className="resource-advisory__title">
-                    Tight on memory — {headroom.summary}
+                    {t('app.resourceAdvisory.tightOnMemory', 'Tight on memory —')} {headroom.summary}
                 </div>
                 <p className="resource-advisory__text">
-                    {meta.name} typically needs about {meta.needsMb} MB and this
-                    server has {free} MB free for workloads. You can still create
-                    one; expect it to be slow or to get OOM-killed under load.
-                    Adding RAM or swap fixes it.
+                    {meta.name} {t('app.resourceAdvisory.typicallyNeedsAbout', 'typically needs about')} {meta.needsMb} {t('app.resourceAdvisory.mbAndThisServerHas', 'MB and this server has')} {free} {t('app.resourceAdvisory.mbFreeForWorkloadsYouCan', 'MB free for workloads. You can still create one; expect it to be slow or to get OOM-killed under load. Adding RAM or swap fixes it.')}
                 </p>
                 {headroom.warnings?.length > 0 && (
                     <ul className="resource-advisory__list">

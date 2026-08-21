@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SOURCE_NEEDS } from './useNewServiceForm';
+import { useTranslation } from 'react-i18next';
 
 // Step 2 — Connect. Only the source-specific input, plus the editable detected
 // service name + branch shown inline (not buried in Advanced).
 const ConnectStep = ({ form }) => {
+    const { t } = useTranslation();
     const {
         sourceMode, githubConnection, githubConfigured, reposLoading, repos, repoSearch,
         setRepoSearch, selectedRepo, setSelectedRepo, loadGithubRepos, handleConnectGithub,
@@ -51,7 +53,7 @@ const ConnectStep = ({ form }) => {
                                 </div>
                                 <Button type="button" variant="outline" onClick={() => loadGithubRepos()}>
                                     <RefreshCw size={16} className={reposLoading ? 'spinning' : ''} />
-                                    Refresh
+                                    {t('app.connectStep.refresh', 'Refresh')}
                                 </Button>
                             </div>
                             <div className="new-service-page__repo-search">
@@ -59,16 +61,16 @@ const ConnectStep = ({ form }) => {
                                 <Input
                                     value={repoSearch}
                                     onChange={(e) => setRepoSearch(e.target.value)}
-                                    placeholder="Search repositories"
+                                    placeholder={t('app.connectStep.searchRepositories', 'Search repositories')}
                                 />
                                 <Button type="button" variant="outline" onClick={() => loadGithubRepos(repoSearch)}>
-                                    Search
+                                    {t('app.connectStep.search', 'Search')}
                                 </Button>
                             </div>
                             <div className="new-service-page__repo-list">
-                                {reposLoading && <div className="new-service-page__repo-state">Loading repositories…</div>}
+                                {reposLoading && <div className="new-service-page__repo-state">{t('app.connectStep.loadingRepositories', 'Loading repositories…')}</div>}
                                 {!reposLoading && repos.length === 0 && (
-                                    <div className="new-service-page__repo-state">No repositories found.</div>
+                                    <div className="new-service-page__repo-state">{t('app.connectStep.noRepositoriesFound', 'No repositories found.')}</div>
                                 )}
                                 {!reposLoading && repos.map(repo => (
                                     <button
@@ -102,12 +104,12 @@ const ConnectStep = ({ form }) => {
                             <div className="new-service-page__connect-actions">
                                 <Button type="button" onClick={handleConnectGithub} disabled={!githubConfigured}>
                                     <SiGithub size={16} />
-                                    Connect GitHub
+                                    {t('app.connectStep.connectGithub', 'Connect GitHub')}
                                 </Button>
                                 <Button type="button" variant="outline" asChild>
                                     <Link to="/settings/connections">
                                         <Settings2 size={16} />
-                                        Settings
+                                        {t('app.connectStep.settings', 'Settings')}
                                     </Link>
                                 </Button>
                             </div>
@@ -119,7 +121,7 @@ const ConnectStep = ({ form }) => {
             {sourceMode === 'local' && (
                 <div className="new-service-page__pane">
                     <div className="new-service-page__field">
-                        <Label htmlFor="local-path">Path on server</Label>
+                        <Label htmlFor="local-path">{t('app.connectStep.pathOnServer', 'Path on server')}</Label>
                         <Input
                             id="local-path"
                             value={localPath}
@@ -129,7 +131,7 @@ const ConnectStep = ({ form }) => {
                         />
                     </div>
                     <div className="new-service-page__field">
-                        <Label htmlFor="compose-file">Compose file (optional)</Label>
+                        <Label htmlFor="compose-file">{t('app.connectStep.composeFileOptional', 'Compose file (optional)')}</Label>
                         <Input
                             id="compose-file"
                             value={composeFile}
@@ -139,7 +141,7 @@ const ConnectStep = ({ form }) => {
                         />
                     </div>
                     <div className="new-service-page__field">
-                        <Label htmlFor="systemd-unit">systemd unit (optional)</Label>
+                        <Label htmlFor="systemd-unit">{t('app.connectStep.systemdUnitOptional', 'systemd unit (optional)')}</Label>
                         <Input
                             id="systemd-unit"
                             value={systemdUnit}
@@ -149,10 +151,10 @@ const ConnectStep = ({ form }) => {
                         />
                     </div>
                     <div className="new-service-page__field">
-                        <Label htmlFor="managed-by">Managed by</Label>
+                        <Label htmlFor="managed-by">{t('app.connectStep.managedBy', 'Managed by')}</Label>
                         <select id="managed-by" value={managedBy} onChange={(e) => setManagedBy(e.target.value)}>
-                            <option value="auto">Auto-detect</option>
-                            <option value="docker_compose">Docker Compose</option>
+                            <option value="auto">{t('app.connectStep.autoDetect', 'Auto-detect')}</option>
+                            <option value="docker_compose">{t('app.connectStep.dockerCompose', 'Docker Compose')}</option>
                             <option value="systemd">systemd</option>
                         </select>
                     </div>
@@ -188,7 +190,7 @@ const ConnectStep = ({ form }) => {
             {sourceMode === 'manual' && (
                 <div className="new-service-page__pane">
                     <div className="new-service-page__field">
-                        <Label htmlFor="manual-repo-url">Repository URL</Label>
+                        <Label htmlFor="manual-repo-url">{t('app.connectStep.repositoryUrl', 'Repository URL')}</Label>
                         <Input
                             id="manual-repo-url"
                             value={manualRepoUrl}
@@ -203,7 +205,7 @@ const ConnectStep = ({ form }) => {
             {/* Detected service name + branch, editable inline. */}
             <div className="new-service-page__inline-fields">
                 <div className="new-service-page__field">
-                    <Label htmlFor="service-name-inline">Service name</Label>
+                    <Label htmlFor="service-name-inline">{t('app.connectStep.serviceName', 'Service name')}</Label>
                     <Input
                         id="service-name-inline"
                         value={serviceName}
@@ -214,7 +216,7 @@ const ConnectStep = ({ form }) => {
                 </div>
                 {showBranch && (
                     <div className="new-service-page__field">
-                        <Label htmlFor="branch-inline">Branch</Label>
+                        <Label htmlFor="branch-inline">{t('app.connectStep.branch', 'Branch')}</Label>
                         {sourceMode === 'github' && branches.length > 0 ? (
                             <select
                                 id="branch-inline"

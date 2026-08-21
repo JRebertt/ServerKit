@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pill, statusKind } from '@/components/ds';
 import Modal from '@/components/Modal';
+import { useTranslation } from 'react-i18next';
 
 const BuildTab = ({ appId, appPath, app }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm: confirmBuild } = useConfirm();
     const [buildConfig, setBuildConfig] = useState(null);
@@ -102,7 +104,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                 keep_deployments: configForm.keepDeployments
             });
             setShowConfigModal(false);
-            toast.success('Build configuration saved');
+            toast.success(t('app.buildTab.buildConfigurationSaved', 'Build configuration saved'));
             loadData();
         } catch (err) {
             setError(err.message);
@@ -115,7 +117,7 @@ const BuildTab = ({ appId, appPath, app }) => {
         try {
             const result = await api.triggerBuild(appId, noCache);
             if (result.success) {
-                toast.success('Build completed successfully');
+                toast.success(t('app.buildTab.buildCompletedSuccessfully', 'Build completed successfully'));
             } else {
                 setError(result.error || 'Build failed');
             }
@@ -138,7 +140,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                 return;
             }
             if (result.success) {
-                toast.success('Deployment started');
+                toast.success(t('app.buildTab.deploymentStarted', 'Deployment started'));
             } else {
                 setError(result.error || 'Deployment failed');
             }
@@ -154,7 +156,7 @@ const BuildTab = ({ appId, appPath, app }) => {
         const rollbackMsg = version
             ? `Rollback to version ${version}? This will replace the current deployment.`
             : 'Rollback to previous deployment?';
-        const confirmed = await confirmBuild({ title: 'Rollback', message: rollbackMsg, variant: 'warning' });
+        const confirmed = await confirmBuild({ titleKey: 'app.buildTab.rollback', title: 'Rollback', message: rollbackMsg, variant: 'warning' });
         if (!confirmed) return;
 
         setDeploying(true);
@@ -162,7 +164,7 @@ const BuildTab = ({ appId, appPath, app }) => {
         try {
             const result = await api.rollback(appId, version);
             if (result.success) {
-                toast.success('Rollback successful');
+                toast.success(t('app.buildTab.rollbackSuccessful', 'Rollback successful'));
             } else {
                 setError(result.error || 'Rollback failed');
             }
@@ -181,7 +183,7 @@ const BuildTab = ({ appId, appPath, app }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title="Loading build configuration..." />;
+        return <EmptyState loading loadingVariant="form" title={t('app.buildTab.loadingBuildConfiguration', 'Loading build configuration...')} />;
     }
 
     return (
@@ -195,22 +197,22 @@ const BuildTab = ({ appId, appPath, app }) => {
 
             {detection && (
                 <div className="card">
-                    <h3>Auto-Detection Results</h3>
+                    <h3>{t('app.buildTab.autoDetectionResults', 'Auto-Detection Results')}</h3>
                     <div className="detection-results">
                         <div className="detection-item">
-                            <span className="detection-label">Detected Method:</span>
+                            <span className="detection-label">{t('app.buildTab.detectedMethod', 'Detected Method:')}</span>
                             <span className="detection-value">{detection.detected_method || 'None'}</span>
                         </div>
                         {detection.dockerfile_exists && (
                             <div className="detection-item">
-                                <span className="detection-label">Dockerfile:</span>
-                                <span className="detection-value">Found</span>
+                                <span className="detection-label">{t('app.buildTab.dockerfile', 'Dockerfile:')}</span>
+                                <span className="detection-value">{t('app.buildTab.found', 'Found')}</span>
                             </div>
                         )}
                         {detection.docker_compose_exists && (
                             <div className="detection-item">
-                                <span className="detection-label">Docker Compose:</span>
-                                <span className="detection-value">Found</span>
+                                <span className="detection-label">{t('app.buildTab.dockerCompose', 'Docker Compose:')}</span>
+                                <span className="detection-value">{t('app.buildTab.found2', 'Found')}</span>
                             </div>
                         )}
                     </div>
@@ -219,7 +221,7 @@ const BuildTab = ({ appId, appPath, app }) => {
 
             {app?.buildpack_plan && (
                 <div className="card">
-                    <h3>Build Pack</h3>
+                    <h3>{t('app.buildTab.buildPack', 'Build Pack')}</h3>
                     <BuildpackPreview
                         plan={app.buildpack_plan}
                         dockerfile={bpDockerfile}
@@ -230,18 +232,18 @@ const BuildTab = ({ appId, appPath, app }) => {
 
             <div className="card">
                 <div className="card-header-row">
-                    <h3>Build Configuration</h3>
+                    <h3>{t('app.buildTab.buildConfiguration', 'Build Configuration')}</h3>
                     <Button variant="outline" size="sm" onClick={() => setShowConfigModal(true)}>
-                        Configure
+                        {t('app.buildTab.configure', 'Configure')}
                     </Button>
                 </div>
                 {buildConfig ? (
                     <InfoList>
-                        <InfoItem label="Method" value={buildConfig.build_method} />
-                        <InfoItem label="Timeout" value={`${buildConfig.timeout}s`} />
+                        <InfoItem label={t('app.buildTab.method', 'Method')} value={buildConfig.build_method} />
+                        <InfoItem label={t('app.buildTab.timeout', 'Timeout')} value={`${buildConfig.timeout}s`} />
                     </InfoList>
                 ) : (
-                    <p className="hint">No build configuration. Click Configure to set up.</p>
+                    <p className="hint">{t('app.buildTab.noBuildConfigurationClickConfigureTo', 'No build configuration. Click Configure to set up.')}</p>
                 )}
                 <div className="card-actions">
                     <Button
@@ -262,7 +264,7 @@ const BuildTab = ({ appId, appPath, app }) => {
 
             {deployments.length > 0 && (
                 <div className="card">
-                    <h3>Deployment History</h3>
+                    <h3>{t('app.buildTab.deploymentHistory', 'Deployment History')}</h3>
                     <div className="deployments-list">
                         {deployments.map(dep => (
                             <div key={dep.version} className={`deployment-item ${dep.status === 'live' ? 'current' : ''}`}>
@@ -281,7 +283,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                                         onClick={() => handleRollback(dep.version)}
                                         disabled={deploying}
                                     >
-                                        Rollback
+                                        {t('app.buildTab.rollback2', 'Rollback')}
                                     </Button>
                                 )}
                             </div>
@@ -290,23 +292,23 @@ const BuildTab = ({ appId, appPath, app }) => {
                 </div>
             )}
 
-            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title="Build Configuration">
+            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title={t('app.buildTab.buildConfiguration2', 'Build Configuration')}>
                         <form onSubmit={handleConfigureBuild}>
                             <div className="form-group">
-                                <label>Build Method</label>
+                                <label>{t('app.buildTab.buildMethod', 'Build Method')}</label>
                                 <select
                                     value={configForm.buildMethod}
                                     onChange={e => setConfigForm({...configForm, buildMethod: e.target.value})}
                                 >
-                                    <option value="auto">Auto-detect</option>
-                                    <option value="dockerfile">Dockerfile</option>
-                                    <option value="docker-compose">Docker Compose</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="auto">{t('app.buildTab.autoDetect', 'Auto-detect')}</option>
+                                    <option value="dockerfile">{t('app.buildTab.dockerfile2', 'Dockerfile')}</option>
+                                    <option value="docker-compose">{t('app.buildTab.dockerCompose2', 'Docker Compose')}</option>
+                                    <option value="custom">{t('app.buildTab.custom', 'Custom')}</option>
                                 </select>
                             </div>
                             {configForm.buildMethod === 'dockerfile' && (
                                 <div className="form-group">
-                                    <label>Dockerfile Path</label>
+                                    <label>{t('app.buildTab.dockerfilePath', 'Dockerfile Path')}</label>
                                     <Input
                                         type="text"
                                         value={configForm.dockerfilePath}
@@ -317,27 +319,27 @@ const BuildTab = ({ appId, appPath, app }) => {
                             {configForm.buildMethod === 'custom' && (
                                 <>
                                     <div className="form-group">
-                                        <label>Build Command</label>
+                                        <label>{t('app.buildTab.buildCommand', 'Build Command')}</label>
                                         <Input
                                             type="text"
                                             value={configForm.customBuildCmd}
                                             onChange={e => setConfigForm({...configForm, customBuildCmd: e.target.value})}
-                                            placeholder="npm run build"
+                                            placeholder={t('app.buildTab.npmRunBuild', 'npm run build')}
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Start Command</label>
+                                        <label>{t('app.buildTab.startCommand', 'Start Command')}</label>
                                         <Input
                                             type="text"
                                             value={configForm.customStartCmd}
                                             onChange={e => setConfigForm({...configForm, customStartCmd: e.target.value})}
-                                            placeholder="npm start"
+                                            placeholder={t('app.buildTab.npmStart', 'npm start')}
                                         />
                                     </div>
                                 </>
                             )}
                             <div className="form-group">
-                                <label>Timeout (seconds)</label>
+                                <label>{t('app.buildTab.timeoutSeconds', 'Timeout (seconds)')}</label>
                                 <Input
                                     type="number"
                                     value={configForm.timeout}
@@ -346,10 +348,10 @@ const BuildTab = ({ appId, appPath, app }) => {
                             </div>
                             <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowConfigModal(false)}>
-                                    Cancel
+                                    {t('app.buildTab.cancel', 'Cancel')}
                                 </Button>
                                 <Button type="submit">
-                                    Save Configuration
+                                    {t('app.buildTab.saveConfiguration', 'Save Configuration')}
                                 </Button>
                             </div>
                         </form>

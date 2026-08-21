@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Database, ExternalLink, LayoutGrid, ScrollText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const fmtSeconds = (s) => {
     if (s == null) return '—';
@@ -22,6 +23,7 @@ const AUTO_RETURN_SECONDS = 10;
 // when the console actually watched the run finish, and "Stay here" ends it for
 // good.
 export default function SuccessBanner({ job, appUrl, engineTarget = null, armAutoReturn = false }) {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const timings = job?.result?.step_timings || [];
     const appId = job?.app_id;
@@ -52,9 +54,9 @@ export default function SuccessBanner({ job, appUrl, engineTarget = null, armAut
             <div className="deploy-console__success-head">
                 <CheckCircle2 size={20} />
                 <div>
-                    <strong>Deployed successfully</strong>
+                    <strong>{t('app.successBanner.deployedSuccessfully', 'Deployed successfully')}</strong>
                     <span className="deploy-console__success-dur">
-                        Completed in {fmtSeconds(job?.duration)}
+                        {t('app.successBanner.completedIn', 'Completed in')} {fmtSeconds(job?.duration)}
                     </span>
                 </div>
             </div>
@@ -83,7 +85,7 @@ export default function SuccessBanner({ job, appUrl, engineTarget = null, armAut
                             className="deploy-console__btn"
                             onClick={() => { setStayed(true); setCountdown(null); }}
                         >
-                            Stay here
+                            {t('app.successBanner.stayHere', 'Stay here')}
                         </button>
                     )}
                 </div>
@@ -94,9 +96,9 @@ export default function SuccessBanner({ job, appUrl, engineTarget = null, armAut
                     <Link
                         className="deploy-console__btn deploy-console__btn--primary"
                         to={returnTo}
-                        title={`Open ${returnLabel} in the Database Explorer`}
+                        title={t('app.successBanner.openInTheDatabaseExplorer', 'Open {{returnLabel}} in the Database Explorer', { returnLabel: returnLabel })}
                     >
-                        <Database size={14} /> Open {returnLabel} in Databases
+                        <Database size={14} /> {t('app.successBanner.open', 'Open')} {returnLabel} {t('app.successBanner.inDatabases', 'in Databases')}
                     </Link>
                 )}
                 {appUrl && (
@@ -106,17 +108,17 @@ export default function SuccessBanner({ job, appUrl, engineTarget = null, armAut
                         target="_blank"
                         rel="noreferrer"
                     >
-                        <ExternalLink size={14} /> Open app
+                        <ExternalLink size={14} /> {t('app.successBanner.openApp', 'Open app')}
                     </a>
                 )}
                 {appId && (
                     <Link className="deploy-console__btn" to={`/services/${appId}`}>
-                        <LayoutGrid size={14} /> View service
+                        <LayoutGrid size={14} /> {t('app.successBanner.viewService', 'View service')}
                     </Link>
                 )}
                 {appId && (
                     <Link className="deploy-console__btn" to={`/services/${appId}/logs`}>
-                        <ScrollText size={14} /> View runtime logs
+                        <ScrollText size={14} /> {t('app.successBanner.viewRuntimeLogs', 'View runtime logs')}
                     </Link>
                 )}
             </div>

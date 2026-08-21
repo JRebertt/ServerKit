@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 // The saved-view selector, rendered as the page's own heading rather than yet
 // another toolbar button — the view IS what you are looking at, so its name is
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 // of the second bar — and the footer already says how many rows there are,
 // under the rows it is counting.
 export function GridViewPicker({ views, counts, onCreate, label = 'items', actions }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [menuFor, setMenuFor] = useState(null);
     const [creating, setCreating] = useState(false);
@@ -79,7 +81,7 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                                 className="sk-gridmenu__opt"
                                 onClick={() => { pick(view); onCreate(`${view.name} copy`, true); setMenuFor(null); }}
                             >
-                                <Copy size={13} />Duplicate view
+                                <Copy size={13} />{t('app.gridViewPicker.duplicateView', 'Duplicate view')}
                             </button>
                             <div className="sk-gridmenu__sep" />
                             <button
@@ -87,7 +89,7 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                                 className="sk-gridmenu__opt is-danger"
                                 onClick={() => { views.removeView(view); setMenuFor(null); }}
                             >
-                                <Trash2 size={13} />Delete view
+                                <Trash2 size={13} />{t('app.gridViewPicker.deleteView', 'Delete view')}
                             </button>
                         </PopoverContent>
                     </Popover>
@@ -107,12 +109,12 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                     </button>
                 </PopoverTrigger>
                 <PopoverContent align="start" sideOffset={6} className="ui-popover-panel sk-gridmenu sk-viewpick__menu">
-                    {!!builtins.length && <div className="sk-gridmenu__head">Built in</div>}
+                    {!!builtins.length && <div className="sk-gridmenu__head">{t('app.gridViewPicker.builtIn', 'Built in')}</div>}
                     {builtins.map(renderRow)}
-                    <div className="sk-gridmenu__head">My views</div>
+                    <div className="sk-gridmenu__head">{t('app.gridViewPicker.myViews', 'My views')}</div>
                     {mine.length ? mine.map(renderRow) : (
                         <div className="sk-gridmenu__note">
-                            No personal views yet — tune the grid, then save it here.
+                            {t('app.gridViewPicker.noPersonalViewsYetTuneThe', 'No personal views yet — tune the grid, then save it here.')}
                         </div>
                     )}
                     <div className="sk-gridmenu__sep" />
@@ -122,7 +124,7 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                                 <input
                                     autoFocus
                                     value={name}
-                                    placeholder="e.g. Cloudflare prod"
+                                    placeholder={t('app.gridViewPicker.eGCloudflareProd', 'e.g. Cloudflare prod')}
                                     onChange={(e) => setName(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') submitNew();
@@ -136,18 +138,18 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                                 onClick={() => setFromCurrent((v) => !v)}
                             >
                                 <span className="sk-gridmenu__box"><Check size={11} /></span>
-                                Start from current filters &amp; columns
+                                {t('app.gridViewPicker.startFromCurrentFiltersColumns', 'Start from current filters & columns')}
                             </button>
                             <div className="sk-gridmenu__foot">
-                                <button type="button" onClick={() => setCreating(false)}>Cancel</button>
+                                <button type="button" onClick={() => setCreating(false)}>{t('app.gridViewPicker.cancel', 'Cancel')}</button>
                                 <button type="button" className="is-primary" disabled={!name.trim()} onClick={submitNew}>
-                                    Create
+                                    {t('app.gridViewPicker.create', 'Create')}
                                 </button>
                             </div>
                         </>
                     ) : (
                         <button type="button" className="sk-gridmenu__opt" onClick={() => setCreating(true)}>
-                            <Plus size={13} />Save current view…
+                            <Plus size={13} />{t('app.gridViewPicker.saveCurrentView', 'Save current view…')}
                         </button>
                     )}
                 </PopoverContent>
@@ -156,9 +158,9 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
             {views.isDirty && (
                 <div className="sk-viewbar__dirty">
                     <AlertTriangle size={13} />
-                    Unsaved
+                    {t('app.gridViewPicker.unsaved', 'Unsaved')}
                     <button type="button" onClick={views.resetView}>
-                        <History size={12} />Reset
+                        <History size={12} />{t('app.gridViewPicker.reset', 'Reset')}
                     </button>
                     <button
                         type="button"

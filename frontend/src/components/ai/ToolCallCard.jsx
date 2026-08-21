@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Wrench, Check, AlertTriangle, Loader2, ChevronDown } from 'lucide-react';
 import { useServerkitAI } from '../../contexts/AIContext';
+import { useTranslation } from 'react-i18next';
 
 // Strip the "<prefix>__" namespace for display (e.g. core__list_apps -> list_apps).
 const displayName = (qualified) => {
@@ -16,6 +17,7 @@ const formatValue = (v) => {
 };
 
 const ToolCallCard = ({ call }) => {
+    const { t } = useTranslation();
     const { getToolRenderer } = useServerkitAI();
     const [expanded, setExpanded] = useState(call.status === 'running');
     const Custom = getToolRenderer(call.name);
@@ -53,13 +55,13 @@ const ToolCallCard = ({ call }) => {
                         <>
                             {inputText ? (
                                 <div className="sk-ai-tool-card__section">
-                                    <div className="sk-ai-tool-card__label">Arguments</div>
+                                    <div className="sk-ai-tool-card__label">{t('app.toolCallCard.arguments', 'Arguments')}</div>
                                     <pre className="sk-ai-code"><code>{inputText}</code></pre>
                                 </div>
                             ) : null}
                             {call.output != null ? (
                                 <div className="sk-ai-tool-card__section">
-                                    <div className="sk-ai-tool-card__label">Result</div>
+                                    <div className="sk-ai-tool-card__label">{t('app.toolCallCard.result', 'Result')}</div>
                                     <pre className="sk-ai-code sk-ai-tool-card__result"><code>{formatValue(call.output)}</code></pre>
                                 </div>
                             ) : null}

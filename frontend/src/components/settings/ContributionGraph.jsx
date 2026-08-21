@@ -1,5 +1,7 @@
+import { useTranslation } from 'react-i18next';
 
 const ContributionGraph = ({ data, title, username }) => {
+    const { t } = useTranslation();
     if (!data || data.length === 0) return null;
 
     const maxCount = Math.max(...data.map(d => d.count), 1);
@@ -35,7 +37,7 @@ const ContributionGraph = ({ data, title, username }) => {
             <div className="graph-header">
                 <h4>{title} {username && <span className="username">@{username}</span>}</h4>
                 <div className="graph-legend">
-                    <span>Less</span>
+                    <span>{t('app.contributionGraph.less', 'Less')}</span>
                     <div className="legend-cells">
                         <div className="cell level-0" />
                         <div className="cell level-1" />
@@ -43,7 +45,7 @@ const ContributionGraph = ({ data, title, username }) => {
                         <div className="cell level-3" />
                         <div className="cell level-4" />
                     </div>
-                    <span>More</span>
+                    <span>{t('app.contributionGraph.more', 'More')}</span>
                 </div>
             </div>
             <div className="graph-grid-wrapper">
@@ -54,7 +56,7 @@ const ContributionGraph = ({ data, title, username }) => {
                                 <div
                                     key={dayIndex}
                                     className={`graph-cell level-${getLevel(day.count)}`}
-                                    title={`${day.count} actions on ${formatDate(day.date)}`}
+                                    title={t('app.contributionGraph.actionsOn', '{{count}} actions on {{value}}', { count: day.count, value: formatDate(day.date) })}
                                 />
                             ))}
                         </div>

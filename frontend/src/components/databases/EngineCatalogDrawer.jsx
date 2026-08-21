@@ -8,6 +8,7 @@ import { Drawer, SearchField } from '@/components/ds';
 import EmptyState from '../EmptyState';
 import { useToast } from '../../contexts/ToastContext';
 import EngineGlyph from './EngineGlyph';
+import { useTranslation } from 'react-i18next';
 import {
     engineInstanceKey, engineLocation, engineMeta, engineTreeStatus, familiesOf,
     formatMemory,
@@ -69,6 +70,7 @@ function RunningRow({ instance }) {
 }
 
 function EngineCard({ entry, onPick }) {
+    const { t } = useTranslation();
     const meta = engineMeta(entry);
     const memory = formatMemory(entry.requirements?.memory);
     const facts = [
@@ -82,7 +84,7 @@ function EngineCard({ entry, onPick }) {
                 type="button"
                 className="dbx-engine-card__hit"
                 onClick={() => onPick(entry)}
-                aria-label={`Install ${entry.name}`}
+                aria-label={t('app.engineCatalogDrawer.install', 'Install {{name}}', { name: entry.name })}
             >
                 <span className="dbx-engine-card__top">
                     <span className="dbx-eng-glyph dbx-eng-glyph--lg">
@@ -126,6 +128,7 @@ export default function EngineCatalogDrawer({
     onPick,
     onSynced,
 }) {
+    const { t } = useTranslation();
     const toast = useToast();
     const [query, setQuery] = useState('');
     const [family, setFamily] = useState(null);
@@ -163,10 +166,10 @@ export default function EngineCatalogDrawer({
         setSyncing(true);
         try {
             await api.syncTemplates();
-            toast.success('Template repositories synced');
+            toast.success(t('app.engineCatalogDrawer.templateRepositoriesSynced', 'Template repositories synced'));
             await onSynced?.();
         } catch (err) {
-            toast.error(err.message || 'Could not sync template repositories');
+            toast.error(err.message || t('app.engineCatalogDrawer.couldNotSyncTemplateRepositories', 'Could not sync template repositories'));
         } finally {
             setSyncing(false);
         }
@@ -177,10 +180,10 @@ export default function EngineCatalogDrawer({
             flush
             open={open}
             onOpenChange={onOpenChange}
-            title="Add a database engine"
+            title={t('app.engineCatalogDrawer.addADatabaseEngine', 'Add a database engine')}
             subtitle={unavailable
-                ? 'catalog unavailable'
-                : `${catalog.length} engines · same catalog as Services › Templates`}
+                ? t('app.engineCatalogDrawer.catalogUnavailable', 'catalog unavailable')
+                : t('app.engineCatalogDrawer.enginesSameCatalogAsServicesTemplates', '{{length}} engines · same catalog as Services › Templates', { length: catalog.length })}
             icon={<Layers size={18} aria-hidden="true" />}
             width={720}
             className="dbx-drawer"
@@ -190,18 +193,18 @@ export default function EngineCatalogDrawer({
                     <SearchField
                         value={query}
                         onSearch={setQuery}
-                        placeholder="Search engines…"
+                        placeholder={t('app.engineCatalogDrawer.searchEngines', 'Search engines…')}
                         className="dbx-eng-search"
                     />
                     {families.length > 0 && (
-                        <div className="dbx-cat-chips" role="group" aria-label="Filter by family">
+                        <div className="dbx-cat-chips" role="group" aria-label={t('app.engineCatalogDrawer.filterByFamily', 'Filter by family')}>
                             <button
                                 type="button"
                                 className={`dbx-cat-chip${family ? '' : ' is-on'}`}
                                 onClick={() => setFamily(null)}
                                 aria-pressed={!family}
                             >
-                                All
+                                {t('app.engineCatalogDrawer.all', 'All')}
                             </button>
                             {families.map((f) => (
                                 <button
@@ -222,16 +225,16 @@ export default function EngineCatalogDrawer({
                     {unavailable ? (
                         <EmptyState
                             icon={PackageX}
-                            title="Engine catalog unavailable"
-                            description="This panel couldn't reach the engine catalog. Databases that already exist keep working — try again once the backend is up to date."
+                            title={t('app.engineCatalogDrawer.engineCatalogUnavailable', 'Engine catalog unavailable')}
+                            description={t('app.engineCatalogDrawer.thisPanelCouldnTReachThe', 'This panel couldn\'t reach the engine catalog. Databases that already exist keep working — try again once the backend is up to date.')}
                         />
                     ) : loading ? (
-                        <EmptyState loading loadingVariant="cards" loadingRows={6} title="Loading engines" />
+                        <EmptyState loading loadingVariant="cards" loadingRows={6} title={t('app.engineCatalogDrawer.loadingEngines', 'Loading engines')} />
                     ) : (
                         <>
                             {!filtering && installed.length > 0 && (
                                 <section className="dbx-eng-section">
-                                    <h3 className="dbx-eyebrow">Already running</h3>
+                                    <h3 className="dbx-eyebrow">{t('app.engineCatalogDrawer.alreadyRunning', 'Already running')}</h3>
                                     <ul className="dbx-eng-list">
                                         {installed.map((inst) => (
                                             <RunningRow key={engineInstanceKey(inst)} instance={inst} />
@@ -241,14 +244,14 @@ export default function EngineCatalogDrawer({
                             )}
 
                             <section className="dbx-eng-section">
-                                <h3 className="dbx-eyebrow">Available to install</h3>
+                                <h3 className="dbx-eyebrow">{t('app.engineCatalogDrawer.availableToInstall', 'Available to install')}</h3>
                                 {results.length === 0 ? (
                                     <EmptyState
                                         icon={Layers}
-                                        title={catalog.length === 0 ? 'No engine templates yet' : 'No engines match'}
+                                        title={catalog.length === 0 ? t('app.engineCatalogDrawer.noEngineTemplatesYet', 'No engine templates yet') : t('app.engineCatalogDrawer.noEnginesMatch', 'No engines match')}
                                         description={catalog.length === 0
-                                            ? 'An engine is an app template carrying an engine block. Sync your template repositories to pull more in.'
-                                            : 'Try a different search term or clear the family filter.'}
+                                            ? t('app.engineCatalogDrawer.anEngineIsAnAppTemplate', 'An engine is an app template carrying an engine block. Sync your template repositories to pull more in.')
+                                            : t('app.engineCatalogDrawer.tryADifferentSearchTermOr', 'Try a different search term or clear the family filter.')}
                                     />
                                 ) : (
                                     <ul className="dbx-engine-grid">
@@ -277,7 +280,7 @@ export default function EngineCatalogDrawer({
                         to="/templates"
                         onClick={() => onOpenChange(false)}
                     >
-                        Open the full template catalog <ChevronRight size={13} aria-hidden="true" />
+                        {t('app.engineCatalogDrawer.openTheFullTemplateCatalog', 'Open the full template catalog')} <ChevronRight size={13} aria-hidden="true" />
                     </Link>
                 </footer>
             </div>

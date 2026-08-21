@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { LayoutGrid, Plus } from 'lucide-react';
 import { Drawer, SearchField } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 // Registry entries carry a lucide component in `icon`. Guard against a type
 // that shipped without one (or with a plain string) so the card still renders.
@@ -212,6 +213,7 @@ function WidgetThumb({ type }) {
  * to place it.
  */
 export function WidgetLibrary({ types = [], onAdd, onClose }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState(null);
 
@@ -236,8 +238,8 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
             flush
             open
             onOpenChange={(next) => { if (!next) onClose?.(); }}
-            title="Add a widget"
-            subtitle={`${types.length} types · drag to reposition after adding`}
+            title={t('app.widgetLibrary.addAWidget', 'Add a widget')}
+            subtitle={t('app.widgetLibrary.typesDragToRepositionAfterAdding', '{{length}} types · drag to reposition after adding', { length: types.length })}
             icon={<LayoutGrid size={18} />}
             width={720}
             className="skw-lib"
@@ -247,7 +249,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                     className="skw-lib__search"
                     value={query}
                     onSearch={setQuery}
-                    placeholder="Search widgets…"
+                    placeholder={t('app.widgetLibrary.searchWidgets', 'Search widgets…')}
                 />
                 <div className="skw-lib__chips">
                     <button
@@ -256,7 +258,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                         aria-pressed={!category}
                         onClick={() => setCategory(null)}
                     >
-                        All
+                        {t('app.widgetLibrary.all', 'All')}
                     </button>
                     {categories.map((name) => (
                         <button
@@ -285,7 +287,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                             key={type.id}
                             role="button"
                             tabIndex={0}
-                            aria-label={`Add ${type.name} widget`}
+                            aria-label={t('app.widgetLibrary.addWidget', 'Add {{name}} widget', { name: type.name })}
                             onClick={add}
                             onKeyDown={(event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
@@ -298,7 +300,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                                 <WidgetThumb type={type.id} />
                                 <span className="skw-lib__add">
                                     <Plus size={14} aria-hidden="true" />
-                                    Add
+                                    {t('app.widgetLibrary.add', 'Add')}
                                 </span>
                             </div>
                             <div className="skw-lib__meta">
@@ -313,7 +315,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                     );
                 })}
                 {visible.length === 0 && (
-                    <div className="skw-lib__empty">No widgets match.</div>
+                    <div className="skw-lib__empty">{t('app.widgetLibrary.noWidgetsMatch', 'No widgets match.')}</div>
                 )}
             </div>
         </Drawer>

@@ -31,6 +31,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { timeAgo } from '../utils/time';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 const titleCase = (value = '') => value.charAt(0).toUpperCase() + value.slice(1);
 
@@ -154,6 +155,7 @@ const isRunning = (s) => ['running', 'queued', 'pending', 'scheduled'].includes(
 const canRetry = (s) => ['failed', 'error', 'cancelled', 'canceled'].includes(String(s || '').toLowerCase());
 
 export default function Jobs() {
+    const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const toast = useToast();
     const location = useLocation();
@@ -256,32 +258,32 @@ export default function Jobs() {
             <>
                 {!scheduledView && (
                     <>
-                        <SearchField value={q} onSearch={onSearch} placeholder="Search by kind or owner…" />
+                        <SearchField value={q} onSearch={onSearch} placeholder={t('app.jobs.searchByKindOrOwner', 'Search by kind or owner…')} />
                         <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
                     </>
                 )}
                 <Button variant="outline" size="sm" onClick={load}>
-                    <RefreshCw size={14} /> Refresh
+                    <RefreshCw size={14} /> {t('app.jobs.refresh', 'Refresh')}
                 </Button>
             </>
         );
     }, [isAdmin, scheduledView, q, activeFilterCount, load]);
 
     const onRetry = async (id) => {
-        try { await api.retryJob(id); toast.success('Job re-queued'); load(); }
-        catch { toast.error('Retry failed'); }
+        try { await api.retryJob(id); toast.success(t('app.jobs.jobReQueued', 'Job re-queued')); load(); }
+        catch { toast.error(t('app.jobs.retryFailed', 'Retry failed')); }
     };
     const onCancel = async (id) => {
-        try { await api.cancelJob(id); toast.success('Job cancelled'); load(); }
-        catch { toast.error('Cancel failed'); }
+        try { await api.cancelJob(id); toast.success(t('app.jobs.jobCancelled', 'Job cancelled')); load(); }
+        catch { toast.error(t('app.jobs.cancelFailed', 'Cancel failed')); }
     };
     const onRunScheduled = async (id) => {
-        try { await api.runScheduledJob(id); toast.success('Scheduled job triggered'); load(); }
-        catch { toast.error('Trigger failed'); }
+        try { await api.runScheduledJob(id); toast.success(t('app.jobs.scheduledJobTriggered', 'Scheduled job triggered')); load(); }
+        catch { toast.error(t('app.jobs.triggerFailed', 'Trigger failed')); }
     };
     const onToggleScheduled = async (id, enabled) => {
         try { await api.setScheduledJobEnabled(id, enabled); load(); }
-        catch { toast.error('Update failed'); }
+        catch { toast.error(t('app.jobs.updateFailed', 'Update failed')); }
     };
 
     // Declared above the admin gate because useTableChrome is a hook and the
@@ -289,7 +291,7 @@ export default function Jobs() {
     const jobColumns = [
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.jobs.status', header: 'Status',
             sortable: true,
             // Typed explicitly rather than left to inference. There is no
             // `value`/`sortValue` here, so a rule reads `row.status` — the DB
@@ -304,11 +306,11 @@ export default function Jobs() {
             type: 'enum',
             render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill>,
         },
-        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
-        { key: 'owner', header: 'Owner', sortable: true, sortValue: (j) => j.owner_type || null, cellClassName: 'sk-jobs__owner', render: ownerLabel },
+        { key: 'kind', headerKey: 'app.jobs.kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
+        { key: 'owner', headerKey: 'app.jobs.owner', header: 'Owner', sortable: true, sortValue: (j) => j.owner_type || null, cellClassName: 'sk-jobs__owner', render: ownerLabel },
         {
             key: 'progress',
-            header: 'Progress',
+            headerKey: 'app.jobs.progress', header: 'Progress',
             render: (j) => (
                 <>
                     {progressLabel(j)}
@@ -320,7 +322,7 @@ export default function Jobs() {
         },
         {
             key: 'when',
-            header: 'When',
+            headerKey: 'app.jobs.when', header: 'When',
             sortable: true,
             sortValue: (j) => {
                 const stamp = j.created_at || j.updated_at;
@@ -338,12 +340,12 @@ export default function Jobs() {
                 <div className="sk-jobs__actions">
                     {isRunning(j.status) && (
                         <Button variant="ghost" size="sm" onClick={() => onCancel(j.id)}>
-                            <XCircle size={14} /> Cancel
+                            <XCircle size={14} /> {t('app.jobs.cancel', 'Cancel')}
                         </Button>
                     )}
                     {canRetry(j.status) && (
                         <Button variant="ghost" size="sm" onClick={() => onRetry(j.id)}>
-                            <RotateCcw size={14} /> Retry
+                            <RotateCcw size={14} /> {t('app.jobs.retry', 'Retry')}
                         </Button>
                     )}
                 </div>
@@ -381,7 +383,7 @@ export default function Jobs() {
     if (!isAdmin) {
         return (
             <div className="sk-tabgroup__inner jobs-page">
-                <div className="sk-jobs"><EmptyState title="Admins only." /></div>
+                <div className="sk-jobs"><EmptyState title={t('app.jobs.adminsOnly', 'Admins only.')} /></div>
             </div>
         );
     }
@@ -396,24 +398,24 @@ export default function Jobs() {
     const filterGroups = [
         {
             key: 'status',
-            label: 'Status',
+            labelKey: 'app.jobs.status2', label: 'Status',
             type: 'single',
             options: STATUSES.filter((s) => s !== 'all').map((s) => ({ value: s, label: titleCase(s) })),
         },
         {
             key: 'kind',
-            label: 'Kind',
+            labelKey: 'app.jobs.kind2', label: 'Kind',
             type: 'single',
             options: kindOptions.map((k) => ({ value: k, label: k })),
         },
     ];
 
     const scheduledColumns = [
-        { key: 'name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
-        { key: 'kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
-        { key: 'schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
-        { key: 'next', header: 'Next run', cellClassName: 'sk-jobs__when', render: (s) => (s.next_run_at ? timeAgo(s.next_run_at) : '—') },
-        { key: 'enabled', header: 'Enabled', render: (s) => <Pill kind={s.enabled ? 'green' : 'gray'}>{s.enabled ? 'On' : 'Off'}</Pill> },
+        { key: 'name', headerKey: 'app.jobs.name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
+        { key: 'kind', headerKey: 'app.jobs.kind3', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
+        { key: 'schedule', headerKey: 'app.jobs.schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
+        { key: 'next', headerKey: 'app.jobs.nextRun', header: 'Next run', cellClassName: 'sk-jobs__when', render: (s) => (s.next_run_at ? timeAgo(s.next_run_at) : '—') },
+        { key: 'enabled', headerKey: 'app.jobs.enabled', header: 'Enabled', render: (s) => <Pill kind={s.enabled ? 'green' : 'gray'}>{s.enabled ? 'On' : 'Off'}</Pill> },
         {
             key: 'actions',
             header: '',
@@ -422,7 +424,7 @@ export default function Jobs() {
             render: (s) => (
                 <div className="sk-jobs__actions">
                     <Button variant="ghost" size="sm" onClick={() => onRunScheduled(s.id)}>
-                        <Play size={14} /> Run now
+                        <Play size={14} /> {t('app.jobs.runNow', 'Run now')}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => onToggleScheduled(s.id, !s.enabled)}>
                         {s.enabled ? 'Disable' : 'Enable'}
@@ -443,8 +445,8 @@ export default function Jobs() {
                             value === 'scheduled' ? '/monitoring/jobs/scheduled' : '/monitoring/jobs',
                         )}
                         options={[
-                            { value: 'activity', label: 'Activity', icon: <ListChecks size={14} /> },
-                            { value: 'scheduled', label: 'Scheduled', icon: <Clock size={14} /> },
+                            { value: 'activity', labelKey: 'app.jobs.activity', label: 'Activity', icon: <ListChecks size={14} /> },
+                            { value: 'scheduled', labelKey: 'app.jobs.scheduled', label: 'Scheduled', icon: <Clock size={14} /> },
                         ]}
                     />
                 </div>
@@ -483,7 +485,7 @@ export default function Jobs() {
                         {hasFilters && (
                             <div className="sk-jobs__resultbar">
                                 <Button variant="ghost" size="sm" onClick={resetFilters}>
-                                    Reset filters
+                                    {t('app.jobs.resetFilters', 'Reset filters')}
                                 </Button>
                             </div>
                         )}
@@ -519,7 +521,7 @@ export default function Jobs() {
                 groups={filterGroups}
                 value={filters}
                 onChange={onFiltersChange}
-                title="Filter jobs"
+                title={t('app.jobs.filterJobs', 'Filter jobs')}
             />
 
             {/* The column-rule drawer. Distinct from the FilterDrawer above it:

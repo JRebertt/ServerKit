@@ -5,6 +5,7 @@ import api from '../../services/api';
 import EmptyState from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 
 const scoreColor = (score) => {
@@ -15,6 +16,7 @@ const scoreColor = (score) => {
 };
 
 const AuditTab = () => {
+    const { t } = useTranslation();
     const [audit, setAudit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -36,7 +38,7 @@ const AuditTab = () => {
         <div className="audit-tab">
             <div className="card">
                 <div className="card-header">
-                    <h3>Security Audit</h3>
+                    <h3>{t('app.auditTab.securityAudit', 'Security Audit')}</h3>
                     <Button variant="default" onClick={runAudit} disabled={loading}>
                         {loading ? 'Running Audit...' : 'Run Audit'}
                     </Button>
@@ -47,14 +49,14 @@ const AuditTab = () => {
                     {!audit && !loading && (
                         <EmptyState
                             icon={ClipboardCheck}
-                            title="Run a security audit to check your server's configuration."
+                            title={t('app.auditTab.runASecurityAuditToCheck', 'Run a security audit to check your server\'s configuration.')}
                         />
                     )}
 
                     {loading && (
                         <div className="loading-state">
                             <div className="spinner"></div>
-                            <p>Running security audit...</p>
+                            <p>{t('app.auditTab.runningSecurityAudit', 'Running security audit...')}</p>
                         </div>
                     )}
 
@@ -66,9 +68,9 @@ const AuditTab = () => {
                                     size={120}
                                     stroke={10}
                                     color={scoreColor(audit.score)}
-                                    label="security score"
+                                    label={t('app.auditTab.securityScore', 'security score')}
                                 />
-                                <div className="sec-audit-meta">Generated {new Date(audit.generated_at).toLocaleString()}</div>
+                                <div className="sec-audit-meta">{t('app.auditTab.generated', 'Generated')} {new Date(audit.generated_at).toLocaleString()}</div>
                             </div>
 
                             {Object.entries(audit.services || {}).map(([service, data]) => (
@@ -89,7 +91,7 @@ const AuditTab = () => {
 
                             {audit.recommendations?.length > 0 && (
                                 <div className="audit-section recommendations">
-                                    <h4>Recommendations</h4>
+                                    <h4>{t('app.auditTab.recommendations', 'Recommendations')}</h4>
                                     <ul>
                                         {audit.recommendations.map((rec, idx) => (
                                             <li key={idx}>{rec}</li>

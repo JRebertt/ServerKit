@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // Per-user "secure your account" nudge (plan 22 #12). Shows when the requesting
 // user has no second factor, deep-linking to Settings → Security where the full
@@ -16,6 +17,7 @@ const ITEM_KEY = 'setup.account_security';
 const SNOOZE_DAYS = 30;
 
 const AccountSecurityNudge = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [item, setItem] = useState(null);
     const [dismissed, setDismissed] = useState(() => {
@@ -57,13 +59,13 @@ const AccountSecurityNudge = () => {
         <div className="account-security-nudge" role="status">
             <ShieldAlert size={18} className="account-security-nudge__icon" />
             <div className="account-security-nudge__body">
-                <span className="account-security-nudge__title">Secure your account</span>
+                <span className="account-security-nudge__title">{t('app.accountSecurityNudge.secureYourAccount', 'Secure your account')}</span>
                 <span className="account-security-nudge__detail">{item.detail}</span>
             </div>
             <Button size="sm" onClick={() => navigate(item.fix?.to || '/settings/security')}>
-                Add a passkey or 2FA
+                {t('app.accountSecurityNudge.addAPasskeyOr2fa', 'Add a passkey or 2FA')}
             </Button>
-            <button type="button" className="account-security-nudge__close" onClick={dismiss} aria-label="Dismiss">
+            <button type="button" className="account-security-nudge__close" onClick={dismiss} aria-label={t('app.accountSecurityNudge.dismiss', 'Dismiss')}>
                 <X size={16} />
             </button>
         </div>

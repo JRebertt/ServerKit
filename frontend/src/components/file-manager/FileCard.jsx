@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import FileIcon from './FileIcon';
 import ImageThumb from './ImageThumb';
 import { getFileType, getFileExt } from './fileTypes';
+import { useTranslation } from 'react-i18next';
 
 function FileCard({
     entry,
@@ -13,6 +14,7 @@ function FileCard({
     onContext,
     isS3 = false,
 }) {
+    const { t } = useTranslation();
     const ext = getFileExt(entry);
     const type = getFileType(entry);
     const showThumb = type === 'image' && entry.size && entry.size < 8 * 1024 * 1024;
@@ -39,7 +41,7 @@ function FileCard({
                     e.stopPropagation();
                     onToggleSelect(entry, { ...e, ctrlKey: true });
                 }}
-                aria-label={selected ? 'Deselect' : 'Select'}
+                aria-label={selected ? t('app.fileCard.deselect', 'Deselect') : t('app.fileCard.select', 'Select')}
             >
                 <span className={`checkbox ${selected ? 'checked' : ''}`}>
                     {selected && <Check size={12} />}

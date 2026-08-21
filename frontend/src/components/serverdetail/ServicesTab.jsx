@@ -14,6 +14,7 @@ import LogToolbar from '../log-viewer/LogToolbar';
 import LogContent from '../log-viewer/LogContent';
 import { downloadBlob } from '@/utils/downloadBlob';
 import { usePolling } from '@/hooks/usePolling';
+import { useTranslation } from 'react-i18next';
 
 // Unit log tail cadence while auto-refresh is on.
 const LOG_TAIL_MS = 3000;
@@ -103,6 +104,7 @@ const localServiceToUnit = (s) => ({
 // `serverId` absent means the panel host itself (Terminal › Services); a server
 // id means a paired agent (Server Detail › Services).
 const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
+    const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
     const isLocal = !serverId;
@@ -148,7 +150,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                 setUnits(data?.units || []);
             }
         } catch (err) {
-            toast.error(err.message || 'Failed to load services');
+            toast.error(err.message || t('app.servicesTab.failedToLoadServices', 'Failed to load services'));
         } finally {
             setLoading(false);
         }
@@ -191,10 +193,12 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         // cannot, so only the first two ask.
         if (action !== 'start') {
             const ok = await confirm({
-                title: action === 'stop' ? 'Stop service' : 'Restart service',
-                message: `${action === 'stop' ? 'Stop' : 'Restart'} ${unit}?`,
+                title: action === 'stop' ? t('app.servicesTab.stopService', 'Stop service') : t('app.servicesTab.restartService', 'Restart service'),
+                message: action === 'stop'
+                    ? t('app.servicesTab.stopUnitConfirm', 'Stop {{unit}}?', { unit: unit })
+                    : t('app.servicesTab.restartUnitConfirm', 'Restart {{unit}}?', { unit: unit }),
                 variant: 'warning',
-                confirmText: action === 'stop' ? 'Stop' : 'Restart',
+                confirmText: action === 'stop' ? t('app.servicesTab.stop', 'Stop') : t('app.servicesTab.restart', 'Restart'),
             });
             if (!ok) return;
         }
@@ -207,7 +211,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             // re-fetching the list is simpler and keeps the filter consistent.
             loadUnits();
         } catch (err) {
-            toast.error(err.message || `Failed to ${action} ${unit}`);
+            toast.error(err.message || t('app.servicesTab.failedTo', 'Failed to {{action}} {{unit}}', { action: action, unit: unit }));
         } finally {
             setBusyUnit(null);
         }
@@ -260,9 +264,9 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         setBusyUnit('__daemon__');
         try {
             await api.reloadRemoteSystemdDaemon(serverId);
-            toast.success('systemctl daemon-reload completed');
+            toast.success(t('app.servicesTab.systemctlDaemonReloadCompleted', 'systemctl daemon-reload completed'));
         } catch (err) {
-            toast.error(err.message || 'daemon-reload failed');
+            toast.error(err.message || t('app.servicesTab.daemonReloadFailed', 'daemon-reload failed'));
         } finally {
             setBusyUnit(null);
         }
@@ -287,7 +291,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
     const unitColumns = [
         {
             key: 'unit',
-            header: 'Unit',
+            headerKey: 'app.servicesTab.unit', header: 'Unit',
             sortable: true,
             hideable: false,
             // Hundreds of distinct names on a real host — a fragment you type,
@@ -300,7 +304,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         },
         {
             key: 'state',
-            header: 'State',
+            headerKey: 'app.servicesTab.state', header: 'State',
             sortable: true,
             // Declared, not inferred: systemd's ACTIVE vocabulary is six words
             // wide, but a host where every unit is active offers ONE distinct
@@ -330,7 +334,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             render: (u) => u.pid ?? '—',
         }] : [{
             key: 'description',
-            header: 'Description',
+            headerKey: 'app.servicesTab.description', header: 'Description',
             sortable: true,
             type: 'text',
             value: (u) => u.description || '',
@@ -350,21 +354,21 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'start')}
-                    >Start</Button>
+                    >{t('app.servicesTab.start', 'Start')}</Button>
                     <Button
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'stop')}
-                    >Stop</Button>
+                    >{t('app.servicesTab.stop2', 'Stop')}</Button>
                     <Button
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'restart')}
-                    >Restart</Button>
+                    >{t('app.servicesTab.restart2', 'Restart')}</Button>
                     <Button
                         size="sm" variant="outline"
                         onClick={() => openLogs(u.unit)}
-                    >Logs</Button>
+                    >{t('app.servicesTab.logs', 'Logs')}</Button>
                 </>
             ),
         },
@@ -392,7 +396,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
     if (!isLocal && serverStatus !== 'online') {
         return (
             <div className="empty-state">
-                <p>Server is offline. Reconnect to manage services.</p>
+                <p>{t('app.servicesTab.serverIsOfflineReconnectToManage', 'Server is offline. Reconnect to manage services.')}</p>
             </div>
         );
     }
@@ -412,7 +416,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Filter by unit name…"
+                            placeholder={t('app.servicesTab.filterByUnitName', 'Filter by unit name…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -434,7 +438,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                                 onClick={reloadDaemon}
                                 disabled={busyUnit === '__daemon__'}
                             >
-                                Reload daemon
+                                {t('app.servicesTab.reloadDaemon', 'Reload daemon')}
                             </Button>
                         </div>
                     )}
@@ -444,9 +448,9 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <p className="text-muted-foreground">Loading…</p>
+                <p className="text-muted-foreground">{t('app.servicesTab.loading', 'Loading…')}</p>
             ) : filtered.length === 0 ? (
-                <p className="text-muted-foreground">No matching units.</p>
+                <p className="text-muted-foreground">{t('app.servicesTab.noMatchingUnits', 'No matching units.')}</p>
             ) : (
                 <DataTable
                     columns={chrome.columns}
@@ -477,7 +481,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                 open={!!logsFor}
                 onOpenChange={(open) => { if (!open) closeLogs(); }}
                 title={logsUnit?.unit || ''}
-                subtitle={logsUnit ? (logsUnit.description || `journalctl -u ${logsUnit.unit}`) : ''}
+                subtitle={logsUnit ? (logsUnit.description || t('app.servicesTab.journalctlU', 'journalctl -u {{unit}}', { unit: logsUnit.unit })) : ''}
                 width={620}
                 flush
             >
@@ -485,7 +489,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                     <>
                         <div className="preview-drawer-meta">
                             <div className="meta-item">
-                                <span className="meta-label">State</span>
+                                <span className="meta-label">{t('app.servicesTab.state2', 'State')}</span>
                                 <span className="meta-value">
                                     {logsUnit.active || logsUnit.sub || 'unknown'}
                                 </span>
@@ -503,17 +507,17 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'start')}
                                 disabled={busyUnit === logsFor.unit}
-                            >Start</button>
+                            >{t('app.servicesTab.start2', 'Start')}</button>
                             <button type="button"
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'stop')}
                                 disabled={busyUnit === logsFor.unit}
-                            >Stop</button>
+                            >{t('app.servicesTab.stop3', 'Stop')}</button>
                             <button type="button"
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'restart')}
                                 disabled={busyUnit === logsFor.unit}
-                            >Restart</button>
+                            >{t('app.servicesTab.restart3', 'Restart')}</button>
                         </div>
 
                         <LogToolbar
@@ -533,7 +537,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                             onToggleFullscreen={() => {}}
                             onRefresh={() => loadLogs(logsFor.unit)}
                             onDownload={downloadLogs}
-                            onClear={() => toast.error('Journal logs cannot be truncated from the panel.')}
+                            onClear={() => toast.error(t('app.servicesTab.journalLogsCannotBeTruncatedFrom', 'Journal logs cannot be truncated from the panel.'))}
                             onScrollToBottom={() => {
                                 if (logContentRef.current) {
                                     logContentRef.current.scrollTop = logContentRef.current.scrollHeight;
@@ -549,7 +553,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                                 scrollKey={logsFor.unit}
                                 content={logText}
                                 loading={logsLoading}
-                                emptyMessage="No log output."
+                                emptyMessage={t('app.servicesTab.noLogOutput', 'No log output.')}
                                 showLineNumbers={logShowLineNumbers}
                                 wrapLines={logWrap}
                                 searchPattern={appliedLogSearch}

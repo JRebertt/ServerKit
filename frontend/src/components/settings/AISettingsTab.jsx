@@ -5,10 +5,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 
 const AI_CONFIG_CHANGED_EVENT = 'serverkit:ai-config-changed';
 
 const AISettingsTab = () => {
+    const { t } = useTranslation();
     const register = useSettingFocus();
     const { isAdmin } = useAuth();
     const [settings, setSettings] = useState({
@@ -95,10 +97,10 @@ const AISettingsTab = () => {
     };
 
     if (!isAdmin) {
-        return <div className="settings-section"><p>Admin access required.</p></div>;
+        return <div className="settings-section"><p>{t('app.aISettingsTab.adminAccessRequired', 'Admin access required.')}</p></div>;
     }
     if (loading) {
-        return <div className="settings-section"><p>Loading…</p></div>;
+        return <div className="settings-section"><p>{t('app.aISettingsTab.loading', 'Loading…')}</p></div>;
     }
 
     const activeProvider = providers.find((p) => p.id === settings.provider);
@@ -106,10 +108,9 @@ const AISettingsTab = () => {
 
     return (
         <div className="settings-section">
-            <h2>AI Assistant</h2>
+            <h2>{t('app.aISettingsTab.aiAssistant', 'AI Assistant')}</h2>
             <p className="section-description">
-                Configure the in-panel assistant — powered by Prompture. The API key is stored
-                encrypted and never returned by the API.
+                {t('app.aISettingsTab.configureTheInPanelAssistantPowered', 'Configure the in-panel assistant — powered by Prompture. The API key is stored encrypted and never returned by the API.')}
             </p>
 
             {message && <div className={`message ${message.type}`}>{message.text}</div>}
@@ -117,7 +118,7 @@ const AISettingsTab = () => {
             <div {...register('ai-provider', 'settings-card')}>
                 <div className="form-group">
                     <div className="settings-row">
-                        <div className="settings-label"><Label>Enable AI assistant</Label></div>
+                        <div className="settings-label"><Label>{t('app.aISettingsTab.enableAiAssistant', 'Enable AI assistant')}</Label></div>
                         <Switch
                             checked={settings.enabled}
                             onCheckedChange={(v) => setSettings((s) => ({ ...s, enabled: v }))}
@@ -126,13 +127,13 @@ const AISettingsTab = () => {
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="ai-provider">Provider</label>
+                    <label htmlFor="ai-provider">{t('app.aISettingsTab.provider', 'Provider')}</label>
                     <select
                         id="ai-provider"
                         value={settings.provider}
                         onChange={(e) => onProviderChange(e.target.value)}
                     >
-                        <option value="">Select a provider…</option>
+                        <option value="">{t('app.aISettingsTab.selectAProvider', 'Select a provider…')}</option>
                         {providers.map((p) => (
                             <option key={p.id} value={p.id}>{p.label}</option>
                         ))}
@@ -140,12 +141,12 @@ const AISettingsTab = () => {
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="ai-model">Model</label>
+                    <label htmlFor="ai-model">{t('app.aISettingsTab.model', 'Model')}</label>
                     <input
                         id="ai-model"
                         type="text"
                         list="ai-model-options"
-                        placeholder="e.g. gpt-4o"
+                        placeholder={t('app.aISettingsTab.eGGpt4o', 'e.g. gpt-4o')}
                         value={settings.model}
                         onChange={(e) => setSettings((s) => ({ ...s, model: e.target.value }))}
                     />
@@ -156,12 +157,12 @@ const AISettingsTab = () => {
 
                 {needsKey && (
                     <div className="form-group">
-                        <label htmlFor="ai-key">API key</label>
+                        <label htmlFor="ai-key">{t('app.aISettingsTab.apiKey', 'API key')}</label>
                         <input
                             id="ai-key"
                             type="password"
                             autoComplete="off"
-                            placeholder={settings.api_key_set ? 'Configured ✓ (leave blank to keep)' : 'Paste your API key'}
+                            placeholder={settings.api_key_set ? t('app.aISettingsTab.configuredLeaveBlankToKeep', 'Configured ✓ (leave blank to keep)') : t('app.aISettingsTab.pasteYourApiKey', 'Paste your API key')}
                             value={apiKey}
                             onChange={(e) => setApiKey(e.target.value)}
                         />
@@ -170,7 +171,7 @@ const AISettingsTab = () => {
 
                 {activeProvider && activeProvider.supports_endpoint && (
                     <div className="form-group">
-                        <label htmlFor="ai-endpoint">Endpoint (optional)</label>
+                        <label htmlFor="ai-endpoint">{t('app.aISettingsTab.endpointOptional', 'Endpoint (optional)')}</label>
                         <input
                             id="ai-endpoint"
                             type="text"
@@ -182,7 +183,7 @@ const AISettingsTab = () => {
                 )}
 
                 <div className="form-group">
-                    <label htmlFor="ai-max-cost">Per-conversation cost ceiling (USD)</label>
+                    <label htmlFor="ai-max-cost">{t('app.aISettingsTab.perConversationCostCeilingUsd', 'Per-conversation cost ceiling (USD)')}</label>
                     <input
                         id="ai-max-cost"
                         type="number"
@@ -195,7 +196,7 @@ const AISettingsTab = () => {
 
                 <div className="form-group">
                     <div className="settings-row">
-                        <div className="settings-label"><Label>Redact PII from messages &amp; tool output</Label></div>
+                        <div className="settings-label"><Label>{t('app.aISettingsTab.redactPiiFromMessagesToolOutput', 'Redact PII from messages & tool output')}</Label></div>
                         <Switch
                             checked={settings.pii_redaction}
                             onCheckedChange={(v) => setSettings((s) => ({ ...s, pii_redaction: v }))}
@@ -204,7 +205,7 @@ const AISettingsTab = () => {
                 </div>
                 <div className="form-group">
                     <div className="settings-row">
-                        <div className="settings-label"><Label>Block prompt-injection attempts</Label></div>
+                        <div className="settings-label"><Label>{t('app.aISettingsTab.blockPromptInjectionAttempts', 'Block prompt-injection attempts')}</Label></div>
                         <Switch
                             checked={settings.injection_detection}
                             onCheckedChange={(v) => setSettings((s) => ({ ...s, injection_detection: v }))}

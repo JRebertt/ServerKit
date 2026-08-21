@@ -14,6 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useDeployments } from '../../hooks/useDeployments';
 import { getDeployStatus, formatRelativeTime, formatDuration } from '../../utils/serviceTypes';
 import EmptyState from '../EmptyState';
+import { useTranslation } from 'react-i18next';
 
 // Deployment status → tone and env-var change action → tone both come from
 // the ONE shared status vocabulary (ds/status).
@@ -81,6 +82,7 @@ const EVENT_VIEWS = [
 // timeline): deployments, environment-variable changes, and — for admins —
 // audit-log entries targeting this app. Newest first.
 const EventsTab = ({ appId }) => {
+    const { t } = useTranslation();
     const { deployments, loading, error, reload } = useDeployments(appId);
     const { isAdmin } = useAuth();
     const [envHistory, setEnvHistory] = useState([]);
@@ -180,7 +182,7 @@ const EventsTab = ({ appId }) => {
     const columns = [
         {
             key: 'time',
-            header: 'When',
+            headerKey: 'app.eventsTab.when', header: 'When',
             sortable: true,
             hideable: false,
             // Relative in the cell, exact on hover — "3h ago" is what you scan
@@ -197,7 +199,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'kind',
-            header: 'Kind',
+            headerKey: 'app.eventsTab.kind', header: 'Kind',
             sortable: true,
             // Declared, not inferred: a young service with three entries of
             // three kinds fails the enum cardinality ratio and would fall back
@@ -213,7 +215,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'event',
-            header: 'Event',
+            headerKey: 'app.eventsTab.event', header: 'Event',
             sortable: true,
             hideable: false,
             // Commit subjects and audit actions: high cardinality, so a typed
@@ -244,7 +246,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'status',
-            header: 'Status',
+            headerKey: 'app.eventsTab.status', header: 'Status',
             sortable: true,
             // No enumOrder: the pick-list should offer the outcomes this
             // service actually produced, with their live counts, rather than
@@ -258,7 +260,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'actor',
-            header: 'Triggered by',
+            headerKey: 'app.eventsTab.triggeredBy', header: 'Triggered by',
             sortable: true,
             // A person for an audit entry, a mechanism ('push', 'manual') for a
             // deploy — one column because the question is the same one.
@@ -297,16 +299,16 @@ const EventsTab = ({ appId }) => {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title="Loading activity..." />;
+        return <EmptyState loading loadingVariant="table" title={t('app.eventsTab.loadingActivity', 'Loading activity...')} />;
     }
 
     if (error) {
         return (
             <EmptyState
                 icon={History}
-                title="Failed to load activity"
+                title={t('app.eventsTab.failedToLoadActivity', 'Failed to load activity')}
                 description={error}
-                action={<Button variant="outline" onClick={refresh}>Retry</Button>}
+                action={<Button variant="outline" onClick={refresh}>{t('app.eventsTab.retry', 'Retry')}</Button>}
             />
         );
     }
@@ -315,8 +317,8 @@ const EventsTab = ({ appId }) => {
         return (
             <EmptyState
                 icon={History}
-                title="No activity yet"
-                description="Deployments, config changes and edits to this service will show up here."
+                title={t('app.eventsTab.noActivityYet', 'No activity yet')}
+                description={t('app.eventsTab.deploymentsConfigChangesAndEditsTo', 'Deployments, config changes and edits to this service will show up here.')}
             />
         );
     }
@@ -337,7 +339,7 @@ const EventsTab = ({ appId }) => {
                         <SearchField
                             value={search}
                             onSearch={setSearch}
-                            placeholder="Search activity…"
+                            placeholder={t('app.eventsTab.searchActivity', 'Search activity…')}
                         />
                         <GridFilterButton
                             count={chrome.filterCount}
@@ -385,22 +387,22 @@ const EventsTab = ({ appId }) => {
             <Drawer
                 open={!!deployDetail}
                 onOpenChange={(open) => { if (!open) setDeployDetail(null); }}
-                title={deployDetail?.text || 'Deployment'}
+                title={deployDetail?.text || t('app.eventsTab.deployment', 'Deployment')}
                 subtitle={deployDetail?.at ? new Date(deployDetail.at).toLocaleString() : ''}
             >
                 {deployDetail?.deploy && (
                     <>
                         <InfoList>
-                            <InfoItem label="Status" value={deployDetail.status} />
-                            <InfoItem label="Triggered by" value={deployDetail.actor} />
+                            <InfoItem label={t('app.eventsTab.status2', 'Status')} value={deployDetail.status} />
+                            <InfoItem label={t('app.eventsTab.triggeredBy2', 'Triggered by')} value={deployDetail.actor} />
                             {deployDetail.deploy.branch && (
-                                <InfoItem label="Branch" value={deployDetail.deploy.branch} mono />
+                                <InfoItem label={t('app.eventsTab.branch', 'Branch')} value={deployDetail.deploy.branch} mono />
                             )}
                             {deployDetail.deploy.commitSha && (
-                                <InfoItem label="Commit" value={deployDetail.deploy.commitSha} mono />
+                                <InfoItem label={t('app.eventsTab.commit', 'Commit')} value={deployDetail.deploy.commitSha} mono />
                             )}
                             {deployDetail.deploy.duration && (
-                                <InfoItem label="Duration" value={formatDuration(deployDetail.deploy.duration)} />
+                                <InfoItem label={t('app.eventsTab.duration', 'Duration')} value={formatDuration(deployDetail.deploy.duration)} />
                             )}
                         </InfoList>
                         {deployDetail.deploy.logs ? (
@@ -408,7 +410,7 @@ const EventsTab = ({ appId }) => {
                                 <pre>{deployDetail.deploy.logs}</pre>
                             </div>
                         ) : (
-                            <p className="events-tab__none">No build log was captured for this deployment.</p>
+                            <p className="events-tab__none">{t('app.eventsTab.noBuildLogWasCapturedFor', 'No build log was captured for this deployment.')}</p>
                         )}
                     </>
                 )}

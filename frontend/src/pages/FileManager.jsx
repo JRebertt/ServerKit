@@ -26,16 +26,17 @@ import ContextMenu from '../components/file-manager/ContextMenu';
 import TargetPicker from '../components/TargetPicker';
 import { TREE_ROOTS, getFileType, formatBytes } from '../components/file-manager/fileTypes';
 import { copyToClipboard } from '@/utils/clipboard';
+import { useTranslation } from 'react-i18next';
 
 // Demo rail shortcuts (Quick access) — one-click jumps to the paths people
 // actually visit on a ServerKit host. "Stack" starts at the default install
 // location and is re-pointed from /system/version's install_dir, so a custom
 // SERVERKIT_DIR install jumps to the real tree.
 const QUICK_ACCESS = [
-    { label: 'Sites', path: '/var/www', icon: Globe },
-    { label: 'Stack', path: '/opt/serverkit', icon: Boxes },
-    { label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-    { label: 'Logs', path: '/var/log', icon: FileText },
+    { labelKey: 'app.fileManager.sites', label: 'Sites', path: '/var/www', icon: Globe },
+    { labelKey: 'app.fileManager.stack', label: 'Stack', path: '/opt/serverkit', icon: Boxes },
+    { labelKey: 'app.fileManager.webConfig', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
+    { labelKey: 'app.fileManager.logs', label: 'Logs', path: '/var/log', icon: FileText },
 ];
 
 // Remote-agent rails: the panel stack doesn't exist on an agent box, so link
@@ -45,19 +46,19 @@ const QUICK_ACCESS = [
 // with forward-slash paths, Windows included.
 const QUICK_ACCESS_AGENT = {
     linux: [
-        { label: 'Sites', path: '/var/www', icon: Globe },
-        { label: 'Agent', path: '/etc/serverkit-agent', icon: Boxes },
-        { label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-        { label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'app.fileManager.sites2', label: 'Sites', path: '/var/www', icon: Globe },
+        { labelKey: 'app.fileManager.agent', label: 'Agent', path: '/etc/serverkit-agent', icon: Boxes },
+        { labelKey: 'app.fileManager.webConfig2', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
+        { labelKey: 'app.fileManager.logs2', label: 'Logs', path: '/var/log', icon: FileText },
     ],
     windows: [
-        { label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
-        { label: 'Agent logs', path: 'C:/ProgramData/ServerKit/Agent/logs', icon: FileText },
-        { label: 'Users', path: 'C:/Users', icon: Home },
+        { labelKey: 'app.fileManager.agent2', label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
+        { labelKey: 'app.fileManager.agentLogs', label: 'Agent logs', path: 'C:/ProgramData/ServerKit/Agent/logs', icon: FileText },
+        { labelKey: 'app.fileManager.users', label: 'Users', path: 'C:/Users', icon: Home },
     ],
     darwin: [
-        { label: 'Home', path: '/Users', icon: Home },
-        { label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'app.fileManager.home', label: 'Home', path: '/Users', icon: Home },
+        { labelKey: 'app.fileManager.logs3', label: 'Logs', path: '/var/log', icon: FileText },
     ],
 };
 
@@ -108,18 +109,19 @@ const STORAGE = {
 };
 
 const FILTER_OPTIONS = [
-    { id: 'all', label: 'All' },
-    { id: 'folder', label: 'Folders' },
-    { id: 'image', label: 'Images' },
-    { id: 'code', label: 'Code' },
-    { id: 'text', label: 'Documents' },
-    { id: 'data', label: 'Data' },
-    { id: 'video', label: 'Videos' },
-    { id: 'audio', label: 'Audio' },
-    { id: 'archive', label: 'Archives' },
+    { id: 'all', labelKey: 'app.fileManager.all', label: 'All' },
+    { id: 'folder', labelKey: 'app.fileManager.folders', label: 'Folders' },
+    { id: 'image', labelKey: 'app.fileManager.images', label: 'Images' },
+    { id: 'code', labelKey: 'app.fileManager.code', label: 'Code' },
+    { id: 'text', labelKey: 'app.fileManager.documents', label: 'Documents' },
+    { id: 'data', labelKey: 'app.fileManager.data', label: 'Data' },
+    { id: 'video', labelKey: 'app.fileManager.videos', label: 'Videos' },
+    { id: 'audio', labelKey: 'app.fileManager.audio', label: 'Audio' },
+    { id: 'archive', labelKey: 'app.fileManager.archives', label: 'Archives' },
 ];
 
 function FileManager() {
+    const { t } = useTranslation();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // ─── target ──────────────────────────────────────────
@@ -332,11 +334,11 @@ function FileManager() {
 
     const remoteGuard = useCallback((op) => {
         if (isRemote && !REMOTE_SUPPORTED.has(op)) {
-            toast.error(`${op} is not yet supported on remote agents`);
+            toast.error(t('app.fileManager.isNotYetSupportedOnRemote', '{{op}} is not yet supported on remote agents', { op: op }));
             return true;
         }
         if (isS3 && S3_BLOCKED.has(op)) {
-            toast.error(`${op} isn't available on S3 buckets`);
+            toast.error(t('app.fileManager.isnTAvailableOnS3Buckets', '{{op}} isn\'t available on S3 buckets', { op: op }));
             return true;
         }
         return false;
@@ -379,7 +381,7 @@ function FileManager() {
             setParentPath(data.parent ?? deriveParent(data.path || path));
             setCurrentPath(data.path || path);
         } catch (error) {
-            toast.error(`Failed to load directory: ${error.message}`);
+            toast.error(t('app.fileManager.failedToLoadDirectory', 'Failed to load directory: {{message}}', { message: error.message }));
         } finally {
             setLoading(false);
         }
@@ -474,7 +476,7 @@ function FileManager() {
             const data = await api.searchFiles(currentPath, searchQuery);
             setSearchResults(data.results || []);
         } catch (error) {
-            toast.error(`Search failed: ${error.message}`);
+            toast.error(t('app.fileManager.searchFailed', 'Search failed: {{message}}', { message: error.message }));
         } finally {
             setLoading(false);
         }
@@ -514,7 +516,7 @@ function FileManager() {
                     const data = await fileApi.read(entry.path);
                     setFileContent(data.content);
                 } catch (error) {
-                    toast.error(`Failed to read file: ${error.message}`);
+                    toast.error(t('app.fileManager.failedToReadFile', 'Failed to read file: {{message}}', { message: error.message }));
                 }
             }
         }
@@ -553,11 +555,11 @@ function FileManager() {
         if (!previewFile) return;
         try {
             await fileApi.write(previewFile.path, fileContent);
-            toast.success('File saved');
+            toast.success(t('app.fileManager.fileSaved', 'File saved'));
             setEditing(false);
             loadDirectory(currentPath);
         } catch (error) {
-            toast.error(`Failed to save: ${error.message}`);
+            toast.error(t('app.fileManager.failedToSave', 'Failed to save: {{message}}', { message: error.message }));
         }
     };
 
@@ -566,12 +568,12 @@ function FileManager() {
         if (remoteGuard('create file')) return;
         try {
             await api.createFile(`${currentPath}/${newFileName}`);
-            toast.success('File created');
+            toast.success(t('app.fileManager.fileCreated', 'File created'));
             setShowNewFileModal(false);
             setNewFileName('');
             loadDirectory(currentPath);
         } catch (error) {
-            toast.error(`Failed to create file: ${error.message}`);
+            toast.error(t('app.fileManager.failedToCreateFile', 'Failed to create file: {{message}}', { message: error.message }));
         }
     };
 
@@ -580,7 +582,7 @@ function FileManager() {
         if (remoteGuard('create folder')) return;
         try {
             await api.createDirectory(`${currentPath}/${newFolderName}`);
-            toast.success('Folder created');
+            toast.success(t('app.fileManager.folderCreated', 'Folder created'));
             setShowNewFolderModal(false);
             setNewFolderName('');
             loadDirectory(currentPath);
@@ -594,7 +596,7 @@ function FileManager() {
                 } catch { /* ignore */ }
             }
         } catch (error) {
-            toast.error(`Failed to create folder: ${error.message}`);
+            toast.error(t('app.fileManager.failedToCreateFolder', 'Failed to create folder: {{message}}', { message: error.message }));
         }
     };
 
@@ -606,9 +608,9 @@ function FileManager() {
             ? `Delete "${items[0].name}"?${items[0].is_dir ? ' All contents inside will be removed.' : ''}`
             : `Delete ${items.length} items? This cannot be undone.`;
         setConfirmDialog({
-            title: 'Delete Confirmation',
+            titleKey: 'app.fileManager.deleteConfirmation', title: 'Delete Confirmation',
             message,
-            confirmText: 'Delete',
+            confirmTextKey: 'app.fileManager.delete', confirmText: 'Delete',
             variant: 'danger',
             onConfirm: async () => {
                 const failures = [];
@@ -619,8 +621,8 @@ function FileManager() {
                         failures.push(`${it.name}: ${error.message}`);
                     }
                 }
-                if (failures.length === 0) toast.success(`Deleted ${items.length} item${items.length > 1 ? 's' : ''}`);
-                else toast.error(`Failed: ${failures.join(', ')}`);
+                if (failures.length === 0) toast.success(t('app.fileManager.deletedItem', 'Deleted {{length}} item{{value}}', { length: items.length, value: items.length > 1 ? 's' : '' }));
+                else toast.error(t('app.fileManager.failed', 'Failed: {{value}}', { value: failures.join(', ') }));
                 if (previewFile && items.some((i) => i.path === previewFile.path)) setPreviewFile(null);
                 clearSelection();
                 loadDirectory(currentPath);
@@ -635,13 +637,13 @@ function FileManager() {
         if (remoteGuard('rename')) return;
         try {
             await api.renameFile(renameTarget.path, newName);
-            toast.success('Renamed');
+            toast.success(t('app.fileManager.renamed', 'Renamed'));
             setShowRenameModal(false);
             setRenameTarget(null);
             setNewName('');
             loadDirectory(currentPath);
         } catch (error) {
-            toast.error(`Failed to rename: ${error.message}`);
+            toast.error(t('app.fileManager.failedToRename', 'Failed to rename: {{message}}', { message: error.message }));
         }
     };
 
@@ -650,13 +652,13 @@ function FileManager() {
         if (remoteGuard('change permissions')) return;
         try {
             await api.changeFilePermissions(permissionsTarget.path, newPermissions);
-            toast.success('Permissions updated');
+            toast.success(t('app.fileManager.permissionsUpdated', 'Permissions updated'));
             setShowPermissionsModal(false);
             setPermissionsTarget(null);
             setNewPermissions('');
             loadDirectory(currentPath);
         } catch (error) {
-            toast.error(`Failed: ${error.message}`);
+            toast.error(t('app.fileManager.failed2', 'Failed: {{message}}', { message: error.message }));
         }
     };
 
@@ -701,7 +703,7 @@ function FileManager() {
                 setUploads((p) => p.map((u) => u.id === itemId ? { ...u, status: 'error', error: error.message } : u));
             }
         }
-        if (succeeded > 0) toast.success(`Uploaded ${succeeded} of ${fileList.length} file${fileList.length > 1 ? 's' : ''}`);
+        if (succeeded > 0) toast.success(t('app.fileManager.uploadedOfFile', 'Uploaded {{succeeded}} of {{length}} file{{value}}', { succeeded: succeeded, length: fileList.length, value: fileList.length > 1 ? 's' : '' }));
         loadDirectory(currentPath);
         setTimeout(() => {
             setUploads((p) => p.filter((u) => u.status === 'uploading' || u.status === 'pending'));
@@ -851,8 +853,8 @@ function FileManager() {
     };
 
     const copyPathToClipboard = async (path) => {
-        if (await copyToClipboard(path)) toast.success('Path copied');
-        else toast.error('Could not copy path');
+        if (await copyToClipboard(path)) toast.success(t('app.fileManager.pathCopied', 'Path copied'));
+        else toast.error(t('app.fileManager.couldNotCopyPath', 'Could not copy path'));
     };
 
     const downloadSelected = () => {
@@ -884,14 +886,13 @@ function FileManager() {
 
             {isRemote && (
                 <div className="file-manager-target-banner">
-                    Browsing on <strong>{target.name}</strong> — read/write only.
-                    Mkdir/delete/rename/upload aren&apos;t yet supported on remote agents.
+                    {t('app.fileManager.browsingOn', 'Browsing on')} <strong>{target.name}</strong> {t('app.fileManager.readWriteOnlyMkdirDeleteRename', '— read/write only. Mkdir/delete/rename/upload aren\'t yet supported on remote agents.')}
                 </div>
             )}
 
             {isS3 && (
                 <div className="file-manager-target-banner">
-                    Browsing your <strong>S3 bucket</strong>. Upload, download, edit and delete work;
+                    {t('app.fileManager.browsingYour', 'Browsing your')} <strong>{t('app.fileManager.s3Bucket', 'S3 bucket')}</strong>. Upload, download, edit and delete work;
                     folders, rename and permissions don&apos;t apply to object storage.
                 </div>
             )}
@@ -908,7 +909,7 @@ function FileManager() {
                         {activeUploads.length > 0 && (
                             <span className="upload-tray-percent">{Math.round(totalUploadProgress)}%</span>
                         )}
-                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title="Clear">
+                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('app.fileManager.clear', 'Clear')}>
                             <X size={14} />
                         </button>
                     </div>
@@ -933,21 +934,21 @@ function FileManager() {
                     <button type="button"
                         className="toolbar-icon-btn"
                         onClick={() => setSidebarVisible(!sidebarVisible)}
-                        title={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+                        title={sidebarVisible ? t('app.fileManager.hideSidebar', 'Hide sidebar') : t('app.fileManager.showSidebar', 'Show sidebar')}
                     >
                         {sidebarVisible ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
                     </button>
                     <div className="nav-buttons">
-                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title="Back">
+                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title={t('app.fileManager.back', 'Back')}>
                             <ArrowLeft size={14} />
                         </button>
-                        <button type="button" className="nav-btn" onClick={goForward} disabled={historyIdx >= history.length - 1} title="Forward">
+                        <button type="button" className="nav-btn" onClick={goForward} disabled={historyIdx >= history.length - 1} title={t('app.fileManager.forward', 'Forward')}>
                             <ArrowRight size={14} />
                         </button>
                         <button type="button" className="nav-btn" onClick={goUp} disabled={!parentPath} title="Up">
                             <ArrowUp size={14} />
                         </button>
-                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title="Home">
+                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title={t('app.fileManager.home2', 'Home')}>
                             <Home size={14} />
                         </button>
                     </div>
@@ -970,13 +971,13 @@ function FileManager() {
                         feature="files"
                         value={target}
                         onChange={setTarget}
-                        extraOptions={s3Available ? [{ value: 's3', label: 'S3 bucket' }] : []}
+                        extraOptions={s3Available ? [{ value: 's3', labelKey: 'app.fileManager.s3Bucket2', label: 'S3 bucket' }] : []}
                     />
                     <div className="search-field">
                         <Search size={14} className="search-field-icon" />
                         <input
                             type="text"
-                            placeholder="Search files…"
+                            placeholder={t('app.fileManager.searchFiles', 'Search files…')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -985,7 +986,7 @@ function FileManager() {
                             <button type="button"
                                 className="search-field-clear"
                                 onClick={() => { setSearchResults(null); setSearchQuery(''); }}
-                                title="Clear"
+                                title={t('app.fileManager.clear2', 'Clear')}
                             >
                                 <X size={12} />
                             </button>
@@ -993,20 +994,20 @@ function FileManager() {
                     </div>
                     <button type="button" className="toolbar-chip" onClick={() => fileInputRef.current?.click()} disabled={isRemote}>
                         <Upload size={14} />
-                        <span>Upload</span>
+                        <span>{t('app.fileManager.upload', 'Upload')}</span>
                     </button>
                     <div className="view-toggle">
                         <button type="button"
                             className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
                             onClick={() => setViewMode('grid')}
-                            title="Grid view"
+                            title={t('app.fileManager.gridView', 'Grid view')}
                         >
                             <LayoutGrid size={14} />
                         </button>
                         <button type="button"
                             className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
                             onClick={() => setViewMode('list')}
-                            title="List view"
+                            title={t('app.fileManager.listView', 'List view')}
                         >
                             <List size={14} />
                         </button>
@@ -1014,14 +1015,14 @@ function FileManager() {
                     <button type="button"
                         className={`toolbar-icon-btn ${showHidden ? 'active' : ''}`}
                         onClick={() => setShowHidden(!showHidden)}
-                        title="Toggle hidden files"
+                        title={t('app.fileManager.toggleHiddenFiles', 'Toggle hidden files')}
                     >
                         {showHidden ? <Eye size={14} /> : <EyeOff size={14} />}
                     </button>
                     <button type="button"
                         className="toolbar-icon-btn"
                         onClick={() => loadDirectory(currentPath)}
-                        title="Refresh"
+                        title={t('app.fileManager.refresh', 'Refresh')}
                     >
                         <RefreshCw size={14} className={loading ? 'spinning' : ''} />
                     </button>
@@ -1032,27 +1033,27 @@ function FileManager() {
                 <div className="bulk-bar">
                     <div className="bulk-bar-info">
                         <Check size={14} />
-                        <span>{selectedPaths.size} selected · {formatBytes(stats.selectedBytes)}</span>
+                        <span>{selectedPaths.size} {t('app.fileManager.selected', 'selected ·')} {formatBytes(stats.selectedBytes)}</span>
                     </div>
                     <div className="bulk-bar-actions">
                         <button type="button" className="bulk-btn" onClick={downloadSelected}>
-                            <Download size={14} /> Download
+                            <Download size={14} /> {t('app.fileManager.download', 'Download')}
                         </button>
                         {selectedEntries.length === 1 && (
                             <>
                                 <button type="button" className="bulk-btn" onClick={() => openRenameModal(selectedEntries[0])}>
-                                    <Edit3 size={14} /> Rename
+                                    <Edit3 size={14} /> {t('app.fileManager.rename', 'Rename')}
                                 </button>
                                 <button type="button" className="bulk-btn" onClick={() => copyPathToClipboard(selectedEntries[0].path)}>
-                                    <Copy size={14} /> Copy path
+                                    <Copy size={14} /> {t('app.fileManager.copyPath', 'Copy path')}
                                 </button>
                             </>
                         )}
                         <button type="button" className="bulk-btn danger" onClick={() => handleDelete(selectedEntries)}>
-                            <Trash2 size={14} /> Delete
+                            <Trash2 size={14} /> {t('app.fileManager.delete2', 'Delete')}
                         </button>
                         <button type="button" className="bulk-btn ghost" onClick={clearSelection}>
-                            <X size={14} /> Clear
+                            <X size={14} /> {t('app.fileManager.clear3', 'Clear')}
                         </button>
                     </div>
                 </div>
@@ -1066,7 +1067,7 @@ function FileManager() {
                         <div className="sidebar-section">
                             <div className="sidebar-section-header static">
                                 <Zap size={16} />
-                                <span>Quick access</span>
+                                <span>{t('app.fileManager.quickAccess', 'Quick access')}</span>
                             </div>
                             <div className="sidebar-section-content quick-access-list">
                                 {quickAccess.map(q => (
@@ -1087,14 +1088,14 @@ function FileManager() {
                             <div className="sidebar-section-header sidebar-section-header--split">
                                 <button type="button" className="sidebar-section-toggle" onClick={() => setTreeCollapsed(!treeCollapsed)}>
                                     <FolderTreeIcon size={16} />
-                                    <span>Folders</span>
+                                    <span>{t('app.fileManager.folders2', 'Folders')}</span>
                                     {treeCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                                 </button>
                                 <button type="button"
                                     className="sidebar-action-btn"
                                     onClick={() => setShowNewFolderModal(true)}
                                     disabled={isRemote}
-                                    title="New folder"
+                                    title={t('app.fileManager.newFolder', 'New folder')}
                                 >
                                     <FolderPlus size={14} />
                                 </button>
@@ -1119,7 +1120,7 @@ function FileManager() {
                         <div className="sidebar-section">
                             <div className="sidebar-section-header static">
                                 <File size={16} />
-                                <span>Types</span>
+                                <span>{t('app.fileManager.types', 'Types')}</span>
                             </div>
                             <div className="sidebar-section-content type-filter-panel">
                                 <div className="type-filter-list">
@@ -1139,16 +1140,16 @@ function FileManager() {
                                     })}
                                 </div>
                                 <label className="sidebar-sort-control">
-                                    <span><ArrowUpDown size={12} /> Sort</span>
+                                    <span><ArrowUpDown size={12} /> {t('app.fileManager.sort', 'Sort')}</span>
                                     <select value={sortValue} onChange={(e) => handleSortChange(e.target.value)}>
-                                        <option value="name-asc">Name A-Z</option>
-                                        <option value="name-desc">Name Z-A</option>
-                                        <option value="modified-desc">Newest</option>
-                                        <option value="modified-asc">Oldest</option>
-                                        <option value="size-desc">Largest</option>
-                                        <option value="size-asc">Smallest</option>
-                                        <option value="type-asc">Type</option>
-                                        <option value="type-desc">Type Z-A</option>
+                                        <option value="name-asc">{t('app.fileManager.nameAZ', 'Name A-Z')}</option>
+                                        <option value="name-desc">{t('app.fileManager.nameZA', 'Name Z-A')}</option>
+                                        <option value="modified-desc">{t('app.fileManager.newest', 'Newest')}</option>
+                                        <option value="modified-asc">{t('app.fileManager.oldest', 'Oldest')}</option>
+                                        <option value="size-desc">{t('app.fileManager.largest', 'Largest')}</option>
+                                        <option value="size-asc">{t('app.fileManager.smallest', 'Smallest')}</option>
+                                        <option value="type-asc">{t('app.fileManager.type', 'Type')}</option>
+                                        <option value="type-desc">{t('app.fileManager.typeZA', 'Type Z-A')}</option>
                                     </select>
                                 </label>
                             </div>
@@ -1158,7 +1159,7 @@ function FileManager() {
                         <div className="sidebar-section">
                             <button type="button" className="sidebar-section-header" onClick={() => setDiskCollapsed(!diskCollapsed)}>
                                 <HardDrive size={16} />
-                                <span>Disk Usage</span>
+                                <span>{t('app.fileManager.diskUsage', 'Disk Usage')}</span>
                                 {diskCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                             </button>
                             {!diskCollapsed && (
@@ -1170,7 +1171,7 @@ function FileManager() {
                                                 {diskLastUpdated.toLocaleTimeString()}
                                             </span>
                                         )}
-                                        <button type="button" className="toolbar-icon-btn small" onClick={loadDiskMounts} disabled={diskLoading} title="Refresh">
+                                        <button type="button" className="toolbar-icon-btn small" onClick={loadDiskMounts} disabled={diskLoading} title={t('app.fileManager.refresh2', 'Refresh')}>
                                             <RefreshCw size={12} className={diskLoading ? 'spinning' : ''} />
                                         </button>
                                     </div>
@@ -1209,23 +1210,23 @@ function FileManager() {
                             <div className="drag-overlay">
                                 <div className="drag-overlay-inner">
                                     <CloudUpload size={56} strokeWidth={1.5} />
-                                    <h3>Drop to upload</h3>
-                                    <p>Files will be uploaded to <code>{currentPath}</code></p>
+                                    <h3>{t('app.fileManager.dropToUpload', 'Drop to upload')}</h3>
+                                    <p>{t('app.fileManager.filesWillBeUploadedTo', 'Files will be uploaded to')} <code>{currentPath}</code></p>
                                 </div>
                             </div>
                         )}
 
                         {loading ? (
-                            <EmptyState loading loadingVariant="tree" title="Loading files" />
+                            <EmptyState loading loadingVariant="tree" title={t('app.fileManager.loadingFiles', 'Loading files')} />
                         ) : sortedFiltered.length === 0 ? (
                             <EmptyState
                                 icon={FolderOpen}
-                                title={searchResults ? 'No matches' : activeFilter !== 'all' ? `No ${activeFilter} files` : 'This folder is empty'}
+                                title={searchResults ? t('app.fileManager.noMatches', 'No matches') : activeFilter !== 'all' ? t('app.fileManager.noFiles', 'No {{activeFilter}} files', { activeFilter: activeFilter }) : t('app.fileManager.thisFolderIsEmpty', 'This folder is empty')}
                                 description={searchResults
-                                    ? 'Try a different search term or browse another folder.'
+                                    ? t('app.fileManager.tryADifferentSearchTermOr', 'Try a different search term or browse another folder.')
                                     : activeFilter !== 'all'
-                                        ? 'Try a different filter.'
-                                        : 'Drop files here, or use the buttons above to create something new.'}
+                                        ? t('app.fileManager.tryADifferentFilter', 'Try a different filter.')
+                                        : t('app.fileManager.dropFilesHereOrUseThe', 'Drop files here, or use the buttons above to create something new.')}
                             />
                         ) : viewMode === 'grid' ? (
                             <div className="file-grid">
@@ -1261,12 +1262,12 @@ function FileManager() {
                                             </span>
                                         </button>
                                     </span>
-                                    <span className="col-name">Name</span>
-                                    <span className="col-size">Size</span>
-                                    <span className="col-modified">Modified</span>
-                                    <span className="col-permissions">Permissions</span>
-                                    <span className="col-owner">Owner</span>
-                                    <span className="col-actions">Actions</span>
+                                    <span className="col-name">{t('app.fileManager.name', 'Name')}</span>
+                                    <span className="col-size">{t('app.fileManager.size', 'Size')}</span>
+                                    <span className="col-modified">{t('app.fileManager.modified', 'Modified')}</span>
+                                    <span className="col-permissions">{t('app.fileManager.permissions', 'Permissions')}</span>
+                                    <span className="col-owner">{t('app.fileManager.owner', 'Owner')}</span>
+                                    <span className="col-actions">{t('app.fileManager.actions', 'Actions')}</span>
                                 </div>
                                 {sortedFiltered.map((entry) => (
                                     <FileRow
@@ -1310,7 +1311,7 @@ function FileManager() {
             <div className="status-bar">
                 <div className="status-bar-left">
                     <span className="status-item">
-                        <span className="status-label">Total</span>
+                        <span className="status-label">{t('app.fileManager.total', 'Total')}</span>
                         <span className="status-value">{stats.total} item{stats.total !== 1 ? 's' : ''}</span>
                     </span>
                     <span className="status-divider" />
@@ -1326,7 +1327,7 @@ function FileManager() {
                         <>
                             <span className="status-divider" />
                             <span className="status-item">
-                                <span className="status-label">Size</span>
+                                <span className="status-label">{t('app.fileManager.size2', 'Size')}</span>
                                 <span className="status-value">{formatBytes(stats.totalBytes)}</span>
                             </span>
                         </>
@@ -1335,11 +1336,11 @@ function FileManager() {
                 <div className="status-bar-right">
                     {stats.selectedCount > 0 && (
                         <span className="status-selection">
-                            {stats.selectedCount} selected · {formatBytes(stats.selectedBytes)}
+                            {stats.selectedCount} {t('app.fileManager.selected2', 'selected ·')} {formatBytes(stats.selectedBytes)}
                         </span>
                     )}
-                    <span className="status-shortcuts" title="Keyboard shortcuts">
-                        ⌫ Up · Del Delete · F2 Rename · ⌘A All
+                    <span className="status-shortcuts" title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}>
+                        {t('app.fileManager.upDelDeleteF2RenameA', '⌫ Up · Del Delete · F2 Rename · ⌘A All')}
                     </span>
                 </div>
             </div>
@@ -1357,9 +1358,9 @@ function FileManager() {
             />
 
             {/* Modals */}
-            <Modal open={showNewFileModal} onClose={() => setShowNewFileModal(false)} title="Create New File">
+            <Modal open={showNewFileModal} onClose={() => setShowNewFileModal(false)} title={t('app.fileManager.createNewFile', 'Create New File')}>
                             <div className="form-group">
-                                <Label>File Name</Label>
+                                <Label>{t('app.fileManager.fileName', 'File Name')}</Label>
                                 <Input
                                     type="text"
                                     value={newFileName}
@@ -1369,16 +1370,16 @@ function FileManager() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFile()}
                                 />
                             </div>
-                            <p className="text-muted">Will be created in: <code>{currentPath}</code></p>
+                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>Cancel</Button>
-                            <Button onClick={handleCreateFile}>Create File</Button>
+                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>{t('app.fileManager.cancel', 'Cancel')}</Button>
+                            <Button onClick={handleCreateFile}>{t('app.fileManager.createFile', 'Create File')}</Button>
                         </div>
             </Modal>
 
-            <Modal open={showNewFolderModal} onClose={() => setShowNewFolderModal(false)} title="Create New Folder">
+            <Modal open={showNewFolderModal} onClose={() => setShowNewFolderModal(false)} title={t('app.fileManager.createNewFolder', 'Create New Folder')}>
                             <div className="form-group">
-                                <Label>Folder Name</Label>
+                                <Label>{t('app.fileManager.folderName', 'Folder Name')}</Label>
                                 <Input
                                     type="text"
                                     value={newFolderName}
@@ -1388,16 +1389,16 @@ function FileManager() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                                 />
                             </div>
-                            <p className="text-muted">Will be created in: <code>{currentPath}</code></p>
+                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn2', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>Cancel</Button>
-                            <Button onClick={handleCreateFolder}>Create Folder</Button>
+                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>{t('app.fileManager.cancel2', 'Cancel')}</Button>
+                            <Button onClick={handleCreateFolder}>{t('app.fileManager.createFolder', 'Create Folder')}</Button>
                         </div>
             </Modal>
 
-            <Modal open={showRenameModal} onClose={() => setShowRenameModal(false)} title={`Rename ${renameTarget?.is_dir ? 'Folder' : 'File'}`}>
+            <Modal open={showRenameModal} onClose={() => setShowRenameModal(false)} title={t('app.fileManager.rename2', 'Rename {{value}}', { value: renameTarget?.is_dir ? 'Folder' : 'File' })}>
                             <div className="form-group">
-                                <Label>New Name</Label>
+                                <Label>{t('app.fileManager.newName', 'New Name')}</Label>
                                 <Input
                                     type="text"
                                     value={newName}
@@ -1407,14 +1408,14 @@ function FileManager() {
                                 />
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>Cancel</Button>
-                            <Button onClick={handleRename}>Rename</Button>
+                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>{t('app.fileManager.cancel3', 'Cancel')}</Button>
+                            <Button onClick={handleRename}>{t('app.fileManager.rename3', 'Rename')}</Button>
                         </div>
             </Modal>
 
-            <Modal open={showPermissionsModal} onClose={() => setShowPermissionsModal(false)} title="Change Permissions">
+            <Modal open={showPermissionsModal} onClose={() => setShowPermissionsModal(false)} title={t('app.fileManager.changePermissions', 'Change Permissions')}>
                             <div className="form-group">
-                                <Label>Permissions (Octal)</Label>
+                                <Label>{t('app.fileManager.permissionsOctal', 'Permissions (Octal)')}</Label>
                                 <Input
                                     type="text"
                                     value={newPermissions}
@@ -1424,18 +1425,18 @@ function FileManager() {
                                     autoFocus
                                 />
                             </div>
-                            <p className="text-muted">Current: {permissionsTarget?.permissions} ({permissionsTarget?.permissions_octal})</p>
+                            <p className="text-muted">{t('app.fileManager.current', 'Current:')} {permissionsTarget?.permissions} ({permissionsTarget?.permissions_octal})</p>
                             <div className="permissions-help">
-                                <p>Common values:</p>
+                                <p>{t('app.fileManager.commonValues', 'Common values:')}</p>
                                 <ul>
-                                    <li><code>755</code> Owner: rwx, Group/Other: rx (directories)</li>
-                                    <li><code>644</code> Owner: rw, Group/Other: r (files)</li>
-                                    <li><code>600</code> Owner: rw only (private files)</li>
+                                    <li><code>755</code> {t('app.fileManager.ownerRwxGroupOtherRxDirectories', 'Owner: rwx, Group/Other: rx (directories)')}</li>
+                                    <li><code>644</code> {t('app.fileManager.ownerRwGroupOtherRFiles', 'Owner: rw, Group/Other: r (files)')}</li>
+                                    <li><code>600</code> {t('app.fileManager.ownerRwOnlyPrivateFiles', 'Owner: rw only (private files)')}</li>
                                 </ul>
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>Cancel</Button>
-                            <Button onClick={handleChangePermissions}>Apply</Button>
+                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>{t('app.fileManager.cancel4', 'Cancel')}</Button>
+                            <Button onClick={handleChangePermissions}>{t('app.fileManager.apply', 'Apply')}</Button>
                         </div>
             </Modal>
 

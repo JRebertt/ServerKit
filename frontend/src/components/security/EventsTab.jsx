@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Feed, FeedItem } from '@/components/ds';
+import { useTranslation } from 'react-i18next';
 
 const EventsTab = () => {
+    const { t } = useTranslation();
     const [events, setEvents] = useState([]);
     const [failedLogins, setFailedLogins] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -54,19 +56,19 @@ const EventsTab = () => {
             {failedLogins && (
                 <div className={`card ${failedLogins.alert_triggered ? 'card-warning' : ''}`}>
                     <div className="card-header">
-                        <h3>Failed Login Attempts (24h)</h3>
-                        <Button variant="outline" size="sm" onClick={loadFailedLogins}>Refresh</Button>
+                        <h3>{t('app.eventsTab.failedLoginAttempts24h', 'Failed Login Attempts (24h)')}</h3>
+                        <Button variant="outline" size="sm" onClick={loadFailedLogins}>{t('app.eventsTab.refresh', 'Refresh')}</Button>
                     </div>
                     <div className="card-body">
                         <div className="failed-login-summary">
                             <span className={`count ${failedLogins.alert_triggered ? 'danger' : ''}`}>
                                 {failedLogins.failed_attempts}
                             </span>
-                            <span className="label">failed attempts · threshold {failedLogins.threshold}</span>
+                            <span className="label">{t('app.eventsTab.failedAttemptsThreshold', 'failed attempts · threshold')} {failedLogins.threshold}</span>
                         </div>
                         {failedLogins.recent_failures?.length > 0 && (
                             <details className="recent-failures">
-                                <summary>View recent failures</summary>
+                                <summary>{t('app.eventsTab.viewRecentFailures', 'View recent failures')}</summary>
                                 <pre>{failedLogins.recent_failures.join('\n')}</pre>
                             </details>
                         )}
@@ -76,14 +78,14 @@ const EventsTab = () => {
 
             <div className="card">
                 <div className="card-header">
-                    <h3>Security Events</h3>
-                    <Button variant="outline" size="sm" onClick={loadEvents}>Refresh</Button>
+                    <h3>{t('app.eventsTab.securityEvents', 'Security Events')}</h3>
+                    <Button variant="outline" size="sm" onClick={loadEvents}>{t('app.eventsTab.refresh2', 'Refresh')}</Button>
                 </div>
                 <div className="card-body">
                     {loading ? (
-                        <div className="loading-sm">Loading...</div>
+                        <div className="loading-sm">{t('app.eventsTab.loading', 'Loading...')}</div>
                     ) : events.length === 0 ? (
-                        <p className="text-muted">No security events recorded.</p>
+                        <p className="text-muted">{t('app.eventsTab.noSecurityEventsRecorded', 'No security events recorded.')}</p>
                     ) : (
                         <Feed className="sec-feed">
                             {events.map((event, index) => (

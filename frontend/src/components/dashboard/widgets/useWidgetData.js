@@ -445,7 +445,7 @@ export function useLogTail(cfg = {}, tick) {
         if (!error) return null;
         const text = String(error.message || '');
         if (/sudo|permission denied|not permitted/i.test(text)) {
-            return { ...error, message: 'this log needs elevated access', elevated: true };
+            return { ...error, messageKey: 'app.useWidgetData.thisLogNeedsElevatedAccess', message: 'this log needs elevated access', elevated: true };
         }
         return error;
     }, [error]);

@@ -6,14 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import useSettingFocus from '../../hooks/useSettingFocus';
+import { useTranslation } from 'react-i18next';
 
 const WHITELABEL_MODES = [
-    { id: 'image_text', label: 'Logo + Text', icon: Layers, desc: 'Mini logo with brand name' },
-    { id: 'image_full', label: 'Full-width Logo', icon: Image, desc: 'Banner image only' },
-    { id: 'text_only', label: 'Text Only', icon: Type, desc: 'Just the brand name' },
+    { id: 'image_text', labelKey: 'app.whiteLabelTab.logoText', label: 'Logo + Text', icon: Layers, desc: 'Mini logo with brand name' },
+    { id: 'image_full', labelKey: 'app.whiteLabelTab.fullWidthLogo', label: 'Full-width Logo', icon: Image, desc: 'Banner image only' },
+    { id: 'text_only', labelKey: 'app.whiteLabelTab.textOnly', label: 'Text Only', icon: Type, desc: 'Just the brand name' },
 ];
 
 const WhiteLabelTab = () => {
+    const { t } = useTranslation();
     const { whiteLabel, setWhiteLabel } = useTheme();
     const logoInputRef = useRef(null);
     const register = useSettingFocus();
@@ -21,18 +23,18 @@ const WhiteLabelTab = () => {
     return (
         <div className="settings-section">
             <div className="section-header">
-                <h2>White Label</h2>
-                <p>Replace the default ServerKit branding with your own</p>
+                <h2>{t('app.whiteLabelTab.whiteLabel', 'White Label')}</h2>
+                <p>{t('app.whiteLabelTab.replaceTheDefaultServerkitBrandingWith', 'Replace the default ServerKit branding with your own')}</p>
             </div>
 
             <div {...register('whitelabel-branding', 'settings-card')}>
-                <h3>Custom Branding</h3>
-                <p>Replace the sidebar logo, name, and GitHub star link</p>
+                <h3>{t('app.whiteLabelTab.customBranding', 'Custom Branding')}</h3>
+                <p>{t('app.whiteLabelTab.replaceTheSidebarLogoNameAnd', 'Replace the sidebar logo, name, and GitHub star link')}</p>
 
                 <div className="settings-row">
                     <div className="settings-label">
-                        <Label>Enable custom branding</Label>
-                        <span className="settings-hint">Replaces the sidebar logo, name, and GitHub star link</span>
+                        <Label>{t('app.whiteLabelTab.enableCustomBranding', 'Enable custom branding')}</Label>
+                        <span className="settings-hint">{t('app.whiteLabelTab.replacesTheSidebarLogoNameAnd', 'Replaces the sidebar logo, name, and GitHub star link')}</span>
                     </div>
                     <div className="settings-control">
                         <Switch
@@ -61,12 +63,12 @@ const WhiteLabelTab = () => {
                         <div className="whitelabel-fields">
                             {whiteLabel.mode !== 'image_full' && (
                                 <div className="form-group">
-                                    <Label>Brand Name</Label>
+                                    <Label>{t('app.whiteLabelTab.brandName', 'Brand Name')}</Label>
                                     <Input
                                         type="text"
                                         value={whiteLabel.brandName}
                                         onChange={(e) => setWhiteLabel({ brandName: e.target.value })}
-                                        placeholder="My Brand"
+                                        placeholder={t('app.whiteLabelTab.myBrand', 'My Brand')}
                                         maxLength={30}
                                     />
                                 </div>
@@ -74,24 +76,24 @@ const WhiteLabelTab = () => {
 
                             {whiteLabel.mode !== 'text_only' && (
                                 <div className="form-group">
-                                    <Label>Logo Image</Label>
+                                    <Label>{t('app.whiteLabelTab.logoImage', 'Logo Image')}</Label>
                                     <div className="whitelabel-upload" onClick={() => logoInputRef.current?.click()}>
                                         {whiteLabel.logoData ? (
                                             <div className="whitelabel-logo-preview">
-                                                <img src={whiteLabel.logoData} alt="Logo preview" />
+                                                <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.logoPreview', 'Logo preview')} />
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={(e) => { e.stopPropagation(); setWhiteLabel({ logoData: '' }); }}
                                                 >
-                                                    <X size={12} /> Remove
+                                                    <X size={12} /> {t('app.whiteLabelTab.remove', 'Remove')}
                                                 </Button>
                                             </div>
                                         ) : (
                                             <div className="whitelabel-upload__placeholder">
                                                 <Upload size={20} />
-                                                <span>Click to upload logo</span>
-                                                <span className="whitelabel-upload__hint">PNG, JPG, SVG — max 200KB</span>
+                                                <span>{t('app.whiteLabelTab.clickToUploadLogo', 'Click to upload logo')}</span>
+                                                <span className="whitelabel-upload__hint">{t('app.whiteLabelTab.pngJpgSvgMax200kb', 'PNG, JPG, SVG — max 200KB')}</span>
                                             </div>
                                         )}
                                         <input
@@ -103,7 +105,7 @@ const WhiteLabelTab = () => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
                                                 if (file.size > 200 * 1024) {
-                                                    alert('Image must be under 200KB');
+                                                    alert(t('app.whiteLabelTab.imageMustBeUnder200kb', 'Image must be under 200KB'));
                                                     return;
                                                 }
                                                 const reader = new FileReader();
@@ -118,12 +120,12 @@ const WhiteLabelTab = () => {
                         </div>
 
                         <div className="whitelabel-preview">
-                            <span className="whitelabel-preview__label">Preview</span>
+                            <span className="whitelabel-preview__label">{t('app.whiteLabelTab.preview', 'Preview')}</span>
                             <div className="whitelabel-preview__box">
                                 {whiteLabel.mode === 'image_full' ? (
                                     <div className="brand-custom-banner">
                                         {whiteLabel.logoData ? (
-                                            <img src={whiteLabel.logoData} alt="Preview" />
+                                            <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview2', 'Preview')} />
                                         ) : (
                                             <Layers size={24} />
                                         )}
@@ -136,7 +138,7 @@ const WhiteLabelTab = () => {
                                     <>
                                         <div className="brand-custom-logo">
                                             {whiteLabel.logoData ? (
-                                                <img src={whiteLabel.logoData} alt="Preview" />
+                                                <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview3', 'Preview')} />
                                             ) : (
                                                 <Layers size={16} />
                                             )}
@@ -154,10 +156,9 @@ const WhiteLabelTab = () => {
                                 <Star size={22} />
                             </div>
                             <div className="star-content">
-                                <h4>Support ServerKit</h4>
+                                <h4>{t('app.whiteLabelTab.supportServerkit', 'Support ServerKit')}</h4>
                                 <p>
-                                    By using custom branding, the GitHub star link is hidden from the sidebar.
-                                    If ServerKit is useful to you, please consider starring the project — it helps the community grow!
+                                    {t('app.whiteLabelTab.byUsingCustomBrandingTheGithub', 'By using custom branding, the GitHub star link is hidden from the sidebar. If ServerKit is useful to you, please consider starring the project — it helps the community grow!')}
                                 </p>
                                 <a
                                     href="https://github.com/jhd3197/ServerKit"
@@ -166,7 +167,7 @@ const WhiteLabelTab = () => {
                                     className="btn btn-primary btn-sm"
                                 >
                                     <Star size={14} />
-                                    Star on GitHub
+                                    {t('app.whiteLabelTab.starOnGithub', 'Star on GitHub')}
                                 </a>
                             </div>
                         </div>

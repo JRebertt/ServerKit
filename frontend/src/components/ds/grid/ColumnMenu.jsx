@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import {
     OPS, columnLabel, coerceValue, isFilterable, isGroupable, isSortable,
     optionsFor, ruleId, valueCounts,
@@ -43,6 +44,7 @@ export function ColumnMenu({
     open,
     onOpenChange,
 }) {
+    const { t } = useTranslation();
     const label = columnLabel(column);
     const type = column.type;
     const isEnumish = type === 'enum' || type === 'bool';
@@ -103,7 +105,7 @@ export function ColumnMenu({
                 <button
                     type="button"
                     className="sk-colmenu-btn"
-                    aria-label={`${label} column options`}
+                    aria-label={t('app.columnMenu.columnOptions', '{{label}} column options', { label: label })}
                     onClick={(e) => { e.stopPropagation(); }}
                 >
                     <span className="sk-colmenu-btn__dots" aria-hidden="true" />
@@ -160,7 +162,7 @@ export function ColumnMenu({
                                         <select
                                             value={rule?.op || 'any'}
                                             onChange={(e) => rule && writeRule({ ...rule, op: e.target.value })}
-                                            aria-label={`${label} filter operator`}
+                                            aria-label={t('app.columnMenu.filterOperator', '{{label}} filter operator', { label: label })}
                                         >
                                             {OPS.enum.map(([op, text]) => (
                                                 <option key={op} value={op}>{text}</option>
@@ -194,7 +196,7 @@ export function ColumnMenu({
                                     <select
                                         value={rule?.op || OPS[type][0][0]}
                                         onChange={(e) => writeValue(draft, e.target.value)}
-                                        aria-label={`${label} filter operator`}
+                                        aria-label={t('app.columnMenu.filterOperator2', '{{label}} filter operator', { label: label })}
                                     >
                                         {OPS[type].map(([op, text]) => (
                                             <option key={op} value={op}>{text}</option>
@@ -207,8 +209,8 @@ export function ColumnMenu({
                                         autoFocus
                                         type={type === 'num' ? 'number' : type === 'date' ? 'date' : 'text'}
                                         value={draft}
-                                        placeholder={type === 'num' ? 'value' : 'Enter value'}
-                                        aria-label={`${label} filter value`}
+                                        placeholder={type === 'num' ? 'value' : t('app.columnMenu.enterValue', 'Enter value')}
+                                        aria-label={t('app.columnMenu.filterValue', '{{label}} filter value', { label: label })}
                                         onChange={(e) => writeValue(e.target.value)}
                                     />
                                 </div>
@@ -239,7 +241,7 @@ export function ColumnMenu({
                             disabled={!canMoveLeft}
                             onClick={() => { onMove(column.key, -1); onOpenChange(false); }}
                         >
-                            <ChevronLeft size={13} />Move left
+                            <ChevronLeft size={13} />{t('app.columnMenu.moveLeft', 'Move left')}
                         </button>
                         <button
                             type="button"
@@ -247,7 +249,7 @@ export function ColumnMenu({
                             disabled={!canMoveRight}
                             onClick={() => { onMove(column.key, 1); onOpenChange(false); }}
                         >
-                            <ChevronRight size={13} />Move right
+                            <ChevronRight size={13} />{t('app.columnMenu.moveRight', 'Move right')}
                         </button>
                     </>
                 )}
@@ -257,7 +259,7 @@ export function ColumnMenu({
                         className="sk-gridmenu__opt"
                         onClick={() => { onHide(column.key); onOpenChange(false); }}
                     >
-                        <EyeOff size={13} />Hide this field
+                        <EyeOff size={13} />{t('app.columnMenu.hideThisField', 'Hide this field')}
                     </button>
                 )}
 
@@ -268,10 +270,10 @@ export function ColumnMenu({
                             onClick={() => { writeRule(null); setDraft(''); }}
                             disabled={!rule}
                         >
-                            Clear filter
+                            {t('app.columnMenu.clearFilter', 'Clear filter')}
                         </button>
                         <button type="button" className="is-primary" onClick={() => onOpenChange(false)}>
-                            Done
+                            {t('app.columnMenu.done', 'Done')}
                         </button>
                     </div>
                 )}
