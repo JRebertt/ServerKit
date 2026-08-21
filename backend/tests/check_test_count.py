@@ -11,6 +11,10 @@ green number. This checks the collected-test count against a checked-in floor
 - Lowering it requires editing ``BASELINE_COUNT`` in the same commit — an
   explicit, reviewable statement that tests were intentionally removed, instead
   of a silent regression.
+- Collection runs with ``SERVERKIT_CLEAN_COLLECT=1`` so the number is the one a
+  CLEAN CHECKOUT collects. A dev box carries gitignored extension copies that
+  add parametrised cases CI can never see; ``--update`` used to bake those into
+  the floor and leave the ratchet permanently red.
 
 Usage:
     python tests/check_test_count.py           # verify (CI mode) — exit 1 if below
@@ -41,11 +45,19 @@ def collect_count():
     # whatever this machine has lying around (dev-data/, sibling checkouts),
     # which is how the floor was once --update'd ~282 items above anything a
     # clean checkout can collect, turning the ratchet permanently red.
+    # SERVERKIT_CLEAN_COLLECT makes the count machine-independent: the only
+    # module whose parametrisation varies with what is on disk
+    # (test_builtin_extension_drift.py, which pairs builtin-extensions/<ext>
+    # against the mostly-gitignored live copies under app/plugins/) restricts
+    # itself to git-TRACKED copies when it is set. Without it, --update on a dev
+    # box wrote a floor no clean checkout could reach -- 4431 -> 4417, and again
+    # 4530 -> 4516, both times 14 cases from four gitignored extensions.
+    env = dict(os.environ, SERVERKIT_CLEAN_COLLECT='1')
     proc = subprocess.run(
         [sys.executable, '-m', 'pytest', 'tests', '--collect-only', '-q',
          '-p', 'no:cacheprovider'],
         cwd=os.path.dirname(HERE),  # backend/
-        capture_output=True, text=True,
+        capture_output=True, text=True, env=env,
     )
     out = proc.stdout + proc.stderr
     if proc.returncode != 0:
