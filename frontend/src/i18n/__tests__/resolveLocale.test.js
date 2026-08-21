@@ -16,6 +16,19 @@ test('matchSupported resolves language-only', () => {
     assert.equal(matchSupported('en-GB', SUPPORTED), 'en');
 });
 
+test('matchSupported distinguishes Simplified and Traditional Chinese', () => {
+    const supported = ['en', 'zh-Hans', 'zh-Hant'];
+
+    assert.equal(matchSupported('zh', supported), 'zh-Hans');
+    assert.equal(matchSupported('zh-CN', supported), 'zh-Hans');
+    assert.equal(matchSupported('zh-SG', supported), 'zh-Hans');
+    assert.equal(matchSupported('zh-Hans', supported), 'zh-Hans');
+    assert.equal(matchSupported('zh-TW', supported), 'zh-Hant');
+    assert.equal(matchSupported('zh-HK', supported), 'zh-Hant');
+    assert.equal(matchSupported('zh-MO', supported), 'zh-Hant');
+    assert.equal(matchSupported('zh_Hant_TW', supported), 'zh-Hant');
+});
+
 test('matchSupported rejects what we do not ship', () => {
     assert.equal(matchSupported('fr', SUPPORTED), null);
     assert.equal(matchSupported('', SUPPORTED), null);

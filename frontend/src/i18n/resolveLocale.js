@@ -4,7 +4,7 @@
 //   user.language (server, per-user)
 //     -> localStorage 'language'   (pre-auth cache; stops the login flash)
 //       -> panel default           (system_settings, unauthenticated endpoint)
-//         -> navigator.language    (first visit, matched language-only)
+//         -> navigator.language    (first visit, matched to a shipped bundle)
 //           -> 'en'
 //
 // This mirrors ThemeContext's precedence (workspace -> user -> skin ->
@@ -20,19 +20,31 @@ export const SUPPORTED_CODES = LANGUAGES.map((language) => language.code);
 export const STORAGE_KEY = 'language';
 
 /**
- * Match a requested tag against what we ship, language-only.
+ * Match a requested BCP 47 tag against what we ship.
  *
  * `es-419`, `es-MX` and `ES` all resolve to `es`. Region-specific bundles are
- * not shipped, so keeping the region would mean a miss on every non-neutral
- * browser tag — which is most of them.
+ * not shipped for most languages. Chinese is the exception: script and region
+ * subtags select `zh-Hans` or `zh-Hant`, while legacy bare `zh` safely keeps
+ * the historical Simplified Chinese behavior.
  */
 export function matchSupported(tag, supported = SUPPORTED_CODES) {
     if (!tag || typeof tag !== 'string') return null;
-    const normalized = tag.trim().toLowerCase().replace('_', '-');
+    const normalized = tag.trim().toLowerCase().replaceAll('_', '-');
     if (!normalized) return null;
-    if (supported.includes(normalized)) return normalized;
-    const base = normalized.split('-')[0];
-    return supported.includes(base) ? base : null;
+
+    const canonical = new Map(supported.map((code) => [code.toLowerCase(), code]));
+    if (canonical.has(normalized)) return canonical.get(normalized);
+
+    const parts = normalized.split('-');
+    const base = parts[0];
+    if (base === 'zh') {
+        const traditional = parts.includes('hant')
+            || parts.some((part) => ['tw', 'hk', 'mo'].includes(part));
+        const script = traditional ? 'zh-hant' : 'zh-hans';
+        if (canonical.has(script)) return canonical.get(script);
+    }
+
+    return canonical.get(base) || null;
 }
 
 /**

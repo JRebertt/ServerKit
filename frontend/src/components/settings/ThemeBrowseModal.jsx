@@ -44,7 +44,9 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
         try {
             await api.installRegistryTheme(slug);
             await refreshInstalledThemes();
-            setThemes((prev) => prev.map((t) => (t.slug === slug ? { ...t, installed: true } : t)));
+            setThemes((prev) => prev.map((themeEntry) => (
+                themeEntry.slug === slug ? { ...themeEntry, installed: true } : themeEntry
+            )));
             toast.success(t('app.themeBrowseModal.themeInstalledFindItInThe', 'Theme installed — find it in the gallery'));
         } catch (e) {
             toast.error(e?.message || t('app.themeBrowseModal.couldNotInstallThatTheme', 'Could not install that theme'));
@@ -74,30 +76,30 @@ const ThemeBrowseModal = ({ open, onOpenChange }) => {
                     </div>
                 ) : (
                     <div className="theme-browse__grid">
-                        {themes.map((t) => {
-                            const swatches = Array.isArray(t.preview) ? t.preview.slice(0, 4) : [];
+                        {themes.map((themeEntry) => {
+                            const swatches = Array.isArray(themeEntry.preview) ? themeEntry.preview.slice(0, 4) : [];
                             return (
-                                <div key={t.slug} className="theme-browse__card">
+                                <div key={themeEntry.slug} className="theme-browse__card">
                                     <div className="theme-browse__swatches">
                                         {swatches.map((c, i) => (
                                             <span key={i} style={{ background: c }} />
                                         ))}
                                     </div>
                                     <div className="theme-browse__meta">
-                                        <span className="theme-browse__name">{t.name || t.slug}</span>
-                                        {t.author && <span className="theme-browse__author">by {t.author}</span>}
+                                        <span className="theme-browse__name">{themeEntry.name || themeEntry.slug}</span>
+                                        {themeEntry.author && <span className="theme-browse__author">by {themeEntry.author}</span>}
                                     </div>
-                                    {t.description && <p className="theme-browse__desc">{t.description}</p>}
-                                    {t.installed ? (
+                                    {themeEntry.description && <p className="theme-browse__desc">{themeEntry.description}</p>}
+                                    {themeEntry.installed ? (
                                         <span className="theme-browse__installed"><Check size={13} /> {t('app.themeBrowseModal.installed', 'Installed')}</span>
                                     ) : (
                                         <button
                                             type="button"
                                             className="theme-browse__install"
-                                            disabled={installing === t.slug}
-                                            onClick={() => install(t.slug)}
+                                            disabled={installing === themeEntry.slug}
+                                            onClick={() => install(themeEntry.slug)}
                                         >
-                                            {installing === t.slug
+                                            {installing === themeEntry.slug
                                                 ? <Loader2 className="spin" size={13} />
                                                 : <Download size={13} />}
                                             {t('app.themeBrowseModal.install', 'Install')}

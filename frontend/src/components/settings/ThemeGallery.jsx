@@ -52,25 +52,25 @@ const ThemeGallery = () => {
 
     return (
         <div className="theme-gallery">
-            {availableThemes.map((t) => {
-                const isDefault = t.slug === DEFAULT_THEME_SLUG;
-                const active = skin === t.slug;
-                const isPanelDefault = t.slug === panelDefaultSlug;
-                const removable = t.installed && !t.builtin && !isDefault;
-                const swatches = Array.isArray(t.preview) ? t.preview.slice(0, 4) : [];
+            {availableThemes.map((themeEntry) => {
+                const isDefault = themeEntry.slug === DEFAULT_THEME_SLUG;
+                const active = skin === themeEntry.slug;
+                const isPanelDefault = themeEntry.slug === panelDefaultSlug;
+                const removable = themeEntry.installed && !themeEntry.builtin && !isDefault;
+                const swatches = Array.isArray(themeEntry.preview) ? themeEntry.preview.slice(0, 4) : [];
                 return (
                     <div
-                        key={t.slug}
+                        key={themeEntry.slug}
                         role="button"
                         tabIndex={0}
                         className={`theme-card${active ? ' theme-card--active' : ''}`}
-                        onClick={() => select(t.slug)}
+                        onClick={() => select(themeEntry.slug)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(t.slug); }
+                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(themeEntry.slug); }
                         }}
-                        onMouseEnter={() => previewSkin(isDefault ? null : t)}
+                        onMouseEnter={() => previewSkin(isDefault ? null : themeEntry)}
                         onMouseLeave={clearPreview}
-                        onFocus={() => previewSkin(isDefault ? null : t)}
+                        onFocus={() => previewSkin(isDefault ? null : themeEntry)}
                         onBlur={clearPreview}
                     >
                         <div className="theme-card__swatches">
@@ -83,11 +83,11 @@ const ThemeGallery = () => {
                             ))}
                         </div>
                         <div className="theme-card__meta">
-                            <span className="theme-card__name">{t.name || t.slug}</span>
-                            {t.base && <span className="theme-card__base">{t.base}</span>}
+                            <span className="theme-card__name">{themeEntry.name || themeEntry.slug}</span>
+                            {themeEntry.base && <span className="theme-card__base">{themeEntry.base}</span>}
                         </div>
-                        {t.description && (
-                            <p className="theme-card__desc">{t.description}</p>
+                        {themeEntry.description && (
+                            <p className="theme-card__desc">{themeEntry.description}</p>
                         )}
                         <div className="theme-card__footer">
                             {active && (
@@ -107,8 +107,8 @@ const ThemeGallery = () => {
                                     <button
                                         type="button"
                                         className="theme-card__admin-btn"
-                                        disabled={busy === t.slug}
-                                        onClick={(e) => { e.stopPropagation(); setDefault(t.slug); }}
+                                        disabled={busy === themeEntry.slug}
+                                        onClick={(e) => { e.stopPropagation(); setDefault(themeEntry.slug); }}
                                     >
                                         <Star size={12} /> {t('app.themeGallery.setDefault', 'Set default')}
                                     </button>
@@ -117,8 +117,8 @@ const ThemeGallery = () => {
                                     <button
                                         type="button"
                                         className="theme-card__admin-btn theme-card__admin-btn--danger"
-                                        disabled={busy === t.slug}
-                                        onClick={(e) => { e.stopPropagation(); removeTheme(t.slug); }}
+                                        disabled={busy === themeEntry.slug}
+                                        onClick={(e) => { e.stopPropagation(); removeTheme(themeEntry.slug); }}
                                     >
                                         <Trash2 size={12} /> {t('app.themeGallery.remove', 'Remove')}
                                     </button>

@@ -15,7 +15,10 @@ the backend cannot see, and beats validating nothing at all.
 import re
 
 # Keep in sync with frontend/src/i18n/languages.json (enforced by test).
-SUPPORTED_LANGUAGES = ('en', 'es')
+SUPPORTED_LANGUAGES = (
+    'id', 'de', 'en', 'es', 'fr', 'pt', 'vi', 'tr', 'ru', 'ko', 'zh-Hans',
+    'zh-Hant',
+)
 
 DEFAULT_LANGUAGE = 'en'
 
@@ -27,9 +30,9 @@ _LANGUAGE_TAG = re.compile(r'^[a-z]{2,3}(-[a-z0-9]{2,8})*$')
 def normalize_language(value):
     """Return a supported language code for ``value``, or ``None``.
 
-    Matches language-only, so ``es-MX`` and ``ES`` both resolve to ``es`` —
-    the panel ships no region-specific bundles, and rejecting a region tag
-    would reject most real browser values.
+    Most languages match language-only, so ``es-MX`` and ``ES`` both resolve
+    to ``es``. Chinese is script-aware: regions and explicit script subtags
+    resolve to ``zh-Hans`` or ``zh-Hant``.
     """
     if not isinstance(value, str):
         return None
@@ -38,7 +41,19 @@ def normalize_language(value):
     tag = value.strip().replace('_', '-').lower()
     if not tag or len(tag) > 10 or not _LANGUAGE_TAG.match(tag):
         return None
-    if tag in SUPPORTED_LANGUAGES:
-        return tag
-    base = tag.split('-')[0]
-    return base if base in SUPPORTED_LANGUAGES else None
+    canonical = {code.lower(): code for code in SUPPORTED_LANGUAGES}
+    if tag in canonical:
+        return canonical[tag]
+
+    parts = tag.split('-')
+    base = parts[0]
+    if base == 'zh':
+        traditional = (
+            'hant' in parts
+            or any(part in ('tw', 'hk', 'mo') for part in parts)
+        )
+        script = 'zh-hant' if traditional else 'zh-hans'
+        if script in canonical:
+            return canonical[script]
+
+    return canonical.get(base)
