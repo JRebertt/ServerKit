@@ -182,18 +182,23 @@ class TestBuiltins:
         # tombstone holds its data volumes and source tree until purge, and
         # nothing else calls purge_expired on a schedule.
         assert 'builtin.recycle_retention' in kinds
-        assert len([k for k in kinds if k.startswith('builtin.')]) == 14
+        # Bounds the telemetry stream. queue_messages/system_events grow a row
+        # per scheduler tick and api_usage_logs one per request; unpruned that
+        # is ~11 MB/day of database forever, which is what filled a 25 GB host
+        # from routine updates alone (each update copies the DB twice).
+        assert 'builtin.telemetry_retention' in kinds
+        assert len([k for k in kinds if k.startswith('builtin.')]) == 15
 
         builtin_handlers.seed_builtin_schedules()
-        # 14 builtin.* schedules (incl. job-retention, the monitor sweep, the
-        # security-feed check and the recycle-bin retention sweep) +
-        # login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host doctor
-        # sweep AND the fleet doctor sweep (plan 26) + the setup-health nag
-        # (plan 22).
-        assert ScheduledJob.query.count() == 22
+        # 15 builtin.* schedules (incl. job-retention, telemetry-retention, the
+        # monitor sweep, the security-feed check and the recycle-bin retention
+        # sweep) + login-link/SSO reapers + drift/FIM/bandwidth sweeps + the
+        # host doctor sweep AND the fleet doctor sweep (plan 26) + the
+        # setup-health nag (plan 22).
+        assert ScheduledJob.query.count() == 23
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 22
+        assert ScheduledJob.query.count() == 23
 
 
 class TestApi:

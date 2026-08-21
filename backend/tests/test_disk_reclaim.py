@@ -325,6 +325,67 @@ def test_scan_telemetry_reports_counts_without_deleting(app):
     assert still_there == 5, 'scan must not delete anything'
 
 
+# ── the scheduled handler that keeps this from recurring ────────────────────
+
+def test_telemetry_retention_handler_is_scheduled():
+    """Without a registered schedule the tables grow forever — which is the
+    whole reason a 25 GB host filled from nothing but updates."""
+    from app.jobs.builtin_handlers import _BUILTINS
+
+    entry = next((b for b in _BUILTINS if b[0] == 'builtin.telemetry_retention'), None)
+    assert entry is not None, 'telemetry retention must be a registered builtin'
+    kind, handler, name, interval, delay = entry
+    assert name == 'telemetry-retention'
+    assert 0 < interval <= 86400, 'must run at least daily'
+
+
+def test_telemetry_retention_handler_prunes(app):
+    from datetime import datetime, timedelta
+    from sqlalchemy import text
+    from app import db
+    from app.jobs.builtin_handlers import run_telemetry_retention
+    from app.services.settings_service import SettingsService
+
+    old = datetime.utcnow() - timedelta(days=90)
+    for i in range(3):
+        db.session.execute(text(
+            'INSERT INTO api_usage_logs (method, endpoint, status_code, created_at) '
+            'VALUES (:m, :e, 200, :c)'), {'m': 'GET', 'e': f'/x/{i}', 'c': old})
+    db.session.commit()
+
+    result = run_telemetry_retention()
+    assert result and result['deleted'] == 3
+    assert db.session.execute(text('SELECT COUNT(*) FROM api_usage_logs')).scalar() == 0
+
+
+def test_telemetry_retention_zero_disables(app):
+    from datetime import datetime, timedelta
+    from sqlalchemy import text
+    from app import db
+    from app.jobs.builtin_handlers import run_telemetry_retention
+    from app.services.settings_service import SettingsService
+
+    old = datetime.utcnow() - timedelta(days=90)
+    db.session.execute(text(
+        'INSERT INTO api_usage_logs (method, endpoint, status_code, created_at) '
+        'VALUES (:m, :e, 200, :c)'), {'m': 'GET', 'e': '/x', 'c': old})
+    db.session.commit()
+
+    SettingsService.set('telemetry.retention_days', 0)
+    assert run_telemetry_retention() is None
+    assert db.session.execute(text('SELECT COUNT(*) FROM api_usage_logs')).scalar() == 1
+
+
+def test_telemetry_retention_never_vacuums_inline(app, monkeypatch):
+    """VACUUM takes an exclusive lock and needs free space equal to the whole
+    database — never acceptable on a background tick."""
+    from app.jobs.builtin_handlers import run_telemetry_retention
+
+    monkeypatch.setattr(svc, '_vacuum', lambda *a, **k: pytest.fail(
+        'the scheduled handler must not VACUUM'))
+    run_telemetry_retention()
+
+
 # ── formatting ──────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize('value,expected', [
