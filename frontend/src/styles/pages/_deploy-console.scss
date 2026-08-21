@@ -606,35 +606,6 @@ $dc-surface-line: rgba(255, 255, 255, 0.04);
     to { transform: rotate(360deg); }
 }
 
-// Global "deploy in progress" pill (fixed, bottom-left). Sits clear of the AI
-// chat bubble (bottom-right).
-.deploy-pill {
-    position: fixed;
-    left: $space-4;
-    bottom: $space-4;
-    z-index: 60;
-    display: inline-flex;
-    align-items: center;
-    gap: $space-2;
-    padding: $space-2 $space-3;
-    border-radius: 999px;
-    background: var(--accent-primary);
-    color: #fff;
-    font-size: $font-size-sm;
-    font-weight: 600;
-    box-shadow: $shadow-lg;
-
-    &:hover { filter: brightness(1.05); }
-
-    &__spin {
-        animation: dc-spin 1s linear infinite;
-    }
-
-    @media (max-width: 768px) {
-        bottom: calc(#{$space-4} + 56px); // clear the mobile bottom bar
-    }
-}
-
 // ---- log sections, chips and match navigation (plan 51.6 console parity) ----
 .deploy-console {
     // Error / warning counts in the toolbar. They read as a summary first and

@@ -110,8 +110,13 @@ export function OperationsProvider({ children }) {
     );
     const selectedRunKind = selectedOperation?.runKind;
     const selectedRunId = selectedOperation?.id;
+    const selectedRunStatus = selectedOperation?.status;
+    const initialSelectedRun = useMemo(() => (
+        selectedRunId == null ? null : { id: selectedRunId, status: selectedRunStatus }
+    ), [selectedRunId, selectedRunStatus]);
     const selectedStream = useRunStream(selectedRunKind, selectedRunId, {
         enabled: !collapsed && !!selectedRunKind && selectedRunId != null,
+        initialRun: initialSelectedRun,
     });
 
     const markRead = useCallback((key) => {

@@ -15,7 +15,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import api from '../services/api';
 import SystemNotices from '../components/SystemNotices';
 import StagingBanner from '../components/StagingBanner';
-import DeployPill from '../components/DeployPill';
+import OperationsDock from '../components/OperationsDock';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useShortcut } from '../hooks/useShortcut';
 import { useTranslation } from 'react-i18next';
@@ -126,7 +126,7 @@ const DashboardLayout = () => {
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
                 <LogsDrawer />
-                <DeployPill />
+                <OperationsDock />
                 <AIAssistant />
                 <PluginLoader api={api} />
             </div>
