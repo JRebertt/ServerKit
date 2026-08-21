@@ -202,11 +202,22 @@ class TestApi:
 
         resp = client.get('/api/v1/jobs', headers=auth_headers)
         assert resp.status_code == 200
-        assert any(j['id'] == job.id for j in resp.get_json()['jobs'])
+        listed = next(j for j in resp.get_json()['jobs'] if j['id'] == job.id)
+        assert listed['can_cancel'] is True
+        assert listed['can_retry'] is False
 
         resp = client.get(f'/api/v1/jobs/{job.id}', headers=auth_headers)
         assert resp.status_code == 200
-        assert resp.get_json()['job']['payload'] == {'hello': 'world'}
+        detail = resp.get_json()['job']
+        assert detail['payload'] == {'hello': 'world'}
+        assert detail['can_cancel'] is True
+        assert detail['can_retry'] is False
+
+        job.status = Job.STATUS_FAILED
+        db.session.commit()
+        failed = client.get(f'/api/v1/jobs/{job.id}', headers=auth_headers).get_json()['job']
+        assert failed['can_cancel'] is False
+        assert failed['can_retry'] is True
 
     def test_stats_endpoint(self, client, auth_headers, app):
         JobService.enqueue('test.api', {})
@@ -218,7 +229,10 @@ class TestApi:
         job = JobService.enqueue('test.api', {})
         resp = client.post(f'/api/v1/jobs/{job.id}/cancel', headers=auth_headers)
         assert resp.status_code == 200
-        assert resp.get_json()['job']['status'] == Job.STATUS_CANCELLED
+        payload = resp.get_json()['job']
+        assert payload['status'] == Job.STATUS_CANCELLED
+        assert payload['can_cancel'] is False
+        assert payload['can_retry'] is True
 
     def test_scheduled_listing(self, client, auth_headers, app):
         ScheduledJobService.ensure('api-sched', 'test.x', interval_seconds=60)

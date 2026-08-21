@@ -69,7 +69,11 @@ def test_list_jobs_app_scoped_requires_access(client, job_rbac):
     s = job_rbac.s
     url = f'/api/v1/deployment-jobs?app_id={s.app_id}'
     for persona in ('owner', 'member', 'viewer', 'admin'):
-        assert client.get(url, headers=getattr(s, persona)).status_code == 200, persona
+        response = client.get(url, headers=getattr(s, persona))
+        assert response.status_code == 200, persona
+        job = response.get_json()['jobs'][0]
+        assert job['can_cancel'] is False
+        assert job['can_retry'] is (persona != 'viewer')
     assert client.get(url, headers=s.foreign).status_code == 403
 
 
@@ -94,7 +98,11 @@ def test_job_detail_requires_app_access(client, job_rbac):
     s = job_rbac.s
     url = f'/api/v1/deployment-jobs/{job_rbac.app_job_id}?logs=true'
     for persona in ('owner', 'admin'):
-        assert client.get(url, headers=getattr(s, persona)).status_code == 200, persona
+        response = client.get(url, headers=getattr(s, persona))
+        assert response.status_code == 200, persona
+        job = response.get_json()['job']
+        assert job['can_cancel'] is False
+        assert job['can_retry'] is True
     for persona in ('member', 'viewer', 'foreign'):
         assert client.get(url, headers=getattr(s, persona)).status_code == 403, persona
 
