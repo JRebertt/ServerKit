@@ -162,7 +162,8 @@ export {
 //     used by both the Git and WordPress surfaces; the backups protection
 //     panel embedded by both the Backups page and WordPress). Exposing them
 //     here pins their props as SDK contract — change them accordingly.
-export { default as ErrorBoundary, ErrorState } from '../../components/ErrorBoundary';
+export { default as ErrorBoundary } from '../../components/ErrorBoundary';
+export { default as ErrorState } from '../../components/ErrorState';
 export { DangerZone } from '../../components/DangerZone';
 export { default as ResourceAdvisory } from '../../components/ResourceAdvisory';
 export { default as PluginSlot } from '../../components/PluginSlot';
