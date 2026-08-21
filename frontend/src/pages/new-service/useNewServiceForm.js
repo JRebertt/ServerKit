@@ -211,9 +211,9 @@ export function useNewServiceForm() {
     }, []);
 
     useEffect(() => {
+        setProjectEnvironments([]);
+        setSelectedEnvironmentId('');
         if (!selectedProjectId) {
-            setProjectEnvironments([]);
-            setSelectedEnvironmentId('');
             return undefined;
         }
         let cancelled = false;

@@ -647,6 +647,11 @@
         }
     }
 
+    &__resource-picker {
+        width: 100%;
+        max-width: none;
+    }
+
     &__optional {
         color: $text-tertiary;
         font-weight: $font-weight-normal;

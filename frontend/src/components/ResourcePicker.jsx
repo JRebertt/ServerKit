@@ -11,6 +11,7 @@ import { useResourceOptions } from '../hooks/useResourceOptions';
 import { normalizeResourceRef, resourceKey } from '../utils/resourceRefs';
 
 const normalizeList = (options) => options.map(normalizeResourceRef).filter(Boolean);
+const allowOption = () => true;
 
 export default function ResourcePicker({
     value,
@@ -19,7 +20,8 @@ export default function ResourcePicker({
     scope,
     capabilities,
     staticOptions = [],
-    filterOption = () => true,
+    filterOption = allowOption,
+    icon: ResourceIcon = Server,
     disabled = false,
     label,
     placeholder,
@@ -68,7 +70,7 @@ export default function ResourcePicker({
                 value={resourceKey(option)}
                 onSelect={() => select(option)}
             >
-                <Server className="sk-resource-picker__option-icon" aria-hidden="true" />
+                <ResourceIcon className="sk-resource-picker__option-icon" aria-hidden="true" />
                 <span className="sk-resource-picker__option-copy">
                     <span>{option.label}</span>
                     {option.sublabel && <small>{option.sublabel}</small>}
@@ -99,7 +101,7 @@ export default function ResourcePicker({
                     aria-label={label}
                     aria-expanded={open}
                 >
-                    <Server aria-hidden="true" />
+                    <ResourceIcon aria-hidden="true" />
                     <span>{triggerLabel}</span>
                     <ChevronDown className="sk-resource-picker__chevron" aria-hidden="true" />
                 </Button>

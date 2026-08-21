@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
 import {
-    ChevronDown, Database, Globe, Lock, Network, Settings2, Zap, CheckCircle2,
+    ChevronDown, Database, FolderKanban, Globe, Layers3, Lock, Network,
+    Settings2, Zap, CheckCircle2,
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import BuildpackPreview from '@/components/buildpack/BuildpackPreview';
+import ResourcePicker from '@/components/ResourcePicker';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useTranslation } from 'react-i18next';
 import {
     APP_TYPE_OPTIONS, BUILD_METHOD_OPTIONS, formatAppType, formatBuildMethod,
@@ -14,6 +18,7 @@ import {
 // fields live in one grid, Advanced keeps the genuinely rare bits.
 const ReviewStep = ({ form }) => {
     const { t } = useTranslation();
+    const { activeWorkspaceId, isAllWorkspaces } = useWorkspace();
     const {
         sourceMode, activeManifest, activeManifestLoading, recommended,
         buildpackEligible, buildpack, buildpackLoading, buildpackOverrides, setBuildpackOverrides,
@@ -28,6 +33,55 @@ const ReviewStep = ({ form }) => {
     const envList = activeManifest?.manifest_v1
         ? (activeManifest.manifest_v1.env_required || [])
         : (activeManifest?.env || []);
+    const resourceScope = useMemo(() => ({
+        workspaceId: isAllWorkspaces ? null : activeWorkspaceId,
+    }), [activeWorkspaceId, isAllWorkspaces]);
+    const noProjectOption = useMemo(() => ({
+        type: 'project-option',
+        id: 'none',
+        label: t('app.reviewStep.noProject', 'No project'),
+        sublabel: '',
+        path: '/projects',
+        scope: {},
+        status: null,
+        capabilities: [],
+    }), [t]);
+    const selectedProject = projects.find((project) => String(project.id) === selectedProjectId);
+    const selectedProjectResource = selectedProjectId ? {
+        type: 'project',
+        id: selectedProjectId,
+        label: selectedProject?.name || selectedProjectId,
+        sublabel: selectedProject?.description || '',
+        path: `/projects/${selectedProjectId}`,
+        scope: {
+            workspaceId: selectedProject?.workspace_id ?? resourceScope.workspaceId,
+            projectId: Number(selectedProjectId),
+        },
+        status: null,
+        capabilities: [],
+    } : noProjectOption;
+    const selectedEnvironment = projectEnvironments.find((environment) => (
+        String(environment.id) === selectedEnvironmentId
+    ));
+    const selectedEnvironmentResource = selectedEnvironmentId ? {
+        type: 'environment',
+        id: selectedEnvironmentId,
+        label: selectedEnvironment?.name || selectedEnvironmentId,
+        sublabel: selectedProject?.name || '',
+        path: `/projects/${selectedProjectId}`,
+        scope: {
+            ...resourceScope,
+            projectId: Number(selectedProjectId),
+            environmentId: Number(selectedEnvironmentId),
+        },
+        status: null,
+        capabilities: [],
+    } : null;
+
+    const handleProjectChange = (resource) => {
+        setSelectedEnvironmentId('');
+        setSelectedProjectId(resource.type === 'project' ? resource.id : '');
+    };
 
     return (
         <div className="new-service-page__step new-service-page__review">
@@ -222,29 +276,41 @@ const ReviewStep = ({ form }) => {
                 )}
             </div>
 
-            {projects.length > 0 && (
-                <div className="new-service-page__fields-grid">
-                    <div className="new-service-page__field">
-                        <Label htmlFor="review-project">
-                            {t('app.reviewStep.project', 'Project')} <span className="new-service-page__optional">(optional)</span>
-                        </Label>
-                        <select id="review-project" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)}>
-                            <option value="">{t('app.reviewStep.noProject', 'No project')}</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                    </div>
-                    {selectedProjectId && (
-                        <div className="new-service-page__field">
-                            <Label htmlFor="review-env">{t('app.reviewStep.environment2', 'Environment')}</Label>
-                            <select id="review-env" value={selectedEnvironmentId} onChange={(e) => setSelectedEnvironmentId(e.target.value)}>
-                                {projectEnvironments.map(env => (
-                                    <option key={env.id} value={env.id}>{env.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+            <div className="new-service-page__fields-grid">
+                <div className="new-service-page__field">
+                    <Label>
+                        {t('app.reviewStep.project', 'Project')} <span className="new-service-page__optional">(optional)</span>
+                    </Label>
+                    <ResourcePicker
+                        value={selectedProjectResource}
+                        onChange={handleProjectChange}
+                        types={['project']}
+                        scope={resourceScope}
+                        staticOptions={[noProjectOption]}
+                        icon={FolderKanban}
+                        label={t('app.reviewStep.project', 'Project')}
+                        placeholder={t('app.reviewStep.noProject', 'No project')}
+                        searchPlaceholder={t('app.projects.searchProjects', 'Search projects…')}
+                        className="new-service-page__resource-picker"
+                    />
                 </div>
-            )}
+                {selectedProjectId && (
+                    <div className="new-service-page__field">
+                        <Label>{t('app.reviewStep.environment2', 'Environment')}</Label>
+                        <ResourcePicker
+                            value={selectedEnvironmentResource}
+                            onChange={(resource) => setSelectedEnvironmentId(resource.id)}
+                            types={['environment']}
+                            scope={{ ...resourceScope, projectId: selectedProjectId }}
+                            icon={Layers3}
+                            label={t('app.reviewStep.environment2', 'Environment')}
+                            placeholder={t('app.reviewStep.environment2', 'Environment')}
+                            searchPlaceholder={t('app.reviewStep.environment2', 'Environment')}
+                            className="new-service-page__resource-picker"
+                        />
+                    </div>
+                )}
+            </div>
 
             {/* Advanced keeps only the genuinely rare bits. */}
             {showBuild && (
