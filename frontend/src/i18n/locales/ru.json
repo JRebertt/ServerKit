@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}} м {{seconds}} с",
       "seconds": "{{count}} с"
     },
+    "editing": {
+      "discard": "Отбросить",
+      "redo": "Повторить",
+      "save": "Сохранить",
+      "saved": "Сохранено",
+      "saving": "Сохранение…",
+      "undo": "Отменить",
+      "unsavedChanges": "Несохранённые изменения",
+      "unsavedCount": "Несохранённые изменения: {{count}}"
+    },
     "error": {
       "failedToLoad": "Не удалось загрузить",
       "loadingData": "Произошла ошибка при загрузке данных",

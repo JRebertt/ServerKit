@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
     },
+    "editing": {
+      "discard": "Descartar",
+      "redo": "Refazer",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saving": "A guardar…",
+      "undo": "Desfazer",
+      "unsavedChanges": "Alterações não guardadas",
+      "unsavedCount": "Alterações não guardadas: {{count}}"
+    },
     "error": {
       "failedToLoad": "Falha ao carregar",
       "loadingData": "Ocorreu um erro ao carregar dados",

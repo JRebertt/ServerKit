@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
     },
+    "editing": {
+      "discard": "Buang perubahan",
+      "redo": "Ulangi",
+      "save": "Simpan",
+      "saved": "Tersimpan",
+      "saving": "Menyimpan…",
+      "undo": "Urungkan",
+      "unsavedChanges": "Perubahan belum disimpan",
+      "unsavedCount": "Perubahan belum disimpan: {{count}}"
+    },
     "error": {
       "failedToLoad": "Gagal memuat",
       "loadingData": "Terjadi kesalahan saat memuat data",

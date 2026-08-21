@@ -1,0 +1,76 @@
+.sk-changebar {
+    position: sticky;
+    inset-block-end: $space-4;
+    z-index: $z-sticky;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+    width: min(100%, 920px);
+    min-height: 52px;
+    margin: $space-6 auto $space-4;
+    padding: $space-2 $space-3 $space-2 $space-4;
+    border: 1px solid $border-active;
+    border-radius: $radius-lg;
+    background: $bg-elevated;
+    box-shadow: $shadow-lg;
+
+    &__state,
+    &__actions {
+        display: flex;
+        align-items: center;
+    }
+
+    &__state {
+        gap: $space-2;
+        min-width: 0;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+
+        svg {
+            flex: 0 0 auto;
+            color: $warning;
+        }
+
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &__actions {
+        gap: $space-1;
+        flex: 0 0 auto;
+    }
+
+    &__divider {
+        width: 1px;
+        height: 20px;
+        margin-inline: $space-1;
+        background: $border-default;
+    }
+}
+
+@media (max-width: $breakpoint-sm) {
+    .sk-changebar {
+        align-items: stretch;
+        flex-direction: column;
+        inset-block-end: $space-2;
+        margin-block: $space-4 $space-2;
+        padding: $space-3;
+
+        &__actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        &__divider {
+            display: none;
+        }
+    }
+}

@@ -17,6 +17,7 @@ import SystemNotices from '../components/SystemNotices';
 import StagingBanner from '../components/StagingBanner';
 import DeployPill from '../components/DeployPill';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useShortcut } from '../hooks/useShortcut';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -61,10 +62,16 @@ const DashboardLayout = () => {
         }
     }, []);
 
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [handleKeyDown]);
+    useShortcut({
+        id: 'command-palette',
+        keys: [
+            { key: 'k', ctrlOrMeta: true },
+            { key: 'p', ctrlOrMeta: true, shift: true },
+            { key: 'F1' },
+        ],
+        allowInInput: true,
+        handler: handleKeyDown,
+    });
 
     // Close the mobile drawer on navigation (covers nav-link taps too).
     useEffect(() => {

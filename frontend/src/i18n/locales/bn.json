@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
     },
+    "editing": {
+      "discard": "পরিবর্তন বাতিল করুন",
+      "redo": "পুনরায় করুন",
+      "save": "সংরক্ষণ করুন",
+      "saved": "সংরক্ষিত",
+      "saving": "সংরক্ষণ করা হচ্ছে…",
+      "undo": "পূর্বাবস্থায় ফেরান",
+      "unsavedChanges": "অসংরক্ষিত পরিবর্তন",
+      "unsavedCount": "অসংরক্ষিত পরিবর্তন: {{count}}"
+    },
     "error": {
       "failedToLoad": "লোড করতে ব্যর্থ হয়েছে",
       "loadingData": "ডেটা লোড করার সময় একটি ত্রুটি ঘটেছে৷",

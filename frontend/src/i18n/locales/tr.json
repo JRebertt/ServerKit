@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}'ler",
       "seconds": "{{count}}'ler"
     },
+    "editing": {
+      "discard": "Vazgeç",
+      "redo": "Yinele",
+      "save": "Kaydet",
+      "saved": "Kaydedildi",
+      "saving": "Kaydediliyor…",
+      "undo": "Geri al",
+      "unsavedChanges": "Kaydedilmemiş değişiklikler",
+      "unsavedCount": "Kaydedilmemiş değişiklikler: {{count}}"
+    },
     "error": {
       "failedToLoad": "Yüklenemedi",
       "loadingData": "Veriler yüklenirken bir hata oluştu",

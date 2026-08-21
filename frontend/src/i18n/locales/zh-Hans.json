@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}米{{seconds}}秒",
       "seconds": "{{count}} 个"
     },
+    "editing": {
+      "discard": "放弃更改",
+      "redo": "重做",
+      "save": "保存",
+      "saved": "已保存",
+      "saving": "正在保存…",
+      "undo": "撤销",
+      "unsavedChanges": "未保存的更改",
+      "unsavedCount": "未保存的更改：{{count}}"
+    },
     "error": {
       "failedToLoad": "加载失败",
       "loadingData": "加载数据时发生错误",

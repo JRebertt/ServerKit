@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
     },
+    "editing": {
+      "discard": "捨棄變更",
+      "redo": "重做",
+      "save": "儲存",
+      "saved": "已儲存",
+      "saving": "正在儲存…",
+      "undo": "復原",
+      "unsavedChanges": "未儲存的變更",
+      "unsavedCount": "未儲存的變更：{{count}}"
+    },
     "error": {
       "failedToLoad": "載入失敗",
       "loadingData": "載入資料時發生錯誤",

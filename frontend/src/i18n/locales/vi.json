@@ -8475,6 +8475,16 @@
       "minutesSeconds": "{{minutes}}m {{seconds}}",
       "seconds": "{{count}}"
     },
+    "editing": {
+      "discard": "Hủy thay đổi",
+      "redo": "Làm lại",
+      "save": "Lưu",
+      "saved": "Đã lưu",
+      "saving": "Đang lưu…",
+      "undo": "Hoàn tác",
+      "unsavedChanges": "Thay đổi chưa lưu",
+      "unsavedCount": "Thay đổi chưa lưu: {{count}}"
+    },
     "error": {
       "failedToLoad": "Không tải được",
       "loadingData": "Đã xảy ra lỗi khi tải dữ liệu",
