@@ -3,6 +3,15 @@ import {
 } from 'react';
 import api from '../services/api';
 import usePageContext from '../hooks/ai/usePageContext';
+import {
+    addAttachment as appendAttachment,
+    applyAttachmentWarning,
+    attachmentKey,
+    markAttachmentsResolved,
+    normalizeAttachment,
+    removeAttachment as discardAttachment,
+    toAttachmentPayload,
+} from '../lib/ai/attachments';
 
 const AIContext = createContext(null);
 
@@ -18,6 +27,7 @@ const initialState = {
     statusLoaded: false,
     conversations: [],
     activeId: null,
+    attachments: [],
     messages: [],                // [{ id, role, content, toolCalls, thinking, status, error }]
     isStreaming: false,
     error: null,
@@ -30,6 +40,17 @@ function patchLastAssistant(messages, patch) {
     const next = [...messages];
     for (let i = next.length - 1; i >= 0; i--) {
         if (next[i].role === 'assistant') {
+            next[i] = typeof patch === 'function' ? patch(next[i]) : { ...next[i], ...patch };
+            break;
+        }
+    }
+    return next;
+}
+
+function patchLastUser(messages, patch) {
+    const next = [...messages];
+    for (let i = next.length - 1; i >= 0; i -= 1) {
+        if (next[i].role === 'user') {
             next[i] = typeof patch === 'function' ? patch(next[i]) : { ...next[i], ...patch };
             break;
         }
@@ -54,13 +75,31 @@ function reducer(state, action) {
         case 'SET_ACTIVE':
             return { ...state, activeId: action.id };
         case 'LOAD_MESSAGES':
-            return { ...state, messages: action.messages, activeId: action.id, pendingConfirm: null, error: null };
+            return {
+                ...state, messages: action.messages, activeId: action.id,
+                attachments: [], pendingConfirm: null, error: null,
+            };
         case 'NEW_CONVERSATION':
-            return { ...state, activeId: null, messages: [], pendingConfirm: null, error: null };
+            return {
+                ...state, activeId: null, messages: [], attachments: [],
+                pendingConfirm: null, error: null,
+            };
+        case 'ADD_ATTACHMENT':
+            return { ...state, attachments: appendAttachment(state.attachments, action.attachment) };
+        case 'REMOVE_ATTACHMENT':
+            return { ...state, attachments: discardAttachment(state.attachments, action.key) };
+        case 'CLEAR_ATTACHMENTS':
+            return { ...state, attachments: [] };
         case 'ADD_USER_MESSAGE':
             return {
                 ...state,
-                messages: [...state.messages, { id: action.id, role: 'user', content: action.content, status: 'done' }],
+                messages: [...state.messages, {
+                    id: action.id,
+                    role: 'user',
+                    content: action.content,
+                    attachments: action.attachments || [],
+                    status: 'done',
+                }],
             };
         case 'BEGIN_ASSISTANT':
             return {
@@ -113,6 +152,14 @@ function reducer(state, action) {
             };
         case 'SET_PENDING_CONFIRM':
             return { ...state, pendingConfirm: action.payload };
+        case 'ATTACHMENT_WARNING':
+            return {
+                ...state,
+                messages: patchLastUser(state.messages, (message) => ({
+                    ...message,
+                    attachments: applyAttachmentWarning(message.attachments || [], action.warning),
+                })),
+            };
         case 'CLEAR_PENDING_CONFIRM':
             return { ...state, pendingConfirm: null };
         case 'TURN_DONE':
@@ -121,7 +168,16 @@ function reducer(state, action) {
                 isStreaming: false,
                 activeId: action.conversationId || state.activeId,
                 unread: state.open ? 0 : state.unread + 1,
-                messages: patchLastAssistant(state.messages, (m) => ({ ...m, status: m.status === 'streaming' ? 'done' : m.status })),
+                messages: patchLastAssistant(
+                    patchLastUser(state.messages, (message) => ({
+                        ...message,
+                        attachments: markAttachmentsResolved(message.attachments || []),
+                    })),
+                    (message) => ({
+                        ...message,
+                        status: message.status === 'streaming' ? 'done' : message.status,
+                    }),
+                ),
             };
         case 'SET_ERROR':
             return {
@@ -178,6 +234,7 @@ export function AIProvider({ children }) {
                 id: `srv_${m.id}`,
                 role: m.role === 'assistant' ? 'assistant' : 'user',
                 content: m.content || '',
+                attachments: (m.attachments || []).map(normalizeAttachment).filter(Boolean),
                 toolCalls: (m.tool_calls || []).map((tc) => ({
                     id: tc.id, name: tc.name, input: tc.input, output: tc.output,
                     isError: tc.is_error, status: tc.is_error ? 'error' : 'done',
@@ -224,6 +281,7 @@ export function AIProvider({ children }) {
             case 'tool_use_stop': dispatch({ type: 'TOOL_STOP', id: data.id, name: data.name, input: data.input }); break;
             case 'tool_result': dispatch({ type: 'TOOL_RESULT', id: data.id, output: data.output, isError: !!data.is_error }); break;
             case 'pending_action': dispatch({ type: 'SET_PENDING_CONFIRM', payload: data }); break;
+            case 'attachment_warning': dispatch({ type: 'ATTACHMENT_WARNING', warning: data }); break;
             case 'error': dispatch({ type: 'SET_ERROR', message: data.message || 'The assistant hit an error.' }); break;
             case 'done': dispatch({ type: 'TURN_DONE', conversationId: data.conversation_id }); break;
             default: break;
@@ -235,18 +293,31 @@ export function AIProvider({ children }) {
         const text = (prompt || '').trim();
         if (!text || state.isStreaming) return;
         const mode = opts.mode || state.mode;
+        const requestedAttachments = (opts.attachments || []).reduce(
+            (items, attachment) => appendAttachment(items, attachment),
+            state.attachments,
+        );
         const payload = {
             conversation_id: activeIdRef.current || undefined,
             message: text,
             mode,
         };
+        if (requestedAttachments.length) {
+            payload.attachments = requestedAttachments.map(toAttachmentPayload).filter(Boolean);
+        }
         if (mode === 'assistant' && state.includeContext) {
             payload.page_context = buildPageContext(opts.context);
         } else if (opts.context) {
             payload.page_context = opts.context;
         }
 
-        dispatch({ type: 'ADD_USER_MESSAGE', id: newId(), content: text });
+        dispatch({
+            type: 'ADD_USER_MESSAGE',
+            id: newId(),
+            content: text,
+            attachments: requestedAttachments,
+        });
+        dispatch({ type: 'CLEAR_ATTACHMENTS' });
         dispatch({ type: 'BEGIN_ASSISTANT', id: newId() });
 
         const controller = new AbortController();
@@ -263,7 +334,10 @@ export function AIProvider({ children }) {
             abortRef.current = null;
             loadConversations();
         }
-    }, [state.isStreaming, state.mode, state.includeContext, buildPageContext, handleEvent, loadConversations]);
+    }, [
+        state.isStreaming, state.mode, state.includeContext, state.attachments,
+        buildPageContext, handleEvent, loadConversations,
+    ]);
 
     const stop = useCallback(() => {
         abortRef.current?.abort();
@@ -309,6 +383,14 @@ export function AIProvider({ children }) {
 
     const setMode = useCallback((mode) => dispatch({ type: 'SET_MODE', mode }), []);
     const setIncludeContext = useCallback((value) => dispatch({ type: 'SET_INCLUDE_CONTEXT', value }), []);
+    const addAttachment = useCallback((attachment, options = {}) => {
+        dispatch({ type: 'ADD_ATTACHMENT', attachment });
+        if (options.open !== false) dispatch({ type: 'SET_OPEN', open: true });
+    }, []);
+    const removeAttachment = useCallback((attachment) => {
+        const key = typeof attachment === 'string' ? attachment : attachmentKey(attachment);
+        dispatch({ type: 'REMOVE_ATTACHMENT', key });
+    }, []);
 
     // --- plugin registries (returned to plugin components via useServerkitAI) ---
     const registerContextProvider = useCallback((routePattern, fn) => {
@@ -328,12 +410,14 @@ export function AIProvider({ children }) {
         pageContext,
         // controls
         open, close, toggle, ask, send, stop, confirmAction, setMode, setIncludeContext,
+        addAttachment, removeAttachment,
         loadConversations, switchConversation, newConversation, deleteConversation, loadStatus,
         // plugin SDK surface
         registerContextProvider, registerToolRenderer, getToolRenderer,
     }), [
         state, pageContext, open, close, toggle, ask, send, stop, confirmAction, setMode,
-        setIncludeContext, loadConversations, switchConversation, newConversation,
+        setIncludeContext, addAttachment, removeAttachment,
+        loadConversations, switchConversation, newConversation,
         deleteConversation, loadStatus, registerContextProvider, registerToolRenderer, getToolRenderer,
     ]);
 

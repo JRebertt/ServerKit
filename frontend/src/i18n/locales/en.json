@@ -365,6 +365,14 @@
             "violet": "Violet",
             "widgetsAreArrangedOnTheDashboard": "Widgets are arranged on the dashboard itself now — add, move, resize and configure them in place, across as many boards as you need."
         },
+        "attachmentChip": {
+            "denied": "Access denied",
+            "omitted": "Context limit reached",
+            "remove": "Remove {{label}}",
+            "stale": "No longer available",
+            "unavailable": "Unavailable",
+            "unknown": "Unsupported attachment"
+        },
         "auditTab": {
             "generated": "Generated",
             "recommendations": "Recommendations",
@@ -944,7 +952,11 @@
         "composer": {
             "askAboutYourServers": "Ask about your servers…",
             "assistantNotConfigured": "Assistant not configured",
+            "attach": "Attach",
+            "attachResource": "Attach a resource",
             "messageTheAssistant": "Message the assistant",
+            "noResources": "No accessible resources found",
+            "searchResources": "Search resources…",
             "send": "Send",
             "stop": "Stop"
         },
