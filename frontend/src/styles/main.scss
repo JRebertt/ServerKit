@@ -74,6 +74,7 @@
 @import 'components/_design-system';  // redesign shared primitives (sk-* namespace)
 @import 'components/_change-bar';     // local draft history + save/discard controls
 @import 'components/_shortcut-sheet'; // registered keyboard commands
+@import 'components/_resource-picker'; // scoped ResourceRef combobox
 @import 'components/_datagrid';       // DataGrid list surface (sk-grid*, ds/grid/)
 @import 'components/_dashboard-widgets';  // configurable dashboard grid (skw-* namespace)
 @import 'components/_setup-health';        // dashboard setup-health card + account nudge
