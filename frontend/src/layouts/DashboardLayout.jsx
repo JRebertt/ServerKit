@@ -19,6 +19,7 @@ import DeployPill from '../components/DeployPill';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useShortcut } from '../hooks/useShortcut';
 import { useTranslation } from 'react-i18next';
+import { OperationsProvider } from '../contexts/OperationsContext';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -98,6 +99,7 @@ const DashboardLayout = () => {
     }, []);
 
     return (
+        <OperationsProvider>
         <LogsDrawerProvider>
             <AIProvider>
             <ConfirmProvider>
@@ -131,6 +133,7 @@ const DashboardLayout = () => {
             </ConfirmProvider>
             </AIProvider>
         </LogsDrawerProvider>
+        </OperationsProvider>
     );
 };
 
