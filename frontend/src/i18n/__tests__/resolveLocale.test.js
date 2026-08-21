@@ -29,6 +29,16 @@ test('matchSupported distinguishes Simplified and Traditional Chinese', () => {
     assert.equal(matchSupported('zh_Hant_TW', supported), 'zh-Hant');
 });
 
+test('matchSupported normalizes regional tags for the second-wave locales', () => {
+    const supported = ['en', 'th', 'ar', 'it', 'pl', 'bn'];
+
+    assert.equal(matchSupported('th-TH', supported), 'th');
+    assert.equal(matchSupported('ar-EG', supported), 'ar');
+    assert.equal(matchSupported('it-IT', supported), 'it');
+    assert.equal(matchSupported('pl-PL', supported), 'pl');
+    assert.equal(matchSupported('bn-BD', supported), 'bn');
+});
+
 test('matchSupported rejects what we do not ship', () => {
     assert.equal(matchSupported('fr', SUPPORTED), null);
     assert.equal(matchSupported('', SUPPORTED), null);
@@ -118,4 +128,8 @@ test('every shipped language has a usable manifest row', () => {
 test('an unknown code still yields a usable row', () => {
     assert.equal(languageInfo('zz').code, DEFAULT_LANGUAGE);
     assert.equal(directionFor('zz'), 'ltr');
+});
+
+test('Arabic activates right-to-left document direction', () => {
+    assert.equal(directionFor('ar'), 'rtl');
 });

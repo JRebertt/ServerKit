@@ -83,6 +83,41 @@
             "nativeName": "繁體中文",
             "dir": "ltr",
             "status": "provisional"
+        },
+        {
+            "code": "th",
+            "name": "Thai",
+            "nativeName": "ไทย",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "ar",
+            "name": "Arabic",
+            "nativeName": "العربية",
+            "dir": "rtl",
+            "status": "provisional"
+        },
+        {
+            "code": "it",
+            "name": "Italian",
+            "nativeName": "Italiano",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "pl",
+            "name": "Polish",
+            "nativeName": "Polski",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "bn",
+            "name": "Bengali",
+            "nativeName": "বাংলা",
+            "dir": "ltr",
+            "status": "provisional"
         }
     ]
 }

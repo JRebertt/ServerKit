@@ -66,6 +66,11 @@ def test_manifest_entries_are_complete():
     ('zh_Hant_TW', 'zh-Hant'),
     ('  es  ', 'es'),
     ('fr-CA', 'fr'),
+    ('th-TH', 'th'),
+    ('ar-EG', 'ar'),
+    ('it-IT', 'it'),
+    ('pl-PL', 'pl'),
+    ('bn-BD', 'bn'),
     ('ja', None),           # well-formed but not shipped
     ('zz-ZZ', None),
     ('', None),

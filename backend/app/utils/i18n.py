@@ -16,8 +16,8 @@ import re
 
 # Keep in sync with frontend/src/i18n/languages.json (enforced by test).
 SUPPORTED_LANGUAGES = (
-    'en', 'es', 'zh-Hans', 'de', 'pt', 'ru', 'ko', 'id', 'zh-Hant', 'vi',
-    'tr', 'fr',
+    'id', 'de', 'en', 'es', 'fr', 'pt', 'vi', 'tr', 'ru', 'ko', 'zh-Hans',
+    'zh-Hant', 'th', 'ar', 'it', 'pl', 'bn',
 )
 
 DEFAULT_LANGUAGE = 'en'
