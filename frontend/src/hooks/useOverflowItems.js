@@ -7,6 +7,24 @@ function arraysEqual(a, b) {
 }
 
 /**
+ * Keep overflow state safe while a shared tab layout switches to a shorter
+ * item list. Effects recompute after render, so consumers must not receive
+ * indexes that were valid for the previous route but are invalid now.
+ */
+export function sanitizeOverflowIndices(indices, count) {
+    if (!Array.isArray(indices) || !Number.isInteger(count) || count <= 0) return [];
+
+    const safe = [];
+    const seen = new Set();
+    for (const index of indices) {
+        if (!Number.isInteger(index) || index < 0 || index >= count || seen.has(index)) continue;
+        seen.add(index);
+        safe.push(index);
+    }
+    return safe;
+}
+
+/**
  * Tracks which child items overflow a container and should be collapsed into a
  * "More" menu. Items are greedily fit left-to-right; the active item is always
  * kept visible by rebuilding the visible set around it.
@@ -115,9 +133,20 @@ export function useOverflowItems({ count, itemRefs: externalItemRefs, gap = 8, m
         return () => ro.disconnect();
     }, [recompute]);
 
-    const hiddenSet = new Set(hiddenIndices);
+    // A route change can reduce `count` before the measurement effect updates
+    // state. Clamp synchronously so this render can never dereference a stale
+    // item index (most visible with wider translated labels).
+    const safeHiddenIndices = sanitizeOverflowIndices(hiddenIndices, count);
+    const hiddenSet = new Set(safeHiddenIndices);
 
-    return { containerRef, itemRefs, moreBtnRef, hiddenIndices, hiddenSet, recompute };
+    return {
+        containerRef,
+        itemRefs,
+        moreBtnRef,
+        hiddenIndices: safeHiddenIndices,
+        hiddenSet,
+        recompute,
+    };
 }
 
 export default useOverflowItems;

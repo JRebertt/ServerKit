@@ -75,23 +75,27 @@ export default function TabGroupLayout({ tabs, groupId }) {
     // Dedup by `to` (core wins); optional numeric `order` picks the
     // insertion index, default appends at the end.
     const mergedTabs = useMemo(() => {
-        if (!groupId) return tabs;
+        const coreTabs = (Array.isArray(tabs) ? tabs : [])
+            .filter((tab) => tab && typeof tab.to === 'string' && tab.to.length > 0)
+            .map((tab) => ({ ...tab, label: translateLabel(translate, tab) }));
+
+        if (!groupId) return coreTabs;
         const extras = (contributedTabs || [])
-            .filter((t) => t && t.group === groupId && t.to && t.label)
-            .filter((t) => !tabs.some((core) => core.to === t.to))
-            .map((t) => ({
-                to: t.to,
+            .filter((tab) => tab && tab.group === groupId && tab.to && tab.label)
+            .filter((tab) => !coreTabs.some((core) => core.to === tab.to))
+            .map((tab) => ({
+                to: tab.to,
                 // An extension tab may declare `labelKey` beside `label`;
                 // core tabs already do. Same resolver either way.
-                label: translateLabel(translate, t),
-                end: !!t.end,
-                icon: contributedIcon(t.icon),
-                order: t.order,
+                label: translateLabel(translate, tab),
+                end: !!tab.end,
+                icon: contributedIcon(tab.icon),
+                order: tab.order,
             }));
-        if (!extras.length) return tabs;
-        const merged = [...tabs];
-        for (const t of extras) {
-            const { order, ...tab } = t;
+        if (!extras.length) return coreTabs;
+        const merged = [...coreTabs];
+        for (const extra of extras) {
+            const { order, ...tab } = extra;
             const idx = Number.isInteger(order)
                 ? Math.min(Math.max(order, 0), merged.length)
                 : merged.length;
@@ -112,7 +116,7 @@ export default function TabGroupLayout({ tabs, groupId }) {
     return (
         <div className="page-container page-container--full-bleed sk-tabgroup">
             <PageTopbar
-                navLabel={active.label}
+                navLabel={active?.label || translate('common.page', 'Page')}
                 tabs={mergedTabs}
                 actions={<>{actions}<span className="sk-topbar__chrome" ref={setChromeSlot} /></>}
             />
