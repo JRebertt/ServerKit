@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { SOCKET_EVENTS } from '../constants/events';
 
 const getSocketUrl = () => {
     if (import.meta.env.DEV) return window.location.origin;
@@ -73,6 +74,14 @@ class SocketService {
         this.socket.on('deploy_status', (data) => {
             this.emit('deploy_status', data);
         });
+
+        this.socket.on(SOCKET_EVENTS.RUN_LOG, (data) => {
+            this.emit(SOCKET_EVENTS.RUN_LOG, data);
+        });
+
+        this.socket.on(SOCKET_EVENTS.RUN_STATUS, (data) => {
+            this.emit(SOCKET_EVENTS.RUN_STATUS, data);
+        });
     }
 
     disconnect() {
@@ -115,6 +124,18 @@ class SocketService {
     unsubscribeDeploy(jobId) {
         if (this.socket?.connected) {
             this.socket.emit('unsubscribe_deploy', { job_id: jobId });
+        }
+    }
+
+    subscribeRun(runKind, runId) {
+        if (this.socket?.connected && runKind && runId != null) {
+            this.socket.emit('subscribe_run', { run_kind: runKind, run_id: runId });
+        }
+    }
+
+    unsubscribeRun(runKind, runId) {
+        if (this.socket?.connected && runKind && runId != null) {
+            this.socket.emit('unsubscribe_run', { run_kind: runKind, run_id: runId });
         }
     }
 
