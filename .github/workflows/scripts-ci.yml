@@ -21,6 +21,8 @@ on:
       - 'install.sh'
       - 'uninstall.sh'
       - 'serverkit'
+      - '.github/workflows/main-promotion.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/scripts-ci.yml'
   pull_request:
     branches: [main]
@@ -30,6 +32,8 @@ on:
       - 'install.sh'
       - 'uninstall.sh'
       - 'serverkit'
+      - '.github/workflows/main-promotion.yml'
+      - '.github/workflows/release.yml'
       - '.github/workflows/scripts-ci.yml'
   workflow_call:
 
@@ -77,6 +81,7 @@ jobs:
           bash scripts/test/test_cli.sh
           bash scripts/test/test_agent_install.sh
           bash scripts/test/test_stage.sh
+          bash scripts/test/test_release_workflow.sh
 
       - name: nginx -t smoke (shipped vhosts parse on a real nginx)
         run: |
@@ -188,6 +193,7 @@ jobs:
             bash scripts/test/test_cli.sh
             bash scripts/test/test_agent_install.sh
             bash scripts/test/test_stage.sh
+            bash scripts/test/test_release_workflow.sh
           '
 
   python-provisioning:

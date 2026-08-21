@@ -23,13 +23,50 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: read
 
 env:
   DOCKER_IMAGE: jhd3197/serverkit
 
 jobs:
+  promotion-gate:
+    name: Verify dev promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a merged dev to main pull request
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'push' || context.ref !== 'refs/heads/main') {
+              core.info('Manual and tag-triggered releases do not use the branch promotion gate.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner,
+              repo,
+              commit_sha: context.sha,
+            });
+            const promotion = pulls.find((pull) => (
+              pull.merged_at
+              && pull.base.ref === 'main'
+              && pull.head.ref === 'dev'
+              && pull.head.repo?.full_name === `${owner}/${repo}`
+            ));
+
+            if (!promotion) {
+              core.setFailed(
+                'Releases from main require a merged pull request from this repository\'s dev branch.'
+              );
+              return;
+            }
+
+            core.info(`Verified dev → main promotion via PR #${promotion.number}.`);
+
   ci-gate:
     name: CI Gate
+    needs: promotion-gate
     uses: ./.github/workflows/backend-ci.yml
 
   version:
@@ -60,18 +97,29 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Releasing ServerKit version: $VERSION"
 
+      - name: Require an unused release version
+        if: github.event_name != 'push' || github.ref_type != 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "::error::Refusing to overwrite existing tag $TAG. Bump VERSION before promoting dev to main."
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Refusing to overwrite existing release $TAG. Bump VERSION before promoting dev to main."
+            exit 1
+          fi
+
       - name: Create and push tag
         if: github.event_name == 'push' && github.ref_type != 'tag'
         run: |
           TAG="${{ steps.version.outputs.tag }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
 
   build-release:
     name: Build Release Tarball
@@ -211,12 +259,13 @@ jobs:
           cat checksums.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.version.outputs.tag }}
           name: ServerKit ${{ needs.version.outputs.tag }}
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          overwrite_files: false
           files: |
             release/*
           body: |
