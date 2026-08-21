@@ -3844,11 +3844,8 @@
       "user": "Pengguna"
     },
     "logsDrawer": {
-      "autoScroll": "Gulir otomatis",
       "clear": "Jernih",
       "close": "Menutup",
-      "close2": "Menutup",
-      "collapse": "Runtuh",
       "waitingForLogs": "Menunggu log..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
+    },
+    "editing": {
+      "discard": "Buang perubahan",
+      "redo": "Ulangi",
+      "save": "Simpan",
+      "saved": "Tersimpan",
+      "saving": "Menyimpan…",
+      "undo": "Urungkan",
+      "unsavedChanges": "Perubahan belum disimpan",
+      "unsavedCount": "Perubahan belum disimpan: {{count}}"
     },
     "error": {
       "failedToLoad": "Gagal memuat",

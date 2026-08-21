@@ -43,6 +43,7 @@ import * as manifestMethods from './manifests.js';
 import * as surveyMethods from './survey.js';
 import * as dnsCutoverMethods from './dnsCutover.js';
 import * as searchMethods from './search.js';
+import * as runMethods from './runs.js';
 import * as testSandboxMethods from './testSandbox.js';
 import * as themeMethods from './themes.js';
 import * as dashboardMethods from './dashboards.js';
@@ -100,6 +101,7 @@ class ApiService extends ApiClient {
             surveyMethods,
             dnsCutoverMethods,
             searchMethods,
+            runMethods,
             testSandboxMethods,
             themeMethods,
             dashboardMethods,

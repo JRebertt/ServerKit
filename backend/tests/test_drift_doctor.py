@@ -13,6 +13,7 @@ from app.services.drift_service import (
 )
 from app.services.doctor_service import (
     DOCTOR_JOB_KIND,
+    DOCTOR_REPAIR_JOB_KIND,
     DoctorService,
     LAST_REPORT_KEY as DOCTOR_REPORT_KEY,
 )
@@ -269,6 +270,7 @@ def test_register_jobs_registers_handlers(app):
     DoctorService.register_jobs()
     assert registry.get(DRIFT_JOB_KIND) is not None
     assert registry.get(DOCTOR_JOB_KIND) is not None
+    assert registry.get(DOCTOR_REPAIR_JOB_KIND) is not None
 
 
 # --------------------------------------------------------------------------- #
@@ -531,6 +533,55 @@ def test_post_repair_batch(doctor_client, auth_headers, monkeypatch):
     assert resp.status_code == 200
     assert resp.get_json() == {'results': [{'item': items[0], 'success': True},
                                            {'item': items[1], 'success': True}]}
+
+
+def test_post_repair_can_enqueue_operation(doctor_client, auth_headers):
+    from app.jobs.models import Job
+
+    items = [{'kind': 'service', 'name': 'nginx'}]
+    resp = doctor_client.post(
+        '/api/v1/doctor/repair?wait=false',
+        headers=auth_headers,
+        json={'items': items},
+    )
+
+    assert resp.status_code == 202
+    body = resp.get_json()
+    assert body['kind'] == DOCTOR_REPAIR_JOB_KIND
+    job = Job.query.get(body['job_id'])
+    assert job.status == Job.STATUS_PENDING
+    assert job.get_payload() == {'items': items}
+    assert job.owner_type == 'doctor'
+    assert job.owner_id == 'host'
+
+
+def test_doctor_repair_job_persists_progress_and_fails_honestly(app, monkeypatch):
+    from app.jobs.models import Job
+    from app.jobs.service import JobService
+
+    items = [
+        {'kind': 'service', 'name': 'nginx'},
+        {'kind': 'dns', 'host': 'broken.example.com'},
+    ]
+    job = JobService.enqueue(
+        DOCTOR_REPAIR_JOB_KIND, {'items': items}, max_attempts=1,
+    )
+    monkeypatch.setattr(
+        DoctorService,
+        'repair',
+        classmethod(lambda cls, selected: [
+            {'item': selected[0], 'success': True},
+            {'item': selected[1], 'success': False, 'error': 'still broken'},
+        ]),
+    )
+
+    with pytest.raises(RuntimeError, match='1 of 2 doctor repairs failed'):
+        DoctorService.run_doctor_repair_job(job)
+
+    persisted = Job.query.get(job.id).get_result()
+    assert persisted['completed'] == 2
+    assert persisted['total'] == 2
+    assert persisted['failed'] == 1
 
 
 def test_post_repair_requires_items(doctor_client, auth_headers):

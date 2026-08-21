@@ -34,6 +34,19 @@ def _job_operable_by(user, job):
     return user.is_admin or job.requested_by == user.id
 
 
+def _job_payload(job, user, include_plan=False, include_logs=False):
+    """Serialize action authority beside the deployment record.
+
+    Deployments have a retry endpoint but no cancellation endpoint. Permission
+    is evaluated per caller here so viewers never receive an optimistic action
+    that the mutation route would reject.
+    """
+    payload = job.to_dict(include_plan=include_plan, include_logs=include_logs)
+    payload['can_cancel'] = False
+    payload['can_retry'] = job.status == 'failed' and _job_operable_by(user, job)
+    return payload
+
+
 @deployment_jobs_bp.route('/simulate', methods=['GET'])
 @jwt_required()
 def get_simulate_info():
@@ -89,12 +102,14 @@ def list_deployment_jobs():
     app_id = request.args.get('app_id', type=int)
     limit = request.args.get('limit', 50, type=int)
 
+    scoped_app = None
     if app_id:
         app = Application.query_active().filter_by(id=app_id).first()
         if not app:
             return jsonify({'error': 'Application not found'}), 404
         if not user or app_access_tier(user, app) is None:
             return jsonify({'error': 'Access denied'}), 403
+        scoped_app = app
     elif not user or not user.is_admin:
         return jsonify({'error': 'Access denied'}), 403
 
@@ -104,6 +119,14 @@ def list_deployment_jobs():
         app_id=app_id,
         limit=min(limit, 200),
     )
+    can_retry_scoped = bool(
+        user and scoped_app and ResourceGrantService.can_operate_app(user, scoped_app)
+    )
+    for job in jobs:
+        job['can_cancel'] = False
+        job['can_retry'] = job.get('status') == 'failed' and (
+            bool(user and user.is_admin) if scoped_app is None else can_retry_scoped
+        )
     return jsonify({'jobs': jobs}), 200
 
 
@@ -118,8 +141,9 @@ def get_deployment_job(job_id):
     user = get_current_user()
     if not user or not _job_visible_to(user, job):
         return jsonify({'error': 'Access denied'}), 403
-    return jsonify({'job': job.to_dict(include_logs=include_logs,
-                                       include_plan=include_plan)}), 200
+    return jsonify({'job': _job_payload(
+        job, user, include_logs=include_logs, include_plan=include_plan,
+    )}), 200
 
 
 @deployment_jobs_bp.route('/<job_id>/retry', methods=['POST'])
@@ -138,6 +162,11 @@ def retry_deployment_job(job_id):
         # Distinguish "no such job" from a state/enqueue error.
         status = 404 if result.get('error') == 'Deployment job not found' else 400
         return jsonify({'error': result.get('error')}), status
+    if result.get('job'):
+        # A retry creates a pending clone. It has neither a retry nor cancel
+        # endpoint at this point, matching the capability contract above.
+        result['job']['can_cancel'] = False
+        result['job']['can_retry'] = False
     return jsonify(result), 202
 
 

@@ -9,6 +9,7 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import ResourcePicker from '../components/ResourcePicker';
 import { Pill } from '@/components/ds';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { Button } from '@/components/ui/button';
@@ -16,13 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useTranslation } from 'react-i18next';
-import {
-    Select,
-    SelectTrigger,
-    SelectContent,
-    SelectItem,
-    SelectValue,
-} from '@/components/ui/select';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 
 // Tunnel / service status → status-pill tone.
 const pillKind = (status) => statusKind(status);
@@ -38,8 +33,20 @@ const EMPTY_FORM = {
     ssl: true,
 };
 
+const serverResource = (server, id) => ({
+    type: 'server',
+    id: String(server?.id ?? id),
+    label: server?.name || server?.hostname || String(id),
+    sublabel: server?.ip_address || server?.hostname || '',
+    path: `/servers/${server?.id ?? id}`,
+    scope: { workspaceId: server?.workspace_id ?? null },
+    status: server?.status || null,
+    capabilities: [],
+});
+
 const RemoteAccess = ({ serverId }) => {
     const { t } = useTranslation();
+    const { activeWorkspaceId, isAllWorkspaces } = useWorkspace();
     const toast = useToast();
     const [tunnels, setTunnels] = useState([]);
     const [services, setServices] = useState({}); // tunnelId -> [service]
@@ -56,6 +63,17 @@ const RemoteAccess = ({ serverId }) => {
     const currentServer = useMemo(
         () => servers.find((s) => s.id === serverId),
         [servers, serverId]
+    );
+    const resourceScope = useMemo(() => ({
+        workspaceId: isAllWorkspaces ? null : activeWorkspaceId,
+    }), [activeWorkspaceId, isAllWorkspaces]);
+    const privateServer = useMemo(
+        () => servers.find((server) => String(server.id) === String(form.privateServerId)),
+        [form.privateServerId, servers],
+    );
+    const edgeServer = useMemo(
+        () => servers.find((server) => String(server.id) === String(form.edgeServerId)),
+        [form.edgeServerId, servers],
     );
 
     // When scoped to a server, only show tunnels that involve it.
@@ -191,8 +209,6 @@ const RemoteAccess = ({ serverId }) => {
     // as a tab in the Servers group. When embedded inside a single server's
     // detail page we render the action inline instead.
     useTopbarActions(() => exposeButton, [loading]);
-
-    const otherServers = servers.filter((s) => s.id !== serverId);
 
     return (
         <div className="sk-tabgroup__inner ra-page">
@@ -389,34 +405,48 @@ const RemoteAccess = ({ serverId }) => {
                                         className="bg-muted"
                                     />
                                 ) : (
-                                    <Select value={form.privateServerId} onValueChange={(v) => setField('privateServerId', v)}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={t('app.remoteAccess.selectAServer', 'Select a server')} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {servers.map((s) => (
-                                                <SelectItem key={s.id} value={s.id}>
-                                                    {s.name}{s.ip_address ? ` (${s.ip_address})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <ResourcePicker
+                                        value={form.privateServerId
+                                            ? serverResource(privateServer, form.privateServerId)
+                                            : null}
+                                        onChange={(resource) => setField('privateServerId', resource.id)}
+                                        types={['server']}
+                                        scope={resourceScope}
+                                        capabilities={['wireguard']}
+                                        filterOption={(resource) => (
+                                            resource.status === 'online'
+                                            && resource.id !== String(form.edgeServerId)
+                                        )}
+                                        icon={HardDrive}
+                                        showCapabilities
+                                        label={t('app.remoteAccess.privateHostWhereTheServiceRuns', 'Private host (where the service runs)')}
+                                        placeholder={t('app.remoteAccess.selectAServer', 'Select a server')}
+                                        searchPlaceholder={t('app.serverPicker.findAServer', 'Find a server…')}
+                                        className="sk-resource-picker__trigger--full"
+                                    />
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label>{t('app.remoteAccess.edgeServerPublicIpFrontsThe', 'Edge server (public IP — fronts the tunnel)')}</Label>
-                                <Select value={form.edgeServerId} onValueChange={(v) => setField('edgeServerId', v)}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={t('app.remoteAccess.selectAServer2', 'Select a server')} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {otherServers.map((s) => (
-                                            <SelectItem key={s.id} value={s.id}>
-                                                {s.name}{s.ip_address ? ` (${s.ip_address})` : ''}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <ResourcePicker
+                                    value={form.edgeServerId
+                                        ? serverResource(edgeServer, form.edgeServerId)
+                                        : null}
+                                    onChange={(resource) => setField('edgeServerId', resource.id)}
+                                    types={['server']}
+                                    scope={resourceScope}
+                                    capabilities={['wireguard']}
+                                    filterOption={(resource) => (
+                                        resource.status === 'online'
+                                        && resource.id !== String(form.privateServerId)
+                                    )}
+                                    icon={Cloud}
+                                    showCapabilities
+                                    label={t('app.remoteAccess.edgeServerPublicIpFrontsThe', 'Edge server (public IP — fronts the tunnel)')}
+                                    placeholder={t('app.remoteAccess.selectAServer2', 'Select a server')}
+                                    searchPlaceholder={t('app.serverPicker.findAServer', 'Find a server…')}
+                                    className="sk-resource-picker__trigger--full"
+                                />
                                 <p className="text-xs text-muted-foreground">
                                     {t('app.remoteAccess.aTunnelBetweenTheseTwoIs', 'A tunnel between these two is created (or reused) automatically.')}
                                 </p>

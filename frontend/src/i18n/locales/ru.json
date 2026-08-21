@@ -3844,11 +3844,8 @@
       "user": "Пользователь"
     },
     "logsDrawer": {
-      "autoScroll": "Автопрокрутка",
       "clear": "Очистить",
       "close": "Закрыть",
-      "close2": "Закрыть",
-      "collapse": "Свернуть",
       "waitingForLogs": "Жду логов..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}} м",
       "minutesSeconds": "{{minutes}} м {{seconds}} с",
       "seconds": "{{count}} с"
+    },
+    "editing": {
+      "discard": "Отбросить",
+      "redo": "Повторить",
+      "save": "Сохранить",
+      "saved": "Сохранено",
+      "saving": "Сохранение…",
+      "undo": "Отменить",
+      "unsavedChanges": "Несохранённые изменения",
+      "unsavedCount": "Несохранённые изменения: {{count}}"
     },
     "error": {
       "failedToLoad": "Не удалось загрузить",

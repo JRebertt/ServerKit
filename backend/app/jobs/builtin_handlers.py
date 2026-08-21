@@ -315,6 +315,42 @@ def run_job_retention():
     return None
 
 
+def run_telemetry_retention():
+    """Prune the telemetry stream so the database cannot grow without bound.
+
+    ``jobs`` has had retention since day one, but the three tables that grow
+    alongside it never did: ``queue_messages`` and ``system_events`` gain a row
+    per scheduler tick and ``api_usage_logs`` one per request. Measured on a
+    single-app box that is ~25k rows/day, or ~11 MB/day forever — which is how
+    a 25 GB host filled from nothing but routine updates (each update copies
+    the database twice as its pre-upgrade safety net).
+
+    Kept ``telemetry.retention_days`` (default 30); ``0`` disables it. Rows are
+    only deleted once terminal, and a queue message still referenced by a
+    surviving job is always kept.
+    """
+    from app.services.settings_service import SettingsService
+    from app.services import disk_reclaim_service
+    days = SettingsService.get('telemetry.retention_days', 30)
+    try:
+        days = int(days)
+    except (TypeError, ValueError):
+        days = 30
+    if days <= 0:
+        return None
+    # No VACUUM here: it needs an exclusive lock and free space equal to the
+    # database. Steady-state pruning keeps the freed pages on the freelist for
+    # reuse, so the file stops growing without ever blocking the panel. Use
+    # `serverkit disk` to actually shrink the file after a big backlog.
+    report = disk_reclaim_service.prune_telemetry(days=days, vacuum=False)
+    deleted = report.get('deleted_rows') or 0
+    if deleted:
+        logger.info('Telemetry retention pruned %s row(s): %s',
+                    deleted, report.get('deleted'))
+        return {'deleted': deleted, 'by_table': report.get('deleted')}
+    return None
+
+
 def run_security_feed_check():
     """Daily security-advisory feed check.
 
@@ -398,6 +434,7 @@ _BUILTINS = [
     ('builtin.extension_updates',   run_extension_update_check, 'extension-updates', 86400, 600),
     ('builtin.security_feed',       run_security_feed_check,   'security-feed',     86400, 600),
     ('builtin.job_retention',       run_job_retention,         'job-retention',      21600, 1500),
+    ('builtin.telemetry_retention', run_telemetry_retention,   'telemetry-retention', 21600, 1800),
 ]
 
 

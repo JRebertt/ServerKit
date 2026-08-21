@@ -3844,11 +3844,8 @@
       "user": "người dùng"
     },
     "logsDrawer": {
-      "autoScroll": "Tự động cuộn",
       "clear": "Thông thoáng",
       "close": "Đóng",
-      "close2": "Đóng",
-      "collapse": "Sụp đổ",
       "waitingForLogs": "Đang chờ nhật ký..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}}m {{seconds}}",
       "seconds": "{{count}}"
+    },
+    "editing": {
+      "discard": "Hủy thay đổi",
+      "redo": "Làm lại",
+      "save": "Lưu",
+      "saved": "Đã lưu",
+      "saving": "Đang lưu…",
+      "undo": "Hoàn tác",
+      "unsavedChanges": "Thay đổi chưa lưu",
+      "unsavedCount": "Thay đổi chưa lưu: {{count}}"
     },
     "error": {
       "failedToLoad": "Không tải được",

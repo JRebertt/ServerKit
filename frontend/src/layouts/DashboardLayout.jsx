@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import MobileTopBar from '../components/MobileTopBar';
 import CommandPalette from '../components/CommandPalette';
-import LogsDrawer from '../components/LogsDrawer';
 import { LogsDrawerProvider } from '../contexts/LogsDrawerContext';
 import { AIProvider } from '../contexts/AIContext';
 import AIAssistant from '../components/ai/AIAssistant';
@@ -15,14 +14,18 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import api from '../services/api';
 import SystemNotices from '../components/SystemNotices';
 import StagingBanner from '../components/StagingBanner';
-import DeployPill from '../components/DeployPill';
+import OperationsDock from '../components/OperationsDock';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useShortcut } from '../hooks/useShortcut';
+import { useTranslation } from 'react-i18next';
+import { OperationsProvider } from '../contexts/OperationsContext';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
 const FULL_PAGE_ROUTES = ['/files', '/docker'];
 
 const DashboardLayout = () => {
+    const { t } = useTranslation();
     const location = useLocation();
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [navOpen, setNavOpen] = useState(false);
@@ -61,10 +64,18 @@ const DashboardLayout = () => {
         }
     }, []);
 
-    useEffect(() => {
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [handleKeyDown]);
+    useShortcut({
+        id: 'command-palette',
+        label: t('palette.label', 'Command palette'),
+        group: 'shell',
+        keys: [
+            { key: 'k', ctrlOrMeta: true },
+            { key: 'p', ctrlOrMeta: true, shift: true },
+            { key: 'F1' },
+        ],
+        allowInInput: true,
+        handler: handleKeyDown,
+    });
 
     // Close the mobile drawer on navigation (covers nav-link taps too).
     useEffect(() => {
@@ -87,6 +98,7 @@ const DashboardLayout = () => {
     }, []);
 
     return (
+        <OperationsProvider>
         <LogsDrawerProvider>
             <AIProvider>
             <ConfirmProvider>
@@ -112,14 +124,14 @@ const DashboardLayout = () => {
                     </ErrorBoundary>
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-                <LogsDrawer />
-                <DeployPill />
+                <OperationsDock />
                 <AIAssistant />
                 <PluginLoader api={api} />
             </div>
             </ConfirmProvider>
             </AIProvider>
         </LogsDrawerProvider>
+        </OperationsProvider>
     );
 };
 

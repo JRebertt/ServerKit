@@ -34,6 +34,11 @@ from app import db
 from app.middleware.rbac import admin_required, get_current_user
 from app.models.ai import AiConversation, AiMessage, AiPendingAction
 from app.services import ai_service
+from app.services.ai_attachment_registry import (
+    AttachmentValidationError,
+    normalize_references,
+    resolve_attachments,
+)
 from app.services.ai_tool_registry import ai_tool_registry
 from app.error_reporting import unexpected_response
 
@@ -70,6 +75,11 @@ def _load_or_create(conversation_id, user, mode):
     db.session.add(row)
     db.session.commit()
     return row
+
+
+def _attachment_references(data):
+    """Validate client references before any conversation row is created."""
+    return normalize_references(data.get('attachments'))
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +293,10 @@ def chat():
         return jsonify({'error': 'message is required'}), 400
     mode = data.get('mode') or AiConversation.MODE_ASSISTANT
     page_context = data.get('page_context') or {}
+    try:
+        attachment_refs = _attachment_references(data)
+    except AttachmentValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
 
     row = _load_or_create(data.get('conversation_id'), user, mode)
     if row is None:
@@ -291,18 +305,27 @@ def chat():
     if ai_service.injection_flagged(message):
         return jsonify({'error': 'Your message was flagged by the prompt-injection guardrail.'}), 400
 
-    _persist_user_message(row, message)
+    attachment_result = resolve_attachments(user, attachment_refs)
+    _persist_user_message(row, message, attachments=attachment_result['manifest'])
     safe_message = ai_service.redact_input(message)
     try:
         # gate=None: write tools refuse (no interactive confirmation in this mode).
-        conv = ai_service.build_conversation(row, user, mode, page_context, gate=None)
+        conv = ai_service.build_conversation(
+            row, user, mode, page_context, gate=None,
+            attachment_context=attachment_result['context'],
+        )
         reply = conv.ask(safe_message)
     except Exception as exc:  # noqa: BLE001 - reported, not swallowed
         return unexpected_response(exc)
 
     _persist_assistant_message(row, reply, tool_calls=[], usage=conv.usage)
     ai_service.persist_conversation(row, conv, page_context=page_context)
-    return jsonify({'conversation_id': row.id, 'reply': reply, 'usage': conv.usage})
+    return jsonify({
+        'conversation_id': row.id,
+        'reply': reply,
+        'usage': conv.usage,
+        'attachment_warnings': attachment_result['warnings'],
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +344,10 @@ def chat_stream():
         return jsonify({'error': 'message is required'}), 400
     mode = data.get('mode') or AiConversation.MODE_ASSISTANT
     page_context = data.get('page_context') or {}
+    try:
+        attachment_refs = _attachment_references(data)
+    except AttachmentValidationError as exc:
+        return jsonify({'error': str(exc)}), 400
 
     row = _load_or_create(data.get('conversation_id'), user, mode)
     if row is None:
@@ -334,7 +361,8 @@ def chat_stream():
     # Persist the (original) user message + set title before streaming begins.
     if not row.title:
         row.title = ai_service.derive_title(message)
-    _persist_user_message(row, message)
+    attachment_result = resolve_attachments(user, attachment_refs)
+    _persist_user_message(row, message, attachments=attachment_result['manifest'])
 
     flagged = ai_service.injection_flagged(message)
     safe_message = ai_service.redact_input(message)
@@ -363,7 +391,10 @@ def chat_stream():
 
                 conv_row = db.session.get(AiConversation, conversation_id)
                 conv_user = db.session.get(User, user_id)
-                conv = ai_service.build_conversation(conv_row, conv_user, mode, page_context, gate)
+                conv = ai_service.build_conversation(
+                    conv_row, conv_user, mode, page_context, gate,
+                    attachment_context=attachment_result['context'],
+                )
                 for event in conv.ask_live(safe_message):
                     if cancel_event.is_set():
                         break
@@ -420,6 +451,8 @@ def chat_stream():
     @stream_with_context
     def gen():
         yield _sse('open', {'conversation_id': conversation_id})
+        for warning in attachment_result['warnings']:
+            yield _sse('attachment_warning', warning)
         try:
             while True:
                 try:
@@ -488,9 +521,15 @@ def chat_cancel():
 # ---------------------------------------------------------------------------
 # Persistence helpers
 # ---------------------------------------------------------------------------
-def _persist_user_message(row, content: str) -> None:
+def _persist_user_message(row, content: str, *, attachments=None) -> None:
     try:
-        db.session.add(AiMessage(conversation_id=row.id, role=AiMessage.ROLE_USER, content=content))
+        message = AiMessage(
+            conversation_id=row.id,
+            role=AiMessage.ROLE_USER,
+            content=content,
+        )
+        message.attachments = attachments or []
+        db.session.add(message)
         db.session.commit()
     except Exception:
         db.session.rollback()

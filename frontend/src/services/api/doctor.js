@@ -10,7 +10,7 @@ export async function runDoctor() {
 }
 
 export async function repairDoctorItems(items) {
-    return this.request('/doctor/repair', {
+    return this.request('/doctor/repair?wait=false', {
         method: 'POST',
         body: JSON.stringify({ items }),
     });

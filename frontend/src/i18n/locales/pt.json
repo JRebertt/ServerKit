@@ -3844,11 +3844,8 @@
       "user": "Usuário"
     },
     "logsDrawer": {
-      "autoScroll": "Rolagem automática",
       "clear": "Limpar",
       "close": "Fechar",
-      "close2": "Fechar",
-      "collapse": "Recolher",
       "waitingForLogs": "Aguardando registros..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
+    },
+    "editing": {
+      "discard": "Descartar",
+      "redo": "Refazer",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saving": "A guardar…",
+      "undo": "Desfazer",
+      "unsavedChanges": "Alterações não guardadas",
+      "unsavedCount": "Alterações não guardadas: {{count}}"
     },
     "error": {
       "failedToLoad": "Falha ao carregar",

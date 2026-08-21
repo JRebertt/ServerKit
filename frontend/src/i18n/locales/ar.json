@@ -3844,11 +3844,8 @@
       "user": "مستخدم"
     },
     "logsDrawer": {
-      "autoScroll": "التمرير التلقائي",
       "clear": "واضح",
       "close": "يغلق",
-      "close2": "يغلق",
-      "collapse": "ينهار",
       "waitingForLogs": "في انتظار السجلات..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}} د {{seconds}} ث",
       "seconds": "{{count}}s"
+    },
+    "editing": {
+      "discard": "تجاهل التغييرات",
+      "redo": "إعادة",
+      "save": "حفظ",
+      "saved": "تم الحفظ",
+      "saving": "جارٍ الحفظ…",
+      "undo": "تراجع",
+      "unsavedChanges": "تغييرات غير محفوظة",
+      "unsavedCount": "التغييرات غير المحفوظة: {{count}}"
     },
     "error": {
       "failedToLoad": "فشل التحميل",

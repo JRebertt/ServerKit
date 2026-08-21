@@ -9,6 +9,7 @@ import EmptyState from '../EmptyState';
 import { ChevronDown, ChevronRight, Server, Stethoscope, Wrench } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 import { useTranslation } from 'react-i18next';
+import { useOperations } from '@/contexts/OperationsContext';
 
 
 // The fleet sweep fans out across agents over the network, so it is a job
@@ -64,6 +65,7 @@ const DoctorPanel = () => {
     const { t } = useTranslation();
     const toast = useToast();
     const navigate = useNavigate();
+    const { openRun } = useOperations();
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [running, setRunning] = useState(false);
@@ -156,6 +158,14 @@ const DoctorPanel = () => {
             const res = scope === 'fleet'
                 ? await api.repairFleetItems(items)
                 : await api.repairDoctorItems(items);
+            if (scope !== 'fleet' && res.job_id) {
+                openRun('job', res.job_id);
+                toast.success(t(
+                    'app.doctorPanel.repairQueuedInOperations',
+                    'Repair queued — follow progress in Operations',
+                ));
+                return;
+            }
             const results = res.results || [];
             const failed = results.filter((r) => !r.success);
             // Some repairs run as a background job rather than inline — a

@@ -104,7 +104,7 @@ BASE_DIR="$(dirname "$INSTALL_DIR")"
 DIR_A="$BASE_DIR/${BASE_NAME}-a"
 DIR_B="$BASE_DIR/${BASE_NAME}-b"
 VENV_DIR="${SERVERKIT_VENV_DIR:-$INSTALL_DIR/venv}"
-BACKUP_DIR="/var/backups/serverkit"
+BACKUP_DIR="${SERVERKIT_BACKUP_DIR:-/var/backups/serverkit}"
 LOG_DIR="/var/log/serverkit"
 CONFIG_DIR="${SERVERKIT_CONFIG_DIR:-/etc/serverkit}"
 LOCK_FILE="${SERVERKIT_LOCK_FILE:-/var/lock/serverkit-update.lock}"
@@ -599,16 +599,35 @@ preflight_check() {
         good "Docker not required (minimal profile)"
     fi
 
-    # Disk space (need 2 GiB free on the install filesystem)
-    local avail_kb avail_gb
+    # Disk space.
+    #
+    # A fixed 2 GiB floor is not enough on its own: this update is about to
+    # write TWO full copies of the database (a pre-upgrade snapshot and a tree
+    # backup that contains it) plus a release tree. With an 800 MB database
+    # that is ~2 GiB of new files, so a box with 2.1 GiB free passes the old
+    # check and then fills the disk mid-update. Size the requirement to what
+    # will actually be written, and reclaim stale snapshots before giving up.
+    local avail_kb need_kb db_kb active_dir
     # -P (POSIX format) pins each filesystem to one line — a long device name
     # otherwise wraps and shifts the column the awk parse reads.
     avail_kb="$(df -Pk "$BASE_DIR" | awk 'NR==2 {print $4}')"
-    avail_gb=$((avail_kb / 1024 / 1024))
-    if [ "$avail_gb" -lt 2 ]; then
-        halt "Insufficient disk space on $BASE_DIR: ${avail_gb} GiB free (need at least 2 GiB)."
+    active_dir="$(active_real_dir 2>/dev/null || echo "$INSTALL_DIR")"
+    db_kb="$(du -sk "$active_dir/backend/instance/serverkit.db" 2>/dev/null | awk '{print $1}')"
+    [ -n "$db_kb" ] || db_kb=0
+    # 2 GiB floor + room for both database copies.
+    need_kb=$(( 2 * 1024 * 1024 + db_kb * 2 ))
+
+    if [ "$avail_kb" -lt "$need_kb" ]; then
+        warn "Low disk: $((avail_kb / 1024)) MiB free, need $((need_kb / 1024)) MiB — trimming old backups"
+        trim_backups
+        enforce_backup_budget
+        avail_kb="$(df -Pk "$BASE_DIR" | awk 'NR==2 {print $4}')"
     fi
-    good "Disk space OK (${avail_gb} GiB free)"
+
+    if [ "$avail_kb" -lt "$need_kb" ]; then
+        halt "Insufficient disk space on $BASE_DIR: $((avail_kb / 1024)) MiB free, need $((need_kb / 1024)) MiB (2 GiB + two $((db_kb / 1024)) MiB database copies). Run 'sudo serverkit disk' to reclaim space."
+    fi
+    good "Disk space OK ($((avail_kb / 1024 / 1024)) GiB free, need $((need_kb / 1024 / 1024)) GiB)"
 
     # Memory (need 512 MiB free)
     local mem_avail_mb
@@ -970,6 +989,19 @@ pg_url_from_env() {
 backup_current() {
     phase "Database Backup"
     mkdir -p "$BACKUP_DIR"
+
+    # Trim BEFORE writing, not only in cleanup().
+    #
+    # cleanup() is the last phase of the update, so it never ran on a run that
+    # died earlier — including the run that died BECAUSE the disk was full.
+    # Retention that only executes on success cannot bound a failure loop: a
+    # box was found carrying six snapshots under a cap of five for exactly
+    # this reason. Trimming first also means peak usage is `keep` snapshots
+    # rather than `keep + 1`.
+    if [ "$DRY_RUN" != "1" ]; then
+        trim_backups
+        enforce_backup_budget
+    fi
 
     local active db_file backup_file
     active="$(active_real_dir)"
@@ -1574,6 +1606,58 @@ prune_old_backups() {
         | xargs -r -d '\n' rm -rf || true
 }
 
+# Bytes currently held by all backup artifacts.
+backups_size_kb() {
+    [ -d "$BACKUP_DIR" ] || { echo 0; return 0; }
+    du -sk "$BACKUP_DIR" 2>/dev/null | awk '{print $1}' || echo 0
+}
+
+# Trim every backup kind to the retention cap. Safe to call repeatedly.
+trim_backups() {
+    local keep="${1:-${SERVERKIT_BACKUP_RETENTION:-3}}"
+    prune_old_backups 'serverkit-tree-*'             "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.db'   "$keep"
+    prune_old_backups 'serverkit-pre-upgrade-*.dump' "$keep"
+}
+
+# Drop the OLDEST snapshots until the backup directory fits its size budget.
+#
+# A count cap alone is not a disk guarantee: five snapshots of an 800 MB
+# database is 8 GB, which is a third of a 25 GB VPS. The budget is a share of
+# the filesystem (default 15%), and at least one snapshot is always kept —
+# an update with no way back is worse than a full disk.
+enforce_backup_budget() {
+    [ -d "$BACKUP_DIR" ] || return 0
+    local pct="${SERVERKIT_BACKUP_MAX_PERCENT:-15}"
+    local total_kb budget_kb used_kb
+    total_kb="$(df -Pk "$BACKUP_DIR" | awk 'NR==2 {print $2}')"
+    [ -n "$total_kb" ] && [ "$total_kb" -gt 0 ] || return 0
+    budget_kb=$(( total_kb * pct / 100 ))
+
+    local guard=0
+    while [ "$guard" -lt 50 ]; do
+        used_kb="$(backups_size_kb)"
+        [ "$used_kb" -le "$budget_kb" ] && return 0
+        # Oldest stamp still on disk, across every artifact kind.
+        local oldest
+        oldest="$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 \
+            \( -name 'serverkit-tree-*' -o -name 'serverkit-pre-upgrade-*' \) \
+            -printf '%T@\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)"
+        [ -n "$oldest" ] || return 0
+        # Never delete the last remaining snapshot set.
+        local remaining
+        remaining="$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 \
+            -name 'serverkit-pre-upgrade-*' 2>/dev/null | wc -l)"
+        if [ "$remaining" -le 1 ] && [[ "$(basename "$oldest")" == serverkit-pre-upgrade-* ]]; then
+            warn "Backups exceed ${pct}% of the disk but only one restore point remains — keeping it"
+            return 0
+        fi
+        info "Backup budget exceeded — removing oldest backup $(basename "$oldest")"
+        rm -rf "$oldest" || return 0
+        guard=$((guard + 1))
+    done
+}
+
 cleanup() {
     phase "Cleanup"
 
@@ -1582,14 +1666,15 @@ cleanup() {
         return 0
     fi
 
-    # Retention is capped (default 5, SERVERKIT_BACKUP_RETENTION overrides):
-    # pre-upgrade DB backups are full-size copies — on a small VPS, keeping
-    # 10 of them is itself a disk-filling time bomb (seen in the wild: 6.3G
-    # of stale backups on a 25G droplet).
-    local keep="${SERVERKIT_BACKUP_RETENTION:-5}"
-    prune_old_backups 'serverkit-tree-*'             "$keep"
-    prune_old_backups 'serverkit-pre-upgrade-*.db'   "$keep"
-    prune_old_backups 'serverkit-pre-upgrade-*.dump' "$keep"
+    # Retention is capped (default 3, SERVERKIT_BACKUP_RETENTION overrides)
+    # AND budgeted by size: pre-upgrade DB backups are full-size copies, so
+    # five of an 800 MB database is 8 GB — a third of a 25 GB droplet. Seen in
+    # the wild twice: 6.3G of stale backups, then a disk filled to 0 bytes.
+    #
+    # backup_current already trimmed before writing; this is the second pass
+    # that also reclaims the snapshot this run just superseded.
+    trim_backups
+    enforce_backup_budget
 
     local new_version
     new_version="$(cat "$INSTALL_DIR/VERSION" 2>/dev/null | tr -d '\n\r ' || echo "unknown")"

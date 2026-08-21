@@ -90,6 +90,7 @@ class AiMessage(JsonColumnMixin, db.Model):
     )
     role = db.Column(db.String(16), nullable=False)
     content = db.Column(db.Text)
+    attachments_json = db.Column(db.Text)  # reference manifest; never resolved context
     tool_calls_json = db.Column(db.Text)   # [{id,name,input,output,is_error}] for ToolCallCard replay
     usage_json = db.Column(db.Text)        # {input_tokens, output_tokens, cost}
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -101,6 +102,14 @@ class AiMessage(JsonColumnMixin, db.Model):
     @tool_calls.setter
     def tool_calls(self, value) -> None:
         self.tool_calls_json = json.dumps(value) if value else None
+
+    @property
+    def attachments(self) -> list:
+        return self._json_read('attachments_json', [])
+
+    @attachments.setter
+    def attachments(self, value) -> None:
+        self.attachments_json = json.dumps(value) if value else None
 
     @property
     def usage(self) -> dict:
@@ -116,6 +125,7 @@ class AiMessage(JsonColumnMixin, db.Model):
             'conversation_id': self.conversation_id,
             'role': self.role,
             'content': self.content,
+            'attachments': self.attachments,
             'tool_calls': self.tool_calls,
             'usage': self.usage,
             'created_at': self.created_at.isoformat() if self.created_at else None,

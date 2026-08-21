@@ -182,3 +182,19 @@ def test_deployment_status_json(app, monkeypatch):
         serverkit_cli.cli, ['deployment-status', 'j-1', '--json'])
     data = _json_out(result)
     assert data['job']['status'] == 'succeeded'
+
+
+def test_disk_json_is_a_read_only_report(app, monkeypatch):
+    """`disk --json` with no selection flag reports and changes nothing."""
+    from app.services import disk_reclaim_service as svc
+
+    monkeypatch.setattr(svc, 'reclaim', lambda *a, **k: pytest.fail(
+        'disk --json without a selection flag must not reclaim anything'))
+
+    result = CliRunner().invoke(serverkit_cli.cli, ['disk', '--json'])
+    data = _json_out(result)
+    assert 'candidates' in data and 'disk' in data
+    keys = {c['key'] for c in data['candidates']}
+    assert {'upgrade-snapshots', 'telemetry'} <= keys
+    for cand in data['candidates']:
+        assert cand['safety'] in ('safe', 'review')

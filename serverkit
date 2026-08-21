@@ -245,6 +245,15 @@ cmd_help() {
     echo "  restore-db        Restore database from backup"
     echo ""
     echo "Cleanup Commands:"
+    echo "  disk              Show what is using disk space and reclaim it (interactive)"
+    echo "                      --safe           free every item marked safe, no prompt"
+    echo "                      --all            free every item, no prompt"
+    echo "                      --only <keys>    comma-separated items, e.g. telemetry"
+    echo "                      --days <n>       telemetry retention window (default 7)"
+    echo "                      --keep <n>       upgrade snapshots to keep (default 1)"
+    echo "                      --older-than <n> only offer snapshots at least n days old"
+    echo "                      --dry-run        report what would be freed, change nothing"
+    echo "                      --allow-restart  permit a panel restart if VACUUM is blocked"
     echo "  cleanup-apps      Delete all apps and containers"
     echo "  factory-reset     Complete reset (delete everything)"
     echo ""
@@ -306,7 +315,7 @@ cmd_completion() {
 _serverkit() {
     local cur commands
     cur="${COMP_WORDS[COMP_CWORD]}"
-    commands="help start stop restart status logs update branch version check-update uninstall create-admin reset-password unlock-user list-users make-admin deactivate-user activate-user init-db migrate-db db-migrate db-status db-history backup-db restore-db cleanup-apps factory-reset generate-keys config setup-proxy create-app deploy-template list-servers deployment-status list-apps start-app stop-app app-logs add-site list-sites remove-site doctor manifest services apps repair login-url support-bundle panel-status panel-doctor completion"
+    commands="help start stop restart status logs update branch version check-update uninstall create-admin reset-password unlock-user list-users make-admin deactivate-user activate-user init-db migrate-db db-migrate db-status db-history backup-db restore-db disk cleanup-apps factory-reset generate-keys config setup-proxy create-app deploy-template list-servers deployment-status list-apps start-app stop-app app-logs add-site list-sites remove-site doctor manifest services apps repair login-url support-bundle panel-status panel-doctor completion"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
@@ -323,6 +332,7 @@ _serverkit() {
         doctor)            COMPREPLY=( $(compgen -W "--fix" -- "$cur") ) ;;
         panel-doctor)      COMPREPLY=( $(compgen -W "--repair --yes --json" -- "$cur") ) ;;
         panel-status|list-users|list-servers|db-status) COMPREPLY=( $(compgen -W "--json" -- "$cur") ) ;;
+        disk)              COMPREPLY=( $(compgen -W "--safe --all --only --days --keep --older-than --dry-run --allow-restart --yes --json" -- "$cur") ) ;;
         cleanup-apps)      COMPREPLY=( $(compgen -W "--delete-volumes --keep-db" -- "$cur") ) ;;
         list-apps)         COMPREPLY=( $(compgen -W "--all --json" -- "$cur") ) ;;
         deployment-status) COMPREPLY=( $(compgen -W "--logs --json" -- "$cur") ) ;;
@@ -704,6 +714,14 @@ cmd_cleanup_apps() {
     done
 
     run_cli cleanup-apps $DELETE_VOLUMES $KEEP_DB
+}
+
+cmd_disk() {
+    # Reclaim disk space. Root because the reclaimers touch /var/backups,
+    # /tmp staging, the journal and the package caches.
+    check_root
+    check_installed
+    run_cli disk "$@"
 }
 
 cmd_factory_reset() {
@@ -1480,6 +1498,10 @@ case "${1:-help}" in
         ;;
     completion)
         cmd_completion
+        ;;
+    disk)
+        shift
+        cmd_disk "$@"
         ;;
     cleanup-apps)
         shift

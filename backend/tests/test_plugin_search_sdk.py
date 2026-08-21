@@ -116,9 +116,20 @@ class TestFanOut:
         assert res.status_code == 200
         rows = res.get_json()['results']
         contributed = [r for r in rows if r['type'] == 'minecraft.world']
-        assert contributed == [{'type': 'minecraft.world', 'label': 'Overworld',
-                                'sublabel': 'Minecraft world',
-                                'path': '/minecraft/worlds/1'}]
+        assert contributed == [{
+            'type': 'minecraft.world',
+            'id': '/minecraft/worlds/1',
+            'label': 'Overworld',
+            'sublabel': 'Minecraft world',
+            'path': '/minecraft/worlds/1',
+            'scope': {
+                'workspace_id': None,
+                'project_id': None,
+                'environment_id': None,
+            },
+            'status': None,
+            'capabilities': [],
+        }]
 
     def test_a_broken_provider_does_not_break_search(self, app, client, owner):
         def explode(query):
@@ -141,6 +152,9 @@ class TestFanOut:
             seen['user_id'] = query.user.id
             seen['limit'] = query.limit
             seen['workspace_id'] = query.workspace_id
+            seen['project_id'] = query.project_id
+            seen['environment_id'] = query.environment_id
+            seen['capabilities'] = query.capabilities
             return []
 
         search_provider_registry.register('demo.capture', capture)
@@ -155,6 +169,9 @@ class TestFanOut:
         assert seen['user_id'] == owner['id']
         assert seen['limit'] == 5
         assert seen['workspace_id'] is None
+        assert seen['project_id'] is None
+        assert seen['environment_id'] is None
+        assert seen['capabilities'] == ()
 
     def test_short_terms_never_reach_providers(self, app, client, owner):
         called = []

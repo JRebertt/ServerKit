@@ -3844,11 +3844,8 @@
             "user": "사용자"
         },
         "logsDrawer": {
-            "autoScroll": "자동 스크롤",
             "clear": "지우기",
             "close": "닫기",
-            "close2": "닫기",
-            "collapse": "접기",
             "waitingForLogs": "로그를 기다리는 중..."
         },
         "logsTab": {
@@ -8474,6 +8471,16 @@
             "minutes": "{{count}}m",
             "minutesSeconds": "{{minutes}}분 {{seconds}}초",
             "seconds": "{{count}}초"
+        },
+        "editing": {
+            "discard": "변경 사항 버리기",
+            "redo": "다시 실행",
+            "save": "저장",
+            "saved": "저장됨",
+            "saving": "저장 중…",
+            "undo": "실행 취소",
+            "unsavedChanges": "저장되지 않은 변경 사항",
+            "unsavedCount": "저장되지 않은 변경 사항: {{count}}"
         },
         "error": {
             "failedToLoad": "로드하지 못했습니다.",

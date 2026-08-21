@@ -223,6 +223,60 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
 
 .sk-ai-message { display: flex; flex-direction: column; gap: 8px; max-width: 100%; }
 .sk-ai-message--user { align-items: flex-end; }
+.sk-ai-message__attachments,
+.sk-ai-composer__attachments {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+.sk-ai-attachment {
+    min-width: 0;
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    border: 1px solid var(--sk-ai-border);
+    border-radius: 999px;
+    background: var(--sk-ai-bg-body);
+    color: var(--sk-ai-fg-2);
+    font-size: 11px;
+
+    &.is-warning {
+        border-color: fade($warning-raw, 48%);
+        color: var(--warning, #fbbf24);
+    }
+}
+.sk-ai-attachment__type {
+    color: var(--sk-ai-fg-3);
+    font-family: var(--sk-ai-mono);
+    text-transform: uppercase;
+}
+.sk-ai-attachment__label {
+    overflow: hidden;
+    max-width: 150px;
+    color: var(--sk-ai-fg);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sk-ai-attachment__status { white-space: nowrap; }
+.sk-ai-attachment__remove {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover { background: var(--sk-ai-hover); }
+    &:focus-visible { outline: 2px solid var(--sk-ai-accent); outline-offset: 1px; }
+}
 .sk-ai-message--user .sk-ai-message__bubble {
     background: var(--sk-ai-accent);
     color: #fff;
@@ -341,10 +395,27 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
 // ---------------------------------------------------------------- Composer
 .sk-ai-composer {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
     gap: 8px;
     padding: 12px 14px;
     border-top: 1px solid var(--sk-ai-border);
+}
+.sk-ai-composer__attachments { width: 100%; }
+.sk-ai-composer__main {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+.sk-ai-composer__attach.sk-resource-picker__trigger {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+
+    > span,
+    .sk-resource-picker__chevron { display: none; }
 }
 .sk-ai-composer__input {
     flex: 1;

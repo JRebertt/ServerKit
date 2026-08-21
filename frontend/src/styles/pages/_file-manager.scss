@@ -323,7 +323,7 @@ $ft-default:  #646b7a;
     .file-manager-toolbar .target-picker {
         flex-shrink: 0;
 
-        .target-picker__select {
+        .target-picker__resource {
             max-width: 170px;
         }
     }
@@ -1755,28 +1755,4 @@ $drawer-width: 520px;
     font-size: $font-size-sm;
     border: 1px solid fade($accent-primary-raw, 25%);
     flex-shrink: 0;
-}
-
-.target-picker {
-    display: inline-flex;
-    align-items: center;
-    gap: $space-1;
-    padding: $space-1 $space-2;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    .target-picker__select,
-    .target-picker__single {
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-size: $font-size-sm;
-        outline: none;
-    }
-    .target-picker__select { cursor: pointer; }
-    .target-picker__single {
-        padding-right: $space-1;
-        white-space: nowrap;
-    }
-    .target-picker__icon { color: var(--text-secondary); }
 }

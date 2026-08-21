@@ -1,100 +1,118 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Server } from 'lucide-react';
-import { api } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-// TargetPicker — a small reusable selector for "local panel host vs.
-// connected agent." Used by the Cron, Cloudflared, and File Manager
-// pages to switch which server an action runs against.
-//
-// `feature` gates the agent list: only agents that report
-// capabilities[feature] === true are shown. Agents that haven't
-// reported capabilities yet (older builds) are filtered out — same
-// pattern as the cron picker.
-//
-// onChange receives `{ kind: 'local' } | { kind: 'agent', server_id, name,
-// allowedPaths, os_type, agentInstallDir, agentConfigDir }` (os_type:
-// linux/windows/darwin, and the agent's self-reported footprint dirs — all
-// null for agents that predate sysinfo reporting), or `{ kind: <extra.value> }`
-// for any caller-supplied `extraOptions` (e.g. an "S3 bucket" target in the
-// File Manager).
-export default function TargetPicker({ feature, value, onChange, includeLocal = true, extraOptions = [] }) {
+import ResourcePicker from './ResourcePicker';
+import { api } from '../services/api';
+
+const enabledCapabilities = (server) => Object.entries(server?.capabilities || {})
+    .filter(([, enabled]) => enabled === true)
+    .map(([name]) => name);
+
+const onlineServersOnly = (resource) => (
+    resource.type !== 'server' || resource.status === 'online'
+);
+
+// Compatibility adapter around ResourcePicker. Callers keep receiving the
+// operational target shape while selection itself now uses scoped ResourceRef
+// search, capability filters, keyboard navigation, and recent resources.
+export default function TargetPicker({
+    feature,
+    value,
+    onChange,
+    includeLocal = true,
+    extraOptions = [],
+}) {
     const { t } = useTranslation();
     const [servers, setServers] = useState([]);
 
     useEffect(() => {
         let cancelled = false;
         api.getAvailableServers()
-            .then(data => { if (!cancelled) setServers(Array.isArray(data) ? data : []); })
-            .catch(() => { if (!cancelled) setServers([]); });
+            .then((data) => {
+                if (!cancelled) setServers(Array.isArray(data) ? data : []);
+            })
+            .catch(() => {
+                if (!cancelled) setServers([]);
+            });
         return () => { cancelled = true; };
     }, []);
 
-    const eligible = useMemo(() => {
-        return servers.filter(s => {
-            if (s.id === 'local') return false; // handled separately
-            if (s.status !== 'online') return false;
-            if (!feature) return true;
-            return s.capabilities && s.capabilities[feature];
-        });
-    }, [servers, feature]);
+    const localOption = useMemo(() => ({
+        type: 'target',
+        id: 'local',
+        label: t('app.targetPicker.localThisServer', 'Local (this server)'),
+        sublabel: '',
+        path: '/servers',
+        scope: {},
+        status: 'online',
+        capabilities: [],
+    }), [t]);
 
-    function handleChange(e) {
-        const id = e.target.value;
-        if (id === 'local') {
-            onChange({ kind: 'local' });
+    const staticOptions = useMemo(() => [
+        ...(includeLocal ? [localOption] : []),
+        ...extraOptions.map((option) => ({
+            type: 'target',
+            id: String(option.value),
+            label: option.label,
+            sublabel: '',
+            path: '/files',
+            scope: {},
+            status: null,
+            capabilities: [],
+        })),
+    ], [extraOptions, includeLocal, localOption]);
+
+    const selectedResource = useMemo(() => {
+        if (value?.kind === 'agent') {
+            const server = servers.find((candidate) => String(candidate.id) === String(value.server_id));
+            return {
+                type: 'server',
+                id: String(value.server_id),
+                label: value.name || server?.name || server?.hostname || String(value.server_id),
+                sublabel: server?.ip_address || server?.hostname || '',
+                path: `/servers/${value.server_id}`,
+                scope: {},
+                status: server?.status || null,
+                capabilities: enabledCapabilities(server),
+            };
+        }
+        if (value?.kind && value.kind !== 'local') {
+            return staticOptions.find((option) => option.id === String(value.kind)) || null;
+        }
+        return localOption;
+    }, [localOption, servers, staticOptions, value]);
+
+    const handleChange = (resource) => {
+        if (resource.type === 'target') {
+            onChange(resource.id === 'local' ? { kind: 'local' } : { kind: resource.id });
             return;
         }
-        if (extraOptions.some(o => o.value === id)) {
-            onChange({ kind: id });
-            return;
-        }
-        const s = eligible.find(x => x.id === id);
-        if (!s) return;
+        const server = servers.find((candidate) => String(candidate.id) === resource.id);
         onChange({
             kind: 'agent',
-            server_id: s.id,
-            name: s.name || s.hostname || s.id,
-            allowedPaths: s.allowed_paths || [],
-            os_type: s.os_type || null,
-            agentInstallDir: s.agent_install_dir || null,
-            agentConfigDir: s.agent_config_dir || null,
+            server_id: resource.id,
+            name: resource.label,
+            allowedPaths: server?.allowed_paths || [],
+            os_type: server?.os_type || null,
+            agentInstallDir: server?.agent_install_dir || null,
+            agentConfigDir: server?.agent_config_dir || null,
         });
-    }
-
-    const selectValue = value?.kind === 'agent'
-        ? value.server_id
-        : (value?.kind && value.kind !== 'local' ? value.kind : 'local');
-
-    const optionCount = (includeLocal ? 1 : 0) + eligible.length + extraOptions.length;
-    const singleLabel = useMemo(() => {
-        if (selectValue !== 'local') {
-            const agent = eligible.find(s => s.id === selectValue);
-            if (agent) return agent.name || agent.hostname || agent.id;
-            const extra = extraOptions.find(o => o.value === selectValue);
-            if (extra) return extra.label;
-        }
-        return 'Local (this server)';
-    }, [selectValue, eligible, extraOptions]);
+    };
 
     return (
         <div className="target-picker">
-            <Server size={14} className="target-picker__icon" />
-            {optionCount <= 1 ? (
-                <span className="target-picker__single">{singleLabel}</span>
-            ) : (
-                <select value={selectValue} onChange={handleChange} className="target-picker__select">
-                    {includeLocal && <option value="local">{t('app.targetPicker.localThisServer', 'Local (this server)')}</option>}
-                    {eligible.map(s => (
-                        <option key={s.id} value={s.id}>
-                            {s.name || s.hostname || s.id}
-                        </option>
-                    ))}
-                    {extraOptions.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                </select>
-            )}
+            <ResourcePicker
+                value={selectedResource}
+                onChange={handleChange}
+                types={['server']}
+                capabilities={feature ? [feature] : []}
+                staticOptions={staticOptions}
+                filterOption={onlineServersOnly}
+                label={t('app.serverPicker.filterServers', 'Filter servers')}
+                placeholder={t('app.targetPicker.localThisServer', 'Local (this server)')}
+                searchPlaceholder={t('app.serverPicker.findAServer', 'Find a server…')}
+                className="target-picker__resource"
+            />
         </div>
     );
 }

@@ -13,6 +13,7 @@ import { Toaster } from './components/ui/sonner';
 import ThemeSync from './components/ThemeSync';
 import LocaleSync from './components/LocaleSync';
 import DashboardLayout from './layouts/DashboardLayout';
+import ShortcutProvider from './contexts/ShortcutProvider';
 import AppLoader from './components/AppLoader';
 import TabGroupLayout from './layouts/TabGroupLayout';
 import { SERVER_TABS } from './components/servers/serverTabs';
@@ -217,7 +218,9 @@ function AppRoutes() {
             })}
             <Route path="/" element={
                 <PrivateRoute>
-                    <DashboardLayout />
+                    <ShortcutProvider>
+                        <DashboardLayout />
+                    </ShortcutProvider>
                 </PrivateRoute>
             }>
                 {ROUTE_GROUP_IDS.map((group) => {

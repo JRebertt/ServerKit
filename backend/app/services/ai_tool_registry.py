@@ -143,13 +143,15 @@ class AiToolRegistry:
     # Lifecycle (called by plugin_service on install/enable/disable/uninstall)
     # ------------------------------------------------------------------
     def unregister_plugin(self, slug: str) -> None:
-        """Drop all tools + context providers contributed by a plugin."""
+        """Drop all AI contributions supplied by a plugin."""
         with self._mutex:
             for qn in self._by_plugin.pop(slug, set()):
                 self._tools.pop(qn, None)
             self._context_providers = [
                 cp for cp in self._context_providers if cp.plugin_slug != slug
             ]
+        from app.services.ai_attachment_registry import ai_attachment_registry
+        ai_attachment_registry.unregister_plugin(slug)
         logger.info("Unregistered AI tools for plugin '%s'", slug)
 
     def reload_plugin(self, slug: str) -> None:

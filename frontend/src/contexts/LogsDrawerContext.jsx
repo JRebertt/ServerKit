@@ -1,46 +1,30 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { useOperations } from './OperationsContext';
 
-const LogsDrawerContext = createContext(null);
-
+// Compatibility shell for existing callers and extension SDK consumers.
+// Log sessions now live in OperationsProvider; no second drawer is rendered.
 export function LogsDrawerProvider({ children }) {
-    const [drawerState, setDrawerState] = useState('closed'); // 'closed' | 'collapsed' | 'expanded'
-    const [service, setService] = useState(null); // { name, containerId, logPath, appType }
-
-    const openDrawer = useCallback((serviceInfo) => {
-        setService(serviceInfo);
-        setDrawerState('expanded');
-    }, []);
-
-    const closeDrawer = useCallback(() => {
-        setDrawerState('closed');
-        setService(null);
-    }, []);
-
-    const toggleDrawer = useCallback(() => {
-        setDrawerState(prev => {
-            if (prev === 'closed') return 'expanded';
-            if (prev === 'expanded') return 'collapsed';
-            return 'expanded';
-        });
-    }, []);
-
-    const collapseDrawer = useCallback(() => {
-        setDrawerState('collapsed');
-    }, []);
-
-    const expandDrawer = useCallback(() => {
-        setDrawerState('expanded');
-    }, []);
-
-    return (
-        <LogsDrawerContext.Provider value={{ drawerState, service, openDrawer, closeDrawer, toggleDrawer, collapseDrawer, expandDrawer }}>
-            {children}
-        </LogsDrawerContext.Provider>
-    );
+    return children;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLogsDrawer() {
-    const ctx = useContext(LogsDrawerContext);
-    if (!ctx) throw new Error('useLogsDrawer must be used within LogsDrawerProvider');
-    return ctx;
+    const {
+        logSession,
+        collapsed,
+        openLogSession,
+        closeLogSession,
+        setCollapsed,
+    } = useOperations();
+
+    return {
+        drawerState: !logSession ? 'closed' : collapsed ? 'collapsed' : 'expanded',
+        service: logSession,
+        openDrawer: openLogSession,
+        closeDrawer: closeLogSession,
+        toggleDrawer: () => {
+            if (logSession) setCollapsed((current) => !current);
+        },
+        collapseDrawer: () => setCollapsed(true),
+        expandDrawer: () => setCollapsed(false),
+    };
 }
