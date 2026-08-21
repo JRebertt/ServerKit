@@ -6,12 +6,12 @@
  * follows the user to another browser, and they carry real geometry
  * (x/y/w/h/cfg per widget) rather than just an on/off flag.
  *
- * Editing is deliberately local-until-saved: `setWidgets` mutates in memory
- * only, `saveActive` writes. That is what lets the page offer Discard — the
- * snapshot taken when edit mode opens is restored verbatim, with nothing
- * having reached the server in between.
+ * Widget drafts live in the page's editing session. `saveActive` accepts the
+ * completed draft, writes it once, and only then replaces the board in local
+ * state. Failed saves therefore leave both the server baseline and the draft
+ * intact.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 
 export default function useDashboardBoards() {
@@ -19,7 +19,6 @@ export default function useDashboardBoards() {
     const [activeBoardId, setActiveBoardId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const snapshotRef = useRef(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -43,36 +42,18 @@ export default function useDashboardBoards() {
 
     const activeBoard = boards.find((b) => b.id === activeBoardId) || boards[0] || null;
 
-    // Local-only widget edit on the active board.
-    const setWidgets = useCallback((next) => {
-        setBoards((list) => list.map((b) => (
-            b.id !== (activeBoard?.id) ? b : {
-                ...b,
-                widgets: typeof next === 'function' ? next(b.widgets || []) : next,
-            }
-        )));
-    }, [activeBoard?.id]);
-
-    const takeSnapshot = useCallback(() => {
-        snapshotRef.current = JSON.parse(JSON.stringify(boards));
-    }, [boards]);
-
-    const restoreSnapshot = useCallback(() => {
-        if (snapshotRef.current) setBoards(snapshotRef.current);
-        snapshotRef.current = null;
-    }, []);
-
-    const dropSnapshot = useCallback(() => { snapshotRef.current = null; }, []);
-
-    const saveActive = useCallback(async () => {
+    const saveActive = useCallback(async (widgets) => {
         if (!activeBoard) return;
         setError(null);
         try {
-            await api.updateDashboard(activeBoard.id, { widgets: activeBoard.widgets || [] });
-            snapshotRef.current = null;
+            const saved = await api.updateDashboard(activeBoard.id, {
+                widgets: widgets ?? activeBoard.widgets ?? [],
+            });
+            setBoards((list) => list.map((board) => (
+                board.id === saved.id ? saved : board
+            )));
+            return saved;
         } catch (err) {
-            // Keep the edited state on screen — losing someone's layout to a
-            // failed request would be worse than showing a stale error.
             setError(err?.message || 'Could not save this dashboard');
             throw err;
         }
@@ -120,14 +101,10 @@ export default function useDashboardBoards() {
         setActiveBoardId,
         loading,
         error,
-        setWidgets,
         saveActive,
         createBoard,
         renameBoard,
         removeBoard,
         resetActiveBoard,
-        takeSnapshot,
-        restoreSnapshot,
-        dropSnapshot,
     };
 }

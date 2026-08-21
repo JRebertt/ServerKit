@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-    Check, ChevronDown, Grid2x2, History, Maximize2, Plus,
+    Check, ChevronDown, Grid2x2, History, Keyboard, Maximize2, Plus,
     RefreshCw, SlidersHorizontal, X,
 } from 'lucide-react';
 import api from '../services/api';
@@ -11,6 +10,9 @@ import { useMetrics } from '../hooks/useMetrics';
 import useDashboardBoards from '../hooks/useDashboardBoards';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { SegControl } from '@/components/ds';
+import { Button } from '@/components/ui/button';
+import ChangeBar from '../components/ds/ChangeBar';
+import ShortcutSheet from '../components/ds/ShortcutSheet';
 import EmptyState from '../components/EmptyState';
 import PluginSlot from '../components/PluginSlot';
 import SetupHealthWidget from '../components/dashboard/SetupHealthWidget';
@@ -24,6 +26,9 @@ import {
 import { useWidgetTypes, getWidgetType } from '../components/dashboard/widgets/registry';
 import { RANGES } from '../components/dashboard/widgets/metrics';
 import { usePolling } from '@/hooks/usePolling';
+import useEditingSession from '../hooks/useEditingSession';
+import { useShortcut, useShortcutCommands } from '../hooks/useShortcut';
+import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
 import { useTranslation } from 'react-i18next';
 
 // Auto-refresh choices, in seconds. 0 means "don't".
@@ -37,7 +42,6 @@ const REFRESH_OPTIONS = [
 
 const Dashboard = () => {
     const { t } = useTranslation();
-    const navigate = useNavigate();
     const { isAdmin } = useAuth();
     const toast = useToast();
     const widgetTypes = useWidgetTypes();
@@ -45,8 +49,7 @@ const Dashboard = () => {
     const {
         boards, activeBoard, activeBoardId, setActiveBoardId,
         loading: boardsLoading, error: boardsError,
-        setWidgets, saveActive, createBoard, renameBoard, removeBoard, resetActiveBoard,
-        takeSnapshot, restoreSnapshot,
+        saveActive, createBoard, renameBoard, removeBoard, resetActiveBoard,
     } = useDashboardBoards();
 
     // ---- board editing UI state -------------------------------------------
@@ -56,6 +59,14 @@ const Dashboard = () => {
     const [fullscreen, setFullscreen] = useState(null);
     const [renamingId, setRenamingId] = useState(null);
     const [tvMode, setTvMode] = useState(false);
+    const [shortcutsOpen, setShortcutsOpen] = useState(false);
+    const editing = useEditingSession({ baseline: [] });
+    const {
+        canRedo, canUndo, draft: draftWidgets, isDirty,
+        redo, reset: resetEditing, save: saveEditing,
+        transaction: updateDraft, undo,
+    } = editing;
+    const shortcutCommands = useShortcutCommands();
 
     // ---- board-wide variables ---------------------------------------------
     const [range, setRange] = useState('1h');
@@ -83,7 +94,31 @@ const Dashboard = () => {
     const lastServerUptime = useRef(null);
     const lastServerTime = useRef(null);
 
-    const widgets = useMemo(() => activeBoard?.widgets || [], [activeBoard]);
+    useEffect(() => {
+        if (!edit && activeBoard) resetEditing(activeBoard.widgets || []);
+    }, [activeBoard, edit, resetEditing]);
+
+    const closeEditing = useCallback(() => {
+        resetEditing(activeBoard?.widgets || []);
+        setEdit(false);
+        setSelectedId(null);
+        setLibraryOpen(false);
+    }, [activeBoard?.widgets, resetEditing]);
+
+    const { requestLeave, guardedNavigate } = useUnsavedChangesGuard({
+        isDirty: edit && isDirty,
+        confirmOptions: {
+            title: t('common.editing.unsavedChanges', 'Unsaved changes'),
+            message: t('common.editing.unsavedChanges', 'Unsaved changes'),
+            confirmText: t('app.dashboard.discard', 'Discard'),
+        },
+        onDiscard: closeEditing,
+    });
+
+    const widgets = useMemo(
+        () => (edit ? draftWidgets : activeBoard?.widgets || []),
+        [activeBoard?.widgets, draftWidgets, edit],
+    );
     const selectedWidget = widgets.find((w) => w.i === selectedId) || null;
     const selectedType = getWidgetType(widgetTypes, selectedWidget?.type);
 
@@ -99,9 +134,9 @@ const Dashboard = () => {
         tick,
         serverVar: selectedServer.id,
         isAdmin,
-        navigate,
+        navigate: guardedNavigate,
         types: widgetTypes,
-    }), [range, tick, selectedServer.id, isAdmin, navigate, widgetTypes]);
+    }), [range, tick, selectedServer.id, isAdmin, guardedNavigate, widgetTypes]);
 
     // ---- data loading ------------------------------------------------------
     useEffect(() => {
@@ -182,6 +217,7 @@ const Dashboard = () => {
 
     // ---- widget operations -------------------------------------------------
     const addWidget = useCallback((type) => {
+        if (!edit) resetEditing(activeBoard?.widgets || []);
         const spot = findFreeSpot(widgets, type.w, type.h);
         const widget = {
             i: nextWidgetId(widgets),
@@ -191,88 +227,170 @@ const Dashboard = () => {
             h: type.h,
             cfg: JSON.parse(JSON.stringify(type.defaultCfg || {})),
         };
-        setWidgets((list) => compact([...list, widget]));
+        updateDraft((list) => compact([...list, widget]));
         setSelectedId(widget.i);
         setLibraryOpen(false);
         if (!edit) setEdit(true);
-    }, [widgets, setWidgets, edit]);
+    }, [activeBoard?.widgets, edit, resetEditing, updateDraft, widgets]);
 
     const duplicateWidget = useCallback((widget) => {
+        if (!edit) resetEditing(activeBoard?.widgets || []);
         const spot = findFreeSpot(widgets, widget.w, widget.h);
         const copy = { ...JSON.parse(JSON.stringify(widget)), i: nextWidgetId(widgets), ...spot };
-        setWidgets((list) => compact([...list, copy]));
+        updateDraft((list) => compact([...list, copy]));
+        if (!edit) setEdit(true);
         setSelectedId(copy.i);
-    }, [widgets, setWidgets]);
+    }, [activeBoard?.widgets, edit, resetEditing, updateDraft, widgets]);
 
     const removeWidget = useCallback((id) => {
-        setWidgets((list) => compact(list.filter((w) => w.i !== id)));
+        if (!edit) resetEditing(activeBoard?.widgets || []);
+        updateDraft((list) => compact(list.filter((w) => w.i !== id)));
+        if (!edit) setEdit(true);
         setSelectedId(null);
-    }, [setWidgets]);
+    }, [activeBoard?.widgets, edit, resetEditing, updateDraft]);
 
     // The inspector can change w/h, which may overlap neighbours — re-settle.
     const updateWidget = useCallback((next) => {
-        setWidgets((list) => pushDown(list.map((w) => (w.i === next.i ? next : w)), next));
-    }, [setWidgets]);
+        updateDraft(
+            (list) => pushDown(list.map((w) => (w.i === next.i ? next : w)), next),
+            { coalesceKey: `widget:${next.i}` },
+        );
+    }, [updateDraft]);
 
     const onWidgetMenu = useCallback((action, widget) => {
-        if (action === 'config') { setEdit(true); setSelectedId(widget.i); }
+        if (action === 'config') {
+            if (!edit) resetEditing(activeBoard?.widgets || []);
+            setEdit(true);
+            setSelectedId(widget.i);
+        }
         else if (action === 'dup') duplicateWidget(widget);
         else if (action === 'del') removeWidget(widget.i);
         else if (action === 'full') setFullscreen(widget);
-    }, [duplicateWidget, removeWidget]);
-
-    // Escape backs out of TV mode, then out of a selection. Delete removes the
-    // selected widget, but only while editing and never while typing into the
-    // inspector — otherwise backspacing a title would delete the widget.
-    useEffect(() => {
-        const onKeyDown = (event) => {
-            if (event.key === 'Escape') {
-                if (tvMode) setTvMode(false);
-                else if (selectedId) setSelectedId(null);
-                return;
-            }
-            if (!edit || !selectedId) return;
-            if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-            if (/input|textarea|select/i.test(document.activeElement?.tagName || '')) return;
-            event.preventDefault();
-            removeWidget(selectedId);
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [edit, selectedId, tvMode, removeWidget]);
+    }, [activeBoard?.widgets, duplicateWidget, edit, removeWidget, resetEditing]);
 
     // ---- edit session ------------------------------------------------------
-    const startEdit = () => { takeSnapshot(); setEdit(true); };
+    const startEdit = useCallback(() => {
+        resetEditing(activeBoard?.widgets || []);
+        setEdit(true);
+    }, [activeBoard?.widgets, resetEditing]);
 
-    const discardEdit = () => {
-        restoreSnapshot();
-        setEdit(false);
-        setSelectedId(null);
-    };
+    const discardEdit = useCallback(async () => {
+        if (isDirty) await requestLeave();
+        else closeEditing();
+    }, [closeEditing, isDirty, requestLeave]);
 
-    const finishEdit = async () => {
+    const finishEdit = useCallback(async () => {
         try {
-            await saveActive();
+            const savedWidgets = await saveEditing(async (draft) => {
+                const saved = await saveActive(draft);
+                return saved?.widgets || draft;
+            });
             setEdit(false);
             setSelectedId(null);
             toast.success(t('app.dashboard.dashboardSaved', 'Dashboard saved'), {
-                description: t('app.dashboard.widget', '{{length}} widget{{value}} · {{value2}}', { length: widgets.length, value: widgets.length === 1 ? '' : 's', value2: activeBoard?.name }),
+                description: t('app.dashboard.widget', '{{length}} widget{{value}} · {{value2}}', { length: savedWidgets.length, value: savedWidgets.length === 1 ? '' : 's', value2: activeBoard?.name }),
             });
         } catch {
-            // useDashboardBoards keeps the edited layout on screen and surfaces
-            // the reason; staying in edit mode means the work isn't lost.
             toast.error(t('app.dashboard.couldNotSave', 'Could not save'), { description: t('app.dashboard.yourLayoutIsStillHereTry', 'Your layout is still here — try again.') });
         }
-    };
+    }, [activeBoard?.name, saveActive, saveEditing, t, toast]);
+
+    useShortcut({
+        id: 'dashboard-undo',
+        label: t('common.editing.undo', 'Undo'),
+        group: 'dashboard',
+        keys: [{ key: 'z', ctrlOrMeta: true }],
+        enabled: edit && canUndo,
+        priority: 50,
+        handler: undo,
+    });
+    useShortcut({
+        id: 'dashboard-redo',
+        label: t('common.editing.redo', 'Redo'),
+        group: 'dashboard',
+        keys: [
+            { key: 'z', ctrlOrMeta: true, shift: true },
+            { key: 'y', ctrlOrMeta: true },
+        ],
+        enabled: edit && canRedo,
+        priority: 50,
+        handler: redo,
+    });
+    useShortcut({
+        id: 'dashboard-save',
+        label: t('app.dashboard.done', 'Done'),
+        group: 'dashboard',
+        keys: [{ key: 'Enter', ctrlOrMeta: true }],
+        enabled: edit && isDirty && editing.saveState !== 'saving',
+        priority: 50,
+        handler: finishEdit,
+    });
+    useShortcut({
+        id: 'dashboard-delete-widget',
+        keys: [{ key: 'Delete' }, { key: 'Backspace' }],
+        enabled: edit && Boolean(selectedId),
+        priority: 40,
+        handler: () => removeWidget(selectedId),
+    });
+    useShortcut({
+        id: 'dashboard-clear-selection',
+        keys: [{ key: 'Escape' }],
+        enabled: tvMode || Boolean(selectedId),
+        priority: 40,
+        handler: () => {
+            if (tvMode) setTvMode(false);
+            else setSelectedId(null);
+        },
+    });
+    useShortcut({
+        id: 'dashboard-shortcut-sheet',
+        label: t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts'),
+        group: 'dashboard',
+        keys: [{ key: '?', shift: true }],
+        priority: 30,
+        handler: () => setShortcutsOpen(true),
+    });
+
+    useEffect(() => {
+        if (selectedId && !widgets.some((widget) => widget.i === selectedId)) {
+            setSelectedId(null);
+        }
+    }, [selectedId, widgets]);
 
     const handleReset = async () => {
         try {
-            await resetActiveBoard();
+            const board = await resetActiveBoard();
+            resetEditing(board?.widgets || []);
             toast.info(t('app.dashboard.resetToTheShippedLayout', 'Reset to the shipped layout'), { description: activeBoard?.name });
         } catch {
             toast.error(t('app.dashboard.couldNotReset', 'Could not reset'), { description: t('app.dashboard.thisBoardHasNoShippedDefault', 'This board has no shipped default.') });
         }
     };
+
+    const leaveEditor = useCallback(async () => {
+        if (!edit) return true;
+        if (isDirty) return requestLeave();
+        closeEditing();
+        return true;
+    }, [closeEditing, edit, isDirty, requestLeave]);
+
+    const handleBoardSwitch = useCallback(async (boardId) => {
+        if (boardId === activeBoardId) return;
+        if (!await leaveEditor()) return;
+        setActiveBoardId(boardId);
+        setSelectedId(null);
+    }, [activeBoardId, leaveEditor, setActiveBoardId]);
+
+    const handleCreateBoard = useCallback(async () => {
+        if (!await leaveEditor()) return;
+        const board = await createBoard();
+        setRenamingId(board.id);
+    }, [createBoard, leaveEditor]);
+
+    const handleRemoveBoard = useCallback(async (boardId) => {
+        if (!await leaveEditor()) return;
+        await removeBoard(boardId);
+    }, [leaveEditor, removeBoard]);
 
     const handleServerChange = (serverId) => {
         const server = servers.find((s) => s.id === serverId) || { id: 'local', name: 'Local (this server)' };
@@ -311,7 +429,7 @@ const Dashboard = () => {
             edit={edit}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onChange={(next) => setWidgets(next)}
+            onChange={(next) => updateDraft(next)}
             ctx={ctx}
             onWidgetMenu={onWidgetMenu}
         />
@@ -361,11 +479,11 @@ const Dashboard = () => {
                         <div
                             key={board.id}
                             className={`skw-tab${board.id === activeBoardId ? ' is-on' : ''}`}
-                            onClick={() => { setActiveBoardId(board.id); setSelectedId(null); }}
+                            onClick={() => handleBoardSwitch(board.id)}
                             onDoubleClick={() => edit && setRenamingId(board.id)}
                             role="button"
                             tabIndex={0}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { setActiveBoardId(board.id); setSelectedId(null); } }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleBoardSwitch(board.id); }}
                         >
                             <Grid2x2 size={14} aria-hidden="true" />
                             {renamingId === board.id ? (
@@ -385,13 +503,15 @@ const Dashboard = () => {
                             ) : (
                                 <span>{board.name}</span>
                             )}
-                            <span className="skw-tab__count mono">{(board.widgets || []).length}</span>
+                            <span className="skw-tab__count mono">
+                                {board.id === activeBoardId && edit ? widgets.length : (board.widgets || []).length}
+                            </span>
                             {edit && boards.length > 1 && board.id === activeBoardId && (
                                 <button
                                     type="button"
                                     className="skw-iconbtn skw-iconbtn--bare"
                                     aria-label={t('app.dashboard.delete', 'Delete {{name}}', { name: board.name })}
-                                    onClick={(e) => { e.stopPropagation(); removeBoard(board.id); }}
+                                    onClick={(e) => { e.stopPropagation(); handleRemoveBoard(board.id); }}
                                 >
                                     <X size={12} />
                                 </button>
@@ -401,7 +521,7 @@ const Dashboard = () => {
                     <button
                         type="button"
                         className="skw-tab skw-tab--add"
-                        onClick={() => createBoard().then((b) => setRenamingId(b.id))}
+                        onClick={handleCreateBoard}
                         aria-label={t('app.dashboard.newDashboard', 'New dashboard')}
                         title={t('app.dashboard.newDashboard2', 'New dashboard')}
                     >
@@ -504,6 +624,17 @@ const Dashboard = () => {
                             <button type="button" className="skw-barbtn" onClick={() => setLibraryOpen(true)}>
                                 <Plus size={14} /> {t('app.dashboard.addWidget', 'Add widget')}
                             </button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="skw-iconbtn"
+                                onClick={() => setShortcutsOpen(true)}
+                                title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}
+                                aria-label={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}
+                            >
+                                <Keyboard size={14} />
+                            </Button>
                             <button
                                 type="button"
                                 className="skw-iconbtn"
@@ -512,10 +643,6 @@ const Dashboard = () => {
                                 aria-label={t('app.dashboard.restoreTheShippedLayout2', 'Restore the shipped layout')}
                             >
                                 <History size={14} />
-                            </button>
-                            <button type="button" className="skw-barbtn" onClick={discardEdit}>{t('app.dashboard.discard', 'Discard')}</button>
-                            <button type="button" className="skw-barbtn skw-barbtn--primary" onClick={finishEdit}>
-                                <Check size={14} /> {t('app.dashboard.done', 'Done')}
                             </button>
                         </>
                     ) : (
@@ -544,7 +671,7 @@ const Dashboard = () => {
                         <button
                             type="button"
                             className="btn btn-primary btn-sm"
-                            onClick={() => { setEdit(true); setLibraryOpen(true); }}
+                            onClick={() => { startEdit(); setLibraryOpen(true); }}
                         >
                             <Plus size={14} /> {t('app.dashboard.addAWidget', 'Add a widget')}
                         </button>
@@ -556,6 +683,10 @@ const Dashboard = () => {
                     </div>
                 </div>
             ) : grid}
+
+            {edit && (
+                <ChangeBar session={editing} onDiscard={discardEdit} onSave={finishEdit} />
+            )}
 
             {libraryOpen && (
                 <WidgetLibrary
@@ -584,6 +715,12 @@ const Dashboard = () => {
                     onClose={() => setFullscreen(null)}
                 />
             )}
+            <ShortcutSheet
+                open={shortcutsOpen}
+                onClose={() => setShortcutsOpen(false)}
+                title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}
+                commands={shortcutCommands}
+            />
         </div>
     );
 };
