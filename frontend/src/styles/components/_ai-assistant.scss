@@ -245,7 +245,10 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
 
     &.is-warning {
         border-color: fade($warning-raw, 48%);
-        color: var(--warning, #fbbf24);
+        // $warning is var(--amber, …). `--warning` is not a defined token, so
+        // the previous var(--warning, <amber literal>) always fell through to
+        // the literal and runtime skins could never recolour it.
+        color: $warning;
     }
 }
 .sk-ai-attachment__type {
