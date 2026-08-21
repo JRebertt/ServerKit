@@ -162,6 +162,10 @@ def ensure_initialized() -> None:
             return
         from app.services.ai_tools_builtin import register_builtin_tools
         register_builtin_tools()
+        from app.services.ai_attachment_registry import (
+            register_builtin_attachment_resolvers,
+        )
+        register_builtin_attachment_resolvers()
         try:
             ai_tool_registry.discover_plugins()
         except Exception:
