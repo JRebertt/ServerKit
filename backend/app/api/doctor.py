@@ -16,7 +16,7 @@ from flask import Blueprint, jsonify, request
 from app.error_reporting import unexpected_response
 
 from ..middleware.rbac import admin_required
-from ..services.doctor_service import DoctorService
+from ..services.doctor_service import DOCTOR_REPAIR_JOB_KIND, DoctorService
 from ..services.drift_service import DRIFT_JOB_KIND, DriftService
 
 doctor_bp = Blueprint('doctor', __name__)
@@ -94,12 +94,26 @@ def run_doctor():
 @doctor_bp.route('/repair', methods=['POST'])
 @admin_required
 def repair_items():
-    """Batch-repair the explicit items the operator selected."""
+    """Batch-repair selected items, optionally as a persisted operation.
+
+    Synchronous remains the default for existing CLI callers. The web shell
+    asks for ``wait=false`` and follows the returned job in Operations.
+    """
     data = request.get_json(silent=True) or {}
     items = data.get('items')
     if not isinstance(items, list) or not items:
         return jsonify({'error': "Body must carry a non-empty 'items' list."}), 400
     try:
+        if request.args.get('wait', 'true').lower() == 'false':
+            from app.jobs.service import JobService
+            job = JobService.enqueue(
+                DOCTOR_REPAIR_JOB_KIND,
+                payload={'items': items},
+                max_attempts=1,
+                owner_type='doctor',
+                owner_id='host',
+            )
+            return jsonify({'job_id': job.id, 'kind': job.kind}), 202
         return jsonify({'results': DoctorService.repair(items)})
     except Exception as exc:  # noqa: BLE001 - reported, not swallowed
         return unexpected_response(exc)

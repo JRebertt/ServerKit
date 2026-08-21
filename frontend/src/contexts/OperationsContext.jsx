@@ -142,6 +142,19 @@ export function OperationsProvider({ children }) {
         markRead(key);
     }, [markRead]);
 
+    const openRun = useCallback((runKind, runId) => {
+        if (!runKind || runId == null) return;
+        if (runKind === 'job' && !canReadJobs) return;
+        const key = `${runKind}:${runId}`;
+        setLogSession(null);
+        setSelectedKey(key);
+        setCollapsed(false);
+        markRead(key);
+        // Creation responses carry only an id. Refresh immediately so the
+        // selected detail replaces its short loading state before the poll.
+        refresh();
+    }, [canReadJobs, markRead, refresh]);
+
     const openLogSession = useCallback((session) => {
         setSelectedKey(null);
         setLogSession(session);
@@ -174,6 +187,7 @@ export function OperationsProvider({ children }) {
         loading,
         refresh,
         openOperation,
+        openRun,
         openLogSession,
         closeLogSession,
         selectOperation: setSelectedKey,
@@ -199,6 +213,7 @@ export function OperationsProvider({ children }) {
         loading,
         refresh,
         openOperation,
+        openRun,
         openLogSession,
         closeLogSession,
         markRead,

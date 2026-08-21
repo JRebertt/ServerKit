@@ -1992,6 +1992,7 @@
             "repairAll": "Repair all (",
             "repairFailed": "{{length}} repair{{value}} failed — {{value2}}",
             "repairFailed2": "Repair failed",
+            "repairQueuedInOperations": "Repair queued — follow progress in Operations",
             "repairedItem": "Repaired {{length}} item{{value}}",
             "runADiagnosisToCheckThis": "Run a diagnosis to check this server's managed configuration and core health.",
             "serverDoctor": "Server Doctor",

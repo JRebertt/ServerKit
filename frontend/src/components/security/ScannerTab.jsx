@@ -15,6 +15,7 @@ import EmptyState from '@/components/EmptyState';
 import { useConfirm } from '@/hooks/useConfirm';
 import { usePolling } from '@/hooks/usePolling';
 import { useTranslation } from 'react-i18next';
+import { useOperations } from '@/contexts/OperationsContext';
 
 // Scan status cadence, and the faster cadence while a scan job runs.
 const SCAN_STATUS_POLL_MS = 5000;
@@ -126,6 +127,7 @@ const HISTORY_VIEWS = [
 const ScannerTab = () => {
     const { t } = useTranslation();
     const { confirm } = useConfirm();
+    const { openRun } = useOperations();
     const [scanStatus, setScanStatus] = useState({ status: 'idle' });
     const [scanPath, setScanPath] = useState('/var/www');
     const [scanning, setScanning] = useState(false);
@@ -208,7 +210,8 @@ const ScannerTab = () => {
 
     usePolling(async () => {
         try {
-            const job = await api.getJob(scanJobId);
+            const response = await api.getJob(scanJobId);
+            const job = response.job || response;
             setScanJob(job);
             if (!['succeeded', 'failed', 'cancelled'].includes(job.status)) return;
             setScanJobId(null);
@@ -238,6 +241,7 @@ const ScannerTab = () => {
         try {
             const result = await api.scanApp(selectedApp);
             setScanJob({ id: result.job_id, status: 'pending' });
+            openRun('job', result.job_id);
             setMessage({ type: 'success', text: `Scan queued for ${result.path || 'app docroot'}` });
             pollJob(result.job_id);
         } catch (err) {

@@ -42,9 +42,28 @@ test('normalizes proof job kinds and keeps deploy queue mirrors out', () => {
 
     const operations = normalizeOperations({
         deployments: [{ id: 'dep-1', status: 'running' }],
-        jobs: [{ id: 'mirror', kind: 'deploy.app', status: 'running' }, { id: 'job-1', kind: 'doctor.run' }],
+        jobs: [
+            { id: 'mirror', kind: 'deploy.app', status: 'running' },
+            { id: 'backup', kind: 'backup.policy.run', status: 'running' },
+            { id: 'doctor', kind: 'doctor.repair', status: 'running' },
+            { id: 'security', kind: 'security.malware_scan', status: 'running' },
+        ],
     });
-    assert.deepEqual(operations.map(operationKey).sort(), ['deploy:dep-1', 'job:job-1']);
+    assert.deepEqual(operations.map(operationKey).sort(), [
+        'deploy:dep-1',
+        'job:backup',
+        'job:doctor',
+        'job:security',
+    ]);
+    assert.deepEqual(
+        Object.fromEntries(operations.map((operation) => [operation.id, operation.title])),
+        {
+            'dep-1': 'Application deployment',
+            backup: 'Backup policy run',
+            doctor: 'Doctor repair',
+            security: 'Security scan',
+        },
+    );
 });
 
 test('bounds terminal history without dropping active or selected work', () => {

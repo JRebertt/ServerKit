@@ -39,6 +39,7 @@ function normalizeProgress(source) {
 
 function jobTitle(job) {
     if (job.kind === 'backup.policy.run') return 'Backup policy run';
+    if (job.kind === 'doctor.repair') return 'Doctor repair';
     if (job.kind === 'doctor.run' || job.kind === 'doctor.fleet.run') return 'Server doctor';
     if (SECURITY_KIND.test(job.kind || '')) return 'Security scan';
     return (job.kind || 'Background job').replaceAll('.', ' ');
