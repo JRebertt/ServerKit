@@ -10,6 +10,7 @@ import {
 
 import { usePolling } from '../hooks/usePolling';
 import useRunStream from '../hooks/useRunStream';
+import useServiceLogStream from '../hooks/useServiceLogStream';
 import { SOCKET_EVENTS } from '../constants/events';
 import api from '../services/api';
 import {
@@ -35,6 +36,7 @@ export function OperationsProvider({ children }) {
     const [collapsed, setCollapsed] = useState(true);
     const [unreadKeys, setUnreadKeys] = useState(() => new Set());
     const [loading, setLoading] = useState(true);
+    const [logSession, setLogSession] = useState(null);
     const selectedKeyRef = useRef(selectedKey);
     const operationsRef = useRef(operations);
     selectedKeyRef.current = selectedKey;
@@ -90,6 +92,7 @@ export function OperationsProvider({ children }) {
         setSelectedKey(null);
         setCollapsed(true);
         setLoading(true);
+        setLogSession(null);
     }, [user?.id]);
 
     const activeOperations = useMemo(
@@ -118,6 +121,9 @@ export function OperationsProvider({ children }) {
         enabled: !collapsed && !!selectedRunKind && selectedRunId != null,
         initialRun: initialSelectedRun,
     });
+    const serviceStream = useServiceLogStream(logSession, {
+        enabled: !collapsed && !!logSession,
+    });
 
     const markRead = useCallback((key) => {
         setUnreadKeys((current) => {
@@ -130,10 +136,22 @@ export function OperationsProvider({ children }) {
 
     const openOperation = useCallback((operation) => {
         const key = typeof operation === 'string' ? operation : operationKey(operation);
+        setLogSession(null);
         setSelectedKey(key);
         setCollapsed(false);
         markRead(key);
     }, [markRead]);
+
+    const openLogSession = useCallback((session) => {
+        setSelectedKey(null);
+        setLogSession(session);
+        setCollapsed(false);
+    }, []);
+
+    const closeLogSession = useCallback(() => {
+        setLogSession(null);
+        setCollapsed(true);
+    }, []);
 
     const value = useMemo(() => ({
         operations,
@@ -145,6 +163,10 @@ export function OperationsProvider({ children }) {
         selectedTransport: selectedStream.transport,
         selectedStreamError: selectedStream.error,
         refreshSelected: selectedStream.refetch,
+        logSession,
+        serviceLines: serviceStream.lines,
+        serviceStreamError: serviceStream.error,
+        clearServiceLines: serviceStream.clear,
         selectedKey,
         collapsed,
         unreadKeys,
@@ -152,6 +174,8 @@ export function OperationsProvider({ children }) {
         loading,
         refresh,
         openOperation,
+        openLogSession,
+        closeLogSession,
         selectOperation: setSelectedKey,
         setCollapsed,
         markRead,
@@ -165,12 +189,18 @@ export function OperationsProvider({ children }) {
         selectedStream.transport,
         selectedStream.error,
         selectedStream.refetch,
+        logSession,
+        serviceStream.lines,
+        serviceStream.error,
+        serviceStream.clear,
         selectedKey,
         collapsed,
         unreadKeys,
         loading,
         refresh,
         openOperation,
+        openLogSession,
+        closeLogSession,
         markRead,
     ]);
 

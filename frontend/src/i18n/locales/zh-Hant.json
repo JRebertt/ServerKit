@@ -3844,11 +3844,8 @@
       "user": "使用者"
     },
     "logsDrawer": {
-      "autoScroll": "自動捲動",
       "clear": "清除",
       "close": "關閉",
-      "close2": "關閉",
-      "collapse": "坍塌",
       "waitingForLogs": "等待日誌..."
     },
     "logsTab": {

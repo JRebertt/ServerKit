@@ -3844,11 +3844,8 @@
       "user": "ব্যবহারকারী"
     },
     "logsDrawer": {
-      "autoScroll": "অটো-স্ক্রোল",
       "clear": "পরিষ্কার",
       "close": "বন্ধ",
-      "close2": "বন্ধ",
-      "collapse": "সঙ্কুচিত",
       "waitingForLogs": "লগের জন্য অপেক্ষা করা হচ্ছে..."
     },
     "logsTab": {

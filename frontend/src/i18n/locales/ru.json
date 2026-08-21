@@ -3844,11 +3844,8 @@
       "user": "Пользователь"
     },
     "logsDrawer": {
-      "autoScroll": "Автопрокрутка",
       "clear": "Очистить",
       "close": "Закрыть",
-      "close2": "Закрыть",
-      "collapse": "Свернуть",
       "waitingForLogs": "Жду логов..."
     },
     "logsTab": {

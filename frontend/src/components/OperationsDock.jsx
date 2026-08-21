@@ -70,6 +70,47 @@ function OperationProgress({ operation, t }) {
     );
 }
 
+function ServiceLogDetail({ session, lines, error, onClear, onClose, logRef, t }) {
+    const source = session.logPath
+        || (session.containerId != null ? `docker · ${String(session.containerId).slice(0, 12)}` : null)
+        || session.appType;
+    return (
+        <div className="operations-dock__detail">
+            <div className="operations-dock__detail-head">
+                <div>
+                    <span className="operations-dock__eyebrow">{t('app.operationsDock.serviceLogs', 'Service log session')}</span>
+                    <h3>{session.name}</h3>
+                </div>
+                <Pill kind="green">{t('app.operationsDock.live', 'Live')}</Pill>
+            </div>
+            <div className="operations-dock__meta">
+                <span><SquareTerminal size={13} /> {source}</span>
+                <span>{t('app.operationsDock.lineCount', '{{count}} lines', { count: lines.length })}</span>
+            </div>
+            {error && (
+                <div className="operations-dock__error">
+                    <AlertTriangle size={15} /><span>{error}</span>
+                </div>
+            )}
+            <div className="operations-dock__logs" ref={logRef}>
+                {lines.length === 0 ? (
+                    <span className="operations-dock__logs-empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs...')}</span>
+                ) : lines.slice(-250).map((line, index) => (
+                    <div key={index} className="operations-dock__log-line">{line}</div>
+                ))}
+            </div>
+            <footer className="operations-dock__footer operations-dock__footer--end">
+                <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+                    {t('app.logsDrawer.clear', 'Clear')}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                    {t('app.logsDrawer.close', 'Close')}
+                </Button>
+            </footer>
+        </div>
+    );
+}
+
 export default function OperationsDock() {
     const { t } = useTranslation();
     const toast = useToast();
@@ -82,6 +123,11 @@ export default function OperationsDock() {
         selectedLines,
         selectedTransport,
         selectedStreamError,
+        logSession,
+        serviceLines,
+        serviceStreamError,
+        clearServiceLines,
+        closeLogSession,
         unreadKeys,
         unreadCount,
         collapsed,
@@ -101,9 +147,10 @@ export default function OperationsDock() {
             setCollapsed(true);
             return;
         }
-        if (!selectedOperation && activeOperations[0]) openOperation(activeOperations[0]);
+        if (logSession) setCollapsed(false);
+        else if (!selectedOperation && activeOperations[0]) openOperation(activeOperations[0]);
         else setCollapsed(false);
-    }, [collapsed, selectedOperation, activeOperations, openOperation, setCollapsed]);
+    }, [collapsed, logSession, selectedOperation, activeOperations, openOperation, setCollapsed]);
 
     useShortcut({
         id: 'operations-dock-toggle',
@@ -125,7 +172,7 @@ export default function OperationsDock() {
 
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-    }, [selectedLines]);
+    }, [selectedLines, serviceLines]);
 
     const rows = useMemo(() => {
         if (view === 'attention') return attentionOperations;
@@ -278,7 +325,17 @@ export default function OperationsDock() {
                         })}
                     </div>
 
-                    {selectedOperation ? (
+                    {logSession ? (
+                        <ServiceLogDetail
+                            session={logSession}
+                            lines={serviceLines}
+                            error={serviceStreamError}
+                            onClear={clearServiceLines}
+                            onClose={closeLogSession}
+                            logRef={logRef}
+                            t={t}
+                        />
+                    ) : selectedOperation ? (
                         <div className="operations-dock__detail">
                             <div className="operations-dock__detail-head">
                                 <div>

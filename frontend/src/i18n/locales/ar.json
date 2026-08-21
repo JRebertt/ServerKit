@@ -3844,11 +3844,8 @@
       "user": "مستخدم"
     },
     "logsDrawer": {
-      "autoScroll": "التمرير التلقائي",
       "clear": "واضح",
       "close": "يغلق",
-      "close2": "يغلق",
-      "collapse": "ينهار",
       "waitingForLogs": "في انتظار السجلات..."
     },
     "logsTab": {

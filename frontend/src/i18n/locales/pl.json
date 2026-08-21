@@ -3844,11 +3844,8 @@
       "user": "Użytkownik"
     },
     "logsDrawer": {
-      "autoScroll": "Automatyczne przewijanie",
       "clear": "Jasne",
       "close": "Zamknąć",
-      "close2": "Zamknąć",
-      "collapse": "Zawalić się",
       "waitingForLogs": "Czekam na logi..."
     },
     "logsTab": {

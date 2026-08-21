@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import MobileTopBar from '../components/MobileTopBar';
 import CommandPalette from '../components/CommandPalette';
-import LogsDrawer from '../components/LogsDrawer';
 import { LogsDrawerProvider } from '../contexts/LogsDrawerContext';
 import { AIProvider } from '../contexts/AIContext';
 import AIAssistant from '../components/ai/AIAssistant';
@@ -125,7 +124,6 @@ const DashboardLayout = () => {
                     </ErrorBoundary>
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-                <LogsDrawer />
                 <OperationsDock />
                 <AIAssistant />
                 <PluginLoader api={api} />

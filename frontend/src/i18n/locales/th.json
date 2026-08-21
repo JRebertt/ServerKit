@@ -3844,11 +3844,8 @@
       "user": "ผู้ใช้"
     },
     "logsDrawer": {
-      "autoScroll": "เลื่อนอัตโนมัติ",
       "clear": "ชัดเจน",
       "close": "ปิด",
-      "close2": "ปิด",
-      "collapse": "ทรุด",
       "waitingForLogs": "กำลังรอบันทึก..."
     },
     "logsTab": {

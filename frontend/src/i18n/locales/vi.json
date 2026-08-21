@@ -3844,11 +3844,8 @@
       "user": "người dùng"
     },
     "logsDrawer": {
-      "autoScroll": "Tự động cuộn",
       "clear": "Thông thoáng",
       "close": "Đóng",
-      "close2": "Đóng",
-      "collapse": "Sụp đổ",
       "waitingForLogs": "Đang chờ nhật ký..."
     },
     "logsTab": {

@@ -3844,11 +3844,8 @@
       "user": "Kullanıcı"
     },
     "logsDrawer": {
-      "autoScroll": "Otomatik kaydırma",
       "clear": "Temizlemek",
       "close": "Kapalı",
-      "close2": "Kapalı",
-      "collapse": "Yıkılmak",
       "waitingForLogs": "Günlükleri bekliyorum..."
     },
     "logsTab": {

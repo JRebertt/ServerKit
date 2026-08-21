@@ -246,6 +246,7 @@
     &__log-line.is-warning { color: var(--amber); }
 
     &__footer { justify-content: space-between; gap: $space-2; }
+    &__footer--end { justify-content: flex-end; }
     &__footer-links { min-width: 0; gap: $space-1; }
     &__footer-links .btn { max-width: 190px; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     &__footer-actions { gap: $space-2; }

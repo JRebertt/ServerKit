@@ -3844,11 +3844,8 @@
       "user": "Pengguna"
     },
     "logsDrawer": {
-      "autoScroll": "Gulir otomatis",
       "clear": "Jernih",
       "close": "Menutup",
-      "close2": "Menutup",
-      "collapse": "Runtuh",
       "waitingForLogs": "Menunggu log..."
     },
     "logsTab": {

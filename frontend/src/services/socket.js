@@ -82,6 +82,18 @@ class SocketService {
         this.socket.on(SOCKET_EVENTS.RUN_STATUS, (data) => {
             this.emit(SOCKET_EVENTS.RUN_STATUS, data);
         });
+
+        this.socket.on(SOCKET_EVENTS.CONTAINER_LOG, (data) => {
+            this.emit(SOCKET_EVENTS.CONTAINER_LOG, data);
+        });
+
+        this.socket.on(SOCKET_EVENTS.CONTAINER_LOG_ERROR, (data) => {
+            this.emit(SOCKET_EVENTS.CONTAINER_LOG_ERROR, data);
+        });
+
+        this.socket.on(SOCKET_EVENTS.CONTAINER_LOG_ENDED, (data) => {
+            this.emit(SOCKET_EVENTS.CONTAINER_LOG_ENDED, data);
+        });
     }
 
     disconnect() {
@@ -137,6 +149,20 @@ class SocketService {
         if (this.socket?.connected && runKind && runId != null) {
             this.socket.emit('unsubscribe_run', { run_kind: runKind, run_id: runId });
         }
+    }
+
+    subscribeContainerLogs(appId, options = {}) {
+        if (this.socket?.connected && appId != null) {
+            this.socket.emit('subscribe_container_logs', {
+                app_id: appId,
+                tail: options.tail || 200,
+                ...(options.service ? { service: options.service } : {}),
+            });
+        }
+    }
+
+    unsubscribeContainerLogs() {
+        if (this.socket?.connected) this.socket.emit('unsubscribe_container_logs');
     }
 
     on(event, callback) {

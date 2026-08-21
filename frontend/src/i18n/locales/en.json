@@ -3844,11 +3844,8 @@
             "user": "User"
         },
         "logsDrawer": {
-            "autoScroll": "Auto-scroll",
             "clear": "Clear",
             "close": "Close",
-            "close2": "Close",
-            "collapse": "Collapse",
             "waitingForLogs": "Waiting for logs..."
         },
         "logsTab": {
@@ -3868,7 +3865,7 @@
             "gunicornSystemdLogs": "Gunicorn/systemd Logs",
             "live": "Live",
             "loadingLogs": "Loading logs...",
-            "pinToDrawer": "Pin to drawer",
+            "pinToDrawer": "Open in Operations dock",
             "refresh": "Refresh",
             "searchLogs": "Search logs..."
         },
@@ -4551,6 +4548,7 @@
             "cancelTitle": "Cancel operation?",
             "collapse": "Collapse Operations dock",
             "history": "History",
+            "lineCount": "{{count}} lines",
             "live": "Live",
             "needsAttention": "Needs attention",
             "noActive": "No operations are running",
@@ -4562,6 +4560,7 @@
             "progress": "Progress",
             "retryQueued": "Retry queued",
             "selectOperation": "Select an operation to inspect progress and logs",
+            "serviceLogs": "Service log session",
             "shortcutLabel": "Toggle Operations dock",
             "title": "Operations",
             "unreadCount": "{{count}} unread",
