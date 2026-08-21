@@ -12,6 +12,7 @@ import { normalizeResourceRef, resourceKey } from '../utils/resourceRefs';
 
 const normalizeList = (options) => options.map(normalizeResourceRef).filter(Boolean);
 const allowOption = () => true;
+const preserveOption = (option) => option;
 
 export default function ResourcePicker({
     value,
@@ -21,11 +22,14 @@ export default function ResourcePicker({
     capabilities,
     staticOptions = [],
     filterOption = allowOption,
+    decorateOption = preserveOption,
     icon: ResourceIcon = Server,
+    showCapabilities = false,
     disabled = false,
     label,
     placeholder,
     searchPlaceholder,
+    emptyMessage,
     className = '',
 }) {
     const { t } = useTranslation();
@@ -38,8 +42,14 @@ export default function ResourcePicker({
         query,
         enabled: open,
     });
-    const normalizedStatic = useMemo(() => normalizeList(staticOptions), [staticOptions]);
-    const normalizedValue = useMemo(() => normalizeResourceRef(value), [value]);
+    const normalizedStatic = useMemo(
+        () => normalizeList(staticOptions).map(decorateOption),
+        [decorateOption, staticOptions],
+    );
+    const normalizedValue = useMemo(() => {
+        const normalized = normalizeResourceRef(value);
+        return normalized ? decorateOption(normalized) : null;
+    }, [decorateOption, value]);
     const normalizedQuery = query.trim().toLowerCase();
     const visibleStatic = normalizedStatic.filter((option) => (
         filterOption(option)
@@ -48,7 +58,7 @@ export default function ResourcePicker({
     const visibleGroups = search.groups
         .map((group) => ({
             ...group,
-            options: group.options.filter(filterOption),
+            options: group.options.map(decorateOption).filter(filterOption),
         }))
         .filter((group) => group.options.length);
     const hasOptions = visibleStatic.length > 0
@@ -78,6 +88,9 @@ export default function ResourcePicker({
                 {option.status && (
                     <span className={`sk-state sk-state--${option.status}`}>{option.status}</span>
                 )}
+                {showCapabilities && option.capabilities.slice(0, 2).map((capability) => (
+                    <span className="sk-tag" key={capability}>{capability}</span>
+                ))}
                 {selected && <Check className="sk-resource-picker__check" aria-hidden="true" />}
             </CommandItem>
         );
@@ -131,7 +144,9 @@ export default function ResourcePicker({
                             </div>
                         )}
                         {!search.isLoading && !search.isError && !hasOptions && (
-                            <CommandEmpty>{t('common.state.noResults', 'No results found')}</CommandEmpty>
+                            <CommandEmpty>
+                                {emptyMessage || t('common.state.noResults', 'No results found')}
+                            </CommandEmpty>
                         )}
                     </CommandList>
                 </Command>
