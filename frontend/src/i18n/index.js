@@ -42,7 +42,10 @@ i18next
         lng: DEFAULT_LANGUAGE,
         fallbackLng: DEFAULT_LANGUAGE,
         supportedLngs: SUPPORTED_CODES,
-        load: 'languageOnly',
+        // Preserve script-specific bundles such as zh-Hans and zh-Hant.
+        // Generic regional tags have already been canonicalized by
+        // matchSupported before reaching i18next.
+        load: 'currentOnly',
         resources: { [DEFAULT_LANGUAGE]: { translation: en } },
         // React escapes on render; escaping here would double-encode.
         interpolation: { escapeValue: false },

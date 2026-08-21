@@ -57,8 +57,16 @@ def test_manifest_entries_are_complete():
     ('es-MX', 'es'),        # region tags resolve language-only ...
     ('es_419', 'es'),       # ... including the underscore form
     ('en-GB', 'en'),
+    ('zh', 'zh-Hans'),      # legacy bare Chinese keeps Simplified behavior
+    ('zh-CN', 'zh-Hans'),
+    ('zh-SG', 'zh-Hans'),
+    ('zh-Hans', 'zh-Hans'),
+    ('zh-TW', 'zh-Hant'),
+    ('zh-HK', 'zh-Hant'),
+    ('zh_Hant_TW', 'zh-Hant'),
     ('  es  ', 'es'),
-    ('fr', None),           # well-formed but not shipped
+    ('fr-CA', 'fr'),
+    ('ja', None),           # well-formed but not shipped
     ('zz-ZZ', None),
     ('', None),
     ('   ', None),
@@ -92,11 +100,18 @@ def test_put_me_normalizes_a_regional_tag(client, auth_headers):
     assert response.get_json()['user']['language'] == 'es'
 
 
+def test_put_me_normalizes_a_chinese_region_to_its_script(client, auth_headers):
+    response = client.put('/api/v1/auth/me', json={'language': 'zh-TW'},
+                          headers=auth_headers)
+    assert response.status_code == 200
+    assert response.get_json()['user']['language'] == 'zh-Hant'
+
+
 def test_put_me_rejects_an_unsupported_language(client, auth_headers):
-    response = client.put('/api/v1/auth/me', json={'language': 'fr'},
+    response = client.put('/api/v1/auth/me', json={'language': 'ja'},
                           headers=auth_headers)
     assert response.status_code == 400
-    assert 'fr' in response.get_json()['error']
+    assert 'ja' in response.get_json()['error']
 
 
 def test_put_me_clears_back_to_the_panel_default(client, auth_headers):

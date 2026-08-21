@@ -15,7 +15,7 @@
             "status": "provisional"
         },
         {
-            "code": "zh",
+            "code": "zh-Hans",
             "name": "Chinese (Simplified)",
             "nativeName": "简体中文",
             "dir": "ltr",
@@ -46,6 +46,41 @@
             "code": "ko",
             "name": "Korean",
             "nativeName": "한국어",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "id",
+            "name": "Indonesian",
+            "nativeName": "Bahasa Indonesia",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "zh-Hant",
+            "name": "Chinese (Traditional)",
+            "nativeName": "繁體中文",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "vi",
+            "name": "Vietnamese",
+            "nativeName": "Tiếng Việt",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "tr",
+            "name": "Turkish",
+            "nativeName": "Türkçe",
+            "dir": "ltr",
+            "status": "provisional"
+        },
+        {
+            "code": "fr",
+            "name": "French",
+            "nativeName": "Français",
             "dir": "ltr",
             "status": "provisional"
         }
