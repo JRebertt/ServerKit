@@ -16,6 +16,7 @@ import api from '../services/api';
 import SystemNotices from '../components/SystemNotices';
 import StagingBanner from '../components/StagingBanner';
 import DeployPill from '../components/DeployPill';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -106,7 +107,9 @@ const DashboardLayout = () => {
                 )}
                 <main className={`main-content${isFullPageRoute ? ' main-content--full-page' : ''}`}>
                     {!isFullPageRoute && <SystemNotices />}
-                    <Outlet />
+                    <ErrorBoundary resetKey={location.pathname}>
+                        <Outlet />
+                    </ErrorBoundary>
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
                 <LogsDrawer />
