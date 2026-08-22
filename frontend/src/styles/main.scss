@@ -82,6 +82,7 @@
 @import 'components/_setup-health';        // dashboard setup-health card + account nudge
 @import 'components/_widget-editor';      // wide preview+settings widget drawer (skwe-* namespace)
 @import 'components/_system-notices';
+@import 'components/_disk-reclaim';   // curated safe disk-reclaim modal
 @import 'components/_requires-docker';
 @import 'components/container-status';
 @import 'components/api-key-scopes';

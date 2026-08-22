@@ -52,6 +52,7 @@ import * as viewMethods from './views.js';
 import * as recycleBinMethods from './recycleBin.js';
 import * as errorLogMethods from './errorLogs.js';
 import * as walkthroughMethods from './walkthroughs.js';
+import * as diskMethods from './disk.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -111,6 +112,7 @@ class ApiService extends ApiClient {
             recycleBinMethods,
             errorLogMethods,
             walkthroughMethods,
+            diskMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

@@ -1947,6 +1947,22 @@
         "dialog": {
             "close": "Close"
         },
+        "diskReclaim": {
+            "cancel": "Cancel",
+            "couldNotMeasure": "Could not measure reclaimable space",
+            "measuring": "Measuring what can be freed…",
+            "nothingToReclaimRightNowTheCurated": "Nothing to reclaim right now — the curated candidates are all clear.",
+            "onlyReviewedSafeCandidatesAreOffered": "Only reviewed-safe cleanup is offered — upgrade snapshots beyond the newest one, abandoned update staging, oversized logs, package caches, old journal entries and Docker build cache. Nothing here touches your apps or databases.",
+            "reclaimFailed": "Reclaim failed",
+            "reclaimNow": "Reclaim now",
+            "reclaimSpace": "Reclaim space",
+            "reclaimStartedFollowProgressIn": "Reclaim started — follow progress in Operations",
+            "reclaiming": "Reclaiming…",
+            "retry": "Retry",
+            "title": "Reclaim disk space",
+            "totalReclaimable": "Total reclaimable",
+            "viewJob": "View job"
+        },
         "dnsActivity": {
             "action": "Action",
             "loadingRecentChanges": "Loading recent changes…",

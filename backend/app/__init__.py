@@ -405,6 +405,8 @@ def create_app(config_name=None):
             SiteImportService.register_jobs()
             from app.services.drift_service import DriftService
             DriftService.register_jobs()
+            from app.services import disk_reclaim_service
+            disk_reclaim_service.register_jobs()
             from app.services.doctor_service import DoctorService
             DoctorService.register_jobs()
             from app.services.fleet_doctor_service import FleetDoctorService

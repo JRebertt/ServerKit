@@ -4,7 +4,10 @@ import urllib.request
 import json
 from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.error_reporting import unexpected_response
+from app.exceptions import ValidationError
 from app.models import User
+from app.middleware.rbac import admin_required, get_current_user
 from app.services.system_service import SystemService
 from app.services.resource_tier_service import ResourceTierService
 from app.services import install_profile_service
@@ -141,6 +144,79 @@ def get_disk_metrics():
     require_admin_user()
 
     return jsonify(SystemService.get_disk_metrics()), 200
+
+
+@system_bp.route('/disk/reclaim/report', methods=['GET'])
+@admin_required
+def get_disk_reclaim_report():
+    """Measure every safe reclaim candidate. Reads only — deletes nothing."""
+    from app.services import disk_reclaim_service as svc
+
+    try:
+        return jsonify(svc.scan()), 200
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
+
+
+@system_bp.route('/disk/reclaim', methods=['POST'])
+@admin_required
+def reclaim_disk_space():
+    """Reclaim a curated safe set of disk-space candidates.
+
+    Body must carry ``{"confirm": true, "keys": [...]}``; every key is
+    re-validated against a fresh scan server-side (safe candidates only).
+    ``?wait=false`` enqueues the work as a background job instead of running
+    it inline — reclaims can take minutes when Docker or a VACUUM is involved.
+    """
+    data = request.get_json(silent=True) or {}
+    if data.get('confirm') is not True:
+        raise ValidationError('Confirmation required: pass {"confirm": true}.')
+    keys = data.get('keys')
+    if (not isinstance(keys, list) or not keys
+            or not all(isinstance(k, str) and k for k in keys)):
+        raise ValidationError("Body must carry a non-empty 'keys' list.")
+
+    user = get_current_user()
+    from app.services import disk_reclaim_service as svc
+
+    try:
+        keys, error = svc.validate_reclaim_keys(keys)
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
+    if error:
+        raise ValidationError(error)
+
+    try:
+        wait = request.args.get('wait', 'true').lower() != 'false'
+        if not wait:
+            from app.jobs.service import JobService
+            job = JobService.enqueue(
+                svc.DISK_RECLAIM_JOB_KIND,
+                payload={'keys': keys},
+                max_attempts=1,
+                owner_type='system',
+                owner_id='disk',
+            )
+            _audit('disk.reclaim', user.id, target_type='job',
+                   target_id=str(job.id), details={'keys': keys, 'queued': True})
+            return jsonify({'job_id': job.id, 'kind': svc.DISK_RECLAIM_JOB_KIND}), 202
+
+        result = svc.reclaim(keys)
+        _audit('disk.reclaim', user.id, target_type='host', target_id='disk',
+               details={'keys': keys, 'freed_bytes': result.get('freed_bytes')})
+        return jsonify(result), 200
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
+
+
+def _audit(action, user_id, target_type=None, target_id=None, details=None):
+    """Best-effort audit entry — never breaks the request."""
+    try:
+        from app.services.audit_service import AuditService
+        AuditService.log(action, user_id=user_id, target_type=target_type,
+                         target_id=target_id, details=details)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @system_bp.route('/network', methods=['GET'])

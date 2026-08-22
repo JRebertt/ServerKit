@@ -764,3 +764,60 @@ def reclaim(keys, days=DEFAULT_RETENTION_DAYS, keep=DEFAULT_KEEP_SNAPSHOTS,
         'disk_before': before,
         'disk_after': after,
     }
+
+
+# ── Panel surface (safe-only, validated against a fresh scan) ────────────────
+
+DISK_RECLAIM_JOB_KIND = 'disk.reclaim'
+
+
+def safe_candidate_keys(report=None):
+    """Keys the panel may reclaim without extra review ('safety': 'safe').
+
+    The curated guarantee lives here, not in the UI: whatever a client sends,
+    only candidates that a fresh scan currently reports as safe pass.
+    """
+    if report is None:
+        report = scan()
+    return {c['key'] for c in report['candidates'] if c.get('safety') == 'safe'}
+
+
+def validate_reclaim_keys(keys):
+    """Return ``(keys, None)`` when every requested key is currently safe.
+
+    Returns ``(None, message)`` otherwise, naming the rejected keys so the
+    caller can answer with a precise error.
+    """
+    allowed = safe_candidate_keys()
+    invalid = sorted({k for k in keys if k not in allowed})
+    if invalid:
+        return None, (
+            'Only reviewed-safe candidates can be reclaimed from the panel: '
+            + ', '.join(invalid)
+        )
+    return keys, None
+
+
+def run_reclaim_job(job):
+    """Job handler for ``disk.reclaim``: reclaim the validated safe set.
+
+    Re-runs the safety validation inside the handler — the queue may pick the
+    job up long after the API call validated its request body.
+    """
+    payload = job.get_payload() or {}
+    keys, error = validate_reclaim_keys(list(payload.get('keys') or []))
+    if error:
+        raise RuntimeError(error)
+    result = reclaim(keys)
+    return {
+        'freed_bytes': result['freed_bytes'],
+        'results': result['results'],
+        'disk_after': result['disk_after'],
+    }
+
+
+def register_jobs():
+    """Register the reclaim handler with the job registry.
+    Called once at app startup (see app/__init__.py)."""
+    from app.jobs import registry
+    registry.register(DISK_RECLAIM_JOB_KIND, run_reclaim_job, replace=True)
