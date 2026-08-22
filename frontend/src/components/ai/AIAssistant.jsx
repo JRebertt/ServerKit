@@ -7,7 +7,7 @@ import ChatDrawer from './ChatDrawer';
 // Core assistant overlay. Mounted once in DashboardLayout (owns its own
 // z-index — no plugin coexistence hacks). Renders the bubble everywhere and
 // the drawer when open.
-const AIAssistant = () => {
+const AIAssistant = ({ hideLauncher = false }) => {
     const { isAuthenticated } = useAuth();
     const { isOpen, toggle, isStreaming, unread, pageContext } = useServerkitAI();
 
@@ -35,7 +35,7 @@ const AIAssistant = () => {
 
     return (
         <>
-            <ChatBubble open={isOpen} unread={unread} streaming={isStreaming} raised={raised} onToggle={toggle} />
+            {!hideLauncher && <ChatBubble open={isOpen} unread={unread} streaming={isStreaming} raised={raised} onToggle={toggle} />}
             {isOpen ? <ChatDrawer /> : null}
         </>
     );

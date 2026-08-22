@@ -1,30 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import { Pill, statusKind } from '@/components/ds';
-import { ShieldCheck, AlertTriangle, Info, ChevronRight } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, ChevronRight, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 
 // Compact "how set-up is this panel" card for the dashboard (admin-only).
 // Reads GET /setup-health and shows the score + the top open items, each
 // deep-linking to its fix. Collapses to a slim "all set" line when clean —
 // no dead card.
 
-const TOP_N = 3;
-
-// Critical (fail) first, then recommended (warn); ok items never show.
-function openItems(items) {
-    const rank = { fail: 0, warn: 1 };
-    return items
-        .filter((i) => i.status !== 'ok')
-        .sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
-}
+const DISMISS_KEY = 'serverkit.setupHealth.dismissed';
 
 const SetupHealthWidget = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [dismissed, setDismissed] = useState(() => {
+        try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; }
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -35,25 +30,32 @@ const SetupHealthWidget = () => {
         return () => { cancelled = true; };
     }, []);
 
+    if (dismissed) return null;
+
     if (loading || !data || !data.summary) {
         return (
-            <div className="setup-health-widget setup-health-widget--loading">
-                <div className="setup-health-widget__head">
-                    <ShieldCheck size={16} />
-                    <span>{t('app.setupHealthWidget.setupHealth', 'Setup Health')}</span>
-                </div>
-                <p className="setup-health-widget__muted">
-                    {loading ? 'Checking…' : 'Unavailable'}
-                </p>
+            <div className="setup-health-widget setup-health-widget--loading" role="status">
+                <ShieldCheck size={16} />
+                <span>{t('app.setupHealthWidget.setupHealth', 'Setup Health')}</span>
+                <span className="setup-health-widget__muted">
+                    {loading
+                        ? t('app.setupHealthWidget.checking', 'Checking…')
+                        : t('app.setupHealthWidget.unavailable', 'Unavailable')}
+                </span>
             </div>
         );
     }
 
     const { summary } = data;
-    const open = openItems(data.items || []);
+    const openCount = Number(summary.critical_open || 0) + Number(summary.recommended_open || 0);
+
+    const dismiss = () => {
+        setDismissed(true);
+        try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+    };
 
     // Clean → slim "all set" line, not a big empty card.
-    if (open.length === 0) {
+    if (openCount === 0) {
         return (
             <button
                 type="button"
@@ -71,52 +73,42 @@ const SetupHealthWidget = () => {
 
     return (
         <div className="setup-health-widget">
-            <div className="setup-health-widget__head">
-                <span className="setup-health-widget__title">
-                    <ShieldCheck size={16} />
-                    {t('app.setupHealthWidget.setupHealth3', 'Setup Health')}
-                </span>
-                <span className="setup-health-widget__score">{summary.score}%</span>
-            </div>
-
-            <div className="setup-health-widget__summary">
-                {summary.critical_open > 0 && (
-                    <Pill kind="red">
-                        <AlertTriangle size={12} /> {summary.critical_open} critical
-                    </Pill>
+            <ShieldAlert size={16} className="setup-health-widget__icon" />
+            <span className="setup-health-widget__title">{t('app.setupHealthWidget.setupHealth3', 'Setup Health')}</span>
+            <span className="setup-health-widget__score mono">{summary.score}%</span>
+            <progress max="100" value={summary.score} aria-label={t('app.setupHealthWidget.progress', 'Setup health progress')} />
+            <span className="setup-health-widget__summary">
+                {summary.critical_open > 0 && t(
+                    'app.setupHealthWidget.criticalCount',
+                    '{{count}} critical',
+                    { count: summary.critical_open },
                 )}
-                {summary.recommended_open > 0 && (
-                    <Pill kind="amber">
-                        <Info size={12} /> {summary.recommended_open} recommended
-                    </Pill>
+                {summary.critical_open > 0 && summary.recommended_open > 0 && ' · '}
+                {summary.recommended_open > 0 && t(
+                    'app.setupHealthWidget.recommendedCount',
+                    '{{count}} recommended',
+                    { count: summary.recommended_open },
                 )}
-            </div>
-
-            <ul className="setup-health-widget__list">
-                {open.slice(0, TOP_N).map((item) => (
-                    <li key={item.key}>
-                        <button
-                            type="button"
-                            className="setup-health-widget__item"
-                            onClick={() => item.fix?.to && navigate(item.fix.to)}
-                        >
-                            <Pill kind={statusKind(item.status)}>{item.status}</Pill>
-                            <span className="setup-health-widget__itemtitle">{item.title}</span>
-                            <ChevronRight size={14} />
-                        </button>
-                    </li>
-                ))}
-            </ul>
-
-            {open.length > TOP_N && (
-                <button
-                    type="button"
-                    className="setup-health-widget__more"
-                    onClick={() => navigate('/monitoring/doctor')}
-                >
-                    {open.length - TOP_N} {t('app.setupHealthWidget.moreInDoctor', 'more in Doctor')}
-                </button>
-            )}
+            </span>
+            <span className="setup-health-widget__spacer" />
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/monitoring/doctor')}
+                title={t('app.setupHealthWidget.moreInDoctor', 'more in Doctor')}
+            >
+                {t('app.setupHealthWidget.review', 'Review')}
+            </Button>
+            <button
+                type="button"
+                className="setup-health-widget__dismiss"
+                onClick={dismiss}
+                aria-label={t('common.actions.dismiss', 'Dismiss')}
+                title={t('app.setupHealthWidget.dismissHint', 'Dismiss — setup health stays in the status bar')}
+            >
+                <X size={14} />
+            </button>
         </div>
     );
 };

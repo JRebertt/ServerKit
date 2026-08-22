@@ -5,8 +5,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { Star, Settings, LogOut, Sun, Moon, Monitor, ChevronRight, ChevronDown, ChevronUp, Layers, Palette, PanelLeft, PanelLeftClose, PanelTop, Check, X, Server } from 'lucide-react';
 import { api } from '../services/api';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
-import NotificationBell from './NotificationBell';
 import { SIDEBAR_CATEGORIES, SIDEBAR_CATEGORY_LABELS, SIDEBAR_PRESETS, getHiddenItemIds, getVisibleItems, applyWorkspaceNavPermissions } from './sidebarItems';
 import { useTranslation } from 'react-i18next';
 import useLabel from '../i18n/labels';
@@ -225,10 +223,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
         return groups;
     }, [visibleItems]);
 
-    // First category that actually has visible items — its header row hosts the
-    // quick-create button.
-    const firstVisibleCat = SIDEBAR_CATEGORIES.find(cat => groupedItems[cat]);
-
     // Auto-expand the active parent (or parent of active sub-item), auto-close others
     useEffect(() => {
         const path = location.pathname;
@@ -348,8 +342,9 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                             <span className="brand-custom-text">
                                 {whiteLabel.brandName || 'Brand'}
                             </span>
-                        </>
-                    )}
+                            </>
+                        )}
+                    <QuickCreate variant="header" />
                 </div>
             ) : (
                 <div className="brand-section">
@@ -367,27 +362,17 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                     >
                         <Star size={14} aria-hidden="true" />
                     </a>
+                    <QuickCreate variant="header" />
                 </div>
             )}
-
-            <WorkspaceSwitcher />
 
             <div className="nav-scroll">
                 {SIDEBAR_CATEGORIES.map(cat => {
                     const items = groupedItems[cat];
                     if (!items) return null;
-                    // The first category header row also carries the global
-                    // quick-create button — a small circular accent "+" (AI
-                    // chat-bubble style) next to the section label.
-                    const isFirst = cat === firstVisibleCat;
                     return (
                         <React.Fragment key={cat}>
-                            <div className={`nav-category${isFirst ? ' nav-category--create' : ''}`}>
-                                {isFirst
-                                    ? <span>{label(SIDEBAR_CATEGORY_LABELS[cat])}</span>
-                                    : label(SIDEBAR_CATEGORY_LABELS[cat])}
-                                {isFirst && <QuickCreate variant="sidebar" />}
-                            </div>
+                            <div className="nav-category">{label(SIDEBAR_CATEGORY_LABELS[cat])}</div>
                             <nav className="nav">
                                 {items.map(renderNavItem)}
                             </nav>
@@ -595,7 +580,6 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                         </span>
                         <ChevronUp size={14} className={`user-menu-arrow ${menuOpen ? 'open' : ''}`} aria-hidden="true" />
                     </button>
-                    <NotificationBell />
                 </div>
             </div>
         </aside>

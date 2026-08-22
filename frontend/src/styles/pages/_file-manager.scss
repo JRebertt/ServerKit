@@ -29,7 +29,7 @@ $ft-default:  #646b7a;
     &.fullscreen {
         width: 100%;
         max-width: none;
-        height: 100vh;
+        height: 100%;
         min-height: 0;
         margin: 0;
         padding: 0;
@@ -187,13 +187,22 @@ $ft-default:  #646b7a;
     .path-breadcrumb {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
+        flex: 1;
+        flex-wrap: nowrap;
         min-width: 0;
+        overflow: hidden;
         font-family: $font-mono;
         font-size: 12.5px;
         gap: 1px;
 
-        .crumb-segment { display: inline-flex; align-items: center; }
+        .crumb-segment {
+            display: inline-flex;
+            min-width: 0;
+            align-items: center;
+            flex: 0 1 auto;
+
+            &:last-child { flex-shrink: 0; }
+        }
         // demo crumbs join on a mono "/" (not a chevron icon)
         .crumb-separator {
             color: var(--text-ghost);
@@ -210,6 +219,9 @@ $ft-default:  #646b7a;
             color: var(--text-dim);
             cursor: pointer;
             font: inherit;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
             white-space: nowrap;
             @include transition(all);
 
@@ -221,6 +233,25 @@ $ft-default:  #646b7a;
                 &:hover { background: none; }
             }
         }
+    }
+
+    .file-mount-chip {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        gap: 5px;
+        margin-inline-start: $space-1;
+        padding: 4px 8px;
+        border: 1px solid var(--border-soft);
+        border-radius: $radius-sm;
+        background: var(--surface-2);
+        color: var(--text-faint);
+        font-family: $font-mono;
+        font-size: 10px;
+        white-space: nowrap;
+
+        svg { color: var(--accent-bright); }
+        span { @include truncate(); max-width: 90px; }
     }
 
     // ─── Search field ───────────────────────────────────
@@ -320,12 +351,41 @@ $ft-default:  #646b7a;
         &.small { padding: 4px; }
     }
 
-    .file-manager-toolbar .target-picker {
-        flex-shrink: 0;
+    .file-toolbar-select {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        min-width: 0;
+        gap: 5px;
+        padding-inline: 8px 5px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-2);
+        color: var(--text-faint);
+        transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
 
-        .target-picker__resource {
-            max-width: 170px;
+        &:hover,
+        &:focus-within {
+            border-color: var(--border-strong);
+            background: var(--surface-3);
+            color: var(--text-dim);
         }
+
+        select {
+            width: 78px;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: inherit;
+            font-family: $font-mono;
+            font-size: 10.5px;
+            cursor: pointer;
+            appearance: none;
+        }
+
+        > svg:last-child { opacity: 0.58; pointer-events: none; }
     }
 
     // ─── View toggles ───────────────────────────────────
@@ -498,9 +558,8 @@ $ft-default:  #646b7a;
 
         @media (max-width: $breakpoint-lg) {
             position: fixed;
-            left: 0;
-            top: 64px;
-            bottom: 0;
+            inset-inline-start: 0;
+            inset-block: $mobile-header-height var(--sk-statusbar-height);
             width: 100%;
             max-width: 320px;
             max-height: none;
@@ -508,6 +567,55 @@ $ft-default:  #646b7a;
             padding: $space-4;
             z-index: $z-modal;
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+        }
+    }
+
+    .file-manager-source {
+        position: relative;
+        padding: 0 2px $space-3;
+        border-bottom: 1px solid var(--border-soft);
+
+        .target-picker,
+        .target-picker__resource { width: 100%; max-width: none; }
+
+        &__meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-block-start: 6px;
+            padding-inline: 9px;
+            color: var(--text-ghost);
+            font-family: $font-mono;
+            font-size: 9.5px;
+        }
+
+        &__dot {
+            width: 5px;
+            height: 5px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 5px var(--green);
+
+            &.is-cloud { background: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+        }
+
+        &__close {
+            position: absolute;
+            inset-block-start: 5px;
+            inset-inline-end: 7px;
+            z-index: 2;
+            display: none;
+            width: 25px;
+            height: 25px;
+            place-items: center;
+            border: 0;
+            border-radius: $radius-sm;
+            background: var(--surface-3);
+            color: var(--text-faint);
+            cursor: pointer;
+
+            &:hover { color: var(--text); }
         }
     }
 
@@ -579,6 +687,17 @@ $ft-default:  #646b7a;
             > svg:first-child { width: 13px; height: 13px; color: inherit; }
 
             span { flex: 1; }
+        }
+
+        .sidebar-section-title {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            flex: 1;
+            gap: $space-2;
+            padding: 10px $space-2 5px;
+
+            svg { width: 13px; height: 13px; }
         }
     }
 
@@ -818,14 +937,6 @@ $ft-default:  #646b7a;
     }
 
     // ─── Disk usage ─────────────────────────────────────
-    .disk-header-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: $space-2;
-        padding: 0 $space-2;
-    }
-
     .disk-updated {
         display: flex;
         align-items: center;
@@ -833,27 +944,42 @@ $ft-default:  #646b7a;
         font-family: $font-mono;
         font-size: 10px;
         color: var(--text-ghost);
+
+        &--footer {
+            justify-content: flex-end;
+            padding: 5px $space-2 0;
+            font-size: 9px;
+        }
     }
 
-    .disk-mount-item {
-        padding: $space-2;
-        border-bottom: 1px solid var(--border-soft);
+    .disk-mount-list { display: grid; gap: 2px; }
 
-        &:last-child { border-bottom: none; padding-bottom: 0; }
-        &:first-child { padding-top: 0; }
+    .disk-mount-item {
+        width: 100%;
+        padding: 7px $space-2 8px;
+        border: 1px solid transparent;
+        border-radius: $radius-sm;
+        background: transparent;
+        color: inherit;
+        text-align: start;
+        cursor: pointer;
+        transition: background-color 120ms ease, border-color 120ms ease;
+
+        &:hover { background: var(--surface-2); }
+        &.active { background: var(--accent-bg); border-color: var(--accent-dim); }
     }
 
     .disk-mount-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: $space-2;
+        margin-bottom: 6px;
     }
 
     .disk-mount-point {
         font-family: $font-mono;
         font-size: 12px;
-        color: $text-primary;
+        color: var(--text-dim);
     }
 
     .disk-percent {
@@ -870,7 +996,7 @@ $ft-default:  #646b7a;
         background: var(--surface-3);
         border-radius: 3px;
         overflow: hidden;
-        margin-bottom: $space-2;
+        margin-bottom: 0;
 
         .disk-progress-fill { height: 100%; border-radius: 3px; @include transition(width); }
         &.healthy .disk-progress-fill { background: $success; }
@@ -1249,6 +1375,18 @@ $ft-default:  #646b7a;
     .file-list .file-item:hover .col-check,
     .file-list .file-item.selected .col-check {
         opacity: 1;
+    }
+
+    .file-manager-body.has-preview .file-list {
+        .file-list-header,
+        .file-item {
+            grid-template-columns: 30px minmax(0, 1fr) 76px 108px;
+            padding-inline: $space-2;
+
+            .col-permissions,
+            .col-owner,
+            .col-actions { display: none; }
+        }
     }
 
     .row-action {
@@ -1705,11 +1843,35 @@ $drawer-width: 520px;
 // ─── Responsive ─────────────────────────────────────────
 @media (max-width: $breakpoint-md) {
     .file-manager {
+        .file-manager-source {
+            padding-inline-end: 38px;
+
+            &__close { display: grid; }
+        }
+
         .file-manager-toolbar {
             flex-direction: column;
             align-items: stretch;
-            .toolbar-left, .toolbar-right { justify-content: space-between; }
-            .search-field { flex: 1; min-width: 0; }
+
+            .toolbar-left,
+            .toolbar-right { width: 100%; justify-content: flex-start; }
+
+            .toolbar-right { flex-wrap: wrap; }
+
+            .search-field {
+                order: -1;
+                width: 100%;
+                min-width: 0;
+                flex: 1 0 100%;
+            }
+
+            .file-toolbar-select {
+                flex: 1;
+
+                select { width: 100%; }
+            }
+
+            .file-mount-chip { display: none; }
         }
 
         .file-list {

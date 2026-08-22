@@ -190,6 +190,9 @@
             "versions": "Versions",
             "viewDetails": "View Details"
         },
+        "ai": {
+            "assistant": "Assistant"
+        },
         "alertsTab": {
             "acknowledged": "Acknowledged",
             "allClear": "All clear",
@@ -2829,6 +2832,7 @@
             "fileCreated": "File created",
             "fileName": "File Name",
             "fileSaved": "File saved",
+            "fileSystem": "File system",
             "filesWillBeUploadedTo": "Files will be uploaded to",
             "folderCreated": "Folder created",
             "folderName": "Folder Name",
@@ -2846,6 +2850,7 @@
             "largest": "Largest",
             "listView": "List view",
             "loadingFiles": "Loading files",
+            "localPanelHost": "Local panel host",
             "logs": "Logs",
             "logs2": "Logs",
             "logs3": "Logs",
@@ -2858,6 +2863,7 @@
             "newest": "Newest",
             "noFiles": "No {{activeFilter}} files",
             "noMatches": "No matches",
+            "objectStorage": "Object storage",
             "oldest": "Oldest",
             "owner": "Owner",
             "ownerRwGroupOtherRFiles": "Owner: rw, Group/Other: r (files)",
@@ -2871,10 +2877,12 @@
             "readWriteOnlyMkdirDeleteRename": "— read/write only. Mkdir/delete/rename/upload aren't yet supported on remote agents.",
             "refresh": "Refresh",
             "refresh2": "Refresh",
+            "remoteAgent": "Remote agent",
             "rename": "Rename",
             "rename2": "Rename {{value}}",
             "rename3": "Rename",
             "renamed": "Renamed",
+            "rootDisk": "Root disk",
             "s3Bucket": "S3 bucket",
             "s3Bucket2": "S3 bucket",
             "searchFailed": "Search failed: {{message}}",
@@ -2889,6 +2897,7 @@
             "smallest": "Smallest",
             "sort": "Sort",
             "stack": "Stack",
+            "terminal": "Terminal",
             "thisFolderIsEmpty": "This folder is empty",
             "toggleHiddenFiles": "Toggle hidden files",
             "total": "Total",
@@ -2898,10 +2907,12 @@
             "typeZA": "Type Z-A",
             "types": "Types",
             "upDelDeleteF2RenameA": "⌫ Up · Del Delete · F2 Rename · ⌘A All",
+            "updatedAt": "Updated {{time}}",
             "upload": "Upload",
             "uploadedOfFile": "Uploaded {{succeeded}} of {{length}} file{{value}}",
             "users": "Users",
             "videos": "Videos",
+            "volumes": "Volumes",
             "webConfig": "Web config",
             "webConfig2": "Web config",
             "willBeCreatedIn": "Will be created in:",
@@ -6673,10 +6684,17 @@
         },
         "setupHealthWidget": {
             "allSet": "All set —",
+            "checking": "Checking…",
+            "criticalCount": "{{count}} critical",
+            "dismissHint": "Dismiss — setup health stays in the status bar",
             "moreInDoctor": "more in Doctor",
+            "progress": "Setup health progress",
+            "recommendedCount": "{{count}} recommended",
+            "review": "Review",
             "setupHealth": "Setup Health",
             "setupHealth2": "% setup health",
-            "setupHealth3": "Setup Health"
+            "setupHealth3": "Setup Health",
+            "unavailable": "Unavailable"
         },
         "setupStepAccount": {
             "adminEmail": "Admin Email",
@@ -7039,6 +7057,15 @@
             "timeout": "Timeout",
             "title": "Title",
             "visibility": "Visibility"
+        },
+        "statusbar": {
+            "activeServer": "Active server",
+            "alerts": "Alerts",
+            "commandShortcut": "Ctrl K",
+            "idle": "idle",
+            "runningCount": "{{count}} running",
+            "setupScore": "setup {{score}}%",
+            "shellStatus": "ServerKit status and tools"
         },
         "storageDestinations": {
             "snapshots": "Snapshots"
@@ -8178,6 +8205,7 @@
             "pairAuthenticatorDescription": "Scan the QR code, then enter the six-digit code from your app.",
             "progress": "Walkthrough progress",
             "progressSaved": "Progress is saved to your account.",
+            "recipes": "Recipes",
             "resume": "Resume",
             "reviewService": "Review the detected setup",
             "reviewServiceDescription": "Confirm the name, runtime, build method, project, and environment.",
@@ -8571,6 +8599,7 @@
         "actions": {
             "back": "Back",
             "close": "Close",
+            "dismiss": "Dismiss",
             "logOut": "Log out",
             "refresh": "Refresh",
             "retry": "Retry",
@@ -8765,8 +8794,11 @@
         "bellUnread": "Notifications, {{count}} unread",
         "dismissItem": "Dismiss {{title}}",
         "empty": "You’re all caught up.",
+        "everything": "Everything",
         "heading": "Notifications",
         "markAllRead": "Mark all read",
+        "recentActivity": "Recent system and delivery activity",
+        "review": "Review",
         "seeAll": "See all notifications"
     },
     "palette": {

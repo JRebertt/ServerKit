@@ -148,6 +148,26 @@ const Dashboard = () => {
             .catch(() => setSystemInfo(null));
     }, []);
 
+    // The shell status bar owns the app-wide $server scope. Keep the dashboard
+    // variable in sync so changing the server at the bottom edge immediately
+    // retargets the board without another page-specific selector state.
+    useEffect(() => {
+        const applyServerScope = (serverId) => {
+            if (!serverId || serverId === 'local') {
+                setSelectedServer({ id: 'local', name: t('app.dashboard.localThisServer', 'Local (this server)') });
+                return;
+            }
+            const match = servers.find((server) => String(server.id) === String(serverId));
+            if (match) setSelectedServer(match);
+        };
+        let stored = 'local';
+        try { stored = localStorage.getItem('serverkit.activeServerScope') || 'local'; } catch { /* ignore */ }
+        applyServerScope(stored);
+        const handleScope = (event) => applyServerScope(event.detail?.serverId);
+        window.addEventListener('serverkit:server-scope', handleScope);
+        return () => window.removeEventListener('serverkit:server-scope', handleScope);
+    }, [servers, t]);
+
     const fetchRemote = useCallback(async () => {
         if (!isRemote) return;
         try {

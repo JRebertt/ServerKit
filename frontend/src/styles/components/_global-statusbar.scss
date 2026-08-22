@@ -1,0 +1,492 @@
+// VS Code-style global chrome. Ambient controls live on one persistent bottom
+// edge; their detail surfaces open directly above it instead of floating over
+// unrelated page controls.
+
+.global-statusbar {
+    position: fixed;
+    inset-inline: $sidebar-width 0;
+    inset-block-end: 0;
+    z-index: $z-shell-statusbar;
+    display: flex;
+    align-items: center;
+    height: var(--sk-statusbar-height);
+    gap: 2px;
+    padding-inline: 6px;
+    border-block-start: 1px solid var(--border-soft);
+    background: color-mix(in srgb, var(--surface) 96%, var(--bg-body));
+    color: var(--text-faint);
+    font-family: $font-main;
+    font-size: 11.5px;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+
+    &__segment,
+    .statusbar-select {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        min-width: 0;
+        gap: 7px;
+        padding-inline: 8px;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: var(--text-faint);
+        font: inherit;
+        white-space: nowrap;
+        transition: color 120ms ease, background-color 120ms ease;
+    }
+
+    &__segment {
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { color: var(--text-dim); background: var(--surface-3); }
+        &.is-active { color: var(--accent-bright); background: var(--accent-bg); }
+    }
+
+    &__separator {
+        width: 1px;
+        height: 12px;
+        flex: 0 0 auto;
+        background: var(--border-soft);
+    }
+
+    &__spacer {
+        flex: 1;
+        min-width: $space-2;
+    }
+
+    &__muted {
+        color: var(--text-faint);
+        font-size: 10.5px;
+        letter-spacing: 0.02em;
+    }
+
+    &__segment.is-active &__muted {
+        color: var(--accent-bright);
+        opacity: 0.76;
+    }
+
+    &__dot,
+    &__pip {
+        display: inline-block;
+        flex: 0 0 auto;
+        border-radius: 50%;
+    }
+
+    &__dot {
+        width: 6px;
+        height: 6px;
+
+        &.is-online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        &.is-idle { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+        &.is-down { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    }
+
+    &__pip {
+        width: 5px;
+        height: 5px;
+
+        &.is-warning { background: var(--amber); }
+        &.is-critical { background: var(--red); }
+    }
+
+    &__setup {
+        progress {
+            width: 34px;
+            height: 3px;
+            overflow: hidden;
+            border: 0;
+            border-radius: 999px;
+            background: var(--surface-3);
+            appearance: none;
+
+            &::-webkit-progress-bar { background: var(--surface-3); }
+            &::-webkit-progress-value { background: var(--amber); }
+            &::-moz-progress-bar { background: var(--amber); }
+        }
+
+        svg { color: var(--amber); }
+    }
+
+    &__command { padding-inline: 7px; }
+    &__mobile-icon { display: none; }
+}
+
+.statusbar-select {
+    position: relative;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-within { color: var(--text-dim); background: var(--surface-3); }
+
+    &--workspace { color: var(--text-dim); }
+
+    &__value {
+        max-width: 170px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    > svg:last-of-type { opacity: 0.58; }
+
+    select {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+}
+
+// Shared bottom panel shell (Alerts; Operations and Recipes receive matching
+// geometry through their statusbar-mode overrides below).
+.shell-panel {
+    position: fixed;
+    inset-inline: $sidebar-width 0;
+    inset-block-end: var(--sk-statusbar-height);
+    z-index: $z-shell-panel;
+    display: flex;
+    height: min(320px, 56vh);
+    min-height: 220px;
+    flex-direction: column;
+    overflow: hidden;
+    border-block-start: 1px solid var(--border-strong);
+    background: var(--surface);
+    box-shadow: 0 -20px 45px rgba(0, 0, 0, 0.18);
+    animation: shell-panel-enter 160ms ease-out;
+
+    &__head,
+    &__footer,
+    &__tabs {
+        display: flex;
+        align-items: center;
+    }
+
+    &__head {
+        min-height: 39px;
+        flex: 0 0 auto;
+        gap: $space-2;
+        padding-inline: $space-2;
+        border-block-end: 1px solid var(--border-soft);
+    }
+
+    &__tabs { gap: 2px; }
+
+    &__tabs button,
+    &__action,
+    &__close {
+        min-height: 26px;
+        border: 0;
+        border-radius: $radius-sm;
+        background: transparent;
+        color: var(--text-faint);
+        font-size: $font-size-xs;
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { color: var(--text); background: var(--surface-2); }
+    }
+
+    &__tabs button {
+        padding-inline: $space-3;
+        &.is-active { color: var(--text); background: var(--surface-3); }
+    }
+
+    &__action {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-1;
+        padding-inline: $space-2;
+    }
+
+    &__close {
+        display: grid;
+        width: 28px;
+        place-items: center;
+    }
+
+    &__spacer { flex: 1; }
+
+    &__empty {
+        display: grid;
+        flex: 1;
+        place-items: center;
+        color: var(--text-faint);
+        font-size: $font-size-sm;
+    }
+
+    &__footer {
+        min-height: 34px;
+        justify-content: space-between;
+        gap: $space-3;
+        padding-inline: $space-4;
+        border-block-start: 1px solid var(--border-soft);
+        color: var(--text-ghost);
+        font-family: var(--mono);
+        font-size: 10px;
+
+        button {
+            border: 0;
+            background: transparent;
+            color: var(--accent-bright);
+            font: inherit;
+            cursor: pointer;
+        }
+    }
+}
+
+.shell-alerts {
+    &__list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    &__row {
+        display: flex;
+        min-width: 0;
+        border-block-end: 1px solid var(--border-soft);
+
+        &.is-read { opacity: 0.5; }
+    }
+
+    &__hit {
+        display: grid;
+        grid-template-columns: 7px minmax(0, 1fr) auto;
+        align-items: center;
+        width: 100%;
+        min-width: 0;
+        gap: $space-3;
+        padding: 9px 13px;
+        border: 0;
+        background: transparent;
+        color: var(--text);
+        text-align: start;
+        cursor: pointer;
+
+        &:hover { background: var(--surface-2); }
+    }
+
+    &__dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text-faint);
+
+        .is-critical & { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        .is-warning & { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+        .is-success & { background: var(--green); }
+        .is-info & { background: var(--cyan); }
+    }
+
+    &__copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+
+        strong,
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        strong { font-size: 12.5px; font-weight: $font-weight-medium; }
+        span { margin-block-start: 1px; color: var(--text-ghost); font-size: 11px; }
+    }
+
+    &__meta {
+        color: var(--text-ghost);
+        font-size: 10.5px;
+        white-space: nowrap;
+    }
+
+    &__dismiss {
+        display: grid;
+        width: 34px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        background: transparent;
+        color: var(--text-ghost);
+        cursor: pointer;
+
+        &:hover { color: var(--text); background: var(--surface-2); }
+    }
+}
+
+// Existing real operation UI, reflowed into the same bottom console geometry.
+.operations-dock.operations-dock--statusbar {
+    inset-inline: $sidebar-width 0;
+    inset-block-end: var(--sk-statusbar-height);
+    z-index: $z-shell-panel;
+
+    &.is-collapsed { display: none; }
+
+    .operations-dock__panel {
+        grid-template-areas:
+            'header header'
+            'tabs detail'
+            'list detail';
+        grid-template-columns: 344px minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr);
+        width: 100%;
+        height: min(320px, 56vh);
+        border: 0;
+        border-block-start: 1px solid var(--border-strong);
+        border-radius: 0;
+        box-shadow: 0 -20px 45px rgba(0, 0, 0, 0.18);
+        animation: shell-panel-enter 160ms ease-out;
+    }
+
+    .operations-dock__header { grid-area: header; min-height: 39px; padding-block: $space-1; }
+    .operations-dock__tabs { grid-area: tabs; }
+    .operations-dock__list { grid-area: list; border-inline-end: 1px solid var(--border-soft); border-block-end: 0; }
+    .operations-dock__detail { grid-area: detail; }
+}
+
+// Operator walkthroughs become Recipes in the bottom bar. The established
+// walkthrough engine and saved progress stay intact; only its shell changes.
+.walkthrough-shell.walkthrough-shell--statusbar {
+    inset-inline: $sidebar-width 0;
+    inset-block-end: var(--sk-statusbar-height);
+    z-index: $z-shell-panel;
+
+    .walkthrough-hub {
+        position: static;
+        width: 100%;
+        height: min(360px, 60vh);
+        max-height: none;
+        border: 0;
+        border-block-start: 1px solid var(--border-strong);
+        border-radius: 0;
+        box-shadow: 0 -20px 45px rgba(0, 0, 0, 0.18);
+    }
+
+    .walkthrough-hub__library { flex: 1; }
+    .walkthrough-hub__cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+
+// Leave the shared shell edge visible while the assistant is docked right.
+.dashboard-layout .sk-ai-drawer {
+    inset-block-end: var(--sk-statusbar-height);
+}
+
+// Reserve the bottom edge for the status bar on every shell variant.
+.dashboard-layout .sidebar {
+    height: calc(100vh - var(--sk-statusbar-height));
+}
+
+.dashboard-layout .main-content {
+    padding-block-end: calc(#{$space-10} + var(--sk-statusbar-height));
+
+    &--full-page,
+    &:has(.workflow-page.fullscreen),
+    &:has(.page-container--full-bleed) {
+        height: calc(100vh - var(--sk-statusbar-height));
+        padding-block-end: 0;
+    }
+}
+
+@media (min-width: ($breakpoint-md + 1)) {
+    [data-layout='rail'] {
+        .global-statusbar,
+        .shell-panel,
+        .operations-dock.operations-dock--statusbar,
+        .walkthrough-shell.walkthrough-shell--statusbar {
+            inset-inline-start: $sidebar-rail-width;
+        }
+    }
+
+    [data-layout='topbar'] {
+        .global-statusbar,
+        .shell-panel,
+        .operations-dock.operations-dock--statusbar,
+        .walkthrough-shell.walkthrough-shell--statusbar {
+            inset-inline-start: 0;
+        }
+
+        .main-content--full-page,
+        .main-content:has(.workflow-page.fullscreen),
+        .main-content:has(.page-container--full-bleed) {
+            height: calc(100vh - #{$header-height} - var(--sk-statusbar-height));
+        }
+    }
+}
+
+@media (max-width: $breakpoint-md) {
+    .dashboard-layout { --sk-statusbar-height: 36px; }
+
+    .global-statusbar,
+    .shell-panel,
+    .operations-dock.operations-dock--statusbar,
+    .walkthrough-shell.walkthrough-shell--statusbar {
+        inset-inline: 0;
+    }
+
+    .global-statusbar {
+        justify-content: space-around;
+        padding-inline: max(4px, env(safe-area-inset-left)) max(4px, env(safe-area-inset-right));
+
+        &__segment,
+        .statusbar-select { justify-content: center; min-width: 32px; padding-inline: 7px; }
+
+        &__segment > span:not(.global-statusbar__pip),
+        .statusbar-select__value,
+        .statusbar-select > svg:last-of-type,
+        &__setup,
+        &__command { display: none; }
+
+        &__spacer { display: none; }
+        &__mobile-icon { display: block; }
+    }
+
+    .operations-dock.operations-dock--statusbar .operations-dock__panel {
+        grid-template-areas:
+            'header'
+            'tabs'
+            'list'
+            'detail';
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto minmax(80px, 0.7fr) minmax(0, 1.3fr);
+        height: min(68vh, 620px);
+    }
+
+    .operations-dock.operations-dock--statusbar .operations-dock__list {
+        border-inline-end: 0;
+        border-block-end: 1px solid var(--border-soft);
+    }
+
+    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub,
+    .shell-panel { height: min(68vh, 620px); }
+
+    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub__cards {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-layout .sidebar { height: calc(100dvh - var(--sk-statusbar-height)); }
+
+    .dashboard-layout .main-content {
+        padding-block-end: calc(#{$space-5} + var(--sk-statusbar-height));
+
+        &--full-page,
+        &:has(.workflow-page.fullscreen),
+        &:has(.page-container--full-bleed) {
+            height: calc(100dvh - #{$mobile-header-height} - env(safe-area-inset-top) - var(--sk-statusbar-height));
+        }
+    }
+}
+
+@keyframes shell-panel-enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shell-panel,
+    .operations-dock.operations-dock--statusbar .operations-dock__panel,
+    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub { animation: none; }
+}

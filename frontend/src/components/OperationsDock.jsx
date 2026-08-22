@@ -204,7 +204,7 @@ function ServiceLogDetail({ session, lines, error, onClear, onClose, logRef, t }
     );
 }
 
-export default function OperationsDock() {
+export default function OperationsDock({ hideLauncher = false, statusbarMode = false }) {
     const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -318,9 +318,9 @@ export default function OperationsDock() {
     });
 
     return (
-        <div className={`operations-dock${collapsed ? ' is-collapsed' : ' is-open'}`}>
+        <div className={`operations-dock${statusbarMode ? ' operations-dock--statusbar' : ''}${collapsed ? ' is-collapsed' : ' is-open'}`}>
             {collapsed ? (
-                <Button
+                hideLauncher ? null : <Button
                     type="button"
                     className="operations-dock__launcher"
                     onClick={toggle}

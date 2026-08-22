@@ -30,25 +30,23 @@ const CREATE_ITEMS = [
 export function QuickCreate({ className, variant = 'icon' }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    // 'icon' — compact square button (mobile top bar). 'sidebar' — small
-    // circular accent FAB (AI chat-bubble style) that lives on the first
-    // sidebar category row; its menu opens downward since the trigger sits at
-    // the top of the nav.
-    const fab = variant === 'sidebar';
+    // 'icon' — compact square button (mobile top bar). 'header' — the accent
+    // create button beside the ServerKit mark and GitHub star.
+    const header = variant === 'header';
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className={cn('quick-create', fab && 'quick-create--fab', className)}
+                    className={cn('quick-create', header && 'quick-create--header', className)}
                     title={t('app.quickCreate.createNew', 'Create new…')}
                     aria-label={t('app.quickCreate.createNew2', 'Create new')}
                 >
-                    <Plus size={fab ? 15 : 16} />
+                    <Plus size={header ? 15 : 16} />
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-                side={fab ? 'bottom' : 'top'}
+                side={header ? 'bottom' : 'top'}
                 align="end"
                 sideOffset={8}
             >

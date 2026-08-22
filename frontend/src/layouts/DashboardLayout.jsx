@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { OperationsProvider } from '../contexts/OperationsContext';
 import { WalkthroughProvider } from '../contexts/WalkthroughContext';
 import WalkthroughHub from '../components/WalkthroughHub';
+import GlobalStatusBar from '../components/GlobalStatusBar';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -127,9 +128,10 @@ const DashboardLayout = () => {
                     </ErrorBoundary>
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-                <OperationsDock />
-                <WalkthroughHub />
-                <AIAssistant />
+                <OperationsDock hideLauncher statusbarMode />
+                <WalkthroughHub hideLauncher statusbarMode />
+                <AIAssistant hideLauncher />
+                <GlobalStatusBar onOpenPalette={() => setPaletteOpen(true)} />
                 <PluginLoader api={api} />
             </div>
             </WalkthroughProvider>

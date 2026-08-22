@@ -144,7 +144,7 @@ function ActiveWalkthrough({ walkthrough, progress, currentStep, onBrowse, t }) 
     );
 }
 
-export default function WalkthroughHub() {
+export default function WalkthroughHub({ hideLauncher = false, statusbarMode = false }) {
     const { t } = useTranslation();
     const {
         state,
@@ -174,8 +174,8 @@ export default function WalkthroughHub() {
     };
 
     return (
-        <div className={`walkthrough-shell${open ? ' is-open' : ''}`}>
-            <Button
+        <div className={`walkthrough-shell${statusbarMode ? ' walkthrough-shell--statusbar' : ''}${open ? ' is-open' : ''}`}>
+            {!hideLauncher && <Button
                 type="button"
                 className="walkthrough-shell__launcher"
                 variant="outline"
@@ -190,7 +190,7 @@ export default function WalkthroughHub() {
                         total: activeProgress.total,
                     })
                     : t('app.walkthroughs.guides', 'Guides')}</span>
-            </Button>
+            </Button>}
 
             {open && (
                 <aside id="walkthrough-hub" className="walkthrough-hub" aria-label={t('app.walkthroughs.guides', 'Guides')}>
