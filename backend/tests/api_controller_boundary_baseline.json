@@ -3,7 +3,7 @@
   "policy": "Exact reviewed inventory of direct persistence, subprocess, and filesystem mutation calls in Flask API controllers. New calls are forbidden; remove entries as controllers delegate to services.",
   "counts": {
     "filesystem": 11,
-    "persistence": 498
+    "persistence": 504
   },
   "owners": {
     "api/admin.py": {
@@ -137,6 +137,10 @@
     "api/python.py": {
       "owner": "ServerKit backend / python domain",
       "rationale": "Legacy python controllers still cross a persistence or host-operation boundary; move each call into an app.services use case before removing it."
+    },
+    "api/recipes.py": {
+      "owner": "ServerKit backend / recipes domain",
+      "rationale": "Legacy recipes controllers still cross a persistence or host-operation boundary; move each call into an app.services use case before removing it."
     },
     "api/secrets_webhooks.py": {
       "owner": "ServerKit backend / secrets webhooks domain",
@@ -593,6 +597,12 @@
     "api/python.py::restart_app::persistence::db.session.commit()::1",
     "api/python.py::start_app::persistence::db.session.commit()::1",
     "api/python.py::stop_app::persistence::db.session.commit()::1",
+    "api/recipes.py::_normalized_recipe::persistence::ApplicationManifest.query.filter_by(project_id=project_id).first()::1",
+    "api/recipes.py::get_recipe_run::persistence::DeploymentJob.query.get(job_id)::1",
+    "api/recipes.py::start_recipe_run::persistence::Project.query.get(data.get('project_id'))::1",
+    "api/recipes.py::start_recipe_run::persistence::db.session.commit()::1",
+    "api/recipes.py::start_recipe_run::persistence::db.session.commit()::2",
+    "api/recipes.py::submit_recipe_handoff::persistence::DeploymentJob.query.get(job_id)::1",
     "api/secrets_webhooks.py::create_vault::persistence::Workspace.query.get(explicit_ws)::1",
     "api/security.py::get_application_sboms::persistence::SbomArtifact.query.filter_by(application_id=application_id).order_by(SbomArtifact.created_at.desc()).limit(50).all()::1",
     "api/security.py::get_image_scan::persistence::ImageVulnerabilityScan.query.get(scan_id)::1",
