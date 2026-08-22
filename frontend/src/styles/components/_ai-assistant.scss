@@ -133,6 +133,17 @@ body:has(.ui-sheet-content[data-state='open']) .sk-ai-bubble {
     }
 }
 
+// Shared console tab strip riding on top of the drawer — the assistant is the
+// right-docked tab of the same console the bottom panels belong to.
+.sk-ai-drawer__tabs {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--sk-ai-border);
+}
+
 .sk-ai-drawer__resize {
     position: absolute;
     top: 0;

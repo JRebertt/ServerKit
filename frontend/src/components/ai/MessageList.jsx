@@ -42,7 +42,7 @@ const MessageList = () => {
                 <div className="sk-ai-empty">
                     <div className="sk-ai-empty__icon"><Sparkles size={22} /></div>
                     <h3 className="sk-ai-empty__title">{t('app.messageList.serverkitAi', 'ServerKit AI')}</h3>
-                    <p className="sk-ai-empty__sub">{t('app.messageList.poweredByPrompture', 'powered by Prompture')}</p>
+                    <p className="sk-ai-empty__sub">{t('app.messageList.askAboutThisPage', 'Ask about this page, or anything on this server.')}</p>
                     {!providerConfigured ? (
                         <p className="sk-ai-empty__hint">
                             {t('app.messageList.theAssistantIsnTConfiguredYet', 'The assistant isn\'t configured yet. An admin can set a provider in')}
