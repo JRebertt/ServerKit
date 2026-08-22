@@ -48,7 +48,7 @@ export function WidgetFullscreen({ widget, type, ctx, onClose }) {
                             <button
                                 type="button"
                                 className="skw-iconbtn skw-iconbtn--bare"
-                                title={t('app.widgetFullscreen.close', 'Close')}
+                                title={t('common.actions.close', 'Close')}
                                 aria-label={t('app.widgetFullscreen.closeFullscreenWidget', 'Close fullscreen widget')}
                                 onClick={onClose}
                             >

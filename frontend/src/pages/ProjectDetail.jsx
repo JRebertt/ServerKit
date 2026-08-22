@@ -106,7 +106,7 @@ const ProjectDetail = () => {
     // bar does not appear, move, or vanish as the project resolves.
     if (loading) {
         return (
-            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title={t('app.projectDetail.project', 'Project')}>
+            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title={t('common.labels.project', 'Project')}>
                 <EmptyState loading loadingVariant="detail" title={t('app.projectDetail.loadingProject', 'Loading project')} />
             </PageLayout>
         );
@@ -114,7 +114,7 @@ const ProjectDetail = () => {
 
     if (error || !project) {
         return (
-            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title={t('app.projectDetail.project2', 'Project')}>
+            <PageLayout className="project-detail-page" icon={<FolderKanban size={20} />} title={t('common.labels.project', 'Project')}>
                 <EmptyState
                     icon={FolderKanban}
                     title={t('app.projectDetail.projectNotFound', 'Project not found')}
@@ -278,7 +278,7 @@ const ProjectDetail = () => {
                 isOpen={Boolean(deleteEnv)}
                 title={t('app.projectDetail.deleteEnvironment2', 'Delete environment "{{value}}"?', { value: deleteEnv?.name || '' })}
                 message={t('app.projectDetail.appsAssignedToThisEnvironmentWill', 'Apps assigned to this environment will stay in the project but lose their environment assignment. This cannot be undone.')}
-                confirmText={t('app.projectDetail.deleteEnvironment3', 'Delete environment')}
+                confirmText={t('app.projectDetail.deleteEnvironment', 'Delete environment')}
                 variant="danger"
                 onConfirm={handleDeleteEnvironment}
                 onCancel={() => setDeleteEnv(null)}
@@ -336,7 +336,7 @@ const CreateEnvironmentDialog = ({ projectId, open, onOpenChange, onCreated }) =
     }
 
     return (
-        <Modal open={open} onClose={() => { setName(''); onOpenChange(false); }} title={t('app.projectDetail.newEnvironment2', 'New Environment')}>
+        <Modal open={open} onClose={() => { setName(''); onOpenChange(false); }} title={t('app.projectDetail.newEnvironment', 'New Environment')}>
             <form onSubmit={handleSubmit}>
                 <p className="sk-modal__subtitle">
                     {t('app.projectDetail.commonNamesAreProductionStagingAnd', 'Common names are production, staging, and development — but any name works.')}
@@ -344,7 +344,7 @@ const CreateEnvironmentDialog = ({ projectId, open, onOpenChange, onCreated }) =
 
                 <div className="projects-form">
                         <div className="projects-form__field">
-                            <Label htmlFor="env-name">{t('app.projectDetail.name', 'Name')}</Label>
+                            <Label htmlFor="env-name">{t('common.labels.name', 'Name')}</Label>
                             <Input
                                 id="env-name"
                                 value={name}
@@ -358,7 +358,7 @@ const CreateEnvironmentDialog = ({ projectId, open, onOpenChange, onCreated }) =
 
                     <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            {t('app.projectDetail.cancel', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={submitting || !name.trim()}>
                             {submitting ? 'Creating…' : 'Create Environment'}

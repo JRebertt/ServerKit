@@ -31,7 +31,7 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             {sysItems.length > 0 && (
                 <section className="alerts-section">
                     <header className="alerts-section__header">
-                        <h3>{t('app.alertsTab.system', 'System')}</h3>
+                        <h3>{t('common.labels.system', 'System')}</h3>
                         <span className="alerts-section__count">{sysItems.length}</span>
                     </header>
                     <ul className="notifications-list">
@@ -53,7 +53,7 @@ const AlertsTab = ({ notifications, securityAlerts, onAcknowledge, onResolve }) 
             {openSec.length > 0 && (
                 <section className="alerts-section">
                     <header className="alerts-section__header">
-                        <h3>{t('app.alertsTab.security', 'Security')}</h3>
+                        <h3>{t('common.labels.security', 'Security')}</h3>
                         <span className="alerts-section__count">{openSec.length} open</span>
                     </header>
                     <ul className="notifications-list">

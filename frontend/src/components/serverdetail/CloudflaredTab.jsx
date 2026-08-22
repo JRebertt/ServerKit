@@ -266,7 +266,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
     const tunnelColumns = [
         {
             key: 'name',
-            headerKey: 'app.cloudflaredTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -293,7 +293,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
             // and would fall back to text, which turns the pick-list into a
             // typed fragment and both views above into no-ops.
             key: 'state',
-            headerKey: 'app.cloudflaredTab.state', header: 'State',
+            headerKey: 'common.labels.state', header: 'State',
             sortable: true,
             type: 'enum',
             enumOrder: ['connected', 'idle'],
@@ -320,7 +320,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
             // rather than inferred from the epoch `sortValue`, or the menu
             // would offer "is under 1754…" instead of a date picker.
             key: 'created',
-            headerKey: 'app.cloudflaredTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             type: 'date',
             value: (t) => t.created_at || null,
@@ -333,7 +333,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'actions',
-            headerKey: 'app.cloudflaredTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             className: 'actions-cell',
@@ -350,7 +350,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                     <button type="button"
                         className="btn-icon danger"
                         onClick={() => handleDelete(t)}
-                        title={t('app.cloudflaredTab.delete', 'Delete')}
+                        title={t('common.actions.delete', 'Delete')}
                     >
                         <TrashIcon />
                     </button>
@@ -411,7 +411,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                         under the rows it is counting. */}
                 </div>
                 <div className="cron-tab__actions">
-                    <Button variant="outline" onClick={loadTunnels} disabled={notInstalled}>{t('app.cloudflaredTab.refresh', 'Refresh')}</Button>
+                    <Button variant="outline" onClick={loadTunnels} disabled={notInstalled}>{t('common.actions.refresh', 'Refresh')}</Button>
                     <Button onClick={() => setShowCreateModal(true)} disabled={notInstalled || notAuthed}>
                         {t('app.cloudflaredTab.createTunnel', 'Create Tunnel')}
                     </Button>
@@ -504,7 +504,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
             <Modal
                 open={showCreateModal}
                 onClose={() => { if (!creating) setShowCreateModal(false); }}
-                title={t('app.cloudflaredTab.createTunnel2', 'Create Tunnel')}
+                title={t('app.cloudflaredTab.createTunnel', 'Create Tunnel')}
             >
                 <p className="sk-modal__subtitle">
                     {t('app.cloudflaredTab.provisionsANewCloudflareTunnelOn', 'Provisions a new Cloudflare Tunnel on this server.')}
@@ -523,7 +523,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                             <p className="text-xs text-muted-foreground">{t('app.cloudflaredTab.lettersNumbersDashesUnderscoresUpTo', 'Letters, numbers, dashes, underscores. Up to 32 chars.')}</p>
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={creating}>{t('app.cloudflaredTab.cancel', 'Cancel')}</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)} disabled={creating}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
                         </div>
                     </form>
@@ -550,7 +550,7 @@ const CloudflaredTab = ({ serverId, serverStatus }) => {
                             />
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setShowRouteModal(false)} disabled={routing}>{t('app.cloudflaredTab.cancel2', 'Cancel')}</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowRouteModal(false)} disabled={routing}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={routing}>{routing ? 'Adding…' : 'Add Route'}</Button>
                         </div>
                     </form>
@@ -571,7 +571,7 @@ const CloudflaredLoginCard = ({ login, onCancel }) => {
         return (
             <div className="cloudflared-login-card">
                 <p>{t('app.cloudflaredTab.askingTheAgentToStartThe', 'Asking the agent to start the Cloudflare login flow…')}</p>
-                <Button variant="outline" size="sm" onClick={onCancel}>{t('app.cloudflaredTab.cancel3', 'Cancel')}</Button>
+                <Button variant="outline" size="sm" onClick={onCancel}>{t('common.actions.cancel', 'Cancel')}</Button>
             </div>
         );
     }
@@ -601,7 +601,7 @@ const CloudflaredLoginCard = ({ login, onCancel }) => {
                 <p className="cloudflared-login-card__hint">
                     <strong>{t('app.cloudflaredTab.step22', 'Step 2 / 2:')}</strong> {t('app.cloudflaredTab.waitingForTheAgentToReceive', 'waiting for the agent to receive cert.pem from Cloudflare. This page will refresh automatically once authorisation completes.')}
                 </p>
-                <Button variant="outline" size="sm" onClick={onCancel}>{t('app.cloudflaredTab.cancel4', 'Cancel')}</Button>
+                <Button variant="outline" size="sm" onClick={onCancel}>{t('common.actions.cancel', 'Cancel')}</Button>
             </div>
         );
     }
@@ -616,7 +616,7 @@ const CloudflaredLoginCard = ({ login, onCancel }) => {
         return (
             <div className="cloudflared-login-card cloudflared-login-card--error">
                 <strong>{t('app.cloudflaredTab.loginFailed2', 'Login failed:')}</strong> {login.error || 'unknown error'}
-                <Button variant="outline" size="sm" onClick={onCancel}>{t('app.cloudflaredTab.dismiss', 'Dismiss')}</Button>
+                <Button variant="outline" size="sm" onClick={onCancel}>{t('common.actions.dismiss', 'Dismiss')}</Button>
             </div>
         );
     }

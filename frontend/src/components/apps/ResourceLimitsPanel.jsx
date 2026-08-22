@@ -125,7 +125,7 @@ const ResourceLimitsPanel = ({ app, onChanged }) => {
                         </div>
                         <div className="resource-bar-container">
                             <div className="resource-bar-header">
-                                <span className="resource-bar-label">{t('app.resourceLimitsPanel.memory', 'Memory')}</span>
+                                <span className="resource-bar-label">{t('common.labels.memory', 'Memory')}</span>
                                 <span className="resource-bar-value">
                                     {usage.memory_usage || '—'}
                                     {usage.memory_limit ? ` / ${usage.memory_limit}` : ''}

@@ -56,7 +56,7 @@ const ProfileTab = () => {
 
             <form onSubmit={handleSubmit} {...register('profile-username', 'settings-form')}>
                 <div className="form-group">
-                    <Label>{t('app.profileTab.username', 'Username')}</Label>
+                    <Label>{t('common.labels.username', 'Username')}</Label>
                     <Input
                         type="text"
                         value={formData.username}

@@ -86,7 +86,7 @@ export default function BackupsTab() {
     useEffect(() => { load(); }, [load]);
 
     async function remove(filename) {
-        const ok = await confirm({ title: t('app.backupsTab.deleteBackup', 'Delete backup'), message: t('app.backupsTab.deleteBackupThisCannotBeUndone', 'Delete backup "{{filename}}"? This cannot be undone.', { filename: filename }), confirmText: t('app.backupsTab.deleteBackup2', 'Delete backup'), variant: 'danger' });
+        const ok = await confirm({ title: t('app.backupsTab.deleteBackup', 'Delete backup'), message: t('app.backupsTab.deleteBackupThisCannotBeUndone', 'Delete backup "{{filename}}"? This cannot be undone.', { filename: filename }), confirmText: t('app.backupsTab.deleteBackup', 'Delete backup'), variant: 'danger' });
         if (!ok) return;
         try {
             await api.deleteDatabaseBackup(filename);
@@ -135,7 +135,7 @@ export default function BackupsTab() {
         },
         {
             key: 'size',
-            headerKey: 'app.backupsTab.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             type: 'num',
             value: (b) => (typeof b.size === 'number' ? b.size : null),
@@ -145,7 +145,7 @@ export default function BackupsTab() {
         },
         {
             key: 'created',
-            headerKey: 'app.backupsTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type the
             // column would offer "is under 1754…" instead of a date picker.

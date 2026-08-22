@@ -168,6 +168,59 @@ def test_embedded_schema_matches_docs_copy():
         set(MANIFEST_SCHEMA['definitions']['service']['properties']['type']['enum'])
 
 
+def test_recipe_blocks_normalize_and_summarize():
+    manifest = {
+        'version': 1,
+        'project': 'Media server',
+        'capabilities': [
+            'probe:render-group', 'handoff:token', 'apply:configure-media',
+            'verify:hardware-transcode',
+        ],
+        'requires': {
+            'cpuCores': 4, 'memoryMB': 4096, 'diskGB': 100,
+            'igpu': 'preferred',
+        },
+        'configure': [
+            {'id': 'render', 'type': 'probe', 'kind': 'render-group'},
+            {
+                'id': 'claim', 'type': 'handoff', 'kind': 'token',
+                'dependsOn': ['render'], 'ttlSeconds': 240,
+                'input': {'key': 'PLEX_CLAIM', 'label': 'Plex claim token',
+                          'url': 'https://plex.tv/claim'},
+            },
+            {'id': 'configure', 'type': 'apply', 'kind': 'configure-media',
+             'dependsOn': ['claim']},
+        ],
+        'verify': [
+            {'id': 'transcode', 'kind': 'hardware-transcode',
+             'dependsOn': ['configure']},
+        ],
+    }
+    normalized = ManifestSpecService.normalize(manifest)
+    assert normalized['requires']['igpu'] == 'preferred'
+    assert normalized['configure'][1]['ttl_seconds'] == 240
+    assert normalized['verify'][0]['type'] == 'verify'
+    assert normalized['verify'][0]['capability'] == 'verify:hardware-transcode'
+    summary = ManifestSpecService.summarize(normalized)['recipe']
+    assert summary['configure_steps'] == 3
+    assert summary['verify_steps'] == 1
+    assert summary['handoffs'][0]['ttl_seconds'] == 240
+
+
+def test_recipe_requires_declared_capabilities_and_ordered_dependencies():
+    with pytest.raises(ManifestError) as exc:
+        ManifestSpecService.normalize({
+            'version': 1,
+            'capabilities': [],
+            'configure': [
+                {'id': 'later', 'type': 'apply', 'kind': 'demo',
+                 'dependsOn': ['missing']},
+            ],
+        })
+    assert any('not declared' in error for error in exc.value.errors)
+    assert any('earlier recipe step' in error for error in exc.value.errors)
+
+
 # -- RepositoryManifestService integration ---------------------------------
 
 def test_repo_service_detects_v1(tmp_path):

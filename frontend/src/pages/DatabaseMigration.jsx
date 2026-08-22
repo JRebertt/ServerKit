@@ -241,7 +241,7 @@ const DatabaseMigration = () => {
                                     />
                                     <Input
                                         type="password"
-                                        placeholder={t('app.databaseMigration.password', 'Password')}
+                                        placeholder={t('common.labels.password', 'Password')}
                                         value={loginPassword}
                                         onChange={e => setLoginPassword(e.target.value)}
                                         required
@@ -269,7 +269,7 @@ const DatabaseMigration = () => {
                                 // Continue would just fail at "Can't locate revision".
                                 disabled={!isAuthenticated || !isAdmin || status.orphaned_revision}
                             >
-                                {t('app.databaseMigration.continue', 'Continue')} <ArrowRight size={16} />
+                                {t('common.actions.continue', 'Continue')} <ArrowRight size={16} />
                             </Button>
                         </div>
                     </div>
@@ -298,9 +298,9 @@ const DatabaseMigration = () => {
                                     disabled={backupLoading}
                                 >
                                     {backupLoading ? (
-                                        <><Loader size={16} className="spin" /> {t('app.databaseMigration.creatingBackup', 'Creating Backup...')}</>
+                                        <><Loader size={16} className="spin" /> {t('app.databaseMigration.creatingBackup', 'Creating Backup…')}</>
                                     ) : (
-                                        <><Download size={16} /> {t('app.databaseMigration.createBackup2', 'Create Backup')}</>
+                                        <><Download size={16} /> {t('app.databaseMigration.createBackup', 'Create Backup')}</>
                                     )}
                                 </Button>
                             </div>
@@ -328,7 +328,7 @@ const DatabaseMigration = () => {
 
                         <div className="wizard-nav">
                             <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(1)}>
-                                {t('app.databaseMigration.back', 'Back')}
+                                {t('common.actions.back', 'Back')}
                             </Button>
                             <div className="migration-nav-right">
                                 {!backupResult?.success && (
@@ -344,7 +344,7 @@ const DatabaseMigration = () => {
                                     onClick={() => setCurrentStep(3)}
                                     disabled={!backupResult?.success}
                                 >
-                                    {t('app.databaseMigration.continue2', 'Continue')} <ArrowRight size={16} />
+                                    {t('common.actions.continue', 'Continue')} <ArrowRight size={16} />
                                 </Button>
                             </div>
                         </div>
@@ -365,7 +365,7 @@ const DatabaseMigration = () => {
                         {!applyLoading && !applyError && (
                             <div className="migration-apply-actions">
                                 <Button className="btn-wizard-next" onClick={handleApply}>
-                                    <Database size={16} /> {t('app.databaseMigration.applyUpdates2', 'Apply Updates')}
+                                    <Database size={16} /> {t('app.databaseMigration.applyUpdates', 'Apply Updates')}
                                 </Button>
                             </div>
                         )}
@@ -373,7 +373,7 @@ const DatabaseMigration = () => {
                         {applyLoading && (
                             <div className="migration-progress">
                                 <Loader size={32} className="spin" />
-                                <span>{t('app.databaseMigration.updatingDatabaseSchema', 'Updating database schema...')}</span>
+                                <span>{t('app.databaseMigration.updatingDatabaseSchema', 'Updating database schema…')}</span>
                             </div>
                         )}
 
@@ -385,7 +385,7 @@ const DatabaseMigration = () => {
                                     <span>{applyError}</span>
                                 </div>
                                 <Button variant="ghost" className="btn-wizard-prev" onClick={handleApply}>
-                                    <RotateCcw size={14} /> {t('app.databaseMigration.retry', 'Retry')}
+                                    <RotateCcw size={14} /> {t('common.actions.retry', 'Retry')}
                                 </Button>
                             </div>
                         )}
@@ -393,7 +393,7 @@ const DatabaseMigration = () => {
                         {!applyLoading && (
                             <div className="wizard-nav">
                                 <Button variant="ghost" className="btn-wizard-prev" onClick={() => setCurrentStep(2)}>
-                                    {t('app.databaseMigration.back2', 'Back')}
+                                    {t('common.actions.back', 'Back')}
                                 </Button>
                                 <div />
                             </div>

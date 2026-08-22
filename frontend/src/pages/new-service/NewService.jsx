@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Link2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import ReviewStep from './ReviewStep';
 import { useTranslation } from 'react-i18next';
 
 const STEPS = [
-    { n: 1, labelKey: 'app.newService.source', label: 'Source' },
+    { n: 1, labelKey: 'common.labels.source', label: 'Source' },
     { n: 2, labelKey: 'app.newService.connect', label: 'Connect' },
     { n: 3, labelKey: 'app.newService.review', label: 'Review' },
 ];
@@ -21,6 +22,14 @@ const NewService = () => {
     const { t } = useTranslation();
     const form = useNewServiceForm();
     const { step, setStep, submitting, canSubmit, canProceedFromConnect, handleSubmit } = form;
+
+    useEffect(() => {
+        if (step === 3) {
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'service-review-ready' },
+            }));
+        }
+    }, [step]);
 
     useTopbarActions(() =>
         <>
@@ -36,7 +45,7 @@ const NewService = () => {
     );
 
     return (
-        <div className="sk-tabgroup__inner new-service-page">
+        <div className="sk-tabgroup__inner new-service-page" data-walkthrough="new-service">
             {/* Slim stepper header */}
             <nav className="new-service-page__stepper" aria-label={t('app.newService.progress', 'Progress')}>
                 {STEPS.map(({ n, label }) => {
@@ -68,11 +77,11 @@ const NewService = () => {
                 <div className="new-service-page__footer">
                     {step === 1 ? (
                         <Button type="button" variant="outline" asChild>
-                            <Link to="/services">{t('app.newService.cancel', 'Cancel')}</Link>
+                            <Link to="/services">{t('common.actions.cancel', 'Cancel')}</Link>
                         </Button>
                     ) : (
                         <Button type="button" variant="outline" onClick={() => setStep(step - 1)}>
-                            {t('app.newService.back', 'Back')}
+                            {t('common.actions.back', 'Back')}
                         </Button>
                     )}
 
@@ -82,11 +91,11 @@ const NewService = () => {
                             onClick={() => setStep(3)}
                             disabled={!canProceedFromConnect}
                         >
-                            {t('app.newService.continue', 'Continue')}
+                            {t('common.actions.continue', 'Continue')}
                         </Button>
                     )}
                     {step === 3 && (
-                        <Button type="submit" disabled={!canSubmit || submitting}>
+                        <Button type="submit" data-walkthrough="service-submit" disabled={!canSubmit || submitting}>
                             <Rocket size={16} />
                             {submitting
                                 ? (form.sourceMode === 'local' ? 'Registering…' : form.sourceMode === 'upload' ? 'Uploading…' : 'Deploying…')

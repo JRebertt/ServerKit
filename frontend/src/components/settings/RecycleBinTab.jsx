@@ -142,7 +142,7 @@ export default function RecycleBinTab() {
         },
         {
             key: 'kind',
-            headerKey: 'app.recycleBinTab.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -188,7 +188,7 @@ export default function RecycleBinTab() {
                         disabled={busyId === rowKey(r)}
                         onClick={() => restore(r)}
                     >
-                        <Undo2 size={14} /> {t('app.recycleBinTab.restore', 'Restore')}
+                        <Undo2 size={14} /> {t('common.actions.restore', 'Restore')}
                     </Button>
                     {isAdmin && (
                         <Button
@@ -236,7 +236,7 @@ export default function RecycleBinTab() {
                     </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                    <RefreshCw size={15} /> {t('app.recycleBinTab.refresh', 'Refresh')}
+                    <RefreshCw size={15} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             </div>
 
@@ -298,7 +298,7 @@ export default function RecycleBinTab() {
                 title={t('app.recycleBinTab.permanentlyDelete', 'Permanently delete “{{value}}”?', { value: purgeTarget?.label ?? '' })}
                 message={t('app.recycleBinTab.thisCannotBeUndoneTheRecord', 'This cannot be undone. The record is removed from the database for good.')}
                 details={purgeTarget ? `${purgeTarget.noun} · deleted ${purgeTarget.deleted_at?.slice(0, 10) || ''}` : ''}
-                confirmText={t('app.recycleBinTab.deletePermanently3', 'Delete permanently')}
+                confirmText={t('app.recycleBinTab.deletePermanently', 'Delete permanently')}
                 onConfirm={() => purgeTarget && purge(purgeTarget)}
                 onCancel={() => setPurgeTarget(null)}
             />

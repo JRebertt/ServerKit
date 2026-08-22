@@ -19,6 +19,10 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { useShortcut } from '../hooks/useShortcut';
 import { useTranslation } from 'react-i18next';
 import { OperationsProvider } from '../contexts/OperationsContext';
+import { WalkthroughProvider } from '../contexts/WalkthroughContext';
+import { ShellDockProvider } from '../contexts/ShellDockContext';
+import WalkthroughHub from '../components/WalkthroughHub';
+import GlobalStatusBar from '../components/GlobalStatusBar';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -97,11 +101,22 @@ const DashboardLayout = () => {
         ensureContributions();
     }, []);
 
+    // The sidebar "+" (QuickCreate) opens the palette. It lives outside this
+    // component's state, so it asks via a window event rather than prop
+    // drilling through Sidebar.
+    useEffect(() => {
+        const openPalette = () => setPaletteOpen(true);
+        window.addEventListener('serverkit:open-palette', openPalette);
+        return () => window.removeEventListener('serverkit:open-palette', openPalette);
+    }, []);
+
     return (
         <OperationsProvider>
         <LogsDrawerProvider>
             <AIProvider>
             <ConfirmProvider>
+            <WalkthroughProvider>
+            <ShellDockProvider>
             <div className="dashboard-layout">
                 <StagingBanner />
                 <MobileTopBar navOpen={navOpen} onToggle={() => setNavOpen(prev => !prev)} />
@@ -124,10 +139,14 @@ const DashboardLayout = () => {
                     </ErrorBoundary>
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-                <OperationsDock />
-                <AIAssistant />
+                <OperationsDock hideLauncher statusbarMode />
+                <WalkthroughHub hideLauncher statusbarMode />
+                <AIAssistant hideLauncher />
+                <GlobalStatusBar onOpenPalette={() => setPaletteOpen(true)} />
                 <PluginLoader api={api} />
             </div>
+            </ShellDockProvider>
+            </WalkthroughProvider>
             </ConfirmProvider>
             </AIProvider>
         </LogsDrawerProvider>

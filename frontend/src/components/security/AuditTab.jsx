@@ -56,7 +56,7 @@ const AuditTab = () => {
                     {loading && (
                         <div className="loading-state">
                             <div className="spinner"></div>
-                            <p>{t('app.auditTab.runningSecurityAudit', 'Running security audit...')}</p>
+                            <p>{t('app.auditTab.runningSecurityAudit', 'Running security audit…')}</p>
                         </div>
                     )}
 

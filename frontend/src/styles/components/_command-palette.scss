@@ -207,6 +207,101 @@
     color: $text-primary;
 }
 
+// Right-aligned mono annotation (e.g. a recipe's "5 steps").
+.command-palette__item-meta {
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    color: $text-tertiary;
+    font-size: 10.5px;
+}
+
+// --------------------------------------------
+// Create tile grid — the palette's empty state leads with create targets as
+// prototype pal-grid tiles, then the "+ n more" shelf expander.
+// --------------------------------------------
+.command-palette__create {
+    [cmdk-group-items] {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 2px 4px 8px;
+    }
+}
+
+.ui-command-item.command-palette__tile {
+    position: relative;
+    display: flex;
+    flex: 0 0 118px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 11px 11px 10px;
+    border: 1px solid $border-subtle;
+    border-radius: $radius-md;
+    background: var(--surface);
+    color: $text-secondary;
+    font-size: 11.5px;
+
+    &[data-selected='true'] {
+        @include status-variant(var(--accent-bright), var(--accent-bg), var(--accent-dim));
+    }
+
+    .command-palette__tile-icon {
+        display: grid;
+        place-items: center;
+        color: $text-tertiary;
+
+        svg { width: 18px; height: 18px; }
+    }
+
+    &[data-selected='true'] .command-palette__tile-icon { color: var(--accent-bright); }
+
+    .command-palette__tile-label {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .command-palette__tile-ext {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 11px;
+        height: 11px;
+        color: $text-tertiary;
+    }
+
+    &[data-selected='true'] .command-palette__tile-ext {
+        color: var(--accent-bright);
+        opacity: 0.65;
+    }
+}
+
+.command-palette__more {
+    display: flex;
+    width: calc(100% - 8px);
+    height: 29px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 0 4px 6px;
+    border: 1px dashed $border-default;
+    border-radius: $radius-md;
+    background: transparent;
+    color: $text-tertiary;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+    @include focus-ring();
+
+    &:hover {
+        border-color: $border-active;
+        background: var(--surface);
+        color: $text-primary;
+    }
+}
+
 // --------------------------------------------
 // Settings deep-link flash (plan 41, Phase 2): a palette result lands on the
 // exact card via ?focus=setting:<id>; useSettingFocus scrolls it into view and

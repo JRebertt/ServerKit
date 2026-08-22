@@ -26,7 +26,7 @@ function InstallBox({ command }) {
         <div className="cf-tunnels__install">
             <code className="cf-tunnels__cmd">{command}</code>
             <Button size="sm" variant="outline" onClick={handleCopy}>
-                {t('app.tunnelsPanel.copy', 'Copy')}
+                {t('common.actions.copy', 'Copy')}
             </Button>
         </div>
     );
@@ -138,7 +138,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                 {tunnel.connections != null && (
                     <span className="cf-tunnels__meta">{tunnel.connections}</span>
                 )}
-                {tunnel.managed && <Badge variant="secondary">{t('app.tunnelsPanel.serverkit', 'ServerKit')}</Badge>}
+                {tunnel.managed && <Badge variant="secondary">{t('common.labels.serverKit', 'ServerKit')}</Badge>}
             </div>
 
             <div className="cf-tunnels__item-actions">
@@ -164,7 +164,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                     onClick={handleDelete}
                     disabled={writeDisabled}
                 >
-                    {t('app.tunnelsPanel.delete', 'Delete')}
+                    {t('common.actions.delete', 'Delete')}
                 </Button>
             </div>
 
@@ -186,7 +186,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                                     onClick={() => handleRemoveHostname(h)}
                                     disabled={writeDisabled}
                                 >
-                                    {t('app.tunnelsPanel.remove', 'Remove')}
+                                    {t('common.actions.remove', 'Remove')}
                                 </Button>
                             </div>
                         ))
@@ -210,7 +210,7 @@ function TunnelRow({ zoneId, tunnel, isAdmin, onChanged }) {
                             onClick={handleAddHostname}
                             disabled={writeDisabled || !hostname.trim() || !service.trim()}
                         >
-                            {t('app.tunnelsPanel.add', 'Add')}
+                            {t('common.actions.add', 'Add')}
                         </Button>
                     </div>
                     <p className="cf-tunnels__hint">
@@ -306,7 +306,7 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
                 </p>
 
                 <div className="cf-tunnels__field">
-                    <label className="cf-tunnels__label">{t('app.tunnelsPanel.name', 'Name')}</label>
+                    <label className="cf-tunnels__label">{t('common.labels.name', 'Name')}</label>
                     <Input
                         value={name}
                         placeholder="home-jellyfin"
@@ -317,7 +317,7 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
 
                 <div className="cf-tunnels__actions">
                     <Button onClick={handleCreate} disabled={createDisabled}>
-                        {t('app.tunnelsPanel.create', 'Create')}
+                        {t('common.actions.create', 'Create')}
                     </Button>
                 </div>
 
@@ -332,7 +332,7 @@ export default function TunnelsPanel({ zoneId, isAdmin }) {
                             variant="ghost"
                             onClick={() => setLastInstall(null)}
                         >
-                            {t('app.tunnelsPanel.dismiss', 'Dismiss')}
+                            {t('common.actions.dismiss', 'Dismiss')}
                         </Button>
                     </div>
                 )}

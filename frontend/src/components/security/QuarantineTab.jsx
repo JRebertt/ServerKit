@@ -156,7 +156,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'size',
-            headerKey: 'app.quarantineTab.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             type: 'num',
             value: (file) => (file.size == null ? null : Number(file.size)),
@@ -182,7 +182,7 @@ const QuarantineTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.quarantineTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (file) => (
@@ -194,14 +194,14 @@ const QuarantineTab = () => {
                         disabled={!file.original_path}
                         title={file.original_path ? t('app.quarantineTab.restoreToOriginalLocation', 'Restore to original location') : t('app.quarantineTab.originalLocationUnknown', 'Original location unknown')}
                     >
-                        {t('app.quarantineTab.restore', 'Restore')}
+                        {t('common.actions.restore', 'Restore')}
                     </Button>
                     <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDelete(file.name)}
                     >
-                        {t('app.quarantineTab.delete', 'Delete')}
+                        {t('common.actions.delete', 'Delete')}
                     </Button>
                 </div>
             ),

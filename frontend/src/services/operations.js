@@ -1,6 +1,8 @@
 import { isTerminalRunStatus } from '../hooks/runStream.js';
 
-const ACTIVE_STATUSES = new Set(['pending', 'running']);
+// A Recipe waiting on a human handoff is still an active run. It belongs in
+// the active list and the Needs attention filter, not buried in history.
+const ACTIVE_STATUSES = new Set(['pending', 'running', 'waiting']);
 const SECURITY_KIND = /^security[.]/;
 
 const stringId = (value) => (value == null ? null : String(value));
@@ -83,9 +85,19 @@ function deploymentResource(job) {
     return null;
 }
 
+function deploymentHandoff(job) {
+    const candidates = [job?.handoff, job?.result?.handoff];
+    return candidates.find((candidate) => (
+        candidate !== null
+        && typeof candidate === 'object'
+        && !Array.isArray(candidate)
+    )) || null;
+}
+
 export function normalizeDeploymentOperation(job) {
     if (!job?.id) return null;
     const target = job.app_name || job.target_server_name;
+    const handoff = deploymentHandoff(job);
     return {
         id: stringId(job.id),
         runKind: 'deploy',
@@ -104,6 +116,7 @@ export function normalizeDeploymentOperation(job) {
         canRetry: permissionFlag(job, 'can_retry', 'canRetry'),
         requiresAction: permissionFlag(job, 'requires_action', 'requiresAction') || job.handoff === true,
         needsAttention: permissionFlag(job, 'needs_attention', 'needsAttention'),
+        handoff,
         detailPath: job.detailPath || `/deployments/${encodeURIComponent(String(job.id))}`,
     };
 }

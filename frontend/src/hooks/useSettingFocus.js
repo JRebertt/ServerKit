@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import useFocusParam from './useFocusParam';
+import { scrollBehavior } from '@/utils/reducedMotion';
 
 /**
  * Settings deep-link focus (plan 41, Phase 2). A settings tab calls this hook
@@ -37,7 +38,7 @@ export default function useSettingFocus() {
         const tryScroll = () => {
             const el = refs.current.get(focusedId);
             if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.scrollIntoView({ behavior: scrollBehavior(), block: 'center' });
                 clearTimer = setTimeout(() => setFocusedId(null), 2000);
                 return;
             }

@@ -65,7 +65,7 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
         <div className="shared-tags">
             <div className="shared-tags__list">
                 {loading ? (
-                    <span className="shared-tags__hint">{t('app.tagsPanel.loading', 'Loading…')}</span>
+                    <span className="shared-tags__hint">{t('common.loading', 'Loading…')}</span>
                 ) : tags.length === 0 ? (
                     <span className="shared-tags__hint">{t('app.tagsPanel.noTagsYet', 'No tags yet')}</span>
                 ) : (
@@ -98,7 +98,7 @@ const TagsPanel = ({ resourceType, resourceId, readOnly = false }) => {
                         className="shared-tags__input"
                     />
                     <Button type="submit" size="sm" disabled={saving || !newTag.trim()}>
-                        {t('app.tagsPanel.add', 'Add')}
+                        {t('common.actions.add', 'Add')}
                     </Button>
                 </form>
             )}

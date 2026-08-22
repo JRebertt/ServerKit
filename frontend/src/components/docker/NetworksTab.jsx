@@ -168,7 +168,7 @@ const NetworksTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.networksTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -185,7 +185,7 @@ const NetworksTab = ({ onStatsChange }) => {
         },
         {
             key: 'kind',
-            headerKey: 'app.networksTab.kind', header: 'Kind',
+            headerKey: 'common.labels.kind', header: 'Kind',
             sortable: true,
             // Declared: three built-ins plus one custom network is a two-value
             // column that infers as text, which would turn the view above into a
@@ -238,7 +238,7 @@ const NetworksTab = ({ onStatsChange }) => {
                 <div className="dx-row-actions">
                     {networkKind(network) === 'Built-in' ? (
                         <span className="dx-row-protected" title={t('app.networksTab.shipsWithTheDockerDaemonIt', 'Ships with the Docker daemon — it cannot be removed')}>
-                            <Lock size={11} /> {t('app.networksTab.system', 'System')}
+                            <Lock size={11} /> {t('common.labels.system', 'System')}
                         </span>
                     ) : (
                         <button
@@ -284,7 +284,7 @@ const NetworksTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">{t('app.networksTab.loadingNetworks', 'Loading networks...')}</div>
+                <div className="docker-loading">{t('app.networksTab.loadingNetworks', 'Loading networks…')}</div>
             </div>
         );
     }
@@ -374,7 +374,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={t('app.networksTab.createNetwork3', 'Create Network')} size="md">
+        <Modal open onClose={onClose} title={t('app.networksTab.createNetwork2', 'Create Network')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
@@ -390,7 +390,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>{t('app.networksTab.driver2', 'Driver')}</label>
+                    <label>{t('app.networksTab.driver', 'Driver')}</label>
                     <select value={driver} onChange={(e) => setDriver(e.target.value)}>
                         <option value="bridge">bridge</option>
                         <option value="overlay">overlay</option>
@@ -400,7 +400,7 @@ const CreateNetworkModal = ({ onClose, onCreated }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        {t('app.networksTab.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Network'}

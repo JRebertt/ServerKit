@@ -80,7 +80,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                 )}
 
                 {loading ? (
-                    <div className="modal-loading">{t('app.linkAppModal.loadingCompatibleApps', 'Loading compatible apps...')}</div>
+                    <div className="modal-loading">{t('app.linkAppModal.loadingCompatibleApps', 'Loading compatible apps…')}</div>
                 ) : apps.length === 0 ? (
                     <div className="link-app-empty">
                         <GitBranch size={32} />
@@ -89,7 +89,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                             {t('app.linkAppModal.thereAreNoOther', 'There are no other')} {app.app_type} {t('app.linkAppModal.applicationsAvailableToLinkCreateAnother', 'applications available to link. Create another')} {app.app_type} {t('app.linkAppModal.appFirstOrEnsureExistingApps', 'app first, or ensure existing apps are not already linked.')}
                         </p>
                         <button type="button" className="btn btn-secondary" onClick={onClose}>
-                            {t('app.linkAppModal.close', 'Close')}
+                            {t('common.actions.close', 'Close')}
                         </button>
                     </div>
                 ) : (
@@ -107,7 +107,7 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
                                 onChange={(e) => setSelectedAppId(e.target.value)}
                                 required
                             >
-                                <option value="">{t('app.linkAppModal.selectAnApplication', 'Select an application...')}</option>
+                                <option value="">{t('app.linkAppModal.selectAnApplication', 'Select an application…')}</option>
                                 {apps.map(a => (
                                     <option key={a.id} value={a.id}>
                                         {a.name} (Port: {a.port || 'N/A'})
@@ -196,11 +196,11 @@ const LinkAppModal = ({ app, onClose, onLinked }) => {
 
                         <div className="modal-actions">
                             <button type="button" className="btn btn-secondary" onClick={onClose}>
-                                {t('app.linkAppModal.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </button>
                             <button type="submit" className="btn btn-primary" disabled={linking || !selectedAppId}>
                                 {linking ? (
-                                    <>{t('app.linkAppModal.linking', 'Linking...')}</>
+                                    <>{t('app.linkAppModal.linking', 'Linking…')}</>
                                 ) : (
                                     <>
                                         <Check size={16} />

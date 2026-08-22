@@ -63,7 +63,7 @@ const LogsTab = ({ app }) => {
                         {t('app.logsTab.autoRefresh', 'Auto-refresh')}
                     </label>
                     <Button variant="outline" size="sm" onClick={loadLogs}>
-                        {t('app.logsTab.refresh', 'Refresh')}
+                        {t('common.actions.refresh', 'Refresh')}
                     </Button>
                 </div>
             </div>

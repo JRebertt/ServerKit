@@ -38,6 +38,7 @@ export const ROUTE_COMPONENTS = Object.freeze({
     PublicStatusPage: lazy(() => import('../pages/PublicStatusPage')),
     QueueDetail: lazy(() => import('../pages/QueueDetail')),
     QueueOperations: lazy(() => import('../pages/QueueOperations')),
+    Recipes: lazy(() => import('../pages/Recipes')),
     Register: lazy(() => import('../pages/Register')),
     Security: lazy(() => import('../pages/Security')),
     ServerDetail: lazy(() => import('../pages/ServerDetail')),

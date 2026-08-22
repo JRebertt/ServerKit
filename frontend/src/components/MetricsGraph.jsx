@@ -245,7 +245,7 @@ const MetricsGraph = ({ compact = false, timezone, serverId }) => {
                         className={`filter-btn disk ${visibleMetrics.disk ? 'active' : ''}`}
                         onClick={() => toggleMetric('disk')}
                     >
-                        {t('app.metricsGraph.disk', 'Disk')}
+                        {t('common.labels.disk', 'Disk')}
                     </button>
                 </div>
                 <div className="period-selector">

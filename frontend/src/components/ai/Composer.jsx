@@ -83,7 +83,7 @@ const Composer = () => {
                     aria-label={t('app.composer.messageTheAssistant', 'Message the assistant')}
                 />
                 {isStreaming ? (
-                    <Button type="button" className="sk-ai-composer__btn sk-ai-composer__btn--stop" onClick={stop} aria-label={t('app.composer.stop', 'Stop')}>
+                    <Button type="button" className="sk-ai-composer__btn sk-ai-composer__btn--stop" onClick={stop} aria-label={t('common.actions.stop', 'Stop')}>
                         <Square size={16} />
                     </Button>
                 ) : (

@@ -11,11 +11,15 @@ on:
 jobs:
   bump-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # Skip if commit message contains [skip ci] or [skip version]
     if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip version]') && !startsWith(github.event.head_commit.message, 'chore: bump version')"
 
     permissions:
+      actions: read
       contents: write
+      pull-requests: read
+      statuses: write
 
     steps:
       - name: Checkout
@@ -95,18 +99,108 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
 
+      # A GITHUB_TOKEN push deliberately does not start another workflow run.
+      # Advancing dev immediately therefore used to replace the tested PR head
+      # with an untested VERSION-only commit. Wait for every sibling run on the
+      # triggering SHA first; on a red commit, do not advance dev at all.
+      - name: Wait for sibling CI before advancing dev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          deadline=$((SECONDS + 2400))
+          settled_polls=0
+
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            runs_file="$RUNNER_TEMP/serverkit-sibling-runs.json"
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --commit "$GITHUB_SHA" \
+              --limit 100 \
+              --json workflowName,event,status,conclusion,url \
+              > "$runs_file"
+
+            relevant=$(jq '[.[] | select(
+              .workflowName != "Version Bump"
+              and .workflowName != "Discord Notify"
+            )]' "$runs_file")
+            failed=$(jq -r '.[] | select(
+              .status == "completed"
+              and .conclusion != "success"
+              and .conclusion != "skipped"
+              and .conclusion != "neutral"
+            ) | "\(.workflowName) [\(.event)]: \(.conclusion) — \(.url)"' \
+              <<< "$relevant")
+            if [ -n "$failed" ]; then
+              echo "::error::Sibling CI failed; VERSION will not advance."
+              printf '%s\n' "$failed"
+              exit 1
+            fi
+
+            pending=$(jq '[.[] | select(.status != "completed")] | length' \
+              <<< "$relevant")
+            total=$(jq 'length' <<< "$relevant")
+            echo "Sibling CI: $total discovered, $pending still running"
+
+            if [ "$pending" -eq 0 ]; then
+              settled_polls=$((settled_polls + 1))
+              # Three quiet polls prevent a just-created push/PR run from being
+              # missed before GitHub has indexed it for `gh run list`.
+              if [ "$settled_polls" -ge 3 ]; then
+                break
+              fi
+            else
+              settled_polls=0
+            fi
+            sleep 10
+          done
+
+          if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "::error::Timed out waiting for sibling CI; VERSION will not advance."
+            exit 1
+          fi
+
       - name: Update VERSION file
         run: |
           echo "${{ steps.new.outputs.version }}" > VERSION
           cat VERSION
 
       - name: Commit and push
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add VERSION
           git commit -m "chore: bump version to ${{ steps.new.outputs.version }} [skip ci]"
           git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # The bot push cannot fire Main Promotion either. Publish the exact
+      # required context only after sibling CI passed and an open same-repo
+      # dev -> main promotion was verified. This keeps strict branch protection
+      # attached to the generated head instead of the now-parent commit.
+      - name: Preserve the promotion gate on the generated commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          pr_number=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f base=main \
+            -f head="$owner:dev" \
+            --jq '.[0].number // empty')
+
+          if [ -z "$pr_number" ]; then
+            echo "No open dev -> main promotion; no promotion status is needed."
+            exit 0
+          fi
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$NEW_SHA" \
+            -f state=success \
+            -f context='Require dev source' \
+            -f description='Sibling CI passed; verified same-repository dev -> main promotion' \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "Published Require dev source for PR #$pr_number at $NEW_SHA"
 
       - name: Create summary
         env:

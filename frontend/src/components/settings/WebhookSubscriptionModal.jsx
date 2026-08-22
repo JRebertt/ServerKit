@@ -80,7 +80,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <Label>{t('app.webhookSubscriptionModal.name', 'Name')}</Label>
+                            <Label>{t('common.labels.name', 'Name')}</Label>
                             <Input
                                 type="text"
                                 value={name}
@@ -158,7 +158,7 @@ const WebhookSubscriptionModal = ({ subscription, onClose, onSubmit }) => {
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <Button type="button" variant="outline" onClick={onClose}>{t('app.webhookSubscriptionModal.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button
                             type="submit"
                             variant="default"

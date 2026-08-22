@@ -128,13 +128,13 @@ export default function Email() {
             tabs={tabs}
             actions={(
                 <Button variant="outline" size="sm" onClick={() => { loadStatus(); loadDomains(); }}>
-                    <RefreshCw size={14} /> {t('app.email.refresh', 'Refresh')}
+                    <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             )}
         >
             <div className="sk-email">
                 {loading ? (
-                    <div className="sk-email__empty">{t('app.email.loading', 'Loading…')}</div>
+                    <div className="sk-email__empty">{t('common.loading', 'Loading…')}</div>
                 ) : (
                     <>
                         {activeTab === 'overview' && (
@@ -235,7 +235,7 @@ function OverviewTab({ status, installed, onChange }) {
         { key: 'component', headerKey: 'app.email.component', header: 'Component', sortable: true, hideable: false, sortValue: (r) => r.name, render: (r) => r.name },
         {
             key: 'state',
-            headerKey: 'app.email.state', header: 'State',
+            headerKey: 'common.labels.state', header: 'State',
             sortable: true,
             sortValue: (r) => (r.running ? 1 : 0),
             render: (r) => <Pill kind={r.running ? 'green' : 'red'}>{r.running ? 'Running' : 'Stopped'}</Pill>,
@@ -252,7 +252,7 @@ function OverviewTab({ status, installed, onChange }) {
                         {r.running ? 'Restart' : 'Start'}
                     </Button>
                     {r.running && (
-                        <Button variant="ghost" size="sm" onClick={() => control(r.name, 'stop')}>{t('app.email.stop', 'Stop')}</Button>
+                        <Button variant="ghost" size="sm" onClick={() => control(r.name, 'stop')}>{t('common.actions.stop', 'Stop')}</Button>
                     )}
                 </div>
             ),
@@ -262,12 +262,12 @@ function OverviewTab({ status, installed, onChange }) {
     return (
         <section className="sk-email__section">
             <KpiBand>
-                <MetricCard label={t('app.email.domains', 'Domains')} value={status?.domains_count ?? 0} tone="accent" icon={<Globe size={16} />} />
+                <MetricCard label={t('common.labels.domains', 'Domains')} value={status?.domains_count ?? 0} tone="accent" icon={<Globe size={16} />} />
                 <MetricCard label={t('app.email.accounts', 'Accounts')} value={status?.accounts_count ?? 0} tone="cyan" icon={<Users size={16} />} />
                 <MetricCard label={t('app.email.queue', 'Queue')} value={status?.queue_count ?? 0} tone="amber" icon={<Inbox size={16} />} />
             </KpiBand>
 
-            <h2 className="sk-email__section-title"><Server size={16} /> {t('app.email.services', 'Services')}</h2>
+            <h2 className="sk-email__section-title"><Server size={16} /> {t('common.labels.services', 'Services')}</h2>
             <DataTable
                 columns={serviceColumns}
                 data={serviceRows}
@@ -307,7 +307,7 @@ function DomainsTab({ domains, onChange }) {
         const ok = await confirm({
             title: t('app.email.deleteDomain', 'Delete domain'),
             message: t('app.email.deleteAndAllOfItsAccounts', 'Delete {{name}} and all of its accounts and aliases?', { name: domain.name }),
-            confirmLabel: t('app.email.delete', 'Delete'),
+            confirmLabel: t('common.actions.delete', 'Delete'),
             danger: true,
         });
         if (!ok) return;
@@ -399,7 +399,7 @@ function DomainsTab({ domains, onChange }) {
                                         <ExternalLink size={14} /> {t('app.email.deployDns', 'Deploy DNS')}
                                     </Button>
                                     <Button variant="ghost" size="sm" onClick={() => remove(domain)}>
-                                        <Trash2 size={14} /> {t('app.email.delete2', 'Delete')}
+                                        <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                                     </Button>
                                 </div>
                             </li>
@@ -515,7 +515,7 @@ function AccountsTab({ domains }) {
         const ok = await confirm({
             title: t('app.email.deleteAccount', 'Delete account'),
             message: t('app.email.delete3', 'Delete {{email}}?', { email: account.email }),
-            confirmLabel: t('app.email.delete4', 'Delete'),
+            confirmLabel: t('common.actions.delete', 'Delete'),
             danger: true,
         });
         if (!ok) return;
@@ -524,7 +524,7 @@ function AccountsTab({ domains }) {
             toast.success(t('app.email.accountDeleted', 'Account deleted'));
             load();
         } catch {
-            toast.error(t('app.email.deleteFailed2', 'Delete failed'));
+            toast.error(t('app.email.deleteFailed', 'Delete failed'));
         }
     };
 
@@ -570,7 +570,7 @@ function AccountsTab({ domains }) {
         },
         {
             key: 'state',
-            headerKey: 'app.email.state2', header: 'State',
+            headerKey: 'common.labels.state', header: 'State',
             sortable: true,
             // Filter on the label the pill shows; keep the 1/0 sortValue so
             // "Active first" still puts active first when the column sorts desc.
@@ -588,7 +588,7 @@ function AccountsTab({ domains }) {
             render: (a) => (
                 <div className="sk-email__actions">
                     <Button variant="ghost" size="sm" onClick={() => remove(a)}>
-                        <Trash2 size={14} /> {t('app.email.delete5', 'Delete')}
+                        <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                     </Button>
                 </div>
             ),
@@ -641,7 +641,7 @@ function AccountsTab({ domains }) {
             />
             <ListToolbar className="sk-email__filters">
                 <label>
-                    {t('app.email.domain', 'Domain')}
+                    {t('common.labels.domain', 'Domain')}
                     <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
                         {domains.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
                     </select>
@@ -652,7 +652,7 @@ function AccountsTab({ domains }) {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder={t('app.email.searchAccountsByAddress', 'Search accounts by address...')}
+                        placeholder={t('app.email.searchAccountsByAddress', 'Search accounts by address…')}
                         aria-label={t('app.email.searchAccounts', 'Search accounts')}
                     />
                 </label>
@@ -681,7 +681,7 @@ function AccountsTab({ domains }) {
                     placeholder={t('app.email.quotaMb', 'Quota (MB)')}
                     aria-label={t('app.email.quotaInMb', 'Quota in MB')}
                 />
-                <Button type="submit" size="sm"><Plus size={14} /> {t('app.email.create', 'Create')}</Button>
+                <Button type="submit" size="sm"><Plus size={14} /> {t('common.actions.create', 'Create')}</Button>
             </form>
 
             <DataTable
@@ -747,24 +747,24 @@ function RelayTab() {
         }
     };
 
-    if (loading) return <div className="sk-email__empty">{t('app.email.loading2', 'Loading…')}</div>;
+    if (loading) return <div className="sk-email__empty">{t('common.loading', 'Loading…')}</div>;
 
     return (
         <section className="sk-email__section">
             <h2 className="sk-email__section-title"><Send size={16} /> {t('app.email.outboundRelaySmarthost', 'Outbound relay (smarthost)')}</h2>
             <form className="sk-email__form" onSubmit={save}>
                 <label>{t('app.email.host', 'Host')}<Input value={relay.host || ''} onChange={(e) => setRelay({ ...relay, host: e.target.value })} placeholder="smtp.provider.com" /></label>
-                <label>{t('app.email.port', 'Port')}<Input type="number" value={relay.port || 587} onChange={(e) => setRelay({ ...relay, port: Number(e.target.value) })} /></label>
-                <label>{t('app.email.username', 'Username')}<Input value={relay.username || ''} onChange={(e) => setRelay({ ...relay, username: e.target.value })} /></label>
-                <label>{t('app.email.password', 'Password')}<Input type="password" value={relay.password || ''} onChange={(e) => setRelay({ ...relay, password: e.target.value })} /></label>
+                <label>{t('common.labels.port', 'Port')}<Input type="number" value={relay.port || 587} onChange={(e) => setRelay({ ...relay, port: Number(e.target.value) })} /></label>
+                <label>{t('common.labels.username', 'Username')}<Input value={relay.username || ''} onChange={(e) => setRelay({ ...relay, username: e.target.value })} /></label>
+                <label>{t('common.labels.password', 'Password')}<Input type="password" value={relay.password || ''} onChange={(e) => setRelay({ ...relay, password: e.target.value })} /></label>
                 <label className="sk-email__check">
                     <input type="checkbox" checked={!!relay.enabled} onChange={(e) => setRelay({ ...relay, enabled: e.target.checked })} />
                     {t('app.email.enableRelay', 'Enable relay')}
                 </label>
                 <div className="sk-email__actions">
-                    <Button type="submit" size="sm">{t('app.email.save', 'Save')}</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={test}>{t('app.email.test', 'Test')}</Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={disable}>{t('app.email.disable', 'Disable')}</Button>
+                    <Button type="submit" size="sm">{t('common.actions.save', 'Save')}</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={test}>{t('common.actions.test', 'Test')}</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={disable}>{t('common.actions.disable', 'Disable')}</Button>
                 </div>
             </form>
         </section>
@@ -793,7 +793,7 @@ function SpamTab() {
             await api.updateSpamConfig(config);
             toast.success(t('app.email.spamConfigSaved', 'Spam config saved'));
         } catch {
-            toast.error(t('app.email.saveFailed2', 'Save failed'));
+            toast.error(t('app.email.saveFailed', 'Save failed'));
         }
     };
 
@@ -806,7 +806,7 @@ function SpamTab() {
         }
     };
 
-    if (loading) return <div className="sk-email__empty">{t('app.email.loading3', 'Loading…')}</div>;
+    if (loading) return <div className="sk-email__empty">{t('common.loading', 'Loading…')}</div>;
 
     return (
         <section className="sk-email__section">
@@ -818,7 +818,7 @@ function SpamTab() {
                 </label>
                 <label>{t('app.email.requiredScore', 'Required score')}<Input type="number" step="0.1" value={config.required_score ?? 5} onChange={(e) => setConfig({ ...config, required_score: Number(e.target.value) })} /></label>
                 <div className="sk-email__actions">
-                    <Button type="submit" size="sm">{t('app.email.save2', 'Save')}</Button>
+                    <Button type="submit" size="sm">{t('common.actions.save', 'Save')}</Button>
                     <Button type="button" variant="outline" size="sm" onClick={updateRules}>{t('app.email.updateRules', 'Update rules')}</Button>
                 </div>
             </form>
@@ -866,7 +866,7 @@ function WebmailTab() {
         }
     };
 
-    if (loading) return <div className="sk-email__empty">{t('app.email.loading4', 'Loading…')}</div>;
+    if (loading) return <div className="sk-email__empty">{t('common.loading', 'Loading…')}</div>;
 
     const installed = state?.installed ?? state?.is_installed;
     const running = state?.running;
@@ -885,7 +885,7 @@ function WebmailTab() {
                     <Button variant="outline" size="sm" onClick={() => control(running ? 'restart' : 'start')}>
                         {running ? 'Restart' : 'Start'}
                     </Button>
-                    {running && <Button variant="ghost" size="sm" onClick={() => control('stop')}>{t('app.email.stop2', 'Stop')}</Button>}
+                    {running && <Button variant="ghost" size="sm" onClick={() => control('stop')}>{t('common.actions.stop', 'Stop')}</Button>}
                 </div>
             )}
         </section>
@@ -964,7 +964,7 @@ function QueueTab() {
             await api.deleteMailQueueItem(id);
             load();
         } catch {
-            toast.error(t('app.email.deleteFailed3', 'Delete failed'));
+            toast.error(t('app.email.deleteFailed', 'Delete failed'));
         }
     };
 
@@ -990,7 +990,7 @@ function QueueTab() {
         { key: 'recipient', headerKey: 'app.email.recipient', header: 'Recipient', sortable: true, sortValue: (item) => item.recipient || null, render: (item) => item.recipient || '-' },
         {
             key: 'size',
-            headerKey: 'app.email.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             // Bytes, straight off mailq. Typed explicitly because a preset
             // filters on it — inference would land on 'num' here anyway, but
@@ -1010,7 +1010,7 @@ function QueueTab() {
             render: (item) => (
                 <div className="sk-email__actions">
                     <Button variant="ghost" size="sm" onClick={() => remove(item.id || item.queue_id)}>
-                        <Trash2 size={14} /> {t('app.email.delete6', 'Delete')}
+                        <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                     </Button>
                 </div>
             ),

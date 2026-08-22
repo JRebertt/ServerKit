@@ -26,7 +26,7 @@ const ConfirmActionCard = () => {
         <div className="sk-ai-confirm" role="group" aria-label={t('app.confirmActionCard.confirmAction', 'Confirm action')}>
             <div className="sk-ai-confirm__head">
                 <ShieldAlert size={16} />
-                <span>{t('app.confirmActionCard.confirmAction2', 'Confirm action')}</span>
+                <span>{t('app.confirmActionCard.confirmAction', 'Confirm action')}</span>
             </div>
             <p className="sk-ai-confirm__summary">{pendingConfirm.summary}</p>
             {params ? (

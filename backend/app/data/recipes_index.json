@@ -1,0 +1,132 @@
+{
+  "$schema": "./schema/index.schema.json",
+  "name": "serverkit-recipes",
+  "recipes": [
+    {
+      "slug": "minecraft-java",
+      "name": "Minecraft server",
+      "version": "1.4.0",
+      "category": "Game servers",
+      "icon": "box",
+      "description": "Paper server with RCON, auto-restart and a nightly world backup.",
+      "author": "serverkit",
+      "minutes": 4,
+      "featured": true,
+      "requirements": { "cpuCores": 4, "memoryMB": 8192, "diskGB": 40, "igpu": "none", "gpu": "none" },
+      "capabilities": [
+        "probe:runtime.java", "probe:hardware.capacity", "apply:files.fetch",
+        "handoff:text", "handoff:secret", "apply:systemd.unit",
+        "verify:net.listen", "verify:backup.schedule"
+      ],
+      "inputs": [
+        { "key": "world_name", "label": "World name", "help": "Becomes the level-name in server.properties.", "placeholder": "survival-01" },
+        { "key": "max_players", "label": "Max players", "help": "Slot count advertised to clients.", "placeholder": "20" },
+        { "key": "motd", "label": "MOTD", "help": "Message of the day shown in the server list.", "placeholder": "Welcome to the server" }
+      ],
+      "handoffs": [
+        { "key": "rcon_password", "label": "RCON password", "secret": true }
+      ],
+      "steps": 8,
+      "manifest": "recipes/minecraft-java/recipe.yaml"
+    },
+    {
+      "slug": "plex",
+      "name": "Plex Media Server",
+      "version": "2.1.0",
+      "category": "Media",
+      "icon": "play",
+      "description": "Plex with hardware transcoding, claimed to your account and pointed at your library.",
+      "author": "serverkit",
+      "minutes": 6,
+      "featured": true,
+      "requirements": { "cpuCores": 4, "memoryMB": 8192, "diskGB": 200, "igpu": "required", "gpu": "none" },
+      "capabilities": [
+        "probe:device.dri", "handoff:text", "derive:config.libraries",
+        "apply:container.pull", "handoff:secret", "apply:container.run",
+        "verify:media.transcode"
+      ],
+      "inputs": [
+        { "key": "server_name", "label": "Server name", "help": "How this server appears in your Plex apps.", "placeholder": "acme-plex" },
+        { "key": "media_path", "label": "Media path", "help": "Absolute path to your library on the server.", "placeholder": "/srv/media" }
+      ],
+      "handoffs": [
+        { "key": "claim_token", "label": "Plex claim token", "secret": true, "url": "https://plex.tv/claim" }
+      ],
+      "steps": 6,
+      "manifest": "recipes/plex/recipe.yaml"
+    },
+    {
+      "slug": "jellyfin",
+      "name": "Jellyfin",
+      "version": "1.6.0",
+      "category": "Media",
+      "icon": "play",
+      "description": "Open-source media server, no account required. Hardware transcode when a device is present.",
+      "author": "serverkit",
+      "minutes": 4,
+      "featured": false,
+      "requirements": { "cpuCores": 2, "memoryMB": 4096, "diskGB": 100, "igpu": "preferred", "gpu": "none" },
+      "capabilities": [
+        "probe:device.dri", "handoff:text", "derive:config.jellyfin",
+        "apply:container.run", "handoff:secret", "verify:http.probe"
+      ],
+      "inputs": [
+        { "key": "server_name", "label": "Server name", "help": "How this server appears in Jellyfin clients.", "placeholder": "jellyfin" }
+      ],
+      "handoffs": [
+        { "key": "admin_password", "label": "Admin password", "secret": true }
+      ],
+      "steps": 5,
+      "manifest": "recipes/jellyfin/recipe.yaml"
+    },
+    {
+      "slug": "vaultwarden",
+      "name": "Vaultwarden",
+      "version": "1.2.0",
+      "category": "Security",
+      "icon": "lock",
+      "description": "Bitwarden-compatible vault behind Caddy, with TLS and an admin token.",
+      "author": "serverkit",
+      "minutes": 3,
+      "featured": false,
+      "requirements": { "cpuCores": 1, "memoryMB": 1024, "diskGB": 10, "igpu": "none", "gpu": "none" },
+      "capabilities": [
+        "probe:proxy.caddy", "handoff:text", "derive:config.env",
+        "apply:container.run", "apply:tls.cert", "handoff:secret",
+        "verify:http.probe"
+      ],
+      "inputs": [
+        { "key": "domain", "label": "Domain", "help": "The hostname the vault answers on.", "placeholder": "vault.acme.dev" },
+        { "key": "admin_email", "label": "Admin email", "help": "Used for the TLS certificate contact.", "placeholder": "ops@acme.dev" }
+      ],
+      "handoffs": [
+        { "key": "admin_token", "label": "Admin token", "secret": true }
+      ],
+      "steps": 7,
+      "manifest": "recipes/vaultwarden/recipe.yaml"
+    },
+    {
+      "slug": "ollama",
+      "name": "Ollama",
+      "version": "0.9.0",
+      "category": "AI",
+      "icon": "zap",
+      "description": "Local model runner with an OpenAI-compatible endpoint. Unattended — no secrets needed.",
+      "author": "serverkit",
+      "minutes": 7,
+      "featured": true,
+      "requirements": { "cpuCores": 4, "memoryMB": 16384, "diskGB": 100, "igpu": "none", "gpu": "preferred" },
+      "capabilities": [
+        "probe:device.gpu", "handoff:text", "derive:config.models",
+        "apply:package.install", "apply:model.pull", "verify:http.probe"
+      ],
+      "inputs": [
+        { "key": "models", "label": "Models to pull", "help": "Comma-separated model tags.", "placeholder": "llama3.1:8b, qwen2.5:7b" },
+        { "key": "listen_port", "label": "Port", "help": "HTTP port for the API endpoint.", "placeholder": "11434" }
+      ],
+      "handoffs": [],
+      "steps": 6,
+      "manifest": "recipes/ollama/recipe.yaml"
+    }
+  ]
+}

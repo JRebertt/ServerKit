@@ -86,7 +86,7 @@ export default function EmailProviders() {
             if (r.success) toast.success(t('app.emailProviders.credentialsOk', 'Credentials OK')); else toast.error(r.error || t('app.emailProviders.testFailed', 'Test failed'));
             load();
         } catch {
-            toast.error(t('app.emailProviders.testFailed2', 'Test failed'));
+            toast.error(t('app.emailProviders.testFailed', 'Test failed'));
         } finally {
             setBusy(false);
         }
@@ -110,7 +110,7 @@ export default function EmailProviders() {
             </header>
 
             {loading ? (
-                <div className="sk-eprov__empty">{t('app.emailProviders.loading', 'Loading…')}</div>
+                <div className="sk-eprov__empty">{t('common.loading', 'Loading…')}</div>
             ) : (
                 <>
                     {providers.length === 0 ? (
@@ -124,7 +124,7 @@ export default function EmailProviders() {
                                     <div className="sk-eprov__meta">
                                         <span className="sk-eprov__name">
                                             {p.name}
-                                            {p.is_default && <span className="sk-eprov__badge">{t('app.emailProviders.default', 'Default')}</span>}
+                                            {p.is_default && <span className="sk-eprov__badge">{t('common.labels.default', 'Default')}</span>}
                                         </span>
                                         <span className="sk-eprov__type">
                                             {p.provider}
@@ -136,16 +136,16 @@ export default function EmailProviders() {
                                     <div className="sk-eprov__actions">
                                         {!p.is_default && (
                                             <Button variant="ghost" size="sm" onClick={() => onDefault(p.id)}>
-                                                <Star size={14} /> {t('app.emailProviders.default2', 'Default')}
+                                                <Star size={14} /> {t('common.labels.default', 'Default')}
                                             </Button>
                                         )}
                                         <Button variant="ghost" size="sm" disabled={busy} onClick={() => onTest(p.id)}>
-                                            <Check size={14} /> {t('app.emailProviders.test', 'Test')}
+                                            <Check size={14} /> {t('common.actions.test', 'Test')}
                                         </Button>
                                         {confirmId === p.id ? (
                                             <Button variant="destructive" size="sm" onClick={() => onDelete(p.id)}>{t('app.emailProviders.confirm', 'Confirm')}</Button>
                                         ) : (
-                                            <Button variant="ghost" size="sm" onClick={() => setConfirmId(p.id)} aria-label={t('app.emailProviders.remove', 'Remove')}>
+                                            <Button variant="ghost" size="sm" onClick={() => setConfirmId(p.id)} aria-label={t('common.actions.remove', 'Remove')}>
                                                 <Trash2 size={14} />
                                             </Button>
                                         )}
@@ -165,7 +165,7 @@ export default function EmailProviders() {
                         </div>
                     ) : (
                         <div className="sk-eprov__form">
-                            <div className="sk-eprov__form-title">{t('app.emailProviders.add', 'Add')} {spec?.name}</div>
+                            <div className="sk-eprov__form-title">{t('common.actions.add', 'Add')} {spec?.name}</div>
                             <div className="sk-eprov__grid">
                                 <Field label={t('app.emailProviders.displayName', 'Display name')}>
                                     <Input value={form.name || ''} onChange={(e) => onField('name', e.target.value)} placeholder={spec?.name} />
@@ -200,7 +200,7 @@ export default function EmailProviders() {
                                 ))}
                             </div>
                             <div className="sk-eprov__form-actions">
-                                <Button variant="outline" size="sm" onClick={cancel} disabled={busy}>{t('app.emailProviders.cancel', 'Cancel')}</Button>
+                                <Button variant="outline" size="sm" onClick={cancel} disabled={busy}>{t('common.actions.cancel', 'Cancel')}</Button>
                                 <Button size="sm" onClick={submit} disabled={busy}>{busy ? 'Adding…' : 'Add & test'}</Button>
                             </div>
                         </div>

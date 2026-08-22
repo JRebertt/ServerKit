@@ -247,6 +247,26 @@ class DeploymentJobService:
             return {'success': False,
                     'error': 'Only failed deployments can be retried'}
 
+        # Recipes are explicitly resumable. A clone would discard the
+        # completed-step ledger and orphan any still-valid encrypted handoff
+        # values under the old run id, turning Retry into "start over". Resume
+        # the same run from its first incomplete step instead.
+        if job.kind == 'recipe.run':
+            job.status = 'pending'
+            job.error_message = None
+            job.completed_at = None
+            job.requested_by = user_id or job.requested_by
+            db.session.commit()
+            try:
+                cls._enqueue_registered(job)
+            except Exception as exc:
+                db.session.rollback()
+                job.mark_failed(f'Failed to queue Recipe resume: {exc}')
+                db.session.commit()
+                return {'success': False, 'error': job.error_message, 'job_id': job.id}
+            return {'success': True, 'job_id': job.id,
+                    'job': job.to_dict(include_logs=True), 'resumed': True}
+
         clone = DeploymentJob(
             id=str(uuid.uuid4()),
             kind=job.kind,
@@ -545,7 +565,11 @@ class DeploymentJobService:
             trigger=trigger,
             correlation_id=generate_correlation_id(),
         )
-        job.set_plan({**(plan or {}), 'steps': [{'name': n} for n in (steps or [])]})
+        normalized_steps = [
+            dict(step) if isinstance(step, dict) else {'name': step}
+            for step in (steps or [])
+        ]
+        job.set_plan({**(plan or {}), 'steps': normalized_steps})
         job.total_steps = len(steps or [])
         db.session.add(job)
         db.session.commit()
@@ -622,8 +646,10 @@ class DeploymentJobService:
             return {'success': False, 'error': str(exc), 'job_id': job.id}
 
         stream.flush()
-        # A handler may finalise the job itself; only fill in what it left.
-        if job.status not in ('succeeded', 'failed'):
+        # A handler may finalise or pause the job itself; only fill in what it
+        # left. ``waiting`` is the Recipe handoff state: nonterminal, visible in
+        # Operations, and resumed by enqueueing this SAME deployment job.
+        if job.status not in ('succeeded', 'failed', 'waiting'):
             if result.get('success', True):
                 job.mark_succeeded()
             else:
@@ -633,6 +659,11 @@ class DeploymentJobService:
             # A handler that reported failure by return value logged nothing;
             # without this the console shows a failed run with no reason in it.
             stream.log('error', job.error_message)
+        if job.status == 'waiting':
+            stream.flush()
+            stream.emit_status()
+            return {**result, 'success': True, 'paused': True, 'job_id': job.id}
+
         # close() persists step timings (and, on failure, the tail + hint) into
         # the job's result and emits the terminal status the console listens for.
         stream.close(job.status, error_message=job.error_message)

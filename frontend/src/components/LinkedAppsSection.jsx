@@ -117,7 +117,7 @@ const LinkedAppsSection = ({
                             disabled={loading}
                         >
                             <Link2 size={14} />
-                            {t('app.linkedAppsSection.linkApp2', 'Link App')}
+                            {t('app.linkedAppsSection.linkApp', 'Link App')}
                         </button>
                     </div>
                 ) : (

@@ -21,7 +21,7 @@ export function useConfirm() {
         title: '',
         message: '',
         confirmTextKey: 'app.useConfirm.confirm', confirmText: 'Confirm',
-        cancelTextKey: 'app.useConfirm.cancel', cancelText: 'Cancel',
+        cancelTextKey: 'common.actions.cancel', cancelText: 'Cancel',
         variant: 'danger',
         resolve: null,
     });

@@ -180,7 +180,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.invitationsTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: effectiveStatus,
@@ -193,7 +193,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'created',
-            headerKey: 'app.invitationsTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             type: 'date',
             value: (inv) => inv.created_at || null,
@@ -215,7 +215,7 @@ const InvitationsTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.invitationsTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -307,7 +307,7 @@ const InvitationsTab = () => {
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <div className="loading-state">{t('app.invitationsTab.loadingInvitations', 'Loading invitations...')}</div>
+                <div className="loading-state">{t('app.invitationsTab.loadingInvitations', 'Loading invitations…')}</div>
             ) : invitations.length === 0 ? (
                 <EmptyState title={t('app.invitationsTab.noInvitationsYet', 'No invitations yet')} />
             ) : (

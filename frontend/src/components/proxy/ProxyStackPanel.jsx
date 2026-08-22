@@ -174,7 +174,7 @@ const ProxyStackPanel = ({ serverId }) => {
         return (
             <div className="proxy-panel">
                 <div className="proxy-panel__error">{error}</div>
-                <Button variant="outline" onClick={load}>{t('app.proxyStackPanel.retry', 'Retry')}</Button>
+                <Button variant="outline" onClick={load}>{t('common.actions.retry', 'Retry')}</Button>
             </div>
         );
     }
@@ -190,7 +190,7 @@ const ProxyStackPanel = ({ serverId }) => {
                     <h3>{t('app.proxyStackPanel.reverseProxy', 'Reverse Proxy')}</h3>
                 </div>
                 <div className="proxy-panel__status">
-                    <span className="proxy-panel__status-label">{t('app.proxyStackPanel.status', 'Status')}</span>
+                    <span className="proxy-panel__status-label">{t('common.labels.status', 'Status')}</span>
                     <Pill kind={serviceStatusKind(stack?.status)}>
                         {savedIsNginx ? 'host nginx' : (stack?.status || 'unknown')}
                     </Pill>
@@ -229,7 +229,7 @@ const ProxyStackPanel = ({ serverId }) => {
             {audit && audit.mismatch_count === 0 && audit.app_count > 0 && (
                 <div className="proxy-panel__ingress-ok">
                     <CheckCircle2 size={14} />
-                    {t('app.proxyStackPanel.all', 'All')} {audit.app_count} app{audit.app_count === 1 ? '' : 's'} {t('app.proxyStackPanel.alignedWithThisServerSIngress', 'aligned with this server\'s ingress plane.')}
+                    {t('common.labels.all', 'All')} {audit.app_count} app{audit.app_count === 1 ? '' : 's'} {t('app.proxyStackPanel.alignedWithThisServerSIngress', 'aligned with this server\'s ingress plane.')}
                 </div>
             )}
 

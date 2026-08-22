@@ -70,7 +70,7 @@ const AutoUpdatesTab = () => {
     };
 
     if (loading) {
-        return <div className="loading-sm">{t('app.autoUpdatesTab.loadingAutoUpdatesStatus', 'Loading auto-updates status...')}</div>;
+        return <div className="loading-sm">{t('app.autoUpdatesTab.loadingAutoUpdatesStatus', 'Loading auto-updates status…')}</div>;
     }
 
     if (!status?.supported) {
@@ -90,7 +90,7 @@ const AutoUpdatesTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>{t('app.autoUpdatesTab.automaticSecurityUpdates', 'Automatic Security Updates')}</h3>
-                    <Button variant="outline" size="sm" onClick={loadStatus}>{t('app.autoUpdatesTab.refresh', 'Refresh')}</Button>
+                    <Button variant="outline" size="sm" onClick={loadStatus}>{t('common.actions.refresh', 'Refresh')}</Button>
                 </div>
                 <div className="card-body">
                     <div className="sec-rows">
@@ -105,7 +105,7 @@ const AutoUpdatesTab = () => {
                             </Pill>
                         </div>
                         <div className="sk-info-row">
-                            <span className="k">{t('app.autoUpdatesTab.status', 'Status')}</span>
+                            <span className="k">{t('common.labels.status', 'Status')}</span>
                             <Pill kind={status.enabled ? 'green' : 'gray'}>
                                 {status.enabled ? 'Enabled' : 'Disabled'}
                             </Pill>

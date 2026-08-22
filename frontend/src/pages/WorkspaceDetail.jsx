@@ -28,12 +28,12 @@ import { useTranslation } from 'react-i18next';
 const VALID_TABS = ['overview', 'servers', 'services', 'sites', 'members', 'settings'];
 
 const TAB_META = {
-    overview: { labelKey: 'app.workspaceDetail.overview', label: 'Overview', icon: LayoutGrid },
-    servers: { labelKey: 'app.workspaceDetail.servers', label: 'Servers', icon: Server },
-    services: { labelKey: 'app.workspaceDetail.services', label: 'Services', icon: Box },
+    overview: { labelKey: 'common.labels.overview', label: 'Overview', icon: LayoutGrid },
+    servers: { labelKey: 'common.labels.servers', label: 'Servers', icon: Server },
+    services: { labelKey: 'common.labels.services', label: 'Services', icon: Box },
     sites: { labelKey: 'app.workspaceDetail.sites', label: 'Sites', icon: Globe },
     members: { labelKey: 'app.workspaceDetail.members', label: 'Members', icon: Users },
-    settings: { labelKey: 'app.workspaceDetail.settings', label: 'Settings', icon: Settings2 },
+    settings: { labelKey: 'common.labels.settings', label: 'Settings', icon: Settings2 },
 };
 
 const formatSince = (iso) => {
@@ -194,7 +194,7 @@ const WorkspaceDetail = () => {
     // Pre-load states take the same shell as the loaded page.
     if (loading) {
         return (
-            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('app.workspaceDetail.workspace', 'Workspace')}>
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('common.labels.workspace', 'Workspace')}>
                 <EmptyState loading loadingVariant="detail" title={t('app.workspaceDetail.loadingWorkspace', 'Loading workspace')} />
             </PageLayout>
         );
@@ -202,7 +202,7 @@ const WorkspaceDetail = () => {
 
     if (!ws) {
         return (
-            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('app.workspaceDetail.workspace2', 'Workspace')}>
+            <PageLayout className="ws-detail-page" icon={<LayoutGrid size={18} />} title={t('common.labels.workspace', 'Workspace')}>
                 <Link className="ws-detail__back" to="/workspaces"><ChevronLeft size={14} /> {t('app.workspaceDetail.allWorkspaces', 'All workspaces')}</Link>
                 <EmptyState icon={LayoutGrid} title={t('app.workspaceDetail.workspaceNotFound', 'Workspace not found')} description={t('app.workspaceDetail.itMayHaveBeenDeletedOr', 'It may have been deleted, or you may not have access.')} />
             </PageLayout>

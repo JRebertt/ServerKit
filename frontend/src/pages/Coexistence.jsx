@@ -102,7 +102,7 @@ export default function Coexistence() {
             actions={
                 <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                     <RefreshCw size={15} />
-                    {t('app.coexistence.refresh', 'Refresh')}
+                    {t('common.actions.refresh', 'Refresh')}
                 </Button>
             }
         >

@@ -9,6 +9,7 @@ import { AreaChart, KpiBand, MetricCard, Pill, Sparkline } from '@/components/ds
 import { Button } from '@/components/ui/button';
 import EmptyState from '../EmptyState';
 import MonitorsSummary from './MonitorsSummary';
+import DiskReclaimModal from './DiskReclaimModal';
 import { HOST_SCOPE, useScopeMetrics, trendOf } from './useMonitorScope';
 import { useTranslation } from 'react-i18next';
 
@@ -48,6 +49,7 @@ export default function MonitoringOverview({
 }) {
     const { t } = useTranslation();
     const [period, setPeriod] = useState('24h');
+    const [reclaimOpen, setReclaimOpen] = useState(false);
     const { series, loading } = useScopeMetrics(scope, period, refreshKey);
 
     // The fleet strip: current values per server in one call, CPU history for
@@ -235,6 +237,15 @@ export default function MonitoringOverview({
                             ) : undefined}
                         >
                             {tile.sub && <div className="sk-kpi__sub"><span>{tile.sub}</span></div>}
+                            {/* A full disk is the one tile alert that comes with
+                                its own fix: the curated safe reclaim. Host-only —
+                                agents reclaim on their own boxes. */}
+                            {isHost && tile.key === 'disk' && alerting && (
+                                <Button size="sm" variant="ghost" onClick={() => setReclaimOpen(true)}>
+                                    <HardDrive size={12} />
+                                    {t('app.diskReclaim.reclaimSpace', 'Reclaim space')}
+                                </Button>
+                            )}
                         </MetricCard>
                     );
                 })}
@@ -272,8 +283,8 @@ export default function MonitoringOverview({
                             <span className="mon-panel-sub">{scopeLabel} {t('app.monitoringOverview.percentUsedLast', '· percent used · last')} {period}</span>
                         </div>
                         <div className="mon-legend">
-                            <span><i className="is-memory" />{t('app.monitoringOverview.memory', 'Memory')}</span>
-                            <span><i className="is-disk" />{t('app.monitoringOverview.disk', 'Disk')}</span>
+                            <span><i className="is-memory" />{t('common.labels.memory', 'Memory')}</span>
+                            <span><i className="is-disk" />{t('common.labels.disk', 'Disk')}</span>
                         </div>
                     </div>
                     <ChartBody loading={loading} values={series?.memory}>
@@ -400,6 +411,8 @@ export default function MonitoringOverview({
                     )}
                 </section>
             </div>
+
+            <DiskReclaimModal open={reclaimOpen} onClose={() => setReclaimOpen(false)} />
         </div>
     );
 }

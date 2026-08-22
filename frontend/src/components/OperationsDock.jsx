@@ -5,6 +5,7 @@ import {
     AlertTriangle,
     ArrowUpRight,
     Clock3,
+    KeyRound,
     ListRestart,
     RotateCcw,
     Square,
@@ -14,7 +15,9 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useOperations } from '../contexts/OperationsContext';
+import { useShellDock } from '../contexts/ShellDockContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { usePolling } from '../hooks/usePolling';
@@ -23,6 +26,8 @@ import api from '../services/api';
 import { operationKey } from '../services/operations';
 import { formatDuration } from '../utils/time';
 import IconButton from './IconButton';
+import FormField from './FormField';
+import ShellDockTabs from './ShellDockTabs';
 import Pill from './ds/Pill';
 import { statusKind, statusLabel } from './ds/status';
 
@@ -70,6 +75,96 @@ function OperationProgress({ operation, t }) {
     );
 }
 
+function RecipeHandoffCard({ operation, onSubmitted, t }) {
+    const handoff = operation.handoff;
+    const input = handoff?.input || {};
+    const [value, setValue] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+    const fieldId = `recipe-handoff-${operation.id}-${handoff?.step_id || 'input'}`;
+
+    useEffect(() => {
+        setValue('');
+        setError(null);
+        setSubmitting(false);
+    }, [operation.id, handoff?.step_id]);
+
+    if (!handoff || !operation.requiresAction) return null;
+
+    const submit = async (event) => {
+        event.preventDefault();
+        if (!value.trim() || submitting) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            await api.submitRecipeHandoff(operation.id, handoff.step_id, value);
+            setValue('');
+            await onSubmitted();
+        } catch (submitError) {
+            setError(submitError?.message || t(
+                'app.operationsDock.handoffFailed',
+                'Could not submit this handoff',
+            ));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const ttlMinutes = handoff.ttl_seconds
+        ? Math.max(1, Math.ceil(handoff.ttl_seconds / 60))
+        : null;
+
+    return (
+        <form className="operations-dock__handoff" onSubmit={submit}>
+            <div className="operations-dock__handoff-head">
+                <span className="operations-dock__handoff-icon"><KeyRound size={15} /></span>
+                <div>
+                    <span>{t('app.operationsDock.operatorHandoff', 'Operator handoff')}</span>
+                    <strong>{handoff.title}</strong>
+                </div>
+            </div>
+            {handoff.description && <p>{handoff.description}</p>}
+            <FormField
+                label={input.label || t('app.operationsDock.handoffValue', 'Required value')}
+                htmlFor={fieldId}
+                hint={input.help || (ttlMinutes
+                    ? t(
+                        'app.operationsDock.handoffExpiry',
+                        'The {{count}}-minute clock starts when you submit.',
+                        { count: ttlMinutes },
+                    )
+                    : null)}
+                error={error}
+                required
+            >
+                <Input
+                    id={fieldId}
+                    type={input.secret === false ? 'text' : 'password'}
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    autoComplete="off"
+                    disabled={submitting}
+                />
+            </FormField>
+            <div className="operations-dock__handoff-actions">
+                {input.url && (
+                    <Button asChild type="button" variant="ghost" size="sm">
+                        <a href={input.url} target="_blank" rel="noreferrer">
+                            {t('app.operationsDock.openHandoffLink', 'Open required link')}
+                            <ArrowUpRight size={13} />
+                        </a>
+                    </Button>
+                )}
+                <Button type="submit" size="sm" disabled={!value.trim() || submitting}>
+                    {submitting
+                        ? t('app.operationsDock.resumingRecipe', 'Resuming…')
+                        : t('app.operationsDock.continueRecipe', 'Continue Recipe')}
+                </Button>
+            </div>
+        </form>
+    );
+}
+
 function ServiceLogDetail({ session, lines, error, onClear, onClose, logRef, t }) {
     const source = session.logPath
         || (session.containerId != null ? `docker · ${String(session.containerId).slice(0, 12)}` : null)
@@ -94,24 +189,24 @@ function ServiceLogDetail({ session, lines, error, onClear, onClose, logRef, t }
             )}
             <div className="operations-dock__logs" ref={logRef}>
                 {lines.length === 0 ? (
-                    <span className="operations-dock__logs-empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs...')}</span>
+                    <span className="operations-dock__logs-empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs…')}</span>
                 ) : lines.slice(-250).map((line, index) => (
                     <div key={index} className="operations-dock__log-line">{line}</div>
                 ))}
             </div>
             <footer className="operations-dock__footer operations-dock__footer--end">
                 <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-                    {t('app.logsDrawer.clear', 'Clear')}
+                    {t('common.actions.clear', 'Clear')}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                    {t('app.logsDrawer.close', 'Close')}
+                    {t('common.actions.close', 'Close')}
                 </Button>
             </footer>
         </div>
     );
 }
 
-export default function OperationsDock() {
+export default function OperationsDock({ hideLauncher = false, statusbarMode = false }) {
     const { t } = useTranslation();
     const toast = useToast();
     const { confirm } = useConfirm();
@@ -136,6 +231,7 @@ export default function OperationsDock() {
         openOperation,
         setCollapsed,
     } = useOperations();
+    const { activeTab, expanded } = useShellDock();
     const [view, setView] = useState('active');
     const [now, setNow] = useState(Date.now());
     const logRef = useRef(null);
@@ -224,10 +320,15 @@ export default function OperationsDock() {
         count: activeOperations.length,
     });
 
+    // In statusbar mode the shell dock decides which console tab is visible;
+    // outside it the legacy collapsed/launcher behaviour is untouched.
+    const visible = statusbarMode ? activeTab === 'ops' : !collapsed;
+    if (statusbarMode && !visible) return null;
+
     return (
-        <div className={`operations-dock${collapsed ? ' is-collapsed' : ' is-open'}`}>
-            {collapsed ? (
-                <Button
+        <div className={`operations-dock${statusbarMode ? ' operations-dock--statusbar' : ''}${visible ? ' is-open' : ' is-collapsed'}`}>
+            {!visible ? (
+                hideLauncher ? null : <Button
                     type="button"
                     className="operations-dock__launcher"
                     onClick={toggle}
@@ -241,27 +342,44 @@ export default function OperationsDock() {
                     {unreadCount > 0 && <span className="operations-dock__unread" aria-label={t('app.operationsDock.unreadCount', '{{count}} unread', { count: unreadCount })}>{unreadCount}</span>}
                 </Button>
             ) : (
-                <section className="operations-dock__panel" aria-label={t('app.operationsDock.title', 'Operations')}>
+                <section
+                    className={`operations-dock__panel${statusbarMode && expanded ? ' is-expanded' : ''}`}
+                    aria-label={t('app.operationsDock.title', 'Operations')}
+                >
                     <header className="operations-dock__header">
-                        <div className="operations-dock__heading">
-                            <span className="operations-dock__icon"><Activity size={16} /></span>
-                            <div>
-                                <h2>{t('app.operationsDock.title', 'Operations')}</h2>
-                                <span>{activeLabel}</span>
-                            </div>
-                        </div>
-                        <div className="operations-dock__header-actions">
-                            <IconButton
-                                icon={<RotateCcw size={15} />}
-                                label={t('common.actions.refresh', 'Refresh')}
-                                onClick={refresh}
+                        {statusbarMode ? (
+                            <ShellDockTabs
+                                controls={(
+                                    <IconButton
+                                        icon={<RotateCcw size={15} />}
+                                        label={t('common.actions.refresh', 'Refresh')}
+                                        onClick={refresh}
+                                    />
+                                )}
                             />
-                            <IconButton
-                                icon={<X size={16} />}
-                                label={t('app.operationsDock.collapse', 'Collapse Operations dock')}
-                                onClick={() => setCollapsed(true)}
-                            />
-                        </div>
+                        ) : (
+                            <>
+                                <div className="operations-dock__heading">
+                                    <span className="operations-dock__icon"><Activity size={16} /></span>
+                                    <div>
+                                        <h2>{t('app.operationsDock.title', 'Operations')}</h2>
+                                        <span>{activeLabel}</span>
+                                    </div>
+                                </div>
+                                <div className="operations-dock__header-actions">
+                                    <IconButton
+                                        icon={<RotateCcw size={15} />}
+                                        label={t('common.actions.refresh', 'Refresh')}
+                                        onClick={refresh}
+                                    />
+                                    <IconButton
+                                        icon={<X size={16} />}
+                                        label={t('app.operationsDock.collapse', 'Collapse Operations dock')}
+                                        onClick={() => setCollapsed(true)}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </header>
 
                     <div className="operations-dock__tabs" role="tablist">
@@ -352,6 +470,18 @@ export default function OperationsDock() {
 
                             <OperationProgress operation={selectedOperation} t={t} />
 
+                            <RecipeHandoffCard
+                                operation={selectedOperation}
+                                onSubmitted={async () => {
+                                    await refresh();
+                                    toast.success(t(
+                                        'app.operationsDock.recipeResumed',
+                                        'Recipe resumed',
+                                    ));
+                                }}
+                                t={t}
+                            />
+
                             {(selectedOperation.error || selectedStreamError) && (
                                 <div className="operations-dock__error">
                                     <AlertTriangle size={15} />
@@ -394,7 +524,7 @@ export default function OperationsDock() {
                                     )}
                                     {selectedOperation.canCancel && (
                                         <Button type="button" variant="destructive" size="sm" onClick={cancelSelected}>
-                                            <Square size={13} /> {t('app.operationsDock.cancel', 'Cancel')}
+                                            <Square size={13} /> {t('common.actions.cancel', 'Cancel')}
                                         </Button>
                                     )}
                                 </div>

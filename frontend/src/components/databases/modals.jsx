@@ -28,7 +28,7 @@ function CredentialsResult({ title, rows, onDone }) {
                 ))}
             </div>
             <div className="modal-actions">
-                <Button onClick={onDone}>{t('app.modals.done', 'Done')}</Button>
+                <Button onClick={onDone}>{t('common.actions.done', 'Done')}</Button>
             </div>
         </Modal>
     );
@@ -231,7 +231,7 @@ export function CreateDatabaseModal({ engine: initialEngine = 'mysql', status, o
                     </label>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel', 'Cancel')}</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create database'}</Button>
                 </div>
             </form>
@@ -288,7 +288,7 @@ export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
                     <Input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="db_user" required autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.modals.password', 'Password')}</label>
+                    <label>{t('common.labels.password', 'Password')}</label>
                     <div className="input-with-button">
                         <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={t('app.modals.leaveEmptyToAutoGenerate', 'Leave empty to auto-generate')} />
                         <Button type="button" variant="outline" size="sm" onClick={generatePassword}>{t('app.modals.generate', 'Generate')}</Button>
@@ -305,12 +305,12 @@ export function CreateMySQLUserModal({ databases, onClose, onCreated }) {
                 <div className="form-group">
                     <label>{t('app.modals.grantPrivilegesOnDatabase', 'Grant privileges on database')}</label>
                     <select value={formData.database} onChange={(e) => setFormData({ ...formData, database: e.target.value })}>
-                        <option value="">{t('app.modals.none2', '— None —')}</option>
+                        <option value="">{t('app.modals.none', '— None —')}</option>
                         {databases.map((db) => <option key={db.name} value={db.name}>{db.name}</option>)}
                     </select>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel2', 'Cancel')}</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create user'}</Button>
                 </div>
             </form>
@@ -351,7 +351,7 @@ export function CreatePostgreSQLUserModal({ databases, onClose, onCreated }) {
     if (createdInfo) {
         return (
             <CredentialsResult
-                title={t('app.modals.userCreated2', 'User created')}
+                title={t('app.modals.userCreated', 'User created')}
                 rows={[['Username', createdInfo.username], ['Password', createdInfo.password]]}
                 onDone={() => { onCreated(); onClose(); }}
             />
@@ -363,25 +363,25 @@ export function CreatePostgreSQLUserModal({ databases, onClose, onCreated }) {
             {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label>{t('app.modals.username2', 'Username *')}</label>
+                    <label>{t('app.modals.username', 'Username *')}</label>
                     <Input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="db_user" required autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.modals.password2', 'Password')}</label>
+                    <label>{t('common.labels.password', 'Password')}</label>
                     <div className="input-with-button">
-                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={t('app.modals.leaveEmptyToAutoGenerate2', 'Leave empty to auto-generate')} />
-                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>{t('app.modals.generate2', 'Generate')}</Button>
+                        <Input type="text" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={t('app.modals.leaveEmptyToAutoGenerate', 'Leave empty to auto-generate')} />
+                        <Button type="button" variant="outline" size="sm" onClick={generatePassword}>{t('app.modals.generate', 'Generate')}</Button>
                     </div>
                 </div>
                 <div className="form-group">
-                    <label>{t('app.modals.grantPrivilegesOnDatabase2', 'Grant privileges on database')}</label>
+                    <label>{t('app.modals.grantPrivilegesOnDatabase', 'Grant privileges on database')}</label>
                     <select value={formData.database} onChange={(e) => setFormData({ ...formData, database: e.target.value })}>
-                        <option value="">{t('app.modals.none3', '— None —')}</option>
+                        <option value="">{t('app.modals.none', '— None —')}</option>
                         {databases.map((db) => <option key={db.name} value={db.name}>{db.name}</option>)}
                     </select>
                 </div>
                 <div className="modal-actions">
-                    <Button type="button" variant="outline" onClick={onClose}>{t('app.modals.cancel3', 'Cancel')}</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button type="submit" disabled={loading}>{loading ? 'Creating…' : 'Create user'}</Button>
                 </div>
             </form>

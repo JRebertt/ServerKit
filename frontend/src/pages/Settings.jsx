@@ -61,7 +61,7 @@ const Settings = () => {
     return (
         <PageLayout
             icon={<SettingsIcon size={18} />}
-            title={t('app.settings.settings', 'Settings')}
+            title={t('common.labels.settings', 'Settings')}
             className="settings-page"
         >
             <div className="settings-layout">
@@ -100,7 +100,7 @@ const Settings = () => {
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
-                        {t('app.settings.security', 'Security')}
+                        {t('common.labels.security', 'Security')}
                     </Button>
                     <Button
                         variant="ghost"
@@ -311,7 +311,7 @@ const Settings = () => {
                                         onClick={() => navigate('/style-guide')}
                                     >
                                         <PaintBucket size={18} />
-                                        {t('app.settings.styleGuide2', 'Style Guide')}
+                                        {t('app.settings.styleGuide', 'Style Guide')}
                                     </Button>
                                 </>
                             )}

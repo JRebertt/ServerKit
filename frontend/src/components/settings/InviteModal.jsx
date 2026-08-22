@@ -82,17 +82,17 @@ const InviteModal = ({ onClose, onCreated }) => {
                             </Button>
                         </div>
                         {result.email_sent && (
-                            <p className="text-success" style={{ marginTop: 12 }}>
+                            <p className="text-success invite-result-note">
                                 {t('app.inviteModal.invitationEmailSentTo', 'Invitation email sent to')} {result.invitation.email}
                             </p>
                         )}
                         {result.email_error && (
-                            <p className="text-warning" style={{ marginTop: 12 }}>
+                            <p className="text-warning invite-result-note">
                                 {t('app.inviteModal.emailCouldNotBeSent', 'Email could not be sent:')} {result.email_error}
                             </p>
                         )}
                     <div className="modal-footer">
-                        <Button variant="default" onClick={onClose}>{t('app.inviteModal.done', 'Done')}</Button>
+                        <Button variant="default" onClick={onClose}>{t('common.actions.done', 'Done')}</Button>
                     </div>
             </Modal>
         );
@@ -166,8 +166,8 @@ const InviteModal = ({ onClose, onCreated }) => {
                                         setShowPermissions(!showPermissions);
                                     }}
                                 >
-                                    {showPermissions ? 'Hide' : 'Customize'} {t('app.inviteModal.permissions', 'Permissions')}
-                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2" style={{ marginLeft: 4 }}>
+                                    {showPermissions ? 'Hide' : 'Customize'} {t('common.labels.permissions', 'Permissions')}
+                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2" className="invite-caret">
                                         {showPermissions
                                             ? <polyline points="18 15 12 9 6 15"/>
                                             : <polyline points="6 9 12 15 18 9"/>
@@ -185,7 +185,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-footer">
-                        <Button type="button" variant="ghost" onClick={onClose}>{t('app.inviteModal.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="ghost" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="submit" variant="default" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Invitation'}
                         </Button>

@@ -225,6 +225,86 @@
         font-size: $font-size-xs;
     }
 
+    &__handoff {
+        position: relative;
+        display: grid;
+        gap: $space-3;
+        padding: $space-3;
+        overflow: hidden;
+        border: 1px solid var(--amber);
+        border-radius: $radius-md;
+        background: var(--amber-bg);
+
+        &::before {
+            position: absolute;
+            inset-block: 0;
+            inset-inline-start: 0;
+            width: 3px;
+            background: var(--amber);
+            content: '';
+        }
+
+        > p {
+            margin: 0;
+            color: var(--text-dim);
+            font-size: $font-size-xs;
+            line-height: 1.55;
+        }
+
+        .form-field { gap: $space-1; }
+        .form-field__label { color: var(--text); font-size: $font-size-xs; }
+        .form-field__hint,
+        .form-field__error { margin-block: $space-1 0; font-size: 10px; }
+        input { font-family: var(--mono); }
+    }
+
+    &__handoff-head {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+
+        > div {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+        }
+
+        span:not(.operations-dock__handoff-icon) {
+            color: var(--amber);
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        strong {
+            overflow: hidden;
+            color: var(--text);
+            font-size: $font-size-sm;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    &__handoff-icon {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--amber);
+        border-radius: $radius-sm;
+        color: var(--amber);
+        background: var(--surface);
+    }
+
+    &__handoff-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: $space-2;
+    }
+
     &__logs {
         flex: 1;
         min-height: 100px;

@@ -286,7 +286,7 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
     }
 
     if (loading) {
-        return <div className="settings-section"><p>{t('app.siteSettingsTab.loading', 'Loading...')}</p></div>;
+        return <div className="settings-section"><p>{t('common.loading', 'Loading…')}</p></div>;
     }
 
     return (
@@ -332,7 +332,7 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                                 type="text"
                                 value={panelTitle}
                                 onChange={(e) => setPanelTitle(e.target.value)}
-                                placeholder={t('app.siteSettingsTab.serverkit', 'ServerKit')}
+                                placeholder={t('common.labels.serverKit', 'ServerKit')}
                                 className="w-56"
                             />
                         </div>
@@ -419,7 +419,7 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
 
             <div {...register('site-base-domains', 'settings-card')}>
                 <h3>{t('app.siteSettingsTab.managedSitesBaseDomains', 'Managed Sites — Base Domains')}</h3>
-                <p>{t('app.siteSettingsTab.publishManagedSitesAt', 'Publish managed sites at')} <code>&lt;name&gt;.&lt;base-domain&gt;</code>. Register one or more base domains; a new site can be created under any of them, defaulting to the one marked <strong>{t('app.siteSettingsTab.default', 'Default')}</strong>. Point a wildcard record <code>*.&lt;base&gt;</code> {t('app.siteSettingsTab.orPerSiteARecordsAt', '(or per-site A records) at this server.')}</p>
+                <p>{t('app.siteSettingsTab.publishManagedSitesAt', 'Publish managed sites at')} <code>&lt;name&gt;.&lt;base-domain&gt;</code>. Register one or more base domains; a new site can be created under any of them, defaulting to the one marked <strong>{t('common.labels.default', 'Default')}</strong>. Point a wildcard record <code>*.&lt;base&gt;</code> {t('app.siteSettingsTab.orPerSiteARecordsAt', '(or per-site A records) at this server.')}</p>
 
                 <div className="form-group">
                     <div className="settings-row">
@@ -478,7 +478,7 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                                 ) : (
                                     <span className="flex items-center gap-2">
                                         <code>{b.domain}</code>
-                                        {b.is_default && <Pill kind="blue" dot={false}>{t('app.siteSettingsTab.default2', 'Default')}</Pill>}
+                                        {b.is_default && <Pill kind="blue" dot={false}>{t('common.labels.default', 'Default')}</Pill>}
                                         <Pill kind={b.https_enabled ? 'green' : 'gray'} dot={false}>
                                             {b.https_enabled ? 'HTTPS' : 'HTTP only'}
                                         </Pill>
@@ -503,7 +503,7 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                                 )}
                                 {hasRegistry && displayBases.length > 1 && (
                                     <Button variant="ghost" onClick={() => handleRemoveDomain(b.domain)} disabled={rowBusy === b.domain}>
-                                        {t('app.siteSettingsTab.remove', 'Remove')}
+                                        {t('common.actions.remove', 'Remove')}
                                     </Button>
                                 )}
                             </div>
@@ -524,8 +524,8 @@ const SiteSettingsTab = ({ onDevModeChange }) => {
                             <Input id="new-base-domain" type="text" placeholder="toto.com"
                                 value={newDomain} onChange={(e) => setNewDomain(e.target.value)} className="w-56" />
                             <select className="settings-select" value={newDnsMode} onChange={(e) => setNewDnsMode(e.target.value)}>
-                                <option value="wildcard">{t('app.siteSettingsTab.wildcardDns2', 'Wildcard DNS')}</option>
-                                <option value="per-site">{t('app.siteSettingsTab.perSiteDns2', 'Per-site DNS')}</option>
+                                <option value="wildcard">{t('app.siteSettingsTab.wildcardDns', 'Wildcard DNS')}</option>
+                                <option value="per-site">{t('app.siteSettingsTab.perSiteDns', 'Per-site DNS')}</option>
                             </select>
                             <Button onClick={handleAddDomain} disabled={addingDomain || !newDomain.trim()}>
                                 {addingDomain ? 'Adding…' : 'Add'}

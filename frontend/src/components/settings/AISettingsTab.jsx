@@ -100,7 +100,7 @@ const AISettingsTab = () => {
         return <div className="settings-section"><p>{t('app.aISettingsTab.adminAccessRequired', 'Admin access required.')}</p></div>;
     }
     if (loading) {
-        return <div className="settings-section"><p>{t('app.aISettingsTab.loading', 'Loading…')}</p></div>;
+        return <div className="settings-section"><p>{t('common.loading', 'Loading…')}</p></div>;
     }
 
     const activeProvider = providers.find((p) => p.id === settings.provider);
@@ -213,7 +213,7 @@ const AISettingsTab = () => {
                     </div>
                 </div>
 
-                <div className="settings-actions" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <div className="settings-actions">
                     <Button variant="outline" onClick={handleTest} disabled={testing || !settings.provider || !settings.model}>
                         {testing ? 'Testing…' : 'Test connection'}
                     </Button>

@@ -60,8 +60,8 @@ const AboutTab = () => {
                 <div className="about-logo">
                     <ServerKitLogo width={64} height={64} />
                 </div>
-                <h3>{t('app.aboutTab.serverkit', 'ServerKit')}</h3>
-                <p className="version">{t('app.aboutTab.version', 'Version')} {version}</p>
+                <h3>{t('common.labels.serverKit', 'ServerKit')}</h3>
+                <p className="version">{t('common.labels.version', 'Version')} {version}</p>
                 <p className="description">
                     {t('app.aboutTab.aModernLightweightServerManagementPanel', 'A modern, lightweight server management panel for managing web applications, databases, domains, and more. Built with Flask and React.')}
                 </p>
@@ -75,7 +75,7 @@ const AboutTab = () => {
                             disabled={checkingUpdate}
                         >
                             {checkingUpdate ? (
-                                <><RefreshCw size={14} className="spinning" /> {t('app.aboutTab.checking', 'Checking...')}</>
+                                <><RefreshCw size={14} className="spinning" /> {t('common.checking', 'Checking…')}</>
                             ) : (
                                 <><Download size={14} /> {t('app.aboutTab.checkForUpdates', 'Check for Updates')}</>
                             )}
@@ -83,7 +83,7 @@ const AboutTab = () => {
                     ) : updateInfo.error ? (
                         <div className="update-status error">
                             <span>{updateInfo.error}</span>
-                            <button type="button" className="btn-link" onClick={checkForUpdate}>{t('app.aboutTab.retry', 'Retry')}</button>
+                            <button type="button" className="btn-link" onClick={checkForUpdate}>{t('common.actions.retry', 'Retry')}</button>
                         </div>
                     ) : updateInfo.update_available ? (
                         <div className="update-status available">
@@ -109,7 +109,7 @@ const AboutTab = () => {
 
             {showStarPrompt && (
                 <div className="star-prompt-card">
-                    <button type="button" className="dismiss-btn" onClick={dismissStarPrompt} title={t('app.aboutTab.dismiss', 'Dismiss')}>
+                    <button type="button" className="dismiss-btn" onClick={dismissStarPrompt} title={t('common.actions.dismiss', 'Dismiss')}>
                         <X size={16} />
                     </button>
                     <div className="star-icon">

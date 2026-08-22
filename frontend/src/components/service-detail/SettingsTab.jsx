@@ -78,14 +78,14 @@ function buildSettingsGroups(app) {
             ],
         },
         ...((isDocker || isPython) ? [{
-            labelKey: 'app.settingsTab.security', label: 'Security',
+            labelKey: 'common.labels.security', label: 'Security',
             items: [{ id: 'waf', label: 'WAF', icon: ShieldCheck }],
         }] : []),
         {
             labelKey: 'app.settingsTab.data', label: 'Data',
             items: [
-                ...(isDocker ? [{ id: 'storage', labelKey: 'app.settingsTab.storage', label: 'Storage', icon: HardDrive }] : []),
-                { id: 'backups', labelKey: 'app.settingsTab.backups', label: 'Backups', icon: Archive },
+                ...(isDocker ? [{ id: 'storage', labelKey: 'common.labels.storage', label: 'Storage', icon: HardDrive }] : []),
+                { id: 'backups', labelKey: 'common.labels.backups', label: 'Backups', icon: Archive },
             ],
         },
         { labelKey: 'app.settingsTab.advanced', label: 'Advanced', items: [{ id: 'danger', labelKey: 'app.settingsTab.dangerZone', label: 'Danger Zone', icon: AlertTriangle }] },
@@ -155,13 +155,13 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
         if (!await confirm({
             title: t('app.settingsTab.deleteService', 'Delete Service'),
             message: t('app.settingsTab.deleteItStopsServingAndMoves', 'Delete {{name}}? It stops serving and moves to the recycle bin, where you can restore it for 30 days.', { name: app.name }),
-            confirmText: t('app.settingsTab.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         })) return;
         if (!await confirm({
-            title: t('app.settingsTab.deleteService3', 'Delete Service'),
+            title: t('app.settingsTab.deleteService', 'Delete Service'),
             message: t('app.settingsTab.areYouSureItsContainersStop', 'Are you sure? Its containers stop and it stops being served. Files and data volumes are kept until you purge it from the recycle bin.'),
-            confirmText: t('app.settingsTab.delete3', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         })) return;
 
@@ -245,11 +245,11 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                 {/* Environment Configuration */}
                 {section === 'environment' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.environmentType2', 'Environment Type')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.environmentType', 'Environment Type')}</h3>
                         <div className="card settings-section">
                             <div className="settings-row">
                                 <div className="settings-label">
-                                    <span>{t('app.settingsTab.environmentType3', 'Environment Type')}</span>
+                                    <span>{t('app.settingsTab.environmentType', 'Environment Type')}</span>
                                     <span className="settings-hint">
                                         {app.has_linked_app
                                             ? 'This app is linked. Unlink to change environment type.'
@@ -278,7 +278,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                                             </SelectContent>
                                         </Select>
                                     )}
-                                    {savingEnvironment && <span className="settings-saving">{t('app.settingsTab.saving', 'Saving...')}</span>}
+                                    {savingEnvironment && <span className="settings-saving">{t('common.editing.saving', 'Saving…')}</span>}
                                 </div>
                             </div>
 
@@ -308,7 +308,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                 {/* Domain & SSL — same information architecture as WordPress Settings → SSL. */}
                 {section === 'domain' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.domainSsl2', 'Domain & SSL')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.domainSsl', 'Domain & SSL')}</h3>
                         <DomainSslPanel
                             app={app}
                             domains={domains}
@@ -322,7 +322,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     resource limits, auto-sleep. Relocated from the old top tab. */}
                 {section === 'ops' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.containerOps2', 'Container Ops')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.containerOps', 'Container Ops')}</h3>
                         <ContainerOpsPanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
@@ -331,7 +331,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     with live usage, instead of compose-file-only limits. */}
                 {section === 'resources' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.resourceLimits2', 'Resource Limits')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.resourceLimits', 'Resource Limits')}</h3>
                         <ResourceLimitsPanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
@@ -340,7 +340,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     with auth/admin/cart bypasses and a manual purge. */}
                 {section === 'cache' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.cache2', 'Cache')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.cache', 'Cache')}</h3>
                         <MicroCachePanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
@@ -349,7 +349,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     survive redeploys, replacing fragile relative bind mounts. */}
                 {section === 'storage' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.storage2', 'Storage')}</h3>
+                        <h3 className="svc-settings__section-title">{t('common.labels.storage', 'Storage')}</h3>
                         <VolumesPanel app={app} onChanged={onUpdate} />
                     </div>
                 )}
@@ -362,7 +362,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     form, and nothing deploy-related shows before connecting. */}
                 {section === 'git' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.gitDeploy2', 'Git & Deploy')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.gitDeploy', 'Git & Deploy')}</h3>
                         <RepoConnectForm
                             gitStatus={gitStatus}
                             onConnect={handleConnectRepo}
@@ -376,7 +376,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                         />
                         {deployConfig && (
                             <div className="svc-settings__subsection">
-                                <h4 className="svc-settings__subsection-title">{t('app.settingsTab.deployment2', 'Deployment')}</h4>
+                                <h4 className="svc-settings__subsection-title">{t('app.settingsTab.deployment', 'Deployment')}</h4>
                                 <DeployTab embedded appId={app.id} appPath={app.path} />
                             </div>
                         )}
@@ -387,7 +387,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     build logs. Relocated from the old top tab, beside Git & Deploy. */}
                 {section === 'build' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.build2', 'Build')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.build', 'Build')}</h3>
                         <BuildTab appId={app.id} appPath={app.path} app={app} />
                     </div>
                 )}
@@ -397,7 +397,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     plan / apply actions. */}
                 {section === 'manifest' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.manifest2', 'Manifest')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.manifest', 'Manifest')}</h3>
                         <ManifestSection app={app} />
                     </div>
                 )}
@@ -415,7 +415,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                     detail page renders. */}
                 {section === 'backups' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.backups2', 'Backups')}</h3>
+                        <h3 className="svc-settings__section-title">{t('common.labels.backups', 'Backups')}</h3>
                         <ProtectionPanel
                             targetType="application"
                             targetId={app.id}
@@ -427,7 +427,7 @@ const SettingsTab = ({ app, deployConfig, domains, primaryDomain, onUpdate }) =>
                 {/* Danger Zone */}
                 {section === 'danger' && (
                     <div className="svc-settings__section">
-                        <h3 className="svc-settings__section-title">{t('app.settingsTab.dangerZone2', 'Danger Zone')}</h3>
+                        <h3 className="svc-settings__section-title">{t('app.settingsTab.dangerZone', 'Danger Zone')}</h3>
                         <DangerZone
                             description={t('app.settingsTab.onceYouDeleteAServiceThere', 'Once you delete a service, there is no going back. All data will be permanently removed.')}
                             action={
@@ -581,7 +581,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                 toast.error(res.error || t('app.settingsTab.failedToPublishSubdomain', 'Failed to publish subdomain'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.settingsTab.failedToPublishSubdomain2', 'Failed to publish subdomain'));
+            toast.error(err.message || t('app.settingsTab.failedToPublishSubdomain', 'Failed to publish subdomain'));
         } finally {
             setPublishing(false);
         }
@@ -592,7 +592,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
         if (!email.trim() || !email.includes('@')) { toast.error(t('app.settingsTab.enterAValidEmailForCertificate', 'Enter a valid email for certificate expiry notices')); return; }
         localStorage.setItem('serverkit_ssl_email', email.trim());
         setIssuing(true);
-        toast.info(t('app.settingsTab.requestingCertificateFor', 'Requesting certificate for {{primaryDomain}}...', { primaryDomain: primaryDomain }), { duration: 4000 });
+        toast.info(t('app.settingsTab.requestingCertificateFor', 'Requesting certificate for {{primaryDomain}}…', { primaryDomain: primaryDomain }), { duration: 4000 });
         try {
             const res = await api.obtainCertificate({
                 domains: [primaryDomain],
@@ -613,7 +613,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                 toast.error(res.error || t('app.settingsTab.certificateRequestFailed', 'Certificate request failed'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.settingsTab.certificateRequestFailed2', 'Certificate request failed'));
+            toast.error(err.message || t('app.settingsTab.certificateRequestFailed', 'Certificate request failed'));
         } finally {
             setIssuing(false);
         }
@@ -683,7 +683,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                             </div>
                         )}
                         <div className="form-group">
-                            <Label>{t('app.settingsTab.domain', 'Domain')}</Label>
+                            <Label>{t('common.labels.domain', 'Domain')}</Label>
                             <Input
                                 type="text"
                                 value={domainInput}
@@ -800,7 +800,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <Button variant="outline" onClick={() => setSubdomainModal(null)} disabled={publishing}>{t('app.settingsTab.cancel', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setSubdomainModal(null)} disabled={publishing}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleGiveSubdomain} disabled={publishing || !subdomainLabel.trim()}>
                                 {publishing ? 'Publishing…' : 'Publish'}
                             </Button>
@@ -965,7 +965,7 @@ const ManifestSection = ({ app }) => {
                 <div className="svc-manifest__block">
                     <div className="svc-manifest__block-head">
                         <h4 className="svc-manifest__block-title">{t('app.settingsTab.scaffoldedServerkitYaml', 'Scaffolded serverkit.yaml')}</h4>
-                        <Button variant="outline" className="btn-icon" onClick={handleDownloadScaffold}>{t('app.settingsTab.download', 'Download')}</Button>
+                        <Button variant="outline" className="btn-icon" onClick={handleDownloadScaffold}>{t('common.actions.download', 'Download')}</Button>
                     </div>
                     <pre className="svc-manifest__pre">{scaffold}</pre>
                 </div>

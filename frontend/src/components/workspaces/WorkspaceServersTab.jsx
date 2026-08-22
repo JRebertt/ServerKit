@@ -56,7 +56,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.workspaceServersTab.server', header: 'Server',
+            headerKey: 'common.labels.server', header: 'Server',
             sortable: true,
             hideable: false,
             // Hostnames are near-unique per row — you type a fragment.
@@ -75,7 +75,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.workspaceServersTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a workspace holding two servers of two
             // statuses fails the enum cardinality test and would fall back to
@@ -95,7 +95,7 @@ const WorkspaceServersTab = ({ wsId, srvIn, srvOut, onMoveServer }) => {
             hideable: false,
             render: (s) => (
                 <div className="ws-detail__rowactions" onClick={e => e.stopPropagation()}>
-                    <Button size="sm" variant="destructive" onClick={() => onMoveServer(s.id, null)}>{t('app.workspaceServersTab.remove', 'Remove')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onMoveServer(s.id, null)}>{t('common.actions.remove', 'Remove')}</Button>
                 </div>
             ),
         },

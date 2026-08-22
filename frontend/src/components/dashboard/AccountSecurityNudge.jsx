@@ -65,7 +65,7 @@ const AccountSecurityNudge = () => {
             <Button size="sm" onClick={() => navigate(item.fix?.to || '/settings/security')}>
                 {t('app.accountSecurityNudge.addAPasskeyOr2fa', 'Add a passkey or 2FA')}
             </Button>
-            <button type="button" className="account-security-nudge__close" onClick={dismiss} aria-label={t('app.accountSecurityNudge.dismiss', 'Dismiss')}>
+            <button type="button" className="account-security-nudge__close" onClick={dismiss} aria-label={t('common.actions.dismiss', 'Dismiss')}>
                 <X size={16} />
             </button>
         </div>

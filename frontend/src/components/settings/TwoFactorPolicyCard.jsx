@@ -61,7 +61,7 @@ const TwoFactorPolicyCard = (props) => {
     return (
         <div className="settings-card" {...props}>
             <h3>{t('app.twoFactorPolicyCard.twoFactorAuthenticationPolicy', 'Two-Factor Authentication Policy')}</h3>
-            <p className="form-help" style={{ marginTop: 0 }}>
+            <p className="form-help form-help--flush">
                 {t('app.twoFactorPolicyCard.requireAccountsToProtectThemselvesWith', 'Require accounts to protect themselves with a passkey or authenticator app. Passwords keep working until the grace window ends; after that, sign-in only lets the user reach the enrolment screen until they add a second factor. Single sign-on users are always exempt.')}
             </p>
 
@@ -84,10 +84,10 @@ const TwoFactorPolicyCard = (props) => {
                     <label>{t('app.twoFactorPolicyCard.gracePeriodDays', 'Grace period (days)')}</label>
                     <Input
                         type="number"
+                        className="policy-grace-input"
                         min="0"
                         value={graceDays}
                         onChange={(e) => setGraceDays(e.target.value)}
-                        style={{ maxWidth: '120px' }}
                     />
                     <span className="form-help">
                         {t('app.twoFactorPolicyCard.daysANewlyCoveredAccountMay', 'Days a newly-covered account may keep signing in with just a password before enrolment is enforced.')}
@@ -100,7 +100,7 @@ const TwoFactorPolicyCard = (props) => {
                     {saving ? 'Saving…' : 'Save policy'}
                 </Button>
                 {message && (
-                    <span className={`timezone-message ${message.type}`} style={{ marginLeft: '0.75rem' }}>
+                    <span className={`timezone-message timezone-message--inline ${message.type}`}>
                         {message.text}
                     </span>
                 )}

@@ -62,7 +62,7 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                             </Button>
                         </div>
                     <div className="modal-footer">
-                        <Button variant="default" onClick={onClose}>{t('app.apiKeyModal.done', 'Done')}</Button>
+                        <Button variant="default" onClick={onClose}>{t('common.actions.done', 'Done')}</Button>
                     </div>
             </Modal>
         );
@@ -73,7 +73,7 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <Label>{t('app.apiKeyModal.name', 'Name')}</Label>
+                            <Label>{t('common.labels.name', 'Name')}</Label>
                             <Input
                                 type="text"
                                 value={name}
@@ -116,7 +116,7 @@ const ApiKeyModal = ({ onClose, onSubmit, createdKey }) => {
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <Button type="button" variant="outline" onClick={onClose}>{t('app.apiKeyModal.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="submit" variant="default" disabled={saving || !name.trim()}>
                             {saving ? 'Creating...' : 'Create Key'}
                         </Button>

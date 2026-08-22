@@ -172,7 +172,7 @@ const VolumesTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.volumesTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -186,7 +186,7 @@ const VolumesTab = ({ onStatsChange }) => {
         },
         {
             key: 'kind',
-            headerKey: 'app.volumesTab.kind', header: 'Kind',
+            headerKey: 'common.labels.kind', header: 'Kind',
             sortable: true,
             // Declared: a host with only named volumes has a single distinct
             // value, which infers as text and turns the view above into a
@@ -280,7 +280,7 @@ const VolumesTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">{t('app.volumesTab.loadingVolumes', 'Loading volumes...')}</div>
+                <div className="docker-loading">{t('app.volumesTab.loadingVolumes', 'Loading volumes…')}</div>
             </div>
         );
     }
@@ -369,7 +369,7 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={t('app.volumesTab.createVolume3', 'Create Volume')} size="md">
+        <Modal open onClose={onClose} title={t('app.volumesTab.createVolume2', 'Create Volume')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
@@ -386,7 +386,7 @@ const CreateVolumeModal = ({ onClose, onCreated }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        {t('app.volumesTab.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Creating...' : 'Create Volume'}

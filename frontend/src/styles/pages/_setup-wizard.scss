@@ -756,6 +756,25 @@
     border-top: 1px solid $border-default;
 }
 
+// Steps whose content already ends on a divider carry no chrome of their own.
+.wizard-nav--flush {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+// Full-width step submit button.
+.btn-wizard-next--block {
+    width: 100%;
+    justify-content: center;
+}
+
+.summary-rec-ico {
+    display: inline;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
 .btn-wizard-prev {
     @include button-base();
     color: $text-secondary;

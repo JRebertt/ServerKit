@@ -246,7 +246,7 @@ const Domains = () => {
         if (!await confirm({
             title: t('app.domains.deleteDomain', 'Delete domain'),
             message: t('app.domains.delete', 'Delete {{name}}?', { name: domain.name }),
-            confirmText: t('app.domains.deleteDomain2', 'Delete domain'),
+            confirmText: t('app.domains.deleteDomain', 'Delete domain'),
         })) return;
         try {
             await api.deleteDomain(domain.id);
@@ -280,7 +280,7 @@ const Domains = () => {
         if (!await confirm({
             title: t('app.domains.disableSsl', 'Disable SSL'),
             message: t('app.domains.disableSslFor', 'Disable SSL for {{name}}?', { name: domain.name }),
-            confirmText: t('app.domains.disableSsl2', 'Disable SSL'),
+            confirmText: t('app.domains.disableSsl', 'Disable SSL'),
         })) return;
         try {
             await api.disableSsl(domain.id);
@@ -380,7 +380,7 @@ const Domains = () => {
     const columns = useMemo(() => [
         {
             key: 'name',
-            headerKey: 'app.domains.domain', header: 'Domain',
+            headerKey: 'common.labels.domain', header: 'Domain',
             type: 'text',
             width: 'minmax(250px,1.8fr)',
             locked: true,
@@ -483,7 +483,7 @@ const Domains = () => {
             align: 'right',
             defaultVisible: false,
             quick: [
-                { op: 'lt', value: 30, labelKey: 'app.domains.under302', label: 'under 30' },
+                { op: 'lt', value: 30, labelKey: 'app.domains.under30', label: 'under 30' },
                 { op: 'lt', value: 60, labelKey: 'app.domains.under60', label: 'under 60' },
             ],
             value: (d) => daysUntil(d.expires_at),
@@ -505,7 +505,7 @@ const Domains = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.domains.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             type: 'enum',
             width: '135px',
             value: rowStatus,
@@ -635,7 +635,7 @@ const Domains = () => {
             )}
 
             {loading ? (
-                <EmptyState loading loadingVariant="table" title={t('app.domains.loadingDomains', 'Loading domains...')} />
+                <EmptyState loading loadingVariant="table" title={t('app.domains.loadingDomains', 'Loading domains…')} />
             ) : rows.length === 0 ? (
                 <EmptyState
                     icon={Globe}
@@ -661,7 +661,7 @@ const Domains = () => {
 
                     <GridBulkBar count={picked.length} noun="domain" onClear={() => setPicked([])}>
                         <button type="button" onClick={loadData}>
-                            <RefreshCw size={13} /> {t('app.domains.checkDns2', 'Check DNS')}
+                            <RefreshCw size={13} /> {t('app.domains.checkDns', 'Check DNS')}
                         </button>
                         <button
                             type="button"
@@ -713,7 +713,7 @@ const Domains = () => {
                                 title={search ? t('app.domains.noDomainsMatch', 'No domains match “{{value}}”.', { value: search.trim() }) : t('app.domains.noDomainsMatchThisView', 'No domains match this view.')}
                                 action={(
                                     <Button variant="outline" onClick={() => { setSearch(''); grid.clearRules(); }}>
-                                        {t('app.domains.clearFilters', 'Clear filters')}
+                                        {t('common.actions.clearFilters', 'Clear filters')}
                                     </Button>
                                 )}
                             />
@@ -778,7 +778,7 @@ const Domains = () => {
                                             <RefreshCw size={14} /> {t('app.domains.renewSsl', 'Renew SSL')}
                                         </Button>
                                         <Button variant="outline" size="sm" onClick={() => handleDisableSsl(drawerDomain)}>
-                                            <Lock size={14} /> {t('app.domains.disableSsl5', 'Disable SSL')}
+                                            <Lock size={14} /> {t('app.domains.disableSsl', 'Disable SSL')}
                                         </Button>
                                     </>
                                 ) : (
@@ -806,22 +806,22 @@ const Domains = () => {
                                         </div>
                                     </div>
                                     <div className="sk-spec-card">
-                                        <div className="sk-spec-card__label">{t('app.domains.linkedSite2', 'Linked site')}</div>
+                                        <div className="sk-spec-card__label">{t('app.domains.linkedSite', 'Linked site')}</div>
                                         <div className="sk-spec-card__value">{drawerDomain.application_id ? appName(drawerDomain.application_id) : 'Unlinked'}</div>
                                         <div className="sk-spec-card__sub">{drawerDomain.is_primary ? 'Primary domain' : 'Alias'}</div>
                                     </div>
                                     <div className="sk-spec-card">
-                                        <div className="sk-spec-card__label">{t('app.domains.status2', 'Status')}</div>
+                                        <div className="sk-spec-card__label">{t('common.labels.status', 'Status')}</div>
                                         <div style={{ marginTop: 8 }}>
                                             <Pill kind={drawerDomain.ssl_enabled ? 'green' : 'amber'}>{drawerDomain.ssl_enabled ? 'active' : 'unconfigured'}</Pill>
                                         </div>
-                                        <div className="sk-spec-card__sub">{t('app.domains.autoRenew2', 'Auto-renew')} {drawerDomain.ssl_auto_renew ? 'on' : 'off'}</div>
+                                        <div className="sk-spec-card__sub">{t('app.domains.autoRenew', 'Auto-renew')} {drawerDomain.ssl_auto_renew ? 'on' : 'off'}</div>
                                     </div>
                                 </>
                             ) : (
                                 <>
                                     <div className="sk-spec-card">
-                                        <div className="sk-spec-card__label">{t('app.domains.dnsProvider2', 'DNS provider')}</div>
+                                        <div className="sk-spec-card__label">{t('app.domains.dnsProvider', 'DNS provider')}</div>
                                         <div className="sk-spec-card__value">{drawerDomain.config_name || drawerDomain.provider}</div>
                                         <div className="sk-spec-card__sub">{drawerDomain.adopted ? 'Managed in ServerKit' : 'Read-only'}</div>
                                     </div>
@@ -833,7 +833,7 @@ const Domains = () => {
                                         <div className="sk-spec-card__sub">{drawerDomain.provider}</div>
                                     </div>
                                     <div className="sk-spec-card">
-                                        <div className="sk-spec-card__label">{t('app.domains.registration2', 'Registration')}</div>
+                                        <div className="sk-spec-card__label">{t('app.domains.registration', 'Registration')}</div>
                                         <div className="sk-spec-card__value">
                                             {regInfo?.loading ? 'Looking up…' : (formatExpiry(regInfo?.expires_at)?.relative || '—')}
                                         </div>
@@ -856,7 +856,7 @@ const Domains = () => {
                         {drawerDomain.source === 'app' && (
                             <div className="dom-drawer__danger">
                                 <Button variant="outline" size="sm" className="dom-delete-btn" onClick={() => { handleDeleteDomain(drawerDomain); setDrawerDomain(null); }}>
-                                    <Trash2 size={14} /> {t('app.domains.deleteDomain5', 'Delete domain')}
+                                    <Trash2 size={14} /> {t('app.domains.deleteDomain', 'Delete domain')}
                                 </Button>
                             </div>
                         )}
@@ -868,7 +868,7 @@ const Domains = () => {
             </Drawer>
 
             {/* ── Add Domain Modal ───────────────────────────── */}
-            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('app.domains.addDomain3', 'Add Domain')}>
+            <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('app.domains.addDomain2', 'Add Domain')}>
                 <form onSubmit={handleAddDomain}>
                     <div className="form-group">
                         <Label>{t('app.domains.domainName', 'Domain Name')}</Label>
@@ -892,7 +892,7 @@ const Domains = () => {
                         </label>
                     </div>
                     <div className="modal-actions">
-                        <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>{t('app.domains.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="submit" disabled={actionLoading}>{actionLoading ? 'Adding...' : 'Add Domain'}</Button>
                     </div>
                 </form>
@@ -925,7 +925,7 @@ const Domains = () => {
                             </p>
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setShowSslModal(false)}>{t('app.domains.cancel2', 'Cancel')}</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowSslModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={actionLoading}>{actionLoading ? 'Obtaining Certificate...' : 'Enable SSL'}</Button>
                         </div>
                     </form>

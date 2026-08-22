@@ -75,7 +75,7 @@ const SSOCallback = () => {
                     <div className="sso-loading">
                         <Loader size={32} className="spinning" />
                     </div>
-                    <h1>{t('app.sSOCallback.signingYouIn', 'Signing you in...')}</h1>
+                    <h1>{t('app.sSOCallback.signingYouIn', 'Signing you in…')}</h1>
                     <p>{t('app.sSOCallback.completingAuthenticationWith', 'Completing authentication with')} {provider}</p>
                 </div>
             </div>

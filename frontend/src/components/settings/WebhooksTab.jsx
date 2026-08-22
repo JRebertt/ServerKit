@@ -134,7 +134,7 @@ export default function WebhooksTab() {
     }, [selectedEndpoint]);
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title={t('app.webhooksTab.loadingWebhooks', 'Loading webhooks...')} />;
+        return <EmptyState loading loadingVariant="table" title={t('app.webhooksTab.loadingWebhooks', 'Loading webhooks…')} />;
     }
 
     return (
@@ -159,11 +159,11 @@ export default function WebhooksTab() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{t('app.webhooksTab.name', 'Name')}</TableHead>
+                                        <TableHead>{t('common.labels.name', 'Name')}</TableHead>
                                         <TableHead>{t('app.webhooksTab.slug', 'Slug')}</TableHead>
                                         <TableHead>{t('app.webhooksTab.forwardUrl', 'Forward URL')}</TableHead>
-                                        <TableHead>{t('app.webhooksTab.status', 'Status')}</TableHead>
-                                        <TableHead className="text-right">{t('app.webhooksTab.actions', 'Actions')}</TableHead>
+                                        <TableHead>{t('common.labels.status', 'Status')}</TableHead>
+                                        <TableHead className="text-right">{t('common.labels.actions', 'Actions')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -181,7 +181,7 @@ export default function WebhooksTab() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem onClick={() => openEndpoint(ep.id)}>{t('app.webhooksTab.viewDeliveries', 'View deliveries')}</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => regenerateSecret(ep.id)}><RefreshCw size={12} className="mr-2" /> {t('app.webhooksTab.regenerateSecret', 'Regenerate secret')}</DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteEndpoint(ep.id)}>{t('app.webhooksTab.delete', 'Delete')}</DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteEndpoint(ep.id)}>{t('common.actions.delete', 'Delete')}</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
@@ -204,7 +204,7 @@ export default function WebhooksTab() {
                                 </CardDescription>
                             </div>
                             <Button variant="outline" onClick={() => regenerateSecret(selectedEndpoint.id)}>
-                                <RefreshCw size={14} /> {t('app.webhooksTab.regenerateSecret2', 'Regenerate secret')}
+                                <RefreshCw size={14} /> {t('app.webhooksTab.regenerateSecret', 'Regenerate secret')}
                             </Button>
                         </div>
                     </CardHeader>
@@ -216,10 +216,10 @@ export default function WebhooksTab() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>{t('app.webhooksTab.eventId', 'Event ID')}</TableHead>
-                                        <TableHead>{t('app.webhooksTab.status2', 'Status')}</TableHead>
+                                        <TableHead>{t('common.labels.status', 'Status')}</TableHead>
                                         <TableHead>{t('app.webhooksTab.signature', 'Signature')}</TableHead>
                                         <TableHead>{t('app.webhooksTab.received', 'Received')}</TableHead>
-                                        <TableHead className="text-right">{t('app.webhooksTab.actions2', 'Actions')}</TableHead>
+                                        <TableHead className="text-right">{t('common.labels.actions', 'Actions')}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -247,7 +247,7 @@ export default function WebhooksTab() {
                 <p className="sk-modal__subtitle">{t('app.webhooksTab.createASlugSecretAndOptional', 'Create a slug, secret, and optional forward URL.')}</p>
                 <form onSubmit={createEndpoint} className="space-y-4">
                         <div>
-                            <Label htmlFor="epName">{t('app.webhooksTab.name2', 'Name')}</Label>
+                            <Label htmlFor="epName">{t('common.labels.name', 'Name')}</Label>
                             <Input id="epName" value={endpointForm.name} onChange={(e) => setEndpointForm({ ...endpointForm, name: e.target.value })} required />
                         </div>
                         <div>
@@ -273,7 +273,7 @@ export default function WebhooksTab() {
                 onClose={() => setRegeneratedSecret(null)}
                 title={t('app.webhooksTab.webhookSecret', 'Webhook Secret')}
                 footer={(
-                    <Button onClick={() => setRegeneratedSecret(null)}>{t('app.webhooksTab.done', 'Done')}</Button>
+                    <Button onClick={() => setRegeneratedSecret(null)}>{t('common.actions.done', 'Done')}</Button>
                 )}
             >
                 <p className="sk-modal__subtitle">{t('app.webhooksTab.copyThisSecretNowItWill', 'Copy this secret now. It will not be shown again.')}</p>

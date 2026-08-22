@@ -72,7 +72,7 @@ export function LogViewer({
                                 value={searchPattern}
                                 onChange={(e) => onSearchChange?.(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && onSearchSubmit?.()}
-                                placeholder={t('app.logViewer.searchPattern', 'Search pattern...')}
+                                placeholder={t('app.logViewer.searchPattern', 'Search pattern…')}
                             />
                         </div>
                         {onLineCountChange && (
@@ -104,24 +104,24 @@ export function LogViewer({
                                 onClick={onRefreshContent}
                                 disabled={!selectedPath || contentLoading}
                             >
-                                {t('app.logViewer.refresh', 'Refresh')}
+                                {t('common.actions.refresh', 'Refresh')}
                             </Button>
                         )}
                         {onDownload && (
                             <Button variant="outline" size="sm" onClick={onDownload} disabled={!content}>
-                                {t('app.logViewer.download', 'Download')}
+                                {t('common.actions.download', 'Download')}
                             </Button>
                         )}
                         {onClear && (
                             <Button variant="destructive" size="sm" onClick={onClear} disabled={!selectedPath}>
-                                {t('app.logViewer.clear', 'Clear')}
+                                {t('common.actions.clear', 'Clear')}
                             </Button>
                         )}
                     </div>
                 </div>
                 <div className="log-content">
                     {contentLoading ? (
-                        <div className="logs-viewer__loading">{t('app.logViewer.loading', 'Loading...')}</div>
+                        <div className="logs-viewer__loading">{t('common.loading', 'Loading…')}</div>
                     ) : !content ? (
                         <div className="logs-viewer__empty">
                             {contentEmpty ?? 'Select a log file to view its contents.'}

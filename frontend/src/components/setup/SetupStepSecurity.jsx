@@ -117,13 +117,13 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 </div>
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <button
                         type="button"
                         className="btn-wizard-next"
                         onClick={() => onComplete(true)}
                     >
-                        {t('app.setupStepSecurity.continue', 'Continue')}
+                        {t('common.actions.continue', 'Continue')}
                     </button>
                 </div>
             </div>
@@ -159,7 +159,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 )}
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
                         {t('app.setupStepSecurity.skipForNow', 'Skip for now')}
                     </Button>
@@ -229,9 +229,9 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 )}
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
-                        {t('app.setupStepSecurity.skipForNow2', 'Skip for now')}
+                        {t('app.setupStepSecurity.skipForNow', 'Skip for now')}
                     </Button>
                     <button
                         type="button"
@@ -265,11 +265,11 @@ const SetupStepSecurity = ({ onComplete }) => {
             <div className="security-codes__actions">
                 <Button variant="outline" onClick={copyCodes}>
                     <Copy size={15} />
-                    {t('app.setupStepSecurity.copy', 'Copy')}
+                    {t('common.actions.copy', 'Copy')}
                 </Button>
                 <Button variant="outline" onClick={downloadCodes}>
                     <Download size={15} />
-                    {t('app.setupStepSecurity.download', 'Download')}
+                    {t('common.actions.download', 'Download')}
                 </Button>
                 {savedCodes && (
                     <span className="security-codes__saved">
@@ -279,7 +279,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                 )}
             </div>
 
-            <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="wizard-nav wizard-nav--flush">
                 <button
                     type="button"
                     className="btn-wizard-next"

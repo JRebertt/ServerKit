@@ -152,7 +152,7 @@ export default function ConsoleTab({ conn, tabId, active, isAdmin, initialQuery 
                     <History size={14} aria-hidden="true" /> {t('app.consoleTab.history', 'History')}
                 </button>
                 <button type="button" className="dbx-chip" onClick={() => { setQuery(''); editorRef.current?.focus(); }}>
-                    <Eraser size={14} aria-hidden="true" /> {t('app.consoleTab.clear', 'Clear')}
+                    <Eraser size={14} aria-hidden="true" /> {t('common.actions.clear', 'Clear')}
                 </button>
                 <button type="button" className="dbx-chip" onClick={exportCsv} disabled={!results?.rows?.length}>
                     <Download size={14} aria-hidden="true" /> {t('app.consoleTab.export', 'Export')}

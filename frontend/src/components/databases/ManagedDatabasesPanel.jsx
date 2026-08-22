@@ -97,8 +97,8 @@ export default function ManagedDatabasesPanel() {
                 <p className="managed-db__hint">
                     {t('app.managedDatabasesPanel.databasesServerkitTracksForBackupsAnd', 'Databases ServerKit tracks for backups and connection strings. The live explorer still shows everything on the server.')}
                 </p>
-                <Button type="button" size="sm" variant="ghost" onClick={load} aria-label={t('app.managedDatabasesPanel.refresh', 'Refresh')}>
-                    <RefreshCw size={14} /> {t('app.managedDatabasesPanel.refresh2', 'Refresh')}
+                <Button type="button" size="sm" variant="ghost" onClick={load} aria-label={t('common.actions.refresh', 'Refresh')}>
+                    <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             </div>
 
@@ -140,7 +140,7 @@ export default function ManagedDatabasesPanel() {
                                     )}
                                     <Button type="button" size="sm" variant="ghost" disabled={busyId === row.id}
                                         onClick={() => untrack(row, false)} aria-label={t('app.managedDatabasesPanel.untrack3', 'Untrack {{name}}', { name: row.name })}>
-                                        <Trash2 size={14} /> {t('app.managedDatabasesPanel.untrack4', 'Untrack')}
+                                        <Trash2 size={14} /> {t('app.managedDatabasesPanel.untrack2', 'Untrack')}
                                     </Button>
                                 </div>
                             </div>

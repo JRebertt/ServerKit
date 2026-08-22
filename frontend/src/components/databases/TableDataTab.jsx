@@ -155,7 +155,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'type',
-            headerKey: 'app.tableDataTab.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             // Declared: a table of ten VARCHARs and two INTs would infer as an
             // enum on one table and as text on the next, so the control the
@@ -176,7 +176,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'key',
-            headerKey: 'app.tableDataTab.key', header: 'Key',
+            headerKey: 'common.labels.key', header: 'Key',
             sortable: true,
             type: 'enum',
             value: (col) => ((col.key === 'PRI' || col.primary_key) ? PRIMARY : (col.key || NO_KEY)),
@@ -186,7 +186,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
         },
         {
             key: 'default',
-            headerKey: 'app.tableDataTab.default', header: 'Default',
+            headerKey: 'common.labels.default', header: 'Default',
             sortable: true,
             type: 'text',
             value: (col) => (col.default == null ? 'NULL' : String(col.default)),
@@ -305,7 +305,7 @@ export default function TableDataTab({ conn, tabId, table, rowsEstimate, active,
                         className="dbx-icon-btn"
                         onClick={() => loadData(page)}
                         disabled={dataLoading}
-                        aria-label={t('app.tableDataTab.refresh', 'Refresh')}
+                        aria-label={t('common.actions.refresh', 'Refresh')}
                     >
                         <RefreshCw size={14} className={dataLoading ? 'dbx-spin' : ''} aria-hidden="true" />
                     </button>

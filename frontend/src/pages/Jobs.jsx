@@ -260,7 +260,7 @@ export default function Jobs() {
                     </>
                 )}
                 <Button variant="outline" size="sm" onClick={load}>
-                    <RefreshCw size={14} /> {t('app.jobs.refresh', 'Refresh')}
+                    <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             </>
         );
@@ -288,7 +288,7 @@ export default function Jobs() {
     const jobColumns = [
         {
             key: 'status',
-            headerKey: 'app.jobs.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Typed explicitly rather than left to inference. There is no
             // `value`/`sortValue` here, so a rule reads `row.status` — the DB
@@ -303,7 +303,7 @@ export default function Jobs() {
             type: 'enum',
             render: (j) => <Pill kind={statusKind(j.status)}>{j.status}</Pill>,
         },
-        { key: 'kind', headerKey: 'app.jobs.kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
+        { key: 'kind', headerKey: 'common.labels.kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (j) => j.kind || '—' },
         { key: 'owner', headerKey: 'app.jobs.owner', header: 'Owner', sortable: true, sortValue: (j) => j.owner_type || null, cellClassName: 'sk-jobs__owner', render: ownerLabel },
         {
             key: 'progress',
@@ -319,7 +319,7 @@ export default function Jobs() {
         },
         {
             key: 'when',
-            headerKey: 'app.jobs.when', header: 'When',
+            headerKey: 'common.labels.when', header: 'When',
             sortable: true,
             sortValue: (j) => {
                 const stamp = j.created_at || j.updated_at;
@@ -337,12 +337,12 @@ export default function Jobs() {
                 <div className="sk-jobs__actions">
                     {j.can_cancel && (
                         <Button variant="ghost" size="sm" onClick={() => onCancel(j.id)}>
-                            <XCircle size={14} /> {t('app.jobs.cancel', 'Cancel')}
+                            <XCircle size={14} /> {t('common.actions.cancel', 'Cancel')}
                         </Button>
                     )}
                     {j.can_retry && (
                         <Button variant="ghost" size="sm" onClick={() => onRetry(j.id)}>
-                            <RotateCcw size={14} /> {t('app.jobs.retry', 'Retry')}
+                            <RotateCcw size={14} /> {t('common.actions.retry', 'Retry')}
                         </Button>
                     )}
                 </div>
@@ -395,22 +395,22 @@ export default function Jobs() {
     const filterGroups = [
         {
             key: 'status',
-            labelKey: 'app.jobs.status2', label: 'Status',
+            labelKey: 'common.labels.status', label: 'Status',
             type: 'single',
             options: STATUSES.filter((s) => s !== 'all').map((s) => ({ value: s, label: titleCase(s) })),
         },
         {
             key: 'kind',
-            labelKey: 'app.jobs.kind2', label: 'Kind',
+            labelKey: 'common.labels.kind', label: 'Kind',
             type: 'single',
             options: kindOptions.map((k) => ({ value: k, label: k })),
         },
     ];
 
     const scheduledColumns = [
-        { key: 'name', headerKey: 'app.jobs.name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
-        { key: 'kind', headerKey: 'app.jobs.kind3', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
-        { key: 'schedule', headerKey: 'app.jobs.schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
+        { key: 'name', headerKey: 'common.labels.name', header: 'Name', sortable: true, sortValue: (s) => s.name || s.kind || null, render: (s) => s.name || s.kind || `#${s.id}` },
+        { key: 'kind', headerKey: 'common.labels.kind', header: 'Kind', sortable: true, cellClassName: 'sk-jobs__kind', render: (s) => s.kind || '—' },
+        { key: 'schedule', headerKey: 'common.labels.schedule', header: 'Schedule', sortable: true, sortValue: (s) => s.schedule || s.cron || null, cellClassName: 'sk-jobs__owner', render: (s) => s.schedule || s.cron || (s.interval_seconds ? `every ${s.interval_seconds}s` : '—') },
         { key: 'next', headerKey: 'app.jobs.nextRun', header: 'Next run', cellClassName: 'sk-jobs__when', render: (s) => (s.next_run_at ? timeAgo(s.next_run_at) : '—') },
         { key: 'enabled', headerKey: 'app.jobs.enabled', header: 'Enabled', render: (s) => <Pill kind={s.enabled ? 'green' : 'gray'}>{s.enabled ? 'On' : 'Off'}</Pill> },
         {

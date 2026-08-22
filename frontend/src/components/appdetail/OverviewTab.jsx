@@ -114,11 +114,11 @@ const OverviewTab = ({ app, onUpdate }) => {
                     <div className="app-panel-body">
                         <div className="app-info-grid">
                             <div className="app-info-item">
-                                <span className="app-info-label">{t('app.overviewTab.type', 'Type')}</span>
+                                <span className="app-info-label">{t('common.labels.type', 'Type')}</span>
                                 <span className="app-info-value">{app.app_type === 'docker' ? 'Docker Container' : app.app_type.toUpperCase()}</span>
                             </div>
                             <div className="app-info-item">
-                                <span className="app-info-label">{t('app.overviewTab.port', 'Port')}</span>
+                                <span className="app-info-label">{t('common.labels.port', 'Port')}</span>
                                 <span className="app-info-value">
                                     {app.port || '-'}
                                     {appStatus && app.port && (
@@ -179,11 +179,11 @@ const OverviewTab = ({ app, onUpdate }) => {
                         <div className="app-panel-body">
                             <div className="app-info-grid">
                                 <div className="app-info-item">
-                                    <span className="app-info-label">{t('app.overviewTab.service', 'Service')}</span>
+                                    <span className="app-info-label">{t('common.labels.service', 'Service')}</span>
                                     <span className="app-info-value mono">{status.service_name}</span>
                                 </div>
                                 <div className="app-info-item">
-                                    <span className="app-info-label">{t('app.overviewTab.state', 'State')}</span>
+                                    <span className="app-info-label">{t('common.labels.state', 'State')}</span>
                                     <span className="app-info-value">{status.active_state} ({status.sub_state})</span>
                                 </div>
                                 {status.main_pid !== '0' && (
@@ -194,7 +194,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                                 )}
                                 {status.memory && status.memory !== '0' && (
                                     <div className="app-info-item">
-                                        <span className="app-info-label">{t('app.overviewTab.memory', 'Memory')}</span>
+                                        <span className="app-info-label">{t('common.labels.memory', 'Memory')}</span>
                                         <span className="app-info-value">{formatBytes(parseInt(status.memory))}</span>
                                     </div>
                                 )}
@@ -206,7 +206,7 @@ const OverviewTab = ({ app, onUpdate }) => {
                 {/* Domains Panel */}
                 {app.domains && app.domains.length > 0 && (
                     <div className="app-panel">
-                        <div className="app-panel-header">{t('app.overviewTab.domains', 'Domains')}</div>
+                        <div className="app-panel-header">{t('common.labels.domains', 'Domains')}</div>
                         <div className="app-panel-body">
                             <div className="domains-list">
                                 {app.domains.map(domain => (

@@ -92,7 +92,7 @@ const SetupStepAccount = ({ onComplete }) => {
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="password">{t('app.setupStepAccount.password', 'Password')}</Label>
+                        <Label htmlFor="password">{t('common.labels.password', 'Password')}</Label>
                         <Input
                             type="password"
                             id="password"
@@ -105,9 +105,8 @@ const SetupStepAccount = ({ onComplete }) => {
 
                     <button
                         type="submit"
-                        className="btn-wizard-next"
+                        className="btn-wizard-next btn-wizard-next--block"
                         disabled={loading}
-                        style={{ width: '100%', justifyContent: 'center' }}
                     >
                         {loading ? 'Signing in...' : 'Sign In & Continue'}
                     </button>
@@ -147,7 +146,7 @@ const SetupStepAccount = ({ onComplete }) => {
                 </div>
 
                 <div className="form-group">
-                    <Label htmlFor="username">{t('app.setupStepAccount.username', 'Username')}</Label>
+                    <Label htmlFor="username">{t('common.labels.username', 'Username')}</Label>
                     <Input
                         type="text"
                         id="username"
@@ -159,7 +158,7 @@ const SetupStepAccount = ({ onComplete }) => {
                 </div>
 
                 <div className="form-group">
-                    <Label htmlFor="password">{t('app.setupStepAccount.password2', 'Password')}</Label>
+                    <Label htmlFor="password">{t('common.labels.password', 'Password')}</Label>
                     <Input
                         type="password"
                         id="password"
@@ -184,9 +183,8 @@ const SetupStepAccount = ({ onComplete }) => {
 
                 <button
                     type="submit"
-                    className="btn-wizard-next"
+                    className="btn-wizard-next btn-wizard-next--block"
                     disabled={loading}
-                    style={{ width: '100%', justifyContent: 'center' }}
                 >
                     {loading ? 'Creating account...' : 'Continue'}
                 </button>

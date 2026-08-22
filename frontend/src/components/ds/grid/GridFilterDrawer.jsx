@@ -55,7 +55,7 @@ export function GridFilterDrawer({
                     <select
                         value={String(rule.value)}
                         onChange={(e) => patchRule(rule.id, { value: e.target.value === 'true' })}
-                        aria-label={t('app.gridFilterDrawer.value', 'Value')}
+                        aria-label={t('common.labels.value', 'Value')}
                     >
                         <option value="true">On</option>
                         <option value="false">{t('app.gridFilterDrawer.off', 'Off')}</option>
@@ -91,7 +91,7 @@ export function GridFilterDrawer({
                 type={column.type === 'num' ? 'number' : column.type === 'date' ? 'date' : 'text'}
                 value={rule.value ?? ''}
                 placeholder="value"
-                aria-label={t('app.gridFilterDrawer.value2', 'Value')}
+                aria-label={t('common.labels.value', 'Value')}
                 onChange={(e) => patchRule(rule.id, { value: coerceValue(column.type, e.target.value) })}
             />
         );
@@ -313,7 +313,7 @@ export function GridFilterDrawer({
                     <History size={14} /> {t('app.gridFilterDrawer.reset', 'Reset')}
                 </Button>
                 <span className="sk-griddrawer__sp" />
-                <Button size="sm" onClick={() => onOpenChange(false)}>{t('app.gridFilterDrawer.done', 'Done')}</Button>
+                <Button size="sm" onClick={() => onOpenChange(false)}>{t('common.actions.done', 'Done')}</Button>
             </div>
         </Drawer>
     );

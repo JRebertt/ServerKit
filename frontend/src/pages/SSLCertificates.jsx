@@ -170,7 +170,7 @@ const SSLCertificates = () => {
                 toast.error(result.error || t('app.sSLCertificates.failedToObtainCertificate', 'Failed to obtain certificate'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.failedToObtainCertificate2', 'Failed to obtain certificate'));
+            toast.error(err.message || t('app.sSLCertificates.failedToObtainCertificate', 'Failed to obtain certificate'));
         } finally {
             setActionLoading(false);
         }
@@ -195,7 +195,7 @@ const SSLCertificates = () => {
                 toast.error(result?.error || t('app.sSLCertificates.failedToUploadCertificate', 'Failed to upload certificate'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.failedToUploadCertificate2', 'Failed to upload certificate'));
+            toast.error(err.message || t('app.sSLCertificates.failedToUploadCertificate', 'Failed to upload certificate'));
         } finally {
             setActionLoading(false);
         }
@@ -212,7 +212,7 @@ const SSLCertificates = () => {
                 toast.error(result.error || t('app.sSLCertificates.renewalFailed', 'Renewal failed'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.renewalFailed2', 'Renewal failed'));
+            toast.error(err.message || t('app.sSLCertificates.renewalFailed', 'Renewal failed'));
         } finally {
             setRenewingDomain(null);
         }
@@ -226,10 +226,10 @@ const SSLCertificates = () => {
                 toast.success(t('app.sSLCertificates.allCertificatesRenewed', 'All certificates renewed'));
                 loadData();
             } else {
-                toast.error(result.error || t('app.sSLCertificates.renewalFailed3', 'Renewal failed'));
+                toast.error(result.error || t('app.sSLCertificates.renewalFailed', 'Renewal failed'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.renewalFailed4', 'Renewal failed'));
+            toast.error(err.message || t('app.sSLCertificates.renewalFailed', 'Renewal failed'));
         } finally {
             setActionLoading(false);
         }
@@ -249,7 +249,7 @@ const SSLCertificates = () => {
                 toast.error(result.error || t('app.sSLCertificates.revocationFailed', 'Revocation failed'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.revocationFailed2', 'Revocation failed'));
+            toast.error(err.message || t('app.sSLCertificates.revocationFailed', 'Revocation failed'));
         } finally {
             setActionLoading(false);
         }
@@ -265,7 +265,7 @@ const SSLCertificates = () => {
                 toast.error(result.error || t('app.sSLCertificates.failedToSetupAutoRenewal', 'Failed to setup auto-renewal'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.failedToSetupAutoRenewal2', 'Failed to setup auto-renewal'));
+            toast.error(err.message || t('app.sSLCertificates.failedToSetupAutoRenewal', 'Failed to setup auto-renewal'));
         } finally {
             setActionLoading(false);
         }
@@ -283,7 +283,7 @@ const SSLCertificates = () => {
                 toast.error(result.error || t('app.sSLCertificates.failedToInstallCertbot', 'Failed to install Certbot'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.sSLCertificates.failedToInstallCertbot2', 'Failed to install Certbot'));
+            toast.error(err.message || t('app.sSLCertificates.failedToInstallCertbot', 'Failed to install Certbot'));
         } finally {
             setActionLoading(false);
         }
@@ -342,7 +342,7 @@ const SSLCertificates = () => {
     const columns = useMemo(() => [
         {
             key: 'name',
-            headerKey: 'app.sSLCertificates.domain', header: 'Domain',
+            headerKey: 'common.labels.domain', header: 'Domain',
             sortable: true,
             hideable: false,
             value: (c) => c.name,
@@ -372,7 +372,7 @@ const SSLCertificates = () => {
         },
         {
             key: 'state',
-            headerKey: 'app.sSLCertificates.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             type: 'enum',
             sortable: true,
             groupable: true,
@@ -476,7 +476,7 @@ const SSLCertificates = () => {
             )}
             <Button variant="outline" size="sm" onClick={loadData}>
                 <RefreshCw size={15} />
-                {t('app.sSLCertificates.refresh', 'Refresh')}
+                {t('common.actions.refresh', 'Refresh')}
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowUploadModal(true)}>
                 <Upload size={15} />
@@ -513,7 +513,7 @@ const SSLCertificates = () => {
                 emptyAction={certbotInstalled ? (
                     <Button onClick={() => setShowObtainModal(true)}>
                         <Plus size={16} />
-                        {t('app.sSLCertificates.newCertificate2', 'New Certificate')}
+                        {t('app.sSLCertificates.newCertificate', 'New Certificate')}
                     </Button>
                 ) : (
                     <Button onClick={handleInstallCertbot} disabled={actionLoading}>
@@ -648,7 +648,7 @@ const SSLCertificates = () => {
                                     variant="outline"
                                     onClick={() => setShowObtainModal(false)}
                                 >
-                                    {t('app.sSLCertificates.cancel', 'Cancel')}
+                                    {t('common.actions.cancel', 'Cancel')}
                                 </Button>
                                 <Button
                                     type="submit"
@@ -671,7 +671,7 @@ const SSLCertificates = () => {
                         </div>
                     </div>
                     <div className="form-group">
-                        <Label>{t('app.sSLCertificates.domain2', 'Domain')}</Label>
+                        <Label>{t('common.labels.domain', 'Domain')}</Label>
                         <Input
                             type="text"
                             placeholder="example.com"
@@ -714,7 +714,7 @@ const SSLCertificates = () => {
                     </div>
                     <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => setShowUploadModal(false)}>
-                            {t('app.sSLCertificates.cancel2', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={actionLoading}>
                             {actionLoading ? 'Uploading...' : 'Upload Certificate'}

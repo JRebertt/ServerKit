@@ -1,0 +1,277 @@
+// Recipes console (walkthrough engine UI). Docked into the shared shell
+// console above the status bar — geometry comes from .shell-panel; this file
+// owns the recipe library grid and the running recipe's split layout.
+
+.shell-recipes {
+    // Library — recipe cards (prototype rc-grid/rc-card).
+    &__grid {
+        display: grid;
+        flex: 1;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 10px;
+        align-content: start;
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    &__card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-soft);
+        border-radius: 11px;
+        background: var(--surface-2);
+        transition: border-color 130ms ease;
+
+        &:hover { border-color: var(--accent-dim); }
+        &.is-active { border-color: var(--accent-dim); }
+    }
+
+    &__card-hit {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 13px 13px 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        @include focus-ring();
+    }
+
+    &__card-icon {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        margin-block-end: 10px;
+        place-items: center;
+        border-radius: 8px;
+        @include status-variant(var(--accent-bright), var(--accent-bg));
+
+        &.is-cyan { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 13%, transparent); }
+        &.is-amber { color: var(--amber); background: color-mix(in srgb, var(--amber) 13%, transparent); }
+    }
+
+    &__card-name {
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    &__card-desc {
+        margin-block-start: 3px;
+        color: var(--text-faint);
+        font-size: 11.5px;
+        line-height: 1.5;
+    }
+
+    &__card-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 13px 12px;
+        color: var(--text-faint);
+        font-size: 10.5px;
+
+        svg { flex: 0 0 auto; }
+    }
+
+    &__card-stop {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-inline-start: auto;
+        padding: 2px 7px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        font: inherit;
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { color: var(--red); background: var(--red-bg); }
+    }
+
+    // Running recipe — step rail left, story right (prototype cp-split).
+    &__split {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+
+    &__rail {
+        display: flex;
+        width: 344px;
+        flex: 0 0 auto;
+        flex-direction: column;
+        min-height: 0;
+        border-inline-end: 1px solid var(--border-soft);
+    }
+
+    &__railhead {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px 9px 12px;
+        border-block-end: 1px solid var(--border-soft);
+    }
+
+    &__railtitle {
+        display: flex;
+        min-width: 0;
+        flex: 1;
+        flex-direction: column;
+
+        strong {
+            overflow: hidden;
+            font-size: 12.5px;
+            font-weight: 550;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .mono {
+            margin-block-start: 2px;
+            color: var(--text-faint);
+            font-size: 10.5px;
+        }
+    }
+
+    &__steps {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    &__step {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border: 0;
+        border-inline-start: 2px solid transparent;
+        background: transparent;
+        color: var(--text-dim);
+        font: inherit;
+        font-size: 12.5px;
+        text-align: start;
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { background: var(--surface-2); }
+
+        &.is-viewing {
+            border-inline-start-color: var(--accent);
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        &.is-done .shell-recipes__step-title {
+            color: var(--text-ghost);
+            text-decoration: line-through;
+        }
+    }
+
+    &__step-marker {
+        display: grid;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--border-strong);
+        border-radius: 50%;
+        color: var(--text-faint);
+        font-size: 10px;
+
+        .shell-recipes__step.is-done & {
+            @include status-variant(var(--green), var(--green-bg), var(--green));
+        }
+    }
+
+    &__step-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__detail {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+        padding: 12px 14px;
+    }
+
+    &__eyebrow {
+        color: var(--text-ghost);
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    &__step-heading {
+        margin: 2px 0 10px;
+        font-size: 14px;
+        font-weight: 550;
+    }
+
+    &__body {
+        flex: 1;
+        max-width: 62ch;
+        margin: 0;
+        overflow-y: auto;
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1.7;
+        text-wrap: pretty;
+    }
+
+    &__foot {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 8px;
+        margin-block-start: 12px;
+        padding-block-start: 12px;
+        border-block-start: 1px solid var(--border-soft);
+    }
+}
+
+@media (max-width: $breakpoint-md) {
+    .shell-recipes {
+        &__grid { grid-template-columns: 1fr; }
+
+        &__split { flex-direction: column; }
+
+        &__rail {
+            width: auto;
+            max-height: 42%;
+            border-inline-end: 0;
+            border-block-end: 1px solid var(--border-soft);
+        }
+    }
+}
+
+// Step target highlight — applied by WalkthroughContext to the on-page
+// element the current step points at.
+.is-walkthrough-target {
+    position: relative;
+    z-index: 2;
+    outline: 2px solid var(--amber) !important;
+    outline-offset: 4px;
+    animation: walkthrough-target-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes walkthrough-target-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 0%, transparent); }
+    50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--amber) 14%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .is-walkthrough-target { animation: none; }
+}

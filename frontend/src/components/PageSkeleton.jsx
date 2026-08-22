@@ -237,7 +237,7 @@ function TreeSkeleton({ rows }) {
             <div className="sk-page__rail">
                 <Skeleton variant="block" height={32} radius={8} />
                 {range(rows).map((i) => (
-                    <div className="sk-page__twig" key={i} style={{ paddingLeft: `${(i % 3) * 14}px` }}>
+                    <div className="sk-page__twig" key={i}>
                         <Skeleton variant="block" width={14} height={14} radius={4} />
                         <Skeleton variant="line" width={raggedWidth(i, [70, 88, 56, 78, 64, 92])} height={10} />
                     </div>

@@ -110,7 +110,7 @@ const CloudProvision = () => {
         <div className="sk-tabgroup__inner cloud-provision-page">
             <Tabs defaultValue="servers">
                 <TabsList>
-                    <TabsTrigger value="servers">{t('app.cloudProvision.servers', 'Servers')}</TabsTrigger>
+                    <TabsTrigger value="servers">{t('common.labels.servers', 'Servers')}</TabsTrigger>
                     <TabsTrigger value="providers">{t('app.cloudProvision.providers', 'Providers')}</TabsTrigger>
                     <TabsTrigger value="costs">{t('app.cloudProvision.costs', 'Costs')}</TabsTrigger>
                 </TabsList>
@@ -146,7 +146,7 @@ const CloudProvision = () => {
                                 icon={Server}
                                 title={t('app.cloudProvision.noCloudServersYet', 'No cloud servers yet')}
                                 description={user?.is_admin ? t('app.cloudProvision.addAProviderThenCreateA', 'Add a provider, then create a server.') : t('app.cloudProvision.noServersHaveBeenProvisioned', 'No servers have been provisioned.')}
-                                action={user?.is_admin && <Button onClick={() => setShowCreateServer(true)}>{t('app.cloudProvision.newServer2', 'New Server')}</Button>}
+                                action={user?.is_admin && <Button onClick={() => setShowCreateServer(true)}>{t('app.cloudProvision.newServer', 'New Server')}</Button>}
                             />
                         )}
                     </div>
@@ -167,7 +167,7 @@ const CloudProvision = () => {
                                 icon={Cloud}
                                 title={t('app.cloudProvision.noProvidersConfigured', 'No providers configured')}
                                 description={user?.is_admin ? t('app.cloudProvision.addACloudProviderToProvision', 'Add a cloud provider to provision servers.') : t('app.cloudProvision.noProvidersHaveBeenAdded', 'No providers have been added.')}
-                                action={user?.is_admin && <Button variant="outline" onClick={() => setShowCreateProvider(true)}>{t('app.cloudProvision.addProvider2', 'Add Provider')}</Button>}
+                                action={user?.is_admin && <Button variant="outline" onClick={() => setShowCreateProvider(true)}>{t('app.cloudProvision.addProvider', 'Add Provider')}</Button>}
                             />
                         )}
                     </div>
@@ -198,13 +198,13 @@ const CloudProvision = () => {
                 title={t('app.cloudProvision.addCloudProvider', 'Add Cloud Provider')}
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateProvider(false)}>{t('app.cloudProvision.cancel', 'Cancel')}</Button>
-                        <Button onClick={handleCreateProvider}>{t('app.cloudProvision.add', 'Add')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateProvider(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                        <Button onClick={handleCreateProvider}>{t('common.actions.add', 'Add')}</Button>
                     </>
                 )}
             >
                 <div className="form-group"><label>{t('app.cloudProvision.provider', 'Provider')}</label><select className="form-select" value={providerForm.provider_type} onChange={e => setProviderForm({...providerForm, provider_type: e.target.value})}>{Object.entries(providerTypes).map(([k,v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-                <div className="form-group"><label>{t('app.cloudProvision.name', 'Name')}</label><Input value={providerForm.name} onChange={e => setProviderForm({...providerForm, name: e.target.value})} /></div>
+                <div className="form-group"><label>{t('common.labels.name', 'Name')}</label><Input value={providerForm.name} onChange={e => setProviderForm({...providerForm, name: e.target.value})} /></div>
                 <div className="form-group"><label>{t('app.cloudProvision.apiKey', 'API Key')}</label><Input type="password" value={providerForm.api_key} onChange={e => setProviderForm({...providerForm, api_key: e.target.value})} /></div>
             </Modal>
 
@@ -214,17 +214,17 @@ const CloudProvision = () => {
                 title={t('app.cloudProvision.newCloudServer', 'New Cloud Server')}
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateServer(false)}>{t('app.cloudProvision.cancel2', 'Cancel')}</Button>
-                        <Button onClick={handleCreateServer} disabled={!serverForm.name || !serverForm.provider_id}>{t('app.cloudProvision.create', 'Create')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateServer(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                        <Button onClick={handleCreateServer} disabled={!serverForm.name || !serverForm.provider_id}>{t('common.actions.create', 'Create')}</Button>
                     </>
                 )}
             >
-                <div className="form-group"><label>{t('app.cloudProvision.provider2', 'Provider')}</label><select className="form-select" value={serverForm.provider_id} onChange={e => { setServerForm({...serverForm, provider_id: parseInt(e.target.value)}); const p = providers.find(x => x.id === parseInt(e.target.value)); if (p) loadProviderOptions(p.provider_type); }}><option value="">{t('app.cloudProvision.selectProvider', 'Select provider')}</option>{providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                <div className="form-group"><label>{t('app.cloudProvision.provider', 'Provider')}</label><select className="form-select" value={serverForm.provider_id} onChange={e => { setServerForm({...serverForm, provider_id: parseInt(e.target.value)}); const p = providers.find(x => x.id === parseInt(e.target.value)); if (p) loadProviderOptions(p.provider_type); }}><option value="">{t('app.cloudProvision.selectProvider', 'Select provider')}</option>{providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
                 <div className="form-group"><label>{t('app.cloudProvision.serverName', 'Server Name')}</label><Input value={serverForm.name} onChange={e => setServerForm({...serverForm, name: e.target.value})} /></div>
                 {providerOptions && (
                     <>
                         <div className="form-group"><label>{t('app.cloudProvision.region', 'Region')}</label><select className="form-select" value={serverForm.region} onChange={e => setServerForm({...serverForm, region: e.target.value})}><option value="">{t('app.cloudProvision.selectRegion', 'Select region')}</option>{(providerOptions.regions || []).map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-                        <div className="form-group"><label>{t('app.cloudProvision.size', 'Size')}</label><select className="form-select" value={serverForm.size} onChange={e => setServerForm({...serverForm, size: e.target.value})}><option value="">{t('app.cloudProvision.selectSize', 'Select size')}</option>{(providerOptions.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                        <div className="form-group"><label>{t('common.labels.size', 'Size')}</label><select className="form-select" value={serverForm.size} onChange={e => setServerForm({...serverForm, size: e.target.value})}><option value="">{t('app.cloudProvision.selectSize', 'Select size')}</option>{(providerOptions.sizes || []).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
                         <div className="form-group"><label>{t('app.cloudProvision.image', 'Image')}</label><select className="form-select" value={serverForm.image} onChange={e => setServerForm({...serverForm, image: e.target.value})}><option value="">{t('app.cloudProvision.selectImage', 'Select image')}</option>{(providerOptions.images || []).map(i => <option key={i} value={i}>{i}</option>)}</select></div>
                     </>
                 )}

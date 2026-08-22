@@ -39,7 +39,7 @@ export function GridFooter({
                         aria-label={t('app.gridFooter.rowsPerPage', 'Rows per page')}
                     >
                         {[10, 25, 50, 100].map((n) => <option key={n} value={n}>{n}</option>)}
-                        <option value="all">{t('app.gridFooter.all', 'All')}</option>
+                        <option value="all">{t('common.labels.all', 'All')}</option>
                     </select>
                     <ChevronDown size={12} />
                 </div>

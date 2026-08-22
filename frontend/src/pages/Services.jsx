@@ -216,7 +216,7 @@ const Services = () => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.services.service', header: 'Service',
+            headerKey: 'common.labels.service', header: 'Service',
             sortable: true,
             hideable: false,
             render: (app) => {
@@ -234,7 +234,7 @@ const Services = () => {
         },
         {
             key: 'project',
-            headerKey: 'app.services.project', header: 'Project',
+            headerKey: 'common.labels.project', header: 'Project',
             sortable: true,
             // Unassigned services (no project) sort last.
             sortValue: (app) => app.project_name || null,
@@ -259,7 +259,7 @@ const Services = () => {
         },
         {
             key: 'source',
-            headerKey: 'app.services.source', header: 'Source',
+            headerKey: 'common.labels.source', header: 'Source',
             render: (app) => {
                 const isGithub = (app.deploy_repo_url || '').includes('github.com');
                 if (app.deploy_repo_url) {
@@ -291,7 +291,7 @@ const Services = () => {
         },
         {
             key: 'domain',
-            headerKey: 'app.services.domain', header: 'Domain',
+            headerKey: 'common.labels.domain', header: 'Domain',
             sortable: true,
             sortValue: (app) => (app.domains?.find(d => d.is_primary) || app.domains?.[0])?.name || null,
             cellClassName: 'sk-cell-mono',
@@ -318,7 +318,7 @@ const Services = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.services.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // `value` is the FILTER/GROUP value, `sortValue` is the ORDERING key —
@@ -357,15 +357,15 @@ const Services = () => {
                     <div className="services-page__actions" onClick={(e) => e.stopPropagation()}>
                         {isRunning ? (
                             <>
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title={t('app.services.restart', 'Restart')}>
+                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'restart')} disabled={actionLoading === `${app.id}-restart`} title={t('common.actions.restart', 'Restart')}>
                                     <RotateCw size={14} />
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title={t('app.services.stop', 'Stop')}>
+                                <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'stop')} disabled={actionLoading === `${app.id}-stop`} title={t('common.actions.stop', 'Stop')}>
                                     <Square size={14} />
                                 </Button>
                             </>
                         ) : (
-                            <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title={t('app.services.start', 'Start')}>
+                            <Button variant="ghost" size="sm" onClick={(e) => handleAction(e, app.id, 'start')} disabled={actionLoading === `${app.id}-start`} title={t('common.actions.start', 'Start')}>
                                 <Play size={14} />
                             </Button>
                         )}
@@ -506,11 +506,11 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
         <Modal
             open={open}
             onClose={() => onOpenChange(false)}
-            title={t('app.services.moveToProject2', 'Move to project')}
+            title={t('app.services.moveToProject', 'Move to project')}
             footer={(
                 <>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                        {t('app.services.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="button" onClick={handleSubmit} disabled={submitting || loadingProjects}>
                         {submitting ? 'Moving…' : (projectValue === UNASSIGN ? 'Unassign' : 'Move')}
@@ -524,13 +524,13 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
 
             <div className="services-move">
                     <div className="services-move__field">
-                        <Label htmlFor="move-project">{t('app.services.project2', 'Project')}</Label>
+                        <Label htmlFor="move-project">{t('common.labels.project', 'Project')}</Label>
                         <Select value={projectValue} onValueChange={handleProjectChange} disabled={loadingProjects}>
                             <SelectTrigger id="move-project">
-                                <SelectValue placeholder={loadingProjects ? t('app.services.loading', 'Loading…') : t('app.services.selectAProject', 'Select a project')} />
+                                <SelectValue placeholder={loadingProjects ? t('common.loading', 'Loading…') : t('app.services.selectAProject', 'Select a project')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={UNASSIGN}>{t('app.services.unassigned2', 'Unassigned')}</SelectItem>
+                                <SelectItem value={UNASSIGN}>{t('app.services.unassigned', 'Unassigned')}</SelectItem>
                                 {projects.map((p) => (
                                     <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                                 ))}
@@ -543,10 +543,10 @@ const MoveToProjectDialog = ({ open, onOpenChange, count, onMove }) => {
                             <Label htmlFor="move-env">{t('app.services.environment', 'Environment')}</Label>
                             <Select value={envValue} onValueChange={setEnvValue} disabled={loadingEnvs}>
                                 <SelectTrigger id="move-env">
-                                    <SelectValue placeholder={loadingEnvs ? t('app.services.loading2', 'Loading…') : t('app.services.noSpecificEnvironment', 'No specific environment')} />
+                                    <SelectValue placeholder={loadingEnvs ? t('common.loading', 'Loading…') : t('app.services.noSpecificEnvironment', 'No specific environment')} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={NO_ENV}>{t('app.services.noSpecificEnvironment2', 'No specific environment')}</SelectItem>
+                                    <SelectItem value={NO_ENV}>{t('app.services.noSpecificEnvironment', 'No specific environment')}</SelectItem>
                                     {environments.map((e) => (
                                         <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>
                                     ))}

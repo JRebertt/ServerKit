@@ -30,7 +30,7 @@ const SheetContent = React.forwardRef(({ side = 'right', className, children, ..
     >
       <SheetPrimitive.Close className="ui-sheet-close">
         <X />
-        <span className="sr-only">{t('app.sheet.close', 'Close')}</span>
+        <span className="sr-only">{t('common.actions.close', 'Close')}</span>
       </SheetPrimitive.Close>
       {children}
     </SheetPrimitive.Content>

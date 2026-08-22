@@ -155,7 +155,7 @@ const meterColumn = (key, header, metricKey) => ({
 const SERVER_COLUMNS = [
     {
         key: 'name',
-        headerKey: 'app.servers.server', header: 'Server',
+        headerKey: 'common.labels.server', header: 'Server',
         sortable: true,
         hideable: false,
         sortValue: (server) => server.name || '',
@@ -203,7 +203,7 @@ const SERVER_COLUMNS = [
     },
     {
         key: 'status',
-        headerKey: 'app.servers.status', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         type: 'enum',
         // Explicit, rather than leaning on the sortValue fallback: this pins
@@ -333,7 +333,7 @@ const Servers = () => {
             <SearchField
                 value={searchTerm}
                 onSearch={setSearchTerm}
-                placeholder={t('app.servers.searchServers', 'Search servers...')}
+                placeholder={t('app.servers.searchServers', 'Search servers…')}
             />
         </>
     ), [searchTerm, loading]);
@@ -371,7 +371,7 @@ const Servers = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner servers-page">
-                <EmptyState loading loadingVariant="table" title={t('app.servers.scanningFleet', 'Scanning fleet...')} />
+                <EmptyState loading loadingVariant="table" title={t('app.servers.scanningFleet', 'Scanning fleet…')} />
             </div>
         );
     }
@@ -408,7 +408,7 @@ const Servers = () => {
                                 chrome.api.resetToView();
                             }}
                         >
-                            {t('app.servers.clearFilters', 'Clear filters')}
+                            {t('common.actions.clearFilters', 'Clear filters')}
                         </Button>
                     )}
                 />
@@ -484,7 +484,7 @@ const Servers = () => {
                         >
                             <option value="" disabled>{t('app.servers.setGroup', 'Set group…')}</option>
                             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                            <option value="none">{t('app.servers.ungrouped2', 'Ungrouped')}</option>
+                            <option value="none">{t('app.servers.ungrouped', 'Ungrouped')}</option>
                         </select>
                     </div>
                     <button
@@ -631,15 +631,15 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         autoFocus
                         autoComplete="off"
                         spellCheck={false}
-                        style={{ fontFamily: 'monospace', fontSize: '1.25rem', letterSpacing: '0.15em', textAlign: 'center' }}
+                        className="server-pair-code"
                         required
                     />
                     <span className="form-hint">{t('app.servers.theCodeIsShownInThe', 'The code is shown in the terminal output or system tray.')}</span>
-                    {lookupError && <div className="error-message" style={{ marginTop: '0.5rem' }}>{lookupError}</div>}
+                    {lookupError && <div className="error-message server-pair-error">{lookupError}</div>}
                 </div>
 
                 {lookupResult && (
-                    <div className="success-banner" style={{ marginTop: '0.5rem' }}>
+                    <div className="success-banner server-pair-banner">
                         <div>
                             <strong>{t('app.servers.agentFound', 'Agent found')}</strong>
                             <p className="success-subtitle">
@@ -647,9 +647,9 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                                     <>{t('app.servers.server2', 'Server:')} <code>{lookupResult.system_info.display_name}</code><br /></>
                                 )}
                                 {t('app.servers.hostname', 'Hostname:')} <code>{lookupResult.system_info?.hostname || 'unknown'}</code><br />
-                                {t('app.servers.fingerprint', 'Fingerprint:')} <code style={{ fontFamily: 'monospace' }}>{lookupResult.pubkey_fpr}</code>
+                                {t('app.servers.fingerprint', 'Fingerprint:')} <code className="server-pair-fpr">{lookupResult.pubkey_fpr}</code>
                             </p>
-                            <p className="text-muted" style={{ marginTop: '0.25rem', fontSize: '0.85em' }}>
+                            <p className="text-muted server-pair-note">
                                 {t('app.servers.confirmThisFingerprintMatchesTheOne', 'Confirm this fingerprint matches the one shown by the agent before continuing.')}
                             </p>
                         </div>
@@ -665,7 +665,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         placeholder={t('app.servers.shownOnTheAgentSPairing', 'Shown on the agent\'s pairing screen')}
                         autoComplete="off"
                         spellCheck={false}
-                        style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '0.08em' }}
+                        className="server-pair-passphrase"
                         required
                     />
                 </div>
@@ -682,7 +682,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         <span className="form-hint">{t('app.servers.leaveBlankToUseTheAgent', 'Leave blank to use the agent\'s hostname.')}</span>
                     </div>
                     <div className="form-group">
-                        <label>{t('app.servers.group2', 'Group')}</label>
+                        <label>{t('app.servers.group', 'Group')}</label>
                         <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
                             <option value="">{t('app.servers.noGroup', 'No Group')}</option>
                             {groups.map(g => (
@@ -697,7 +697,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
 
             <div className="modal-actions">
                 <Button type="button" variant="outline" onClick={onClose}>
-                    {t('app.servers.cancel', 'Cancel')}
+                    {t('common.actions.cancel', 'Cancel')}
                 </Button>
                 <Button type="submit" disabled={loading || formattedCode.length !== 6}>
                     {loading ? 'Pairing…' : 'Pair Agent'}
@@ -811,7 +811,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                             className={`mode-switcher__tab${mode === 'pair' ? ' is-active' : ''}`}
                             onClick={() => setMode('pair')}
                         >
-                            {t('app.servers.pairCode2', 'Pair code')}
+                            {t('app.servers.pairCode', 'Pair code')}
                         </button>
                         <button
                             type="button"
@@ -842,9 +842,9 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>{t('app.servers.group3', 'Group')}</label>
+                                    <label>{t('app.servers.group', 'Group')}</label>
                                     <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                                        <option value="">{t('app.servers.noGroup2', 'No Group')}</option>
+                                        <option value="">{t('app.servers.noGroup', 'No Group')}</option>
                                         {groups.map(group => (
                                             <option key={group.id} value={group.id}>{group.name}</option>
                                         ))}
@@ -867,7 +867,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                         <div className="modal-actions">
                             <Button type="button" variant="outline" onClick={onClose}>
-                                {t('app.servers.cancel2', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button type="submit" disabled={loading}>
                                 {loading ? 'Generating…' : 'Generate Connection String'}
@@ -892,7 +892,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <details className="install-fallback">
                                 <summary>{t('app.servers.needToInstallTheAgentFirst', 'Need to install the agent first? Use the one-liner installer.')}</summary>
-                                <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                                <div className="install-tabs install-tabs--after-summary">
                                     <InstallTab
                                         title={t('app.servers.linux', 'Linux')}
                                         description={t('app.servers.curlTarSudoAndSystemd', 'curl, tar, sudo, and systemd')}
@@ -925,7 +925,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                         <div className="modal-actions">
                             <Button onClick={onCreated}>
-                                {t('app.servers.close', 'Close')}
+                                {t('common.actions.close', 'Close')}
                             </Button>
                         </div>
                     </div>
@@ -940,9 +940,9 @@ const ConnectionStringField = ({ value, onCopy }) => {
         <div className="connection-string-field">
             <div className="connection-string-field__header">
                 <KeyIcon />
-                <span>{t('app.servers.connectionString2', 'Connection string')}</span>
+                <span>{t('app.servers.connectionString', 'Connection string')}</span>
                 <Button variant="outline" size="sm" onClick={onCopy}>
-                    <CopyIcon /> {t('app.servers.copy', 'Copy')}
+                    <CopyIcon /> {t('common.actions.copy', 'Copy')}
                 </Button>
             </div>
             <pre className="connection-string-field__value">{value}</pre>
@@ -961,7 +961,7 @@ const InstallTab = ({ title, description, icon, script, onCopy }) => {
                     {description && <span className="install-tab-description">{description}</span>}
                 </div>
                 <Button variant="outline" size="sm" onClick={onCopy}>
-                    <CopyIcon /> {t('app.servers.copy2', 'Copy')}
+                    <CopyIcon /> {t('common.actions.copy', 'Copy')}
                 </Button>
             </div>
             <pre className="install-script">{script}</pre>
@@ -1035,11 +1035,11 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                         type="text"
                         value={newGroupName}
                         onChange={(e) => setNewGroupName(e.target.value)}
-                        placeholder={t('app.servers.newGroupName', 'New group name...')}
+                        placeholder={t('app.servers.newGroupName', 'New group name…')}
                         disabled={loading}
                     />
                     <Button type="submit" disabled={loading || !newGroupName.trim()}>
-                        <PlusIcon /> {t('app.servers.add', 'Add')}
+                        <PlusIcon /> {t('common.actions.add', 'Add')}
                     </Button>
                 </form>
 
@@ -1071,14 +1071,14 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                                             <button type="button"
                                                 className="btn-icon"
                                                 onClick={() => setEditingGroup(group.id)}
-                                                title={t('app.servers.edit', 'Edit')}
+                                                title={t('common.actions.edit', 'Edit')}
                                             >
                                                 <EditIcon />
                                             </button>
                                             <button type="button"
                                                 className="btn-icon danger"
                                                 onClick={() => handleDeleteGroup(group.id)}
-                                                title={t('app.servers.delete', 'Delete')}
+                                                title={t('common.actions.delete', 'Delete')}
                                             >
                                                 <TrashIcon />
                                             </button>
@@ -1091,7 +1091,7 @@ const ManageGroupsModal = ({ groups, onClose, onUpdated }) => {
                 </div>
 
                 <div className="modal-actions">
-                    <Button onClick={onClose}>{t('app.servers.done', 'Done')}</Button>
+                    <Button onClick={onClose}>{t('common.actions.done', 'Done')}</Button>
                 </div>
         </Modal>
     );

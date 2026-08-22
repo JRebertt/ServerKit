@@ -69,10 +69,10 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
             <div className="app-panel schedule-card">
                 <div className="app-panel-header">
                     <Calendar size={16} />
-                    <span>{t('app.scheduleCard.schedule', 'Schedule')}</span>
+                    <span>{t('common.labels.schedule', 'Schedule')}</span>
                 </div>
                 <div className="app-panel-body">
-                    <p className="app-panel-hint">{t('app.scheduleCard.loadingBackupSchedule', 'Loading backup schedule...')}</p>
+                    <p className="app-panel-hint">{t('app.scheduleCard.loadingBackupSchedule', 'Loading backup schedule…')}</p>
                 </div>
             </div>
         );
@@ -106,7 +106,7 @@ const ScheduleCard = ({ policy, remoteConfigured, onSave, saving }) => {
         <div className="app-panel schedule-card">
             <div className="app-panel-header">
                 <Calendar size={16} />
-                <span>{t('app.scheduleCard.schedule2', 'Schedule')}</span>
+                <span>{t('common.labels.schedule', 'Schedule')}</span>
                 <span className="app-panel-header-actions app-panel-hint">
                     {t('app.scheduleCard.backupsRunQuietlyInTheBackground', 'Backups run quietly in the background.')}
                 </span>

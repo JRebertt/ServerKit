@@ -54,14 +54,14 @@ export default function PreviewDrawer({
                         <h3>{file.name}</h3>
                         <p className="preview-drawer-path">{file.path}</p>
                     </div>
-                    <button type="button" className="preview-drawer-close" onClick={onClose} aria-label={t('app.previewDrawer.close', 'Close')}>
+                    <button type="button" className="preview-drawer-close" onClick={onClose} aria-label={t('common.actions.close', 'Close')}>
                         <X size={18} />
                     </button>
                 </header>
 
                 <div className="preview-drawer-meta">
                     <div className="meta-item">
-                        <span className="meta-label">{t('app.previewDrawer.size', 'Size')}</span>
+                        <span className="meta-label">{t('common.labels.size', 'Size')}</span>
                         <span className="meta-value">{file.size_human}</span>
                     </div>
                     <div className="meta-item">
@@ -73,7 +73,7 @@ export default function PreviewDrawer({
                         <span className="meta-value">{file.group}</span>
                     </div>
                     <div className="meta-item">
-                        <span className="meta-label">{t('app.previewDrawer.permissions', 'Permissions')}</span>
+                        <span className="meta-label">{t('common.labels.permissions', 'Permissions')}</span>
                         <span className="meta-value mono">{file.permissions}</span>
                     </div>
                     {file.mime_type && (
@@ -91,7 +91,7 @@ export default function PreviewDrawer({
                 <div className="preview-drawer-actions">
                     {!file.is_dir && (
                         <button type="button" className="drawer-action-btn" onClick={() => onDownload(file)}>
-                            <Download size={14} /> {t('app.previewDrawer.download', 'Download')}
+                            <Download size={14} /> {t('common.actions.download', 'Download')}
                         </button>
                     )}
                     <button type="button" className="drawer-action-btn" onClick={() => onCopyPath(file.path)}>
@@ -101,10 +101,10 @@ export default function PreviewDrawer({
                         <Edit3 size={14} /> {t('app.previewDrawer.rename', 'Rename')}
                     </button>
                     <button type="button" className="drawer-action-btn" onClick={() => onPermissions(file)}>
-                        <Lock size={14} /> {t('app.previewDrawer.permissions2', 'Permissions')}
+                        <Lock size={14} /> {t('common.labels.permissions', 'Permissions')}
                     </button>
                     <button type="button" className="drawer-action-btn danger" onClick={() => onDelete(file)}>
-                        <Trash2 size={14} /> {t('app.previewDrawer.delete', 'Delete')}
+                        <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                     </button>
                 </div>
 
@@ -129,14 +129,14 @@ export default function PreviewDrawer({
                                 <div className="editor-buttons">
                                     {!editing ? (
                                         <Button size="sm" onClick={onStartEdit}>
-                                            <Edit3 size={14} /> {t('app.previewDrawer.edit', 'Edit')}
+                                            <Edit3 size={14} /> {t('common.actions.edit', 'Edit')}
                                         </Button>
                                     ) : (
                                         <>
                                             <Button variant="outline" size="sm" onClick={onCancelEdit}>
-                                                {t('app.previewDrawer.cancel', 'Cancel')}
+                                                {t('common.actions.cancel', 'Cancel')}
                                             </Button>
-                                            <Button size="sm" onClick={onSave}>{t('app.previewDrawer.save', 'Save')}</Button>
+                                            <Button size="sm" onClick={onSave}>{t('common.actions.save', 'Save')}</Button>
                                         </>
                                     )}
                                 </div>

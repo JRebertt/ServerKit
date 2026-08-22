@@ -25,7 +25,7 @@ export default function LogToolbar({
                         onKeyDown={(e) => e.key === 'Enter' && onSearchSubmit()}
                     />
                     {searchPattern && (
-                        <button type="button" className="lv-search-field-clear" onClick={onSearchClear} title={t('app.logToolbar.clear', 'Clear')}>
+                        <button type="button" className="lv-search-field-clear" onClick={onSearchClear} title={t('common.actions.clear', 'Clear')}>
                             <X size={11} />
                         </button>
                     )}
@@ -78,7 +78,7 @@ export default function LogToolbar({
                     className="lv-icon-btn"
                     onClick={onRefresh}
                     disabled={!canAct}
-                    title={t('app.logToolbar.refresh', 'Refresh')}
+                    title={t('common.actions.refresh', 'Refresh')}
                 >
                     <RefreshCw size={13} />
                 </button>
@@ -86,7 +86,7 @@ export default function LogToolbar({
                     className="lv-icon-btn"
                     onClick={onDownload}
                     disabled={!canAct}
-                    title={t('app.logToolbar.download', 'Download')}
+                    title={t('common.actions.download', 'Download')}
                 >
                     <Download size={13} />
                 </button>

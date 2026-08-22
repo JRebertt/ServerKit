@@ -482,7 +482,7 @@ const ContainersTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.containersTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -532,7 +532,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.containersTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // The pill's own text IS the filterable value, so a preset that
             // says 'Running' reads exactly the way the row does. No enumOrder:
@@ -616,7 +616,7 @@ const ContainersTab = ({ onStatsChange }) => {
         },
         {
             key: 'created',
-            headerKey: 'app.containersTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type
             // the column would offer "is under 1754…" instead of a date picker.
@@ -659,7 +659,7 @@ const ContainersTab = ({ onStatsChange }) => {
                 const isProtected = isProtectedContainer(container);
                 return (
                     <div className="dx-row-actions" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title={t('app.containersTab.logs', 'Logs')}>
+                        <button type="button" className="dx-row-action" onClick={() => setLogsContainer(container)} title={t('common.labels.logs', 'Logs')}>
                             <FileText size={13} />
                         </button>
                         {isRunning && !isRemote && (
@@ -669,23 +669,23 @@ const ContainersTab = ({ onStatsChange }) => {
                         )}
                         {isProtected ? (
                             <span className="dx-row-protected" title={t('app.containersTab.serverkitSystemContainerManagedByThe', 'ServerKit system container — managed by the panel, lifecycle controls are disabled')}>
-                                <Lock size={11} /> {t('app.containersTab.system', 'System')}
+                                <Lock size={11} /> {t('common.labels.system', 'System')}
                             </span>
                         ) : isRunning ? (
                             <>
-                                <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title={t('app.containersTab.restart', 'Restart')}>
+                                <button type="button" className="dx-row-action" onClick={() => handleAction(containerId, 'restart')} title={t('common.actions.restart', 'Restart')}>
                                     <RotateCw size={13} />
                                 </button>
-                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title={t('app.containersTab.stop', 'Stop')}>
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'stop')} title={t('common.actions.stop', 'Stop')}>
                                     <Square size={13} />
                                 </button>
                             </>
                         ) : (
                             <>
-                                <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title={t('app.containersTab.start', 'Start')}>
+                                <button type="button" className="dx-row-action is-success" onClick={() => handleAction(containerId, 'start')} title={t('common.actions.start', 'Start')}>
                                     <Play size={13} />
                                 </button>
-                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title={t('app.containersTab.remove', 'Remove')}>
+                                <button type="button" className="dx-row-action is-danger" onClick={() => handleAction(containerId, 'remove')} title={t('common.actions.remove', 'Remove')}>
                                     <Trash2 size={13} />
                                 </button>
                             </>
@@ -727,7 +727,7 @@ const ContainersTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">{t('app.containersTab.loadingContainers', 'Loading containers...')}</div>
+                <div className="docker-loading">{t('app.containersTab.loadingContainers', 'Loading containers…')}</div>
             </div>
         );
     }
@@ -777,13 +777,13 @@ const ContainersTab = ({ onStatsChange }) => {
                 system containers are skipped, not silently failed. */}
             <GridBulkBar count={picked.length} noun="container" onClear={() => setPicked([])}>
                 <button type="button" onClick={() => handleBulkAction('restart')} disabled={bulkBusy}>
-                    <RotateCw size={13} /> {t('app.containersTab.restart2', 'Restart')}
+                    <RotateCw size={13} /> {t('common.actions.restart', 'Restart')}
                 </button>
                 <button type="button" onClick={() => handleBulkAction('stop')} disabled={bulkBusy}>
-                    <Square size={13} /> {t('app.containersTab.stop2', 'Stop')}
+                    <Square size={13} /> {t('common.actions.stop', 'Stop')}
                 </button>
                 <button type="button" onClick={() => handleBulkAction('start')} disabled={bulkBusy}>
-                    <Play size={13} /> {t('app.containersTab.start2', 'Start')}
+                    <Play size={13} /> {t('common.actions.start', 'Start')}
                 </button>
             </GridBulkBar>
 
@@ -972,33 +972,33 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
 
             <div className="dx-inspector-actions">
                 <button type="button" className="dx-action-btn" onClick={() => onOpenLogs(container)}>
-                    <FileText size={13} /> {t('app.containersTab.logs2', 'Logs')}
+                    <FileText size={13} /> {t('common.labels.logs', 'Logs')}
                 </button>
                 {isRunning && !isRemote && (
                     <button type="button" className="dx-action-btn" onClick={() => onOpenExec(container)}>
-                        <TerminalLucide size={13} /> {t('app.containersTab.exec2', 'Exec')}
+                        <TerminalLucide size={13} /> {t('app.containersTab.exec', 'Exec')}
                     </button>
                 )}
                 {isProtected ? (
-                    <span className="dx-action-protected" title={t('app.containersTab.serverkitSystemContainerManagedByThe2', 'ServerKit system container — managed by the panel, lifecycle controls are disabled')}>
+                    <span className="dx-action-protected" title={t('app.containersTab.serverkitSystemContainerManagedByThe', 'ServerKit system container — managed by the panel, lifecycle controls are disabled')}>
                         <Lock size={13} /> {t('app.containersTab.systemContainer', 'System container')}
                     </span>
                 ) : isRunning ? (
                     <>
                         <button type="button" className="dx-action-btn" onClick={() => onAction(containerId, 'restart')}>
-                            <RotateCw size={13} /> {t('app.containersTab.restart3', 'Restart')}
+                            <RotateCw size={13} /> {t('common.actions.restart', 'Restart')}
                         </button>
                         <button type="button" className="dx-action-btn is-danger" onClick={() => onAction(containerId, 'stop')}>
-                            <Square size={13} /> {t('app.containersTab.stop3', 'Stop')}
+                            <Square size={13} /> {t('common.actions.stop', 'Stop')}
                         </button>
                     </>
                 ) : (
                     <>
                         <button type="button" className="dx-action-btn is-success" onClick={() => onAction(containerId, 'start')}>
-                            <Play size={13} /> {t('app.containersTab.start3', 'Start')}
+                            <Play size={13} /> {t('common.actions.start', 'Start')}
                         </button>
                         <button type="button" className="dx-action-btn is-danger" onClick={() => onAction(containerId, 'remove')}>
-                            <Trash2 size={13} /> {t('app.containersTab.remove2', 'Remove')}
+                            <Trash2 size={13} /> {t('common.actions.remove', 'Remove')}
                         </button>
                     </>
                 )}
@@ -1017,20 +1017,20 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
             </div>
 
             <div className="dx-inspector-body">
-                {loading && <div className="dx-inspector-loading">{t('app.containersTab.inspectingContainer', 'Inspecting container...')}</div>}
+                {loading && <div className="dx-inspector-loading">{t('app.containersTab.inspectingContainer', 'Inspecting container…')}</div>}
 
                 {activeSection === 'overview' && (
                     <>
                         <ContainerResourceBars stats={stats} muted={!isRunning} />
                         <div className="dx-detail-grid">
-                            <div><span>{t('app.containersTab.image2', 'Image')}</span><strong title={getContainerImage(container)}>{getContainerImage(container)}</strong></div>
-                            <div><span>{t('app.containersTab.project', 'Project')}</span><strong>{projectName}</strong></div>
-                            <div><span>{t('app.containersTab.restart4', 'Restart')}</span><strong>{restartPolicy}</strong></div>
-                            <div><span>{t('app.containersTab.created2', 'Created')}</span><strong>{container.created || container.CreatedAt || '-'}</strong></div>
+                            <div><span>{t('app.containersTab.image', 'Image')}</span><strong title={getContainerImage(container)}>{getContainerImage(container)}</strong></div>
+                            <div><span>{t('common.labels.project', 'Project')}</span><strong>{projectName}</strong></div>
+                            <div><span>{t('common.actions.restart', 'Restart')}</span><strong>{restartPolicy}</strong></div>
+                            <div><span>{t('common.labels.created', 'Created')}</span><strong>{container.created || container.CreatedAt || '-'}</strong></div>
                         </div>
                         <div className="dx-section-title"><Gauge size={13} /> {t('app.containersTab.runtime', 'Runtime')}</div>
                         <div className="dx-details-list">
-                            <span>{t('app.containersTab.status2', 'Status')}</span><code>{getContainerStatus(container)}</code>
+                            <span>{t('common.labels.status', 'Status')}</span><code>{getContainerStatus(container)}</code>
                             <span>PID</span><code>{details?.State?.Pid || '-'}</code>
                             <span>{t('app.containersTab.platform', 'Platform')}</span><code>{details?.Platform || details?.Os || '-'}</code>
                             <span>{t('app.containersTab.driver', 'Driver')}</span><code>{details?.Driver || '-'}</code>
@@ -1050,7 +1050,7 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
                         <div className="dx-details-list">
                             {networks.length === 0 ? (
                                 <>
-                                    <span>{t('app.containersTab.networks2', 'Networks')}</span><code>-</code>
+                                    <span>{t('app.containersTab.networks', 'Networks')}</span><code>-</code>
                                 </>
                             ) : networks.map(([name, network]) => (
                                 <React.Fragment key={name}>
@@ -1092,7 +1092,7 @@ const ContainerInspector = ({ container, stats, onAction, onOpenLogs, onOpenExec
                         <div className="dx-details-list">
                             {Object.keys(labels).length === 0 ? (
                                 <>
-                                    <span>{t('app.containersTab.labels2', 'Labels')}</span><code>-</code>
+                                    <span>{t('app.containersTab.labels', 'Labels')}</span><code>-</code>
                                 </>
                             ) : Object.entries(labels).slice(0, 12).map(([key, value]) => (
                                 <React.Fragment key={key}>
@@ -1155,7 +1155,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={t('app.containersTab.runContainer3', 'Run Container')} size="md">
+        <Modal open onClose={onClose} title={t('app.containersTab.runContainer2', 'Run Container')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
@@ -1217,7 +1217,7 @@ const RunContainerModal = ({ onClose, onCreated }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        {t('app.containersTab.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Running...' : 'Run Container'}
@@ -1291,11 +1291,11 @@ const ContainerLogsModal = ({ container, onClose }) => {
         >
                 <div className="preview-drawer-meta">
                     <div className="meta-item">
-                        <span className="meta-label">{t('app.containersTab.status3', 'Status')}</span>
+                        <span className="meta-label">{t('common.labels.status', 'Status')}</span>
                         <span className="meta-value">{getContainerStatus(container)}</span>
                     </div>
                     <div className="meta-item">
-                        <span className="meta-label">{t('app.containersTab.image4', 'Image')}</span>
+                        <span className="meta-label">{t('app.containersTab.image', 'Image')}</span>
                         <span className="meta-value mono">{getContainerImage(container)}</span>
                     </div>
                     <div className="meta-item meta-item-wide">
@@ -1304,7 +1304,7 @@ const ContainerLogsModal = ({ container, onClose }) => {
                     </div>
                     {container.ports && container.ports.length > 0 && (
                         <div className="meta-item meta-item-wide">
-                            <span className="meta-label">{t('app.containersTab.ports2', 'Ports')}</span>
+                            <span className="meta-label">{t('app.containersTab.ports', 'Ports')}</span>
                             <span className="meta-value mono">{formatPorts(container.ports).join(', ')}</span>
                         </div>
                     )}
@@ -1450,7 +1450,7 @@ const ContainerExecModal = ({ container, onClose }) => {
                     )}
                     {loading && (
                         <div className="exec-line exec-loading">
-                            <span className="spinner-inline"></span> {t('app.containersTab.running', 'Running...')}
+                            <span className="spinner-inline"></span> {t('app.containersTab.running', 'Running…')}
                         </div>
                     )}
                 </div>
@@ -1462,7 +1462,7 @@ const ContainerExecModal = ({ container, onClose }) => {
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={t('app.containersTab.enterCommand', 'Enter command...')}
+                        placeholder={t('app.containersTab.enterCommand', 'Enter command…')}
                         className="exec-input"
                         disabled={loading}
                         autoComplete="off"
@@ -1474,8 +1474,8 @@ const ContainerExecModal = ({ container, onClose }) => {
                 </form>
             </div>
             <div className="modal-actions">
-                <Button variant="outline" onClick={clearOutput}>{t('app.containersTab.clear', 'Clear')}</Button>
-                <Button onClick={onClose}>{t('app.containersTab.close', 'Close')}</Button>
+                <Button variant="outline" onClick={clearOutput}>{t('common.actions.clear', 'Clear')}</Button>
+                <Button onClick={onClose}>{t('common.actions.close', 'Close')}</Button>
             </div>
         </Modal>
     );

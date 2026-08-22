@@ -149,7 +149,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                                 changed={diff.env?.changed}
                             />
                             <DiffList
-                                title={t('app.configDiffModal.domains', 'Domains')}
+                                title={t('common.labels.domains', 'Domains')}
                                 added={diff.domains?.added}
                                 removed={diff.domains?.removed}
                             />
@@ -187,7 +187,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                                 onClick={() => setConfirmRestore(false)}
                                 disabled={restoring}
                             >
-                                {t('app.configDiffModal.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button onClick={handleRestore} disabled={restoring}>
                                 {restoring ? 'Restoring…' : 'Confirm restore'}
@@ -196,7 +196,7 @@ const ConfigDiffModal = ({ appId, snapId, against = 'previous', onClose, onResto
                     ) : (
                         <>
                             <Button variant="outline" onClick={onClose}>
-                                {t('app.configDiffModal.close', 'Close')}
+                                {t('common.actions.close', 'Close')}
                             </Button>
                             <Button onClick={() => setConfirmRestore(true)} disabled={loading || !!error}>
                                 <RotateCcw size={14} /> {t('app.configDiffModal.restoreThisConfig', 'Restore this config')}

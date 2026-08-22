@@ -182,7 +182,7 @@ const EventsTab = ({ appId }) => {
     const columns = [
         {
             key: 'time',
-            headerKey: 'app.eventsTab.when', header: 'When',
+            headerKey: 'common.labels.when', header: 'When',
             sortable: true,
             hideable: false,
             // Relative in the cell, exact on hover — "3h ago" is what you scan
@@ -199,7 +199,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'kind',
-            headerKey: 'app.eventsTab.kind', header: 'Kind',
+            headerKey: 'common.labels.kind', header: 'Kind',
             sortable: true,
             // Declared, not inferred: a young service with three entries of
             // three kinds fails the enum cardinality ratio and would fall back
@@ -246,7 +246,7 @@ const EventsTab = ({ appId }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.eventsTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // No enumOrder: the pick-list should offer the outcomes this
             // service actually produced, with their live counts, rather than
@@ -299,7 +299,7 @@ const EventsTab = ({ appId }) => {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title={t('app.eventsTab.loadingActivity', 'Loading activity...')} />;
+        return <EmptyState loading loadingVariant="table" title={t('app.eventsTab.loadingActivity', 'Loading activity…')} />;
     }
 
     if (error) {
@@ -308,7 +308,7 @@ const EventsTab = ({ appId }) => {
                 icon={History}
                 title={t('app.eventsTab.failedToLoadActivity', 'Failed to load activity')}
                 description={error}
-                action={<Button variant="outline" onClick={refresh}>{t('app.eventsTab.retry', 'Retry')}</Button>}
+                action={<Button variant="outline" onClick={refresh}>{t('common.actions.retry', 'Retry')}</Button>}
             />
         );
     }
@@ -393,10 +393,10 @@ const EventsTab = ({ appId }) => {
                 {deployDetail?.deploy && (
                     <>
                         <InfoList>
-                            <InfoItem label={t('app.eventsTab.status2', 'Status')} value={deployDetail.status} />
-                            <InfoItem label={t('app.eventsTab.triggeredBy2', 'Triggered by')} value={deployDetail.actor} />
+                            <InfoItem label={t('common.labels.status', 'Status')} value={deployDetail.status} />
+                            <InfoItem label={t('app.eventsTab.triggeredBy', 'Triggered by')} value={deployDetail.actor} />
                             {deployDetail.deploy.branch && (
-                                <InfoItem label={t('app.eventsTab.branch', 'Branch')} value={deployDetail.deploy.branch} mono />
+                                <InfoItem label={t('common.labels.branch', 'Branch')} value={deployDetail.deploy.branch} mono />
                             )}
                             {deployDetail.deploy.commitSha && (
                                 <InfoItem label={t('app.eventsTab.commit', 'Commit')} value={deployDetail.deploy.commitSha} mono />

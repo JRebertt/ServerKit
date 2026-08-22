@@ -71,7 +71,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.workspaceSitesTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a workspace holding two sites of two
             // statuses fails the enum cardinality test and would fall back to
@@ -92,7 +92,7 @@ const WorkspaceSitesTab = ({ wsId, sites, appsOut, onMoveApp, onShare }) => {
             render: (a) => (
                 <div className="ws-detail__rowactions" onClick={e => e.stopPropagation()}>
                     <Button size="sm" variant="outline" onClick={() => onShare(a)}>{t('app.workspaceSitesTab.share', 'Share')}</Button>
-                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>{t('app.workspaceSitesTab.remove', 'Remove')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>{t('common.actions.remove', 'Remove')}</Button>
                 </div>
             ),
         },

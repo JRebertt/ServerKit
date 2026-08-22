@@ -189,7 +189,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         const ok = await confirm({
             title: t('app.protectionPanel.deleteBackup', 'Delete backup?'),
             message: t('app.protectionPanel.thisPermanentlyDeletesTheBackupIncluding', 'This permanently deletes the backup, including any remote copy. This cannot be undone.'),
-            confirmText: t('app.protectionPanel.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         });
         if (!ok) return;
@@ -262,7 +262,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
                                     <CalendarDays size={14} />
                                 </button>
                             </div>
-                            <Button size="sm" variant="outline" onClick={load} disabled={loading} title={t('app.protectionPanel.refresh', 'Refresh')}>
+                            <Button size="sm" variant="outline" onClick={load} disabled={loading} title={t('common.actions.refresh', 'Refresh')}>
                                 {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                             </Button>
                         </span>

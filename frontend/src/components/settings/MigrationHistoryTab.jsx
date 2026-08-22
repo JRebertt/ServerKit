@@ -131,7 +131,7 @@ const MigrationHistoryTab = () => {
         },
         {
             key: 'description',
-            headerKey: 'app.migrationHistoryTab.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             type: 'text',
             value: (rev) => rev.description || 'Schema update',
@@ -140,7 +140,7 @@ const MigrationHistoryTab = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.migrationHistoryTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Typed explicitly: `sortValue` is a rank, and letting that number
             // infer the type would make Status numeric — "Pending" would then
@@ -152,7 +152,7 @@ const MigrationHistoryTab = () => {
             render: (rev) => (
                 rev.is_current ? (
                     <Badge variant="success">
-                        <CheckCircle size={12} /> {t('app.migrationHistoryTab.current', 'Current')}
+                        <CheckCircle size={12} /> {t('common.labels.current', 'Current')}
                     </Badge>
                 ) : pendingIds.has(rev.revision) ? (
                     <Badge variant="warning">
@@ -189,7 +189,7 @@ const MigrationHistoryTab = () => {
                     ? t('app.migrationHistoryTab.aDatabaseBackupIsCreatedFirst', 'A database backup is created first, then the schema is upgraded from {{value}} to {{value2}}.', { value: short(currentRev) || 'none', value2: short(headRev) || 'head' })
                     : t('app.migrationHistoryTab.theSchemaIsUpgradedFromTo', 'The schema is upgraded from {{value}} to {{value2}}. No backup will be created.', { value: short(currentRev) || 'none', value2: short(headRev) || 'head' }),
             confirmText: orphaned ? t('app.migrationHistoryTab.reSyncDatabase', 'Re-sync database') : t('app.migrationHistoryTab.applyMigration2', 'Apply migration{{plural}}', { plural: plural }),
-            cancelText: t('app.migrationHistoryTab.cancel', 'Cancel'),
+            cancelText: t('common.actions.cancel', 'Cancel'),
             variant: 'warning',
         });
         if (!ok) return;
@@ -221,7 +221,7 @@ const MigrationHistoryTab = () => {
             <div className="settings-section">
                 <div className="loading-state">
                     <Loader size={20} className="spin" />
-                    <span>{t('app.migrationHistoryTab.loadingMigrationHistory', 'Loading migration history...')}</span>
+                    <span>{t('app.migrationHistoryTab.loadingMigrationHistory', 'Loading migration history…')}</span>
                 </div>
             </div>
         );
@@ -274,7 +274,7 @@ const MigrationHistoryTab = () => {
                                 {applying ? (
                                     <><Loader size={14} className="spin" /> {orphaned ? 'Repairing…' : 'Applying…'}</>
                                 ) : orphaned ? (
-                                    <><Database size={14} /> {t('app.migrationHistoryTab.reSyncDatabase2', 'Re-sync database')}</>
+                                    <><Database size={14} /> {t('app.migrationHistoryTab.reSyncDatabase', 'Re-sync database')}</>
                                 ) : (
                                     <><Database size={14} /> {t('app.migrationHistoryTab.apply', 'Apply')} {count} migration{plural}</>
                                 )}

@@ -104,7 +104,7 @@ const LinkPanelForm = ({ onClose }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        {t('app.linkPanelForm.close', 'Close')}
+                        {t('common.actions.close', 'Close')}
                     </Button>
                     <Button type="button" variant="destructive" onClick={() => setUnlinkOpen(true)}>
                         <Unlink size={14} /> {t('app.linkPanelForm.unlink', 'Unlink')}
@@ -115,7 +115,7 @@ const LinkPanelForm = ({ onClose }) => {
                     isOpen={unlinkOpen}
                     title={t('app.linkPanelForm.unlinkFromMasterPanel', 'Unlink from master panel?')}
                     message={t('app.linkPanelForm.thisServerWillStopBeingManageable', 'This server will stop being manageable by {{value}}. The link credentials are removed from this panel.', { value: status?.master_url || 'the master panel' })}
-                    confirmText={t('app.linkPanelForm.unlink2', 'Unlink')}
+                    confirmText={t('app.linkPanelForm.unlink', 'Unlink')}
                     variant="danger"
                     onConfirm={handleUnlink}
                     onCancel={() => setUnlinkOpen(false)}
@@ -169,7 +169,7 @@ const LinkPanelForm = ({ onClose }) => {
 
             <div className="modal-actions">
                 <Button type="button" variant="outline" onClick={onClose}>
-                    {t('app.linkPanelForm.cancel', 'Cancel')}
+                    {t('common.actions.cancel', 'Cancel')}
                 </Button>
                 <Button type="submit" disabled={submitting || status === null}>
                     {submitting ? 'Linking…' : 'Link panel'}

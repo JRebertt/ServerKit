@@ -41,7 +41,7 @@ const GunicornTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title={t('app.gunicornTab.loadingGunicornConfiguration', 'Loading Gunicorn configuration...')} />;
+        return <EmptyState loading loadingVariant="form" title={t('app.gunicornTab.loadingGunicornConfiguration', 'Loading Gunicorn configuration…')} />;
     }
 
     return (

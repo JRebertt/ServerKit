@@ -71,7 +71,7 @@ const UserModal = ({ user, onSave, onClose }) => {
                             />
                         </FormField>
 
-                        <FormField label={t('app.userModal.username', 'Username')} htmlFor="username" required error={form.getFieldError('username')}>
+                        <FormField label={t('common.labels.username', 'Username')} htmlFor="username" required error={form.getFieldError('username')}>
                             <Input
                                 {...form.getFieldProps('username')}
                                 type="text"
@@ -83,7 +83,7 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                         <FormRow>
                             <FormField
-                                label={isEditing ? t('app.userModal.newPasswordLeaveBlankToKeep', 'New Password (leave blank to keep current)') : t('app.userModal.password', 'Password')}
+                                label={isEditing ? t('app.userModal.newPasswordLeaveBlankToKeep', 'New Password (leave blank to keep current)') : t('common.labels.password', 'Password')}
                                 htmlFor="password"
                                 required={!isEditing}
                                 error={form.getFieldError('password')}
@@ -178,7 +178,7 @@ const UserModal = ({ user, onSave, onClose }) => {
                                         setShowPermissions(!showPermissions);
                                     }}
                                 >
-                                    {showPermissions ? 'Hide' : 'Customize'} {t('app.userModal.permissions', 'Permissions')}
+                                    {showPermissions ? 'Hide' : 'Customize'} {t('common.labels.permissions', 'Permissions')}
                                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                         {showPermissions
                                             ? <polyline points="18 15 12 9 6 15"/>
@@ -198,7 +198,7 @@ const UserModal = ({ user, onSave, onClose }) => {
 
                     <div className="modal-footer">
                         <Button type="button" variant="ghost" onClick={onClose}>
-                            {t('app.userModal.cancel', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" variant="default" disabled={form.isSubmitting}>
                             {form.isSubmitting ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create User')}

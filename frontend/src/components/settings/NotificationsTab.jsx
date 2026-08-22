@@ -142,7 +142,7 @@ const NotificationsTab = () => {
     }
 
     if (loading) {
-        return <EmptyState loading title={t('app.notificationsTab.loadingNotificationSettings', 'Loading notification settings...')} />;
+        return <EmptyState loading title={t('app.notificationsTab.loadingNotificationSettings', 'Loading notification settings…')} />;
     }
 
     const userPrefsUI = (
@@ -441,14 +441,14 @@ const NotificationsTab = () => {
                                             checked={config[channel.id]?.enabled || false}
                                             onCheckedChange={(checked) => updateChannelConfig(channel.id, 'enabled', checked)}
                                         />
-                                        <Label>{t('app.notificationsTab.enable', 'Enable')} {channel.name}</Label>
+                                        <Label>{t('common.actions.enable', 'Enable')} {channel.name}</Label>
                                     </div>
                                 </div>
 
                                 {channel.id === 'discord' && (
                                     <>
                                         <div className="form-group">
-                                            <Label>{t('app.notificationsTab.webhookUrl2', 'Webhook URL')}</Label>
+                                            <Label>{t('app.notificationsTab.webhookUrl', 'Webhook URL')}</Label>
                                             <Input
                                                 type="text"
                                                 value={config.discord.webhook_url || ''}
@@ -464,7 +464,7 @@ const NotificationsTab = () => {
                                                     type="text"
                                                     value={config.discord.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('discord', 'username', e.target.value)}
-                                                    placeholder={t('app.notificationsTab.serverkit', 'ServerKit')}
+                                                    placeholder={t('common.labels.serverKit', 'ServerKit')}
                                                 />
                                             </div>
                                             <div className="form-group">
@@ -483,7 +483,7 @@ const NotificationsTab = () => {
                                 {channel.id === 'slack' && (
                                     <>
                                         <div className="form-group">
-                                            <Label>{t('app.notificationsTab.webhookUrl3', 'Webhook URL')}</Label>
+                                            <Label>{t('app.notificationsTab.webhookUrl', 'Webhook URL')}</Label>
                                             <Input
                                                 type="text"
                                                 value={config.slack.webhook_url || ''}
@@ -503,12 +503,12 @@ const NotificationsTab = () => {
                                                 />
                                             </div>
                                             <div className="form-group">
-                                                <Label>{t('app.notificationsTab.username', 'Username')}</Label>
+                                                <Label>{t('common.labels.username', 'Username')}</Label>
                                                 <Input
                                                     type="text"
                                                     value={config.slack.username || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('slack', 'username', e.target.value)}
-                                                    placeholder={t('app.notificationsTab.serverkit2', 'ServerKit')}
+                                                    placeholder={t('common.labels.serverKit', 'ServerKit')}
                                                 />
                                             </div>
                                         </div>
@@ -598,7 +598,7 @@ const NotificationsTab = () => {
                                                     type="text"
                                                     value={config.email.from_name || 'ServerKit'}
                                                     onChange={(e) => updateChannelConfig('email', 'from_name', e.target.value)}
-                                                    placeholder={t('app.notificationsTab.serverkit3', 'ServerKit')}
+                                                    placeholder={t('common.labels.serverKit', 'ServerKit')}
                                                 />
                                             </div>
                                         </div>
@@ -625,7 +625,7 @@ const NotificationsTab = () => {
 
                                 {channel.id === 'generic_webhook' && (
                                     <div className="form-group">
-                                        <Label>{t('app.notificationsTab.webhookUrl4', 'Webhook URL')}</Label>
+                                        <Label>{t('app.notificationsTab.webhookUrl', 'Webhook URL')}</Label>
                                         <Input
                                             type="text"
                                             value={config.generic_webhook.url || ''}

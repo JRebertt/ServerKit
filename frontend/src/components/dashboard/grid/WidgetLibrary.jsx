@@ -258,7 +258,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                         aria-pressed={!category}
                         onClick={() => setCategory(null)}
                     >
-                        {t('app.widgetLibrary.all', 'All')}
+                        {t('common.labels.all', 'All')}
                     </button>
                     {categories.map((name) => (
                         <button
@@ -300,7 +300,7 @@ export function WidgetLibrary({ types = [], onAdd, onClose }) {
                                 <WidgetThumb type={type.id} />
                                 <span className="skw-lib__add">
                                     <Plus size={14} aria-hidden="true" />
-                                    {t('app.widgetLibrary.add', 'Add')}
+                                    {t('common.actions.add', 'Add')}
                                 </span>
                             </div>
                             <div className="skw-lib__meta">

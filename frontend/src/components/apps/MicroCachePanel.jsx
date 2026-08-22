@@ -81,16 +81,16 @@ const MicroCachePanel = ({ app, onChanged }) => {
                             checked={enabled}
                             onCheckedChange={handleToggle}
                             disabled={saving}
-                            aria-label={t('app.microCachePanel.enableMicroCache2', 'Enable micro-cache')}
+                            aria-label={t('app.microCachePanel.enableMicroCache', 'Enable micro-cache')}
                         />
-                        {saving && <span className="settings-saving">{t('app.microCachePanel.saving', 'Saving...')}</span>}
+                        {saving && <span className="settings-saving">{t('common.editing.saving', 'Saving…')}</span>}
                     </div>
                 </div>
 
                 {enabled && (
                     <div className="settings-row">
                         <div className="settings-label">
-                            <span>{t('app.microCachePanel.clearCache3', 'Clear cache')}</span>
+                            <span>{t('app.microCachePanel.clearCache', 'Clear cache')}</span>
                             <span className="settings-hint">
                                 {t('app.microCachePanel.entriesExpireOnTheirOwnWithin', 'Entries expire on their own within 10 seconds; use this when a change must be visible immediately. The cache is shared, so this clears it for every site that uses it.')}
                             </span>

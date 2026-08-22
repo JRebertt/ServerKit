@@ -88,7 +88,7 @@ const ProtectionStatusCard = ({
         <div className="app-panel protection-status-card">
             <div className="app-panel-header">
                 <Archive size={16} />
-                <span>{t('app.protectionStatusCard.protection2', 'Protection')}</span>
+                <span>{t('app.protectionStatusCard.protection', 'Protection')}</span>
                 <span className="app-panel-header-actions">{statusPill}</span>
             </div>
             <div className="app-panel-body">

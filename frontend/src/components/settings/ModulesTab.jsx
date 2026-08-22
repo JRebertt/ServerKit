@@ -51,7 +51,7 @@ const ModulesTab = () => {
             )}
 
             {!modules ? (
-                <EmptyState loading title={t('app.modulesTab.loadingModules', 'Loading modules...')} />
+                <EmptyState loading title={t('app.modulesTab.loadingModules', 'Loading modules…')} />
             ) : (
                 <div {...register('modules-toggle', 'settings-card')}>
                     {modules.map((mod) => (

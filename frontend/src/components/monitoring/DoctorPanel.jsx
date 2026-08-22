@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import Modal from '@/components/Modal';
 import { Pill, statusKind } from '@/components/ds';
 import EmptyState from '../EmptyState';
-import { ChevronDown, ChevronRight, Server, Stethoscope, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronRight, HardDrive, Server, Stethoscope, Wrench } from 'lucide-react';
 import { usePolling } from '@/hooks/usePolling';
 import { useTranslation } from 'react-i18next';
 import { useOperations } from '@/contexts/OperationsContext';
+import DiskReclaimModal from './DiskReclaimModal';
 
 
 // The fleet sweep fans out across agents over the network, so it is a job
@@ -28,7 +29,7 @@ function formatRanAt(ranAt) {
  * doctor and the fleet doctor can share it — a fleet check is the same shape,
  * its repair_ref just names a server.
  */
-function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled }) {
+function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled, action }) {
     const { t } = useTranslation();
     return (
         <article className={`doctor-check doctor-check--${check.status}`}>
@@ -38,6 +39,7 @@ function DoctorCheck({ check, expanded, onToggleDiff, onRepair, disabled }) {
                     <span className="doctor-check__title">{check.title}</span>
                     <span className="doctor-check__detail">{check.detail}</span>
                 </div>
+                {action}
                 {check.diff && (
                     <Button
                         size="sm"
@@ -79,6 +81,8 @@ const DoctorPanel = () => {
     const [fleetLoading, setFleetLoading] = useState(true);
     const [sweeping, setSweeping] = useState(false);
     const [sweepJobId, setSweepJobId] = useState(null);
+    // The disk.headroom finding offers its own fix: a curated safe reclaim.
+    const [reclaimOpen, setReclaimOpen] = useState(false);
 
     const loadFleet = useCallback(async () => {
         try {
@@ -267,6 +271,16 @@ const DoctorPanel = () => {
                                     diff: check.diff || null,
                                     scope: 'host',
                                 })}
+                                action={check.key === 'disk.headroom' && check.status !== 'ok' ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setReclaimOpen(true)}
+                                    >
+                                        <HardDrive size={13} />
+                                        {t('app.diskReclaim.reclaimSpace', 'Reclaim space')}
+                                    </Button>
+                                ) : undefined}
                             />
                         ))}
                     </div>
@@ -350,6 +364,8 @@ const DoctorPanel = () => {
                 )}
             </section>
 
+            <DiskReclaimModal open={reclaimOpen} onClose={() => setReclaimOpen(false)} />
+
             <Modal
                 open={Boolean(confirm)}
                 onClose={() => setConfirm(null)}
@@ -366,7 +382,7 @@ const DoctorPanel = () => {
                 )}
                 <div className="doctor-confirm__actions">
                     <Button variant="outline" onClick={() => setConfirm(null)} disabled={repairing}>
-                        {t('app.doctorPanel.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button onClick={() => doRepair(confirm)} disabled={repairing}>
                         <Wrench size={14} />

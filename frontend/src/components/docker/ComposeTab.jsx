@@ -192,7 +192,7 @@ const ComposeTab = ({ onStatsChange }) => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.composeTab.project', header: 'Project',
+            headerKey: 'common.labels.project', header: 'Project',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -206,7 +206,7 @@ const ComposeTab = ({ onStatsChange }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.composeTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared: two labels across a handful of rows infer as text, which
             // would turn both views above into typed-fragment matches. The
@@ -274,7 +274,7 @@ const ComposeTab = ({ onStatsChange }) => {
                             className="dx-row-action"
                             onClick={() => setLogsProject(project)}
                             disabled={busy}
-                            title={t('app.composeTab.logs', 'Logs')}
+                            title={t('common.labels.logs', 'Logs')}
                         >
                             <FileText size={13} />
                         </button>
@@ -285,7 +285,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                     className="dx-row-action"
                                     onClick={() => handleAction(project, 'restart')}
                                     disabled={busy}
-                                    title={t('app.composeTab.restart', 'Restart')}
+                                    title={t('common.actions.restart', 'Restart')}
                                 >
                                     <RotateCw size={13} />
                                 </button>
@@ -294,7 +294,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                     className="dx-row-action is-danger"
                                     onClick={() => handleAction(project, 'down')}
                                     disabled={busy}
-                                    title={t('app.composeTab.stop', 'Stop')}
+                                    title={t('common.actions.stop', 'Stop')}
                                 >
                                     <Square size={13} />
                                 </button>
@@ -305,7 +305,7 @@ const ComposeTab = ({ onStatsChange }) => {
                                 className="dx-row-action is-success"
                                 onClick={() => handleAction(project, 'up')}
                                 disabled={busy}
-                                title={t('app.composeTab.start', 'Start')}
+                                title={t('common.actions.start', 'Start')}
                             >
                                 <Play size={13} />
                             </button>
@@ -352,7 +352,7 @@ const ComposeTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">{t('app.composeTab.loadingComposeProjects', 'Loading compose projects...')}</div>
+                <div className="docker-loading">{t('app.composeTab.loadingComposeProjects', 'Loading compose projects…')}</div>
             </div>
         );
     }
@@ -516,7 +516,7 @@ const ComposeLogsModal = ({ project, onClose }) => {
                 <Button variant="outline" onClick={loadLogs} disabled={loading}>
                     {loading ? 'Loading...' : 'Refresh'}
                 </Button>
-                <Button onClick={onClose}>{t('app.composeTab.close', 'Close')}</Button>
+                <Button onClick={onClose}>{t('common.actions.close', 'Close')}</Button>
             </div>
         </Modal>
     );

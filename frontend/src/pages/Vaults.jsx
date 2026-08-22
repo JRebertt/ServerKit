@@ -102,7 +102,7 @@ export default function Vaults() {
         if (!await confirm({
             title: t('app.vaults.deleteVault', 'Delete vault'),
             message: t('app.vaults.deleteThisVaultAndAllIts', 'Delete this vault and all its secrets?'),
-            confirmText: t('app.vaults.deleteVault2', 'Delete vault'),
+            confirmText: t('app.vaults.deleteVault', 'Delete vault'),
         })) return;
         try {
             await api.deleteVault(id);
@@ -154,7 +154,7 @@ export default function Vaults() {
         if (!await confirm({
             title: t('app.vaults.deleteSecret', 'Delete secret'),
             message: t('app.vaults.deleteThisSecret', 'Delete this secret?'),
-            confirmText: t('app.vaults.deleteSecret2', 'Delete secret'),
+            confirmText: t('app.vaults.deleteSecret', 'Delete secret'),
         })) return;
         try {
             await api.deleteSecret(id);
@@ -224,7 +224,7 @@ export default function Vaults() {
         },
         {
             key: 'description',
-            headerKey: 'app.vaults.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             value: (v) => v.description || '',
             render: (v) => v.description || <span className="wp-list__dash">—</span>,
@@ -254,8 +254,8 @@ export default function Vaults() {
                         <Button variant="ghost" size="icon"><MoreVertical size={14} /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openVault(v.id)}>{t('app.vaults.open', 'Open')}</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteVault(v.id)}>{t('app.vaults.delete', 'Delete')}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openVault(v.id)}>{t('common.actions.open', 'Open')}</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => deleteVault(v.id)}>{t('common.actions.delete', 'Delete')}</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             ),
@@ -274,7 +274,7 @@ export default function Vaults() {
         },
         {
             key: 'value',
-            headerKey: 'app.vaults.value', header: 'Value',
+            headerKey: 'common.labels.value', header: 'Value',
             sortable: false,
             filterable: false,
             render: (s) => (
@@ -285,7 +285,7 @@ export default function Vaults() {
         },
         {
             key: 'description',
-            headerKey: 'app.vaults.description2', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             value: (s) => s.description || '',
             render: (s) => s.description || <span className="wp-list__dash">—</span>,
@@ -316,10 +316,10 @@ export default function Vaults() {
                         <Button variant="ghost" size="icon" onClick={() => (revealed ? setRevealSecretId(null) : revealSecret(s))} title={revealed ? t('app.vaults.hide', 'Hide') : t('app.vaults.reveal', 'Reveal')}>
                             {revealed ? <EyeOff size={14} /> : <Eye size={14} />}
                         </Button>
-                        <Button variant="ghost" size="icon" title={t('app.vaults.copy', 'Copy')} onClick={() => copy(revealed ? revealedValue : s.value)}>
+                        <Button variant="ghost" size="icon" title={t('common.actions.copy', 'Copy')} onClick={() => copy(revealed ? revealedValue : s.value)}>
                             <Copy size={14} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" title={t('app.vaults.delete2', 'Delete')} onClick={() => deleteSecret(s.id)}>
+                        <Button variant="ghost" size="icon" className="text-destructive" title={t('common.actions.delete', 'Delete')} onClick={() => deleteSecret(s.id)}>
                             <Trash2 size={14} />
                         </Button>
                     </div>
@@ -345,7 +345,7 @@ export default function Vaults() {
             emptyDescription={`Add your first secret to ${selectedVault.name}.`}
             emptyAction={(
                 <Button onClick={() => setSecretForm({ open: true, name: '', value: '', description: '' })}>
-                    <Plus size={16} /> {t('app.vaults.addSecret2', 'Add secret')}
+                    <Plus size={16} /> {t('app.vaults.addSecret', 'Add secret')}
                 </Button>
             )}
             filteredEmptyIcon={KeyRound}
@@ -390,16 +390,16 @@ export default function Vaults() {
                 <p className="sk-modal__subtitle">{t('app.vaults.createAnEncryptedVaultToGroup', 'Create an encrypted vault to group secrets.')}</p>
                 <form onSubmit={createVault} className="space-y-4">
                         <div>
-                            <Label htmlFor="vaultName">{t('app.vaults.name', 'Name')}</Label>
+                            <Label htmlFor="vaultName">{t('common.labels.name', 'Name')}</Label>
                             <Input id="vaultName" value={vaultForm.name} onChange={(e) => setVaultForm({ ...vaultForm, name: e.target.value })} required />
                         </div>
                         <div>
-                            <Label htmlFor="vaultDesc">{t('app.vaults.description3', 'Description')}</Label>
+                            <Label htmlFor="vaultDesc">{t('common.labels.description', 'Description')}</Label>
                             <Textarea id="vaultDesc" value={vaultForm.description} onChange={(e) => setVaultForm({ ...vaultForm, description: e.target.value })} />
                         </div>
                         {workspaces.length > 0 && (
                             <div>
-                                <Label htmlFor="vaultWorkspace">{t('app.vaults.workspace', 'Workspace')}</Label>
+                                <Label htmlFor="vaultWorkspace">{t('common.labels.workspace', 'Workspace')}</Label>
                                 <Select
                                     value={vaultForm.workspace_id || 'all'}
                                     onValueChange={(value) => setVaultForm({ ...vaultForm, workspace_id: value === 'all' ? '' : value })}
@@ -426,15 +426,15 @@ export default function Vaults() {
                 <p className="sk-modal__subtitle">{t('app.vaults.addAnEncryptedSecretTo', 'Add an encrypted secret to')} {selectedVault?.name}.</p>
                 <form onSubmit={createSecret} className="space-y-4">
                         <div>
-                            <Label htmlFor="secretName">{t('app.vaults.name2', 'Name')}</Label>
+                            <Label htmlFor="secretName">{t('common.labels.name', 'Name')}</Label>
                             <Input id="secretName" value={secretForm.name} onChange={(e) => setSecretForm({ ...secretForm, name: e.target.value })} required />
                         </div>
                         <div>
-                            <Label htmlFor="secretValue">{t('app.vaults.value2', 'Value')}</Label>
+                            <Label htmlFor="secretValue">{t('common.labels.value', 'Value')}</Label>
                             <Textarea id="secretValue" value={secretForm.value} onChange={(e) => setSecretForm({ ...secretForm, value: e.target.value })} required />
                         </div>
                         <div>
-                            <Label htmlFor="secretDesc">{t('app.vaults.description4', 'Description')}</Label>
+                            <Label htmlFor="secretDesc">{t('common.labels.description', 'Description')}</Label>
                             <Textarea id="secretDesc" value={secretForm.description} onChange={(e) => setSecretForm({ ...secretForm, description: e.target.value })} />
                         </div>
                         <div className="modal-actions">

@@ -3,6 +3,7 @@ import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { copyToClipboard } from '@/utils/clipboard';
+import { scrollBehavior } from '@/utils/reducedMotion';
 import { useTranslation } from 'react-i18next';
 
 // Platform icons as SVG components
@@ -143,7 +144,7 @@ function Downloads() {
         <>
             <Button size="sm" variant="outline" onClick={fetchVersionInfo}>
                 <RefreshIcon />
-                {t('app.downloads.refresh', 'Refresh')}
+                {t('common.actions.refresh', 'Refresh')}
             </Button>
         </>,
         [],
@@ -154,7 +155,7 @@ function Downloads() {
             <div className="sk-tabgroup__inner downloads-page">
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
-                    <p>{t('app.downloads.loadingVersionInformation', 'Loading version information...')}</p>
+                    <p>{t('app.downloads.loadingVersionInformation', 'Loading version information…')}</p>
                 </div>
             </div>
         );
@@ -190,7 +191,7 @@ function Downloads() {
                             )}
                             <a href="#downloads" className="btn btn-banner-primary" onClick={(e) => {
                                 e.preventDefault();
-                                document.querySelector('.download-cards')?.scrollIntoView({ behavior: 'smooth' });
+                                document.querySelector('.download-cards')?.scrollIntoView({ behavior: scrollBehavior() });
                             }}>
                                 <DownloadIcon />
                                 {t('app.downloads.downloadNow', 'Download Now')}
@@ -274,7 +275,7 @@ function Downloads() {
                                     <button type="button"
                                         className="copy-btn"
                                         onClick={() => copyCommand(platforms[2].command, 'windows')}
-                                        title={t('app.downloads.copyToClipboard2', 'Copy to clipboard')}
+                                        title={t('app.downloads.copyToClipboard', 'Copy to clipboard')}
                                     >
                                         {copiedCommand === 'windows' ? <CheckIcon /> : <CopyIcon />}
                                     </button>

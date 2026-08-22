@@ -70,13 +70,20 @@
 // Variants
 // --------------------------------------------
 
+// Prototype accent treatment: soft top-light gradient, accent glow, inner
+// highlight; hover lifts the whole gradient toward white instead of swapping
+// to a flat hover color. Built from theme tokens so runtime skins keep it.
 .btn-primary {
-    background-color: $accent-primary;
+    background: linear-gradient(160deg, var(--accent-bright), var(--accent));
     color: #fff;
-    box-shadow: $shadow-accent;
+    box-shadow: 0 4px 14px -4px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 
     &:hover:not(:disabled) {
-        background-color: $accent-hover;
+        background: linear-gradient(
+            160deg,
+            color-mix(in srgb, var(--accent-bright) 86%, white),
+            color-mix(in srgb, var(--accent) 86%, white)
+        );
     }
 }
 

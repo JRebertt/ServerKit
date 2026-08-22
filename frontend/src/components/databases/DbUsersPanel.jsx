@@ -88,11 +88,11 @@ export default function DbUsersPanel({ databaseId }) {
                     </span>
                     <div className="managed-db__actions">
                         <Button type="button" size="sm" variant="outline" onClick={copySecret}>
-                            <Copy size={14} /> {t('app.dbUsersPanel.copy', 'Copy')}
+                            <Copy size={14} /> {t('common.actions.copy', 'Copy')}
                         </Button>
                         <Button type="button" size="sm" variant="ghost"
                             onClick={() => setOneTimeSecret(null)}>
-                            {t('app.dbUsersPanel.dismiss', 'Dismiss')}
+                            {t('common.actions.dismiss', 'Dismiss')}
                         </Button>
                     </div>
                 </div>

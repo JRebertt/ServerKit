@@ -79,7 +79,7 @@ const PathSelector = ({ paths, onChange, label, hint, id }) => {
                     placeholder="wp-content/custom-path"
                 />
                 <Button type="button" variant="outline" size="sm" onClick={() => addPath(inputValue)}>
-                    <Plus size={14} aria-hidden="true" /> {t('app.pathSelector.add', 'Add')}
+                    <Plus size={14} aria-hidden="true" /> {t('common.actions.add', 'Add')}
                 </Button>
             </div>
 

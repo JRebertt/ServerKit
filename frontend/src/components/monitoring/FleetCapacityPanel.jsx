@@ -102,7 +102,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
     const anomalyColumns = [
         {
             key: 'server',
-            headerKey: 'app.fleetCapacityPanel.server', header: 'Server',
+            headerKey: 'common.labels.server', header: 'Server',
             sortable: true,
             hideable: false,
             sortValue: (a) => a.server_name || '',
@@ -117,7 +117,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
         },
         {
             key: 'current',
-            headerKey: 'app.fleetCapacityPanel.current', header: 'Current',
+            headerKey: 'common.labels.current', header: 'Current',
             sortable: true,
             sortValue: (a) => a.current_value ?? null,
             cellClassName: 'sk-cell-mono',
@@ -191,7 +191,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
 
                 <div className="mon-compare-controls">
                     <div className="mon-compare-controls__servers">
-                        <span className="mon-field-label">{t('app.fleetCapacityPanel.servers', 'Servers')}</span>
+                        <span className="mon-field-label">{t('common.labels.servers', 'Servers')}</span>
                         <div className="mon-server-picker">
                             {servers.length === 0 ? (
                                 <span className="mon-field-hint">{t('app.fleetCapacityPanel.noServersPairedYet', 'No servers paired yet.')}</span>
@@ -208,7 +208,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                         </div>
                     </div>
                     <div className="form-group">
-                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric2', 'Metric')}</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric', 'Metric')}</span>
                         <select value={compMetric} onChange={(e) => setCompMetric(e.target.value)}>
                             {Object.entries(METRIC_LABELS).map(([k, v]) => (
                                 <option key={k} value={k}>{v}</option>
@@ -305,17 +305,17 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
 
                 <div className="mon-compare-controls">
                     <div className="form-group">
-                        <span className="mon-field-label">{t('app.fleetCapacityPanel.server2', 'Server')}</span>
+                        <span className="mon-field-label">{t('common.labels.server', 'Server')}</span>
                         <select value={forecastServer} onChange={(e) => setForecastServer(e.target.value)}>
                             <option value="">{t('app.fleetCapacityPanel.selectAServer', 'Select a server…')}</option>
                             {servers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
                     <div className="form-group">
-                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric3', 'Metric')}</span>
+                        <span className="mon-field-label">{t('app.fleetCapacityPanel.metric', 'Metric')}</span>
                         <select value={forecastMetric} onChange={(e) => setForecastMetric(e.target.value)}>
-                            <option value="disk">{t('app.fleetCapacityPanel.disk', 'Disk')}</option>
-                            <option value="memory">{t('app.fleetCapacityPanel.memory', 'Memory')}</option>
+                            <option value="disk">{t('common.labels.disk', 'Disk')}</option>
+                            <option value="memory">{t('common.labels.memory', 'Memory')}</option>
                             <option value="cpu">CPU</option>
                         </select>
                     </div>
@@ -327,7 +327,7 @@ export default function FleetCapacityPanel({ scope, refreshKey = 0 }) {
                     <div className="mon-forecast">
                         <div className="mon-forecast__stats">
                             <div className="fleet-statbox">
-                                <span className="mon-field-label">{t('app.fleetCapacityPanel.current2', 'Current')}</span>
+                                <span className="mon-field-label">{t('common.labels.current', 'Current')}</span>
                                 <strong>{forecast.current_value}%</strong>
                             </div>
                             <div className="fleet-statbox">

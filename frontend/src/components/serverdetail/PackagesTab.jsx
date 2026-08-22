@@ -209,7 +209,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
             <section className="server-packages__installed">
                 <h3>{t('app.serverPackagesTab.installedPackages', 'Installed packages')} {manager && <Badge>{manager}</Badge>}</h3>
                 {loadingInstalled ? (
-                    <p className="text-muted-foreground">{t('app.serverPackagesTab.loading', 'Loading…')}</p>
+                    <p className="text-muted-foreground">{t('common.loading', 'Loading…')}</p>
                 ) : (
                     <pre className="server-packages__raw">
                         {installedRaw || 'No packages reported.'}
@@ -231,7 +231,7 @@ const PackagesTab = ({ serverId, serverStatus }) => {
 
             <div className="server-packages__remove-tip text-muted-foreground">
                 {t('app.serverPackagesTab.tipToRemoveASpecificPackage', 'Tip: to remove a specific package, search for it and use the row\'s')}
-                <em> {t('app.serverPackagesTab.install2', 'Install')} </em>
+                <em> {t('app.serverPackagesTab.install', 'Install')} </em>
                 {t('app.serverPackagesTab.buttonToReinstallOrOpenA', 'button to reinstall, or open a terminal session for advanced operations. Direct remove from this UI:')}
                 <RemoveByName onRemove={handleRemove} />
             </div>
@@ -261,7 +261,7 @@ function RemoveByName({ onRemove }) {
                 size="sm"
             />
             <Button type="submit" variant="outline" size="sm" disabled={!name.trim()}>
-                {t('app.serverPackagesTab.remove2', 'Remove')}
+                {t('common.actions.remove', 'Remove')}
             </Button>
         </form>
     );

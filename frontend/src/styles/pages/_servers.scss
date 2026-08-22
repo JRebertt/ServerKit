@@ -710,6 +710,34 @@
         font-size: $font-size-xs;
         line-height: 1.4;
     }
+
+    // Pairing inputs read as machine strings, not prose.
+    .server-pair-code {
+        font-family: $font-mono;
+        font-size: $font-size-xl;
+        letter-spacing: 0.15em;
+        text-align: center;
+    }
+
+    .server-pair-passphrase {
+        font-family: $font-mono;
+        font-size: $font-size-lg;
+        letter-spacing: 0.08em;
+    }
+
+    .server-pair-error,
+    .server-pair-banner {
+        margin-top: $space-2;
+    }
+
+    .server-pair-fpr {
+        font-family: $font-mono;
+    }
+
+    .server-pair-note {
+        margin-top: $space-1;
+        font-size: 0.85em;
+    }
 }
 
 .form-disclosure {
@@ -2038,6 +2066,10 @@
     display: flex;
     flex-direction: column;
     gap: $space-4;
+}
+
+.install-tabs--after-summary {
+    margin-top: $space-3;
 }
 
 .install-tab {

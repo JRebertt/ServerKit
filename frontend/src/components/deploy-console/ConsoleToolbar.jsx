@@ -115,10 +115,10 @@ export default function ConsoleToolbar({
                     </button>
                 </div>
                 <button type="button" className="deploy-console__toggle" onClick={onCopy} title={t('app.consoleToolbar.copyAllLogs', 'Copy all logs')}>
-                    <Copy size={14} /> {t('app.consoleToolbar.copy', 'Copy')}
+                    <Copy size={14} /> {t('common.actions.copy', 'Copy')}
                 </button>
                 <button type="button" className="deploy-console__toggle" onClick={onDownload} title={t('app.consoleToolbar.downloadLogsAsTxt', 'Download logs as .txt')}>
-                    <Download size={14} /> {t('app.consoleToolbar.download', 'Download')}
+                    <Download size={14} /> {t('common.actions.download', 'Download')}
                 </button>
                 <button
                     type="button"

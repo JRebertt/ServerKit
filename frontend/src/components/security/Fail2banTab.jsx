@@ -159,7 +159,7 @@ const Fail2banTab = () => {
     const banColumns = [
         {
             key: 'ip',
-            headerKey: 'app.fail2banTab.ipAddress', header: 'IP Address',
+            headerKey: 'common.labels.ipAddress', header: 'IP Address',
             sortable: true,
             hideable: false,
             sortValue: (ban) => ban.ip || '',
@@ -181,12 +181,12 @@ const Fail2banTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.fail2banTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (ban) => (
                 <Button variant="secondary" size="sm" onClick={() => handleUnban(ban.ip, ban.jail)}>
-                    {t('app.fail2banTab.unban3', 'Unban')}
+                    {t('app.fail2banTab.unban', 'Unban')}
                 </Button>
             ),
         },
@@ -216,7 +216,7 @@ const Fail2banTab = () => {
     );
 
     if (loading) {
-        return <div className="loading-sm">{t('app.fail2banTab.loadingFail2banStatus', 'Loading Fail2ban status...')}</div>;
+        return <div className="loading-sm">{t('app.fail2banTab.loadingFail2banStatus', 'Loading Fail2ban status…')}</div>;
     }
 
     return (
@@ -242,20 +242,20 @@ const Fail2banTab = () => {
                                     {t('app.fail2banTab.banIp', 'Ban IP')}
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={loadData}>
-                                    {t('app.fail2banTab.refresh', 'Refresh')}
+                                    {t('common.actions.refresh', 'Refresh')}
                                 </Button>
                             </div>
                         </div>
                         <div className="card-body">
                             <div className="sec-rows">
                                 <div className="sk-info-row">
-                                    <span className="k">{t('app.fail2banTab.service', 'Service')}</span>
+                                    <span className="k">{t('common.labels.service', 'Service')}</span>
                                     <Pill kind={status.service_running ? 'green' : 'red'}>
                                         {status.service_running ? 'Running' : 'Stopped'}
                                     </Pill>
                                 </div>
                                 <div className="sk-info-row">
-                                    <span className="k">{t('app.fail2banTab.version', 'Version')}</span>
+                                    <span className="k">{t('common.labels.version', 'Version')}</span>
                                     <span className="v">{status.version || 'Unknown'}</span>
                                 </div>
                                 <div className="sk-info-row">
@@ -292,7 +292,7 @@ const Fail2banTab = () => {
                                             </div>
                                             <div className="f2b-jail__stat">
                                                 <div className="f2b-jail__v">{s.currently_failed ?? '—'}</div>
-                                                <div className="f2b-jail__l">{t('app.fail2banTab.failed', 'Failed')}</div>
+                                                <div className="f2b-jail__l">{t('common.state.failed', 'Failed')}</div>
                                             </div>
                                             <div className="f2b-jail__stat">
                                                 <div className="f2b-jail__v">{s.total_banned ?? '—'}</div>
@@ -355,7 +355,7 @@ const Fail2banTab = () => {
 
             <Modal open={showBanModal} onClose={() => setShowBanModal(false)} title={t('app.fail2banTab.banIpAddress', 'Ban IP Address')}>
                 <div className="form-group">
-                    <Label>{t('app.fail2banTab.ipAddress2', 'IP Address')}</Label>
+                    <Label>{t('common.labels.ipAddress', 'IP Address')}</Label>
                     <Input
                         type="text"
                         value={banIP}
@@ -364,7 +364,7 @@ const Fail2banTab = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <Label>{t('app.fail2banTab.jail2', 'Jail')}</Label>
+                    <Label>{t('app.fail2banTab.jail', 'Jail')}</Label>
                     <Select value={banJail} onValueChange={setBanJail}>
                         <SelectTrigger>
                             <SelectValue />
@@ -377,7 +377,7 @@ const Fail2banTab = () => {
                     </Select>
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowBanModal(false)}>{t('app.fail2banTab.cancel', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowBanModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="destructive" onClick={handleBan} disabled={actionLoading || !banIP.trim()}>
                         {actionLoading ? 'Banning...' : 'Ban IP'}
                     </Button>

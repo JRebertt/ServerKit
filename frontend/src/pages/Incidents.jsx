@@ -191,7 +191,7 @@ export default function Incidents() {
                 <Siren size={14} /> {checking ? 'Checking…' : 'Check hosts'}
             </Button>
             <Button variant="outline" size="sm" onClick={load}>
-                <RefreshCw size={14} /> {t('app.incidents.refresh', 'Refresh')}
+                <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
             </Button>
             <SearchField
                 value={search}
@@ -362,7 +362,7 @@ export default function Incidents() {
         },
         {
             key: 'state',
-            headerKey: 'app.incidents.state', header: 'State',
+            headerKey: 'common.labels.state', header: 'State',
             sortable: true,
             type: 'enum',
             value: (item) => item.state || '',
@@ -388,7 +388,7 @@ export default function Incidents() {
             // Monitor outage vs host threshold alert — the distinction the
             // "Open incidents" tile silently relied on.
             key: 'kind',
-            headerKey: 'app.incidents.source', header: 'Source',
+            headerKey: 'common.labels.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (item) => item.kind || '',
@@ -403,7 +403,7 @@ export default function Incidents() {
         },
         {
             key: 'when',
-            headerKey: 'app.incidents.when', header: 'When',
+            headerKey: 'common.labels.when', header: 'When',
             sortable: true,
             type: 'date',
             value: (item) => item.when || null,
@@ -554,7 +554,7 @@ export default function Incidents() {
 
                         {selectedMonitor && (
                             <Link className="incident-detail__link" to={`/monitoring/monitors/${selectedMonitor.id}`}>
-                                <Radar size={14} /> {t('app.incidents.open', 'Open')} {selectedMonitor.name}
+                                <Radar size={14} /> {t('common.actions.open', 'Open')} {selectedMonitor.name}
                             </Link>
                         )}
 
@@ -615,7 +615,7 @@ export default function Incidents() {
                             <div><dt>{t('app.incidents.metric', 'Metric')}</dt><dd>{selected.metric || '—'}</dd></div>
                             <div><dt>{t('app.incidents.reading', 'Reading')}</dt><dd>{formatValue(selected.value)}</dd></div>
                             <div><dt>{t('app.incidents.limit', 'Limit')}</dt><dd>{selected.threshold ?? '—'}</dd></div>
-                            <div><dt>{t('app.incidents.when2', 'When')}</dt><dd>{formatWhen(selected.when)}</dd></div>
+                            <div><dt>{t('common.labels.when', 'When')}</dt><dd>{formatWhen(selected.when)}</dd></div>
                         </dl>
                         <p className="mon-panel-hint">
                             {t('app.incidents.hostLimitsLiveOnThe', 'Host limits live on the')} <Link to="/monitoring/rules">{t('app.incidents.rules', 'Rules')}</Link> tab.

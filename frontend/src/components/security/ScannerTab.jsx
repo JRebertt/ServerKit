@@ -367,7 +367,7 @@ const ScannerTab = () => {
         },
         {
             key: 'severity',
-            headerKey: 'app.scannerTab.severity', header: 'Severity',
+            headerKey: 'common.labels.severity', header: 'Severity',
             sortable: true,
             type: 'enum',
             // Both accessors spelled out: `value` is the word a rule matches,
@@ -406,7 +406,7 @@ const ScannerTab = () => {
         },
         {
             key: 'source',
-            headerKey: 'app.scannerTab.source', header: 'Source',
+            headerKey: 'common.labels.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (f) => f.source || 'unknown',
@@ -461,7 +461,7 @@ const ScannerTab = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.scannerTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: (scan) => scan.status || 'unknown',
@@ -565,7 +565,7 @@ const ScannerTab = () => {
                         onClick={(e) => { e.stopPropagation(); handleStartScan('full'); }}
                         disabled={isScanning || scanning}
                     >
-                        {t('app.scannerTab.startScan2', 'Start Scan')}
+                        {t('app.scannerTab.startScan', 'Start Scan')}
                     </Button>
                 </div>
 
@@ -655,7 +655,7 @@ const ScannerTab = () => {
                     </div>
                     <div className="card-body">
                         {!rules ? (
-                            <div className="loading-sm">{t('app.scannerTab.loading', 'Loading...')}</div>
+                            <div className="loading-sm">{t('common.loading', 'Loading…')}</div>
                         ) : (
                             <>
                                 <p className="sec-hint sec-hint--lead">
@@ -692,7 +692,7 @@ const ScannerTab = () => {
                         <h3>{t('app.scannerTab.scanInProgress', 'Scan in Progress')}</h3>
                         {isScanning && (
                             <Button variant="destructive" size="sm" onClick={handleCancelScan}>
-                                {t('app.scannerTab.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                         )}
                     </div>
@@ -742,7 +742,7 @@ const ScannerTab = () => {
                         <div className="sec-tableactions">
                             {/* Dismiss throws the findings away rather than
                                 narrowing them, so it stays out of the chrome. */}
-                            <Button variant="outline" size="sm" onClick={() => setFindings([])}>{t('app.scannerTab.dismiss', 'Dismiss')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => setFindings([])}>{t('common.actions.dismiss', 'Dismiss')}</Button>
                         </div>
                     </div>
                     <GridChips {...findingsChrome.chipProps} />

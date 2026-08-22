@@ -67,8 +67,8 @@ const mk = (id, label, x, y, kind, sub) => ({
     position: { x, y },
     data: { label: sub ? (
         <div>
-            <div style={{ fontWeight: 600 }}>{label}</div>
-            <div style={{ fontSize: 10.5, opacity: 0.7, marginTop: 2 }}>{sub}</div>
+            <div className="app-map__node-name">{label}</div>
+            <div className="app-map__node-sub">{sub}</div>
         </div>
     ) : label },
     style: { ...nodeBase, ...STYLES[kind] },
@@ -273,7 +273,7 @@ function Diagram({ viewId }) {
             maxZoom={1.5}
         >
             <Background gap={18} size={1} color="var(--border-subtle)" />
-            <MiniMap pannable zoomable style={{ background: 'var(--bg-elevated)' }} />
+            <MiniMap pannable zoomable />
             <Controls showInteractive={false} />
         </ReactFlow>
     );

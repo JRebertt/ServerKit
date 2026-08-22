@@ -69,6 +69,7 @@
 @import 'components/_command-palette';
 @import 'components/_logs-drawer';
 @import 'components/_operations-dock';
+@import 'components/_walkthroughs';
 @import 'components/_ai-assistant';
 @import 'components/_ui';
 @import 'components/_staging-banner';
@@ -79,8 +80,10 @@
 @import 'components/_datagrid';       // DataGrid list surface (sk-grid*, ds/grid/)
 @import 'components/_dashboard-widgets';  // configurable dashboard grid (skw-* namespace)
 @import 'components/_setup-health';        // dashboard setup-health card + account nudge
+@import 'components/_global-statusbar';    // unified VS Code-style shell status edge + panels
 @import 'components/_widget-editor';      // wide preview+settings widget drawer (skwe-* namespace)
 @import 'components/_system-notices';
+@import 'components/_disk-reclaim';   // curated safe disk-reclaim modal
 @import 'components/_requires-docker';
 @import 'components/container-status';
 @import 'components/api-key-scopes';
@@ -152,4 +155,5 @@
 @import 'pages/_telemetry';
 @import 'pages/_jobs';
 @import 'pages/_errors';
+@import 'pages/_recipes';
 @import 'pages/_test-sandbox';

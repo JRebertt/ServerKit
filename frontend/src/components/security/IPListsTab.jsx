@@ -71,7 +71,7 @@ const ipListColumns = (listType, tone, onRemove) => [
         cellClassName: 'sec-rowend',
         render: (item) => (
             <Button variant="destructive" size="sm" onClick={() => onRemove(item, listType)}>
-                {t('app.iPListsTab.remove', 'Remove')}
+                {t('common.actions.remove', 'Remove')}
             </Button>
         ),
     },
@@ -182,7 +182,7 @@ const IPListsTab = () => {
         const confirmed = await confirm({
             title: t('app.iPListsTab.removeFrom', 'Remove from {{listType}}', { listType: listType }),
             message: t('app.iPListsTab.areYouSureYouWantTo', 'Are you sure you want to remove {{ip}} from the {{listType}}?', { ip: item.ip, listType: listType }),
-            confirmText: t('app.iPListsTab.remove2', 'Remove'),
+            confirmText: t('common.actions.remove', 'Remove'),
             variant: 'warning',
         });
         if (!confirmed) return;
@@ -300,7 +300,7 @@ const IPListsTab = () => {
     };
 
     if (loading) {
-        return <div className="loading-sm">{t('app.iPListsTab.loadingIpLists', 'Loading IP lists...')}</div>;
+        return <div className="loading-sm">{t('app.iPListsTab.loadingIpLists', 'Loading IP lists…')}</div>;
     }
 
     return (
@@ -330,7 +330,7 @@ const IPListsTab = () => {
                     />
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowAddModal(null)}>{t('app.iPListsTab.cancel', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowAddModal(null)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="default" onClick={handleAdd} disabled={actionLoading || !newIP.trim()}>
                         {actionLoading ? 'Adding...' : 'Add'}
                     </Button>

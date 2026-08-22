@@ -786,6 +786,15 @@ $skw-z-tv: 200;
         color: var(--text-faint);
         font-size: 10.5px;
     }
+
+    &__svg {
+        width: 100%;
+        max-width: 200px;
+
+        text {
+            font: 600 24px var(--sans);
+        }
+    }
 }
 
 // ---- topn: ranked bars --------------------------------------
@@ -1738,6 +1747,13 @@ $skw-z-tv: 200;
     display: flex;
 
     > svg { flex: 1; min-height: 0; }
+
+    // Also used bare (outside .skw-chart) by the stat widget's sparkline,
+    // where the svg fills the tile on its own.
+    &__svg {
+        display: block;
+        width: 100%;
+    }
 
     &__cross {
         position: absolute;

@@ -95,7 +95,7 @@ export function SortMenu({ columns = [], sorts = [], onChange, className }) {
                 )}
                 <div className="sk-tablemenu__footer">
                     <Button variant="ghost" size="sm" onClick={clear} disabled={sorts.length === 0}>
-                        {t('app.sortMenu.clear', 'Clear')}
+                        {t('common.actions.clear', 'Clear')}
                     </Button>
                 </div>
             </PopoverContent>

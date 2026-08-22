@@ -31,7 +31,7 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
       {children}
       <DialogPrimitive.Close className="ui-dialog-close">
         <X />
-        <span className="sr-only">{t('app.dialog.close', 'Close')}</span>
+        <span className="sr-only">{t('common.actions.close', 'Close')}</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>

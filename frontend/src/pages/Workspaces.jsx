@@ -160,7 +160,7 @@ const Workspaces = () => {
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.workspaces.workspace', header: 'Workspace',
+            headerKey: 'common.labels.workspace', header: 'Workspace',
             sortable: true,
             hideable: false,
             render: (ws) => {
@@ -186,11 +186,11 @@ const Workspaces = () => {
         { key: 'slug', headerKey: 'app.workspaces.slug', header: 'Slug', sortable: true, cellClassName: 'sk-cell-mono', render: (ws) => `/${ws.slug}` },
         // Numeric sorts: unlimited (0/unset) sorts last.
         { key: 'members', headerKey: 'app.workspaces.members', header: 'Members', sortable: true, sortValue: (ws) => ws.member_count ?? null, cellClassName: 'sk-cell-mono', render: (ws) => ws.member_count ?? 0 },
-        { key: 'servers', headerKey: 'app.workspaces.servers', header: 'Servers', sortable: true, sortValue: (ws) => (ws.max_servers > 0 ? ws.max_servers : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
+        { key: 'servers', headerKey: 'common.labels.servers', header: 'Servers', sortable: true, sortValue: (ws) => (ws.max_servers > 0 ? ws.max_servers : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_servers > 0 ? ws.max_servers : '—') },
         { key: 'users', headerKey: 'app.workspaces.users', header: 'Users', sortable: true, sortValue: (ws) => (ws.max_users > 0 ? ws.max_users : null), cellClassName: 'sk-cell-mono', render: (ws) => (ws.max_users > 0 ? ws.max_users : '—') },
         {
             key: 'status',
-            headerKey: 'app.workspaces.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // `value` is the FILTER value, `sortValue` is the ORDERING key, and
@@ -252,7 +252,7 @@ const Workspaces = () => {
                 : 'Workspaces isolate servers by team or project. Ask an admin to create one.'}
             emptyAction={isAdmin ? (
                 <Button onClick={() => setShowCreateModal(true)}>
-                    {t('app.workspaces.newWorkspace2', 'New Workspace')}
+                    {t('app.workspaces.newWorkspace', 'New Workspace')}
                 </Button>
             ) : null}
             filteredEmptyIcon={LayoutGrid}
@@ -266,7 +266,7 @@ const Workspaces = () => {
                 title={t('app.workspaces.createWorkspace', 'Create Workspace')}
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>{t('app.workspaces.cancel', 'Cancel')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button
                             onClick={handleCreate}
                             disabled={!form.name || createWorkspace.isPending}
@@ -277,11 +277,11 @@ const Workspaces = () => {
                 )}
             >
                 <div className="form-group">
-                    <label>{t('app.workspaces.name', 'Name')}</label>
+                    <label>{t('common.labels.name', 'Name')}</label>
                     <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder={t('app.workspaces.myTeam', 'My Team')} />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.workspaces.description', 'Description')}</label>
+                    <label>{t('common.labels.description', 'Description')}</label>
                     <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
                 </div>
                 <div className="form-row">

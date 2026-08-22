@@ -142,7 +142,7 @@ export default function DeliveryLog() {
     const columns = [
         {
             key: 'status',
-            headerKey: 'app.deliveryLog.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // Explicit rather than leaning on the sortValue fallback: without it
@@ -193,7 +193,7 @@ export default function DeliveryLog() {
         },
         {
             key: 'when',
-            headerKey: 'app.deliveryLog.when', header: 'When',
+            headerKey: 'common.labels.when', header: 'When',
             sortable: true,
             // `date`, declared: the sortValue below is epoch milliseconds, and
             // left to infer, the header menu would offer "is under 1723…" on a
@@ -211,7 +211,7 @@ export default function DeliveryLog() {
             hideable: false,
             render: (d) => (
                 (d.status === 'failed' || d.status === 'skipped') && d.channel !== 'inapp' && (
-                    <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>{t('app.deliveryLog.retry', 'Retry')}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => onRetry(d.id)}>{t('common.actions.retry', 'Retry')}</Button>
                 )
             ),
         },
@@ -244,7 +244,7 @@ export default function DeliveryLog() {
     return (
         <PageLayout
             icon={<Send size={18} />}
-            title={t('app.deliveryLog.notificationDeliveryLog2', 'Notification Delivery Log')}
+            title={t('app.deliveryLog.notificationDeliveryLog', 'Notification Delivery Log')}
             meta="Outbound deliveries across all channels"
             actions={(
                 // Labelled "Server filters" to keep it apart from the toolbar's
@@ -291,14 +291,14 @@ export default function DeliveryLog() {
                 <GridChips {...chrome.chipProps} />
 
                 {loading && deliveries.length === 0 ? (
-                    <EmptyState loading loadingVariant="table" title={t('app.deliveryLog.loading', 'Loading…')} />
+                    <EmptyState loading loadingVariant="table" title={t('common.loading', 'Loading…')} />
                 ) : deliveries.length === 0 ? (
                     <EmptyState
                         icon={Inbox}
                         title={t('app.deliveryLog.noDeliveriesMatchTheseFilters', 'No deliveries match these filters.')}
                         action={serverFilterCount > 0 ? (
                             <Button variant="outline" onClick={() => { setStatus('all'); setChannel('all'); }}>
-                                {t('app.deliveryLog.clearFilters', 'Clear filters')}
+                                {t('common.actions.clearFilters', 'Clear filters')}
                             </Button>
                         ) : undefined}
                     />
@@ -329,9 +329,9 @@ export default function DeliveryLog() {
                 title={t('app.deliveryLog.filterDeliveries', 'Filter deliveries')}
                 activeCount={serverFilterCount}
                 groups={[
-                    { key: 'status', labelKey: 'app.deliveryLog.status2', label: 'Status', type: 'single',
+                    { key: 'status', labelKey: 'common.labels.status', label: 'Status', type: 'single',
                       options: STATUSES.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
-                    { key: 'channel', labelKey: 'app.deliveryLog.channel2', label: 'Channel', type: 'single',
+                    { key: 'channel', labelKey: 'app.deliveryLog.channel', label: 'Channel', type: 'single',
                       options: CHANNELS.filter((v) => v !== 'all').map((v) => ({ value: v, label: v })) },
                 ]}
                 value={{

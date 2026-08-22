@@ -313,7 +313,7 @@ export default function ImportDumpModal({ preset, isAdmin = false, onClose, onIm
 
                     <div className="dbx-field">
                         <label className="dbx-field__label" htmlFor="dbx-import-confirm">
-                            {t('app.importDumpModal.type', 'Type')} <code>{target?.name}</code> {t('app.importDumpModal.toConfirm', 'to confirm')}
+                            {t('common.labels.type', 'Type')} <code>{target?.name}</code> {t('app.importDumpModal.toConfirm', 'to confirm')}
                         </label>
                         <div className="dbx-input">
                             <Check size={15} aria-hidden="true" />

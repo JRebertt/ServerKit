@@ -138,7 +138,7 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
                 toast.error(result.error || t('app.serverSettingsTab.failedToRotateCredentials', 'Failed to rotate credentials'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.serverSettingsTab.failedToRotateCredentials2', 'Failed to rotate credentials'));
+            toast.error(err.message || t('app.serverSettingsTab.failedToRotateCredentials', 'Failed to rotate credentials'));
         } finally {
             setRotatingKey(false);
         }
@@ -188,7 +188,7 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
                         </div>
 
                         <div className="form-group">
-                            <label>{t('app.serverSettingsTab.description', 'Description')}</label>
+                            <label>{t('common.labels.description', 'Description')}</label>
                             <Textarea
                                 name="description"
                                 value={formData.description}
@@ -208,7 +208,7 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
                                 />
                             </div>
                             <div className="form-group">
-                                <label>{t('app.serverSettingsTab.ipAddress', 'IP Address')}</label>
+                                <label>{t('common.labels.ipAddress', 'IP Address')}</label>
                                 <Input
                                     type="text"
                                     name="ip_address"
@@ -278,12 +278,12 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
                                     <div key={idx} className="ip-item">
                                         <code>{ip}</code>
                                         {connectionInfo?.ip_address === ip && (
-                                            <Pill kind="green" dot={false}>{t('app.serverSettingsTab.current', 'Current')}</Pill>
+                                            <Pill kind="green" dot={false}>{t('common.labels.current', 'Current')}</Pill>
                                         )}
                                         <button type="button"
                                             className="btn-icon danger"
                                             onClick={() => handleRemoveIP(ip)}
-                                            title={t('app.serverSettingsTab.remove', 'Remove')}
+                                            title={t('common.actions.remove', 'Remove')}
                                         >
                                             <TrashIcon />
                                         </button>
@@ -301,7 +301,7 @@ const ServerSettingsTab = ({ server, onUpdate, onRegenerateToken, onDelete }) =>
                                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddIP())}
                             />
                             <Button variant="outline" onClick={handleAddIP}>
-                                {t('app.serverSettingsTab.add', 'Add')}
+                                {t('common.actions.add', 'Add')}
                             </Button>
                         </div>
 
@@ -413,11 +413,11 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
         <Modal
             open
             onClose={onClose}
-            title={t('app.serverSettingsTab.connectionString2', 'Connection String')}
+            title={t('app.serverSettingsTab.connectionString', 'Connection String')}
             size="lg"
             footer={!result ? (
                 <>
-                    <Button variant="outline" onClick={onClose}>{t('app.serverSettingsTab.cancel', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button onClick={handleGenerate} disabled={generating}>
                         {generating ? 'Generating…' : 'Generate'}
                     </Button>
@@ -427,7 +427,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                     <Button variant="outline" onClick={() => setResult(null)}>
                         {t('app.serverSettingsTab.generateAnother', 'Generate another')}
                     </Button>
-                    <Button onClick={onClose}>{t('app.serverSettingsTab.done', 'Done')}</Button>
+                    <Button onClick={onClose}>{t('common.actions.done', 'Done')}</Button>
                 </>
             )}
         >
@@ -467,7 +467,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                 <KeyIcon />
                                 <span>{t('app.serverSettingsTab.connectionString3', 'Connection string')}</span>
                                 <Button variant="outline" size="sm" onClick={() => copy(result.connection_string)}>
-                                    <CopyIcon /> {t('app.serverSettingsTab.copy', 'Copy')}
+                                    <CopyIcon /> {t('common.actions.copy', 'Copy')}
                                 </Button>
                             </div>
                             <pre className="connection-string-field__value">{result.connection_string}</pre>
@@ -475,7 +475,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
 
                         <details className="install-fallback">
                             <summary>{t('app.serverSettingsTab.needToInstallTheAgentFirst', 'Need to install the agent first? Use the one-liner installer.')}</summary>
-                            <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                            <div className="install-tabs install-tabs--after-summary">
                                 <div className="install-tab">
                                     <div className="install-tab-header">
                                         <TerminalIcon />
@@ -484,7 +484,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                             <span className="install-tab-description">{t('app.serverSettingsTab.curlTarSudoAndSystemd', 'curl, tar, sudo, and systemd')}</span>
                                         </div>
                                         <Button variant="outline" size="sm" onClick={() => copy(linuxScript)}>
-                                            <CopyIcon /> {t('app.serverSettingsTab.copy2', 'Copy')}
+                                            <CopyIcon /> {t('common.actions.copy', 'Copy')}
                                         </Button>
                                     </div>
                                     <pre className="install-script">{linuxScript}</pre>
@@ -497,7 +497,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
                                             <span className="install-tab-description">{t('app.serverSettingsTab.runAsAdministrator', 'Run as Administrator')}</span>
                                         </div>
                                         <Button variant="outline" size="sm" onClick={() => copy(windowsScript)}>
-                                            <CopyIcon /> {t('app.serverSettingsTab.copy3', 'Copy')}
+                                            <CopyIcon /> {t('common.actions.copy', 'Copy')}
                                         </Button>
                                     </div>
                                     <pre className="install-script">{windowsScript}</pre>

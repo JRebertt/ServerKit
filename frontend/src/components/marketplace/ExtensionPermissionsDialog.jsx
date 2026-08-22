@@ -115,7 +115,7 @@ const BlockedRow = ({ row }) => {
             </div>
             <p className="extension-permissions__note">
                 {t('app.extensionPermissionsDialog.thisExtensionAskedForACapability', 'This extension asked for a capability its manifest does not declare, so the panel refused the call — it did not run. Refused')} {plural(refused, 'time')}
-                {row.last_used_at && <>{t('app.extensionPermissionsDialog.mostRecently2', ', most recently')} <ObservedAt iso={row.last_used_at} /></>}
+                {row.last_used_at && <>{t('app.extensionPermissionsDialog.mostRecently', ', most recently')} <ObservedAt iso={row.last_used_at} /></>}
                 .
             </p>
         </li>
@@ -204,7 +204,7 @@ const RequirementsSection = ({ requirements }) => {
     return (
         <section className="extension-permissions__section">
             <div className="extension-permissions__section-head">
-                <h4>{t('app.extensionPermissionsDialog.pythonDependencies2', 'Python dependencies')}</h4>
+                <h4>{t('app.extensionPermissionsDialog.pythonDependencies', 'Python dependencies')}</h4>
                 <Pill kind="amber" dot={false}>
                     <PackageX aria-hidden="true" />
                     {t('app.extensionPermissionsDialog.notInstalled', 'Not installed')}
@@ -273,10 +273,10 @@ const ExtensionPermissionsDialog = ({ plugin, onClose }) => {
             onClose={onClose}
             title={t('app.extensionPermissionsDialog.permissionsDependencies', '{{displayname}} — permissions & dependencies', { displayname: plugin.display_name })}
             size="md"
-            footer={<Button variant="ghost" onClick={onClose}>{t('app.extensionPermissionsDialog.close', 'Close')}</Button>}
+            footer={<Button variant="ghost" onClick={onClose}>{t('common.actions.close', 'Close')}</Button>}
         >
             <div className="extension-permissions">
-                {loading && <p className="text-muted">{t('app.extensionPermissionsDialog.loading', 'Loading…')}</p>}
+                {loading && <p className="text-muted">{t('common.loading', 'Loading…')}</p>}
 
                 {!loading && error && (
                     <div className="extension-permissions__error">

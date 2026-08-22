@@ -267,7 +267,7 @@ const ImagesTab = ({ onStatsChange }) => {
         },
         {
             key: 'size',
-            headerKey: 'app.imagesTab.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             type: 'num',
             unit: ' MB',
@@ -280,7 +280,7 @@ const ImagesTab = ({ onStatsChange }) => {
         },
         {
             key: 'created',
-            headerKey: 'app.imagesTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // Declared: `sortValue` is epoch ms, and letting that number type the
             // column would offer "is under 1754…" instead of a date picker.
@@ -356,7 +356,7 @@ const ImagesTab = ({ onStatsChange }) => {
     if (loading) {
         return (
             <div className="dx-tab-pane">
-                <div className="docker-loading">{t('app.imagesTab.loadingImages', 'Loading images...')}</div>
+                <div className="docker-loading">{t('app.imagesTab.loadingImages', 'Loading images…')}</div>
             </div>
         );
     }
@@ -455,7 +455,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
     }
 
     return (
-        <Modal open onClose={onClose} title={t('app.imagesTab.pullImage2', 'Pull Image')} size="md">
+        <Modal open onClose={onClose} title={t('app.imagesTab.pullImage', 'Pull Image')} size="md">
             {error && <div className="error-message">{error}</div>}
 
             <form onSubmit={handleSubmit}>
@@ -471,7 +471,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
                 </div>
 
                 <div className="form-group">
-                    <label>{t('app.imagesTab.tag2', 'Tag')}</label>
+                    <label>{t('app.imagesTab.tag', 'Tag')}</label>
                     <Input
                         type="text"
                         value={tag}
@@ -482,7 +482,7 @@ const PullImageModal = ({ onClose, onPulled }) => {
 
                 <div className="modal-actions">
                     <Button type="button" variant="outline" onClick={onClose}>
-                        {t('app.imagesTab.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={loading}>
                         {loading ? 'Pulling...' : 'Pull Image'}

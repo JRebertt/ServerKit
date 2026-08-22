@@ -333,7 +333,7 @@ const TestSandbox = () => {
     if (loading) {
         return (
             <PageLayout className="test-sandbox-page" icon={<FlaskConical size={18} />} title={t('app.testSandbox.testSandbox', 'Test Sandbox')}>
-                <EmptyState loading loadingVariant="table" size="lg" title={t('app.testSandbox.loadingTestSandbox', 'Loading test sandbox...')} />
+                <EmptyState loading loadingVariant="table" size="lg" title={t('app.testSandbox.loadingTestSandbox', 'Loading test sandbox…')} />
             </PageLayout>
         );
     }
@@ -342,7 +342,7 @@ const TestSandbox = () => {
         <PageLayout
             className="test-sandbox-page"
             icon={<FlaskConical size={18} />}
-            title={t('app.testSandbox.testSandbox2', 'Test Sandbox')}
+            title={t('app.testSandbox.testSandbox', 'Test Sandbox')}
             actions={(
                 <Button
                     variant="outline"
@@ -350,7 +350,7 @@ const TestSandbox = () => {
                     disabled={runsLoading}
                 >
                     <RefreshCw size={15} />
-                    {t('app.testSandbox.refresh', 'Refresh')}
+                    {t('common.actions.refresh', 'Refresh')}
                 </Button>
             )}
         >
@@ -377,7 +377,7 @@ const TestSandbox = () => {
                             {t('app.testSandbox.selectAll', 'Select all')}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={handleClear} disabled={selected.size === 0}>
-                            {t('app.testSandbox.clear', 'Clear')}
+                            {t('common.actions.clear', 'Clear')}
                         </Button>
                     </div>
                 </CardHeader>
@@ -487,7 +487,7 @@ const TestSandbox = () => {
             <section className="ts-history">
                 <h2 className="ts-section-title">{t('app.testSandbox.runHistory', 'Run history')}</h2>
                 {runsLoading ? (
-                    <EmptyState loading loadingVariant="table" title={t('app.testSandbox.loadingRunHistory', 'Loading run history...')} />
+                    <EmptyState loading loadingVariant="table" title={t('app.testSandbox.loadingRunHistory', 'Loading run history…')} />
                 ) : runs.length === 0 ? (
                     <EmptyState
                         icon={FlaskConical}
@@ -504,7 +504,7 @@ const TestSandbox = () => {
                                     <th>{t('app.testSandbox.distros', 'Distros')}</th>
                                     <th>{t('app.testSandbox.result', 'Result')}</th>
                                     <th>{t('app.testSandbox.started', 'Started')}</th>
-                                    <th>{t('app.testSandbox.status', 'Status')}</th>
+                                    <th>{t('common.labels.status', 'Status')}</th>
                                 </tr>
                             </thead>
                             <tbody>

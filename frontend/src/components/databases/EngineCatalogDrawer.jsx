@@ -204,7 +204,7 @@ export default function EngineCatalogDrawer({
                                 onClick={() => setFamily(null)}
                                 aria-pressed={!family}
                             >
-                                {t('app.engineCatalogDrawer.all', 'All')}
+                                {t('common.labels.all', 'All')}
                             </button>
                             {families.map((f) => (
                                 <button

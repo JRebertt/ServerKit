@@ -272,7 +272,7 @@ const RemoteAccess = ({ serverId }) => {
                                                         {t.edge_server_name || t.edge_server_id}
                                                     </Link>
                                                 )}
-                                                {isCurrentEdge && <span className="ra-node__tag">{t('app.remoteAccess.thisServer2', 'this server')}</span>}
+                                                {isCurrentEdge && <span className="ra-node__tag">{t('app.remoteAccess.thisServer', 'this server')}</span>}
                                             </span>
                                             <Pill kind={pillKind(t.status)}>{t.status || 'unknown'}</Pill>
                                         </div>
@@ -363,7 +363,7 @@ const RemoteAccess = ({ serverId }) => {
                                                         className="text-red-600"
                                                         onClick={() => unpublish(t.id, svc)}
                                                     >
-                                                        {t('app.remoteAccess.remove', 'Remove')}
+                                                        {t('common.actions.remove', 'Remove')}
                                                     </Button>
                                                 </div>
                                             </div>
@@ -380,12 +380,12 @@ const RemoteAccess = ({ serverId }) => {
             <Modal
                 open={wizardOpen}
                 onClose={closeWizard}
-                title={t('app.remoteAccess.exposeALocalService2', 'Expose a Local Service')}
+                title={t('app.remoteAccess.exposeALocalService', 'Expose a Local Service')}
                 size="lg"
                 footer={
                     <>
                         <Button variant="outline" onClick={closeWizard} disabled={submitting}>
-                            {t('app.remoteAccess.cancel', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button onClick={submitWizard} disabled={!wizardValid || submitting}>
                             {submitting ? 'Publishing…' : 'Publish'}
@@ -443,7 +443,7 @@ const RemoteAccess = ({ serverId }) => {
                                     icon={Cloud}
                                     showCapabilities
                                     label={t('app.remoteAccess.edgeServerPublicIpFrontsThe', 'Edge server (public IP — fronts the tunnel)')}
-                                    placeholder={t('app.remoteAccess.selectAServer2', 'Select a server')}
+                                    placeholder={t('app.remoteAccess.selectAServer', 'Select a server')}
                                     searchPlaceholder={t('app.serverPicker.findAServer', 'Find a server…')}
                                     className="sk-resource-picker__trigger--full"
                                 />
@@ -493,14 +493,14 @@ const RemoteAccess = ({ serverId }) => {
                     {form.requireAuth && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1.5">
-                                <Label>{t('app.remoteAccess.username', 'Username')}</Label>
+                                <Label>{t('common.labels.username', 'Username')}</Label>
                                 <Input
                                     value={form.authUsername}
                                     onChange={(e) => setField('authUsername', e.target.value)}
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <Label>{t('app.remoteAccess.password', 'Password')}</Label>
+                                <Label>{t('common.labels.password', 'Password')}</Label>
                                 <Input
                                     type="password"
                                     value={form.authPassword}
@@ -521,7 +521,7 @@ const RemoteAccess = ({ serverId }) => {
                 footer={
                     <>
                         <Button variant="outline" onClick={() => setTeardown(null)}>
-                            {t('app.remoteAccess.cancel2', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button variant="destructive" onClick={confirmTeardown}>
                             {t('app.remoteAccess.tearDown', 'Tear down')}

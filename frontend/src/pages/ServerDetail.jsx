@@ -202,7 +202,7 @@ const ServerDetail = () => {
             <div className="error-page">
                 <h2>{t('app.serverDetail.serverNotFound', 'Server Not Found')}</h2>
                 <p>{t('app.serverDetail.theRequestedServerCouldNotBe', 'The requested server could not be found.')}</p>
-                <Button asChild><Link to="/servers">{t('app.serverDetail.backToServers2', 'Back to Servers')}</Link></Button>
+                <Button asChild><Link to="/servers">{t('app.serverDetail.backToServers', 'Back to Servers')}</Link></Button>
             </div>
         );
     }
@@ -230,26 +230,26 @@ const ServerDetail = () => {
     // hiding the tab matches the rest of the panel's "don't expose what
     // the host can't do" behaviour.
     const tabs = [
-        { id: 'overview', labelKey: 'app.serverDetail.overview', label: 'Overview' },
-        { id: 'docker', labelKey: 'app.serverDetail.docker', label: 'Docker' },
+        { id: 'overview', labelKey: 'common.labels.overview', label: 'Overview' },
+        { id: 'docker', labelKey: 'common.labels.docker', label: 'Docker' },
         { id: 'proxy', labelKey: 'app.serverDetail.proxy', label: 'Proxy' },
         ...(server.capabilities?.cron ? [{ id: 'cron', labelKey: 'app.serverDetail.cron', label: 'Cron' }] : []),
         ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', labelKey: 'app.serverDetail.tunnels', label: 'Tunnels' }] : []),
         ...(server.capabilities?.packages ? [{ id: 'packages', labelKey: 'app.serverDetail.packages', label: 'Packages' }] : []),
-        ...(server.capabilities?.systemd ? [{ id: 'services', labelKey: 'app.serverDetail.services', label: 'Services' }] : []),
+        ...(server.capabilities?.systemd ? [{ id: 'services', labelKey: 'common.labels.services', label: 'Services' }] : []),
         ...(server.capabilities?.survey ? [{ id: 'survey', labelKey: 'app.serverDetail.survey', label: 'Survey' }] : []),
         { id: 'metrics', labelKey: 'app.serverDetail.metrics', label: 'Metrics' },
         ...(totalAlertCount > 0
             ? [{ id: 'alerts', labelKey: 'app.serverDetail.alerts', label: 'Alerts', badge: totalAlertCount }]
-            : [{ id: 'alerts', labelKey: 'app.serverDetail.alerts2', label: 'Alerts' }]),
+            : [{ id: 'alerts', labelKey: 'app.serverDetail.alerts', label: 'Alerts' }]),
         ...(server.capabilities?.wireguard ? [{ id: 'remote-access', labelKey: 'app.serverDetail.remoteAccess', label: 'Remote Access' }] : []),
-        { id: 'settings', labelKey: 'app.serverDetail.settings', label: 'Settings' }
+        { id: 'settings', labelKey: 'common.labels.settings', label: 'Settings' }
     ];
 
     return (
         <div className="page-container server-detail-page">
             <div className="page-breadcrumb">
-                <Link to="/servers">{t('app.serverDetail.servers', 'Servers')}</Link>
+                <Link to="/servers">{t('common.labels.servers', 'Servers')}</Link>
                 <span className="breadcrumb-separator">/</span>
                 <span>{server.name}</span>
             </div>

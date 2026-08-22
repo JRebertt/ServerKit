@@ -141,9 +141,9 @@ export function GridViewPicker({ views, counts, onCreate, label = 'items', actio
                                 {t('app.gridViewPicker.startFromCurrentFiltersColumns', 'Start from current filters & columns')}
                             </button>
                             <div className="sk-gridmenu__foot">
-                                <button type="button" onClick={() => setCreating(false)}>{t('app.gridViewPicker.cancel', 'Cancel')}</button>
+                                <button type="button" onClick={() => setCreating(false)}>{t('common.actions.cancel', 'Cancel')}</button>
                                 <button type="button" className="is-primary" disabled={!name.trim()} onClick={submitNew}>
-                                    {t('app.gridViewPicker.create', 'Create')}
+                                    {t('common.actions.create', 'Create')}
                                 </button>
                             </div>
                         </>

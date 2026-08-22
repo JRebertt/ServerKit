@@ -40,7 +40,7 @@ const PruneButton = ({ onPruned }) => {
                 size="sm"
                 onClick={handlePrune}
                 disabled={loading || isRemote}
-                title={isRemote ? t('app.pruneButton.pruneIsOnlyAvailableOnThe2', 'Prune is only available on the local Docker target right now') : t('app.pruneButton.pruneUnusedDockerResources', 'Prune unused Docker resources')}
+                title={isRemote ? t('app.pruneButton.pruneIsOnlyAvailableOnThe', 'Prune is only available on the local Docker target right now') : t('app.pruneButton.pruneUnusedDockerResources', 'Prune unused Docker resources')}
             >
                 {loading ? 'Cleaning...' : 'Prune Unused'}
             </Button>

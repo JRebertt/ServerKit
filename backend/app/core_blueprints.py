@@ -87,6 +87,12 @@ CORE_BLUEPRINTS: tuple[BlueprintSpec, ...] = (
     BlueprintSpec('app.api.buildpacks', 'buildpacks_bp', '/api/v1/buildpacks'),
     BlueprintSpec('app.api.snapshots', 'snapshots_bp', '/api/v1/apps'),
     BlueprintSpec('app.api.manifests', 'manifests_bp', '/api/v1/manifests'),
+    BlueprintSpec('app.api.recipes', 'recipes_bp', '/api/v1/recipes'),
+    BlueprintSpec(
+        'app.api.walkthroughs',
+        'walkthroughs_bp',
+        '/api/v1/walkthroughs',
+    ),
     BlueprintSpec('app.api.projects', 'projects_bp', '/api/v1/projects'),
     BlueprintSpec('app.api.environments', 'environments_bp', '/api/v1/environments'),
     BlueprintSpec(

@@ -115,7 +115,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
                     <strong>{plan.framework || 'Generic'}</strong>
                 </div>
                 <div className="buildpack-preview__fact">
-                    <span><Boxes size={13} /> {t('app.buildpackPreview.port', 'Port')}</span>
+                    <span><Boxes size={13} /> {t('common.labels.port', 'Port')}</span>
                     <strong>{plan.port || 'Auto'}</strong>
                 </div>
             </div>
@@ -143,7 +143,7 @@ function BuildpackPreview({ plan, dockerfile, overrides = {}, onChange, loading 
                         </div>
                     )}
                     <div className="buildpack-preview__field">
-                        <Label htmlFor="bp-port">{t('app.buildpackPreview.port2', 'Port')}</Label>
+                        <Label htmlFor="bp-port">{t('common.labels.port', 'Port')}</Label>
                         <Input
                             id="bp-port"
                             type="number"

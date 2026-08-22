@@ -57,7 +57,7 @@ const EventsTab = () => {
                 <div className={`card ${failedLogins.alert_triggered ? 'card-warning' : ''}`}>
                     <div className="card-header">
                         <h3>{t('app.eventsTab.failedLoginAttempts24h', 'Failed Login Attempts (24h)')}</h3>
-                        <Button variant="outline" size="sm" onClick={loadFailedLogins}>{t('app.eventsTab.refresh', 'Refresh')}</Button>
+                        <Button variant="outline" size="sm" onClick={loadFailedLogins}>{t('common.actions.refresh', 'Refresh')}</Button>
                     </div>
                     <div className="card-body">
                         <div className="failed-login-summary">
@@ -79,11 +79,11 @@ const EventsTab = () => {
             <div className="card">
                 <div className="card-header">
                     <h3>{t('app.eventsTab.securityEvents', 'Security Events')}</h3>
-                    <Button variant="outline" size="sm" onClick={loadEvents}>{t('app.eventsTab.refresh2', 'Refresh')}</Button>
+                    <Button variant="outline" size="sm" onClick={loadEvents}>{t('common.actions.refresh', 'Refresh')}</Button>
                 </div>
                 <div className="card-body">
                     {loading ? (
-                        <div className="loading-sm">{t('app.eventsTab.loading', 'Loading...')}</div>
+                        <div className="loading-sm">{t('common.loading', 'Loading…')}</div>
                     ) : events.length === 0 ? (
                         <p className="text-muted">{t('app.eventsTab.noSecurityEventsRecorded', 'No security events recorded.')}</p>
                     ) : (

@@ -166,6 +166,28 @@ class SecretService:
         db.session.commit()
 
     @classmethod
+    def upsert_internal_secret(cls, vault_id: int, name: str, value: str, *,
+                               description: str = None, expires_at=None) -> Secret:
+        """Create-or-update a service-owned secret, returning the model row.
+
+        For internal writers (Recipe run handoffs today) that namespace their
+        own machine-generated names inside a dedicated vault slug — the human
+        display-name grammar does not apply, but the encryption still lives
+        here so this service stays the one door to it.
+        """
+        encrypted = encrypt_secret(value)
+        secret = cls.get_secret_by_name(vault_id, name)
+        if secret is None:
+            secret = Secret(vault_id=vault_id, name=name)
+            db.session.add(secret)
+        secret.encrypted_value = encrypted
+        if description is not None:
+            secret.description = description
+        secret.expires_at = expires_at
+        db.session.commit()
+        return secret
+
+    @classmethod
     def reveal_secret(cls, secret_id: int) -> Dict:
         secret = cls.get_secret(secret_id)
         if not secret:

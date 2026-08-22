@@ -69,7 +69,7 @@ const WorkspaceSwitcher = () => {
                 <SelectValue placeholder={t('app.workspaceSwitcher.allWorkspaces', 'All workspaces')} />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">{t('app.workspaceSwitcher.allWorkspaces2', 'All workspaces')}</SelectItem>
+                <SelectItem value="all">{t('app.workspaceSwitcher.allWorkspaces', 'All workspaces')}</SelectItem>
                 {workspaces.map((w) => (
                     <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                 ))}

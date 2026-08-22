@@ -72,13 +72,13 @@ const ServerOverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => 
             <KpiBand max={5}>
                 <KpiTile
                     icon={<PulseIcon />}
-                    label={t('app.serverOverviewTab.status', 'Status')}
+                    label={t('common.labels.status', 'Status')}
                     value={server.status || 'pending'}
                     tone={isOnline ? 'success' : server.status === 'connecting' ? 'warning' : 'danger'}
                 />
                 <KpiTile
                     icon={<ClockIcon />}
-                    label={t('app.serverOverviewTab.uptime', 'Uptime')}
+                    label={t('common.labels.uptime', 'Uptime')}
                     value={isOnline ? formatUptime(metrics?.uptime) : '—'}
                     sub={isOnline && metrics?.uptime ? 'since last boot' : null}
                 />
@@ -91,14 +91,14 @@ const ServerOverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => 
                 />
                 <KpiGauge
                     icon={<MemoryIcon />}
-                    label={t('app.serverOverviewTab.memory', 'Memory')}
+                    label={t('common.labels.memory', 'Memory')}
                     percent={isOnline ? metrics?.memory_percent : null}
                     color="var(--cyan)"
                     sub={totalMemory ? formatBytes(totalMemory) : null}
                 />
                 <KpiGauge
                     icon={<DiskIcon />}
-                    label={t('app.serverOverviewTab.disk', 'Disk')}
+                    label={t('common.labels.disk', 'Disk')}
                     percent={isOnline ? metrics?.disk_percent : null}
                     color="var(--green)"
                     sub={totalDisk ? formatBytes(totalDisk) : null}
@@ -123,11 +123,11 @@ const ServerOverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => 
                 <div className="info-card">
                     <h3><ServerIcon /> {t('app.serverOverviewTab.serverInformation', 'Server Information')}</h3>
                     <ul className="info-rows">
-                        <InfoRow icon={<PulseIcon />} label={t('app.serverOverviewTab.status2', 'Status')}>
+                        <InfoRow icon={<PulseIcon />} label={t('common.labels.status', 'Status')}>
                             <Pill kind={serverStatusKind(server.status)}>{server.status}</Pill>
                         </InfoRow>
                         <InfoRow icon={<HostIcon />} label={t('app.serverOverviewTab.hostname', 'Hostname')} value={server.hostname || 'N/A'} mono />
-                        <InfoRow icon={<NetworkIcon />} label={t('app.serverOverviewTab.ipAddress', 'IP Address')} value={server.ip_address || 'N/A'} mono />
+                        <InfoRow icon={<NetworkIcon />} label={t('common.labels.ipAddress', 'IP Address')} value={server.ip_address || 'N/A'} mono />
                         <InfoRow icon={<FolderTinyIcon />} label={t('app.serverOverviewTab.group', 'Group')} value={server.group_name || 'Ungrouped'} />
                         <InfoRow
                             icon={<ClockIcon />}
@@ -160,7 +160,7 @@ const ServerOverviewTab = ({ server, metrics, systemInfo, onRefreshServer }) => 
                         <InfoRow icon={<TagIcon />} label={t('app.serverOverviewTab.agentVersion', 'Agent Version')} value={server.agent_version || 'Not installed'} mono />
                         <InfoRow icon={<HashIcon />} label={t('app.serverOverviewTab.agentId', 'Agent ID')} value={server.agent_id || 'N/A'} mono />
                         <InfoRow icon={<DockerMiniIcon />} label={t('app.serverOverviewTab.dockerVersion', 'Docker Version')} value={server.docker_version || systemInfo?.docker_version || 'N/A'} mono />
-                        <InfoRow icon={<ClockIcon />} label={t('app.serverOverviewTab.uptime2', 'Uptime')} value={formatUptime(metrics?.uptime)} mono />
+                        <InfoRow icon={<ClockIcon />} label={t('common.labels.uptime', 'Uptime')} value={formatUptime(metrics?.uptime)} mono />
                     </ul>
                 </div>
 

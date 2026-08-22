@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { scrollBehavior } from '@/utils/reducedMotion';
 
 // How many slices the severity map is divided into. Enough to resolve a single
 // error in a long log without rendering a node per line.
@@ -97,7 +98,7 @@ export default function LogPane({
     useEffect(() => {
         if (scrollToStep == null || !paneRef.current) return;
         const el = paneRef.current.querySelector(`[data-step="${scrollToStep}"]`);
-        if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        if (el) el.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
     }, [scrollToStep]);
 
     // Jump to a specific line — prev/next navigation, and the first error when
@@ -107,7 +108,7 @@ export default function LogPane({
         if (!scrollTarget || !paneRef.current) return;
         const el = paneRef.current.querySelector(`[data-line="${scrollTarget.index}"]`);
         if (!el) return;
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.scrollIntoView({ block: 'center', behavior: scrollBehavior() });
         setActiveLine(scrollTarget.index);
     }, [scrollTarget]);
 

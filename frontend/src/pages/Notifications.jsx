@@ -21,17 +21,17 @@ const PAGE_SIZE = 25;
 
 const CATEGORY_CHIPS = [
     { key: '', labelKey: 'app.notifications.allCategories', label: 'All categories' },
-    { key: 'system', labelKey: 'app.notifications.system', label: 'System' },
-    { key: 'security', labelKey: 'app.notifications.security', label: 'Security' },
-    { key: 'backups', labelKey: 'app.notifications.backups', label: 'Backups' },
+    { key: 'system', labelKey: 'common.labels.system', label: 'System' },
+    { key: 'security', labelKey: 'common.labels.security', label: 'Security' },
+    { key: 'backups', labelKey: 'common.labels.backups', label: 'Backups' },
     { key: 'apps', labelKey: 'app.notifications.apps', label: 'Apps' },
 ];
 const SEVERITY_CHIPS = [
     { key: '', labelKey: 'app.notifications.any', label: 'Any' },
     { key: 'critical', labelKey: 'app.notifications.critical', label: 'Critical' },
-    { key: 'warning', labelKey: 'app.notifications.warning', label: 'Warning' },
+    { key: 'warning', labelKey: 'common.labels.warning', label: 'Warning' },
     { key: 'success', labelKey: 'app.notifications.success', label: 'Success' },
-    { key: 'info', labelKey: 'app.notifications.info', label: 'Info' },
+    { key: 'info', labelKey: 'common.labels.info', label: 'Info' },
 ];
 
 export default function Notifications() {
@@ -120,7 +120,7 @@ export default function Notifications() {
                         className={!unreadOnly ? 'is-active' : ''}
                         onClick={() => setUnreadOnly(false)}
                     >
-                        {t('app.notifications.all', 'All')}
+                        {t('common.labels.all', 'All')}
                     </button>
                     <button
                         type="button"
@@ -161,7 +161,7 @@ export default function Notifications() {
                 </div>
 
                 {loading && items.length === 0 && noticeItems.length === 0 ? (
-                    <div className="sk-notif-page__state">{t('app.notifications.loading', 'Loading…')}</div>
+                    <div className="sk-notif-page__state">{t('common.loading', 'Loading…')}</div>
                 ) : items.length === 0 && noticeItems.length === 0 ? (
                     <div className="sk-notif-page__state">
                         <Bell size={26} aria-hidden="true" />

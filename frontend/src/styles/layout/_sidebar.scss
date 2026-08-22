@@ -264,22 +264,13 @@
     text-overflow: ellipsis;
 }
 
-// Quick-create — a small circular accent "+" (AI chat-bubble style) that rides
-// on the first sidebar category row, next to the section label. Doubled class
-// beats the base `.quick-create` rules, which live in a later-imported
-// stylesheet.
-.nav-category--create {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-right: 0.35rem;
-}
-
-.quick-create.quick-create--fab {
-    width: 28px;
-    height: 28px;
+// Quick-create now lives in the brand row: logo → name → GitHub star → create.
+// The square accent treatment matches the prototype's compact app-chrome tool.
+.quick-create.quick-create--header {
+    width: 27px;
+    height: 27px;
     border: none;
-    border-radius: 50%;
+    border-radius: 8px;
     background: linear-gradient(160deg, var(--accent-bright), var(--accent));
     box-shadow: 0 2px 8px -1px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
     color: #fff;
@@ -300,6 +291,10 @@
     &:active {
         transform: translateY(0);
     }
+}
+
+.brand-section--custom .quick-create--header {
+    margin-inline-start: auto;
 }
 
 // Scrollable Navigation Container
@@ -496,9 +491,10 @@
     flex-shrink: 0;
 }
 
-// Sidebar Footer
+// Sidebar Footer — compact rail like the prototype's sb-foot: the divider
+// hugs the user card instead of floating a full spacing unit above it.
 .sidebar-footer {
-    padding: 1rem 0;
+    padding: 11px 0;
     margin-top: auto;
     border-top: 1px solid $border-subtle;
     flex-shrink: 0;
@@ -786,21 +782,9 @@
                     gap: 0;
                 }
 
-                // Category labels hide in the collapsed rail, but the row
-                // hosting quick-create stays so the "+" survives as a bare
-                // circular FAB.
-                .nav-category.nav-category--create {
-                    display: flex;
-                    justify-content: center;
-                    margin: 0.75rem 0 0.5rem;
-
-                    span {
-                        display: none;
-                    }
-                }
-
                 .brand-text,
                 .brand-star,
+                .quick-create--header,
                 .nav-category,
                 .nav-expand-btn,
                 .workspace-switcher__trigger > span,
@@ -861,19 +845,6 @@
             margin: 0;
             flex-shrink: 0;
             max-width: 170px;
-        }
-
-        // Category labels are hidden in the bar, but keep the quick-create row
-        // visible as a bare circular FAB at the start of the nav strip.
-        .nav-category.nav-category--create {
-            display: flex;
-            align-items: center;
-            margin: 0;
-            flex-shrink: 0;
-
-            span {
-                display: none;
-            }
         }
 
         // Nav fills the middle of the bar and scrolls horizontally if it runs long.

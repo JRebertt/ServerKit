@@ -181,7 +181,7 @@ export default function ConnectionsHub() {
         const confirmed = await confirm({
             title: t('app.connectionsHub.removeConnection', 'Remove Connection'),
             message: t('app.connectionsHub.removeTheConnection', 'Remove the connection "{{name}}"?', { name: record.name }),
-            confirmText: t('app.connectionsHub.remove', 'Remove'),
+            confirmText: t('common.actions.remove', 'Remove'),
             variant: 'danger',
         });
         if (!confirmed) return false;
@@ -203,7 +203,7 @@ export default function ConnectionsHub() {
             else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return res;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.connectionTestFailed2', 'Connection test failed'));
+            toast.error(err.message || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return null;
         }
     }, [toast]);
@@ -235,7 +235,7 @@ export default function ConnectionsHub() {
             await loadData();
             return true;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.failedToDisconnect2', 'Failed to disconnect'));
+            toast.error(err.message || t('app.connectionsHub.failedToDisconnect', 'Failed to disconnect'));
             return false;
         }
     }, [confirm, toast, loadData]);
@@ -257,11 +257,11 @@ export default function ConnectionsHub() {
     const onTestStorage = useCallback(async (config) => {
         try {
             const res = await api.testStorageConnection(config);
-            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks2', 'Connection works'));
-            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed3', 'Connection test failed'));
+            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks', 'Connection works'));
+            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return res;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.connectionTestFailed4', 'Connection test failed'));
+            toast.error(err.message || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return null;
         }
     }, [toast]);
@@ -282,11 +282,11 @@ export default function ConnectionsHub() {
     const onTestRelay = useCallback(async (payload) => {
         try {
             const res = await api.testEmailRelay(payload);
-            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks3', 'Connection works'));
-            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed5', 'Connection test failed'));
+            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks', 'Connection works'));
+            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return res;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.connectionTestFailed6', 'Connection test failed'));
+            toast.error(err.message || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return null;
         }
     }, [toast]);
@@ -307,7 +307,7 @@ export default function ConnectionsHub() {
     const onAddRegistrar = useCallback(async (payload) => {
         try {
             await api.addRegistrarConnection(payload);
-            toast.success(t('app.connectionsHub.registrarConnected', '{{name}} connected', { name: payload.name || t('app.connectionsHub.registrar', 'Registrar') }));
+            toast.success(t('app.connectionsHub.providerConnected', '{{name}} connected', { name: payload.name || t('app.connectionsHub.registrar', 'Registrar') }));
             await loadData();
             return true;
         } catch (err) {
@@ -320,7 +320,7 @@ export default function ConnectionsHub() {
         const confirmed = await confirm({
             title: t('app.connectionsHub.disconnectRegistrar', 'Disconnect Registrar'),
             message: t('app.connectionsHub.disconnectThisRegistrar', 'Disconnect this registrar?'),
-            confirmText: t('app.connectionsHub.disconnect3', 'Disconnect'),
+            confirmText: t('app.connectionsHub.disconnect', 'Disconnect'),
             variant: 'danger',
         });
         if (!confirmed) return false;
@@ -330,7 +330,7 @@ export default function ConnectionsHub() {
             await loadData();
             return true;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.failedToDisconnect3', 'Failed to disconnect'));
+            toast.error(err.message || t('app.connectionsHub.failedToDisconnect', 'Failed to disconnect'));
             return false;
         }
     }, [confirm, toast, loadData]);
@@ -338,11 +338,11 @@ export default function ConnectionsHub() {
     const onTestRegistrar = useCallback(async (id) => {
         try {
             const res = await api.testRegistrarConnection(id);
-            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks4', 'Connection works'));
-            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed7', 'Connection test failed'));
+            if (res && res.success) toast.success(res.message || t('app.connectionsHub.connectionWorks', 'Connection works'));
+            else toast.error((res && res.error) || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return res;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.connectionTestFailed8', 'Connection test failed'));
+            toast.error(err.message || t('app.connectionsHub.connectionTestFailed', 'Connection test failed'));
             return null;
         }
     }, [toast]);
@@ -351,7 +351,7 @@ export default function ConnectionsHub() {
     const onAddRegistry = useCallback(async (payload) => {
         try {
             await api.addContainerRegistry(payload);
-            toast.success(t('app.connectionsHub.registryConnected', '{{name}} connected', { name: payload.name || t('app.connectionsHub.registry', 'Registry') }));
+            toast.success(t('app.connectionsHub.providerConnected', '{{name}} connected', { name: payload.name || t('app.connectionsHub.registry', 'Registry') }));
             await loadData();
             return true;
         } catch (err) {
@@ -364,7 +364,7 @@ export default function ConnectionsHub() {
         const confirmed = await confirm({
             title: t('app.connectionsHub.removeContainerRegistry', 'Remove Container Registry'),
             message: t('app.connectionsHub.removeThisContainerRegistryAppsThat', 'Remove this container registry? Apps that pull from it will lose access.'),
-            confirmText: t('app.connectionsHub.remove3', 'Remove'),
+            confirmText: t('common.actions.remove', 'Remove'),
             variant: 'danger',
         });
         if (!confirmed) return false;
@@ -386,7 +386,7 @@ export default function ConnectionsHub() {
             else toast.error((res && res.error) || t('app.connectionsHub.loginFailed', 'Login failed'));
             return res;
         } catch (err) {
-            toast.error(err.message || t('app.connectionsHub.loginFailed2', 'Login failed'));
+            toast.error(err.message || t('app.connectionsHub.loginFailed', 'Login failed'));
             return null;
         }
     }, [toast]);
@@ -459,7 +459,7 @@ export default function ConnectionsHub() {
                     ? {
                         connected: true, statusLabel: 'Active', statusTone: 'ok',
                         subtitle: `Bucket: ${sub.bucket}`,
-                        scopes: [{ labelKey: 'app.connectionsHub.backups', label: 'Backups', tone: 'neutral', hintKey: 'app.connectionsHub.usedAsTheOffsiteBackupDestination', hint: 'Used as the offsite backup destination' }],
+                        scopes: [{ labelKey: 'common.labels.backups', label: 'Backups', tone: 'neutral', hintKey: 'app.connectionsHub.usedAsTheOffsiteBackupDestination', hint: 'Used as the offsite backup destination' }],
                         manageHref, manageLabel: 'Backups',
                     }
                     : { connected: false, statusLabel: 'Not connected', statusTone: 'neutral', scopes: [] };

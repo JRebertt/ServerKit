@@ -11,9 +11,9 @@ import {
     HardDrive, Clock, PanelLeftClose, PanelLeftOpen,
     LayoutGrid, List, Home, CloudUpload,
     Check, Copy, ArrowUpDown, Zap, Globe, Boxes, SlidersHorizontal, FileText,
-    FolderTree as FolderTreeIcon,
+    FolderTree as FolderTreeIcon, Terminal,
 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import TargetPicker from '../components/TargetPicker';
 import { TREE_ROOTS, getFileType, formatBytes } from '../components/file-manager/fileTypes';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from 'react-i18next';
+import { useTopbarActions } from '@/hooks/useTopbarActions';
 
 // Demo rail shortcuts (Quick access) — one-click jumps to the paths people
 // actually visit on a ServerKit host. "Stack" starts at the default install
@@ -36,7 +37,7 @@ const QUICK_ACCESS = [
     { labelKey: 'app.fileManager.sites', label: 'Sites', path: '/var/www', icon: Globe },
     { labelKey: 'app.fileManager.stack', label: 'Stack', path: '/opt/serverkit', icon: Boxes },
     { labelKey: 'app.fileManager.webConfig', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-    { labelKey: 'app.fileManager.logs', label: 'Logs', path: '/var/log', icon: FileText },
+    { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
 ];
 
 // Remote-agent rails: the panel stack doesn't exist on an agent box, so link
@@ -46,19 +47,19 @@ const QUICK_ACCESS = [
 // with forward-slash paths, Windows included.
 const QUICK_ACCESS_AGENT = {
     linux: [
-        { labelKey: 'app.fileManager.sites2', label: 'Sites', path: '/var/www', icon: Globe },
+        { labelKey: 'app.fileManager.sites', label: 'Sites', path: '/var/www', icon: Globe },
         { labelKey: 'app.fileManager.agent', label: 'Agent', path: '/etc/serverkit-agent', icon: Boxes },
-        { labelKey: 'app.fileManager.webConfig2', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-        { labelKey: 'app.fileManager.logs2', label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'app.fileManager.webConfig', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
+        { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
     ],
     windows: [
-        { labelKey: 'app.fileManager.agent2', label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
+        { labelKey: 'app.fileManager.agent', label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
         { labelKey: 'app.fileManager.agentLogs', label: 'Agent logs', path: 'C:/ProgramData/ServerKit/Agent/logs', icon: FileText },
         { labelKey: 'app.fileManager.users', label: 'Users', path: 'C:/Users', icon: Home },
     ],
     darwin: [
         { labelKey: 'app.fileManager.home', label: 'Home', path: '/Users', icon: Home },
-        { labelKey: 'app.fileManager.logs3', label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
     ],
 };
 
@@ -98,10 +99,16 @@ function unwrapAgentData(res) {
     return res;
 }
 
+function mountDisplayName(mount) {
+    if (!mount?.mountpoint || mount.mountpoint === '/') return null;
+    const parts = mount.mountpoint.split('/').filter(Boolean);
+    const leaf = parts[parts.length - 1] || mount.mountpoint;
+    return leaf === 'docker-desktop-user-distro' ? 'docker-desktop' : leaf;
+}
+
 const STORAGE = {
     sidebar: 'serverkit-fm-sidebar',
     treeCollapsed: 'serverkit-fm-tree-collapsed',
-    diskCollapsed: 'serverkit-fm-disk-collapsed',
     expanded: 'serverkit-fm-tree-expanded',
     viewMode: 'serverkit-fm-view-mode',
     sortBy: 'serverkit-fm-sort-by',
@@ -109,7 +116,7 @@ const STORAGE = {
 };
 
 const FILTER_OPTIONS = [
-    { id: 'all', labelKey: 'app.fileManager.all', label: 'All' },
+    { id: 'all', labelKey: 'common.labels.all', label: 'All' },
     { id: 'folder', labelKey: 'app.fileManager.folders', label: 'Folders' },
     { id: 'image', labelKey: 'app.fileManager.images', label: 'Images' },
     { id: 'code', labelKey: 'app.fileManager.code', label: 'Code' },
@@ -122,6 +129,7 @@ const FILTER_OPTIONS = [
 
 function FileManager() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
     // ─── target ──────────────────────────────────────────
@@ -228,7 +236,7 @@ function FileManager() {
     const dragCounter = useRef(0);
 
     // ─── view prefs ──────────────────────────────────────
-    const [viewMode, setViewMode] = useState(() => localStorage.getItem(STORAGE.viewMode) || 'grid');
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem(STORAGE.viewMode) || 'list');
     const gridSize = 'md';
     const [sortBy, setSortBy] = useState(() => localStorage.getItem(STORAGE.sortBy) || 'name');
     const [sortDir, setSortDir] = useState(() => localStorage.getItem(STORAGE.sortDir) || 'asc');
@@ -236,14 +244,11 @@ function FileManager() {
 
     // ─── left sidebar ────────────────────────────────────
     const [sidebarVisible, setSidebarVisible] = useState(() => {
+        if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches) return false;
         const v = localStorage.getItem(STORAGE.sidebar);
         return v !== null ? v === 'true' : true;
     });
     const [treeCollapsed, setTreeCollapsed] = useState(() => localStorage.getItem(STORAGE.treeCollapsed) === 'true');
-    const [diskCollapsed, setDiskCollapsed] = useState(() => {
-        const v = localStorage.getItem(STORAGE.diskCollapsed);
-        return v !== null ? v === 'true' : true;
-    });
 
     // ─── folder tree state ───────────────────────────────
     const [treeExpanded, setTreeExpanded] = useState(() => {
@@ -264,6 +269,7 @@ function FileManager() {
     const [history, setHistory] = useState(['/home']);
     const [historyIdx, setHistoryIdx] = useState(0);
     const navByHistory = useRef(false);
+    const lastValidPathRef = useRef('/home');
 
     // ─── context menu ────────────────────────────────────
     const [contextMenu, setContextMenu] = useState(null);
@@ -273,7 +279,6 @@ function FileManager() {
     // ─── persistence ─────────────────────────────────────
     useEffect(() => { localStorage.setItem(STORAGE.sidebar, sidebarVisible); }, [sidebarVisible]);
     useEffect(() => { localStorage.setItem(STORAGE.treeCollapsed, treeCollapsed); }, [treeCollapsed]);
-    useEffect(() => { localStorage.setItem(STORAGE.diskCollapsed, diskCollapsed); }, [diskCollapsed]);
     useEffect(() => { localStorage.setItem(STORAGE.viewMode, viewMode); }, [viewMode]);
     useEffect(() => { localStorage.setItem(STORAGE.sortBy, sortBy); }, [sortBy]);
     useEffect(() => { localStorage.setItem(STORAGE.sortDir, sortDir); }, [sortDir]);
@@ -380,8 +385,10 @@ function FileManager() {
             setEntries(entriesList);
             setParentPath(data.parent ?? deriveParent(data.path || path));
             setCurrentPath(data.path || path);
+            lastValidPathRef.current = data.path || path;
         } catch (error) {
             toast.error(t('app.fileManager.failedToLoadDirectory', 'Failed to load directory: {{message}}', { message: error.message }));
+            if (path !== lastValidPathRef.current) setCurrentPath(lastValidPathRef.current);
         } finally {
             setLoading(false);
         }
@@ -610,7 +617,7 @@ function FileManager() {
         setConfirmDialog({
             titleKey: 'app.fileManager.deleteConfirmation', title: 'Delete Confirmation',
             message,
-            confirmTextKey: 'app.fileManager.delete', confirmText: 'Delete',
+            confirmTextKey: 'common.actions.delete', confirmText: 'Delete',
             variant: 'danger',
             onConfirm: async () => {
                 const failures = [];
@@ -790,12 +797,32 @@ function FileManager() {
         return { folders, files, totalBytes, total: list.length, selectedCount: selectedList.length, selectedBytes };
     }, [sortedFiltered, selectedPaths]);
 
+    const activeMount = useMemo(() => diskMounts
+        .filter((mount) => {
+            const mountPath = mount.mountpoint || '/';
+            if (mountPath === '/') return currentPath.startsWith('/');
+            return currentPath === mountPath || currentPath.startsWith(`${mountPath.replace(/\/$/, '')}/`);
+        })
+        .sort((a, b) => (b.mountpoint || '/').length - (a.mountpoint || '/').length)[0] || null,
+    [currentPath, diskMounts]);
+
     const activeUploads = uploads.filter((u) => u.status === 'uploading' || u.status === 'pending');
     const totalUploadProgress = activeUploads.length > 0
         ? activeUploads.reduce((s, u) => s + u.progress, 0) / activeUploads.length
         : 0;
 
     const sortValue = `${sortBy}-${sortDir}`;
+    const filterLabels = {
+        all: t('common.labels.all', 'All'),
+        folder: t('app.fileManager.folders', 'Folders'),
+        image: t('app.fileManager.images', 'Images'),
+        code: t('app.fileManager.code', 'Code'),
+        text: t('app.fileManager.documents', 'Documents'),
+        data: t('app.fileManager.data', 'Data'),
+        video: t('app.fileManager.videos', 'Videos'),
+        audio: t('app.fileManager.audio', 'Audio'),
+        archive: t('app.fileManager.archives', 'Archives'),
+    };
     const handleSortChange = (value) => {
         const [nextSortBy, nextSortDir] = value.split('-');
         setSortBy(nextSortBy);
@@ -867,6 +894,34 @@ function FileManager() {
         return 'healthy';
     };
 
+    useTopbarActions(() => (
+        <>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowNewFolderModal(true)}
+                disabled={isRemote || isS3}
+            >
+                <FolderPlus size={14} /> {t('app.fileManager.newFolder', 'New folder')}
+            </Button>
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isRemote}
+            >
+                <Upload size={14} /> {t('app.fileManager.upload', 'Upload')}
+            </Button>
+            {!isS3 && (
+                <Button type="button" size="sm" onClick={() => navigate('/terminal')}>
+                    <Terminal size={14} /> {t('app.fileManager.terminal', 'Terminal')}
+                </Button>
+            )}
+        </>
+    ), [isRemote, isS3, currentPath]);
+
     // ─── render ──────────────────────────────────────────
     return (
         <div
@@ -880,7 +935,7 @@ function FileManager() {
                 type="file"
                 ref={fileInputRef}
                 multiple
-                style={{ display: 'none' }}
+                className="hidden"
                 onChange={handleUploadInput}
             />
 
@@ -909,7 +964,7 @@ function FileManager() {
                         {activeUploads.length > 0 && (
                             <span className="upload-tray-percent">{Math.round(totalUploadProgress)}%</span>
                         )}
-                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('app.fileManager.clear', 'Clear')}>
+                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('common.actions.clear', 'Clear')}>
                             <X size={14} />
                         </button>
                     </div>
@@ -939,7 +994,7 @@ function FileManager() {
                         {sidebarVisible ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
                     </button>
                     <div className="nav-buttons">
-                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title={t('app.fileManager.back', 'Back')}>
+                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title={t('common.actions.back', 'Back')}>
                             <ArrowLeft size={14} />
                         </button>
                         <button type="button" className="nav-btn" onClick={goForward} disabled={historyIdx >= history.length - 1} title={t('app.fileManager.forward', 'Forward')}>
@@ -948,7 +1003,7 @@ function FileManager() {
                         <button type="button" className="nav-btn" onClick={goUp} disabled={!parentPath} title="Up">
                             <ArrowUp size={14} />
                         </button>
-                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title={t('app.fileManager.home2', 'Home')}>
+                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title={t('app.fileManager.home', 'Home')}>
                             <Home size={14} />
                         </button>
                     </div>
@@ -965,14 +1020,47 @@ function FileManager() {
                             </span>
                         ))}
                     </div>
+                    {activeMount && !isRemote && !isS3 && (
+                        <span className="file-mount-chip" title={`${activeMount.device} · ${activeMount.total_human}`}>
+                            <HardDrive size={12} />
+                            <span>{activeMount.mountpoint === '/' ? t('app.fileManager.rootDisk', 'Root disk') : activeMount.mountpoint}</span>
+                        </span>
+                    )}
                 </div>
                 <div className="toolbar-right">
-                    <TargetPicker
-                        feature="files"
-                        value={target}
-                        onChange={setTarget}
-                        extraOptions={s3Available ? [{ value: 's3', labelKey: 'app.fileManager.s3Bucket2', label: 'S3 bucket' }] : []}
-                    />
+                    <label className="file-toolbar-select" title={t('app.fileManager.types', 'Types')}>
+                        <File size={13} />
+                        <select
+                            value={activeFilter}
+                            onChange={(event) => setActiveFilter(event.target.value)}
+                            aria-label={t('app.fileManager.types', 'Types')}
+                        >
+                            {FILTER_OPTIONS.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                    {filterLabels[option.id]} ({filterCounts[option.id] ?? 0})
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown size={12} />
+                    </label>
+                    <label className="file-toolbar-select" title={t('app.fileManager.sort', 'Sort')}>
+                        <ArrowUpDown size={13} />
+                        <select
+                            value={sortValue}
+                            onChange={(event) => handleSortChange(event.target.value)}
+                            aria-label={t('app.fileManager.sort', 'Sort')}
+                        >
+                            <option value="name-asc">{t('app.fileManager.nameAZ', 'Name A-Z')}</option>
+                            <option value="name-desc">{t('app.fileManager.nameZA', 'Name Z-A')}</option>
+                            <option value="modified-desc">{t('app.fileManager.newest', 'Newest')}</option>
+                            <option value="modified-asc">{t('app.fileManager.oldest', 'Oldest')}</option>
+                            <option value="size-desc">{t('app.fileManager.largest', 'Largest')}</option>
+                            <option value="size-asc">{t('app.fileManager.smallest', 'Smallest')}</option>
+                            <option value="type-asc">{t('common.labels.type', 'Type')}</option>
+                            <option value="type-desc">{t('app.fileManager.typeZA', 'Type Z-A')}</option>
+                        </select>
+                        <ChevronDown size={12} />
+                    </label>
                     <div className="search-field">
                         <Search size={14} className="search-field-icon" />
                         <input
@@ -986,16 +1074,12 @@ function FileManager() {
                             <button type="button"
                                 className="search-field-clear"
                                 onClick={() => { setSearchResults(null); setSearchQuery(''); }}
-                                title={t('app.fileManager.clear2', 'Clear')}
+                                title={t('common.actions.clear', 'Clear')}
                             >
                                 <X size={12} />
                             </button>
                         )}
                     </div>
-                    <button type="button" className="toolbar-chip" onClick={() => fileInputRef.current?.click()} disabled={isRemote}>
-                        <Upload size={14} />
-                        <span>{t('app.fileManager.upload', 'Upload')}</span>
-                    </button>
                     <div className="view-toggle">
                         <button type="button"
                             className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
@@ -1022,7 +1106,7 @@ function FileManager() {
                     <button type="button"
                         className="toolbar-icon-btn"
                         onClick={() => loadDirectory(currentPath)}
-                        title={t('app.fileManager.refresh', 'Refresh')}
+                        title={t('common.actions.refresh', 'Refresh')}
                     >
                         <RefreshCw size={14} className={loading ? 'spinning' : ''} />
                     </button>
@@ -1037,7 +1121,7 @@ function FileManager() {
                     </div>
                     <div className="bulk-bar-actions">
                         <button type="button" className="bulk-btn" onClick={downloadSelected}>
-                            <Download size={14} /> {t('app.fileManager.download', 'Download')}
+                            <Download size={14} /> {t('common.actions.download', 'Download')}
                         </button>
                         {selectedEntries.length === 1 && (
                             <>
@@ -1050,10 +1134,10 @@ function FileManager() {
                             </>
                         )}
                         <button type="button" className="bulk-btn danger" onClick={() => handleDelete(selectedEntries)}>
-                            <Trash2 size={14} /> {t('app.fileManager.delete2', 'Delete')}
+                            <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                         </button>
                         <button type="button" className="bulk-btn ghost" onClick={clearSelection}>
-                            <X size={14} /> {t('app.fileManager.clear3', 'Clear')}
+                            <X size={14} /> {t('common.actions.clear', 'Clear')}
                         </button>
                     </div>
                 </div>
@@ -1062,8 +1146,79 @@ function FileManager() {
             <div className={`file-manager-body ${previewFile ? 'has-preview' : ''}`}>
                 {sidebarVisible && (
                     <aside className="file-manager-sidebar left">
+                        <div className="file-manager-source">
+                            <button
+                                type="button"
+                                className="file-manager-source__close"
+                                onClick={() => setSidebarVisible(false)}
+                                aria-label={t('app.fileManager.hideSidebar', 'Hide sidebar')}
+                            >
+                                <X size={14} />
+                            </button>
+                            <TargetPicker
+                                feature="files"
+                                value={target}
+                                onChange={setTarget}
+                                extraOptions={s3Available ? [{ value: 's3', labelKey: 'app.fileManager.s3Bucket', label: 'S3 bucket' }] : []}
+                            />
+                            <div className="file-manager-source__meta">
+                                <span className={`file-manager-source__dot${isS3 ? ' is-cloud' : ''}`} aria-hidden="true" />
+                                <span>
+                                    {isRemote
+                                        ? t('app.fileManager.remoteAgent', 'Remote agent')
+                                        : isS3
+                                            ? t('app.fileManager.objectStorage', 'Object storage')
+                                            : t('app.fileManager.localPanelHost', 'Local panel host')}
+                                </span>
+                            </div>
+                        </div>
+
+                        {!isRemote && !isS3 && (
+                            <div className="sidebar-section sidebar-section--volumes">
+                                <div className="sidebar-section-header sidebar-section-header--split">
+                                    <span className="sidebar-section-title" title={t('app.fileManager.diskUsage', 'Disk Usage')}>
+                                        <HardDrive size={13} />
+                                        <span>{t('app.fileManager.volumes', 'Volumes')}</span>
+                                    </span>
+                                    <button type="button" className="sidebar-action-btn" onClick={loadDiskMounts} disabled={diskLoading} title={t('common.actions.refresh', 'Refresh')}>
+                                        <RefreshCw size={12} className={diskLoading ? 'spinning' : ''} />
+                                    </button>
+                                </div>
+                                <div className="sidebar-section-content disk-mount-list">
+                                    {diskMounts.map((mount) => (
+                                        <button
+                                            type="button"
+                                            key={`${mount.device}:${mount.mountpoint}`}
+                                            className={`disk-mount-item${activeMount?.mountpoint === mount.mountpoint ? ' active' : ''}`}
+                                            onClick={() => navigateTo(mount.mountpoint)}
+                                            title={`${mount.device} · ${mount.used_human} / ${mount.total_human}`}
+                                        >
+                                            <div className="disk-mount-header">
+                                                <span className="disk-mount-point">
+                                                    {mount.mountpoint === '/'
+                                                        ? t('app.fileManager.rootDisk', 'Root disk')
+                                                        : mountDisplayName(mount)}
+                                                </span>
+                                                <span className={`disk-percent ${getDiskColor(mount.percent)}`}>
+                                                    {mount.percent}%
+                                                </span>
+                                            </div>
+                                            <div className={`disk-progress ${getDiskColor(mount.percent)}`}>
+                                                <span className="disk-progress-fill" style={{ width: `${mount.percent}%` }} />
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {diskLastUpdated && (
+                                        <span className="disk-updated disk-updated--footer">
+                                            <Clock size={11} />
+                                            {t('app.fileManager.updatedAt', 'Updated {{time}}', { time: diskLastUpdated.toLocaleTimeString() })}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {!isS3 && (<>
-                        {/* Quick access (demo rail shortcuts) */}
                         <div className="sidebar-section">
                             <div className="sidebar-section-header static">
                                 <Zap size={16} />
@@ -1083,12 +1238,16 @@ function FileManager() {
                             </div>
                         </div>
 
-                        {/* Folder Tree */}
                         <div className="sidebar-section">
                             <div className="sidebar-section-header sidebar-section-header--split">
-                                <button type="button" className="sidebar-section-toggle" onClick={() => setTreeCollapsed(!treeCollapsed)}>
+                                <button
+                                    type="button"
+                                    className="sidebar-section-toggle"
+                                    onClick={() => setTreeCollapsed(!treeCollapsed)}
+                                    title={t('app.fileManager.folders', 'Folders')}
+                                >
                                     <FolderTreeIcon size={16} />
-                                    <span>{t('app.fileManager.folders2', 'Folders')}</span>
+                                    <span>{t('app.fileManager.fileSystem', 'File system')}</span>
                                     {treeCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                                 </button>
                                 <button type="button"
@@ -1115,86 +1274,6 @@ function FileManager() {
                             )}
                         </div>
                         </>)}
-
-                        {/* Types */}
-                        <div className="sidebar-section">
-                            <div className="sidebar-section-header static">
-                                <File size={16} />
-                                <span>{t('app.fileManager.types', 'Types')}</span>
-                            </div>
-                            <div className="sidebar-section-content type-filter-panel">
-                                <div className="type-filter-list">
-                                    {FILTER_OPTIONS.map((opt) => {
-                                        const count = filterCounts[opt.id] ?? 0;
-                                        return (
-                                            <button type="button"
-                                                key={opt.id}
-                                                className={`type-filter-item ${activeFilter === opt.id ? 'active' : ''}`}
-                                                onClick={() => setActiveFilter(opt.id)}
-                                                disabled={opt.id !== 'all' && count === 0}
-                                            >
-                                                <span>{opt.label}</span>
-                                                <span>{count}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <label className="sidebar-sort-control">
-                                    <span><ArrowUpDown size={12} /> {t('app.fileManager.sort', 'Sort')}</span>
-                                    <select value={sortValue} onChange={(e) => handleSortChange(e.target.value)}>
-                                        <option value="name-asc">{t('app.fileManager.nameAZ', 'Name A-Z')}</option>
-                                        <option value="name-desc">{t('app.fileManager.nameZA', 'Name Z-A')}</option>
-                                        <option value="modified-desc">{t('app.fileManager.newest', 'Newest')}</option>
-                                        <option value="modified-asc">{t('app.fileManager.oldest', 'Oldest')}</option>
-                                        <option value="size-desc">{t('app.fileManager.largest', 'Largest')}</option>
-                                        <option value="size-asc">{t('app.fileManager.smallest', 'Smallest')}</option>
-                                        <option value="type-asc">{t('app.fileManager.type', 'Type')}</option>
-                                        <option value="type-desc">{t('app.fileManager.typeZA', 'Type Z-A')}</option>
-                                    </select>
-                                </label>
-                            </div>
-                        </div>
-
-                        {/* Disk Usage */}
-                        <div className="sidebar-section">
-                            <button type="button" className="sidebar-section-header" onClick={() => setDiskCollapsed(!diskCollapsed)}>
-                                <HardDrive size={16} />
-                                <span>{t('app.fileManager.diskUsage', 'Disk Usage')}</span>
-                                {diskCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                            </button>
-                            {!diskCollapsed && (
-                                <div className="sidebar-section-content">
-                                    <div className="disk-header-row">
-                                        {diskLastUpdated && (
-                                            <span className="disk-updated">
-                                                <Clock size={12} />
-                                                {diskLastUpdated.toLocaleTimeString()}
-                                            </span>
-                                        )}
-                                        <button type="button" className="toolbar-icon-btn small" onClick={loadDiskMounts} disabled={diskLoading} title={t('app.fileManager.refresh2', 'Refresh')}>
-                                            <RefreshCw size={12} className={diskLoading ? 'spinning' : ''} />
-                                        </button>
-                                    </div>
-                                    {diskMounts.map((mount, idx) => (
-                                        <div key={idx} className="disk-mount-item">
-                                            <div className="disk-mount-header">
-                                                <span className="disk-mount-point">{mount.mountpoint}</span>
-                                                <span className={`disk-percent ${getDiskColor(mount.percent)}`}>
-                                                    {mount.percent}%
-                                                </span>
-                                            </div>
-                                            <div className={`disk-progress ${getDiskColor(mount.percent)}`}>
-                                                <div className="disk-progress-fill" style={{ width: `${mount.percent}%` }} />
-                                            </div>
-                                            <div className="disk-mount-info">
-                                                <span>{mount.used_human} / {mount.total_human}</span>
-                                                <span className="disk-device">{mount.device}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
 
                     </aside>
                 )}
@@ -1262,12 +1341,12 @@ function FileManager() {
                                             </span>
                                         </button>
                                     </span>
-                                    <span className="col-name">{t('app.fileManager.name', 'Name')}</span>
-                                    <span className="col-size">{t('app.fileManager.size', 'Size')}</span>
+                                    <span className="col-name">{t('common.labels.name', 'Name')}</span>
+                                    <span className="col-size">{t('common.labels.size', 'Size')}</span>
                                     <span className="col-modified">{t('app.fileManager.modified', 'Modified')}</span>
-                                    <span className="col-permissions">{t('app.fileManager.permissions', 'Permissions')}</span>
+                                    <span className="col-permissions">{t('common.labels.permissions', 'Permissions')}</span>
                                     <span className="col-owner">{t('app.fileManager.owner', 'Owner')}</span>
-                                    <span className="col-actions">{t('app.fileManager.actions', 'Actions')}</span>
+                                    <span className="col-actions">{t('common.labels.actions', 'Actions')}</span>
                                 </div>
                                 {sortedFiltered.map((entry) => (
                                     <FileRow
@@ -1327,7 +1406,7 @@ function FileManager() {
                         <>
                             <span className="status-divider" />
                             <span className="status-item">
-                                <span className="status-label">{t('app.fileManager.size2', 'Size')}</span>
+                                <span className="status-label">{t('common.labels.size', 'Size')}</span>
                                 <span className="status-value">{formatBytes(stats.totalBytes)}</span>
                             </span>
                         </>
@@ -1336,7 +1415,7 @@ function FileManager() {
                 <div className="status-bar-right">
                     {stats.selectedCount > 0 && (
                         <span className="status-selection">
-                            {stats.selectedCount} {t('app.fileManager.selected2', 'selected ·')} {formatBytes(stats.selectedBytes)}
+                            {stats.selectedCount} {t('app.fileManager.selected', 'selected ·')} {formatBytes(stats.selectedBytes)}
                         </span>
                     )}
                     <span className="status-shortcuts" title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}>
@@ -1372,7 +1451,7 @@ function FileManager() {
                             </div>
                             <p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>{t('app.fileManager.cancel', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleCreateFile}>{t('app.fileManager.createFile', 'Create File')}</Button>
                         </div>
             </Modal>
@@ -1389,9 +1468,9 @@ function FileManager() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                                 />
                             </div>
-                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn2', 'Will be created in:')} <code>{currentPath}</code></p>
+                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>{t('app.fileManager.cancel2', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleCreateFolder}>{t('app.fileManager.createFolder', 'Create Folder')}</Button>
                         </div>
             </Modal>
@@ -1408,8 +1487,8 @@ function FileManager() {
                                 />
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>{t('app.fileManager.cancel3', 'Cancel')}</Button>
-                            <Button onClick={handleRename}>{t('app.fileManager.rename3', 'Rename')}</Button>
+                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                            <Button onClick={handleRename}>{t('app.fileManager.rename', 'Rename')}</Button>
                         </div>
             </Modal>
 
@@ -1435,7 +1514,7 @@ function FileManager() {
                                 </ul>
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>{t('app.fileManager.cancel4', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleChangePermissions}>{t('app.fileManager.apply', 'Apply')}</Button>
                         </div>
             </Modal>

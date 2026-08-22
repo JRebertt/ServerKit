@@ -25,7 +25,7 @@ export default function NotFound() {
     if (!__ready) {
         return (
             <PageLayout title={t('app.notFound.loading', 'Loading')}>
-                <EmptyState loading title={t('app.notFound.loading2', 'Loading')} />
+                <EmptyState loading title={t('app.notFound.loading', 'Loading')} />
             </PageLayout>
         );
     }
@@ -34,7 +34,7 @@ export default function NotFound() {
         <PageLayout title={t('app.notFound.pageNotFound', 'Page not found')}>
             <EmptyState
                 icon={FileQuestion}
-                title={t('app.notFound.pageNotFound2', 'Page not found')}
+                title={t('app.notFound.pageNotFound', 'Page not found')}
                 description={
                     t('app.notFound.weCouldnTFindItMay', 'We couldn\'t find {{pathname}}. It may have moved, or it', { pathname: location.pathname })
                     + t('app.notFound.belongsToAnExtensionThatIsn', 'belongs to an extension that isn\'t installed. Check', {  })

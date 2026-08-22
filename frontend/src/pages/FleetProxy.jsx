@@ -64,7 +64,7 @@ const statusLabel = (row) => dsStatusLabel(row.status);
 const FLEET_COLUMNS = [
     {
         key: 'server',
-        headerKey: 'app.fleetProxy.server', header: 'Server',
+        headerKey: 'common.labels.server', header: 'Server',
         sortable: true,
         hideable: false,
         type: 'text',
@@ -97,7 +97,7 @@ const FLEET_COLUMNS = [
     },
     {
         key: 'status',
-        headerKey: 'app.fleetProxy.status', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         type: 'enum',
         groupable: true,
@@ -337,7 +337,7 @@ const FleetProxy = () => {
     useTopbarActions(() => (
         <Button size="sm" onClick={load} disabled={loading}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            {t('app.fleetProxy.refresh', 'Refresh')}
+            {t('common.actions.refresh', 'Refresh')}
         </Button>
     ), [loading]);
 
@@ -380,7 +380,7 @@ const FleetProxy = () => {
             {error ? (
                 <div className="fleet-proxy__error">
                     <p>{error}</p>
-                    <Button variant="outline" size="sm" onClick={load}>{t('app.fleetProxy.retry', 'Retry')}</Button>
+                    <Button variant="outline" size="sm" onClick={load}>{t('common.actions.retry', 'Retry')}</Button>
                 </div>
             ) : (
                 <>

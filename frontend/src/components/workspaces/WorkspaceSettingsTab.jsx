@@ -14,11 +14,11 @@ const SETTINGS_GROUPS = [
     {
         labelKey: 'app.workspaceSettingsTab.general', label: 'General',
         items: [
-            { id: 'general', labelKey: 'app.workspaceSettingsTab.general2', label: 'General', icon: Settings },
+            { id: 'general', labelKey: 'app.workspaceSettingsTab.general', label: 'General', icon: Settings },
         ],
     },
     {
-        labelKey: 'app.workspaceSettingsTab.permissions', label: 'Permissions',
+        labelKey: 'common.labels.permissions', label: 'Permissions',
         items: [
             { id: 'navigation', labelKey: 'app.workspaceSettingsTab.navigationPermissions', label: 'Navigation Permissions', icon: PanelLeft },
         ],
@@ -37,10 +37,10 @@ const GeneralSection = ({ form, setForm }) => {
     const { t } = useTranslation();
     return (
         <div className="ws-settings__section">
-            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.general3', 'General')}</h3>
+            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.general', 'General')}</h3>
             <div className="card settings-section">
                 <div className="form-group">
-                    <label>{t('app.workspaceSettingsTab.name', 'Name')}</label>
+                    <label>{t('common.labels.name', 'Name')}</label>
                     <Input
                         value={form.name}
                         onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -48,7 +48,7 @@ const GeneralSection = ({ form, setForm }) => {
                     />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.workspaceSettingsTab.description', 'Description')}</label>
+                    <label>{t('common.labels.description', 'Description')}</label>
                     <Textarea
                         value={form.description}
                         onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -128,7 +128,7 @@ const NavigationPermissionsSection = ({ form, setForm }) => {
     const roles = ['owner', 'admin', 'member', 'viewer'];
     return (
         <div className="ws-settings__section">
-            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.navigationPermissions2', 'Navigation Permissions')}</h3>
+            <h3 className="ws-settings__section-title">{t('app.workspaceSettingsTab.navigationPermissions', 'Navigation Permissions')}</h3>
             <div className="card settings-section">
                 <p className="form-hint">{t('app.workspaceSettingsTab.limitWhichSidebarItemsEachWorkspace', 'Limit which sidebar items each workspace role can see. Empty = no restrictions.')}</p>
                 {roles.map((role) => (
@@ -242,7 +242,7 @@ const WorkspaceSettingsTab = ({ wsId, ws, onUpdate, user, isCurrent, onSetActive
                 )}
                 {active.id !== 'management' && (
                     <div className="ws-settings__actions">
-                        <Button variant="outline" onClick={() => navigate(`/workspaces/${id}`)}>{t('app.workspaceSettingsTab.cancel', 'Cancel')}</Button>
+                        <Button variant="outline" onClick={() => navigate(`/workspaces/${id}`)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button onClick={handleSave} disabled={saving || !form.name}>
                             {saving ? 'Saving…' : 'Save'}
                         </Button>

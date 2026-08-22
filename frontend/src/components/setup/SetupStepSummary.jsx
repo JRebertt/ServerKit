@@ -144,7 +144,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 <div className="summary-section">
                     <div className="summary-section-title">{t('app.setupStepSummary.account', 'Account')}</div>
                     <div className="summary-row">
-                        <span className="summary-label">{t('app.setupStepSummary.username', 'Username')}</span>
+                        <span className="summary-label">{t('common.labels.username', 'Username')}</span>
                         <span className="summary-value">{accountInfo?.username || '-'}</span>
                     </div>
                     <div className="summary-row">
@@ -171,7 +171,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">{t('app.setupStepSummary.server', 'Server')}</div>
+                    <div className="summary-section-title">{t('common.labels.server', 'Server')}</div>
                     <div className="summary-row">
                         <span className="summary-label">{t('app.setupStepSummary.profile', 'Profile')}</span>
                         <span className="summary-value">{profileLabel()}</span>
@@ -189,7 +189,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 </div>
 
                 <div className="summary-section">
-                    <div className="summary-section-title">{t('app.setupStepSummary.security', 'Security')}</div>
+                    <div className="summary-section-title">{t('common.labels.security', 'Security')}</div>
                     <div className="summary-row">
                         <span className="summary-label">{t('app.setupStepSummary.twoFactor', 'Two-factor')}</span>
                         <span className="summary-value">
@@ -251,12 +251,12 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 {(recsLoading || recommendations.length > 0) && (
                     <div className="summary-section">
                         <div className="summary-section-title">
-                            <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                            <Sparkles size={14} className="summary-rec-ico" />
                             {t('app.setupStepSummary.recommendedForYou', 'Recommended for you')}
                         </div>
                         {recsLoading ? (
                             <div className="summary-row">
-                                <span className="summary-label">{t('app.setupStepSummary.loadingRecommendations', 'Loading recommendations...')}</span>
+                                <span className="summary-label">{t('app.setupStepSummary.loadingRecommendations', 'Loading recommendations…')}</span>
                             </div>
                         ) : (
                             <>
@@ -289,7 +289,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                                 </div>
                                 {anyError && (
                                     <p className="recommendation-error">
-                                        {t('app.setupStepSummary.someExtensionsCouldnTBeInstalled', 'Some extensions couldn\'t be installed. You can retry from the')} <a href="/extensions">{t('app.setupStepSummary.extensions', 'Extensions')}</a> page.
+                                        {t('app.setupStepSummary.someExtensionsCouldnTBeInstalled', 'Some extensions couldn\'t be installed. You can retry from the')} <a href="/extensions">{t('common.labels.extensions', 'Extensions')}</a> page.
                                     </p>
                                 )}
                             </>
@@ -298,7 +298,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 )}
             </div>
 
-            <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="wizard-nav wizard-nav--flush">
                 <button
                     type="button"
                     className="btn-wizard-next"

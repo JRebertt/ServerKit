@@ -7,6 +7,8 @@ re-mounts the deployment-jobs surface under /deployments/jobs.
 """
 import uuid
 
+from app.models.deployment_job import DeploymentJob
+
 
 def test_deployment_job_link_columns_round_trip(app):
     from app import db
@@ -23,6 +25,26 @@ def test_deployment_job_link_columns_round_trip(app):
         assert d['image_tag'] == 'img:1'
         assert d['container_id'] == 'c1'
         assert 'deployment_id' in d and 'git_deployment_id' in d and 'webhook_id' in d
+
+
+def test_non_recipe_serialization_only_parses_an_explicitly_requested_plan(monkeypatch):
+    job = DeploymentJob(
+        id=str(uuid.uuid4()),
+        kind='deploy.install',
+        status='pending',
+    )
+    calls = []
+
+    def get_plan():
+        calls.append(True)
+        return {'steps': []}
+
+    monkeypatch.setattr(job, 'get_plan', get_plan)
+
+    assert 'plan' not in job.to_dict()
+    assert calls == []
+    assert job.to_dict(include_plan=True)['plan'] == {'steps': []}
+    assert calls == [True]
 
 
 def _seed_app_with_deploys(app):

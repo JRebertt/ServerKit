@@ -7,6 +7,7 @@ import DrawerHeader from './DrawerHeader';
 import ContextChip from './ContextChip';
 import MessageList from './MessageList';
 import Composer from './Composer';
+import ShellDockTabs from '../ShellDockTabs';
 import { useTranslation } from 'react-i18next';
 
 const WIDTH_KEY = 'sk-ai:width';
@@ -65,6 +66,9 @@ const ChatDrawer = () => {
                 {!isMobile ? (
                     <div className="sk-ai-drawer__resize" onPointerDown={startResize} aria-hidden="true" />
                 ) : null}
+                <div className="sk-ai-drawer__tabs">
+                    <ShellDockTabs expandable={false} />
+                </div>
                 <DrawerHeader />
                 <ContextChip />
                 <MessageList />

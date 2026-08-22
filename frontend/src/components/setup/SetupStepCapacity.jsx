@@ -196,7 +196,7 @@ const SetupStepCapacity = ({ useCases, onComplete }) => {
                 </div>
             )}
 
-            <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="wizard-nav wizard-nav--flush">
                 <button
                     type="button"
                     className="btn-wizard-next"

@@ -335,6 +335,26 @@
         display: flex;
         flex-wrap: wrap;
         gap: $space-2;
+        margin-top: $space-2;
+    }
+
+    // ── spec-card atoms ──────────────────────────────────────
+    // Clone URLs render smaller than the default spec-card value
+    .git-url-value {
+        font-size: 13px;
+    }
+
+    // Status pill sits on its own row below the label
+    .git-pill-row {
+        margin-top: $space-2;
+    }
+
+    // Dismiss "×" in the page-level error banner
+    .git-error-dismiss {
+        float: right;
+        background: none;
+        border: none;
+        cursor: pointer;
     }
 
     // ── repository drawer: branch selector + mini tabs ──────
@@ -550,6 +570,11 @@
             gap: $space-3;
             flex-wrap: wrap;
         }
+    }
+
+    // Danger Zone block below the settings spec cards
+    .git-danger-zone-wrap {
+        margin-top: $space-6;
     }
 
     // ── Repositories tab ─────────────────────────────────────

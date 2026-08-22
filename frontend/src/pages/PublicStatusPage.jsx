@@ -138,7 +138,7 @@ function PublicStatusPage() {
 
             <section className="public-status-section">
                 <header>
-                    <h2>{t('app.publicStatusPage.components2', 'Components')}</h2>
+                    <h2>{t('app.publicStatusPage.components', 'Components')}</h2>
                 </header>
                 <div className="public-component-groups">
                     {Object.entries(data.groups || {}).map(([groupName, groupComponents]) => (

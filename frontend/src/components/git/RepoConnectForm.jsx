@@ -155,7 +155,7 @@ const RepoConnectForm = ({
 
                 <div className="git-connect-status__meta">
                     <div className="git-connect-status__meta-item">
-                        <span>{t('app.repoConnectForm.branch', 'Branch')}</span>
+                        <span>{t('common.labels.branch', 'Branch')}</span>
                         <strong>{gitStatus.branch}</strong>
                     </div>
                     <div className="git-connect-status__meta-item">
@@ -217,14 +217,14 @@ const RepoConnectForm = ({
             {selectedKey === 'gitlab' && (
                 <>
                     <GitlabRepoPicker onPick={handleRepoPick} />
-                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl2', 'or paste a URL')}</span></div>
+                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl', 'or paste a URL')}</span></div>
                 </>
             )}
 
             {selectedKey === 'bitbucket' && (
                 <>
                     <BitbucketRepoPicker onPick={handleRepoPick} />
-                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl3', 'or paste a URL')}</span></div>
+                    <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl', 'or paste a URL')}</span></div>
                 </>
             )}
 
@@ -232,7 +232,7 @@ const RepoConnectForm = ({
                 <>
                     <GiteaRepoPicker onPick={handleRepoPick} />
                     {!giteaRunning && (
-                        <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl4', 'or paste a URL')}</span></div>
+                        <div className="git-connect__or"><span>{t('app.repoConnectForm.orPasteAUrl', 'or paste a URL')}</span></div>
                     )}
                 </>
             )}
@@ -254,7 +254,7 @@ const RepoConnectForm = ({
             </div>
 
             <div className="git-connect__field">
-                <Label htmlFor={`${idPrefix}-branch`}>{t('app.repoConnectForm.branch2', 'Branch')}</Label>
+                <Label htmlFor={`${idPrefix}-branch`}>{t('common.labels.branch', 'Branch')}</Label>
                 <Input
                     id={`${idPrefix}-branch`}
                     type="text"

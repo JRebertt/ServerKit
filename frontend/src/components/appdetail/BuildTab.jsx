@@ -183,7 +183,7 @@ const BuildTab = ({ appId, appPath, app }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title={t('app.buildTab.loadingBuildConfiguration', 'Loading build configuration...')} />;
+        return <EmptyState loading loadingVariant="form" title={t('app.buildTab.loadingBuildConfiguration', 'Loading build configuration…')} />;
     }
 
     return (
@@ -212,7 +212,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                         {detection.docker_compose_exists && (
                             <div className="detection-item">
                                 <span className="detection-label">{t('app.buildTab.dockerCompose', 'Docker Compose:')}</span>
-                                <span className="detection-value">{t('app.buildTab.found2', 'Found')}</span>
+                                <span className="detection-value">{t('app.buildTab.found', 'Found')}</span>
                             </div>
                         )}
                     </div>
@@ -283,7 +283,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                                         onClick={() => handleRollback(dep.version)}
                                         disabled={deploying}
                                     >
-                                        {t('app.buildTab.rollback2', 'Rollback')}
+                                        {t('app.buildTab.rollback', 'Rollback')}
                                     </Button>
                                 )}
                             </div>
@@ -292,7 +292,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                 </div>
             )}
 
-            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title={t('app.buildTab.buildConfiguration2', 'Build Configuration')}>
+            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title={t('app.buildTab.buildConfiguration', 'Build Configuration')}>
                         <form onSubmit={handleConfigureBuild}>
                             <div className="form-group">
                                 <label>{t('app.buildTab.buildMethod', 'Build Method')}</label>
@@ -348,7 +348,7 @@ const BuildTab = ({ appId, appPath, app }) => {
                             </div>
                             <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowConfigModal(false)}>
-                                    {t('app.buildTab.cancel', 'Cancel')}
+                                    {t('common.actions.cancel', 'Cancel')}
                                 </Button>
                                 <Button type="submit">
                                     {t('app.buildTab.saveConfiguration', 'Save Configuration')}
