@@ -11,6 +11,7 @@ from app.services.recipe_execution_service import (
     RecipeExecutionService,
     RecipeStepRegistry,
 )
+from factories import make_server
 
 
 @pytest.fixture
@@ -111,6 +112,7 @@ def test_registry_lists_remote_entries_and_fetches_manifest(client, auth_headers
 
     resp = client.get('/api/v1/recipes/registry/nope', headers=auth_headers)
     assert resp.status_code == 404
+    assert resp.get_json()['code'] == 'not_found'
 
     resp = client.get('/api/v1/recipes/registry/remote-recipe', headers=auth_headers)
     assert resp.status_code == 200
@@ -124,6 +126,24 @@ def test_run_requires_server_or_project(client, auth_headers):
     response = client.post('/api/v1/recipes/runs', headers=auth_headers, json={})
     assert response.status_code == 400
     assert 'server_id' in response.get_json()['error']
+    assert response.get_json()['code'] == 'validation_error'
+
+
+def test_server_target_reuses_the_workspace_recipes_project(app):
+    from app.models import Project
+    from app.services.workspace_service import WorkspaceService
+
+    workspace = WorkspaceService.ensure_default_workspace()
+    server = make_server(db, workspace_id=workspace.id)
+
+    resolved = RecipeExecutionService.get_server(server.id)
+    first = RecipeExecutionService.get_or_create_project(resolved)
+    second = RecipeExecutionService.get_or_create_project(resolved)
+
+    assert first.id == second.id
+    assert first.slug == 'recipes'
+    assert Project.query.filter_by(
+        workspace_id=workspace.id, slug='recipes').count() == 1
 
 
 def test_params_reject_unknown_keys(client, auth_headers, project):

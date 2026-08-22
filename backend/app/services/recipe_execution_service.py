@@ -15,11 +15,13 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Optional
 
 from app import db
+from app.exceptions import ValidationError
 from app.models.application_manifest import STATUS_APPLIED, STATUS_ERROR
 from app.models.deployment_job import DeploymentJob
 from app.models.environment import Environment
 from app.models.project import Project
 from app.models.secret_vault import Secret, SecretVault
+from app.models.server import Server
 from app.services.manifest_apply_service import ManifestApplyService
 from app.services.run_log_service import stream_for
 from app.services.secret_vault_service import SecretService
@@ -29,6 +31,7 @@ from app.utils.sensitive_data_filter import mask_payload
 RECIPE_JOB_KIND = 'recipe.run'
 RECIPE_WAITING = 'waiting'
 HANDOFF_VAULT_SLUG = 'recipe-runs'
+RECIPES_PROJECT_SLUG = 'recipes'
 
 
 @dataclass
@@ -92,6 +95,33 @@ class RecipeStepRegistry:
 
 
 class RecipeExecutionService:
+
+    @staticmethod
+    def get_server(server_id: str) -> Server:
+        """Resolve the server target before a Recipe run mutates anything."""
+        server = db.session.get(Server, server_id)
+        if server is None:
+            raise ValidationError('A valid server_id is required')
+        return server
+
+    @staticmethod
+    def get_or_create_project(server: Server) -> Project:
+        """Return the idempotent per-workspace project for catalog installs."""
+        project = Project.query.filter_by(
+            workspace_id=server.workspace_id,
+            slug=RECIPES_PROJECT_SLUG,
+        ).first()
+        if project is not None:
+            return project
+        project = Project(
+            workspace_id=server.workspace_id,
+            name='Recipes',
+            slug=RECIPES_PROJECT_SLUG,
+            description='Apps installed through the Recipe catalog',
+        )
+        db.session.add(project)
+        db.session.flush()
+        return project
 
     @classmethod
     def register_jobs(cls) -> None:

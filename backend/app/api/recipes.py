@@ -11,12 +11,11 @@ is found or created so a catalog install is one call.
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, ValidationError
 from app.middleware.rbac import admin_required, auth_required, get_current_user
 from app.models.application_manifest import STATUS_ERROR, STATUS_PENDING
 from app.models.deployment_job import DeploymentJob
 from app.models.project import Project
-from app.models.server import Server
 from app.services import recipe_registry_service
 from app.services.manifest_persistence_service import ManifestPersistenceService
 from app.services.manifest_spec_service import ManifestError, ManifestSpecService
@@ -27,9 +26,6 @@ from app.services.recipe_execution_service import (
 
 
 recipes_bp = Blueprint('recipes', __name__)
-
-RECIPES_PROJECT_SLUG = 'recipes'
-
 
 def _normalized_recipe(data, project_id):
     """Resolve the manifest source: registry slug > inline content > stored."""
@@ -45,21 +41,6 @@ def _normalized_recipe(data, project_id):
     if row and row.get_normalized():
         return row.get_normalized(), row.raw_text
     raise ManifestError(['Provide `registry_slug`, `content`, `manifest`, or store one first'])
-
-
-def _resolve_project(server):
-    """Find-or-create the per-workspace Recipes project for a server-targeted
-    run. Idempotent: every subsequent install reuses it."""
-    project = Project.query.filter_by(
-        workspace_id=server.workspace_id, slug=RECIPES_PROJECT_SLUG).first()
-    if project:
-        return project
-    project = Project(workspace_id=server.workspace_id,
-                      name='Recipes', slug=RECIPES_PROJECT_SLUG,
-                      description='Apps installed through the Recipe catalog')
-    db.session.add(project)
-    db.session.flush()
-    return project
 
 
 def _validated_params(normalized, raw_params):
@@ -99,13 +80,8 @@ def list_recipe_registry():
 def get_recipe_registry_entry(slug):
     entry = recipe_registry_service.get_entry(slug)
     if entry is None:
-        return jsonify({'error': 'Recipe not found in the registry'}), 404
-    try:
-        manifest_text = recipe_registry_service.get_manifest_text(slug)
-    except NotFoundError as exc:
-        return jsonify({'error': str(exc)}), 404
-    except Exception:
-        return jsonify({'error': 'Could not download the recipe from the registry'}), 503
+        raise NotFoundError('Recipe not found in the registry')
+    manifest_text = recipe_registry_service.get_manifest_text(slug)
     public = {k: v for k, v in entry.items() if k != '_manifest_url'}
     return jsonify({'recipe': public, 'manifest': manifest_text}), 200
 
@@ -118,15 +94,13 @@ def start_recipe_run():
     project = None
     server = None
     if data.get('server_id'):
-        server = Server.query.get(data.get('server_id'))
-        if not server:
-            return jsonify({'error': 'A valid server_id is required'}), 400
+        server = RecipeExecutionService.get_server(data.get('server_id'))
     if data.get('project_id'):
         project = Project.query.get(data.get('project_id'))
         if not project:
             return jsonify({'error': 'A valid project_id is required'}), 400
     if project is None and server is None:
-        return jsonify({'error': 'Provide server_id or project_id'}), 400
+        raise ValidationError('Provide server_id or project_id')
 
     try:
         normalized, raw = _normalized_recipe(data, project.id if project else None)
@@ -134,13 +108,13 @@ def start_recipe_run():
     except ManifestError as exc:
         return jsonify({'error': 'Invalid Recipe manifest', 'errors': exc.errors}), 400
     except (ValueError, NotFoundError) as exc:
-        return jsonify({'error': str(exc)}), 400
+        raise ValidationError(str(exc)) from exc
 
     # A server-targeted catalog run pins the manifest's default server ref.
     if server is not None:
         normalized['server'] = server.name
         if project is None:
-            project = _resolve_project(server)
+            project = RecipeExecutionService.get_or_create_project(server)
 
     unsupported = RecipeExecutionService.unsupported_capabilities(normalized)
     if unsupported:
