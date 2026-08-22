@@ -631,15 +631,15 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         autoFocus
                         autoComplete="off"
                         spellCheck={false}
-                        style={{ fontFamily: 'monospace', fontSize: '1.25rem', letterSpacing: '0.15em', textAlign: 'center' }}
+                        className="server-pair-code"
                         required
                     />
                     <span className="form-hint">{t('app.servers.theCodeIsShownInThe', 'The code is shown in the terminal output or system tray.')}</span>
-                    {lookupError && <div className="error-message" style={{ marginTop: '0.5rem' }}>{lookupError}</div>}
+                    {lookupError && <div className="error-message server-pair-error">{lookupError}</div>}
                 </div>
 
                 {lookupResult && (
-                    <div className="success-banner" style={{ marginTop: '0.5rem' }}>
+                    <div className="success-banner server-pair-banner">
                         <div>
                             <strong>{t('app.servers.agentFound', 'Agent found')}</strong>
                             <p className="success-subtitle">
@@ -647,9 +647,9 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                                     <>{t('app.servers.server2', 'Server:')} <code>{lookupResult.system_info.display_name}</code><br /></>
                                 )}
                                 {t('app.servers.hostname', 'Hostname:')} <code>{lookupResult.system_info?.hostname || 'unknown'}</code><br />
-                                {t('app.servers.fingerprint', 'Fingerprint:')} <code style={{ fontFamily: 'monospace' }}>{lookupResult.pubkey_fpr}</code>
+                                {t('app.servers.fingerprint', 'Fingerprint:')} <code className="server-pair-fpr">{lookupResult.pubkey_fpr}</code>
                             </p>
-                            <p className="text-muted" style={{ marginTop: '0.25rem', fontSize: '0.85em' }}>
+                            <p className="text-muted server-pair-note">
                                 {t('app.servers.confirmThisFingerprintMatchesTheOne', 'Confirm this fingerprint matches the one shown by the agent before continuing.')}
                             </p>
                         </div>
@@ -665,7 +665,7 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                         placeholder={t('app.servers.shownOnTheAgentSPairing', 'Shown on the agent\'s pairing screen')}
                         autoComplete="off"
                         spellCheck={false}
-                        style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '0.08em' }}
+                        className="server-pair-passphrase"
                         required
                     />
                 </div>
@@ -892,7 +892,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <details className="install-fallback">
                                 <summary>{t('app.servers.needToInstallTheAgentFirst', 'Need to install the agent first? Use the one-liner installer.')}</summary>
-                                <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                                <div className="install-tabs install-tabs--after-summary">
                                     <InstallTab
                                         title={t('app.servers.linux', 'Linux')}
                                         description={t('app.servers.curlTarSudoAndSystemd', 'curl, tar, sudo, and systemd')}

@@ -1052,17 +1052,17 @@ function Git({ basePath = '/git' }) {
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.httpUrl', 'HTTP URL')}</div>
-                    <div className="sk-spec-card__value" style={{ fontSize: 13 }}>{status?.running ? getGiteaUrl() : 'Server not running'}</div>
+                    <div className="sk-spec-card__value git-url-value">{status?.running ? getGiteaUrl() : 'Server not running'}</div>
                     <div className="sk-spec-card__sub">{t('app.git.webInterface', 'Web interface')}</div>
                 </div>
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.sshCloneUrl', 'SSH Clone URL')}</div>
-                    <div className="sk-spec-card__value" style={{ fontSize: 13 }}>ssh://git@{window.location.hostname}:{status?.ssh_port}/user/repo.git</div>
+                    <div className="sk-spec-card__value git-url-value">ssh://git@{window.location.hostname}:{status?.ssh_port}/user/repo.git</div>
                     <div className="sk-spec-card__sub">{t('app.git.useYourSshKey', 'Use your SSH key')}</div>
                 </div>
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.quickActions', 'Quick actions')}</div>
-                    <div className="git-quick-actions" style={{ marginTop: 8 }}>
+                    <div className="git-quick-actions">
                         <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>{t('app.git.openGitea', 'Open Gitea')}</Button>
                         <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`git clone ssh://git@${window.location.hostname}:${status?.ssh_port}/user/repo.git`); toast.success(t('app.git.sshUrlCopied', 'SSH URL copied')); }}>
                             {t('app.git.copySshUrl', 'Copy SSH URL')}
@@ -1156,24 +1156,24 @@ function Git({ basePath = '/git' }) {
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.httpAccess', 'HTTP Access')}</div>
-                    <div className="sk-spec-card__value" style={{ fontSize: 13 }}>{getGiteaUrl()}</div>
+                    <div className="sk-spec-card__value git-url-value">{getGiteaUrl()}</div>
                     <div className="sk-spec-card__sub">{t('app.git.webBrowserAccess', 'Web browser access')}</div>
-                    <div className="git-quick-actions" style={{ marginTop: 12 }}>
+                    <div className="git-quick-actions">
                         <Button variant="outline" size="sm" onClick={() => { copyToClipboard(getGiteaUrl()); toast.success(t('app.git.urlCopied', 'URL copied')); }}>{t('app.git.copyUrl', 'Copy URL')}</Button>
                         <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>{t('app.git.openGitea3', 'Open Gitea')}</Button>
                     </div>
                 </div>
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.sshAccess', 'SSH Access')}</div>
-                    <div className="sk-spec-card__value" style={{ fontSize: 13 }}>ssh://git@{window.location.hostname}:{status?.ssh_port}/username/repo.git</div>
+                    <div className="sk-spec-card__value git-url-value">ssh://git@{window.location.hostname}:{status?.ssh_port}/username/repo.git</div>
                     <div className="sk-spec-card__sub">{t('app.git.cloneRepositoriesViaSsh', 'Clone repositories via SSH')}</div>
-                    <div className="git-quick-actions" style={{ marginTop: 12 }}>
+                    <div className="git-quick-actions">
                         <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`ssh://git@${window.location.hostname}:${status?.ssh_port}/username/repo.git`); toast.success(t('app.git.sshUrlCopied2', 'SSH URL copied')); }}>{t('app.git.copySshUrl2', 'Copy SSH URL')}</Button>
                     </div>
                 </div>
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.sshKeyRequirement', 'SSH key requirement')}</div>
-                    <div className="sk-spec-card__value" style={{ fontSize: 13 }}>{t('app.git.addYourPublicKeyInGitea', 'Add your public key in Gitea')}</div>
+                    <div className="sk-spec-card__value git-url-value">{t('app.git.addYourPublicKeyInGitea', 'Add your public key in Gitea')}</div>
                     <div className="sk-spec-card__sub">{t('app.git.requiredForSshClonePush', 'Required for SSH clone/push')}</div>
                 </div>
             </div>
@@ -1309,7 +1309,7 @@ function Git({ basePath = '/git' }) {
             <div className="dom-specs">
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.serverPower', 'Server power')}</div>
-                    <div className="git-quick-actions" style={{ marginTop: 8 }}>
+                    <div className="git-quick-actions">
                         {status?.running ? (
                             <Button variant="secondary" onClick={handleStop} disabled={actionLoading}>{t('app.git.stopServer', 'Stop Server')}</Button>
                         ) : (
@@ -1320,13 +1320,13 @@ function Git({ basePath = '/git' }) {
                 </div>
                 <div className="sk-spec-card">
                     <div className="sk-spec-card__label">{t('app.git.uninstall2', 'Uninstall')}</div>
-                    <div className="git-quick-actions" style={{ marginTop: 8 }}>
+                    <div className="git-quick-actions">
                         <Button variant="destructive" onClick={handleUninstall} disabled={actionLoading}>{t('app.git.uninstallGitServer2', 'Uninstall Git Server')}</Button>
                     </div>
                     <div className="sk-spec-card__sub">{t('app.git.stopsGiteaDataIsPreservedUnless', 'Stops Gitea; data is preserved unless removed manually')}</div>
                 </div>
             </div>
-            <div style={{ marginTop: 24 }}>
+            <div className="git-danger-zone-wrap">
                 <DangerZone
                     title={t('app.git.dangerZone', 'Danger Zone')}
                     description={t('app.git.uninstallingWillStopTheGiteaContainer', 'Uninstalling will stop the Gitea container. Your data will be preserved unless you choose to remove it.')}
@@ -1427,7 +1427,7 @@ function Git({ basePath = '/git' }) {
             {pageError && (
                 <div className="error-banner">
                     {pageError}
-                    <button type="button" onClick={() => setPageError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer' }}>×</button>
+                    <button type="button" className="git-error-dismiss" onClick={() => setPageError('')}>×</button>
                 </div>
             )}
 
@@ -1637,7 +1637,7 @@ function Git({ basePath = '/git' }) {
                             </div>
                             <div className="sk-spec-card">
                                 <div className="sk-spec-card__label">{t('app.git.status3', 'Status')}</div>
-                                <div style={{ marginTop: 8 }}><Pill kind={drawerWebhook.is_active ? 'green' : 'gray'}>{drawerWebhook.is_active ? 'Active' : 'Inactive'}</Pill></div>
+                                <div className="git-pill-row"><Pill kind={drawerWebhook.is_active ? 'green' : 'gray'}>{drawerWebhook.is_active ? 'Active' : 'Inactive'}</Pill></div>
                                 <div className="sk-spec-card__sub">{drawerWebhook.sync_count} syncs</div>
                             </div>
                         </div>
@@ -1651,11 +1651,11 @@ function Git({ basePath = '/git' }) {
                                     </div>
                                     <div className="sk-spec-card">
                                         <div className="sk-spec-card__label">{t('app.git.deployOnPush2', 'Deploy on push')}</div>
-                                        <div style={{ marginTop: 8 }}><Pill kind={drawerWebhook.deploy_on_push ? 'green' : 'gray'}>{drawerWebhook.deploy_on_push ? 'Enabled' : 'Disabled'}</Pill></div>
+                                        <div className="git-pill-row"><Pill kind={drawerWebhook.deploy_on_push ? 'green' : 'gray'}>{drawerWebhook.deploy_on_push ? 'Enabled' : 'Disabled'}</Pill></div>
                                     </div>
                                     <div className="sk-spec-card">
                                         <div className="sk-spec-card__label">{t('app.git.zeroDowntime', 'Zero downtime')}</div>
-                                        <div style={{ marginTop: 8 }}><Pill kind={drawerWebhook.zero_downtime ? 'green' : 'gray'}>{drawerWebhook.zero_downtime ? 'Yes' : 'No'}</Pill></div>
+                                        <div className="git-pill-row"><Pill kind={drawerWebhook.zero_downtime ? 'green' : 'gray'}>{drawerWebhook.zero_downtime ? 'Yes' : 'No'}</Pill></div>
                                     </div>
                                 </div>
                             </div>
@@ -1713,7 +1713,7 @@ function Git({ basePath = '/git' }) {
                         <div className="dom-specs">
                             <div className="sk-spec-card">
                                 <div className="sk-spec-card__label">{t('app.git.status4', 'Status')}</div>
-                                <div style={{ marginTop: 8 }}><Pill kind={statusKind(drawerDeployment.status)}>{drawerDeployment.status}</Pill></div>
+                                <div className="git-pill-row"><Pill kind={statusKind(drawerDeployment.status)}>{drawerDeployment.status}</Pill></div>
                                 {drawerDeployment.duration_seconds != null && <div className="sk-spec-card__sub">{drawerDeployment.duration_seconds}s</div>}
                             </div>
                             <div className="sk-spec-card">

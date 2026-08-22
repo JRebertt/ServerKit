@@ -475,7 +475,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${result.regi
 
                         <details className="install-fallback">
                             <summary>{t('app.serverSettingsTab.needToInstallTheAgentFirst', 'Need to install the agent first? Use the one-liner installer.')}</summary>
-                            <div className="install-tabs" style={{ marginTop: '0.75rem' }}>
+                            <div className="install-tabs install-tabs--after-summary">
                                 <div className="install-tab">
                                     <div className="install-tab-header">
                                         <TerminalIcon />
