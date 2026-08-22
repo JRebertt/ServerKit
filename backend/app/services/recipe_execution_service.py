@@ -112,6 +112,7 @@ class RecipeExecutionService:
     def start(cls, project: Project, normalized: Dict[str, Any], *,
               user_id: Optional[int], slug: Optional[str] = None,
               title: Optional[str] = None, manifest_row=None,
+              params: Optional[Dict[str, str]] = None,
               wait: bool = False) -> Dict[str, Any]:
         """Create one Recipe run after capability and manifest preflight."""
         recipe_steps = list(normalized.get('configure') or []) + list(
@@ -171,6 +172,9 @@ class RecipeExecutionService:
                     'title': title or normalized.get('project') or 'Guided outcome',
                     'requirements': normalized.get('requires') or {},
                     'capabilities': normalized.get('capabilities') or [],
+                    # Up-front non-secret inputs (validated by the API layer);
+                    # consumed instead of pausing when their step is reached.
+                    'params': dict(params or {}),
                 },
                 'project_id': project.id,
                 'environment_id': environment.id if environment else None,
@@ -225,8 +229,20 @@ class RecipeExecutionService:
                         db.session.commit()
                         secret = None
                     if not secret:
-                        return cls._pause_for_handoff(job, state, completed, step, stream)
-                    outcome = {'accepted': True, 'input_key': step['input']['key']}
+                        preset = cls._preset_param(plan, step)
+                        if preset is not None:
+                            # Non-secret input collected up-front (install
+                            # drawer): store it as the handoff value so the
+                            # run continues without pausing.
+                            cls._store_handoff_secret(
+                                job, step_id, preset,
+                                user_id=job.requested_by, expires_at=None)
+                            outcome = {'accepted': True, 'preset': True}
+                        else:
+                            return cls._pause_for_handoff(
+                                job, state, completed, step, stream)
+                    else:
+                        outcome = {'accepted': True, 'input_key': step['input']['key']}
                 else:
                     context = RecipeStepContext(
                         job=job, project=project, environment=environment,
@@ -300,6 +316,16 @@ class RecipeExecutionService:
                 db.session.commit()
                 return {'success': False, 'error': f'Failed to resume Recipe: {exc}'}
         return {**result, 'job_id': job.id, 'job': job.to_dict()}
+
+    @staticmethod
+    def _preset_param(plan: Dict[str, Any], step: Dict[str, Any]) -> Optional[str]:
+        """Return the up-front value for a handoff input, if one was supplied
+        with the run. Only non-secret inputs reach this path (the API layer
+        rejects presets targeting secret inputs)."""
+        params = ((plan.get('recipe') or {}).get('params')) or {}
+        key = (step.get('input') or {}).get('key')
+        value = params.get(key)
+        return str(value) if value not in (None, '') else None
 
     @classmethod
     def _pause_for_handoff(cls, job, state, completed, step, stream):

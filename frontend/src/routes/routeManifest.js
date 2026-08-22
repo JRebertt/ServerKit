@@ -36,6 +36,7 @@ export const CORE_ROUTES = Object.freeze([
     { id: 'templates', path: '/templates', placement: 'dashboard', group: 'services', component: 'Templates', titleKey: 'app.routeManifest.templates', title: 'Templates' },
     { id: 'deployments', path: '/deployments', placement: 'dashboard', group: 'services', component: 'Deployments', titleKey: 'app.routeManifest.deploymentActivity', title: 'Deployment Activity' },
     { id: 'deploy-console', path: '/deployments/:jobId', placement: 'dashboard', group: 'services', component: 'DeployConsole', titleKey: 'app.routeManifest.deploymentActivity', title: 'Deployment Activity' },
+    { id: 'recipes', path: '/recipes', placement: 'dashboard', group: 'services', component: 'Recipes', titleKey: 'app.routeManifest.recipes', title: 'Recipes' },
     { id: 'service-detail', path: '/services/:id', placement: 'dashboard', component: 'ServiceDetail', titleKey: 'common.labels.services', title: 'Services' },
     { id: 'service-detail-tab', path: '/services/:id/:tab', placement: 'dashboard', component: 'ServiceDetail', titleKey: 'common.labels.services', title: 'Services' },
     { id: 'service-detail-section', path: '/services/:id/:tab/:section', placement: 'dashboard', component: 'ServiceDetail', titleKey: 'common.labels.services', title: 'Services' },
@@ -84,6 +85,7 @@ export const CORE_ROUTES = Object.freeze([
 
     { id: 'extensions', path: '/extensions', placement: 'dashboard', group: 'marketplace', component: 'Marketplace', titleKey: 'common.labels.extensions', title: 'Extensions' },
     { id: 'installed-extensions', path: '/extensions/installed', placement: 'dashboard', group: 'marketplace', component: 'Marketplace', titleKey: 'app.routeManifest.installedExtensions', title: 'Installed Extensions' },
+    { id: 'marketplace-recipes', path: '/extensions/recipes', placement: 'dashboard', group: 'marketplace', component: 'Recipes', titleKey: 'app.routeManifest.recipes', title: 'Recipes' },
     { id: 'downloads', path: '/downloads', placement: 'dashboard', group: 'marketplace', component: 'Downloads', titleKey: 'app.routeManifest.downloads', title: 'Downloads' },
     { id: 'legacy-marketplace', path: '/marketplace', placement: 'dashboard', redirect: '/extensions' },
     { id: 'legacy-marketplace-installed', path: '/marketplace/installed', placement: 'dashboard', redirect: '/extensions/installed' },

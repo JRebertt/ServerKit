@@ -3210,7 +3210,8 @@
         },
         "marketTabs": {
             "downloads": "Downloads",
-            "installed": "Installed"
+            "installed": "Installed",
+            "recipes": "Recipes"
         },
         "marketplace": {
             "anUnsignedRelease": "{{value}} an unsigned release?",
@@ -4250,6 +4251,32 @@
             "vault": "Vault",
             "webhook": "Webhook"
         },
+        "recipes": {
+            "askedDuringRun": "Asked for during the run",
+            "blocked": "This server does not meet the requirements above. Pick another server.",
+            "bundledSource": "Showing the bundled catalog — the live registry is unreachable right now.",
+            "cpu": "CPU",
+            "disk": "Disk",
+            "featured": "Featured",
+            "install": "Install",
+            "lede": "Ready-to-go installers that run as real operations — probe, derive, apply, verify. Secrets are asked for mid-run and kept in the vault.",
+            "loadFailed": "Could not load the recipe catalog",
+            "memory": "Memory",
+            "noHandoffs": "Nothing — this recipe runs unattended.",
+            "noServers": "No running servers. Start one first.",
+            "noneMatch": "No recipes match",
+            "noneMatchHint": "Try a different search or category.",
+            "preflight": "Preflight",
+            "runOn": "Run on",
+            "runRecipe": "Run recipe",
+            "runTitle": "Run {{name}}",
+            "searchPlaceholder": "Search recipes…",
+            "startFailed": "Could not start the recipe",
+            "started": "Recipe started on {{server}}.",
+            "stepsLine": "{{steps}} steps · {{handoffs}} secret ask{{plural}}",
+            "unavailable": "Recipe catalog unavailable",
+            "unavailableHint": "The registry could not be reached and no bundled copy is present."
+        },
         "recycleBinTab": {
             "couldNotLoadTheRecycleBin": "Could not load the recycle bin",
             "daysSoTheyCanBePut": "days so they can be put back. Restoring returns the record itself — it does not re-apply configuration that was torn down at delete time (a domain’s vhost, for example).",
@@ -4464,6 +4491,7 @@
             "notifications": "Notifications",
             "projects": "Projects",
             "queueBus": "Queue Bus",
+            "recipes": "Recipes",
             "register": "Register",
             "runningAlongsideAnotherPanel": "Running Alongside Another Panel",
             "serverTemplates": "Server Templates",
@@ -5090,6 +5118,7 @@
         "serviceTabs": {
             "deployActivity": "Deploy Activity",
             "newService": "New Service",
+            "recipes": "Recipes",
             "templates": "Templates"
         },
         "serviceTypes": {
@@ -6686,7 +6715,7 @@
             "warnings2": "Warnings ("
         },
         "walkthroughs": {
-            "allRecipes": "All recipes",
+            "all": "All walkthroughs",
             "checkStatus": "Check status",
             "chooseServiceSource": "Choose where the code lives",
             "chooseServiceSourceDescription": "Pick GitHub, another Git remote, a local path, or a ZIP upload.",
@@ -6712,7 +6741,6 @@
             "openWizard": "Open wizard",
             "pairAuthenticator": "Pair your authenticator",
             "pairAuthenticatorDescription": "Scan the QR code, then enter the six-digit code from your app.",
-            "recipes": "Recipes",
             "reviewService": "Review the detected setup",
             "reviewServiceDescription": "Confirm the name, runtime, build method, project, and environment.",
             "startEnrollment": "Start enrollment",
@@ -6720,6 +6748,7 @@
             "stepsMeta": "{{count}} steps · {{duration}}",
             "stopShort": "Stop",
             "threeMinutes": "About 3 minutes",
+            "title": "Walkthroughs",
             "verifyAndSaveCodes": "Verify and save recovery codes",
             "verifyAndSaveCodesDescription": "The guide verifies the live account status—it never stores your code or secret."
         },

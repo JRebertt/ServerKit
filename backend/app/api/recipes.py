@@ -1,17 +1,23 @@
-"""Recipe run API (plan 68 Phase 0).
+"""Recipe run API (plan 68).
 
-Registry browsing and bundled recipe content land in later phases. This first
-surface accepts a reviewed inline/stored v1 manifest, creates a normal
-DeploymentJob, and resumes encrypted human handoffs on that same run.
+Starts runs from three manifest sources — a registry slug (the curated
+``serverkit-recipes`` catalog), reviewed inline YAML/JSON, or a manifest
+already stored on the project — creates a normal DeploymentJob, and resumes
+encrypted human handoffs on that same run. Runs target either an explicit
+``project_id`` or a ``server_id``, for which a per-workspace Recipes project
+is found or created so a catalog install is one call.
 """
 
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.middleware.rbac import admin_required, get_current_user
+from app.exceptions import NotFoundError
+from app.middleware.rbac import admin_required, auth_required, get_current_user
 from app.models.application_manifest import STATUS_ERROR, STATUS_PENDING
 from app.models.deployment_job import DeploymentJob
 from app.models.project import Project
+from app.models.server import Server
+from app.services import recipe_registry_service
 from app.services.manifest_persistence_service import ManifestPersistenceService
 from app.services.manifest_spec_service import ManifestError, ManifestSpecService
 from app.services.recipe_execution_service import (
@@ -22,8 +28,14 @@ from app.services.recipe_execution_service import (
 
 recipes_bp = Blueprint('recipes', __name__)
 
+RECIPES_PROJECT_SLUG = 'recipes'
+
 
 def _normalized_recipe(data, project_id):
+    """Resolve the manifest source: registry slug > inline content > stored."""
+    if data.get('registry_slug'):
+        text = recipe_registry_service.get_manifest_text(data['registry_slug'])
+        return ManifestSpecService.normalize_text(text), text
     if 'content' in data:
         return ManifestSpecService.normalize_text(data['content']), data['content']
     if 'manifest' in data:
@@ -32,20 +44,103 @@ def _normalized_recipe(data, project_id):
     row = ApplicationManifest.query.filter_by(project_id=project_id).first()
     if row and row.get_normalized():
         return row.get_normalized(), row.raw_text
-    raise ManifestError(['Provide `content`/`manifest`, or store one first'])
+    raise ManifestError(['Provide `registry_slug`, `content`, `manifest`, or store one first'])
+
+
+def _resolve_project(server):
+    """Find-or-create the per-workspace Recipes project for a server-targeted
+    run. Idempotent: every subsequent install reuses it."""
+    project = Project.query.filter_by(
+        workspace_id=server.workspace_id, slug=RECIPES_PROJECT_SLUG).first()
+    if project:
+        return project
+    project = Project(workspace_id=server.workspace_id,
+                      name='Recipes', slug=RECIPES_PROJECT_SLUG,
+                      description='Apps installed through the Recipe catalog')
+    db.session.add(project)
+    db.session.flush()
+    return project
+
+
+def _validated_params(normalized, raw_params):
+    """Check up-front params against the manifest's declared inputs. Only
+    non-secret inputs may be preset; secrets must use the mid-run handoff."""
+    if raw_params in (None, {}):
+        return {}
+    if not isinstance(raw_params, dict):
+        raise ValueError('params must be an object of input keys')
+    inputs = {
+        (step.get('input') or {}).get('key'): (step.get('input') or {})
+        for step in (normalized.get('configure') or [])
+        if step.get('input')
+    }
+    unknown = [k for k in raw_params if k not in inputs]
+    if unknown:
+        raise ValueError(f"Unknown recipe input(s): {', '.join(sorted(unknown))}")
+    secrets = [k for k, v in raw_params.items() if v is not None and inputs[k].get('secret')]
+    if secrets:
+        raise ValueError(
+            f"{', '.join(sorted(secrets))} is collected securely during the run "
+            "and cannot be preset")
+    return {k: str(v) for k, v in raw_params.items() if v is not None}
+
+
+@recipes_bp.route('/registry', methods=['GET'])
+@auth_required()
+def list_recipe_registry():
+    return jsonify({
+        'recipes': recipe_registry_service.list_catalog(),
+        'source': recipe_registry_service.registry_source_label(),
+    }), 200
+
+
+@recipes_bp.route('/registry/<slug>', methods=['GET'])
+@auth_required()
+def get_recipe_registry_entry(slug):
+    entry = recipe_registry_service.get_entry(slug)
+    if entry is None:
+        return jsonify({'error': 'Recipe not found in the registry'}), 404
+    try:
+        manifest_text = recipe_registry_service.get_manifest_text(slug)
+    except NotFoundError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except Exception:
+        return jsonify({'error': 'Could not download the recipe from the registry'}), 503
+    public = {k: v for k, v in entry.items() if k != '_manifest_url'}
+    return jsonify({'recipe': public, 'manifest': manifest_text}), 200
 
 
 @recipes_bp.route('/runs', methods=['POST'])
 @admin_required
 def start_recipe_run():
     data = request.get_json(silent=True) or {}
-    project = Project.query.get(data.get('project_id')) if data.get('project_id') else None
-    if not project:
-        return jsonify({'error': 'A valid project_id is required'}), 400
+
+    project = None
+    server = None
+    if data.get('server_id'):
+        server = Server.query.get(data.get('server_id'))
+        if not server:
+            return jsonify({'error': 'A valid server_id is required'}), 400
+    if data.get('project_id'):
+        project = Project.query.get(data.get('project_id'))
+        if not project:
+            return jsonify({'error': 'A valid project_id is required'}), 400
+    if project is None and server is None:
+        return jsonify({'error': 'Provide server_id or project_id'}), 400
+
     try:
-        normalized, raw = _normalized_recipe(data, project.id)
+        normalized, raw = _normalized_recipe(data, project.id if project else None)
+        params = _validated_params(normalized, data.get('params'))
     except ManifestError as exc:
         return jsonify({'error': 'Invalid Recipe manifest', 'errors': exc.errors}), 400
+    except (ValueError, NotFoundError) as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    # A server-targeted catalog run pins the manifest's default server ref.
+    if server is not None:
+        normalized['server'] = server.name
+        if project is None:
+            project = _resolve_project(server)
 
     unsupported = RecipeExecutionService.unsupported_capabilities(normalized)
     if unsupported:
@@ -64,8 +159,9 @@ def start_recipe_run():
     wait = request.args.get('wait', 'false').lower() == 'true'
     result = RecipeExecutionService.start(
         project, normalized, user_id=user.id,
-        slug=data.get('slug'), title=data.get('title'),
-        manifest_row=row, wait=wait)
+        slug=data.get('slug') or data.get('registry_slug'),
+        title=data.get('title'),
+        manifest_row=row, params=params, wait=wait)
     if not result.get('success'):
         row.status = STATUS_ERROR
         row.last_error = result.get('error')
@@ -73,7 +169,8 @@ def start_recipe_run():
         return jsonify(result), 400
 
     _audit('recipe.start', user.id, result.get('job_id'), {
-        'project_id': project.id, 'slug': data.get('slug'),
+        'project_id': project.id, 'slug': data.get('slug') or data.get('registry_slug'),
+        'server_id': server.id if server else None,
     })
     return jsonify(result), 200 if wait else 202
 
