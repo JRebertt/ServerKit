@@ -36,6 +36,26 @@
       "description": "Public domains routed to services.",
       "type": "array",
       "items": { "$ref": "#/definitions/domain" }
+    },
+    "capabilities": {
+      "description": "Closed Recipe capability set. Every configure/verify step must declare its type:kind capability here so older panels can refuse unsupported Recipes before doing work.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z]+:[a-z0-9._-]+$" }
+    },
+    "requires": {
+      "description": "Recipe host requirements used by preflight and provider placement.",
+      "$ref": "#/definitions/recipeRequirements"
+    },
+    "configure": {
+      "description": "Ordered, idempotent Recipe steps run after the declared services are applied.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/recipeStep" }
+    },
+    "verify": {
+      "description": "Outcome checks. A successful process is not a successful Recipe until these checks pass.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/recipeVerifyStep" }
     }
   },
   "definitions": {
@@ -363,6 +383,67 @@
             { "type": "boolean" }
           ]
         }
+      }
+    },
+    "recipeRequirements": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "cpuCores": { "type": "integer", "minimum": 1 },
+        "memoryMB": { "type": "integer", "minimum": 1 },
+        "diskGB": { "type": "integer", "minimum": 1 },
+        "igpu": { "enum": ["required", "preferred", "none"] },
+        "gpu": { "enum": ["required", "preferred", "none"] }
+      }
+    },
+    "recipeStep": {
+      "type": "object",
+      "required": ["id", "type", "kind"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "type": { "enum": ["probe", "derive", "apply", "handoff", "verify"] },
+        "kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "params": { "type": "object" },
+        "ttlSeconds": { "type": "integer", "minimum": 1 },
+        "input": { "$ref": "#/definitions/recipeInput" }
+      }
+    },
+    "recipeVerifyStep": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "type": { "const": "verify" },
+        "kind": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "params": { "type": "object" }
+      }
+    },
+    "recipeInput": {
+      "type": "object",
+      "required": ["key", "label"],
+      "additionalProperties": true,
+      "properties": {
+        "key": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "label": { "type": "string", "minLength": 1 },
+        "help": { "type": "string" },
+        "url": { "type": "string" },
+        "secret": { "type": "boolean" }
       }
     }
   }

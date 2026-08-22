@@ -76,6 +76,22 @@ test('bounds terminal history without dropping active or selected work', () => {
     assert.deepEqual(bounded.map(operationKey), ['job:active', 'job:recent', 'job:selected']);
 });
 
+test('keeps a handoff-waiting Recipe active and attention-worthy', () => {
+    const recipe = normalizeDeploymentOperation({
+        id: 'recipe-1',
+        kind: 'recipe.run',
+        status: 'waiting',
+        title: 'Recipe: Media server',
+        requires_action: true,
+        handoff: { step_id: 'claim', title: 'Claim the server' },
+    });
+    const bounded = boundOperationHistory([recipe], 0);
+    assert.deepEqual(bounded.map(operationKey), ['deploy:recipe-1']);
+    assert.equal(recipe.title, 'Recipe: Media server');
+    assert.equal(recipe.requiresAction, true);
+    assert.equal(recipe.handoff.step_id, 'claim');
+});
+
 test('reconciles one run and marks a newly failed terminal operation unread', () => {
     const current = [normalizeJobOperation({ id: 'job-1', kind: 'doctor.run', status: 'running' })];
     const result = reconcileOperationStatus(current, {

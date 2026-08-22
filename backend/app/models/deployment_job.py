@@ -105,6 +105,10 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
         return self.target_server.name if self.target_server else 'Local server'
 
     def to_dict(self, include_plan=False, include_logs=False):
+        result = self.get_result()
+        plan = self.get_plan()
+        recipe = plan.get('recipe') if self.kind == 'recipe.run' else None
+        handoff = result.get('handoff') if isinstance(result, dict) else None
         data = {
             'id': self.id,
             'kind': self.kind,
@@ -125,7 +129,7 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
             'current_step': self.current_step,
             'current_step_name': self.current_step_name,
             'progress_percent': self.progress_percent,
-            'result': self.get_result(),
+            'result': result,
             'error_message': self.error_message,
             'correlation_id': self.correlation_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -133,9 +137,15 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'duration': self.duration,
+            'requires_action': self.status == 'waiting' and bool(handoff),
+            'needs_attention': self.status == 'waiting' or self.status == 'failed',
         }
+        if recipe:
+            data['title'] = f"Recipe: {recipe.get('title') or recipe.get('slug') or 'Guided outcome'}"
+            data['recipe'] = recipe
+            data['handoff'] = handoff
         if include_plan:
-            data['plan'] = self.get_plan()
+            data['plan'] = plan
         if include_logs:
             data['logs'] = [log.to_dict() for log in self.logs.all()]
         return data

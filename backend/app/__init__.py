@@ -380,6 +380,8 @@ def create_app(config_name=None):
             # scheduled backups).
             from app.services.deployment_job_service import DeploymentJobService
             DeploymentJobService.register_jobs()
+            from app.services.recipe_execution_service import RecipeExecutionService
+            RecipeExecutionService.register_jobs()
             # WorkflowEngine.register_jobs() removed in plan 45 Phase 4 (engine retired).
             from app.services.backup_service import BackupService
             BackupService.register_jobs()

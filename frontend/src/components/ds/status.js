@@ -86,6 +86,7 @@ const STATUS_KIND = {
     canceled: 'amber',
     identified: 'amber',
     acknowledged: 'amber',
+    waiting: 'amber',
     idle: 'amber',
     'disk-sleep': 'amber',
 

@@ -5,6 +5,7 @@ import {
     AlertTriangle,
     ArrowUpRight,
     Clock3,
+    KeyRound,
     ListRestart,
     RotateCcw,
     Square,
@@ -14,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useOperations } from '../contexts/OperationsContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
@@ -23,6 +25,7 @@ import api from '../services/api';
 import { operationKey } from '../services/operations';
 import { formatDuration } from '../utils/time';
 import IconButton from './IconButton';
+import FormField from './FormField';
 import Pill from './ds/Pill';
 import { statusKind, statusLabel } from './ds/status';
 
@@ -67,6 +70,96 @@ function OperationProgress({ operation, t }) {
                 </div>
             )}
         </div>
+    );
+}
+
+function RecipeHandoffCard({ operation, onSubmitted, t }) {
+    const handoff = operation.handoff;
+    const input = handoff?.input || {};
+    const [value, setValue] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+    const fieldId = `recipe-handoff-${operation.id}-${handoff?.step_id || 'input'}`;
+
+    useEffect(() => {
+        setValue('');
+        setError(null);
+        setSubmitting(false);
+    }, [operation.id, handoff?.step_id]);
+
+    if (!handoff || !operation.requiresAction) return null;
+
+    const submit = async (event) => {
+        event.preventDefault();
+        if (!value.trim() || submitting) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            await api.submitRecipeHandoff(operation.id, handoff.step_id, value);
+            setValue('');
+            await onSubmitted();
+        } catch (submitError) {
+            setError(submitError?.message || t(
+                'app.operationsDock.handoffFailed',
+                'Could not submit this handoff',
+            ));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const ttlMinutes = handoff.ttl_seconds
+        ? Math.max(1, Math.ceil(handoff.ttl_seconds / 60))
+        : null;
+
+    return (
+        <form className="operations-dock__handoff" onSubmit={submit}>
+            <div className="operations-dock__handoff-head">
+                <span className="operations-dock__handoff-icon"><KeyRound size={15} /></span>
+                <div>
+                    <span>{t('app.operationsDock.operatorHandoff', 'Operator handoff')}</span>
+                    <strong>{handoff.title}</strong>
+                </div>
+            </div>
+            {handoff.description && <p>{handoff.description}</p>}
+            <FormField
+                label={input.label || t('app.operationsDock.handoffValue', 'Required value')}
+                htmlFor={fieldId}
+                hint={input.help || (ttlMinutes
+                    ? t(
+                        'app.operationsDock.handoffExpiry',
+                        'The {{count}}-minute clock starts when you submit.',
+                        { count: ttlMinutes },
+                    )
+                    : null)}
+                error={error}
+                required
+            >
+                <Input
+                    id={fieldId}
+                    type={input.secret === false ? 'text' : 'password'}
+                    value={value}
+                    onChange={(event) => setValue(event.target.value)}
+                    autoComplete="off"
+                    disabled={submitting}
+                />
+            </FormField>
+            <div className="operations-dock__handoff-actions">
+                {input.url && (
+                    <Button asChild type="button" variant="ghost" size="sm">
+                        <a href={input.url} target="_blank" rel="noreferrer">
+                            {t('app.operationsDock.openHandoffLink', 'Open required link')}
+                            <ArrowUpRight size={13} />
+                        </a>
+                    </Button>
+                )}
+                <Button type="submit" size="sm" disabled={!value.trim() || submitting}>
+                    {submitting
+                        ? t('app.operationsDock.resumingRecipe', 'Resuming…')
+                        : t('app.operationsDock.continueRecipe', 'Continue Recipe')}
+                </Button>
+            </div>
+        </form>
     );
 }
 
@@ -351,6 +444,18 @@ export default function OperationsDock() {
                             </div>
 
                             <OperationProgress operation={selectedOperation} t={t} />
+
+                            <RecipeHandoffCard
+                                operation={selectedOperation}
+                                onSubmitted={async () => {
+                                    await refresh();
+                                    toast.success(t(
+                                        'app.operationsDock.recipeResumed',
+                                        'Recipe resumed',
+                                    ));
+                                }}
+                                t={t}
+                            />
 
                             {(selectedOperation.error || selectedStreamError) && (
                                 <div className="operations-dock__error">

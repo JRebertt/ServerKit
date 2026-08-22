@@ -66,6 +66,12 @@ BACKUP_SCHEDULES = ('hourly', 'daily', 'weekly', 'monthly')
 PORT_PROTOCOLS = ('tcp', 'udp')
 PORT_EXPOSURES = ('public', 'local')
 
+# Recipes (plan 68): the execution type is deliberately small and closed. The
+# ``kind`` within each type is capability-gated by the runtime registry, so a
+# catalog entry can never smuggle an arbitrary command into an older panel.
+RECIPE_STEP_TYPES = ('probe', 'derive', 'apply', 'handoff', 'verify')
+RECIPE_HARDWARE_MODES = ('required', 'preferred', 'none')
+
 _KEY_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 _NAME_RE = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 
@@ -91,6 +97,20 @@ MANIFEST_SCHEMA: Dict[str, Any] = {
             "items": {"$ref": "#/definitions/service"},
         },
         "domains": {"type": "array", "items": {"$ref": "#/definitions/domain"}},
+        "capabilities": {
+            "type": "array",
+            "uniqueItems": True,
+            "items": {"type": "string", "pattern": "^[a-z]+:[a-z0-9._-]+$"},
+        },
+        "requires": {"$ref": "#/definitions/recipeRequirements"},
+        "configure": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/recipeStep"},
+        },
+        "verify": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/recipeVerifyStep"},
+        },
     },
     "definitions": {
         "service": {
@@ -274,6 +294,67 @@ MANIFEST_SCHEMA: Dict[str, Any] = {
                 },
             },
         },
+        "recipeRequirements": {
+            "type": "object",
+            "additionalProperties": True,
+            "properties": {
+                "cpuCores": {"type": "integer", "minimum": 1},
+                "memoryMB": {"type": "integer", "minimum": 1},
+                "diskGB": {"type": "integer", "minimum": 1},
+                "igpu": {"enum": list(RECIPE_HARDWARE_MODES)},
+                "gpu": {"enum": list(RECIPE_HARDWARE_MODES)},
+            },
+        },
+        "recipeStep": {
+            "type": "object",
+            "required": ["id", "type", "kind"],
+            "additionalProperties": True,
+            "properties": {
+                "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+                "type": {"enum": list(RECIPE_STEP_TYPES)},
+                "kind": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+                "title": {"type": "string", "minLength": 1},
+                "description": {"type": "string"},
+                "dependsOn": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                },
+                "params": {"type": "object"},
+                "ttlSeconds": {"type": "integer", "minimum": 1},
+                "input": {"$ref": "#/definitions/recipeInput"},
+            },
+        },
+        "recipeVerifyStep": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "additionalProperties": True,
+            "properties": {
+                "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+                "type": {"const": "verify"},
+                "kind": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+                "title": {"type": "string", "minLength": 1},
+                "description": {"type": "string"},
+                "dependsOn": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string"},
+                },
+                "params": {"type": "object"},
+            },
+        },
+        "recipeInput": {
+            "type": "object",
+            "required": ["key", "label"],
+            "additionalProperties": True,
+            "properties": {
+                "key": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+                "label": {"type": "string", "minLength": 1},
+                "help": {"type": "string"},
+                "url": {"type": "string"},
+                "secret": {"type": "boolean"},
+            },
+        },
     },
 }
 
@@ -354,8 +435,8 @@ class ManifestSpecService:
     def _manual_schema_errors(data: Dict[str, Any]) -> List[str]:  # pragma: no cover
         errors = []
         services = data.get('services')
-        if not isinstance(services, list) or not services:
-            errors.append('services: at least one service is required')
+        if services is not None and not isinstance(services, list):
+            errors.append('services: must be an array')
         return errors
 
     # -- normalization + semantic checks -----------------------------------
@@ -411,6 +492,23 @@ class ManifestSpecService:
                 )
             domains.append(normalized_dom)
 
+        declared_capabilities = list(data.get('capabilities') or [])
+        configure = []
+        verify = []
+        seen_step_ids = set()
+        for idx, raw in enumerate(data.get('configure') or []):
+            step = cls._normalize_recipe_step(raw, raw.get('type'), f'configure[{idx}]')
+            cls._check_recipe_step(
+                step, declared_capabilities, seen_step_ids, f'configure[{idx}]', errors)
+            configure.append(step)
+            seen_step_ids.add(step['id'])
+        for idx, raw in enumerate(data.get('verify') or []):
+            step = cls._normalize_recipe_step(raw, 'verify', f'verify[{idx}]')
+            cls._check_recipe_step(
+                step, declared_capabilities, seen_step_ids, f'verify[{idx}]', errors)
+            verify.append(step)
+            seen_step_ids.add(step['id'])
+
         normalized = {
             'version': 1,
             'server': data.get('server') or None,
@@ -418,8 +516,73 @@ class ManifestSpecService:
             'env_vars': manifest_env,
             'services': services,
             'domains': domains,
+            'capabilities': declared_capabilities,
+            'requires': cls._normalize_recipe_requirements(data.get('requires')),
+            'configure': configure,
+            'verify': verify,
         }
         return normalized, errors
+
+    @classmethod
+    def _normalize_recipe_step(cls, raw: Dict[str, Any], step_type: str,
+                               prefix: str) -> Dict[str, Any]:
+        """Normalize one closed-vocabulary Recipe step.
+
+        ``params`` remains data, never executable code. The runtime resolves
+        ``type:kind`` through RecipeStepRegistry and refuses unknown entries.
+        """
+        depends = cls._alias(raw, 'dependsOn', 'depends_on', default=[]) or []
+        ttl = cls._alias(raw, 'ttlSeconds', 'ttl_seconds')
+        input_spec = raw.get('input') if isinstance(raw.get('input'), dict) else None
+        return {
+            'id': raw.get('id'),
+            'type': step_type,
+            'kind': raw.get('kind'),
+            'capability': f'{step_type}:{raw.get("kind")}',
+            'title': raw.get('title') or raw.get('id'),
+            'description': raw.get('description') or '',
+            'depends_on': list(depends),
+            'params': dict(raw.get('params') or {}),
+            'ttl_seconds': int(ttl) if ttl else None,
+            'input': ({
+                'key': input_spec.get('key'),
+                'label': input_spec.get('label'),
+                'help': input_spec.get('help') or '',
+                'url': input_spec.get('url'),
+                'secret': input_spec.get('secret', True),
+            } if input_spec else None),
+        }
+
+    @staticmethod
+    def _check_recipe_step(step: Dict[str, Any], declared_capabilities: List[str],
+                           seen_step_ids: set, prefix: str, errors: List[str]) -> None:
+        step_id = step.get('id')
+        if step_id in seen_step_ids:
+            errors.append(f'{prefix}: duplicate recipe step id `{step_id}`')
+        for dependency in step.get('depends_on') or []:
+            if dependency not in seen_step_ids:
+                errors.append(
+                    f'{prefix}: dependency `{dependency}` must name an earlier recipe step')
+        capability = step.get('capability')
+        if capability not in declared_capabilities:
+            errors.append(
+                f'{prefix}: capability `{capability}` is used but not declared')
+        if step.get('type') == 'handoff' and not step.get('input'):
+            errors.append(f'{prefix}: handoff steps require an `input` declaration')
+        if step.get('type') != 'handoff' and step.get('ttl_seconds') is not None:
+            errors.append(f'{prefix}: `ttlSeconds` only applies to handoff steps')
+
+    @classmethod
+    def _normalize_recipe_requirements(cls, raw: Any) -> Dict[str, Any]:
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            'cpu_cores': cls._alias(raw, 'cpuCores', 'cpu_cores'),
+            'memory_mb': cls._alias(raw, 'memoryMB', 'memory_mb'),
+            'disk_gb': cls._alias(raw, 'diskGB', 'disk_gb'),
+            'igpu': raw.get('igpu') or 'none',
+            'gpu': raw.get('gpu') or 'none',
+        }
 
     @classmethod
     def _normalize_service(cls, svc: Dict[str, Any], idx: int, errors: List[str]) -> Dict[str, Any]:
@@ -782,7 +945,7 @@ class ManifestSpecService:
     @classmethod
     def summarize(cls, normalized: Dict[str, Any]) -> Dict[str, Any]:
         """A compact, UI-friendly summary of a normalized manifest."""
-        services = normalized['services']
+        services = normalized.get('services', [])
         env_required = []
         for svc in services:
             for var in svc['env_vars']:
@@ -810,6 +973,18 @@ class ManifestSpecService:
             'domains': [{'host': d['host'], 'service': d['service'], 'ssl': d['ssl']}
                         for d in normalized['domains']],
             'env_required': env_required,
+            'recipe': {
+                'capabilities': list(normalized.get('capabilities') or []),
+                'requirements': dict(normalized.get('requires') or {}),
+                'configure_steps': len(normalized.get('configure') or []),
+                'verify_steps': len(normalized.get('verify') or []),
+                'handoffs': [
+                    {'id': step['id'], 'title': step['title'],
+                     'ttl_seconds': step.get('ttl_seconds')}
+                    for step in normalized.get('configure') or []
+                    if step.get('type') == 'handoff'
+                ],
+            },
         }
 
     # -- helpers ------------------------------------------------------------

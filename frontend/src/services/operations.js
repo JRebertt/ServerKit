@@ -1,6 +1,8 @@
 import { isTerminalRunStatus } from '../hooks/runStream.js';
 
-const ACTIVE_STATUSES = new Set(['pending', 'running']);
+// A Recipe waiting on a human handoff is still an active run. It belongs in
+// the active list and the Needs attention filter, not buried in history.
+const ACTIVE_STATUSES = new Set(['pending', 'running', 'waiting']);
 const SECURITY_KIND = /^security[.]/;
 
 const stringId = (value) => (value == null ? null : String(value));
@@ -104,6 +106,7 @@ export function normalizeDeploymentOperation(job) {
         canRetry: permissionFlag(job, 'can_retry', 'canRetry'),
         requiresAction: permissionFlag(job, 'requires_action', 'requiresAction') || job.handoff === true,
         needsAttention: permissionFlag(job, 'needs_attention', 'needsAttention'),
+        handoff: job.handoff || job.result?.handoff || null,
         detailPath: job.detailPath || `/deployments/${encodeURIComponent(String(job.id))}`,
     };
 }
