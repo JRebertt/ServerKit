@@ -106,8 +106,10 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
 
     def to_dict(self, include_plan=False, include_logs=False):
         result = self.get_result()
-        plan = self.get_plan()
-        recipe = plan.get('recipe') if self.kind == 'recipe.run' else None
+        plan = self.get_plan() if include_plan or self.kind == 'recipe.run' else None
+        recipe = (plan.get('recipe')
+                  if self.kind == 'recipe.run' and isinstance(plan, dict)
+                  else None)
         handoff = result.get('handoff') if isinstance(result, dict) else None
         data = {
             'id': self.id,
